@@ -8,16 +8,16 @@ A supervisor-led research team that plans, retrieves from private and web source
 
 ## Must include
 
-- Plan-and-execute with replanning (M16)
-- Orchestrator–worker decomposition (M15)
-- Supervisor with specialist RAG agents (M25)
-- Parallel retrieval and STORM-style perspectives (M26)
-- Edge-case testing and error handling (M27)
+- Plan-and-execute with replanning (M26)
+- Orchestrator–worker decomposition (M25)
+- Supervisor with specialist RAG agents (M35)
+- Parallel retrieval and STORM-style perspectives (M36)
+- Edge-case testing and error handling (M37)
 
 ## Deliverables
 
 - A working system (notebook or small app) in this folder
-- An evaluation report on a golden question set, compared with the M01 baseline
+- An evaluation report on a golden question set, compared with the M11 baseline
 - A 10-minute demo
 
 Assessment weights are in [CURRICULUM.md](../../CURRICULUM.md#assessment).

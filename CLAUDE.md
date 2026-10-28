@@ -4,14 +4,19 @@ Guidance for Claude (and people) working in this repository.
 
 ## What this repo is
 
-The **RAG & Agents Engineering** course: 9 parts, 31 modules and 251 notebooks, laid out in syllabus order. It is **generated** from four source repositories:
+The **RAG & Agents Engineering** course: 13 parts, 45 modules and 377 notebooks, laid out in syllabus order. It is **generated** from nine source repositories:
 
 | Key | Source repo | Topic |
 |---|---|---|
+| 01 | `Sourav692/ai-engineering-demystified-01-foundations` | AI engineering foundations |
+| 02 | `Sourav692/ai-engineering-demystified-02-prompt-context-engineering` | Prompt & context engineering |
+| 03 | `Sourav692/ai-engineering-demystified-03-langchain-fundamentals` | LangChain fundamentals |
+| 04 | `Sourav692/ai-engineering-demystified-04-langgraph-fundamentals` | LangGraph fundamentals |
 | 05 | `Sourav692/ai-engineering-demystified-05-retrieval-rag` | Retrieval & RAG |
 | 06 | `Sourav692/ai-engineering-demystified-06-agent-fundamentals` | Agent fundamentals |
 | 08 | `Sourav692/ai-engineering-demystified-08-advanced-agent-systems` | Advanced agent systems |
 | 09 | `Sourav692/ai-engineering-demystified-09-advanced-rag` | Advanced RAG |
+| 10 | `Sourav692/ai-engineering-demystified-10-agent-protocols` | Agent protocols (MCP, A2A) |
 
 ## Current operating model: Option B (source repos are canonical)
 
@@ -28,7 +33,7 @@ The **RAG & Agents Engineering** course: 9 parts, 31 modules and 251 notebooks, 
 
 ### Sync workflow
 
-Clone the four source repos next to this one (folder names as in `curriculum.yaml` → `sources`), pull their `main`, then:
+Clone the nine source repos next to this one (folder names as in `curriculum.yaml` → `sources`), pull their `main`, then:
 
 ```bash
 uv run python scripts/migrate.py --sources .. --check   # validate: every source notebook placed exactly once
@@ -48,7 +53,8 @@ Edit `curriculum.yaml`, then run `scripts/migrate.py` and `scripts/build_curricu
 - Each lesson item has `source` (`<key>:<path in the source repo>`), `tier`, `folder` and `file`.
 - `tier` is `mandatory`, `alternate`, `platform` or `extension`. Mandatory items go in `folder: notebooks`; optional ones in `optional` (or `exercises`).
 - `file` names start with the lesson number and a letter (`03b_...` is lesson 3, second item), so a lesson's mandatory and optional notebooks sort side by side.
-- Every `.ipynb` in the four source repos must appear exactly once. `tests/test_course.py` and `migrate.py --check` enforce this.
+- `folder` may include a subfolder (e.g. `notebooks/05_training`) when a lesson's companion files would clash with another lesson's; the fine-tuning lessons in M04 use this. Sub-projects use `folder: projects` and keep their source names, because notebooks write into `../projects/<name>/`.
+- Every `.ipynb` in the nine source repos must appear exactly once. `tests/test_course.py` and `migrate.py --check` enforce this.
 - Module text uses resolved module numbers (`M20`). If modules are renumbered, update those references.
 
 ## How the migration transforms files
@@ -57,9 +63,9 @@ Edit `curriculum.yaml`, then run `scripts/migrate.py` and `scripts/build_curricu
 - **Links and `%run`:** relative links and `%run` targets that point to another source notebook, module README or asset are rewritten to the new course path. Links to content outside the course (e.g. the planned CacheRAG module) point to the source repo on GitHub.
 - **Companion files:** non-notebook files that sit beside a notebook in the source (`helper_functions.py`, `hotel_common.py`, `evaluation/`, `docker-compose.yaml`, …) are copied beside it here, so imports work unchanged.
 - **Assets:** `modules/<m>/assets/` from every contributing source module is merged into the destination module's `assets/`. A name clash with different content stops the migration.
-- **Shared code:** `src/helpers/` is identical in 05, 08 and 09 (checked on every run). `src/rag_paths.py` comes from 05, with `CURRICULUM_REL` and its asset roots rewritten to `course/` paths.
+- **Shared code:** `src/helpers/` is identical in 05, 08, 09 and 10 (checked on every run). `src/rag_paths.py` comes from 05, with `CURRICULUM_REL` and its asset roots rewritten to `course/` paths.
 - **Data:** `data/` from all repos is merged (only the READMEs collided; they are archived as `docs/source/<key>/data-README.md`).
-- **Environment:** `.env.example` is the union of the four, each key annotated with the repos that use it.
+- **Environment:** `.env.example` is the union of the source repos' files, each key annotated with the repos that use it.
 
 ## Migration plan (reference)
 
@@ -69,7 +75,7 @@ The plan used to create this repo. Steps 1–7 are done; step 8 is the decision 
 2. Write `scripts/migrate.py`: copy and rename every file, record old path → new path in `docs/content-inventory.csv`.
 3. Bring shared code into `src/` and keep helper imports working (companion files beside notebooks; `src/helpers` deduplicated).
 4. Fix paths for the new depth: the 148 `../../../data` references, docs links, notebook links and `%run` targets.
-5. Merge the four `pyproject.toml` dependency sets and `.env.example` files; run `uv lock`.
+5. Merge the source repos' `pyproject.toml` dependency sets and `.env.example` files; run `uv lock`.
 6. Port the checks: manifest (every notebook in exactly one lesson), notebook JSON validity, stale paths, link check; CI on every push.
 7. Generate `README`s, `CURRICULUM.md`, `NOTICE.md` and the interactive syllabus from `curriculum.yaml`.
 8. Decide the source repos' future (below).
@@ -78,7 +84,7 @@ The plan used to create this repo. Steps 1–7 are done; step 8 is the decision 
 
 | Option | How it works | Best when |
 |---|---|---|
-| **A. This repo becomes canonical** | Migrate once more, then archive 05, 06, 08 and 09 with a README pointing here. Edit notebooks directly in this repo from then on. | You teach from this course and stop maintaining the topic repos. |
+| **A. This repo becomes canonical** | Migrate once more, then archive the nine source repos with a README pointing here. Edit notebooks directly in this repo from then on. | You teach from this course and stop maintaining the topic repos. |
 | **B. Source repos stay canonical** *(current)* | Re-run `migrate.py` on each release; never edit notebooks here. | The 14-repo series stays the main product and this course is a curated view. |
 
 ### Switching to Option A later
@@ -86,17 +92,21 @@ The plan used to create this repo. Steps 1–7 are done; step 8 is the decision 
 1. Run the sync workflow one final time from the latest source `main` branches and commit it.
 2. Delete the "never edit a generated file" rule from this file. Keep `curriculum.yaml` and `build_curriculum.py` (they still render the READMEs), but retire `migrate.py` or keep it only as history.
 3. Optionally consolidate duplicated companion files (e.g. the `helper_functions.py` copies, in two variants from 05 and 09) into a package under `src/` and update the imports.
-4. Archive the four source repos on GitHub and add a pointer README to each; update their `docs/learning-path.md` entries in the other series repos.
+4. Archive the nine source repos on GitHub and add a pointer README to each; update their `docs/learning-path.md` entries in the other series repos.
 5. Remove `docs/source/` if per-repo provenance is no longer needed; keep `docs/content-inventory.csv`.
 
 ## Dependency notes
 
 - One environment for the whole course: `uv sync`, plus groups per need (see `README.md`).
 - `pandas>=2.2`: repos 06 and 08 asked for `>=3.0.5`, but `llama-index` (the `llamaindex` group) needs `<3`.
-- `hf` and `colpali` cannot share an environment (`byaldi` pins `transformers<5`); this is declared as a uv conflict.
+- `hf` and `hf-foundations` cannot share an environment with `colpali` (`byaldi` pins `transformers<5`); declared as uv conflicts.
+- `finance` (OpenBB) pins old `uvicorn`/FastAPI releases, so it conflicts with `protocols`, `mcp-labs` and `mcp-apps`; the MCP and A2A SDKs live in the `protocols` group rather than the default dependencies for this reason.
+- Repo 02 pins LangChain 0.3 and `openai<2`; this repo uses LangChain 1.x and `openai>=2`. Only one repo 02 notebook depends on the old LangChain (see known issues).
 - `grouse` (evaluation cells in M31) cannot coexist with this stack; use a separate environment, as in repo 09.
 
 ## Known issues inherited from the source repos
+
+- `course/p02_prompt_engineering/m05_prompt_engineering_patterns/notebooks/02a_advanced_prompt_engineering_patterns.ipynb` (repo 02, module 02) imports `AgentExecutor` from `langchain.agents`, which LangChain 1.x moved to `langchain_classic.agents`; its ReAct section fails in this environment. Fix the import in repo 02, then re-sync.
 
 - Some notebooks create working folders such as `../vector_stores/` at run time; they are not part of the repo.
 

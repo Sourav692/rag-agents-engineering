@@ -8,16 +8,16 @@ An agent that routes tickets across department knowledge bases, remembers each c
 
 ## Must include
 
-- Query routing and self-query filters (M8, M20)
-- Graded retrieval with a rewrite loop (M18)
-- Conversation and long-term customer memory (M23, M24)
-- RAG exposed as agent tools with approval gates (M21, M17)
-- Hallucination checks and a feedback loop (M22)
+- Query routing and self-query filters (M18, M30)
+- Graded retrieval with a rewrite loop (M28)
+- Conversation and long-term customer memory (M33, M34)
+- RAG exposed as agent tools with approval gates (M31, M27)
+- Hallucination checks and a feedback loop (M32)
 
 ## Deliverables
 
 - A working system (notebook or small app) in this folder
-- An evaluation report on a golden question set, compared with the M01 baseline
+- An evaluation report on a golden question set, compared with the M11 baseline
 - A 10-minute demo
 
 Assessment weights are in [CURRICULUM.md](../../CURRICULUM.md#assessment).

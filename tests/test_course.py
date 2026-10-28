@@ -34,9 +34,11 @@ def test_every_course_notebook_is_in_exactly_one_lesson():
 def test_tiers_and_folders_agree():
     assert all(it.tier in TIERS for it in ITEMS)
     for it in ITEMS:
-        if it.folder == "notebooks":
+        top = it.folder.split("/")[0]
+        assert top in ("notebooks", "optional", "exercises", "projects"), it.dest
+        if top == "notebooks":
             assert it.tier == "mandatory", it.dest
-        if it.folder == "optional":
+        if top == "optional":
             assert it.tier != "mandatory", it.dest
 
 

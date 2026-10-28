@@ -8,16 +8,16 @@ An assistant that answers multi-hop and whole-corpus questions over a research c
 
 ## Must include
 
-- arXiv and PDF ingestion including figures (M2, M11)
-- Neo4j knowledge graph built by LLM extraction (M29)
-- RAPTOR or Microsoft GraphRAG for global questions (M28, M30)
-- Adaptive routing between vector, graph and global search (M20)
-- Architecture decision record (M31)
+- arXiv and PDF ingestion including figures (M12, M21)
+- Neo4j knowledge graph built by LLM extraction (M43)
+- RAPTOR or Microsoft GraphRAG for global questions (M42, M44)
+- Adaptive routing between vector, graph and global search (M30)
+- Architecture decision record (M45)
 
 ## Deliverables
 
 - A working system (notebook or small app) in this folder
-- An evaluation report on a golden question set, compared with the M01 baseline
+- An evaluation report on a golden question set, compared with the M11 baseline
 - A 10-minute demo
 
 Assessment weights are in [CURRICULUM.md](../../CURRICULUM.md#assessment).
