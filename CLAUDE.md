@@ -98,7 +98,6 @@ The plan used to create this repo. Steps 1–7 are done; step 8 is the decision 
 
 ## Known issues inherited from the source repos
 
-- Nine loader notebooks in M02 (from 05 `02_document_loading`) start with `%run setup.ipynb`, but no `setup.ipynb` exists in the source repo, so they stop at that cell. Two of them are mandatory (`notebooks/04a_pdf_loader.ipynb`, `notebooks/05a_url_loader.ipynb`). Fix it in repo 05, then re-sync.
 - Some notebooks create working folders such as `../vector_stores/` at run time; they are not part of the repo.
 
 ## Checks
