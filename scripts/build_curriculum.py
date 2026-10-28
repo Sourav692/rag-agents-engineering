@@ -37,6 +37,8 @@ for it in ITEMS:
 for m in MODULES:
     m["lessons_r"] = [(les["title"], by_lesson[(m["num"], i)]) for i, les in enumerate(m["lessons"], 1)]
     m["lab_r"] = by_lesson[(m["num"], 0)]
+BASE = next(m["num"] for m in MODULES if m["key"] == "lifecycle")  # the module whose lab sets the baseline
+BASE_M = f"M{BASE:02d}"
 N_WEEKS = int(re.findall(r"\d+", PARTS[-1]["weeks"])[-1])
 
 # The HTML site links to files on GitHub; Markdown links are relative to the file being written.
@@ -149,7 +151,7 @@ def build_md():
     a("\n## How to read this syllabus\n")
     a("- **Levels:** Foundation → Core → Advanced → Expert.")
     a("- **Notebooks:** every lesson lists its notebooks as `repo/module/notebook`, split into **Mandatory** and **Optional** columns (see below).")
-    a("- **Baseline-first:** the Module 1 lab produces a baseline. Every later lab reports its change against it on the same golden question set.")
+    a(f"- **Baseline-first:** the {BASE_M} lab produces a baseline. Every later lab reports its change against it on the same golden question set.")
     a("- **Hours** are suggested study time for the mandatory notebooks plus the lab. Optional notebooks are extra.\n")
     a("## Mandatory vs optional notebooks\n")
     a(f"You do not need every notebook. **{n_core} of {n_nb} notebooks are mandatory**; the other {n_opt} are optional.\n")
@@ -174,6 +176,8 @@ def build_md():
     a(f"  M[(Memory & multi-agent<br/>{lbl('memory')})] -.history / shared state.-> A")
     a("  G -.check.-> A")
     a(f"  K[(Trees & graphs<br/>{lbl('graph')})] --> R")
+    a(f"  X[[Protocols: MCP · A2A<br/>{lbl('protocols')}]] -.tools & agents as services.-> A")
+    a(f"  F([Foundations & concepts<br/>{lbl('concepts')}]) -.-> Q")
     a("```\n")
 
     a("## Roadmap\n")
@@ -274,13 +278,15 @@ NODES = {
     "post": (664, 254, 146, 52),
     "generate": (832, 254, 114, 52),
     "agent": (724, 52, 222, 52),
-    "concepts": (40, 266, 170, 40),
-    "memory": (236, 266, 210, 40),
+    "concepts": (40, 330, 200, 52),
+    "memory": (262, 330, 200, 52),
+    "protocols": (484, 330, 200, 52),
 }
 NODE_TITLE = {
     "load": "Load", "chunk": "Chunk", "embed": "Embed", "store": "Store / index", "graph": "Trees & graphs",
     "query": "Transform query", "retrieve": "Retrieve", "post": "Rerank & compress", "generate": "Generate & cite",
-    "agent": "Agents: plan · grade · route", "concepts": "RAG concepts", "memory": "Memory & multi-agent",
+    "agent": "Agents: plan · grade · route", "concepts": "Foundations & concepts", "memory": "Memory & multi-agent",
+    "protocols": "Protocols: MCP · A2A",
 }
 
 
@@ -290,13 +296,13 @@ def lbl(stage):
 
 def svg_diagram():
     s = []
-    s.append('<svg viewBox="0 0 970 360" role="img" aria-labelledby="dg-t dg-d" class="pipeline">')
+    s.append('<svg viewBox="0 0 970 420" role="img" aria-labelledby="dg-t dg-d" class="pipeline">')
     s.append('<title id="dg-t">RAG pipeline map</title><desc id="dg-d">Offline indexing lane (load, chunk, embed, store) feeds online retrieval (transform query, retrieve, rerank, generate). An agent layer plans, grades and routes; memory and multi-agent systems share state; trees and graphs provide structural indexes. Each stage lists the course modules that teach it.</desc>')
     s.append('<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>')
     # lane bands
     s.append('<rect x="20" y="28" width="630" height="112" rx="10" class="lane"/>')
     s.append('<text x="34" y="52" class="lane-label">OFFLINE · INDEXING</text>')
-    s.append('<rect x="20" y="152" width="930" height="166" rx="10" class="lane lane-on"/>')
+    s.append('<rect x="20" y="152" width="930" height="248" rx="10" class="lane lane-on"/>')
     s.append('<text x="34" y="176" class="lane-label">ONLINE · ANSWERING</text>')
 
     def mid(n, side):
@@ -410,7 +416,7 @@ def build_html():
     a('<header class="hero">')
     a('<p class="eyebrow">Syllabus · built from ' + " + ".join(f'<a href="{GH}/{v[0]}" target="_blank" rel="noopener">repo {k}</a>' for k, v in REPOS.items()) + "</p>")
     a(f"<h1>{E(COURSE['title'])}</h1>")
-    a(f'<p class="lede">{E(COURSE["subtitle"])}. {len(PARTS)} parts take you from a hand-built TF-IDF index through agents, memory and multi-agent teams to knowledge graphs and Microsoft GraphRAG, with every notebook in all {len(REPOS)} repositories placed in exactly one lesson.</p>')
+    a(f'<p class="lede">{E(COURSE["subtitle"])}. {len(PARTS)} parts take you from your first LLM call through retrieval, agents, memory, multi-agent teams and MCP/A2A to knowledge graphs and Microsoft GraphRAG, with every notebook in all {len(REPOS)} repositories placed in exactly one lesson.</p>')
     a('<dl class="stats">')
     for k, v in [("Parts", len(PARTS)), ("Modules", len(MODULES)), ("Notebooks", n_nb), ("Mandatory", n_core), ("Hours", f"~{total_hours}"), ("Weeks", N_WEEKS)]:
         a(f"<div><dt>{k}</dt><dd>{v}</dd></div>")
@@ -545,6 +551,7 @@ def module_readme(m):
           "- `notebooks/` — mandatory track, plus the helper files those notebooks import",
           "- `optional/` — alternate, platform-specific and extension notebooks",
           "- `exercises/` — exercises and solutions, where the module has them",
+          "- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them",
           "- `assets/` — images and data used by this module's notebooks",
           "- `lab/` — the module lab brief\n",
           "## Where each file comes from\n", "| File | Source repo | Source path |", "|---|---|---|"]
@@ -557,7 +564,7 @@ def module_readme(m):
     write(f"{MD_FROM}/lab/README.md", "\n".join([
         f"# Lab — M{m['num']:02d} {m['title']}\n", GEN_NOTE, "## Brief\n", m["lab"] + "\n",
         "## How to report it\n",
-        "- Use the golden question set and the baseline from the M01 lab.",
+        f"- Use the golden question set and the baseline from the {BASE_M} lab.",
         "- Report the change against that baseline: retrieval metrics, answer quality, latency and cost where relevant.",
         "- Put your notebook or script in this folder and record results in a short table.\n",
         "Back to the module: [README.md](../README.md)"]))
@@ -593,7 +600,7 @@ def capstone_readmes():
             [f"# Capstone {chr(65 + i)} — {c['title']}\n", GEN_NOTE, f"**Level:** {LEVELS[c['level']]}\n", c["brief"] + "\n",
              "## Must include\n"] + [f"- {x}" for x in c["requires"]] +
             ["\n## Deliverables\n", "- A working system (notebook or small app) in this folder",
-             "- An evaluation report on a golden question set, compared with the M01 baseline",
+             f"- An evaluation report on a golden question set, compared with the {BASE_M} baseline",
              "- A 10-minute demo\n", "Assessment weights are in [CURRICULUM.md](../../CURRICULUM.md#assessment)."]))
     write("capstones/README.md", "\n".join(idx))
 
@@ -623,6 +630,36 @@ def notice():
           "A fork of [FareedKhan-dev/rag-ecosystem](https://github.com/FareedKhan-dev/rag-ecosystem) "
           "([docs/third_party/RAG_Ecosystem_LICENSE.txt](docs/third_party/RAG_Ecosystem_LICENSE.txt)):\n"]
     L += [f"- [`{p}`]({p})" for p in eco]
+    def placed(repo, prefix, pattern=""):
+        return sorted({it.dest for it in ITEMS if it.repo == repo and it.source_path.startswith(prefix)
+                       and re.search(pattern, it.source_path)})
+
+    mcp = "modules/01_mcp_foundations/"
+    third = [
+        ("DeepLearning.AI and Anthropic, *MCP: Build Rich-Context AI Apps with Anthropic*",
+         placed("10", mcp + "notebooks/0") + placed("10", mcp + "projects/lesson")),
+        ("Educative, *MCP Fundamentals* and *Mastering MCP*",
+         placed("10", mcp + "projects/wikipedia_assistant") + placed("10", "modules/02_building_mcp_servers/projects/", r"projects/0[123]_")),
+        ("*MCP Essential* series (piyushagni5/langgraph-ai), **GPL-3.0**: see the `License` file in the same folder. "
+         "Lab 2's `fetch_server` is the MIT-licensed reference server from modelcontextprotocol/servers",
+         placed("10", "modules/03_building_mcp_clients/projects/")),
+        ("Laxmi Kant Tiwari (KGP Talkie), *MCP Mastery: Build AI Apps with Claude, LangChain and Ollama* (Udemy)",
+         placed("10", "modules/04_mcp_applications/projects/")),
+    ]
+    L += ["\n## Third-party MCP course material (repo 10)\n",
+          "Repo 10 reproduces these lessons as found in its source repository; each keeps its original authors' terms, "
+          "which have not been independently confirmed. Repo 10's own material (the A2A notebooks, the Databricks Apps server "
+          "and the MCP + A2A capstone) is MIT.\n"]
+    for title, paths in third:
+        L += [f"### {title}\n"] + [f"- [`{p}`]({p})" for p in paths] + [""]
+    L += ["## Course material adapted in repos 01, 02 and 04 (MIT repos, attributed)\n",
+          "- M01–M02: Analytics Vidhya, *Coding Essentials for Agents*",
+          "- M03: Udemy, *Complete Hugging Face Bootcamp* and *Mastering Generative AI with LLMs: A Hugging Face Guide*",
+          "- M04: DeepLearning.AI, *Finetuning Large Language Models* (Sharon Zhou, Lamini)",
+          "- M05–M06: the *Prompt Engineering Demystified* collection (notebooks credited to Dipanjan (DJ)), referencing Analytics Vidhya *Prompt Engineering Essentials*",
+          "- M09–M10: reference course Analytics Vidhya *Building Advanced AI Agents with LangGraph*",
+          "",
+          "Third-party slides, media and datasets remain the property of their authors; each source repo's `data-sources.md` is archived under [docs/source/](docs/source/)."]
     L += ["\n## Other adapted material (MIT)\n",
           "- `agentic_patterns` library by neural-maze, vendored in M13 (`course/p5_agent_foundations/m13_agent_loop_and_tools/`)",
           "- Several notebooks in M15–M17 and M24–M26 adapted from [FareedKhan-dev/all-agentic-architectures](https://github.com/FareedKhan-dev/all-agentic-architectures)",

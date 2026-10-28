@@ -83,7 +83,7 @@ def curriculum_root(start: Path | str | None = None) -> Path:
 ASSET_ROOTS: tuple[str, ...] = (
     "data/sample",
     "data/sample/rag_techniques",
-    "course/p2_ingestion_and_indexing/m03_chunking/assets",
+    "course/p05_ingestion_and_indexing/m13_chunking/assets",
 )
 
 
