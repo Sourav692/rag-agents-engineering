@@ -116,9 +116,9 @@ Third-party slides, media and datasets remain the property of their authors; eac
 
 ## Other adapted material (MIT)
 
-- `agentic_patterns` library by neural-maze, vendored in M13 (`course/p5_agent_foundations/m13_agent_loop_and_tools/`)
-- Several notebooks in M15–M17 and M24–M26 adapted from [FareedKhan-dev/all-agentic-architectures](https://github.com/FareedKhan-dev/all-agentic-architectures)
-- Workflow-pattern notebooks (M15) follow Anthropic's *Building Effective Agents*
+- `agentic_patterns` library by neural-maze, vendored in M23 (`course/p08_agent_foundations/m23_agent_loop_and_tools/`)
+- Several notebooks in M25–M27 and M34–M36 adapted from [FareedKhan-dev/all-agentic-architectures](https://github.com/FareedKhan-dev/all-agentic-architectures)
+- Workflow-pattern notebooks (M25) follow Anthropic's *Building Effective Agents*
 
 ## Provenance
 
