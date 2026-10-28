@@ -5,6 +5,7 @@ From Python and your first LLM call to agentic, memory-backed, multi-agent, prot
 - **Syllabus:** [CURRICULUM.md](CURRICULUM.md), or open [docs/site/index.html](docs/site/index.html) in a browser for the interactive version (course map, filters, progress tracking).
 - **Course folders:** [course/](course/README.md), one folder per Part and module.
 - **Capstones:** [capstones/](capstones/README.md).
+- **Reference:** [agentic architecture coverage](docs/agentic-architecture-coverage.md) (all 35 architectures from all-agentic-architectures, mapped to course notebooks) and [how this repo is built](docs/combined-repo.md). Both have interactive pages in [docs/site/](docs/site/).
 
 This repository is generated from nine source repositories of the *AI Engineering Demystified* series (01–06 and 08–10). They stay canonical: see [CLAUDE.md](CLAUDE.md) before changing anything.
 

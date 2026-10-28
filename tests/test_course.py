@@ -78,3 +78,15 @@ def test_rag_paths_finds_this_repo_and_its_assets():
 def test_scripts_compile():
     for script in (ROOT / "scripts").glob("*.py"):
         subprocess.run([sys.executable, "-m", "py_compile", str(script)], check=True)
+
+
+def test_architecture_coverage_refs_are_placed():
+    """Every notebook (by source path) and module key in docs/agentic-architectures.yaml exists in curriculum.yaml."""
+    import yaml
+
+    data = yaml.safe_load((ROOT / "docs/agentic-architectures.yaml").read_text())
+    placed = {f"{it.repo}:{it.source_path}" for it in ITEMS}
+    keys = {m["key"] for m in CUR["modules"]}
+    missing = [s for a in data["architectures"] for s in a["notebooks"] if s not in placed]
+    missing += [k for c in data["course_only"] for k in c["modules"] if k not in keys]
+    assert not missing, missing

@@ -12,6 +12,7 @@ import sys
 from collections import Counter, defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_docs  # noqa: E402
 from curriculum_lib import ROOT, items, load, module_dir, source_module  # noqa: E402
 
 GH = "https://github.com/Sourav692"
@@ -660,10 +661,15 @@ def notice():
           "- M09–M10: reference course Analytics Vidhya *Building Advanced AI Agents with LangGraph*",
           "",
           "Third-party slides, media and datasets remain the property of their authors; each source repo's `data-sources.md` is archived under [docs/source/](docs/source/)."]
+    mk = {m["key"]: m for m in MODULES}
+
+    def mods(*keys):
+        return " and ".join(f"M{mk[a]['num']:02d}–M{mk[b]['num']:02d}" if b else f"M{mk[a]['num']:02d}" for a, b in keys)
+
     L += ["\n## Other adapted material (MIT)\n",
-          "- `agentic_patterns` library by neural-maze, vendored in M13 (`course/p5_agent_foundations/m13_agent_loop_and_tools/`)",
-          "- Several notebooks in M15–M17 and M24–M26 adapted from [FareedKhan-dev/all-agentic-architectures](https://github.com/FareedKhan-dev/all-agentic-architectures)",
-          "- Workflow-pattern notebooks (M15) follow Anthropic's *Building Effective Agents*\n",
+          f"- `agentic_patterns` library by neural-maze, vendored in {mods(('agentloop', None))} (`{module_dir(mk['agentloop'])}/`)",
+          f"- Several notebooks in {mods(('workflows', 'appliedagents'), ('ltmemory', 'collab'))} adapted from [FareedKhan-dev/all-agentic-architectures](https://github.com/FareedKhan-dev/all-agentic-architectures)",
+          f"- Workflow-pattern notebooks ({mods(('workflows', None))}) follow Anthropic's *Building Effective Agents*\n",
           "## Provenance\n",
           "[docs/content-inventory.csv](docs/content-inventory.csv) maps every file to its source repository and path. "
           "Each source repository's own licence and inventory are archived under [docs/source/](docs/source/)."]
@@ -684,4 +690,5 @@ if __name__ == "__main__":
         module_readme(m)
     capstone_readmes()
     notice()
+    build_docs.main()
     print(f"rendered: {len(MODULES)} modules, {n_nb} notebooks ({n_core} mandatory, {n_opt} optional), ~{total_hours} h")
