@@ -101,12 +101,10 @@ The plan used to create this repo. Steps 1–7 are done; step 8 is the decision 
 - `pandas>=2.2`: repos 06 and 08 asked for `>=3.0.5`, but `llama-index` (the `llamaindex` group) needs `<3`.
 - `hf` and `hf-foundations` cannot share an environment with `colpali` (`byaldi` pins `transformers<5`); declared as uv conflicts.
 - `finance` (OpenBB) pins old `uvicorn`/FastAPI releases, so it conflicts with `protocols`, `mcp-labs` and `mcp-apps`; the MCP and A2A SDKs live in the `protocols` group rather than the default dependencies for this reason.
-- Repo 02 pins LangChain 0.3 and `openai<2`; this repo uses LangChain 1.x and `openai>=2`. Only one repo 02 notebook depends on the old LangChain (see known issues).
+- Repo 02 pins LangChain 0.3 and `openai<2`; this repo uses LangChain 1.x and `openai>=2`. Its one LangChain-0.3-specific import (`AgentExecutor`) falls back to `langchain_classic`, so its notebooks run here too.
 - `grouse` (evaluation cells in M31) cannot coexist with this stack; use a separate environment, as in repo 09.
 
 ## Known issues inherited from the source repos
-
-- `course/p02_prompt_engineering/m05_prompt_engineering_patterns/notebooks/02a_advanced_prompt_engineering_patterns.ipynb` (repo 02, module 02) imports `AgentExecutor` from `langchain.agents`, which LangChain 1.x moved to `langchain_classic.agents`; its ReAct section fails in this environment. Fix the import in repo 02, then re-sync.
 
 - Some notebooks create working folders such as `../vector_stores/` at run time; they are not part of the repo.
 
