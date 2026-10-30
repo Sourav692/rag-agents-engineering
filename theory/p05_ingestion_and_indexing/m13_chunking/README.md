@@ -10,7 +10,7 @@ The running example is the "Refunds and cancellations" section of the Larkspur C
 
 - Small chunks retrieve precisely but can cut a fact in two; large chunks keep facts whole but dilute the embedding and cost tokens. The right size comes from measurement on your own corpus.
 - Overlap repeats the tail of one chunk at the head of the next. It rescues facts that straddle a boundary, but only when the cut piece fits inside the overlap, and it inflates the index.
-- Semantic chunking cuts where neighbouring sentences drift apart in embedding space. The **breakpoint threshold** is relative to each document, so it always produces some cuts.
+- Semantic chunking cuts where neighbouring sentences drift apart in embedding space. The **breakpoint threshold** is computed from each document's own distances; the default `percentile` type always produces some cuts, while `standard_deviation` and `interquartile` can find none.
 - **Propositions** are atomic, self-contained facts written by an LLM. They retrieve sharply, cost an LLM call per chunk, and need a grading pass because an LLM can invent text and a splitter cannot.
 - **Structure-aware splitting** uses the document's own boundaries (headings, HTML tags, code blocks) first, and falls back to size limits second.
 
@@ -27,7 +27,7 @@ flowchart TD
     Q3 -- "no: plain prose" --> R["RecursiveCharacterTextSplitter<br/>size + overlap"]
 ```
 
-Every route then feeds the embedder (M14) and ends with the same check: read some chunks, then run the golden set. The parameters only say what the splitter was asked to do; the chunks show what it did.
+Every route then feeds the embedder (M14) and ends with the same check. Read a sample of the chunks, because the parameters say what the splitter was asked to do and only the chunks show what it did, then run the golden set.
 
 ## Lessons
 
@@ -40,12 +40,12 @@ Every route then feeds the embedder (M14) and ends with the same check: read som
 
 ## Interactive lab
 
-[**Chunk size and overlap**](01_splitter_fundamentals_character_recursive_token_and_structure_aware/interactive/chunk-size-overlap-lab.html): open the file in a browser. Click **300 / 0** to see the refund answer cut after "used less than", then **300 / 150** to watch overlap carry it whole into chunk 3, and **1200 / 0** to see the answer shrink to 13% of its chunk.
+[**Chunk size and overlap**](01_splitter_fundamentals_character_recursive_token_and_structure_aware/interactive/chunk-size-overlap-lab.html): open the file in a browser. Click **300 and 0** to see the refund answer cut after "used less than", then **300 and 150** to watch overlap carry it whole into chunk 3, and **1200 and 0** to see the answer shrink to 13% of its chunk.
 
 ## How it connects
 
 - **Before:** [M12](../m12_document_ingestion/README.md) decides what text and structure reach the splitter; [M11](../../p04_rag_foundations/m11_rag_lifecycle/README.md) gives the baseline the M13 lab is measured against.
-- **Next:** M14 embeds these chunks; M16 changes what gets indexed (parent documents, multi-representation, contextual headers) when no single chunk size works.
+- **Next:** [M14](../m14_embeddings/README.md) embeds these chunks; [M16](../m16_advanced_indexing/README.md) changes what gets indexed (parent documents, multi-representation, contextual headers) when no single chunk size works.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
@@ -95,8 +95,8 @@ Every route then feeds the embedder (M14) and ends with the same check: read som
 
 - The chunk boundary decides whether a fact can be retrieved whole. Read the chunks as well as the parameters.
 - Overlap only rescues a cut piece that fits inside it, and you pay for it in storage.
-- Semantic thresholds are relative to each document; propositions need a grading pass; structural boundaries come first when the document has them.
+- Semantic thresholds come from each document's own distances and do not transfer between corpora; propositions need a grading pass; structural boundaries come first when the document has them.
 - Choose chunk size by sweeping it on your golden set against the M11 baseline. If no size wins on both precision and completeness, index small and return large (M16).
 
 ---
-*Previous: [M12 Document ingestion](../m12_document_ingestion/README.md). Next: M14 Embeddings (no theory page yet).*
+*Previous: [M12 Document ingestion](../m12_document_ingestion/README.md). Next: [M14 Embeddings](../m14_embeddings/README.md).*

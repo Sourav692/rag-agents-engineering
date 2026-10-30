@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plan or react: the call budget</title>
+<meta name="description" content="M26 lab: the same Larkspur Cloud question run by a ReAct agent, a fixed plan and a plan that replans; move the lookups, the wrong results and the cap and read LLM calls, tokens and whether the answer is complete.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: none, new lab in the M11 lab system
+ * nav: top bar, the wordmark and the lab's name · signature: the three-agent ledger, one row per agent with its LLM calls, tokens and the state of its answer, the wrong chunk the only magenta mark · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: H, three controls and two tables; the lookup count leads, the wrong-result toggles sit under it, the cap comes last because it only matters once a result is wrong */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab; the controls and the three-agent table come first so they share a screen, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, td.num { font-variant-numeric: tabular-nums; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and the reading on the left, the lab's tables on printed sheets at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 58ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.lookups { display: grid; gap: var(--space-2xs); }
+.lookups .opt { width: 100%; gap: var(--space-xs); }
+.lookups .opt .n { font-family: var(--font-outlier); font-weight: 400; }
+.lookups .opt .st { margin-left: auto; font-family: var(--font-body); font-weight: 400; color: var(--color-muted); white-space: nowrap; }
+.lookups .opt[aria-pressed="true"] .st { color: var(--color-paper); }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td, tbody th { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); text-align: left; }
+tbody th { font: 600 var(--text-sm)/1.3 var(--font-display); color: var(--color-ink); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+td.big { font-size: var(--text-lg); color: var(--color-ink); }
+th:last-child, td:last-child { padding-right: 0; }
+code, td.id { font-family: var(--font-outlier); font-size: 0.9em; }
+.ans { font-family: var(--font-display); font-weight: 500; }
+.wrongid { color: var(--color-accent); }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading p + p { margin-top: var(--space-xs); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+#ledger tr.is-tool td { color: var(--color-muted); }
+#ledger td.kind { white-space: nowrap; font-family: var(--font-display); font-weight: 500; color: var(--color-ink); }
+#ledger tr.is-tool td.kind { font-weight: 400; color: var(--color-muted); }
+#ledger tr.stop td { padding: 0; border-top: var(--rule-bar) solid var(--color-accent); }
+#ledger tr.stop span { display: block; padding: var(--space-2xs) 0 var(--space-xs); font-size: var(--text-sm); color: var(--color-accent); }
+.sheet .seg { margin-bottom: var(--space-sm); }
+@media (max-width: 40rem) {
+  .cmp thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #compare tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  #compare tr > * { border: 0; padding: 0; text-align: left; }
+  #compare tr > th, #compare tr > td.ans { grid-column: 1 / -1; }
+  .led thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #ledger tr:not(.stop) { display: grid; grid-template-columns: 3ch minmax(0, 1fr) auto; gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  #ledger tr:not(.stop) td { border: 0; padding: 0; }
+  #ledger td:nth-child(4) { grid-column: 3; grid-row: 1; }
+  #ledger td:nth-child(3) { grid-column: 2 / -1; grid-row: 2; }
+  #compare td.num::before { content: attr(data-l); display: block; font: 400 var(--text-xs)/1.3 var(--font-body); color: var(--color-muted); }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls and the three-agent table share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .sheet.cmpsheet { order: 1; }
+html.embedded .reading { order: 2; }
+html.embedded .sheet.ledgersheet { order: 3; }
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab runs the three agents in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M26 lab, planning and replanning</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>A plan is cheap until a result is wrong.</h1>
+    <p class="lead">One Larkspur Cloud question, three agents from lesson 26.1: ReAct, a fixed plan, and a plan that checks every step and replans. Each lookup searches the handbook. Mark a lookup whose first search returns the wrong chunk and watch which agent notices, and what noticing costs.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <div class="field">
+        <label for="n">Lookups the question needs</label>
+        <input type="range" id="n" min="1" max="6" step="1" value="4">
+        <output class="val" id="nVal" for="n"></output>
+      </div>
+      <fieldset class="seg"><legend>Press a lookup to make its first search return the wrong chunk</legend><div class="lookups" id="lookups"></div></fieldset>
+      <div class="field">
+        <label for="cap">Replan cap, <code>max_iterations</code> (steps executed)</label>
+        <input type="range" id="cap" min="1" max="12" step="1" value="6">
+        <output class="val" id="capVal" for="cap"></output>
+      </div>
+      <div class="reading" aria-live="polite"><p id="callout"></p><p id="callout2"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet cmpsheet" aria-labelledby="cmpHead">
+        <div class="sheet__head"><h2 id="cmpHead">Three agents, one question</h2><p class="note">Counted per run</p></div>
+        <div class="scroll"><table class="cmp">
+          <thead><tr><th scope="col">Agent</th><th class="num" scope="col">LLM calls</th><th class="num" scope="col">Searches</th><th class="num" scope="col">Tokens read</th><th scope="col">Answer</th></tr></thead>
+          <tbody id="compare"></tbody>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)" id="qtext"></p>
+      </section>
+      <section class="sheet ledgersheet" aria-labelledby="ledHead">
+        <div class="sheet__head"><h2 id="ledHead">Call ledger</h2><p class="note">Every call, in order</p></div>
+        <fieldset class="seg"><legend class="visually-hidden">Agent</legend><div class="seg__opts" id="agentOpts"></div></fieldset>
+        <div class="scroll"><table class="led">
+          <thead><tr><th class="num" scope="col">#</th><th scope="col">Call</th><th scope="col">Reads or returns</th><th class="num" scope="col">Tokens read</th></tr></thead>
+          <tbody id="ledger"></tbody>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)">The prompts are the notebooks' own templates (01a and 01b), filled with this question and the handbook chunks. The models are scripted: the planner lists the lookups, the evaluator accepts a result only when it is the right chunk, the replanner rewrites the failed lookup once and keeps the rest, and ReAct is shown at its best, searching again after every wrong chunk. Tokens are prompt text at four characters per token; tool schemas are not counted.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const DATA={"goal": "A customer wants to cancel a Larkspur Cloud annual plan. Find out: ", "chunks": {"refund-window": "An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic.", "refund-timing": "Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement.", "cancel": "You can cancel any plan from the Billing page. Cancelling stops the next charge, and servers keep running until the paid period ends.", "billing": "Monthly plans are billed at the start of each billing cycle. Annual plans are billed once a year on the purchase date.", "retention": "After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes.", "promo": "Promotional credits expire 12 months after they are issued and cannot be paid out as cash.", "export": "Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots.", "sizing": "Choose a server size by peak memory use. Each server plan lists vCPUs, memory and included outbound traffic.", "support": "Support tickets are answered within 4 hours on business plans and within 24 hours on starter plans.", "incidents": "During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery."}, "lookups": [{"q": "refund rule for an annual plan", "retry": "full refund window for an annual plan, in days", "right": "refund-window", "wrong": "refund-timing"}, {"q": "how long a refund takes to arrive", "retry": "business days for a refund to reach the payment method", "right": "refund-timing", "wrong": "refund-window"}, {"q": "what happens to servers when a plan is cancelled", "retry": "do servers keep running after a plan is cancelled", "right": "cancel", "wrong": "billing"}, {"q": "how long data is kept after cancelling", "retry": "data retention period after a plan is cancelled", "right": "retention", "wrong": "promo"}, {"q": "what a data export includes", "retry": "contents of a Larkspur data export", "right": "export", "wrong": "sizing"}, {"q": "support response time on a starter plan", "retry": "ticket answer time on starter plans", "right": "support", "wrong": "incidents"}], "reason_ok": "The result states the requested fact.", "reason_bad": "The result is about a different topic.", "answer": "Final answer."};
+// Prompt templates extracted from notebooks 01a and 01b: strings are literal text, {v} is a slot.
+const T={"reactSystem": ["You are a helpful research assistant. You must call one and only one tool at a time. Do not call multiple tools in a single turn. After receiving the result from a tool, you will decide on the next step."], "fixedPlanner": ["You are an expert planner. Your job is to create a step-by-step plan to answer the user's request.\nEach step in the plan must be a single web search query that looks up one fact.\n\n**Instructions:**\n1. Analyze the user's request.\n2. List every fact that must be looked up - including any figure a comparison needs - one search query per fact.\n3. Do not add steps for calculations or comparisons - those happen after all searches are done.\n\n**Example:**\nRequest: \"What is the capital of France and is its population bigger than Madrid's?\"\nPlan: [\"capital of France\", \"population of Paris\", \"population of Madrid\"]\n\n**User's Request:**\n", {"v": "goal"}, "\n"], "fixedSynth": ["You are an expert synthesizer. Based on the user's request and the collected data, provide a comprehensive final answer.\nDo any calculation the request asks for, and show the numbers you used.\n\nRequest: ", {"v": "goal"}, "\nCollected Data:\n", {"v": "context"}, "\n"], "planner": ["You are an expert planner. Break the user's goal down into an ordered list of\nfact-finding steps. Each step must be one specific question that a single web search can answer.\nOnly plan the lookups: comparisons, calculations and the final answer are done later by a\nsynthesizer, so do not add steps for them.\nAvoid phrasing that could be read more than one way (for example, prefer \"population of the\ncountry of Georgia (Caucasus region)\" over the ambiguous \"population of Georgia\").\n\nGoal: ", {"v": "goal"}, "\n"], "evaluator": ["A plan step and a search result are given below. Decide whether the result states the\nfact the step asks for.\n- Mark it NOT satisfied if the result is about the wrong entity (a different country, person or\n  thing with a similar name), or does not contain the requested fact at all.\n- A recent estimate or official figure counts as satisfying a \"current\" question; the result\n  does not have to be perfect, only to answer the step.\n\nStep: ", {"v": "step"}, "\nSearch result: ", {"v": "result"}, "\n"], "replanner": ["You are replanning a multi-step research task because the most recent step\ndid not produce a satisfactory result.\n\nOverall goal: ", {"v": "goal"}, "\n\nHistory of steps attempted so far (do not repeat steps already marked OK):\n", {"v": "history"}, "\n\nPreviously remaining (now stale) steps, for reference only: ", {"v": "stale"}, "\n\nUsing what you have learned from the INSUFFICIENT step above, produce a NEW ordered list of\nthe lookups still required to fully satisfy the goal:\n- Do not resubmit the failed step unchanged: rephrase it using the reason it failed (for\n  example add the disambiguating detail the result was missing), or split it into smaller lookups.\n- Only plan lookups. Comparisons, calculations and the final answer are done later by a\n  synthesizer, so do not add steps for them.\n"], "synth": ["You are an expert synthesizer. Answer the user's original goal using ONLY the\naccepted search results below - not your own knowledge. If a fact the goal needs is not in\nthe accepted results, say plainly that it could not be found rather than filling it in.\n\nGoal: ", {"v": "goal"}, "\n\nAccepted search results:\n", {"v": "data"}, "\n\nLookups whose results were rejected (for context only; a later accepted step may cover them):\n", {"v": "rejected"}, "\n"]};
+const CH=DATA.chunks, LOOKUPS=DATA.lookups, RECURSION_LIMIT=20;
+const fill=(t,v)=>t.map(p=>typeof p==='string'?p:v[p.v]).join('');
+const pyList=a=>'['+a.map(s=>"'"+s+"'").join(', ')+']';   // Python's repr of a list of plain strings
+
+function scenario(n, wrong){
+  const lk=LOOKUPS.slice(0,n), w=new Set(wrong), searched=new Set(), byQuery={};
+  lk.forEach((l,i)=>{ byQuery[l.q]=[i,false]; byQuery[l.retry]=[i,true]; });
+  const calls=[];
+  return {
+    lk, w, byQuery, calls,
+    goal: DATA.goal+lk.map(l=>l.q).join('; ')+'.',
+    search(q){ const [i,isRetry]=byQuery[q], l=lk[i];
+      const cid=(!isRetry && w.has(i) && !searched.has(q)) ? l.wrong : l.right;
+      searched.add(q); calls.push({kind:'tool', q, cid, wrong: cid!==l.right}); return CH[cid]; },
+    right(q){ return CH[lk[byQuery[q][0]].right]; },
+    llm(role, chars){ calls.push({kind:'llm', role, chars}); },
+  };
+}
+function summary(S, status){
+  const llm=S.calls.filter(c=>c.kind==='llm');
+  return {llm: llm.length, tools: S.calls.length-llm.length, chars: llm.reduce((a,c)=>a+c.chars,0), calls: S.calls, status};
+}
+// Notebook 01a, ReAct: agent -> tools -> agent until a turn has no tool call; recursion_limit 20 graph steps.
+function runReact(n, wrong){
+  const S=scenario(n, wrong), script=[];
+  S.lk.forEach((l,i)=>{ script.push(l.q); if(S.w.has(i)) script.push(l.retry); });
+  let conv=T.reactSystem[0].length+S.goal.length, steps=0, done=0, status='complete';
+  for(;;){
+    if(steps===RECURSION_LIMIT){ status='recursion_limit'; break; }
+    steps++; S.llm('agent', conv);
+    if(done===script.length) break;
+    const q=script[done]; conv+=q.length;
+    if(steps===RECURSION_LIMIT){ status='recursion_limit'; break; }
+    steps++; conv+=S.search(q).length; done++;
+  }
+  return summary(S, status);
+}
+// Notebook 01a, plan-and-execute: planner, one search per step with no LLM, synthesizer.
+function runFixed(n, wrong){
+  const S=scenario(n, wrong);
+  S.llm('planner', fill(T.fixedPlanner,{goal:S.goal}).length);
+  const ctx=S.lk.map(l=>`Search '${l.q}' returned: ${S.search(l.q)}`).join('\n');
+  S.llm('synthesizer', fill(T.fixedSynth,{goal:S.goal, context:ctx}).length);
+  return summary(S, {wrong: S.w.size});
+}
+// Notebook 01b: plan, execute + evaluate each step, replan on a failed step, max_iterations guard, synthesize.
+function runReplan(n, wrong, cap){
+  const S=scenario(n, wrong);
+  S.llm('planner', fill(T.planner,{goal:S.goal}).length);
+  let plan=S.lk.map(l=>l.q), it=0; const done=[];
+  for(;;){
+    const step=plan[0]; plan=plan.slice(1);
+    const result=S.search(step), ok=result===S.right(step);
+    S.llm('evaluator', fill(T.evaluator,{step, result}).length);
+    done.push({step, result, ok, reason: ok?DATA.reason_ok:DATA.reason_bad}); it++;
+    if(it>=cap){ S.capped=true; break; }
+    if(!ok){
+      const history=done.map(c=>`- [${c.ok?'OK':'INSUFFICIENT'}] Step: ${c.step}\n  Reason: ${c.reason}`).join('\n');
+      S.llm('replanner', fill(T.replanner,{goal:S.goal, history, stale:pyList(plan)}).length);
+      plan=[S.lk[S.byQuery[step][0]].retry].concat(plan);
+      continue;
+    }
+    if(!plan.length) break;
+  }
+  const acc=done.filter(c=>c.ok), rej=done.filter(c=>!c.ok).map(c=>c.step);
+  const data=acc.map(c=>`Step: ${c.step}\nResult: ${c.result}`).join('\n\n')||'(none)';
+  S.llm('synthesizer', fill(T.synth,{goal:S.goal, data, rejected: rej.length?pyList(rej):'(none)'}).length);
+  const answered=new Set(acc.map(c=>S.byQuery[c.step][0]));
+  const r=summary(S, {missing: n-answered.size, iterations: it}); r.capped=!!S.capped; return r;
+}
+
+// ---- UI
+let N=4, wrongSet=new Set([0]), agent=2;
+const tok=c=>Math.round(c/4).toLocaleString('en-US');
+const AGENTS=['ReAct','Fixed plan','Plan and replan'];
+AGENTS.forEach((a,i)=>{ const id='a'+i;
+  $('agentOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="agent" id="${id}" value="${i}"${i===agent?' checked':''}><label class="opt" for="${id}">${a}</label>`);
+  $(id).addEventListener('change',()=>{agent=i;render();}); });
+function drawLookups(){
+  $('lookups').innerHTML='';
+  LOOKUPS.slice(0,N).forEach((l,i)=>{
+    const b=document.createElement('button'); b.type='button'; b.className='opt';
+    b.setAttribute('aria-pressed', String(wrongSet.has(i)));
+    b.innerHTML=`<span class="n">${i+1}</span><span>${l.q}</span><span class="st">${wrongSet.has(i)?'wrong first':'right'}</span>`;
+    b.onclick=()=>{ wrongSet.has(i)?wrongSet.delete(i):wrongSet.add(i); render(); };
+    $('lookups').appendChild(b);
+  });
+}
+const plural=(k,w)=>`${k} ${w}${k===1?'':'s'}`;
+function render(){
+  N=+$('n').value; const cap=+$('cap').value;
+  [...wrongSet].forEach(i=>{ if(i>=N) wrongSet.delete(i); });
+  $('nVal').textContent=N; $('capVal').textContent=cap;
+  drawLookups();
+  const wrong=[...wrongSet].sort((a,b)=>a-b), f=wrong.length;
+  const R=[runReact(N,wrong), runFixed(N,wrong), runReplan(N,wrong,cap)];
+  const ans=[
+    R[0].status==='complete' ? `<span class="is-good">Complete</span>` : `<span class="is-bad">No answer: recursion_limit</span>`,
+    f ? `<span class="is-bad">${plural(f,'wrong fact')}</span>` : `<span class="is-good">Complete</span>`,
+    R[2].status.missing ? `<span class="is-bad">${plural(R[2].status.missing,'lookup')} unanswered</span>` : `<span class="is-good">Complete</span>`];
+  $('compare').innerHTML=R.map((r,i)=>`<tr><th scope="row">${AGENTS[i]}</th><td class="num big" data-l="LLM calls">${r.llm}</td><td class="num" data-l="Searches">${r.tools}</td><td class="num" data-l="Tokens read">${tok(r.chars)}</td><td class="ans">${ans[i]}</td></tr>`).join('');
+  $('qtext').textContent=`The question all three receive: “${scenario(N,[]).goal}”`;
+
+  // ledger for the chosen agent
+  const r=R[agent]; let rows='', k=0;
+  r.calls.forEach(c=>{ k++;
+    if(c.kind==='llm') rows+=`<tr><td class="num">${k}</td><td class="kind">LLM, ${c.role}</td><td>${c.role==='agent'?'the whole conversation so far':c.role==='evaluator'?'one step and its result':c.role==='replanner'?'the goal, the history and the stale plan':c.role==='planner'?'the question':'the question and the results'}</td><td class="num">${tok(c.chars)}</td></tr>`;
+    else rows+=`<tr class="is-tool"><td class="num">${k}</td><td class="kind">Search</td><td><code>${c.q}</code> returns <code class="${c.wrong?'wrongid':''}">${c.cid}</code>${c.wrong?' (wrong chunk)':''}</td><td class="num"></td></tr>`;
+  });
+  if(agent===0 && r.status==='recursion_limit') rows+=`<tr class="stop"><td colspan="4"><span>GraphRecursionError: ${RECURSION_LIMIT} graph steps used, no answer returned</span></td></tr>`;
+  if(agent===2 && r.capped && r.status.missing) rows+=`<tr class="stop"><td colspan="4"><span>max_iterations = ${cap} reached: the router sent the run to the synthesizer</span></td></tr>`;
+  $('ledger').innerHTML=rows;
+
+  // the reading, keyed to computed results
+  const [re,fx,rp]=R;
+  let p1;
+  if(!f){
+    p1=`<b>A clean run.</b> The fixed plan makes ${fx.llm} LLM calls for ${plural(N,'lookup')}; ReAct makes ${re.llm}, one per search plus the answer, and each call re-reads every earlier result: ${tok(re.chars)} tokens against ${tok(fx.chars)}. Checking every step costs the replanner ${rp.llm} calls and ${tok(rp.chars)} tokens, and on a clean run it changes nothing.`;
+  } else if(!rp.status.missing){
+    p1=`<b>${plural(f,'wrong result')}.</b> The fixed plan still makes ${fx.llm} calls, and its synthesizer writes the answer from the wrong ${f===1?'chunk':'chunks'}. The replanner's evaluator rejects ${f===1?'it':'each one'}, rewrites the lookup and searches again: ${rp.llm} calls, ${tok(rp.chars)} tokens, a complete answer.`;
+  } else {
+    p1=`<b>The cap ended the run early.</b> This question needs ${N} + ${f} = ${N+f} executed steps and <code>max_iterations</code> is ${cap}, so the router sent the replanner to the synthesizer with ${plural(rp.status.missing,'lookup')} unanswered. Its prompt says to report a missing fact rather than invent it. Set the cap from the lookups plus the retries you will pay for.`;
+  }
+  $('callout').innerHTML=p1;
+  $('callout2').innerHTML = re.status==='recursion_limit'
+    ? `<b>ReAct ran out of graph steps.</b> ${N+f} searches need ${2*(N+f)+1} steps (an agent turn before each search and one to answer), and <code>recursion_limit</code> is ${RECURSION_LIMIT}. LangGraph raises <code>GraphRecursionError</code> and the user gets nothing.`
+    : f ? `ReAct, at its best, also recovers: it reads each result before choosing the next search. It pays ${re.llm} calls and ${tok(re.chars)} tokens, and nothing in its graph checks that every lookup was done.`
+        : `Add a lookup and watch the columns: ReAct's tokens grow fastest because each new call re-reads the whole conversation, while the fixed plan stays at ${fx.llm} calls.`;
+}
+$('n').addEventListener('input',render);
+$('cap').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

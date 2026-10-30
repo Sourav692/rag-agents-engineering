@@ -4,7 +4,20 @@
 
 ## Choosing chunk size
 
-Choose the size empirically. Sweep three to five sizes and two overlaps, and score each on the golden set: hit rate for retrieval, faithfulness and correctness for answers, plus index size and latency. If small chunks win on precision and large ones win on completeness, stop looking for one number. Index small chunks and return their larger parent (M16 parent-document retrieval) or expand to neighbouring chunks after retrieval (M19).
+No chunk size is right in general. It depends on how dense the facts are, how specific the questions are, the embedding model, the document's structure, and `k` with the token budget, since `chunk_size × k` has to fit the prompt. The notebook replaces the habit of copying 1000/200 or 512/50 with a procedure:
+
+1. Build a small labelled set: a question plus a string that must appear in a correct chunk. Real user queries are the best source. The notebook uses 14 questions over 8 policy sections.
+2. Sweep chunk size with everything else fixed. The notebook tries 64 to 768 tokens with `from_tiktoken_encoder`, overlap at 15% of the size and `k = 3`.
+3. Score each setting with `hit@k` and a **margin**, how much closer the best correct chunk is to the question than the best wrong one. `hit@k` saturates at 1.0; the margin keeps separating settings after that. A question whose gold string no chunk contains counts as a failure, because the splitter cut it.
+4. Put cost in the same table: index tokens (paid once), tokens per query (`chunk_size × k`, paid on every request) and the chunk count.
+5. Take the plateau, not the peak. Keep every size within 3% of the best margin, then pick the cheapest of those.
+6. Re-score the top three sizes on random halves of the labelled set. If the winner changes between halves, the sizes are indistinguishable at this sample size, so pick on cost.
+
+Sweep overlap afterwards, at the chosen size. It moves the curve far less than size does and grows the index linearly; the notebook keeps 10 to 20% of `chunk_size` as cheap insurance against a fact straddling a boundary. A flat curve is a finding too. It means chunk size is not the bottleneck, so stop tuning it and look at retrieval, query rewriting or reranking.
+
+The optional LlamaIndex notebook measures the answer side instead. GPT-4o judges the faithfulness and relevancy of answers at chunk sizes 128 and 256, and the notebook records response time. LLM judges cost a model call per question per setting, so use the deterministic sweep to narrow the range and the judges to confirm it.
+
+If small chunks win on precision and large ones win on completeness, stop looking for one number. Index small chunks and return their larger parent (M16 parent-document retrieval) or expand to neighbouring chunks after retrieval (M19).
 
 ## Choosing a strategy
 

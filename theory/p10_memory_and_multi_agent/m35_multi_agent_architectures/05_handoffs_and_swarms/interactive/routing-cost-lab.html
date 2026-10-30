@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Who routes, and what it costs</title>
+<meta name="description" content="M35 lab: one Larkspur Cloud request through a router, a supervisor, a hierarchy and a swarm; count the model calls each spends, turn by turn.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0, shared with the M11 lab) · redesign: none, new lab in the course's lab system
+ * nav: top bar, the wordmark and the lab's name · signature: the call trace, one row per model call, with a firm rule between turns of the thread · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, the trace is a plain table; the magenta marks only the routing calls, the cost the prose argues about */
+/* Hallmark · embedded mode · inside a frame (the module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt { opacity: 0.55; cursor: not-allowed; transform: none; }
+.query-opts .opt { width: 100%; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:hover { accent-color: var(--color-accent-2); }
+input[type="range"]:active { cursor: grabbing; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.id, code { font-family: var(--font-outlier); font-size: 0.9em; }
+td.id { white-space: nowrap; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+#trace tr.turn td { padding: var(--space-sm) 0 var(--space-2xs); border-top: var(--rule-bar) solid var(--color-rule-2); font: 500 var(--text-sm)/1.35 var(--font-display); color: var(--color-ink); }
+#trace tr.turn:first-child td { border-top: 0; padding-top: var(--space-2xs); }
+#trace tr.is-route td.id, #trace tr.is-route td.role { color: var(--color-accent); }
+#trace td.team { color: var(--color-muted); }
+#trace tr.is-miss td { color: var(--color-error); }
+.cmp tr.cur td { color: var(--color-ink); background: var(--color-paper-2); }
+.cmp td.miss { color: var(--color-error); }
+@media (max-width: 40rem) {
+  .trace thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls and the trace share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.cmp { order: 2; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its traces and tables in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M35 lab, multi-agent architectures</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Every routing decision is a model call.</h1>
+    <p class="lead">Three specialist RAG agents split the Larkspur Cloud handbook: billing, operations and data. Send a request through a router, a supervisor, a hierarchy or a swarm, add follow-up turns on the same thread, and count the model calls. Magenta rows are calls spent on deciding who works.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Request</legend><div class="seg__opts query-opts" id="reqOpts"></div></fieldset>
+      <fieldset class="seg"><legend>Architecture</legend><div class="seg__opts" id="archOpts"></div></fieldset>
+      <div class="field">
+        <label for="turns">Follow-up turns on the same thread</label>
+        <input type="range" id="turns" min="0" max="5" step="1" value="0">
+        <output class="val" id="turnsVal" for="turns"></output>
+      </div>
+      <dl class="stats">
+        <div><dt>Model calls, whole thread</dt><dd id="sCalls"></dd></div>
+        <div><dt>Spent on routing</dt><dd id="sRoute"></dd></div>
+        <div><dt>Specialists reached, first turn</dt><dd id="sReach"></dd></div>
+        <div><dt>Calls per follow-up</dt><dd id="sFollow"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="traceHead">
+        <div class="sheet__head"><h2 id="traceHead">Call trace</h2><p class="note" id="traceNote"></p></div>
+        <div class="scroll"><table class="trace">
+          <thead><tr><th class="num" scope="col">Call</th><th scope="col">Node</th><th scope="col">Inside</th><th scope="col">What the call does</th></tr></thead>
+          <tbody id="trace"></tbody>
+        </table></div>
+      </section>
+      <section class="sheet cmp" aria-labelledby="cmpHead">
+        <div class="sheet__head"><h2 id="cmpHead">All four at this setting</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Architecture</th><th class="num" scope="col">Model calls</th><th class="num" scope="col">Routing calls</th><th class="num" scope="col">Reached</th></tr></thead>
+          <tbody id="cmp"></tbody>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)">Each node is one model call: a routing decision or a specialist’s answer. Retrieval tool calls are left out, because every architecture makes the same ones. The traces match LangGraph graphs with the same nodes, run with stub models.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const TEAM={billing:"accounts",data:"accounts",operations:"platform"};
+const REQUESTS=[
+  {q:"How long does a refund take?", route:["billing"], follow:"Will it go back to the card I paid with?"},
+  {q:"My server went down last night. Do I get service credits?", route:["operations","billing"], follow:"Which invoice will the credit be on?"},
+  {q:"Can I export my data after I cancel my plan?", route:["data"], follow:"How long do you keep it after that?"}];
+const ARCHS=[["router","Router (M30)"],["supervisor","Supervisor"],["hierarchy","Hierarchy"],["swarm","Swarm"]];
+
+// One thread: the request, then follow-ups that stay with the last specialist the request needed.
+// Returns one list of calls per turn: {node, team, kind}; kind is route, answer, handoff or answer+handoff.
+function simulate(arch, req, followUps){
+  const turns=[req.route]; for(let i=0;i<followUps;i++) turns.push([req.route[req.route.length-1]]);
+  let active=null; const out=[];
+  turns.forEach(route=>{
+    const calls=[], C=(node,kind,team='')=>calls.push({node,kind,team});
+    if(arch==='router'){            // classify once, dispatch to one specialist, never come back
+      C('router','route'); C(route[0],'answer');
+    } else if(arch==='supervisor'){ // every specialist reports back; the supervisor decides again
+      route.forEach(s=>{ C('supervisor','route'); C(s,'answer'); }); C('supervisor','route');
+    } else if(arch==='hierarchy'){  // a CEO over two teams; accounts has its own lead, platform is a fixed pipeline
+      const groups=[]; route.forEach(s=>{ const g=groups[groups.length-1]; if(g && g.team===TEAM[s]) g.members.push(s); else groups.push({team:TEAM[s], members:[s]}); });
+      groups.forEach(g=>{ C('ceo','route');
+        if(g.team==='accounts'){ g.members.forEach(s=>{ C('lead','route','accounts'); C(s,'answer','accounts'); }); C('lead','route','accounts'); }
+        else g.members.forEach(s=>C(s,'answer','platform')); });
+      C('ceo','route');
+    } else {                        // swarm: start at the active agent, each agent hands off to the next itself
+      let at=active||'triage';
+      if(at!==route[0]){ C(at, at==='triage'?'handoff':'answer+handoff'); }
+      route.forEach((s,i)=>C(s, i<route.length-1?'answer+handoff':'answer'));
+      active=route[route.length-1];
+    }
+    out.push(calls);
+  });
+  return out;
+}
+function totals(arch, req, followUps){
+  const t=simulate(arch, req, followUps), all=t.flat();
+  const reached=new Set(t[0].filter(c=>c.kind!=='route' && c.node!=='triage').map(c=>c.node));
+  return {turns:t, calls:all.length, route:all.filter(c=>c.kind==='route' || c.node==='triage').length,
+          reached:req.route.filter(s=>reached.has(s)).length, need:req.route.length,
+          perFollow: followUps ? t[1].length : simulate(arch, req, 1)[1].length};
+}
+
+const KIND={route:'routing decision', answer:'answers from its handbook part', handoff:'hands off', 'answer+handoff':'answers, then hands off'};
+let ri=1, ai=1;
+REQUESTS.forEach((R,i)=>{ $('reqOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="r" id="r${i}" value="${i}"${i===ri?' checked':''}><label class="opt" for="r${i}">${R.q}</label>`); $('r'+i).addEventListener('change',()=>{ri=i;render();}); });
+ARCHS.forEach(([k,label],i)=>{ $('archOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="a" id="a${i}" value="${k}"${i===ai?' checked':''}><label class="opt" for="a${i}">${label}</label>`); $('a'+i).addEventListener('change',()=>{ai=i;render();}); });
+
+function render(){
+  const T=+$('turns').value, R=REQUESTS[ri], arch=ARCHS[ai][0], m=totals(arch,R,T);
+  $('turnsVal').textContent=T;
+  let rows='', n=0;
+  m.turns.forEach((calls,ti)=>{
+    rows+=`<tr class="turn"><td colspan="4">${ti===0?'Turn 1: '+R.q:'Turn '+(ti+1)+': '+R.follow}</td></tr>`;
+    calls.forEach(c=>{ n++; const isRoute=c.kind==='route'||c.node==='triage';
+      rows+=`<tr class="${isRoute?'is-route':''}"><td class="num">${n}</td><td class="id">${c.node}</td><td class="team">${c.team?c.team+' team':''}</td><td class="role">${KIND[c.kind]}</td></tr>`; });
+    if(ti===0 && arch==='router' && m.reached<m.need){
+      const missed=R.route.filter(s=>!calls.some(c=>c.node===s));
+      rows+=`<tr class="is-miss"><td class="num"></td><td class="id">${missed.join(', ')}</td><td class="team"></td><td class="role">never asked: half the request goes unanswered</td></tr>`;
+    }
+  });
+  $('trace').innerHTML=rows;
+  $('traceNote').textContent=`${m.turns.length} turn${m.turns.length>1?'s':''}, ${m.calls} calls`;
+  $('sCalls').textContent=m.calls;
+  $('sRoute').textContent=m.route;
+  $('sReach').textContent=m.reached+' of '+m.need; $('sReach').className=m.reached<m.need?'is-bad':'';
+  $('sFollow').textContent=m.perFollow;
+
+  const all=ARCHS.map(([k,label])=>({k,label,...totals(k,R,T)}));
+  $('cmp').innerHTML=all.map(x=>`<tr${x.k===arch?' class="cur"':''}><td>${x.label}</td><td class="num">${x.calls}</td><td class="num">${x.route}</td><td class="num${x.reached<x.need?' miss':''}">${x.reached} of ${x.need}</td></tr>`).join('');
+
+  const by=Object.fromEntries(all.map(x=>[x.k,x])), last=R.route[R.route.length-1], co=$('callout');
+  if(arch==='router'){
+    co.innerHTML = m.reached<m.need
+      ? `<b>Cheapest, and wrong.</b> The router classifies once and sends the whole request to <code>${R.route[0]}</code>. Nothing comes back to it, so <code>${R.route.slice(1).join(', ')}</code> is never asked and the credits half of the question goes unanswered. That is the case a supervisor exists for.`
+      : `<b>A single-domain request is a router’s best case.</b> ${m.calls} calls over ${m.turns.length} turn${m.turns.length>1?'s':''}, one of them routing per turn. Switch to the outage request to see what a one-shot router misses.`;
+  } else if(arch==='supervisor'){
+    co.innerHTML=`<b>${m.route} of ${m.calls} calls are routing.</b> Every specialist reports back, so a turn that needs ${R.route.length} specialist${R.route.length>1?'s':''} costs ${2*R.route.length+1}: ${R.route.length+1} supervisor decisions and ${R.route.length} answer${R.route.length>1?'s':''}. Each follow-up starts at the supervisor again and costs ${m.perFollow}. You pay that for one place that sees, logs and caps every decision.`;
+  } else if(arch==='hierarchy'){
+    co.innerHTML=`<b>Two layers of supervisors, ${m.route} routing calls.</b> The CEO decides before and after each team, and the accounts lead decides before and after each of its specialists. With three specialists that is overhead with nothing to organise; a hierarchy pays off when one supervisor would face too many workers to choose well.`;
+  } else {
+    co.innerHTML = T
+      ? `<b>Follow-ups skip routing.</b> After turn 1 the thread’s <code>active_agent</code> is <code>${last}</code>, so each follow-up goes straight to it: ${m.perFollow} call, against ${by.supervisor.perFollow} for the supervisor. Over ${m.turns.length} turns the swarm spends ${m.calls} calls and the supervisor ${by.supervisor.calls}.`
+      : `<b>One routing call, then the agents pass the work on.</b> Triage hands off${R.route.length>1?`, <code>${R.route[0]}</code> answers its part and hands off to <code>${R.route[1]}</code>`:''}, and no one takes control back: ${m.calls} calls against ${by.supervisor.calls} for the supervisor. Add follow-up turns to see the gap grow.`;
+  }
+}
+$('turns').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

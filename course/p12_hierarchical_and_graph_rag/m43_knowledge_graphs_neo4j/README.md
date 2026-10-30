@@ -8,6 +8,12 @@
 
 Relationships such as 'which doctors treated patients with X at hospital Y' are joins, not similarity. Knowledge graphs answer them precisely.
 
+## Theory
+
+Read the [theory page](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Candidates and graph constraints](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/04_vector_indexes_on_graph_nodes/interactive/graph-filter-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Model a domain as nodes and relationships and query it with Cypher
@@ -22,12 +28,12 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 43.1 | Graph fundamentals and Cypher | [`01a_kg_simple.ipynb`](notebooks/01a_kg_simple.ipynb) | — |
-| 43.2 | From CSV to knowledge graph | [`02a_healthcare_kg.ipynb`](notebooks/02a_healthcare_kg.ipynb) | — |
-| 43.3 | Natural-language graph QA (text-to-Cypher) | [`03a_query_kg_with_langchain.ipynb`](notebooks/03a_query_kg_with_langchain.ipynb) | — |
-| 43.4 | Vector indexes on graph nodes | [`04a_vector_indexing_and_embedding.ipynb`](notebooks/04a_vector_indexing_and_embedding.ipynb) | — |
-| 43.5 | LLM entity and relationship extraction | [`05a_entity_relationship_extraction.ipynb`](notebooks/05a_entity_relationship_extraction.ipynb) | [`05b_create_kg_from_text.ipynb`](exercises/05b_create_kg_from_text.ipynb) *(extension)* |
-| 43.6 | End-to-end knowledge-graph RAG | [`06a_roman_empire_graph_rag.ipynb`](notebooks/06a_roman_empire_graph_rag.ipynb) | — |
+| 43.1 | Graph fundamentals and Cypher ([theory](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/01_graph_fundamentals_and_cypher/README.md)) | [`01a_kg_simple.ipynb`](notebooks/01a_kg_simple.ipynb) | — |
+| 43.2 | From CSV to knowledge graph ([theory](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/02_from_csv_to_knowledge_graph/README.md)) | [`02a_healthcare_kg.ipynb`](notebooks/02a_healthcare_kg.ipynb) | — |
+| 43.3 | Natural-language graph QA (text-to-Cypher) ([theory](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/03_natural_language_graph_qa_text_to_cypher/README.md)) | [`03a_query_kg_with_langchain.ipynb`](notebooks/03a_query_kg_with_langchain.ipynb) | — |
+| 43.4 | Vector indexes on graph nodes ([theory](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/04_vector_indexes_on_graph_nodes/README.md)) | [`04a_vector_indexing_and_embedding.ipynb`](notebooks/04a_vector_indexing_and_embedding.ipynb) | — |
+| 43.5 | LLM entity and relationship extraction ([theory](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/05_llm_entity_and_relationship_extraction/README.md)) | [`05a_entity_relationship_extraction.ipynb`](notebooks/05a_entity_relationship_extraction.ipynb) | [`05b_create_kg_from_text.ipynb`](exercises/05b_create_kg_from_text.ipynb) *(extension)* |
+| 43.6 | End-to-end knowledge-graph RAG ([theory](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/06_end_to_end_knowledge_graph_rag/README.md)) | [`06a_roman_empire_graph_rag.ipynb`](notebooks/06a_roman_empire_graph_rag.ipynb) | — |
 
 ## Hands-on lab
 
@@ -35,7 +41,7 @@ Domain KG: extract a graph from 20 documents in your domain, load it into Neo4j,
 
 ## Key concepts
 
-Nodes, edges, properties · Cypher · Text-to-Cypher · Graph + vector hybrid
+[Nodes, edges, properties](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/01_graph_fundamentals_and_cypher/README.md#nodes-edges-properties) · [Cypher](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/01_graph_fundamentals_and_cypher/README.md#cypher) · [Text-to-Cypher](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/03_natural_language_graph_qa_text_to_cypher/README.md#text-to-cypher) · [Graph + vector hybrid](../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/04_vector_indexes_on_graph_nodes/README.md#graph--vector-hybrid)
 
 ## Folder layout
 

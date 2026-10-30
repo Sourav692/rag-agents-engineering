@@ -29,8 +29,8 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 |---|---|---|---|
 | 11.1 | The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md)) | *Lecture / discussion* | — |
 | 11.2 | Indexing from scratch with TF-IDF and nearest neighbours ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md)) | [`02a_indexing_from_scratch.ipynb`](notebooks/02a_indexing_from_scratch.ipynb) | — |
-| 11.3 | Semantic retrieval with embedding similarity | [`03a_retrieval_strategies.ipynb`](notebooks/03a_retrieval_strategies.ipynb) | — |
-| 11.4 | Your first LangChain RAG with Chroma | [`04a_langchain_rag_quickstart.ipynb`](notebooks/04a_langchain_rag_quickstart.ipynb) | — |
+| 11.3 | Semantic retrieval with embedding similarity ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/03_semantic_retrieval_with_embedding_similarity/README.md)) | [`03a_retrieval_strategies.ipynb`](notebooks/03a_retrieval_strategies.ipynb) | — |
+| 11.4 | Your first LangChain RAG with Chroma ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/04_your_first_langchain_rag_with_chroma/README.md)) | [`04a_langchain_rag_quickstart.ipynb`](notebooks/04a_langchain_rag_quickstart.ipynb) | — |
 | 11.5 | The RAG lifecycle and a measured baseline ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/05_the_rag_lifecycle_and_a_measured_baseline/README.md)) | [`05a_rag_lifecycle_and_baseline.ipynb`](notebooks/05a_rag_lifecycle_and_baseline.ipynb) | — |
 
 ## Hands-on lab

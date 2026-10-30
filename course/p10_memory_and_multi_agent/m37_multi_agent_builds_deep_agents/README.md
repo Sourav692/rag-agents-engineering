@@ -8,6 +8,12 @@
 
 The applied builds show what production multi-agent systems need beyond the happy path: compliance checks, edge cases, testing, error handling and memory merging.
 
+## Theory
+
+Read the [theory page](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Router test bench](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/02_hardening_edge_cases_testing_and_system_wide_error_handling/interactive/router-test-bench-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Build a multi-agent hotel reservation system step by step, including compliance, testing and error handling
@@ -21,12 +27,12 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 37.1 | Hotel system: environment, coordinator, reservation agent, compliance | [`01a_hotel_environment_and_coordinator.ipynb`](notebooks/01a_hotel_environment_and_coordinator.ipynb)<br>[`01b_hotel_reservation_agent.ipynb`](notebooks/01b_hotel_reservation_agent.ipynb)<br>[`01c_hotel_compliance_checker.ipynb`](notebooks/01c_hotel_compliance_checker.ipynb) | — |
-| 37.2 | Hardening: edge cases, testing and system-wide error handling | [`02a_hotel_edge_cases_and_errors.ipynb`](notebooks/02a_hotel_edge_cases_and_errors.ipynb)<br>[`02b_hotel_testing_the_system.ipynb`](notebooks/02b_hotel_testing_the_system.ipynb) | [`02c_hotel_system_wide_error_handling.ipynb`](optional/02c_hotel_system_wide_error_handling.ipynb) *(extension)* |
-| 37.3 | Scaling: parallel agents, memory merging, language and sentiment, web search *(optional lesson)* | — | [`03a_hotel_parallel_reservation_agents.ipynb`](optional/03a_hotel_parallel_reservation_agents.ipynb) *(extension)*<br>[`03b_hotel_merging_and_conversation_memory.ipynb`](optional/03b_hotel_merging_and_conversation_memory.ipynb) *(extension)*<br>[`03c_hotel_guest_language_and_sentiment.ipynb`](optional/03c_hotel_guest_language_and_sentiment.ipynb) *(extension)*<br>[`03d_hotel_web_search_integration.ipynb`](optional/03d_hotel_web_search_integration.ipynb) *(extension)* |
+| 37.1 | Hotel system: environment, coordinator, reservation agent, compliance ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/01_hotel_system_environment_coordinator_reservation_agent_compliance/README.md)) | [`01a_hotel_environment_and_coordinator.ipynb`](notebooks/01a_hotel_environment_and_coordinator.ipynb)<br>[`01b_hotel_reservation_agent.ipynb`](notebooks/01b_hotel_reservation_agent.ipynb)<br>[`01c_hotel_compliance_checker.ipynb`](notebooks/01c_hotel_compliance_checker.ipynb) | — |
+| 37.2 | Hardening: edge cases, testing and system-wide error handling ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/02_hardening_edge_cases_testing_and_system_wide_error_handling/README.md)) | [`02a_hotel_edge_cases_and_errors.ipynb`](notebooks/02a_hotel_edge_cases_and_errors.ipynb)<br>[`02b_hotel_testing_the_system.ipynb`](notebooks/02b_hotel_testing_the_system.ipynb) | [`02c_hotel_system_wide_error_handling.ipynb`](optional/02c_hotel_system_wide_error_handling.ipynb) *(extension)* |
+| 37.3 | Scaling: parallel agents, memory merging, language and sentiment, web search *(optional lesson)* ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md)) | — | [`03a_hotel_parallel_reservation_agents.ipynb`](optional/03a_hotel_parallel_reservation_agents.ipynb) *(extension)*<br>[`03b_hotel_merging_and_conversation_memory.ipynb`](optional/03b_hotel_merging_and_conversation_memory.ipynb) *(extension)*<br>[`03c_hotel_guest_language_and_sentiment.ipynb`](optional/03c_hotel_guest_language_and_sentiment.ipynb) *(extension)*<br>[`03d_hotel_web_search_integration.ipynb`](optional/03d_hotel_web_search_integration.ipynb) *(extension)* |
 | 37.4 | Developer vs tester agents *(optional lesson)* | — | [`04a_developer_vs_tester_agents.ipynb`](optional/04a_developer_vs_tester_agents.ipynb) *(extension)* |
-| 37.5 | Research systems: supervisor financial research, summarisation, full research system | [`05c_multi_agent_research_system.ipynb`](notebooks/05c_multi_agent_research_system.ipynb) | [`05a_supervisor_financial_research.ipynb`](optional/05a_supervisor_financial_research.ipynb) *(extension)*<br>[`05b_multi_agent_research_summarization.ipynb`](optional/05b_multi_agent_research_summarization.ipynb) *(extension)* |
-| 37.6 | Deep agents: orchestrator, sub-agents, skills and long-term memory | [`06a_simple_coding_agent.py`](notebooks/06a_simple_coding_agent.py) | [`06b_long_term_memory_agent.py`](optional/06b_long_term_memory_agent.py) *(extension)*<br>[`06c_skills`](optional/06c_skills) *(extension)* |
+| 37.5 | Research systems: supervisor financial research, summarisation, full research system ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/05_research_systems_supervisor_financial_research_summarisation_full_research_system/README.md)) | [`05c_multi_agent_research_system.ipynb`](notebooks/05c_multi_agent_research_system.ipynb) | [`05a_supervisor_financial_research.ipynb`](optional/05a_supervisor_financial_research.ipynb) *(extension)*<br>[`05b_multi_agent_research_summarization.ipynb`](optional/05b_multi_agent_research_summarization.ipynb) *(extension)* |
+| 37.6 | Deep agents: orchestrator, sub-agents, skills and long-term memory ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/06_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md)) | [`06a_simple_coding_agent.py`](notebooks/06a_simple_coding_agent.py) | [`06b_long_term_memory_agent.py`](optional/06b_long_term_memory_agent.py) *(extension)*<br>[`06c_skills`](optional/06c_skills) *(extension)* |
 
 ## Hands-on lab
 
@@ -34,7 +40,7 @@ Research team: build a supervisor with a RAG researcher, a web researcher and a 
 
 ## Key concepts
 
-Compliance agent · System testing · Memory merging · Deep-agent harness
+[Compliance agent](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/01_hotel_system_environment_coordinator_reservation_agent_compliance/README.md#compliance-agent) · [System testing](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/02_hardening_edge_cases_testing_and_system_wide_error_handling/README.md#system-testing) · [Memory merging](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md#memory-merging) · [Deep-agent harness](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/06_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md#deep-agent-harness)
 
 ## Folder layout
 

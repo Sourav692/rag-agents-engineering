@@ -8,6 +8,12 @@
 
 A RAG system in production must show where an answer came from, detect when it is unsupported, and improve from user feedback.
 
+## Theory
+
+Read the [theory page](../../../theory/p09_agentic_rag/m32_reliability_feedback/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p09_agentic_rag/m32_reliability_feedback/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [The feedback flywheel](../../../theory/p09_agentic_rag/m32_reliability_feedback/02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Add relevance checks, hallucination checks and source highlighting
@@ -20,9 +26,9 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 32.1 | Reliable RAG: relevance checks, hallucination checks, source highlighting | [`01a_reliable_rag.ipynb`](notebooks/01a_reliable_rag.ipynb) | — |
-| 32.2 | Retrieval with a user-feedback loop | [`02a_retrieval_with_feedback_loop.ipynb`](notebooks/02a_retrieval_with_feedback_loop.ipynb) | — |
-| 32.3 | Dartboard RAG: relevance and diversity together *(optional lesson)* | — | [`03a_dartboard_rag.ipynb`](optional/03a_dartboard_rag.ipynb) *(extension)* |
+| 32.1 | Reliable RAG: relevance checks, hallucination checks, source highlighting ([theory](../../../theory/p09_agentic_rag/m32_reliability_feedback/01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md)) | [`01a_reliable_rag.ipynb`](notebooks/01a_reliable_rag.ipynb) | — |
+| 32.2 | Retrieval with a user-feedback loop ([theory](../../../theory/p09_agentic_rag/m32_reliability_feedback/02_retrieval_with_a_user_feedback_loop/README.md)) | [`02a_retrieval_with_feedback_loop.ipynb`](notebooks/02a_retrieval_with_feedback_loop.ipynb) | — |
+| 32.3 | Dartboard RAG: relevance and diversity together *(optional lesson)* ([theory](../../../theory/p09_agentic_rag/m32_reliability_feedback/03_dartboard_rag_relevance_and_diversity_together/README.md)) | — | [`03a_dartboard_rag.ipynb`](optional/03a_dartboard_rag.ipynb) *(extension)* |
 
 ## Hands-on lab
 
@@ -30,7 +36,7 @@ Feedback flywheel: simulate 100 thumbs-up / thumbs-down events and show the effe
 
 ## Key concepts
 
-Hallucination detection · Source highlighting · Implicit vs explicit feedback · Diversity-aware selection
+[Hallucination detection](../../../theory/p09_agentic_rag/m32_reliability_feedback/01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#hallucination-detection) · [Source highlighting](../../../theory/p09_agentic_rag/m32_reliability_feedback/01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#source-highlighting) · [Implicit vs explicit feedback](../../../theory/p09_agentic_rag/m32_reliability_feedback/02_retrieval_with_a_user_feedback_loop/README.md#implicit-vs-explicit-feedback) · [Diversity-aware selection](../../../theory/p09_agentic_rag/m32_reliability_feedback/03_dartboard_rag_relevance_and_diversity_together/README.md#diversity-aware-selection)
 
 ## Folder layout
 

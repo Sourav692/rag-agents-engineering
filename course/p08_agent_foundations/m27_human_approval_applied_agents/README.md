@@ -8,6 +8,12 @@
 
 Real agents take actions, so they need approval gates. The applied builds also show text-to-SQL, which is often a better retriever than vectors for structured data.
 
+## Theory
+
+Read the [theory page](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [The approval gate](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Put a dry-run and approval gate in front of consequential actions
@@ -21,11 +27,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 27.1 | Dry-run harness and human approval | [`01a_dry_run_harness.ipynb`](notebooks/01a_dry_run_harness.ipynb) | — |
+| 27.1 | Dry-run harness and human approval ([theory](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/01_dry_run_harness_and_human_approval/README.md)) | [`01a_dry_run_harness.ipynb`](notebooks/01a_dry_run_harness.ipynb) | — |
 | 27.2 | Research and competitive-intelligence agents | [`02a_research_assistant_agent.ipynb`](notebooks/02a_research_assistant_agent.ipynb) | [`02b_competitive_intelligence_agent.ipynb`](optional/02b_competitive_intelligence_agent.ipynb) *(extension)* |
 | 27.3 | Financial analyst agent *(optional lesson)* | — | [`03a_financial_analyst_agent.ipynb`](optional/03a_financial_analyst_agent.ipynb) *(extension)* |
-| 27.4 | Text-to-SQL: workflow vs ReAct agent | [`04a_text2sql_workflow.ipynb`](notebooks/04a_text2sql_workflow.ipynb)<br>[`04b_text2sql_react_agent.ipynb`](notebooks/04b_text2sql_react_agent.ipynb) | — |
-| 27.5 | LLM workflow apps: review analyst, IT support desk, tailored writer, quiz generator *(optional lesson)* | — | [`05a_review_analyst.ipynb`](optional/05a_review_analyst.ipynb) *(extension)*<br>[`05b_multilingual_it_support_desk.ipynb`](optional/05b_multilingual_it_support_desk.ipynb) *(extension)*<br>[`05c_audience_tailored_writer.ipynb`](optional/05c_audience_tailored_writer.ipynb) *(extension)*<br>[`05d_quiz_generator.ipynb`](optional/05d_quiz_generator.ipynb) *(extension)* |
+| 27.4 | Text-to-SQL: workflow vs ReAct agent ([theory](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/04_text_to_sql_workflow_vs_react_agent/README.md)) | [`04a_text2sql_workflow.ipynb`](notebooks/04a_text2sql_workflow.ipynb)<br>[`04b_text2sql_react_agent.ipynb`](notebooks/04b_text2sql_react_agent.ipynb) | — |
+| 27.5 | LLM workflow apps: review analyst, IT support desk, tailored writer, quiz generator *(optional lesson)* ([theory](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/05_llm_workflow_apps_review_analyst_it_support_desk_tailored_writer_quiz_generator/README.md)) | — | [`05a_review_analyst.ipynb`](optional/05a_review_analyst.ipynb) *(extension)*<br>[`05b_multilingual_it_support_desk.ipynb`](optional/05b_multilingual_it_support_desk.ipynb) *(extension)*<br>[`05c_audience_tailored_writer.ipynb`](optional/05c_audience_tailored_writer.ipynb) *(extension)*<br>[`05d_quiz_generator.ipynb`](optional/05d_quiz_generator.ipynb) *(extension)* |
 
 ## Hands-on lab
 
@@ -33,7 +39,7 @@ SQL or vectors: answer the same 20 questions over a product catalogue with CSV R
 
 ## Key concepts
 
-Approval gates · Dry run · Text-to-SQL · Workflow apps
+[Approval gates](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/01_dry_run_harness_and_human_approval/README.md#approval-gates) · [Dry run](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/01_dry_run_harness_and_human_approval/README.md#dry-run) · [Text-to-SQL](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/04_text_to_sql_workflow_vs_react_agent/README.md#text-to-sql) · [Workflow apps](../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/05_llm_workflow_apps_review_analyst_it_support_desk_tailored_writer_quiz_generator/README.md#workflow-apps)
 
 ## Folder layout
 

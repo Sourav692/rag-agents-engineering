@@ -8,6 +8,12 @@
 
 Users write short, vague or compound questions. Rewriting the query before retrieval is often the cheapest large gain available.
 
+## Theory
+
+Read the [theory page](../../../theory/p06_retrieval_quality/m18_query_transformation/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p06_retrieval_quality/m18_query_transformation/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Query variants and rank fusion](../../../theory/p06_retrieval_quality/m18_query_transformation/03_rag_fusion_with_reciprocal_rank_fusion/interactive/query-variant-fusion-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Rewrite and expand queries with an LLM
@@ -22,13 +28,13 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 18.1 | Query rewriting and expansion | [`01a_query_expansion.ipynb`](notebooks/01a_query_expansion.ipynb) | [`01b_query_transformations_rag_techniques.ipynb`](optional/01b_query_transformations_rag_techniques.ipynb) *(alternate)* |
+| 18.1 | Query rewriting and expansion ([theory](../../../theory/p06_retrieval_quality/m18_query_transformation/01_query_rewriting_and_expansion/README.md)) | [`01a_query_expansion.ipynb`](notebooks/01a_query_expansion.ipynb) | [`01b_query_transformations_rag_techniques.ipynb`](optional/01b_query_transformations_rag_techniques.ipynb) *(alternate)* |
 | 18.2 | Multi-query retrieval | [`02a_multi_query_retrieval.ipynb`](notebooks/02a_multi_query_retrieval.ipynb) | [`02b_multiquery_retrieval_walkthrough.ipynb`](optional/02b_multiquery_retrieval_walkthrough.ipynb) *(alternate)*<br>[`02c_better_queries.ipynb`](optional/02c_better_queries.ipynb) *(alternate)* |
-| 18.3 | RAG-Fusion with Reciprocal Rank Fusion | [`03a_rag_fusion.ipynb`](notebooks/03a_rag_fusion.ipynb) | — |
+| 18.3 | RAG-Fusion with Reciprocal Rank Fusion ([theory](../../../theory/p06_retrieval_quality/m18_query_transformation/03_rag_fusion_with_reciprocal_rank_fusion/README.md)) | [`03a_rag_fusion.ipynb`](notebooks/03a_rag_fusion.ipynb) | — |
 | 18.4 | Step-back prompting | [`04a_step_back_prompting.ipynb`](notebooks/04a_step_back_prompting.ipynb) | — |
-| 18.5 | HyDE: embed a hypothetical answer | [`05a_hyde.ipynb`](notebooks/05a_hyde.ipynb) | [`05b_hyde_walkthrough.ipynb`](optional/05b_hyde_walkthrough.ipynb) *(alternate)*<br>[`05c_hyde_rag_techniques.ipynb`](optional/05c_hyde_rag_techniques.ipynb) *(alternate)* |
-| 18.6 | Query decomposition for multi-hop questions | [`06a_query_decomposition.ipynb`](notebooks/06a_query_decomposition.ipynb) | [`06b_query_decomposition_walkthrough.ipynb`](optional/06b_query_decomposition_walkthrough.ipynb) *(alternate)* |
-| 18.7 | Routing: LLM classifier and semantic routing | [`07a_routing_with_llm_classifier.ipynb`](notebooks/07a_routing_with_llm_classifier.ipynb)<br>[`07b_semantic_routing.ipynb`](notebooks/07b_semantic_routing.ipynb) | — |
+| 18.5 | HyDE: embed a hypothetical answer ([theory](../../../theory/p06_retrieval_quality/m18_query_transformation/05_hyde_embed_a_hypothetical_answer/README.md)) | [`05a_hyde.ipynb`](notebooks/05a_hyde.ipynb) | [`05b_hyde_walkthrough.ipynb`](optional/05b_hyde_walkthrough.ipynb) *(alternate)*<br>[`05c_hyde_rag_techniques.ipynb`](optional/05c_hyde_rag_techniques.ipynb) *(alternate)* |
+| 18.6 | Query decomposition for multi-hop questions ([theory](../../../theory/p06_retrieval_quality/m18_query_transformation/06_query_decomposition_for_multi_hop_questions/README.md)) | [`06a_query_decomposition.ipynb`](notebooks/06a_query_decomposition.ipynb) | [`06b_query_decomposition_walkthrough.ipynb`](optional/06b_query_decomposition_walkthrough.ipynb) *(alternate)* |
+| 18.7 | Routing: LLM classifier and semantic routing ([theory](../../../theory/p06_retrieval_quality/m18_query_transformation/07_routing_llm_classifier_and_semantic_routing/README.md)) | [`07a_routing_with_llm_classifier.ipynb`](notebooks/07a_routing_with_llm_classifier.ipynb)<br>[`07b_semantic_routing.ipynb`](notebooks/07b_semantic_routing.ipynb) | — |
 | 18.8 | Self-querying: natural language to metadata filter | [`08a_self_querying_retrieval.ipynb`](notebooks/08a_self_querying_retrieval.ipynb) | — |
 
 ## Hands-on lab
@@ -37,7 +43,7 @@ Query-transformation matrix: run multi-query, RAG-Fusion, HyDE and decomposition
 
 ## Key concepts
 
-Query–document asymmetry · RRF · HyDE · Logical vs semantic routing
+[Query–document asymmetry](../../../theory/p06_retrieval_quality/m18_query_transformation/01_query_rewriting_and_expansion/README.md#querydocument-asymmetry) · [RRF](../../../theory/p06_retrieval_quality/m18_query_transformation/03_rag_fusion_with_reciprocal_rank_fusion/README.md#rrf) · [HyDE](../../../theory/p06_retrieval_quality/m18_query_transformation/05_hyde_embed_a_hypothetical_answer/README.md#hyde) · [Logical vs semantic routing](../../../theory/p06_retrieval_quality/m18_query_transformation/07_routing_llm_classifier_and_semantic_routing/README.md#logical-vs-semantic-routing)
 
 ## Folder layout
 

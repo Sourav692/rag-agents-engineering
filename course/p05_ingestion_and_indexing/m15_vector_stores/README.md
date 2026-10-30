@@ -8,6 +8,12 @@
 
 A vector store is a database. You need to create, update, delete, persist and filter, and keep it in sync with sources that change.
 
+## Theory
+
+Read the [theory page](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [The record manager and cleanup modes](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/05_incremental_indexing_indexing_api_and_record_manager/interactive/record-manager-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Run CRUD and persistence operations through LangChain's common vector store interface
@@ -21,11 +27,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 15.1 | Index operations: create, query, update, delete, persist | [`01a_vector_stores_and_index_operations.ipynb`](notebooks/01a_vector_stores_and_index_operations.ipynb) | [`01b_vector_database_operations.ipynb`](optional/01b_vector_database_operations.ipynb) *(alternate)*<br>[`01c_other_vector_stores.ipynb`](optional/01c_other_vector_stores.ipynb) *(extension)* |
-| 15.2 | Embedded stores: Chroma and FAISS | [`02a_chromadb.ipynb`](notebooks/02a_chromadb.ipynb)<br>[`02b_faiss.ipynb`](notebooks/02b_faiss.ipynb) | [`02c_vector_stores_in_practice.ipynb`](optional/02c_vector_stores_in_practice.ipynb) *(alternate)* |
-| 15.3 | Managed stores: Astra DB and Pinecone | [`03b_pinecone.ipynb`](notebooks/03b_pinecone.ipynb) | [`03a_astra_db.ipynb`](optional/03a_astra_db.ipynb) *(platform-specific)* |
-| 15.4 | Postgres + pgvector with metadata-filtered search | [`04a_filtered_search_pgvector.ipynb`](notebooks/04a_filtered_search_pgvector.ipynb) | — |
-| 15.5 | Incremental indexing: Indexing API and record manager | [`05a_indexing_api.ipynb`](notebooks/05a_indexing_api.ipynb) | — |
+| 15.1 | Index operations: create, query, update, delete, persist ([theory](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/01_index_operations_create_query_update_delete_persist/README.md)) | [`01a_vector_stores_and_index_operations.ipynb`](notebooks/01a_vector_stores_and_index_operations.ipynb) | [`01b_vector_database_operations.ipynb`](optional/01b_vector_database_operations.ipynb) *(alternate)*<br>[`01c_other_vector_stores.ipynb`](optional/01c_other_vector_stores.ipynb) *(extension)* |
+| 15.2 | Embedded stores: Chroma and FAISS ([theory](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/02_embedded_stores_chroma_and_faiss/README.md)) | [`02a_chromadb.ipynb`](notebooks/02a_chromadb.ipynb)<br>[`02b_faiss.ipynb`](notebooks/02b_faiss.ipynb) | [`02c_vector_stores_in_practice.ipynb`](optional/02c_vector_stores_in_practice.ipynb) *(alternate)* |
+| 15.3 | Managed stores: Astra DB and Pinecone ([theory](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/03_managed_stores_astra_db_and_pinecone/README.md)) | [`03b_pinecone.ipynb`](notebooks/03b_pinecone.ipynb) | [`03a_astra_db.ipynb`](optional/03a_astra_db.ipynb) *(platform-specific)* |
+| 15.4 | Postgres + pgvector with metadata-filtered search ([theory](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/04_postgres_pgvector_with_metadata_filtered_search/README.md)) | [`04a_filtered_search_pgvector.ipynb`](notebooks/04a_filtered_search_pgvector.ipynb) | — |
+| 15.5 | Incremental indexing: Indexing API and record manager ([theory](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/05_incremental_indexing_indexing_api_and_record_manager/README.md)) | [`05a_indexing_api.ipynb`](notebooks/05a_indexing_api.ipynb) | — |
 
 ## Hands-on lab
 
@@ -33,7 +39,7 @@ Living index: stand up pgvector with Docker, ingest the M12 corpus, then change,
 
 ## Key concepts
 
-ANN search · Collections and namespaces · Metadata filters · Idempotent re-indexing
+[ANN search](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/02_embedded_stores_chroma_and_faiss/README.md#ann-search) · [Collections and namespaces](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/03_managed_stores_astra_db_and_pinecone/README.md#collections-and-namespaces) · [Metadata filters](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/04_postgres_pgvector_with_metadata_filtered_search/README.md#metadata-filters) · [Idempotent re-indexing](../../../theory/p05_ingestion_and_indexing/m15_vector_stores/05_incremental_indexing_indexing_api_and_record_manager/README.md#idempotent-re-indexing)
 
 ## Folder layout
 

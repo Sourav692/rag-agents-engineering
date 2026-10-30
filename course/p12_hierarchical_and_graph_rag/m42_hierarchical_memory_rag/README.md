@@ -8,6 +8,12 @@
 
 Questions like 'what are the main themes of this book?' have no single matching chunk. Trees and memory let retrieval work at several levels of abstraction.
 
+## Theory
+
+Read the [theory page](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Search the leaves or the whole tree](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/01_raptor_clustering_and_recursive_summarisation/interactive/collapsed-tree-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Build a recursive tree of abstractive summaries (RAPTOR) and retrieve across its levels
@@ -20,9 +26,9 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 42.1 | RAPTOR: clustering and recursive summarisation | [`01a_raptor.ipynb`](notebooks/01a_raptor.ipynb) | — |
-| 42.2 | MemoRAG: global memory and clue-guided retrieval *(optional lesson)* | — | [`02a_memorag.ipynb`](optional/02a_memorag.ipynb) *(extension)* |
-| 42.3 | LightRAG: low-level and high-level graph retrieval | [`03a_light_rag.ipynb`](notebooks/03a_light_rag.ipynb) | — |
+| 42.1 | RAPTOR: clustering and recursive summarisation ([theory](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/01_raptor_clustering_and_recursive_summarisation/README.md)) | [`01a_raptor.ipynb`](notebooks/01a_raptor.ipynb) | — |
+| 42.2 | MemoRAG: global memory and clue-guided retrieval *(optional lesson)* ([theory](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/02_memorag_global_memory_and_clue_guided_retrieval/README.md)) | — | [`02a_memorag.ipynb`](optional/02a_memorag.ipynb) *(extension)* |
+| 42.3 | LightRAG: low-level and high-level graph retrieval ([theory](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/03_lightrag_low_level_and_high_level_graph_retrieval/README.md)) | [`03a_light_rag.ipynb`](notebooks/03a_light_rag.ipynb) | — |
 
 ## Hands-on lab
 
@@ -30,7 +36,7 @@ Global-question test: ask ten 'summarise / compare across the whole corpus' ques
 
 ## Key concepts
 
-Abstraction levels · Collapsed-tree retrieval · Global memory · Dual-level retrieval
+[Abstraction levels](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/01_raptor_clustering_and_recursive_summarisation/README.md#abstraction-levels) · [Collapsed-tree retrieval](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/01_raptor_clustering_and_recursive_summarisation/README.md#collapsed-tree-retrieval) · [Global memory](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/02_memorag_global_memory_and_clue_guided_retrieval/README.md#global-memory) · [Dual-level retrieval](../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/03_lightrag_low_level_and_high_level_graph_retrieval/README.md#dual-level-retrieval)
 
 ## Folder layout
 

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fan-out and the concurrency cap</title>
+<meta name="description" content="M25 lab: the step durations measured in the lesson 25.3 notebooks, scheduled the way a thread pool runs parallel branches; move the concurrency cap and read the wall time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·m25-fanout·2026-10-30·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the timeline, with the magenta fan-in rule where the slowest branch ends and the merge step begins · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a timeline of bars is a familiar object; the fixed scale (the one-after-another total) is what makes the shrink readable */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt, .opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.preset-opts .opt { width: 100%; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+code { font-family: var(--font-outlier); font-size: 0.9em; }
+.check tr.cur td { color: var(--color-ink); background: var(--color-paper-2); }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+
+/* the timeline: one lane per step, a fixed scale (the one-after-another total), the fan-in rule in magenta */
+.gantt { display: grid; gap: var(--space-xs); }
+.lane { display: grid; grid-template-columns: 13ch minmax(0, 1fr); gap: var(--space-sm); align-items: center; }
+.lane__name { font: 500 var(--text-sm)/1.2 var(--font-outlier); color: var(--color-ink-2); overflow-wrap: anywhere; }
+.track { position: relative; height: 30px; background: var(--color-paper-2); }
+.track .fanin { position: absolute; top: -6px; bottom: -6px; width: 0; border-left: var(--rule-bar) solid var(--color-accent); }
+.barx { position: absolute; top: 4px; bottom: 4px; background: var(--color-ink-2); color: var(--color-paper); font: 500 var(--text-xs)/22px var(--font-outlier); padding-inline: var(--space-2xs); white-space: nowrap; overflow: hidden; }
+.barx.is-merge { background: var(--color-muted); }
+.barx.is-critical { background: var(--color-accent); color: var(--color-accent-ink); }
+.axis { display: grid; grid-template-columns: 13ch minmax(0, 1fr); gap: var(--space-sm); }
+.axis__ticks { position: relative; height: 22px; border-top: var(--rule-hair) solid var(--color-rule-2); }
+.axis__ticks span { position: absolute; top: 2px; transform: translateX(-50%); font: 400 var(--text-xs)/1.2 var(--font-outlier); color: var(--color-muted); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-md); margin-top: var(--space-sm); font-size: var(--text-sm); color: var(--color-muted); }
+.legend i { display: inline-block; width: 14px; height: 10px; margin-right: var(--space-2xs); vertical-align: baseline; }
+.legend .k-branch { background: var(--color-ink-2); } .legend .k-crit { background: var(--color-accent); } .legend .k-merge { background: var(--color-muted); }
+.legend .k-rule { width: 0; height: 12px; border-left: var(--rule-bar) solid var(--color-accent); }
+@media (max-width: 40rem) { .lane, .axis { grid-template-columns: 11ch minmax(0, 1fr); gap: var(--space-xs); } .lane__name { font-size: var(--text-xs); } }
+
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the cap slider and the timeline share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.check { order: 2; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its timeline in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M25 lab, agentic workflow patterns</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>A fan-out takes as long as its slowest branch.</h1>
+    <p class="lead">The step durations below are the ones the lesson 25.3 notebooks printed. The lab schedules them the way a thread pool runs parallel branches: each branch starts as soon as a slot is free, in the order it was written, and the merge step waits for the last one. Move the cap and watch the wall time.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Workload</legend><div class="seg__opts preset-opts" id="presetOpts"></div></fieldset>
+      <div class="field">
+        <label for="cap">Branches allowed to run at once (<code>max_concurrency</code>)</label>
+        <input type="range" id="cap" min="1" max="3" step="1" value="3">
+        <output class="val" id="capVal" for="cap"></output>
+      </div>
+      <fieldset class="seg"><legend>Order the branches are submitted in</legend><div class="seg__opts" id="orderOpts"></div></fieldset>
+      <dl class="stats">
+        <div><dt>Wall time</dt><dd id="sWall"></dd></div>
+        <div><dt>Every step one after another</dt><dd id="sSeq"></dd></div>
+        <div><dt>Time saved</dt><dd id="sSaved"></dd></div>
+        <div><dt>Merge step starts at</dt><dd id="sFanin"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="ganttHead">
+        <div class="sheet__head"><h2 id="ganttHead">Timeline at this cap</h2><p class="note">Seconds, scaled to the one-after-another total</p></div>
+        <div class="gantt" id="gantt"></div>
+        <div class="axis"><span></span><div class="axis__ticks" id="ticks"></div></div>
+        <p class="legend"><span><i class="k-branch"></i>Branch</span><span><i class="k-crit"></i>Branch the merge waits for</span><span><i class="k-merge"></i>Step before or after the fan-out</span><span><i class="k-rule"></i>Fan-in</span></p>
+      </section>
+      <section class="sheet check" aria-labelledby="checkHead">
+        <div class="sheet__head"><h2 id="checkHead">Against the notebook</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Setting</th><th class="num" scope="col">Notebook printed</th><th class="num" scope="col">Lab computes</th></tr></thead>
+          <tbody id="check"></tbody>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)" id="checkNote"></p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// Durations in seconds, from the outputs of the lesson 25.3 notebooks.
+// sections: 03b printed each branch's finish time (all start at 0) and the merge finishing at 10.6 s, so the merge took 10.6 - 7.0 = 3.6 s.
+// six: 03c's six branches of time.sleep(0.5). toy: 03a's A, then B and C in parallel, then D, each time.sleep(0.5).
+const PRESETS=[
+  {id:"sections", label:"Story sections, measured (03b)", before:null,
+   branches:[["characters",4.7],["setting",7.0],["premise",1.6]], after:["synthesize",3.6],
+   checks:[{label:"All three at once: sections step", cap:3, field:"fanin", printed:7.0},
+           {label:"All three at once: with synthesis", cap:3, field:"wall", printed:10.6},
+           {label:"Sections one after another", cap:1, field:"fanin", printed:13.4}],
+   note:"03b printed 13.4 s for the three sections in sequence by adding unrounded finish times; the lab adds the printed one-decimal values, so it shows 13.3 s."},
+  {id:"six", label:"Six equal branches (03c)", before:null,
+   branches:[0,1,2,3,4,5].map(i=>["work "+i,0.5]), after:null,
+   checks:[{label:"Unbounded", cap:6, field:"wall", printed:0.51},
+           {label:"max_concurrency 2", cap:2, field:"wall", printed:1.51}],
+   note:"The notebook's extra 0.01 s is thread start-up; the lab counts only the sleeps."},
+  {id:"toy", label:"A, then B and C, then D (03a)", before:["a",0.5],
+   branches:[["b",0.5],["c",0.5]], after:["d",0.5],
+   checks:[{label:"Linear graph (one at a time)", cap:1, field:"wall", printed:2.01},
+           {label:"Fan-out and fan-in", cap:2, field:"wall", printed:1.51}],
+   note:"03a ran the linear version as its own graph, A to B to C to D; with a cap of 1 the fan-out graph takes the same 2.0 s."}];
+const ORDERS=[["written","As written"],["slowest","Slowest first"],["fastest","Fastest first"]];
+
+// The scheduler: a pool of `cap` slots; branches are submitted in order and each starts on the slot that frees first.
+function schedule(P, cap, order){
+  const rows=[]; let t=0;
+  if(P.before){ rows.push({name:P.before[0], start:0, end:P.before[1], kind:"merge"}); t=P.before[1]; }
+  let br=P.branches.map(([name,d],i)=>({name,d,i}));
+  if(order==="slowest") br=[...br].sort((a,b)=>b.d-a.d || a.i-b.i);
+  if(order==="fastest") br=[...br].sort((a,b)=>a.d-b.d || a.i-b.i);
+  const slots=Array(Math.min(cap,br.length)).fill(t);
+  br.forEach(b=>{
+    let s=0; slots.forEach((v,j)=>{ if(v<slots[s]-1e-9) s=j; });
+    const start=slots[s], end=start+b.d; slots[s]=end;
+    rows.push({name:b.name, start, end, kind:"branch", i:b.i});
+  });
+  const fanin=Math.max(...rows.filter(r=>r.kind==="branch").map(r=>r.end));
+  rows.filter(r=>r.kind==="branch" && Math.abs(r.end-fanin)<1e-9).forEach(r=>r.kind="critical");
+  let wall=fanin;
+  if(P.after){ rows.push({name:P.after[0], start:fanin, end:fanin+P.after[1], kind:"merge"}); wall=fanin+P.after[1]; }
+  const seq=(P.before?P.before[1]:0)+P.branches.reduce((a,b)=>a+b[1],0)+(P.after?P.after[1]:0);
+  return {rows, fanin, wall, seq};
+}
+
+let pi=0, order="written";
+PRESETS.forEach((P,i)=>{
+  $('presetOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="preset" id="p${i}" value="${i}"${i===0?' checked':''}><label class="opt" for="p${i}">${P.label}</label>`);
+  $('p'+i).addEventListener('change',()=>{ pi=i; $('cap').max=P.branches.length; $('cap').value=P.branches.length; render(); });
+});
+ORDERS.forEach(([v,l],i)=>{
+  $('orderOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="order" id="o${i}" value="${v}"${i===0?' checked':''}><label class="opt" for="o${i}">${l}</label>`);
+  $('o'+i).addEventListener('change',()=>{ order=v; render(); });
+});
+const f1=x=>x.toFixed(1)+' s';
+const f2=x=>x.toFixed(2)+' s';
+
+function render(){
+  const P=PRESETS[pi], n=P.branches.length, cap=+$('cap').value, r=schedule(P,cap,order);
+  $('capVal').textContent=cap===n?cap+', all':cap;
+  const equal=P.branches.every(b=>b[1]===P.branches[0][1]);
+  document.querySelectorAll('input[name="order"]').forEach(el=>{ el.disabled=equal; });
+
+  // timeline on a fixed scale: the one-after-another total
+  const scale=r.seq, pct=x=>(100*x/scale).toFixed(2)+'%';
+  $('gantt').innerHTML=r.rows.map(row=>`<div class="lane"><span class="lane__name">${row.name}</span><div class="track">`+
+    `<span class="barx${row.kind==='merge'?' is-merge':row.kind==='critical'?' is-critical':''}" style="left:${pct(row.start)};width:${pct(row.end-row.start)}" title="${row.name}: ${row.start.toFixed(1)} to ${row.end.toFixed(1)} s">${(row.end-row.start).toFixed(1)}</span>`+
+    `<span class="fanin" style="left:${pct(r.fanin)}" aria-hidden="true"></span></div></div>`).join('');
+  const step=scale>8?2:scale>3?1:0.5; let ticks='';
+  for(let x=0;x<=scale+1e-9;x+=step) ticks+=`<span style="left:${pct(x)}">${step<1?x.toFixed(1):x}</span>`;
+  $('ticks').innerHTML=ticks;
+
+  const fine=P.checks.some(c=>c.printed<1);
+  $('sWall').textContent=(fine?f2:f1)(r.wall);
+  $('sSeq').textContent=(fine?f2:f1)(r.seq);
+  $('sSaved').textContent=Math.round(100*(1-r.wall/r.seq))+'%';
+  $('sFanin').textContent=(fine?f2:f1)(r.fanin);
+
+  // the notebook check: each printed number beside the lab's own
+  $('check').innerHTML=P.checks.map(c=>{ const x=schedule(P,c.cap,"written"); const v=c.field==="wall"?x.wall:x.fanin;
+    return `<tr${c.cap===cap&&order==="written"?' class="cur"':''}><td>${c.label}</td><td class="num">${(fine?f2:f1)(c.printed)}</td><td class="num">${(fine?f2:f1)(v)}</td></tr>`; }).join('');
+  $('checkNote').textContent=P.note;
+
+  // the reading, keyed to computed results
+  const best=schedule(P,n,"written"), crit=r.rows.filter(x=>x.kind==="critical").map(x=>x.name);
+  const slowest=Math.max(...P.branches.map(b=>b[1])), co=$('callout');
+  if(cap===1){
+    co.innerHTML=`<b>One slot is a chain.</b> The branches run one after another, so the wall time is the sum of every step, ${f1(r.seq)}. This is what prompt chaining costs when the steps do not depend on each other.`;
+  } else if(Math.abs(r.wall-best.wall)<1e-9){
+    co.innerHTML=cap===n
+      ? `<b>All ${n} branches start together.</b> The merge waits for the slowest, ${equal?`and here every branch ties at ${slowest.toFixed(1)} s`:`<code>${crit.join(', ')}</code> (${slowest.toFixed(1)} s)`}, so the fan-out costs ${f1(r.fanin-(P.before?P.before[1]:0))} instead of the ${f1(P.branches.reduce((a,b)=>a+b[1],0))} sum.${P.after?` The <code>${P.after[0]}</code> step cannot overlap anything: it needs every branch.`:''}`
+      : `<b>A cap of ${cap} costs nothing here.</b> The shorter branches fit in the slots the slowest one leaves free, and the merge still starts at ${f1(r.fanin)}. A rate limit at this level is free latency-wise.`;
+  } else {
+    const late=r.rows.find(x=>x.kind==="critical");
+    co.innerHTML=`<b>The cap adds ${f1(r.wall-best.wall)}.</b> <code>${late.name}</code> ends last, at ${f1(late.end)}, because it ${late.start>((P.before?P.before[1]:0)+1e-9)?`waited ${f1(late.start-(P.before?P.before[1]:0))} for a free slot`:'had a slot from the start but others queued behind'}. `+
+      (equal?`With equal branches only the cap matters: ${n} branches through ${cap} slots take ${Math.ceil(n/cap)} rounds.`:order!=="slowest"?`Try <b>Slowest first</b>: under a cap, submit the longest branch first.`:`Even slowest first, ${cap} slots cannot hold every branch at once.`);
+  }
+}
+$('cap').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

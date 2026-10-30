@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The ReAct loop and its call cap</title>
+<meta name="description" content="M24 lab: a scripted ReAct agent searches twelve Larkspur handbook chunks with real TF-IDF; switch between single-shot and the loop, move the model call cap, and read the message list.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·m24react·2026-10-30·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the message list as a ledger, with the firm magenta rule under the message the user receives · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, the scripted model is a stand-in for a real one; the intro and the ledger note say which parts are scripted (the queries) and which are computed (retrieval, the loop, the counts) */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(40% 0.16 27); --color-success: oklch(36% 0.10 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt, .opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.query-opts .opt { width: 100%; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.outcome { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-sm) var(--space-2xs); }
+.outcome b { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.outcome span { font-size: var(--text-sm); color: var(--color-muted); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.kind { font-family: var(--font-display); font-weight: 500; white-space: nowrap; color: var(--color-ink); }
+code, .ids { font-family: var(--font-outlier); font-size: 0.9em; }
+.ids .ev { color: var(--color-accent); }
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.note.after { margin-top: var(--space-sm); }
+#trace tr.is-user td { color: var(--color-ink); background: var(--color-paper-2); }
+#trace tr.cut td { padding: 0; border-top: var(--rule-bar) solid var(--color-accent); }
+#trace tr.cut span { display: block; padding: var(--space-2xs) 0 var(--space-xs); font-size: var(--text-sm); color: var(--color-accent); }
+#trace td.tx { overflow-wrap: anywhere; }
+.base tr.cur td { color: var(--color-ink); background: var(--color-paper-2); }
+.base tfoot td { padding: var(--space-xs) var(--space-md) 0 0; border-top: var(--rule-bar) solid var(--color-rule-2); color: var(--color-ink); font-weight: 500; }
+.base tfoot td:last-child { padding-right: 0; }
+.base tfoot td.num { font-weight: 400; }
+@media (max-width: 40rem) {
+  .trace thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #trace tr:not(.cut) { display: grid; grid-template-columns: 3ch minmax(0, 1fr); gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  #trace tr:not(.cut) td { border: 0; padding: 0; }
+  #trace td.tx { grid-column: 1 / -1; }
+  #trace tr.cut { display: block; }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls and the message list share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.base { order: 2; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab runs its agent and computes its tables in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M24 lab, ReAct agents</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Each observation picks the next search.</h1>
+    <p class="lead">A support agent with one tool, <code>search_handbook</code>, over the twelve Larkspur Cloud chunks from the M11 lab. Retrieval is real TF-IDF, top 2 per search. The model is scripted: it writes the queries a model might write, reads each result, and stops when it has the evidence. Switch the wiring and move the call cap to see what the user receives.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Golden question</legend><div class="seg__opts query-opts" id="queryOpts"></div></fieldset>
+      <fieldset class="seg"><legend>After the tools run</legend><div class="seg__opts" id="wiring">
+        <input type="radio" name="w" id="wSingle" value="single"><label class="opt" for="wSingle">Single shot: tools → END</label>
+        <input type="radio" name="w" id="wReact" value="react" checked><label class="opt" for="wReact">ReAct: tools → model</label>
+      </div></fieldset>
+      <div class="field">
+        <label for="cap">Model call cap, <code>ModelCallLimitMiddleware(run_limit=…)</code></label>
+        <input type="range" id="cap" min="1" max="6" step="1" value="6">
+        <output class="val" id="capVal" for="cap"></output>
+      </div>
+      <div class="outcome"><b id="sOutcome"></b><span id="sOutcomeNote"></span></div>
+      <dl class="stats">
+        <div><dt>Model calls</dt><dd id="sCalls"></dd></div>
+        <div><dt>Searches</dt><dd id="sSearch"></dd></div>
+        <div><dt>Evidence retrieved</dt><dd id="sRecall"></dd></div>
+        <div><dt>Context read, about this many tokens</dt><dd id="sTok"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="traceHead">
+        <div class="sheet__head"><h2 id="traceHead">The message list</h2><p class="note">State after the run</p></div>
+        <div class="scroll"><table class="trace">
+          <thead><tr><th class="num" scope="col">#</th><th scope="col">Message</th><th scope="col">Content</th></tr></thead>
+          <tbody id="trace"></tbody>
+        </table></div>
+        <p class="note after">Evidence chunks are in magenta. The queries come from the script; the chunks each search returns, the stop at the cap and the limit message are computed. The limit message is the text LangChain’s <code>ModelCallLimitMiddleware</code> writes. Tokens use the four-characters-per-token rule of thumb and add up what every model call reads.</p>
+      </section>
+      <section class="sheet base" aria-labelledby="baseHead">
+        <div class="sheet__head"><h2 id="baseHead">The golden set at this setting</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Golden question</th><th class="num" scope="col">Evidence</th><th class="num" scope="col">Calls</th><th scope="col">User gets</th></tr></thead>
+          <tbody id="baseline"></tbody>
+          <tfoot><tr><td>Mean, total</td><td class="num" id="mRecall"></td><td class="num" id="mCalls"></td><td id="mAnswered"></td></tr></tfoot>
+        </table></div>
+        <p class="note after">The M11 baseline row for the same questions, one top-2 retrieval each, has a mean recall@2 of 0.50.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// ENGINE START
+const DOCS=[
+["billing","Monthly plans are billed at the start of each billing cycle. Annual plans are billed once a year on the purchase date."],
+["cancel","You can cancel any plan from the Billing page. Cancelling stops the next charge, and servers keep running until the paid period ends."],
+["refund-window","An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic."],
+["refund-timing","Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement."],
+["sla","Larkspur guarantees 99.95% monthly availability. If an outage pushes availability below that, you receive service credits on the next invoice."],
+["incidents","During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery."],
+["sizing","Choose a server size by peak memory use. Each server plan lists vCPUs, memory and included outbound traffic."],
+["reboot","You can reboot a server from the console. A reboot takes about a minute and does not change the server IP address."],
+["export","Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots."],
+["retention","After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes."],
+["support","Support tickets are answered within 4 hours on business plans and within 24 hours on starter plans."],
+["promo","Promotional credits expire 12 months after they are issued and cannot be paid out as cash."]];
+// The scripted model's queries, in the order it tries them. Everything else is computed.
+const QUERIES=[
+  {q:"Can I export my data after I cancel my plan?", rel:["export","retention"],
+   plan:["Can I export my data after I cancel my plan?"]},
+  {q:"How long does a refund take?", rel:["refund-window","refund-timing"],
+   plan:["How long does a refund take?","how many days until refunds reach my payment method"]},
+  {q:"What happens if my server goes down?", rel:["sla","incidents"],
+   plan:["What happens if my server goes down?","server outage","what happens during an outage incident"]}];
+// scikit-learn's ENGLISH_STOP_WORDS, so the scores match TfidfVectorizer(stop_words="english")
+const STOP=new Set("a about above across after afterwards again against all almost alone along already also although always am among amongst amoungst amount an and another any anyhow anyone anything anyway anywhere are around as at back be became because become becomes becoming been before beforehand behind being below beside besides between beyond bill both bottom but by call can cannot cant co con could couldnt cry de describe detail do done down due during each eg eight either eleven else elsewhere empty enough etc even ever every everyone everything everywhere except few fifteen fifty fill find fire first five for former formerly forty found four from front full further get give go had has hasnt have he hence her here hereafter hereby herein hereupon hers herself him himself his how however hundred i ie if in inc indeed interest into is it its itself keep last latter latterly least less ltd made many may me meanwhile might mill mine more moreover most mostly move much must my myself name namely neither never nevertheless next nine no nobody none noone nor not nothing now nowhere of off often on once one only onto or other others otherwise our ours ourselves out over own part per perhaps please put rather re same see seem seemed seeming seems serious several she should show side since sincere six sixty so some somehow someone something sometime sometimes somewhere still such system take ten than that the their them themselves then thence there thereafter thereby therefore therein thereupon these they thick thin third this those though three through throughout thru thus to together too top toward towards twelve twenty two un under until up upon us very via was we well were what whatever when whence whenever where whereafter whereas whereby wherein whereupon wherever whether which while whither who whoever whole whom whose why will with within without would yet you your yours yourself yourselves".split(" "));
+// TF-IDF with scikit-learn's defaults: token pattern \b\w\w+\b, smooth idf, L2-normalised rows.
+function tokenize(s){ return (s.toLowerCase().match(/\b\w\w+\b/g)||[]).filter(t=>!STOP.has(t)); }
+function buildIndex(texts){
+  const toks=texts.map(tokenize), N=texts.length, df={};
+  toks.forEach(ts=>new Set(ts).forEach(t=>df[t]=(df[t]||0)+1));
+  const idf={}; for(const t in df) idf[t]=Math.log((1+N)/(1+df[t]))+1;
+  const vec=ts=>{ const v={}; ts.forEach(t=>{ if(idf[t]) v[t]=(v[t]||0)+idf[t]; }); const n=Math.hypot(...Object.values(v))||1; for(const t in v) v[t]/=n; return v; };
+  return {docs:toks.map(vec), query:q=>vec(tokenize(q))};
+}
+const cosine=(a,b)=>Object.keys(a).reduce((s,t)=>s+a[t]*(b[t]||0),0);
+const INDEX=buildIndex(DOCS.map(d=>d[1]));
+function rank(q){
+  const qv=INDEX.query(q);
+  return DOCS.map(([id,text],i)=>({id,text,i,score:cosine(qv,INDEX.docs[i])}))
+             .sort((a,b)=>b.score-a.score || a.i-b.i);
+}
+// the tool: the two best chunks with a score above zero, formatted as the ToolMessage text
+function searchHandbook(query){ return rank(query).slice(0,2).filter(d=>d.score>0); }
+const toolText=hits=>hits.map(h=>`[${h.id}] ${h.text}`).join("\n")||"No matching chunks.";
+const msgChars=m=>m.type==="human"?m.text.length:m.type==="call"?m.query.length:m.text.length;
+// the scripted model: answer once every evidence chunk has been observed or the plan is used up, else search again
+function policy(Q,msgs){
+  const seen=new Set(msgs.filter(m=>m.type==="tool").flatMap(m=>m.hits.map(h=>h.id)));
+  const searches=msgs.filter(m=>m.type==="call").length;
+  if(Q.rel.every(r=>seen.has(r)) || searches>=Q.plan.length) return {type:"ai",text:"ANSWER"};
+  return {type:"call",query:Q.plan[searches]};
+}
+// the graph: model, then tools; single shot ends after the tools, ReAct goes back to the model.
+// ModelCallLimitMiddleware runs before each model call and ends the run once run_limit calls have been made.
+function run(qi,wiring,limit){
+  const Q=QUERIES[qi], msgs=[{type:"human",text:Q.q}];
+  let calls=0, chars=0;
+  for(;;){
+    if(wiring==="react" && calls>=limit){ msgs.push({type:"ai",text:`Model call limits exceeded: run limit (${calls}/${limit})`,limit:true}); break; }
+    chars+=msgs.reduce((a,m)=>a+msgChars(m),0);
+    const out=policy(Q,msgs); calls++;
+    if(out.type==="ai"){ msgs.push(out); break; }
+    msgs.push(out);
+    const hits=searchHandbook(out.query);
+    msgs.push({type:"tool",hits,text:toolText(hits)});
+    if(wiring==="single") break;
+  }
+  const seen=new Set(msgs.filter(m=>m.type==="tool").flatMap(m=>m.hits.map(h=>h.id)));
+  const last=msgs[msgs.length-1];
+  const outcome=last.type==="tool"?"raw":last.limit?"capped":"answered";
+  return {Q,msgs,calls,searches:msgs.filter(m=>m.type==="call").length,
+          recall:Q.rel.filter(r=>seen.has(r)).length/Q.rel.length,tokens:Math.round(chars/4),outcome};
+}
+// ENGINE END
+
+let qi=0;
+QUERIES.forEach((Q,i)=>{
+  const id='q'+i;
+  $('queryOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="q" id="${id}" value="${i}"${i===0?' checked':''}><label class="opt" for="${id}">${Q.q}</label>`);
+  $(id).addEventListener('change',()=>{qi=i;render();});
+});
+const wiring=()=>$('wReact').checked?'react':'single';
+const OUT={answered:'Answered',capped:'Stopped at the cap',raw:'Raw tool output'};
+const ids=(hits,Q)=>hits.length?hits.map(h=>`<span class="${Q.rel.includes(h.id)?'ev':''}">${h.id}</span>`).join(', '):'none';
+
+function render(){
+  const w=wiring(), cap=+$('cap').value, r=run(qi,w,cap), Q=r.Q;
+  $('cap').disabled=w==='single';
+  $('capVal').textContent=w==='single'?'n/a':cap;
+  $('sCalls').textContent=r.calls; $('sSearch').textContent=r.searches;
+  $('sRecall').textContent=r.recall.toFixed(2); $('sTok').textContent=r.tokens;
+  $('sOutcome').textContent=OUT[r.outcome]; $('sOutcome').className=r.outcome==='answered'?'is-good':'is-bad';
+  $('sOutcomeNote').textContent='what the user receives';
+
+  let rows='';
+  r.msgs.forEach((m,i)=>{
+    const user=i===r.msgs.length-1;
+    let kind, tx;
+    if(m.type==='human'){ kind='HumanMessage'; tx=m.text; }
+    else if(m.type==='call'){ kind='AIMessage'; tx=`tool call <code>search_handbook("${m.query}")</code>`; }
+    else if(m.type==='tool'){ kind='ToolMessage'; tx=`<span class="ids">${ids(m.hits,Q)}</span>`; }
+    else if(m.limit){ kind='AIMessage'; tx=`<code>${m.text}</code>`; }
+    else { const seen=r.msgs.filter(x=>x.type==='tool').flatMap(x=>x.hits).filter(h=>Q.rel.includes(h.id)).map(h=>h.id);
+      kind='AIMessage'; tx=`Final answer, written from <span class="ids">${[...new Set(seen)].map(s=>`<span class="ev">${s}</span>`).join(', ')}</span>`; }
+    rows+=`<tr class="${user?'is-user':''}"><td class="num">${i+1}</td><td class="kind">${kind}</td><td class="tx">${tx}</td></tr>`;
+    if(user) rows+=`<tr class="cut"><td colspan="3"><span>The run ends here; the user receives the message above</span></td></tr>`;
+  });
+  $('trace').innerHTML=rows;
+
+  let sr=0, sc=0, na=0, base='';
+  QUERIES.forEach((q,i)=>{ const x=run(i,w,cap); sr+=x.recall; sc+=x.calls; na+=x.outcome==='answered';
+    base+=`<tr${i===qi?' class="cur"':''}><td>${q.q}</td><td class="num">${x.recall.toFixed(2)}</td><td class="num">${x.calls}</td><td>${OUT[x.outcome]}</td></tr>`; });
+  $('baseline').innerHTML=base;
+  $('mRecall').textContent=(sr/QUERIES.length).toFixed(2); $('mCalls').textContent=sc; $('mAnswered').textContent=`${na} of ${QUERIES.length} answered`;
+
+  const first=r.msgs.find(m=>m.type==='tool'), co=$('callout');
+  const need=run(qi,'react',99).calls;
+  if(r.outcome==='raw'){
+    co.innerHTML=`<b>One search, then the graph ends.</b> The user receives the ToolMessage itself, chunks <span class="ids">${ids(first.hits,Q)}</span>, not a sentence. ` +
+      (r.recall<1 ? `The evidence it holds is ${r.recall.toFixed(2)} of what the question needs, and no second search can happen because nothing reads this result. ` : `Both evidence chunks are in it, but no model call reads them and writes the answer. `) +
+      `Switch to ReAct: one edge, tools → model, closes the loop.`;
+  } else if(r.outcome==='answered'){
+    const later=r.msgs.filter(m=>m.type==='call').slice(1);
+    co.innerHTML=`<b>Answered after ${r.calls} model calls.</b> ` +
+      (later.length ? `Every search after the first was chosen after reading the result before it: ${later.map(m=>`<code>${m.query}</code>`).join(', then ')}. TF-IDF missed on the question’s own words, and the loop recovered by rewording. ` :
+        `The first search returned both evidence chunks, so the loop costs one call more than single shot: the call that reads the result and writes the answer. `) +
+      `Every call rereads the whole message list, so the run read about ${r.tokens} tokens of context.`;
+  } else {
+    co.innerHTML=`<b>The cap ended the run at ${cap} model call${cap>1?'s':''}.</b> ` +
+      (r.recall===1 ? `Both evidence chunks were already in the message list. The cap blocked the one call that would have read them and written the answer, so the user receives the limit message. ` :
+        `The model had retrieved ${r.recall.toFixed(2)} of the evidence when the middleware stopped it. `) +
+      `This question needs ${need} calls. A cap bounds cost; it cannot make a search find something, so set it from the call counts your golden set needs, with headroom.`;
+  }
+}
+document.querySelectorAll('#wiring input').forEach(el=>el.addEventListener('change',render));
+$('cap').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

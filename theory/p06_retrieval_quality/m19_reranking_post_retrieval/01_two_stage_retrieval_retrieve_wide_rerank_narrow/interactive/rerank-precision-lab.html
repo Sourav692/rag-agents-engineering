@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retrieve wide, rerank narrow</title>
+<meta name="description" content="M19 lab: a 100-chunk handbook, a bi-encoder first stage and two real cross-encoders; move k, switch the reranker, and read recall, precision at 5 and the milliseconds it costs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the candidate ledger, each chunk's first-stage rank beside its reranked place, with the firm rule where the five chunks sent to the model end · states: full only; every score is precomputed and embedded, so the page has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: P, a teaching tool argues little on its own; the reading under the controls names which chunk moved, by how much, and what it cost */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+/* Hallmark · dropped the chunk text column · a 700px column cannot hold six columns; each chunk's text sits under its id in the same cell */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt, .opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.opt small { margin-left: var(--space-2xs); font: 400 var(--text-xs)/1 var(--font-outlier); opacity: 0.8; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd small { font-size: var(--text-sm); color: var(--color-muted); letter-spacing: 0; }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+code, .cid { font-family: var(--font-outlier); font-size: 0.9em; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.sheet .note { margin-top: var(--space-sm); }
+.query-opts .opt { width: 100%; }
+
+/* the candidate ledger */
+#cands td.chunk { min-width: 0; }
+#cands .cid { display: block; color: var(--color-ink); }
+#cands .tx { display: block; margin-top: var(--space-3xs); color: var(--color-muted); }
+#cands tr.is-out td { color: var(--color-muted); }
+#cands tr.is-out .cid { color: var(--color-muted); }
+#cands tr.is-evidence .cid { color: var(--color-accent); }
+#cands tr.is-evidence .tx { color: var(--color-ink-2); }
+#cands td.ev { white-space: nowrap; color: var(--color-accent); }
+#cands td.up { color: var(--color-success); }
+#cands td.down { color: var(--color-error); }
+#cands tr.cut td { padding: 0; border-top: var(--rule-bar) solid var(--color-accent); }
+#cands tr.cut span { display: block; padding: var(--space-2xs) 0 var(--space-xs); font-size: var(--text-sm); color: var(--color-accent); }
+#cands tr.gap td { color: var(--color-muted); font-style: italic; }
+.sbar { display: block; height: 3px; margin-top: var(--space-2xs); background: var(--color-paper-2); }
+.sbar i { display: block; height: 100%; width: calc(var(--s) * 100%); background: var(--color-ink-2); }
+.base tr.cur td, .lat tr.cur td { color: var(--color-ink); background: var(--color-paper-2); }
+.base tfoot td { padding: var(--space-xs) var(--space-md) 0 0; border-top: var(--rule-bar) solid var(--color-rule-2); color: var(--color-ink); font-weight: 500; }
+.base tfoot td:last-child { padding-right: 0; }
+.base tfoot td.num { font-weight: 400; }
+@media (max-width: 40rem) {
+  .rank thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #cands tr:not(.cut):not(.gap) { display: grid; grid-template-columns: 3ch repeat(4, minmax(0, 1fr)); gap: var(--space-2xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  #cands tr:not(.cut):not(.gap) td { border: 0; padding: 0; }
+  #cands td.chunk { grid-column: 2 / -1; grid-row: 1; }
+  #cands td.num:not(:first-child) { grid-row: 2; text-align: left; }
+  #cands td:nth-child(3) { grid-column: 2; } #cands td:nth-child(4) { grid-column: 3; } #cands td:nth-child(5) { grid-column: 4; } #cands td:nth-child(6) { grid-column: 5; }
+  #cands td.num:not(:first-child)::before { content: attr(data-l); display: block; font: 400 var(--text-xs)/1.3 var(--font-body); color: var(--color-muted); }
+  #cands td.ev { grid-column: 2 / -1; grid-row: 3; }
+  #cands td.ev:empty { display: none; }
+  #cands tr.cut, #cands tr.gap { display: block; }
+  #cands tr.gap td { display: block; }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls, the numbers and the ledger share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.base { order: 2; }
+html.embedded .sheet.lat { order: 3; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+  html.embedded .query-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab ranks and scores its tables in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M19 lab, post-retrieval optimisation and reranking</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Retrieve wide, rerank narrow.</h1>
+    <p class="lead">A 100-chunk Larkspur Cloud handbook. A bi-encoder returns the top <code>k</code> chunks; a cross-encoder rescores those <code>k</code> pairs and the best five go to the model. Every score here is real model output, computed offline and embedded.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Golden question</legend><div class="seg__opts query-opts" id="queryOpts"></div></fieldset>
+      <div class="field">
+        <label for="k">First-stage depth, chunks the bi-encoder returns (k)</label>
+        <input type="range" id="k" min="5" max="50" step="1" value="20">
+        <output class="val" id="kVal" for="k"></output>
+      </div>
+      <div class="seg__opts" id="presets" role="group" aria-label="Jump to a value of k"></div>
+      <fieldset class="seg"><legend>Second stage, the reranker</legend><div class="seg__opts" id="modelOpts"></div></fieldset>
+      <dl class="stats">
+        <div><dt>Recall@k, first stage</dt><dd id="sRecall"></dd></div>
+        <div><dt>Precision@5, no rerank</dt><dd id="sBefore"></dd></div>
+        <div><dt>Precision@5, reranked</dt><dd id="sAfter"></dd></div>
+        <div><dt>Rerank latency for k pairs</dt><dd id="sLat"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="candHead">
+        <div class="sheet__head"><h2 id="candHead">The k candidates, in the order the model sees them</h2></div>
+        <div class="scroll"><table class="rank">
+          <thead><tr><th class="num" scope="col">Rank</th><th scope="col">Chunk</th><th class="num" scope="col">Stage 1</th><th class="num" scope="col">Moved</th><th class="num" scope="col">Cosine</th><th class="num" scope="col">Rerank</th><th scope="col">Golden set</th></tr></thead>
+          <tbody id="cands"></tbody>
+        </table></div>
+        <p class="note" id="unreached"></p>
+        <p class="note">Stage 1 is the chunk’s rank by cosine similarity. Rerank is the cross-encoder’s score for the (question, chunk) pair: a raw logit for MiniLM-L6, a 0 to 1 sigmoid for bge-reranker-v2-m3. Only the order matters. Rows past rank 10 that hold no evidence are folded.</p>
+      </section>
+      <section class="sheet base" aria-labelledby="baseHead">
+        <div class="sheet__head"><h2 id="baseHead">All four questions at this k</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Golden question</th><th class="num" scope="col">Recall@k</th><th class="num" scope="col">P@5 before</th><th class="num" scope="col">P@5 after</th></tr></thead>
+          <tbody id="baseline"></tbody>
+          <tfoot><tr><td>Mean</td><td class="num" id="mRecall"></td><td class="num" id="mBefore"></td><td class="num" id="mAfter"></td></tr></tfoot>
+        </table></div>
+        <p class="note">Each question has two or three evidence chunks, so precision@5 tops out at 0.40 or 0.60. Compare the two precision columns; the M11 baseline row works the same way.</p>
+      </section>
+      <section class="sheet lat" aria-labelledby="latHead">
+        <div class="sheet__head"><h2 id="latHead">What the second stage costs</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th class="num" scope="col">k pairs</th><th class="num" scope="col">MiniLM-L6, ms</th><th class="num" scope="col">bge-reranker-v2-m3, ms</th></tr></thead>
+          <tbody id="latency"></tbody>
+        </table></div>
+        <p class="note" id="hw"></p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const DATA={"bi":"sentence-transformers/all-MiniLM-L6-v2","ce":{"mini":"cross-encoder/ms-marco-MiniLM-L-6-v2","m3":"BAAI/bge-reranker-v2-m3"},"docs":[["billing","Monthly plans are billed at the start of each billing cycle. Annual plans are billed once a year on the purchase date."],["invoices","Invoices are emailed to the billing contact and can be downloaded as PDF from the Billing page for the last 24 months."],["payment-methods","Larkspur accepts major credit cards and, on business plans, bank transfer. You can change the payment method at any time."],["failed-payment","If a payment fails, we retry it three times over seven days. After the last retry the account is suspended until the balance is paid."],["tax","Prices exclude sales tax and VAT. Tax is added on the invoice based on the billing address of the account."],["plan-change","Upgrading a plan takes effect at once and is prorated. Downgrades apply at the start of the next billing cycle."],["annual-discount","Annual plans cost the same as ten months of the monthly price, so paying yearly saves about 17 percent."],["usage-billing","Outbound traffic above the amount included in your plan is billed per GB at the end of the month."],["refund-window","An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic."],["refund-timing","Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement."],["refund-request","To ask for your money back, open a ticket with the category Billing and include the invoice number. Support confirms eligibility within one business day."],["refund-monthly","Monthly plans are not refunded for partial months. Cancelling a monthly plan stops the next charge instead."],["chargeback","Disputing a charge with your bank instead of contacting support suspends the account while the dispute is open."],["promo","Promotional credits expire 12 months after they are issued and cannot be paid out as cash."],["cancel","You can cancel any plan from the Billing page. Cancelling stops the next charge, and servers keep running until the paid period ends."],["retention","After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes."],["export","Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots."],["export-format","Database exports are plain SQL dumps; object storage is exported as a tar archive per bucket, with a manifest of checksums."],["delete-account","Deleting the account removes every server, snapshot and bucket at once. It cannot be undone, and no retention window applies."],["transfer","To move a project to another Larkspur account, use Transfer project in Settings. Billing moves to the new owner on the next cycle."],["import","You can import a database from another provider by uploading a SQL dump of up to 50 GB from the console."],["data-residency","Data stays in the region you choose when you create a server. Larkspur does not copy customer data between regions."],["sla","Larkspur guarantees 99.95% monthly availability. If an outage pushes availability below that, you receive service credits on the next invoice."],["sla-claim","Service credits for an outage are added automatically; you do not need to file a claim. Credits are 10 percent of the monthly fee per hour below the SLA."],["incidents","During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery."],["host-failure","If the physical host fails, your server restarts automatically on a healthy host within about five minutes, keeping its disk and IP address."],["status-subscribe","Subscribe to the status page by email or webhook to get a message when an incident in your region starts and ends."],["maintenance","Planned maintenance is announced seven days ahead and runs between 02:00 and 05:00 local time in the affected region."],["monitoring","Uptime checks ping your server every minute from three locations and alert you when two of them fail."],["ddos","Every server has basic DDoS protection at the network edge. Attacks above 10 Gbps are null-routed to protect other customers."],["sizing","Choose a server size by peak memory use. Each server plan lists vCPUs, memory and included outbound traffic."],["memory-plans","Memory-optimised plans give 8 GB of RAM per vCPU and suit databases and caches that keep their working set in memory."],["disk-iops","Local NVMe disks deliver up to 50,000 IOPS. Network volumes are slower but survive a host failure and can move between servers."],["resize","You can resize a server to a larger plan from the console. The server reboots once, and the disk can grow but never shrink."],["reboot","You can reboot a server from the console. A reboot takes about a minute and does not change the server IP address."],["cpu-plans","CPU-optimised plans use dedicated cores and suit build servers, video encoding and other compute-bound jobs."],["shared-plans","Starter servers share CPU with neighbours and are meant for test environments and small websites, not production databases."],["server-limits","New accounts can run up to 10 servers. Ask support to raise the limit once the first invoice is paid."],["managed-db","Managed databases run PostgreSQL or MySQL with daily backups and automatic failover, sized separately from servers."],["os-images","Servers can boot Ubuntu, Debian, Rocky Linux or a custom image uploaded as a qcow2 file."],["ip-addresses","Each server gets one public IPv4 and one IPv6 address. Extra IPv4 addresses cost a small monthly fee."],["firewall","Cloud firewalls filter inbound traffic before it reaches the server. Rules apply to every server with the same tag."],["private-network","Servers in the same region can talk over a private network that does not count toward outbound traffic."],["load-balancer","Load balancers spread traffic across healthy servers and stop sending requests to a server that fails its health check."],["dns","Larkspur DNS is free for domains whose servers run on Larkspur. Records update worldwide within a minute."],["bandwidth","Each plan includes outbound traffic; inbound traffic is free. Unused traffic does not roll over to the next month."],["backups","Automatic backups run daily and are kept for seven days. Turning them on adds 20 percent to the server price."],["snapshots","Snapshots are manual, point-in-time copies of a server disk. They are billed per GB per month until you delete them."],["restore","Restoring a backup replaces the server disk with the backup copy. Files written after the backup are lost."],["object-storage","Object storage is S3-compatible and billed per GB stored, with outbound transfer counted against your plan."],["volume-limits","A network volume can be up to 10 TB and attach to one server at a time in the same region."],["two-factor","Turn on two-factor authentication under Account, then Security. Business plans can require it for every team member."],["team-roles","Team members can be owners, billing managers or developers. Only owners can cancel a plan or delete the account."],["api-tokens","API tokens are scoped to one project and can be read-only. Revoke a token from the console if it leaks."],["audit-log","The audit log records every console and API action for 90 days, with the user, time and source IP address."],["compliance","Larkspur data centres are ISO 27001 certified. The SOC 2 report is available to business customers under NDA."],["support","Support tickets are answered within 4 hours on business plans and within 24 hours on starter plans."],["support-phone","Business plans include phone support for incidents rated urgent. Other questions go through tickets."],["community","The community forum is free for every customer and moderated by Larkspur engineers on weekdays."],["status-history","The status page keeps a public history of every incident for the past 12 months, with its duration and affected regions."],["card-descriptor","Card charges appear on your statement as LARKSPUR CLOUD followed by the invoice number."],["card-update","Update the card on file from the Billing page. The new card is used for the next invoice and any failed retries."],["refund-credit","Refunds for a downgrade or an unused add-on are issued as account credit, not back to the card."],["refund-currency","Refunds are issued in the currency of the original charge. Your bank sets the exchange rate it applies."],["refund-expired-card","If the card you paid with has expired or been replaced, your bank still routes the refund to the new card. Allow the full 10 business days."],["credit-balance","Account credit is applied to the next invoice automatically and does not expire while the account is open."],["affiliate-payout","Affiliate commissions are paid by bank transfer once a month, 30 days after the referred customer pays."],["refund-tax","When an invoice is refunded, the tax charged on it is refunded too and the corrected invoice is emailed to you."],["sla-exclusions","Planned maintenance and outages caused by your own configuration do not count against the SLA and earn no credits."],["region-outage","If a whole region goes down, servers are not moved to another region. Keep a standby in a second region for critical workloads."],["incident-severity","Incidents are rated minor, major or critical. Critical incidents page the on-call engineer and post an update every 30 minutes."],["uptime-report","The status page shows last month's measured availability for each region and each product."],["db-versions","Managed PostgreSQL supports versions 14 to 17. Minor upgrades are applied in the maintenance window; major upgrades are started by you."],["db-pooling","Use the built-in PgBouncer pool when your application opens many short connections to a managed PostgreSQL database."],["db-replicas","Read replicas copy a managed database to up to three extra nodes and serve read-only queries."],["pg-extensions","Managed PostgreSQL ships with common extensions such as PostGIS, pg_trgm and pgvector; others can be requested."],["export-api","The export API starts an export job and returns a download link when it finishes. Links expire after 24 hours."],["export-size","Exports larger than 500 GB are split into parts of 100 GB each, downloaded one at a time."],["cancel-access","After you cancel, the account owner can still sign in to the console and download exports until the retention window ends."],["regions","Larkspur runs data centres in Frankfurt, Amsterdam, Virginia, Oregon and Singapore."],["gpu-plans","GPU servers with one or two L40S cards are available in Frankfurt and Virginia, billed by the hour."],["kubernetes","Managed Kubernetes runs the control plane for free; you pay only for the worker servers and load balancers."],["cdn","The CDN caches static files at 40 edge locations and is billed per GB delivered."],["smtp","Outbound mail on port 25 is blocked on new accounts to stop spam. Ask support to open it once the first invoice is paid."],["ssh-keys","Add SSH keys in the console before creating a server; they are copied to the root account at first boot."],["rescue-mode","Rescue mode boots a server from a small recovery system so you can repair a disk or reset a lost root password."],["cli","The larkspur command-line tool manages servers, volumes and DNS from a terminal and reads the same API tokens as the console."],["terraform","An official Terraform provider covers servers, networks, firewalls, volumes and DNS records."],["sso","Business plans can sign in with SAML single sign-on through Okta, Entra ID or Google Workspace."],["password-reset","Reset a forgotten console password from the sign-in page. The link in the email is valid for one hour."],["startup-program","Startups in an accelerator can apply for up to 12 months of free credit through the startup program."],["acceptable-use","Crypto mining, open proxies and bulk unsolicited email are not allowed. Accounts that break the policy are suspended."],["abuse-reports","Abuse reports about your server are forwarded to you by email; reply within 24 hours to avoid suspension."],["floating-ip","A floating IP can move between servers in the same region in seconds, which helps with manual failover."],["reverse-dns","Set reverse DNS for any IP address from the server's Networking tab."],["metrics","The console graphs CPU, memory, disk and network use for every server, kept for 30 days."],["alerts","Alert rules send an email, Slack message or webhook when a metric crosses a threshold for five minutes."],["lifecycle","Object storage lifecycle rules can delete or archive objects after a set number of days."],["migration-help","Business customers moving more than 20 servers can book a free migration call with a solutions engineer."],["ipv6-only","IPv6-only servers cost less because they skip the public IPv4 address; reach them over IPv6 or a load balancer."]],"queries":[{"q":"How long until a refund shows up on my card?","rel":["refund-timing","refund-expired-card"],"bi":[0.17061,0.184653,0.098959,0.493192,0.008302,0.147066,0.063773,0.162543,0.55106,0.693141,0.474824,0.390588,0.26528,0.313353,0.220765,0.19059,-0.023442,-0.02475,0.095361,0.03883,-0.038162,0.070516,0.130774,0.166195,0.210172,0.211433,0.143879,0.169871,0.138762,-0.003444,-0.040478,-0.023062,0.071097,0.032804,0.089888,-0.06696,-0.095198,0.034272,-0.05947,-0.030202,-0.032415,0.079188,0.000279,-0.065324,0.036794,0.1236,0.186583,0.123673,0.129167,0.112641,-0.000822,-0.098229,0.034547,-0.060211,0.147121,-0.011518,0.306955,0.094581,0.027334,0.087433,0.29446,0.352406,0.546917,0.460171,0.744094,0.248402,0.312194,0.308397,0.062319,0.050857,0.024097,0.098612,-0.030815,-0.057662,-0.054111,-0.093872,0.171772,0.010362,0.19367,-0.024073,0.180034,0.004913,0.151004,0.102414,-0.11692,0.04964,-0.084775,-0.018006,-0.019985,0.160648,0.270648,0.04552,0.272638,0.065726,-0.023192,0.068427,0.113473,0.21524,-0.080607,-0.10396],"ce":{"mini":[-10.861977577209473,-7.483473777770996,-11.166572570800781,-3.3291773796081543,-11.011096954345703,-10.976387023925781,-10.542938232421875,-10.660402297973633,0.52402263879776,4.798559188842773,-6.825242042541504,-5.017657279968262,-10.766910552978516,-3.6820013523101807,-9.181516647338867,-5.3114166259765625,-11.299485206604004,-11.36992073059082,-11.181696891784668,-11.36520004272461,-11.23442554473877,-11.391986846923828,-11.187814712524414,-11.191690444946289,-7.862161159515381,-8.212535858154297,-11.340346336364746,-9.728715896606445,-10.918492317199707,-11.337057113647461,-11.328618049621582,-11.309951782226562,-11.281484603881836,-11.27745532989502,-9.97928237915039,-11.321625709533691,-11.356541633605957,-11.15826416015625,-11.37049674987793,-11.348450660705566,-11.357521057128906,-11.353432655334473,-11.34554672241211,-11.307188987731934,-11.29271125793457,-11.195270538330078,-9.12256145477295,-10.277679443359375,-11.139753341674805,-11.27196216583252,-11.258685111999512,-11.304080963134766,-11.180597305297852,-11.266024589538574,-7.741950988769531,-11.337112426757812,-7.361212730407715,-11.335887908935547,-11.306619644165039,-10.338253021240234,-10.186267852783203,-8.12622356414795,-2.5991291999816895,-5.944060325622559,4.940195560455322,-10.5532865524292,-8.36863899230957,-8.218570709228516,-11.307437896728516,-11.322240829467773,-10.97134780883789,-11.311010360717773,-11.286266326904297,-11.377227783203125,-11.33414363861084,-11.382535934448242,-8.141546249389648,-11.30424690246582,-8.750468254089355,-11.334409713745117,-11.209922790527344,-11.369369506835938,-11.342941284179688,-11.126885414123535,-11.341548919677734,-11.218338012695312,-11.335692405700684,-11.346475601196289,-11.351694107055664,-8.926553726196289,-7.952223777770996,-11.291604995727539,-8.21345329284668,-11.306695938110352,-11.35048770904541,-9.701116561889648,-10.450331687927246,-9.848943710327148,-11.37704849243164,-11.338434219360352],"m3":[6.378952821251005e-05,0.0008372255251742899,1.62195683515165e-05,0.004932545591145754,1.7703196135698818e-05,6.40051657683216e-05,1.603287091711536e-05,1.6281697753584012e-05,0.3723725378513336,0.9006253480911255,0.033452216535806656,0.0001846787054091692,1.813450398913119e-05,0.00032988213934004307,4.392559276311658e-05,0.0009200040949508548,1.615706059965305e-05,1.6053372746682726e-05,1.6822847101138905e-05,1.61746811500052e-05,1.6103849702631123e-05,1.6047035387600772e-05,1.6165799024747685e-05,1.7038035366567783e-05,0.0013333940878510475,8.568835619371384e-05,1.6450430848635733e-05,1.6870497347554192e-05,2.5612634999561124e-05,1.6183568732230924e-05,1.651768252486363e-05,1.6347026758012362e-05,1.623258322069887e-05,1.6078760381788015e-05,1.701492874417454e-05,1.665350100665819e-05,1.6629757737973705e-05,6.113470590207726e-05,1.6039095498854294e-05,1.630122642382048e-05,1.6352485545212403e-05,1.6213491107919253e-05,1.66816189448582e-05,1.63951135618845e-05,1.623874413780868e-05,1.5988438462954946e-05,5.173557292437181e-05,1.8871369320550002e-05,1.6031082850531675e-05,1.618307396711316e-05,1.665021409280598e-05,1.611764673725702e-05,1.615342262084596e-05,1.6062958820839413e-05,0.00016136060003191233,1.6087395124486648e-05,0.0015048778150230646,1.608991078683175e-05,1.6030056940508075e-05,0.0003355778462719172,0.00015309163427446038,0.00041215072269551456,0.0012037554988637567,0.0016146954149007797,0.7856175303459167,0.00013056483294349164,0.0008199676522053778,0.00048662631888873875,1.603710734343622e-05,1.6166199202416465e-05,8.125505701173097e-05,1.6243948266492225e-05,1.624509422981646e-05,1.6118538042064756e-05,1.6085461538750678e-05,1.605573015694972e-05,0.00013394263805821538,1.6028008758439682e-05,7.659947004867718e-05,1.6177873476408422e-05,1.6050340491347015e-05,1.6502315702382475e-05,1.6073256119852886e-05,3.185254172421992e-05,1.6203397535718977e-05,1.6045871234382503e-05,1.6262440112768672e-05,1.6128255083458498e-05,1.612582491361536e-05,0.00011211184755666181,2.023124943661969e-05,1.6050264093792066e-05,0.00016908459656406194,1.6068504919530824e-05,1.6365776900784113e-05,4.715111572295427e-05,0.0001394350256305188,2.481266164977569e-05,1.6119276551762596e-05,1.6519808923476376e-05]}},{"q":"Do I get compensated when Larkspur has an outage?","rel":["sla","sla-claim","sla-exclusions"],"bi":[0.138682,0.171624,0.569975,0.284849,0.127338,0.215974,0.162845,0.232149,0.233402,0.232438,0.325287,0.244963,0.228112,0.195228,0.274336,0.168328,-0.017013,-0.002292,0.095074,0.490043,0.113194,0.43612,0.753049,0.403513,0.257234,0.166278,0.223276,0.244684,0.172513,0.106111,0.041337,-0.005274,0.030114,0.085704,0.122291,-0.006367,0.029519,0.199883,0.07302,0.008662,0.071699,-0.04281,0.116437,0.10641,0.422287,0.242375,0.150942,0.065539,0.075198,0.021416,-0.03977,0.051856,0.157795,0.039913,0.048915,0.445283,0.254233,0.29025,0.437746,0.101534,0.418217,0.222614,0.252826,0.174347,0.240914,0.178403,0.133767,0.215835,0.358372,0.218723,0.164566,0.133134,0.078439,0.101596,0.107772,-0.045771,0.089329,-0.048271,0.152778,0.391045,0.057009,0.142565,0.064828,0.170913,-0.034064,0.055924,0.293942,0.08967,0.031861,0.089536,0.131999,0.042619,0.190631,0.126277,-0.004454,0.055625,0.018382,0.025229,0.132438,0.077133],"ce":{"mini":[-11.36548900604248,-11.41386604309082,-2.967740058898926,-10.82805061340332,-11.38174819946289,-11.380096435546875,-11.301427841186523,-10.501338958740234,-9.637690544128418,-11.239283561706543,-11.343133926391602,-11.242120742797852,-11.05095386505127,-10.167346000671387,-11.330299377441406,-11.369170188903809,-11.437884330749512,-11.454133987426758,-11.353914260864258,-3.9813554286956787,-11.443459510803223,-4.6109209060668945,3.612466812133789,-5.4013824462890625,-11.328649520874023,-11.385984420776367,-11.317173957824707,-11.35095500946045,-11.342913627624512,-11.429437637329102,-11.37857437133789,-11.406570434570312,-11.40049934387207,-11.43526840209961,-11.449313163757324,-11.412874221801758,-11.43265151977539,-11.356940269470215,-11.431533813476562,-11.438586235046387,-11.411260604858398,-11.448724746704102,-11.025894165039062,-11.40538215637207,-4.86085319519043,-10.6924409866333,-11.294731140136719,-11.41018009185791,-11.434846878051758,-11.248008728027344,-11.403482437133789,-11.412750244140625,-11.329289436340332,-11.406113624572754,-11.454632759094238,-5.18563175201416,-11.344154357910156,-11.356378555297852,-5.18638801574707,-11.370916366577148,-4.948245525360107,-11.416267395019531,-11.162008285522461,-11.341745376586914,-11.09702205657959,-11.384082794189453,-11.197610855102539,-11.298547744750977,-6.178267002105713,-11.33548355102539,-11.42963695526123,-11.349906921386719,-11.398261070251465,-11.442673683166504,-11.423507690429688,-11.417390823364258,-11.407397270202637,-11.408662796020508,-11.282888412475586,-4.948176383972168,-11.418058395385742,-11.309854507446289,-11.447317123413086,-10.897757530212402,-11.441817283630371,-11.434564590454102,-5.360805988311768,-11.407279968261719,-11.437335968017578,-11.468355178833008,-11.40410041809082,-11.354536056518555,-11.260854721069336,-11.435653686523438,-11.421148300170898,-11.438514709472656,-11.456175804138184,-11.448685646057129,-11.386269569396973,-11.417314529418945],"m3":[1.6206889995373785e-05,1.6043883078964427e-05,0.000555596430785954,1.6407377188443206e-05,1.6020705515984446e-05,1.6114019672386348e-05,1.601871736056637e-05,0.00011824393004644662,0.00018691101286094636,1.6151467207237147e-05,1.8221580830868334e-05,1.612722553545609e-05,1.607679769222159e-05,1.610157596587669e-05,1.6149033399415202e-05,1.597760092408862e-05,1.6093195881694555e-05,1.614421489648521e-05,1.606399928277824e-05,7.94957231846638e-05,1.6267062164843082e-05,0.00012100300227757543,0.8841713070869446,0.002359573030844331,5.5230142606887966e-05,2.148326711903792e-05,2.1491441657417454e-05,3.0540388252120465e-05,1.621851697564125e-05,1.6144875189638697e-05,1.6113252058858052e-05,1.6262780263787135e-05,1.617937050468754e-05,1.6055179003160447e-05,1.605894613021519e-05,1.6435329598607495e-05,1.6270787455141544e-05,1.6120629879878834e-05,1.602110205567442e-05,1.6041405615396798e-05,1.6025043805711903e-05,1.607814738235902e-05,2.769214188447222e-05,1.614607754163444e-05,0.00148676463868469,2.3611743017681874e-05,1.6044801668613218e-05,1.6015312212402932e-05,1.6011723346309736e-05,1.6212532500503585e-05,1.607135527592618e-05,1.6033360225264914e-05,1.6147925634868443e-05,1.603039345354773e-05,1.615294604562223e-05,0.00034309353213757277,1.6127272829180583e-05,2.0865305486950092e-05,0.0012342481641098857,1.658253495406825e-05,0.0001715785765554756,1.6163394320756197e-05,1.625327604415361e-05,1.6171379684237763e-05,1.610825893294532e-05,1.6066083844634704e-05,1.6684769434505142e-05,1.6176223653019406e-05,0.0024968846701085567,2.022243461397011e-05,2.990498069266323e-05,1.6118385246954858e-05,1.6037978639360517e-05,1.6189449524972588e-05,1.6213041817536578e-05,1.608365164429415e-05,1.6200585378101096e-05,1.5978805095073767e-05,1.6073990991571918e-05,0.0004103768733330071,1.6061901987995952e-05,1.6528774722246453e-05,1.6071171557996422e-05,1.6022202544263564e-05,1.6140073057613336e-05,1.6200337995542213e-05,0.0006765378639101982,1.616410372662358e-05,1.6072552170953713e-05,1.608244019735139e-05,1.6106276234495454e-05,1.6076950487331487e-05,1.6183645129785873e-05,1.6049238183768466e-05,1.63212935149204e-05,1.62409596669022e-05,1.61293337441748e-05,1.6178475561900996e-05,1.620634793653153e-05,1.6206178770517e-05]}},{"q":"Can I export my data after I cancel my plan?","rel":["export","retention","cancel-access"],"bi":[0.217787,0.168203,0.173908,0.17616,0.135352,0.334562,0.197057,0.277199,0.331858,0.224081,0.270039,0.501561,0.234891,0.155241,0.561424,0.816594,0.479334,0.25562,0.343171,0.207218,0.227163,0.242488,0.144299,0.197895,0.10084,0.125977,0.145638,0.150235,0.044022,-0.004319,0.008568,0.054965,-0.088406,0.181174,0.184615,0.009752,-0.057885,0.04179,0.110626,0.022859,-0.034466,-0.056874,0.054217,0.00812,0.027205,0.331796,0.232965,0.26372,0.33031,0.233997,0.009957,0.227982,0.383316,0.148928,0.081499,0.062126,0.129736,0.249382,0.050046,0.025873,0.105,0.18415,0.264194,0.218703,0.239526,0.210635,0.075179,0.159988,0.25186,0.155812,0.015808,0.109345,0.002591,0.02864,0.078833,0.004884,0.419302,0.244239,0.6285,0.069443,-0.010806,0.07072,0.030422,0.023736,-0.020696,0.070434,0.017564,0.048349,0.18799,0.137571,0.028864,0.089132,0.062212,0.025425,-0.02138,0.055619,0.024182,0.193266,0.13093,-0.033228],"ce":{"mini":[-11.060924530029297,-11.091886520385742,-11.184758186340332,-10.6007080078125,-11.409383773803711,-10.558157920837402,-11.268471717834473,-10.39761734008789,-8.957579612731934,-11.175458908081055,-11.307924270629883,-4.089026927947998,-11.130034446716309,-10.978107452392578,-0.9638400077819824,7.769012928009033,-0.5194548964500427,-8.326077461242676,-10.284994125366211,-11.355019569396973,-8.536393165588379,-10.977185249328613,-11.3618803024292,-11.340587615966797,-11.405943870544434,-11.30006217956543,-11.383773803710938,-11.369829177856445,-11.356490135192871,-11.396322250366211,-11.328882217407227,-11.004268646240234,-11.330497741699219,-10.603120803833008,-11.234830856323242,-11.268463134765625,-11.391117095947266,-11.356203079223633,-11.300261497497559,-11.370575904846191,-11.393535614013672,-11.41927433013916,-11.359687805175781,-11.353445053100586,-11.403619766235352,-10.778766632080078,-11.37411880493164,-11.151775360107422,-11.01750373840332,-9.80459213256836,-11.36766242980957,-11.126300811767578,-4.343947410583496,-11.20962142944336,-11.366372108459473,-11.300508499145508,-11.258254051208496,-11.275461196899414,-11.387033462524414,-11.4313325881958,-11.436295509338379,-11.330387115478516,-11.17640209197998,-11.300897598266602,-10.951047897338867,-11.221704483032227,-11.344772338867188,-11.321271896362305,-11.191125869750977,-11.314943313598633,-11.422165870666504,-11.372374534606934,-11.380290985107422,-11.401211738586426,-11.301667213439941,-11.376485824584961,-4.914960861206055,-10.365721702575684,4.468259811401367,-11.232396125793457,-11.395955085754395,-11.398114204406738,-11.37254524230957,-11.322746276855469,-11.409696578979492,-11.366941452026367,-11.387164115905762,-11.356910705566406,-11.245055198669434,-11.4403076171875,-11.379758834838867,-10.648916244506836,-11.141500473022461,-11.355408668518066,-11.39074420928955,-11.374884605407715,-11.417299270629883,-9.847630500793457,-11.322572708129883,-11.370641708374023],"m3":[2.4511549781891517e-05,2.1165298676351085e-05,1.6363606846425682e-05,2.8629006919800304e-05,1.6100655557238497e-05,4.729486317955889e-05,1.5943916878313757e-05,2.098509867209941e-05,6.2985644035507e-05,1.8117167201125994e-05,1.840444929257501e-05,0.0001443666551494971,1.619278555153869e-05,1.6012822015909478e-05,0.0010412198025733232,0.9928037524223328,0.06427059322595596,0.0011996518587693572,2.4777098587946966e-05,1.7297297745244578e-05,0.0006098877056501806,8.518461254425347e-05,1.5983134289854206e-05,1.6001282347133383e-05,1.6076919564511627e-05,2.0938939996995032e-05,1.6056557797128335e-05,1.6193711417145096e-05,1.6035377484513447e-05,1.6037596651585773e-05,1.6151929230545647e-05,3.0457757020485587e-05,1.6101117580546997e-05,0.00012294088082853705,1.6381423847633414e-05,1.6827048966661096e-05,1.612951746210456e-05,1.8465401808498427e-05,1.6829360902193002e-05,1.6254347428912297e-05,1.6019053873606026e-05,1.6048366887844168e-05,1.6187364963116124e-05,1.6191626855288632e-05,1.6549247447983362e-05,1.6753538147895597e-05,1.6506250176462345e-05,1.8787886801874265e-05,3.827369073405862e-05,0.00037639023503288627,1.6069439880084246e-05,2.36459727602778e-05,0.00022395039559341967,1.6133610188262537e-05,1.764087392075453e-05,1.608242564543616e-05,2.0571251297951676e-05,1.60525905812392e-05,1.606226942385547e-05,1.6105401300592348e-05,1.6137379134306684e-05,3.095018837484531e-05,1.8004746380029246e-05,1.6693809811840765e-05,5.5627155234105885e-05,1.641733069845941e-05,1.6118599887704477e-05,1.6124888134072535e-05,1.6043026334955357e-05,1.600261020939797e-05,1.600209179741796e-05,1.6081688954727724e-05,1.8636561435414478e-05,1.6265479644061998e-05,1.792308103176765e-05,1.827521737141069e-05,0.002221091417595744,0.0003605396777857095,0.9073615074157715,1.6233232599915937e-05,1.6456298908451572e-05,1.599887036718428e-05,1.6087225958472118e-05,1.8320864910492674e-05,1.6101501387311146e-05,1.657224311202299e-05,1.6169051377801225e-05,1.655736195971258e-05,1.6813961337902583e-05,1.6081519788713194e-05,1.628890458960086e-05,1.645170232222881e-05,1.6460568076581694e-05,1.6079389752121642e-05,1.62815886142198e-05,1.7146037862403318e-05,1.6057261746027507e-05,2.4008028049138375e-05,1.6376736311940476e-05,1.601157055119984e-05]}},{"q":"Which plan should I pick for a PostgreSQL database?","rel":["memory-plans","disk-iops","managed-db"],"bi":[0.130188,-0.049597,0.201131,-0.040326,-0.040039,0.207513,0.195209,0.156604,0.165387,-0.052547,-0.067864,0.090107,-0.049659,-0.027721,0.0958,0.142925,0.230582,0.127115,0.06013,0.049765,0.200827,0.170826,0.147859,0.011202,-0.037537,0.023008,0.014149,0.106088,-0.001499,0.122448,0.232417,0.266451,0.0761,0.120252,-0.030629,0.243929,0.250587,0.090725,0.469774,-0.00059,0.1399,-0.029499,0.008248,0.036271,0.128736,0.185728,0.138312,0.10462,-0.033271,0.18144,0.12685,0.171571,0.040507,-0.089073,0.071328,0.118155,0.107658,0.218623,0.083809,0.116012,-0.028055,-0.104267,-0.059752,-0.105494,-0.082879,-0.043176,0.006303,-0.124473,0.06381,0.154362,0.081637,0.041645,0.447154,0.419849,0.234377,0.444776,-0.057048,0.080527,-0.043738,0.188748,0.03154,0.059301,0.064198,-0.053953,-0.075193,-0.046036,0.02101,0.064879,0.175428,-0.098994,0.186734,-0.04474,-0.054781,0.091137,-0.062443,0.145904,0.009169,0.091742,0.160078,0.133704],"ce":{"mini":[-11.174560546875,-11.446508407592773,-11.427677154541016,-11.452370643615723,-11.479262351989746,-11.216629028320312,-11.40235710144043,-11.104979515075684,-11.108256340026855,-11.453171730041504,-11.403264045715332,-11.339205741882324,-11.45062255859375,-11.473779678344727,-11.323661804199219,-10.94607925415039,-11.112150192260742,-10.989853858947754,-11.440853118896484,-11.41826057434082,-10.229573249816895,-11.29006576538086,-11.419336318969727,-11.46463394165039,-11.48369026184082,-11.448892593383789,-11.440279006958008,-11.436189651489258,-11.429450988769531,-11.419432640075684,-9.887845993041992,-9.168708801269531,-11.439247131347656,-11.285100936889648,-11.463800430297852,-10.828716278076172,-11.320211410522461,-11.37132740020752,0.06188519299030304,-11.402363777160645,-11.407747268676758,-11.461739540100098,-11.400213241577148,-11.439550399780273,-11.419631958007812,-10.884010314941406,-11.42597484588623,-11.435676574707031,-11.446027755737305,-10.823566436767578,-11.374530792236328,-11.195730209350586,-11.370213508605957,-11.399383544921875,-11.430480003356934,-11.402966499328613,-11.362347602844238,-11.166085243225098,-11.466636657714844,-11.495841979980469,-11.48884391784668,-11.478311538696289,-11.455985069274902,-11.480173110961914,-11.460071563720703,-11.468657493591309,-11.460663795471191,-11.464277267456055,-11.38542652130127,-11.287841796875,-11.480551719665527,-11.409256935119629,-1.93863046169281,-0.6353559494018555,-10.95091438293457,-1.6998226642608643,-11.410079956054688,-11.462335586547852,-11.444208145141602,-11.413809776306152,-11.453682899475098,-11.451703071594238,-11.398975372314453,-11.436417579650879,-11.446915626525879,-11.460538864135742,-11.438576698303223,-11.41177749633789,-10.918033599853516,-11.482817649841309,-11.453780174255371,-11.410305976867676,-11.432487487792969,-11.429214477539062,-11.434134483337402,-11.464414596557617,-11.480223655700684,-11.384870529174805,-11.384408950805664,-11.3532075881958],"m3":[0.00039820093661546707,1.5984627680154517e-05,1.672134385444224e-05,1.6031830455176532e-05,1.59882092702901e-05,0.00019425594655331224,0.0006550873513333499,2.8197106075822376e-05,0.0004124381812289357,1.606645128049422e-05,1.5997102309484035e-05,2.283148205606267e-05,1.617523594177328e-05,1.5989566236385144e-05,9.210580174112692e-05,6.213338929228485e-05,9.598042379366234e-05,5.8189740229863673e-05,1.928526944539044e-05,1.6257758034043945e-05,5.0442471547285095e-05,3.0097959097474813e-05,2.6644433091860265e-05,2.599111758172512e-05,1.617249108676333e-05,1.7973796275327913e-05,1.609399259905331e-05,1.598596827534493e-05,3.3586220524739474e-05,1.9003802663064562e-05,0.0020292839035391808,0.021800708025693893,5.941227209405042e-05,0.0002503089199308306,1.610996332601644e-05,0.0010205081198364496,0.00011396730405976996,2.752899490587879e-05,0.010640120133757591,1.7020431187120266e-05,2.7395770302973688e-05,2.053048592642881e-05,1.6003754353732802e-05,1.6989455616567284e-05,7.326783816097304e-05,0.0002204820775659755,8.633302059024572e-05,2.2631998945144005e-05,1.7802949514589272e-05,0.0008163603488355875,1.612699452380184e-05,0.0003646911936812103,3.539075987646356e-05,1.6993604731396772e-05,1.8067992641590536e-05,1.901930409076158e-05,0.00011670147068798542,0.00011695926514221355,1.618963506189175e-05,1.6024203432607464e-05,1.6068597687990405e-05,1.605476427357644e-05,1.6081536159617826e-05,1.5981624528649263e-05,1.623623575142119e-05,1.604368480911944e-05,1.6008745660656132e-05,1.5971370885381475e-05,1.612911728443578e-05,1.7674299670034088e-05,1.648240322538186e-05,1.6103174857562408e-05,0.03809394687414169,0.007866875268518925,8.833037281874567e-05,0.005437570158392191,1.70523562701419e-05,1.7046486391336657e-05,1.6050371414166875e-05,1.7864345863927156e-05,1.5970015738275833e-05,0.0002692236448638141,1.9639204765553586e-05,1.6069394405349158e-05,1.7017526261042804e-05,3.393411680008285e-05,3.623659722507e-05,0.00010277426190441474,0.0004421626217663288,1.6050371414166875e-05,1.610477193025872e-05,1.6169760783668607e-05,1.60820873134071e-05,1.614673965377733e-05,1.6356694686692208e-05,2.1578682208200917e-05,1.6024525393731892e-05,1.6259711628663354e-05,2.2705717128701508e-05,2.3577362298965454e-05]}}],"hw":"Apple M5 Pro, CPU, PyTorch 2.15.0, 5 threads","latency_fit":{"mini":[2.0,1.86],"m3":[-32.1,32.76]},"latency_ms":{"mini":[11.3,13.2,15.1,16.9,18.8,20.6,22.5,24.4,26.2,28.1,29.9,31.8,33.7,35.5,37.4,39.2,41.1,43.0,44.8,46.7,48.5,50.4,52.3,54.1,56.0,57.8,59.7,61.6,63.4,65.3,67.1,69.0,70.9,72.7,74.6,76.4,78.3,80.2,82.0,83.9,85.7,87.6,89.5,91.3,93.2,95.0],"m3":[131.7,164.5,197.3,230.0,262.8,295.5,328.3,361.1,393.8,426.6,459.3,492.1,524.9,557.6,590.4,623.1,655.9,688.7,721.4,754.2,786.9,819.7,852.5,885.2,918.0,950.7,983.5,1016.3,1049.0,1081.8,1114.5,1147.3,1180.1,1212.8,1245.6,1278.3,1311.1,1343.9,1376.6,1409.4,1442.1,1474.9,1507.7,1540.4,1573.2,1605.9]}};
+const DOCS=DATA.docs, QUERIES=DATA.queries, LAT=DATA.latency_ms;
+const MODELS=[
+  {key:'off', name:'Off', size:''},
+  {key:'mini', name:'MiniLM-L6', size:'22M', full:DATA.ce.mini},
+  {key:'m3', name:'bge-reranker-v2-m3', size:'568M', full:DATA.ce.m3}];
+const N=5;   // chunks sent to the model
+
+// first stage: every chunk by cosine, highest first; ties keep corpus order
+function firstStage(Q){ return DOCS.map((d,i)=>i).sort((a,b)=>Q.bi[b]-Q.bi[a] || a-b); }
+// second stage: the k candidates by cross-encoder score; ties keep first-stage order
+function rerank(Q,k,model){
+  const cand=firstStage(Q).slice(0,k);
+  if(model==='off') return cand;
+  const pos=new Map(cand.map((d,i)=>[d,i]));
+  return cand.slice().sort((a,b)=>Q.ce[model][b]-Q.ce[model][a] || pos.get(a)-pos.get(b));
+}
+const isRel=(Q,i)=>Q.rel.includes(DOCS[i][0]);
+const hits=(Q,list)=>list.filter(i=>isRel(Q,i)).length;
+function metrics(Q,k,model){
+  const fs=firstStage(Q), cand=fs.slice(0,k), order=rerank(Q,k,model);
+  return {fs, cand, order,
+    recall: hits(Q,cand)/Q.rel.length,
+    before: hits(Q,fs.slice(0,N))/N,
+    after: hits(Q,order.slice(0,N))/N,
+    latency: model==='off' ? 0 : LAT[model][k-5]};
+}
+
+let qi=1, model='m3';
+QUERIES.forEach((Q,i)=>{
+  $('queryOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="q" id="q${i}" value="${i}"${i===qi?' checked':''}><label class="opt" for="q${i}">${Q.q}</label>`);
+  $('q'+i).addEventListener('change',()=>{qi=i;render();});
+});
+MODELS.forEach(M=>{
+  $('modelOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="m" id="m-${M.key}" value="${M.key}"${M.key===model?' checked':''}><label class="opt" for="m-${M.key}">${M.name}${M.size?`<small>${M.size}</small>`:''}</label>`);
+  $('m-'+M.key).addEventListener('change',()=>{model=M.key;render();});
+});
+const PRESETS=[5,10,20,50];
+const pEls=PRESETS.map(k=>{ const b=document.createElement('button'); b.type='button'; b.className='opt'; b.textContent='k = '+k; b.onclick=()=>{$('k').value=k;render();}; $('presets').appendChild(b); return b; });
+$('hw').textContent=`Measured on ${DATA.hw}: one batch of k (question, chunk) pairs, the fastest of repeated runs at every k from 5 to 50, with a straight line fitted through them. That line costs ${DATA.latency_fit.mini[1].toFixed(1)} ms per pair for MiniLM-L6 and ${Math.round(DATA.latency_fit.m3[1])} ms per pair for bge-reranker-v2-m3. A GPU lowers every figure; the cost still grows with each pair.`;
+
+const f2=x=>x.toFixed(2);
+const and=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+const ids=list=>and(list.map(i=>`<code>${DOCS[i][0]}</code>`));
+const ms=x=>`${Math.round(x)} ms`;
+
+function render(){
+  const k=+$('k').value, Q=QUERIES[qi], m=metrics(Q,k,model), M=MODELS.find(x=>x.key===model);
+  $('kVal').textContent=k;
+  pEls.forEach((b,i)=>b.setAttribute('aria-pressed',String(PRESETS[i]===k)));
+  const fsRank=new Map(m.fs.map((d,i)=>[d,i+1]));
+
+  // the ledger: the k candidates in final order, the rule after row 5, quiet rows past 10 folded
+  const sc=model==='off'?null:Q.ce[model];
+  const bmax=Math.max(...m.cand.map(i=>Q.bi[i]));
+  let rows='', fold=0;
+  const flush=()=>{ if(fold){ rows+=`<tr class="gap"><td colspan="7">${fold} more candidate${fold>1?'s':''}, no evidence</td></tr>`; fold=0; } };
+  m.order.forEach((d,i)=>{
+    const ev=isRel(Q,d), r=i+1, from=fsRank.get(d), mv=from-r;
+    if(r>10 && !ev){ fold++; return; }
+    flush();
+    rows+=`<tr class="${r>N?'is-out':''}${ev?' is-evidence':''}"><td class="num">${r}</td><td class="chunk"><span class="cid">${DOCS[d][0]}</span><span class="tx">${DOCS[d][1]}</span></td>`+
+      `<td class="num" data-l="stage 1">${from}</td><td class="num ${mv>0?'up':mv<0?'down':''}" data-l="moved">${model==='off'||mv===0?'':(mv>0?'+':'')+mv}</td>`+
+      `<td class="num" data-l="cosine">${Q.bi[d].toFixed(3)}<span class="sbar" aria-hidden="true"><i style="--s: ${Math.max(0,Q.bi[d]/bmax).toFixed(3)}"></i></span></td>`+
+      `<td class="num" data-l="rerank">${sc?sc[d].toFixed(model==='m3'?4:2):''}</td><td class="ev">${ev?'evidence':''}</td></tr>`;
+    if(r===N) rows+=`<tr class="cut"><td colspan="7"><span>Sent to the model above this line</span></td></tr>`;
+  });
+  flush();
+  $('cands').innerHTML=rows;
+  const missed=m.fs.slice(k).filter(i=>isRel(Q,i));
+  $('unreached').innerHTML=missed.length ? `Evidence the first stage did not return at k = ${k}: `+and(missed.map(i=>`<code>${DOCS[i][0]}</code> (stage 1 rank ${fsRank.get(i)})`))+`. No reranker can bring ${missed.length>1?'them':'it'} back.` : `Every evidence chunk for this question is among the ${k} candidates.`;
+
+  $('sRecall').textContent=f2(m.recall);
+  $('sBefore').textContent=f2(m.before);
+  $('sAfter').textContent=model==='off'?f2(m.before):f2(m.after);
+  $('sAfter').className=model==='off'||m.after===m.before?'':m.after>m.before?'is-good':'is-bad';
+  $('sLat').innerHTML=model==='off'?'0 <small>ms</small>':`${Math.round(m.latency)} <small>ms</small>`;
+
+  // every question at this k and this reranker
+  let sr=0,sb=0,sa=0,base='';
+  QUERIES.forEach((q,i)=>{ const x=metrics(q,k,model); sr+=x.recall; sb+=x.before; sa+=x.after;
+    base+=`<tr${i===qi?' class="cur"':''}><td>${q.q}</td><td class="num">${f2(x.recall)}</td><td class="num">${f2(x.before)}</td><td class="num">${f2(x.after)}</td></tr>`; });
+  $('baseline').innerHTML=base;
+  const nq=QUERIES.length;
+  $('mRecall').textContent=f2(sr/nq); $('mBefore').textContent=f2(sb/nq); $('mAfter').textContent=f2(sa/nq);
+
+  // latency at a few depths and at this k
+  const ks=[...new Set([5,10,20,30,40,50,k])].sort((a,b)=>a-b);
+  $('latency').innerHTML=ks.map(x=>`<tr${x===k?' class="cur"':''}><td class="num">${x}</td><td class="num">${Math.round(LAT.mini[x-5])}</td><td class="num">${Math.round(LAT.m3[x-5])}</td></tr>`).join('');
+
+  $('callout').innerHTML=reading(Q,k,m,M,fsRank,missed);
+}
+
+// the reading, keyed to computed results
+function reading(Q,k,m,M,fsRank,missed){
+  const inCand=m.cand.filter(i=>isRel(Q,i));
+  const below=inCand.filter(i=>fsRank.get(i)>N);           // evidence the bi-encoder ranked under the line
+  const pos=new Map(m.order.map((d,i)=>[d,i+1]));
+  const lifted=inCand.filter(i=>fsRank.get(i)>N && pos.get(i)<=N);
+  const dropped=inCand.filter(i=>fsRank.get(i)<=N && pos.get(i)>N);
+  const stuck=below.filter(i=>pos.get(i)>N);
+  const kNeed=inCand.length ? Math.max(...inCand.map(i=>fsRank.get(i))) : 0;
+  const pl=(a,one,many)=>a.length>1?many:one;
+  const ranks=a=>`stage 1 ${pl(a,'rank','ranks')} ${and(a.map(i=>String(fsRank.get(i))))}`;
+  const far=missed.length ? Math.max(...missed.map(i=>fsRank.get(i))) : 0;
+  const miss=missed.length ? ` ${ids(missed)} ${pl(missed,'sits','sit')} at ${ranks(missed)}, outside the ${k} candidates, so recall@${k} is ${f2(m.recall)} and no reranker can return ${pl(missed,'it','them')}. `+
+    (far<=50 ? `Raise k to ${far}.` : `That is past any k here; the fix is a better first stage (embeddings in M14, hybrid search in M17, query rewriting in M18).`) : '';
+  if(M.key==='off'){
+    if(below.length) return `<b>The evidence is retrieved, but below the line.</b> ${ids(below)} ${pl(below,'is','are')} among the ${k} candidates at ${ranks(below)}, so the model never reads ${pl(below,'it','them')}. Recall@${k} is ${f2(m.recall)}; precision@5 is ${f2(m.before)}. Switch on a reranker.`+miss;
+    if(missed.length) return `<b>The top five hold what the bi-encoder found; the rest was never retrieved.</b> Precision@5 is ${f2(m.before)}.`+miss;
+    return `<b>The bi-encoder already has it.</b> Every evidence chunk sits in the top five, so precision@5 is ${f2(m.before)} without a second stage.`;
+  }
+  const cost=`Scoring ${k} pairs costs about ${ms(m.latency)} on the test machine.`;
+  const extra=(kNeed>=5 && kNeed<k && !missed.length) ? ` All the evidence sits in the first ${kNeed}; k = ${kNeed} would cost ${ms(LAT[M.key][kNeed-5])}.` : '';
+  if(m.after>m.before)
+    return `<b>${M.name} lifted ${ids(lifted)} into the top five.</b> `+and(lifted.map(i=>`<code>${DOCS[i][0]}</code> moved from ${fsRank.get(i)} to ${pos.get(i)}`))+`. Precision@5 goes from ${f2(m.before)} to ${f2(m.after)}. ${cost}`+extra+miss;
+  if(m.after<m.before)
+    return `<b>${M.name} made it worse.</b> It pushed ${ids(dropped)} out of the top five, and precision@5 falls from ${f2(m.before)} to ${f2(m.after)}. ${cost} A small reranker trained on web search can misjudge a domain it has not seen; measure it on your golden set before you ship it.`+miss;
+  if(stuck.length)
+    return `<b>${M.name} reordered the list, but the model reads the same evidence.</b> ${ids(stuck)} still ${pl(stuck,'sits','sit')} below the line, so precision@5 stays at ${f2(m.after)}. ${cost} Try the other reranker.`+miss;
+  if(missed.length)
+    return `<b>The reranker cannot reach the missing evidence.</b> Every evidence chunk among the ${k} candidates is already in the top five, so precision@5 stays at ${f2(m.after)}. ${cost}`+miss;
+  return `<b>Nothing to fix here.</b> The first stage already put every evidence chunk in the top five, so the reranker can only shuffle them; precision@5 stays at ${f2(m.after)}. ${cost} On this question that is pure latency.`;
+}
+$('k').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

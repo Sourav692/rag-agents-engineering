@@ -8,6 +8,12 @@
 
 Corrective RAG fixes bad retrieval; Self-RAG checks the answer. Together they are the classic patterns for reducing hallucination in production.
 
+## Theory
+
+Read the [theory page](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [What correction costs](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Build CRAG: grade documents, rewrite the query, fall back to web search (Tavily)
@@ -20,9 +26,9 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 29.1 | Corrective RAG in LangGraph with web-search fallback | [`01a_agentic_corrective_rag_langgraph.ipynb`](notebooks/01a_agentic_corrective_rag_langgraph.ipynb) | [`01b_crag_rag_techniques.ipynb`](optional/01b_crag_rag_techniques.ipynb) *(alternate)* |
-| 29.2 | Self-RAG: retrieve-or-not, relevance, groundedness, utility | [`02a_self_rag_langgraph.ipynb`](notebooks/02a_self_rag_langgraph.ipynb) | [`02b_self_rag_rag_techniques.ipynb`](optional/02b_self_rag_rag_techniques.ipynb) *(alternate)* |
-| 29.3 | Trade-offs: when correction is worth the extra calls | *Lecture / discussion* | — |
+| 29.1 | Corrective RAG in LangGraph with web-search fallback ([theory](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/01_corrective_rag_in_langgraph_with_web_search_fallback/README.md)) | [`01a_agentic_corrective_rag_langgraph.ipynb`](notebooks/01a_agentic_corrective_rag_langgraph.ipynb) | [`01b_crag_rag_techniques.ipynb`](optional/01b_crag_rag_techniques.ipynb) *(alternate)* |
+| 29.2 | Self-RAG: retrieve-or-not, relevance, groundedness, utility ([theory](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/02_self_rag_retrieve_or_not_relevance_groundedness_utility/README.md)) | [`02a_self_rag_langgraph.ipynb`](notebooks/02a_self_rag_langgraph.ipynb) | [`02b_self_rag_rag_techniques.ipynb`](optional/02b_self_rag_rag_techniques.ipynb) *(alternate)* |
+| 29.3 | Trade-offs: when correction is worth the extra calls ([theory](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/03_trade_offs_when_correction_is_worth_the_extra_calls/README.md)) | *Lecture / discussion* | — |
 
 ## Hands-on lab
 
@@ -30,7 +36,7 @@ Out-of-corpus stress test: send questions the corpus cannot answer and compare t
 
 ## Key concepts
 
-Retrieval evaluator · Knowledge refinement · Reflection tokens · Groundedness check
+[Retrieval evaluator](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/01_corrective_rag_in_langgraph_with_web_search_fallback/README.md#retrieval-evaluator) · [Knowledge refinement](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/01_corrective_rag_in_langgraph_with_web_search_fallback/README.md#knowledge-refinement) · [Reflection tokens](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/02_self_rag_retrieve_or_not_relevance_groundedness_utility/README.md#reflection-tokens) · [Groundedness check](../../../theory/p09_agentic_rag/m29_crag_and_self_rag/02_self_rag_retrieve_or_not_relevance_groundedness_utility/README.md#groundedness-check)
 
 ## Folder layout
 

@@ -25,9 +25,13 @@ Three consequences for retrieval:
 - **Flattened tables lose their meaning.** "Business 4 16 GB 5 TB $48" can be read, but once a splitter cuts it, "16 GB" no longer has a column name. Keep a table as one chunk and give the model its HTML or Markdown form.
 - **Granularity is decided at load time.** One Document per file, page, row or element sets the smallest thing retrieval can return, and changing it later means re-ingesting.
 
+The [interactive lab](interactive/pdf-parsers-lab.html) puts the handbook page through all three loaders. Hover a Document to see which part of the page it came from, and read how many of the five schema fields each loader fills: three for PyPDF and PyMuPDF, four for Unstructured.
+
+<!-- lab: interactive/pdf-parsers-lab.html -->
+
 Element-level parsing costs time and dependencies, so use it where layout carries meaning: reports, manuals, forms, anything with tables. Plain prose PDFs do fine with PyPDF or PyMuPDF.
 
-The [interactive lab](interactive/pdf-parsers-lab.html) shows all three loaders on the handbook page.
+Word and Markdown files have the same switch. In this lesson's Word notebook, `UnstructuredWordDocumentLoader` returns the file as one Document by default; with `mode="elements"` and `chunking_strategy="by_title"` it returns pieces of at most 3,000 characters and starts a new one at every heading. Lesson 12.2 does the same for Markdown with `UnstructuredMarkdownLoader`: `mode="single"` gives one Document, `mode="elements"` one per heading, paragraph or list item, each with a `category`.
 
 ---
-*Previous: [12.1 The Document abstraction and metadata design](../01_the_document_abstraction_and_metadata_design/README.md). Next: [12.6 Custom loaders with lazy loading](../06_custom_loaders_with_lazy_loading/README.md).*
+*Previous: [12.3 Semi-structured sources: CSV rows and JSON / JSONL with jq schemas](../03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md). Next: [12.5 Web, YouTube and arXiv sources; bulk directory loading](../05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md).*

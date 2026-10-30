@@ -24,7 +24,7 @@ Each question fails in a different way:
 
 - **The export question is a ranking problem, and `k = 2` solves it.** Past that, each extra chunk is noise: precision falls from 1.00 to 0.17 while the prompt grows almost sixfold.
 - **The refund question is a representation problem.** The `refund-timing` chunk says "Refunds"; the question says "refund". TF-IDF matches exact tokens, so that chunk scores 0 and no `k` retrieves it. Meanwhile `reboot` scores 0.194 because both contain "does".
-- **The outage question is vocabulary mismatch.** The evidence talks about "outage" and "availability"; the question says "server goes down". TF-IDF ranks `reboot` and `sizing` first because they contain "server". Embeddings (lesson 11.3, M14) and query rewriting (M18) fix this. A bigger `k` only adds noise.
+- **The outage question is vocabulary mismatch.** The evidence talks about "outage" and "availability"; the question says "server goes down". TF-IDF ranks `reboot` and `sizing` first because they contain "server". Embeddings ([lesson 11.3](../03_semantic_retrieval_with_embedding_similarity/README.md), M14) and query rewriting (M18) fix this. A bigger `k` only adds noise.
 
 <!-- lab: interactive/top-k-retrieval-lab.html -->
 
@@ -46,4 +46,4 @@ quadrantChart
 ```
 
 ---
-*Previous: [11.1 The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context](../01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md). Next: [11.5 The RAG lifecycle and a measured baseline](../05_the_rag_lifecycle_and_a_measured_baseline/README.md).*
+*Previous: [11.1 The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context](../01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md). Next: [11.3 Semantic retrieval with embedding similarity](../03_semantic_retrieval_with_embedding_similarity/README.md).*

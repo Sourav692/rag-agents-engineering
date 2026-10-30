@@ -52,8 +52,8 @@ flowchart LR
 Design against three hard constraints:
 
 - **Metadata is not embedded.** A title that lives only in metadata never matches a query. If a field should affect similarity, also put it into the text (M16's contextual chunk headers do this).
-- **Value types are restricted.** Chroma accepts `str`, `int`, `float` and `bool`, but not lists or nested dicts. Flatten before you index, or the write fails.
+- **Value types are restricted.** Chroma 1.5, the version this course installs, accepts `str`, `int`, `float`, `bool`, `None` and non-empty lists of a single one of those types. A nested dict, an empty list or a mixed list such as `[1, "x"]` fails the write. Flatten before you index.
 - **Filters match exactly.** `{"department": "Engineering"}` does not match `"engineering"`. Normalise values when you load.
 
 ---
-*Previous: [M12 overview](../README.md). Next: [12.4 PDF and Word: parser comparison and element-level parsing](../04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md).*
+*Previous: [M12 overview](../README.md). Next: [12.3 Semi-structured sources: CSV rows and JSON / JSONL with jq schemas](../03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md).*

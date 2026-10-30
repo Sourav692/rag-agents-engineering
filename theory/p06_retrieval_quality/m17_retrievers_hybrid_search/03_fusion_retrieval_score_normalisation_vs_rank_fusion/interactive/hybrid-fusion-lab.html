@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fusing BM25 and dense rankings</title>
+<meta name="description" content="M17 lab: nineteen handbook chunks ranked by real BM25 and by all-MiniLM-L6-v2 embeddings; fuse them with weighted min-max scores or reciprocal rank fusion and read recall@3 on seven golden questions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (by request, the course's lab system, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the fused ledger, each chunk's BM25 and dense ranks beside its fused score, with the firm rule where the three chunks sent to the model end · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: H, four controls compete; the question and the method lead, alpha sits under them, and the two RRF controls stay disabled until rank fusion is picked */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab; the controls, figures and ledger come first so they share a screen, then the reading and the golden-set table, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend, .field > .label { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt { opacity: 0.55; cursor: not-allowed; transform: none; background: transparent; }
+.seg input:disabled:checked + .opt { background: var(--color-paper-3); color: var(--color-ink); border-color: var(--color-rule-2); }
+.query-opts .opt { width: 100%; }
+
+.controls { display: grid; gap: var(--space-md); }
+.rrf { display: grid; gap: var(--space-md); padding-left: var(--space-md); border-left: var(--rule-bar) solid var(--color-rule); }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+.ends { grid-column: 1; display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--color-muted); margin-top: calc(-1 * var(--space-xs)); }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+.rrf:disabled output.val { color: var(--color-muted); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd small { font-size: var(--text-sm); letter-spacing: 0; color: var(--color-muted); }
+.is-good, .stats dd.is-good { color: var(--color-success); }
+.is-bad, .stats dd.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.num small { display: block; font-size: var(--text-xs); color: var(--color-muted); }
+th:last-child, td:last-child { padding-right: 0; }
+code, .id { font-family: var(--font-outlier); font-size: 0.9em; }
+.id { display: block; color: var(--color-ink); white-space: nowrap; }
+.tx { display: block; margin-top: var(--space-3xs); }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.sheet .note { margin-top: var(--space-sm); }
+.tokens { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-xs); align-items: baseline; font-size: var(--text-sm); color: var(--color-muted); }
+.tokens code { color: var(--color-ink); background: var(--color-paper-2); padding: 0 var(--space-2xs); }
+#ranking tr.is-out td { color: var(--color-muted); }
+#ranking tr.is-out .id { color: var(--color-muted); }
+#ranking tr.is-evidence .id { color: var(--color-accent); }
+#ranking .tx b { font-weight: 500; color: var(--color-ink); background: color-mix(in oklab, var(--color-accent) 16%, transparent); }
+#ranking tr.cut td { padding: 0; border-top: var(--rule-bar) solid var(--color-accent); }
+#ranking tr.cut span { display: block; padding: var(--space-2xs) 0 var(--space-xs); font-size: var(--text-sm); color: var(--color-accent); }
+#ranking tr.more td { color: var(--color-muted); font-size: var(--text-sm); }
+td.ev { font-size: var(--text-sm); white-space: nowrap; color: var(--color-accent); }
+.golden tr.cur td { color: var(--color-ink); background: var(--color-paper-2); }
+.golden td.only { color: var(--color-accent); font-weight: 500; }
+.golden tfoot td { padding: var(--space-xs) var(--space-md) 0 0; border-top: var(--rule-bar) solid var(--color-rule-2); color: var(--color-ink); font-weight: 500; }
+.golden tfoot tr + tr td { border-top: 0; }
+.golden tfoot td:last-child { padding-right: 0; }
+@media (max-width: 40rem) {
+  .rank thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #ranking tr:not(.cut):not(.more) { display: grid; grid-template-columns: 3ch repeat(3, minmax(0, 1fr)); gap: var(--space-2xs) var(--space-sm); padding-block: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
+  #ranking tr:not(.cut):not(.more) td { border: 0; padding: 0; }
+  #ranking td.ch { grid-column: 2 / -1; }
+  #ranking td.num { text-align: left; white-space: normal; }
+  #ranking td.b { grid-column: 2; }
+  #ranking td.num:not(.rk)::before { content: attr(data-l); display: block; font: 400 var(--text-xs)/1.3 var(--font-body); color: var(--color-muted); }
+  #ranking td.ev { grid-column: 2 / -1; }
+  #ranking td.ev:empty { display: none; }
+  #ranking tr.cut, #ranking tr.more, #ranking tr.cut td, #ranking tr.more td { display: block; }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls and the ledger share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.golden { order: 2; }
+@media (min-width: 40rem) {
+  html.embedded .query-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html.embedded .controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  html.embedded .controls > .seg { grid-column: 1 / -1; }
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its rankings in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M17 lab, retrievers and hybrid search</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Fusing BM25 and dense rankings</h1>
+    <p class="lead">Nineteen Larkspur Cloud handbook chunks, ranked two ways: real BM25, and cosine similarity from the all-MiniLM-L6-v2 embedding model. Pick a question, pick how to fuse the two rankings, and move alpha. The three chunks above the magenta rule are what the LLM receives.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Golden question</legend><div class="seg__opts query-opts" id="queryOpts"></div></fieldset>
+      <p class="tokens" id="qtokens"></p>
+      <div class="controls">
+        <fieldset class="seg"><legend>Fusion method</legend><div class="seg__opts">
+          <input type="radio" name="m" id="mW" value="w" checked><label class="opt" for="mW">Weighted scores</label>
+          <input type="radio" name="m" id="mR" value="r"><label class="opt" for="mR">Reciprocal rank fusion</label>
+        </div></fieldset>
+        <div class="field">
+          <label for="alpha">Weight on dense, alpha</label>
+          <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.5">
+          <output class="val" id="alphaVal" for="alpha"></output>
+          <p class="ends" aria-hidden="true"><span>BM25 only</span><span>dense only</span></p>
+        </div>
+        <fieldset class="rrf" id="rrfBox" disabled>
+          <div class="field">
+            <label for="c">RRF constant c</label>
+            <input type="range" id="c" min="1" max="100" step="1" value="60">
+            <output class="val" id="cVal" for="c"></output>
+          </div>
+          <fieldset class="seg"><legend>Chunks each retriever hands over</legend><div class="seg__opts">
+            <input type="radio" name="d" id="d4" value="4" checked><label class="opt" for="d4">4, the LangChain default</label>
+            <input type="radio" name="d" id="d10" value="10"><label class="opt" for="d10">10</label>
+          </div></fieldset>
+        </fieldset>
+      </div>
+      <dl class="stats">
+        <div><dt>Evidence rank, BM25</dt><dd id="sB"></dd></div>
+        <div><dt>Evidence rank, dense</dt><dd id="sD"></dd></div>
+        <div><dt>Evidence rank, fused</dt><dd id="sF"></dd></div>
+        <div><dt>Recall@3, fused</dt><dd id="sR"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="rankHead">
+        <div class="sheet__head"><h2 id="rankHead">Fused ranking for this question</h2><p class="note" id="rankNote"></p></div>
+        <div class="scroll"><table class="rank">
+          <thead><tr><th class="num" scope="col">Rank</th><th scope="col">Chunk</th><th class="num" scope="col">BM25</th><th class="num" scope="col">Dense</th><th class="num" scope="col">Fused</th><th scope="col">Golden set</th></tr></thead>
+          <tbody id="ranking"></tbody>
+        </table></div>
+        <p class="note">Small figures are each retriever’s own rank. BM25 hands over only chunks that share a term with the question. Ties keep handbook order.</p>
+      </section>
+      <section class="sheet golden" aria-labelledby="goldHead">
+        <div class="sheet__head"><h2 id="goldHead">Recall@3 on the golden set</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Golden question</th><th class="num" scope="col">BM25</th><th class="num" scope="col">Dense</th><th class="num" scope="col">Fused</th></tr></thead>
+          <tbody id="golden"></tbody>
+          <tfoot>
+            <tr><td>Mean recall@3</td><td class="num" id="mB"></td><td class="num" id="mD"></td><td class="num" id="mF"></td></tr>
+            <tr><td>Questions with all evidence in the top 3</td><td class="num" id="aB"></td><td class="num" id="aD"></td><td class="num" id="aF"></td></tr>
+          </tfoot>
+        </table></div>
+        <p class="note">BM25 and dense columns rank with one retriever alone. The fused column follows the controls; magenta marks a question only the fused list answers.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script id="engine">
+// Data: chunk texts, golden questions and their evidence, and the dense side as cosine similarities
+// computed offline with sentence-transformers/all-MiniLM-L6-v2 (normalised embeddings).
+const LAB={"docs":[["cancel","You can cancel any plan from the Billing page. Cancelling stops the next charge, and servers keep running until the paid period is over."],["refund-window","An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic."],["refund-timing","Refunds go back to the original payment method and take 5 to 10 business days to appear on your bank statement."],["suspension","If an invoice stays unpaid for 14 days, Larkspur pauses every instance on the account until the balance is cleared."],["sla","Larkspur guarantees 99.95% monthly availability. If an outage pushes availability below that, you receive service credits on the next invoice."],["incidents","During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery."],["sizing","Pick a size by peak memory use and leave a quarter of the memory free for the operating system and caches."],["plan-204","Plan LC-204: 2 vCPUs, 4 GB memory, 1 TB outbound traffic a month."],["plan-408","Plan LC-408: 4 vCPUs, 16 GB memory, 3 TB outbound traffic a month, daily backups."],["plan-816","Plan LC-816: 8 vCPUs, 32 GB memory, 6 TB outbound traffic a month, daily backups and a dedicated IP."],["export","Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots."],["retention","After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes."],["err-4012","Error E-4012: the export was blocked by an unpaid invoice. Pay the invoice, then run the export again from Settings."],["err-4021","Error E-4021: the export stopped at the 50 GB snapshot limit. Split it into smaller exports or ask support to raise the limit."],["err-4102","Error E-4102: the export link has expired. Links last 7 days; start a new export to get a fresh one."],["err-5011","Error E-5011: the card on file has expired. Add a new card on the Billing page."],["err-5013","Error E-5013: the card issuer declined the charge. Larkspur retries the charge once a day for 14 days."],["err-5031","Error E-5031: the billing address does not match the card. Correct the address and pay again."],["support","Support tickets are answered within 4 hours on business plans and within 24 hours on starter plans."]],"queries":[{"q":"How long does a refund take?","rel":["refund-window","refund-timing"]},{"q":"What happens if my server goes down?","rel":["sla","incidents"]},{"q":"Where do I find out what caused the downtime?","rel":["incidents"]},{"q":"What does E-4021 mean?","rel":["err-4021"]},{"q":"E-4102 for the third time. Can I take my files with me another way?","rel":["err-4102","export"]},{"q":"E-4021 for the third time. Can I take my files with me another way?","rel":["err-4021","export"]},{"q":"E-5013 for the third time. Will my machines get shut off?","rel":["err-5013","suspension"]}],"dense":[[0.12194058715298797,0.6079992376560024,0.7702027732605697,0.21041636754331774,0.10610211875704494,0.19017478684522401,0.010743221146313828,-0.017760975852222846,0.029437954816660818,-0.007501835986731055,-0.02178307663087658,0.17195295763468804,0.03404026134633279,0.03928125709971439,0.05809991813931353,0.10914854079770903,0.2772117979165863,0.13401438754204628,0.2968156792990881],[0.23512907093734728,0.14860780751787714,0.10972718780808363,0.2015351879304947,0.2565086498199206,0.31434249005168396,0.14075645295551475,0.12315258949672034,0.1451429271862481,0.16677490762903946,0.20208246493433568,0.17649069626371922,-0.03154033361500734,0.05849795972053247,0.04005413378371654,-0.020495640876320963,0.07270325996992778,-0.010921749212055357,0.14262675675779313],[0.08860960128834394,0.11241649513798166,0.10229184982423045,0.17805402945145027,0.2239977757242943,0.3861324720600174,0.09523687972105907,0.12229366937496795,0.16457845570708543,0.13318207947589528,0.08756260803982802,0.18720113594590612,0.08726858596899667,0.15972767567388657,0.14963468448840714,0.1389687310652671,0.21458524407585217,0.12035584321555749,0.18920483350964812],[0.10033730126349594,0.0777451410678731,0.010620710309199588,0.09659349518467378,0.12989944064995168,0.08624910888216462,-0.074375955376532,0.26579027349814033,0.23515987941463723,0.23275374370109597,-0.024458746670227006,0.041905723329195406,0.2274621310376226,0.26597999852866294,0.28344936947055743,0.38231367316859083,0.28037115671588725,0.31603655351814386,0.10287772754022656],[0.11861134716246195,0.15337078172920804,0.13425007755655288,0.015769645461525247,0.04544686515892121,0.1400044290875231,0.1324717082591156,0.23412528920139355,0.2358050556611727,0.16865881114522702,0.29320778378043744,0.27048644784732023,0.2560616492593189,0.31871379415756174,0.4147219905294123,0.3389224165390857,0.2231270565851965,0.2313194560435001,0.008030168014622883],[0.1360654150854561,0.18687709511010414,0.15465735825141208,0.07996364009254664,0.11565114271539273,0.12112536470079965,0.03707987910947216,0.17784313238003077,0.18744800913511106,0.13430919443605827,0.2911646152798226,0.2738268926379101,0.29574969188904077,0.325515277898081,0.2782150619558777,0.38814165254931676,0.24459773766333928,0.2943892516383769,0.07495198512390869],[0.20759584078685156,0.13199103728524242,0.13031555381011167,0.2120430232285287,0.10763334601394695,0.1876303542526292,0.04958280209246839,0.08192643698622563,0.07733609913793885,0.07775525251165429,0.009853594680769243,0.21937563147859954,0.1742211589173688,0.1337001778599366,0.19724724746399652,0.2337905653355662,0.20836766759413314,0.11145793136052713,0.1318091289213074]]};
+const DOCS=LAB.docs, QUERIES=LAB.queries, DENSE=LAB.dense, TOP=3;
+// Lower case, then keep hyphenated codes such as e-4021 and lc-408 as one token.
+function tokenize(s){ return s.toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)*/g)||[]; }
+// rank_bm25's BM25Okapi: k1 1.5, b 0.75, negative idf floored at 0.25 times the mean idf.
+function bm25Index(texts,k1=1.5,b=0.75,epsilon=0.25){
+  const freqs=[], lens=[], nd=new Map(); let total=0;
+  for(const t of texts){
+    const d=tokenize(t), f=new Map(); lens.push(d.length); total+=d.length;
+    for(const w of d) f.set(w,(f.get(w)||0)+1);
+    freqs.push(f); for(const w of f.keys()) nd.set(w,(nd.get(w)||0)+1);
+  }
+  const N=texts.length, avgdl=total/N, idf=new Map(), neg=[]; let sum=0;
+  for(const [w,f] of nd){ const v=Math.log(N-f+0.5)-Math.log(f+0.5); idf.set(w,v); sum+=v; if(v<0) neg.push(w); }
+  const eps=epsilon*(sum/idf.size); for(const w of neg) idf.set(w,eps);
+  return q=>{ const s=new Array(N).fill(0);
+    for(const w of tokenize(q)){ const iw=idf.get(w)||0;
+      for(let i=0;i<N;i++){ const qf=freqs[i].get(w)||0; s[i]+=iw*(qf*(k1+1)/(qf+k1*(1-b+b*lens[i]/avgdl))); } }
+    return s; };
+}
+const BM25=bm25Index(DOCS.map(d=>d[1]));
+// Highest score first; a tie keeps handbook order.
+const order=s=>s.map((_,i)=>i).sort((x,y)=>s[y]-s[x]||x-y);
+function retrieve(qi){
+  const b=BM25(QUERIES[qi].q), c=DENSE[qi];
+  return {b, c, bList:order(b).filter(i=>b[i]>0), cList:order(c)};
+}
+// Notebook 03a, fusion_retrieval(): min-max both score lists with epsilon 1e-8. The vector side starts
+// as FAISS's squared L2 distance (2 - 2 cos for unit vectors), so it is flipped with 1 - norm.
+function weighted(b,c,alpha){
+  const eps=1e-8, d=c.map(x=>2-2*x);
+  const dmin=Math.min(...d), dmax=Math.max(...d), bmin=Math.min(...b), bmax=Math.max(...b);
+  const score=b.map((x,i)=>alpha*(1-(d[i]-dmin)/(dmax-dmin+eps))+(1-alpha)*((x-bmin)/(bmax-bmin+eps)));
+  return {order:order(score), score};
+}
+// LangChain EnsembleRetriever.weighted_reciprocal_rank with retrievers [BM25, dense] and weights
+// [1 - alpha, alpha]: each list adds weight / (rank + c); the union is sorted, ties in first-seen order.
+function rrf(bList,cList,alpha,c){
+  const w=[1-alpha,alpha], score=new Array(DOCS.length).fill(0);
+  [bList,cList].forEach((L,j)=>L.forEach((i,r)=>{ score[i]+=w[j]/((r+1)+c); }));
+  const seen=[...new Set([...bList,...cList])];
+  return {order:seen.sort((x,y)=>score[y]-score[x]), score};
+}
+function fuse(qi,s){
+  const R=retrieve(qi);
+  const F=s.method==='w' ? weighted(R.b,R.c,s.alpha) : rrf(R.bList.slice(0,s.depth),R.cList.slice(0,s.depth),s.alpha,s.c);
+  return {...R, F};
+}
+const relIdx=qi=>QUERIES[qi].rel.map(id=>DOCS.findIndex(d=>d[0]===id));
+const recall=(list,qi)=>{ const rel=relIdx(qi); return rel.filter(i=>list.slice(0,TOP).includes(i)).length/rel.length; };
+</script>
+<script>
+const $=id=>document.getElementById(id);
+const S={method:'w', alpha:0.5, c:60, depth:4, qi:0}; let changed='';
+QUERIES.forEach((Q,i)=>{
+  const id='q'+i;
+  $('queryOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="q" id="${id}" value="${i}"${i===0?' checked':''}><label class="opt" for="${id}">${Q.q}</label>`);
+  $(id).addEventListener('change',()=>{S.qi=i; changed='q'; render();});
+});
+document.querySelectorAll('input[name="m"]').forEach(r=>r.addEventListener('change',()=>{S.method=r.value; changed='m'; render();}));
+document.querySelectorAll('input[name="d"]').forEach(r=>r.addEventListener('change',()=>{S.depth=+r.value; changed='d'; render();}));
+$('alpha').addEventListener('input',()=>{S.alpha=+$('alpha').value; changed='a'; render();});
+$('c').addEventListener('input',()=>{S.c=+$('c').value; changed='c'; render();});
+
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const highlight=(text,terms)=>esc(text).replace(/[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g,w=>terms.has(w.toLowerCase())?`<b>${w}</b>`:w);
+const rankIn=(list,i)=>{ const r=list.indexOf(i); return r<0?null:r+1; };
+const fmtRanks=a=>a.map(r=>r===null?'none':r).join(', ');
+const a2=x=>x.toFixed(2);
+
+function render(){
+  const qi=S.qi, Q=QUERIES[qi], R=fuse(qi,S), F=R.F, rel=relIdx(qi);
+  $('alphaVal').textContent=a2(S.alpha); $('cVal').textContent=S.c;
+  $('rrfBox').disabled=S.method!=='r';
+  const terms=new Set(tokenize(Q.q));
+  $('qtokens').innerHTML='<span>BM25 tokens</span> '+[...terms].map(t=>`<code>${esc(t)}</code>`).join(' ');
+
+  // the ledger: fused order, the rule after the top 3, evidence below the shown rows still listed
+  const isW=S.method==='w', bL=isW?R.bList:R.bList.slice(0,S.depth), cL=isW?R.cList:R.cList.slice(0,S.depth);
+  const show=6, rows=[]; let html='';
+  F.order.forEach((i,p)=>{ if(p<show || rel.includes(i)) rows.push([i,p]); });
+  rows.forEach(([i,p],n)=>{
+    if(n>0 && rows[n-1][1]!==p-1) html+=`<tr class="more"><td colspan="6">${p-rows[n-1][1]-1} more below</td></tr>`;
+    const ev=rel.includes(i), br=rankIn(bL,i), cr=rankIn(cL,i);
+    const bCell=br?`${R.b[i].toFixed(2)}<small>#${br}</small>`:(R.b[i]>0?`${R.b[i].toFixed(2)}<small>not handed over</small>`:`0.00<small>no shared term</small>`);
+    const cCell=cr?`${R.c[i].toFixed(3)}<small>#${cr}</small>`:`${R.c[i].toFixed(3)}<small>not handed over</small>`;
+    html+=`<tr class="${p>=TOP?'is-out':''}${ev?' is-evidence':''}"><td class="num rk">${p+1}</td><td class="ch"><span class="id">${DOCS[i][0]}</span><span class="tx">${highlight(DOCS[i][1],terms)}</span></td><td class="num b" data-l="BM25">${bCell}</td><td class="num" data-l="dense">${cCell}</td><td class="num" data-l="fused">${F.score[i].toFixed(isW?3:4)}</td><td class="ev">${ev?'evidence':''}</td></tr>`;
+    if(p===TOP-1) html+=`<tr class="cut"><td colspan="6"><span>Sent to the model above this line</span></td></tr>`;
+  });
+  const lastShown=rows.length?rows[rows.length-1][1]:-1, rest=F.order.length-1-lastShown;
+  if(rest>0) html+=`<tr class="more"><td colspan="6">${rest} more below</td></tr>`;
+  const missing=rel.filter(i=>!F.order.includes(i));
+  missing.forEach(i=>{ html+=`<tr class="is-out is-evidence"><td class="num rk">out</td><td class="ch"><span class="id">${DOCS[i][0]}</span><span class="tx">${highlight(DOCS[i][1],terms)}</span></td><td class="num b" data-l="BM25">${R.b[i].toFixed(2)}<small>${rankIn(R.bList,i)?'#'+rankIn(R.bList,i)+' overall':'no shared term'}</small></td><td class="num" data-l="dense">${R.c[i].toFixed(3)}<small>#${rankIn(R.cList,i)} overall</small></td><td class="num" data-l="fused">none</td><td class="ev">evidence</td></tr>`; });
+  $('ranking').innerHTML=html;
+  $('rankNote').textContent=isW?`Min-max scores, ${a2(S.alpha)} dense plus ${a2(1-S.alpha)} BM25`:`RRF, weights ${a2(1-S.alpha)} and ${a2(S.alpha)}, c = ${S.c}`;
+
+  // figures for this question
+  const rB=rel.map(i=>rankIn(R.bList,i)), rD=rel.map(i=>rankIn(R.cList,i)), rF=rel.map(i=>rankIn(F.order,i));
+  const recB=recall(R.bList,qi), recD=recall(R.cList,qi), recF=recall(F.order,qi);
+  $('sB').textContent=fmtRanks(rB); $('sD').textContent=fmtRanks(rD); $('sF').textContent=fmtRanks(rF);
+  $('sR').textContent=a2(recF); $('sR').className=recF===1?'is-good':'is-bad';
+
+  // golden set at these settings
+  let gh='', sb=0, sd=0, sf=0, nb=0, nd=0, nf=0;
+  QUERIES.forEach((q,i)=>{ const x=fuse(i,S), b=recall(x.bList,i), d=recall(x.cList,i), f=recall(x.F.order,i);
+    sb+=b; sd+=d; sf+=f; nb+=b===1; nd+=d===1; nf+=f===1;
+    const only=f===1 && b<1 && d<1;
+    gh+=`<tr${i===qi?' class="cur"':''}><td>${q.q}</td><td class="num">${a2(b)}</td><td class="num">${a2(d)}</td><td class="num${only?' only':''}">${a2(f)}${only?'<small>fused only</small>':''}</td></tr>`; });
+  $('golden').innerHTML=gh; const n=QUERIES.length;
+  $('mB').textContent=a2(sb/n); $('mD').textContent=a2(sd/n); $('mF').textContent=a2(sf/n);
+  $('aB').textContent=`${nb} of ${n}`; $('aD').textContent=`${nd} of ${n}`; $('aF').textContent=`${nf} of ${n}`;
+
+  // the reading: what just changed, then what the ranks show
+  const name=i=>`<code>${DOCS[i][0]}</code>`;
+  const how=isW?`the weighted blend at alpha ${a2(S.alpha)}`:`RRF at alpha ${a2(S.alpha)} and c = ${S.c} over each retriever’s top ${S.depth}`;
+  const lead={q:'New question.', m:isW?'Back to weighted scores.':'Switched to rank fusion.', a:`Alpha is ${a2(S.alpha)}.`, c:`c is ${S.c}.`, d:`Each retriever now hands over ${S.depth}.`}[changed]||'';
+  const lostIn=(ranks)=>rel.filter((_,j)=>!(ranks[j]&&ranks[j]<=TOP));
+  let t;
+  if(recF===1 && recB<1 && recD<1){
+    const lb=lostIn(rB), ld=lostIn(rD), rk=(L,i)=>rankIn(L,i)||'none';
+    const misses=lb.join()===ld.join()
+      ? `Each retriever alone ranks ${lb.map(i=>`${name(i)} below 3 (BM25 ${rk(R.bList,i)}, dense ${rk(R.cList,i)})`).join(' and ')}`
+      : `BM25 alone ranks ${lb.map(i=>`${name(i)} at ${rk(R.bList,i)}`).join(' and ')}, dense alone ranks ${ld.map(i=>`${name(i)} at ${rk(R.cList,i)}`).join(' and ')}`;
+    t=`<b>Only the fused list has all the evidence.</b> ${misses}, and ${how} puts every evidence chunk in the top 3.`;
+  } else if(recF===1 && recB===1 && recD===1){
+    t=`<b>Both retrievers already agree.</b> Each puts the evidence in its own top 3, and ${how} keeps it there.`;
+  } else if(recF===1){
+    const win=recB===1?'BM25':'dense', lose=recB===1?'dense':'BM25';
+    t=`<b>Fusion keeps the ${win} win.</b> ${lose==='BM25'?'BM25':'Dense'} alone misses ${lostIn(lose==='BM25'?rB:rD).map(name).join(' and ')}; ${how} still sends all the evidence.`;
+  } else {
+    const miss=rel.filter((_,j)=>!(rF[j]&&rF[j]<=TOP)); let deeper=false;
+    const why=miss.map(i=>{ const r=rankIn(F.order,i), br=rankIn(R.bList,i), cr=rankIn(R.cList,i);
+      let s=r?`${name(i)} sits at rank ${r}.`:`${name(i)} is not in the fused list.`;
+      const single=`${br?`BM25 ranks it ${br}`:'It shares no term with the question'} and dense ranks it ${cr}`;
+      if(isW) return s+` ${single}.`;
+      const cb=br&&br>S.depth, cd=cr>S.depth, who=cb&&cd?'neither retriever hands it over':cb?'BM25 does not hand it over':cd?'dense does not hand it over':'';
+      if(S.depth===4 && ((cb&&br<=10)||(cd&&cr<=10))) deeper=true;
+      return s+` ${single}${who?`, so ${who}`:''}.`; }).join(' ');
+    const hint=recB>recF?'Move alpha toward 0.':recD>recF?'Move alpha toward 1.':deeper?'Let each retriever hand over 10.':isW?'Try rank fusion, or move alpha.':'Move alpha, or try weighted scores.';
+    t=`<b>The fused list misses ${miss.map(name).join(' and ')}.</b> Under ${how}, ${why} ${recB>recF?'BM25 alone does better here. ':recD>recF?'Dense alone does better here. ':''}${hint}`;
+  }
+  $('callout').innerHTML=(lead?lead+' ':'')+t;
+}
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

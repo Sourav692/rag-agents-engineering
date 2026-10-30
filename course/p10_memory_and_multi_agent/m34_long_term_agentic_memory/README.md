@@ -8,6 +8,12 @@
 
 Long-term memory is retrieval over the agent's own past: facts, episodes and procedures. The same indexing and retrieval choices from Parts V–VI apply.
 
+## Theory
+
+Read the [theory page](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [The window and the archive](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/interactive/tiered-memory-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Share memory across threads with a LangGraph `Store` (in-memory and Postgres)
@@ -20,11 +26,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 34.1 | Cross-thread memory with a Store | [`01a_cross_thread_memory_store.ipynb`](notebooks/01a_cross_thread_memory_store.ipynb) | — |
-| 34.2 | Session, semantic, episodic and procedural memory on SQLite | [`02b_long_term_semantic_memory_sqlite.ipynb`](notebooks/02b_long_term_semantic_memory_sqlite.ipynb)<br>[`02c_long_term_episodic_memory_sqlite.ipynb`](notebooks/02c_long_term_episodic_memory_sqlite.ipynb) | [`02a_session_memory_sqlite.ipynb`](optional/02a_session_memory_sqlite.ipynb) *(extension)*<br>[`02d_long_term_procedural_memory_sqlite.ipynb`](optional/02d_long_term_procedural_memory_sqlite.ipynb) *(extension)* |
-| 34.3 | A combined-memory agent | [`03a_combined_memory_agent_sqlite.ipynb`](notebooks/03a_combined_memory_agent_sqlite.ipynb) | — |
-| 34.4 | Episodic + semantic stack and multi-hop graph memory | [`04a_episodic_with_semantic_memory.ipynb`](notebooks/04a_episodic_with_semantic_memory.ipynb) | [`04b_graph_memory_multi_hop.ipynb`](optional/04b_graph_memory_multi_hop.ipynb) *(extension)* |
-| 34.5 | MemGPT tiers, Voyager skill library, Agent Workflow Memory | [`05a_memgpt_tiered_memory.ipynb`](notebooks/05a_memgpt_tiered_memory.ipynb) | [`05b_voyager_skill_library.ipynb`](optional/05b_voyager_skill_library.ipynb) *(extension)*<br>[`05c_agent_workflow_memory.ipynb`](optional/05c_agent_workflow_memory.ipynb) *(extension)* |
+| 34.1 | Cross-thread memory with a Store ([theory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/01_cross_thread_memory_with_a_store/README.md)) | [`01a_cross_thread_memory_store.ipynb`](notebooks/01a_cross_thread_memory_store.ipynb) | — |
+| 34.2 | Session, semantic, episodic and procedural memory on SQLite ([theory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/02_session_semantic_episodic_and_procedural_memory_on_sqlite/README.md)) | [`02b_long_term_semantic_memory_sqlite.ipynb`](notebooks/02b_long_term_semantic_memory_sqlite.ipynb)<br>[`02c_long_term_episodic_memory_sqlite.ipynb`](notebooks/02c_long_term_episodic_memory_sqlite.ipynb) | [`02a_session_memory_sqlite.ipynb`](optional/02a_session_memory_sqlite.ipynb) *(extension)*<br>[`02d_long_term_procedural_memory_sqlite.ipynb`](optional/02d_long_term_procedural_memory_sqlite.ipynb) *(extension)* |
+| 34.3 | A combined-memory agent ([theory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/03_a_combined_memory_agent/README.md)) | [`03a_combined_memory_agent_sqlite.ipynb`](notebooks/03a_combined_memory_agent_sqlite.ipynb) | — |
+| 34.4 | Episodic + semantic stack and multi-hop graph memory ([theory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/04_episodic_semantic_stack_and_multi_hop_graph_memory/README.md)) | [`04a_episodic_with_semantic_memory.ipynb`](notebooks/04a_episodic_with_semantic_memory.ipynb) | [`04b_graph_memory_multi_hop.ipynb`](optional/04b_graph_memory_multi_hop.ipynb) *(extension)* |
+| 34.5 | MemGPT tiers, Voyager skill library, Agent Workflow Memory ([theory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/README.md)) | [`05a_memgpt_tiered_memory.ipynb`](notebooks/05a_memgpt_tiered_memory.ipynb) | [`05b_voyager_skill_library.ipynb`](optional/05b_voyager_skill_library.ipynb) *(extension)*<br>[`05c_agent_workflow_memory.ipynb`](optional/05c_agent_workflow_memory.ipynb) *(extension)* |
 
 ## Hands-on lab
 
@@ -32,7 +38,7 @@ Personal RAG: give your assistant semantic memory of user preferences and show t
 
 ## Key concepts
 
-Semantic / episodic / procedural memory · Store namespaces · Tiered memory · Skill library
+[Semantic / episodic / procedural memory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/02_session_semantic_episodic_and_procedural_memory_on_sqlite/README.md#semantic--episodic--procedural-memory) · [Store namespaces](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/01_cross_thread_memory_with_a_store/README.md#store-namespaces) · [Tiered memory](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/README.md#tiered-memory) · [Skill library](../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/README.md#skill-library)
 
 ## Folder layout
 

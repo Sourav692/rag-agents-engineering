@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Search small, return large</title>
+<meta name="description" content="M16 lab: LangChain's ParentDocumentRetriever running on a Larkspur Cloud handbook page; move child and parent chunk sizes and see what is searched, what is returned and what it costs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the index map, the docstore lane of parents over the vector-index lane of children on one character axis, with the answer as its only magenta mark · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R4 V4 · weakest: H, two sliders, three questions and five presets compete; the question leads, the sliders follow, the presets sit under them at a quieter weight */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150); --color-error-2: oklch(42% 0.18 27); --color-success-2: oklch(40% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+img, video { max-width: 100%; height: auto; display: block; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+[data-slot] { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--color-paper-2, var(--color-paper)), var(--color-paper-3, var(--color-paper))); }
+[data-slot] > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+[data-slot]:has(> img) > :not(img):not([data-keep]) { display: none !important; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* photographs: muted */
+[data-slot] > img { filter: saturate(0.65) contrast(0.97); }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.id, code { font-family: var(--font-outlier); font-size: 0.9em; }
+td.id { white-space: nowrap; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+mark { background: color-mix(in oklab, var(--color-accent) 20%, transparent); color: var(--color-ink); }
+.nowrap { white-space: nowrap; }
+.query-opts .opt { width: 100%; }
+.map { overflow-x: auto; }
+#map { width: 100%; min-width: 560px; height: auto; }
+#map .par { fill: var(--color-paper-3); stroke: var(--color-rule-2); stroke-width: 1; }
+#map .par--ret { fill: var(--color-muted); stroke: var(--color-ink-2); }
+#map .kid { fill: var(--color-paper-3); }
+#map .kid--hit { fill: var(--color-ink); }
+#map .lbl { fill: var(--color-ink-2); font: 500 18px var(--font-outlier); }
+#map .lbl--on { fill: var(--color-sheet); }
+#map .link { stroke: var(--color-ink); stroke-width: 2; }
+#map .answer { fill: var(--color-accent); opacity: 0.16; }
+#map .answer-edge { stroke: var(--color-accent); stroke-width: 2; }
+#map .axis { stroke: var(--color-rule-2); stroke-width: 1; }
+#map .tick { stroke: var(--color-rule); stroke-width: 1; }
+#map .tick-l { fill: var(--color-muted); font: 400 18px var(--font-outlier); }
+#map .lane-l { fill: var(--color-muted); font: 500 18px var(--font-display); }
+.key { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); margin-top: var(--space-xs); font-size: var(--text-sm); color: var(--color-muted); }
+.key span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: var(--space-2xs); vertical-align: -1px; background: var(--sw); }
+.hits td.tx { font-family: var(--font-outlier); font-size: 0.85rem; line-height: 1.5; min-width: 16rem; }
+.ret { list-style: none; margin: 0; padding: 0; }
+.ret li { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--space-md); padding-block: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
+.ret li:first-child { border-top: 0; }
+.ret .meta { display: grid; align-content: start; gap: var(--space-3xs); font-size: var(--text-sm); color: var(--color-muted); }
+.ret .meta b { font: 500 var(--text-md)/1.2 var(--font-outlier); color: var(--color-ink); }
+.ret .txt { margin: 0; font: 400 var(--text-sm)/1.6 var(--font-outlier); white-space: pre-wrap; color: var(--color-ink-2); }
+.ret .kid { background: var(--color-paper-2); box-shadow: inset 0 -2px 0 var(--color-rule-2); }
+@media (max-width: 40rem) { .ret li { grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); } }
+.base tr.cur td { background: var(--color-paper-2); }
+.base tr.cur td:not(.is-good):not(.is-bad) { color: var(--color-ink); }
+.base td.is-good { color: var(--color-success-2); }
+.base td.is-bad { color: var(--color-error-2); }
+.base tfoot td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-bar) solid var(--color-rule-2); font-family: var(--font-display); font-weight: 600; color: var(--color-ink); }
+.base tfoot td.num { font-family: var(--font-outlier); font-weight: 400; }
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the sliders and the index map share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.hitsheet, html.embedded .sheet.retsheet { order: 2; }
+html.embedded .sheet.base { order: 3; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+@media (max-width: 40rem) {
+  .hits thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .hits tr { display: grid; grid-template-columns: 3ch 4ch 6ch 4ch auto; gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  .hits td { border: 0; padding: 0; }
+  .hits td.num { padding-right: 0; }
+  .hits td.tx { grid-column: 1 / -1; min-width: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its tables and chart in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M16 lab, advanced indexing</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Search the child, return the parent.</h1>
+    <p class="lead">A port of LangChain’s <code>ParentDocumentRetriever</code> runs here on a 2,184-character page of the Larkspur Cloud handbook. Children are what the index searches; parents are what the model reads. Move both sizes and watch the answer, and the token bill, change.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg" id="queries"><legend>Golden question</legend><div class="seg__opts query-opts" id="queryOpts"></div></fieldset>
+      <div class="field">
+        <label for="child">Child chunk_size, what gets searched</label>
+        <input type="range" id="child" min="100" max="600" step="50" value="150">
+        <output class="val" id="childVal" for="child"></output>
+      </div>
+      <div class="field">
+        <label for="parent">Parent chunk_size, what gets returned</label>
+        <input type="range" id="parent" min="200" max="2300" step="100" value="600">
+        <output class="val" id="parentVal" for="parent"></output>
+      </div>
+      <div class="seg__opts" id="presets" role="group" aria-label="Settings to try"></div>
+      <p class="note">The last parent stop drops <code>parent_splitter</code>, so the whole page is the parent. Both splitters are recursive with no overlap; the index returns the top 2 children by TF-IDF cosine, as in the M11 baseline.</p>
+      <dl class="stats">
+        <div><dt>Answer whole, children only</dt><dd id="sPlain"></dd></div>
+        <div><dt>Answer whole, parents returned</dt><dd id="sPdr"></dd></div>
+        <div><dt>Tokens sent, children only</dt><dd id="sPlainTok"></dd></div>
+        <div><dt>Tokens sent, parents</dt><dd id="sPdrTok"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="mapHead">
+        <div class="sheet__head"><h2 id="mapHead">Index map of the page</h2><p class="note" id="mapNote"></p></div>
+        <div class="map"><svg id="map" viewBox="0 0 1000 200" role="img" aria-label="Parents above, children below, across the page, with the matched children, the parents they return and the answer marked"></svg></div>
+        <p class="key"><span style="--sw: var(--color-ink)">matched child</span><span style="--sw: var(--color-muted)">parent returned</span><span style="--sw: var(--color-paper-3)">stored, not used</span><span style="--sw: var(--color-accent)">the answer</span></p>
+      </section>
+      <section class="sheet hitsheet" aria-labelledby="hitsHead">
+        <div class="sheet__head"><h2 id="hitsHead">Searched: the top 2 children</h2><p class="note">Cosine similarity, TF-IDF</p></div>
+        <div class="scroll"><table class="hits">
+          <thead><tr><th class="num" scope="col">Rank</th><th scope="col">Child</th><th class="num" scope="col">Score</th><th class="num" scope="col">Characters</th><th scope="col">Parent</th><th scope="col">Text</th></tr></thead>
+          <tbody id="hits"></tbody>
+        </table></div>
+      </section>
+      <section class="sheet retsheet" aria-labelledby="retHead">
+        <div class="sheet__head"><h2 id="retHead">Returned: what the model reads</h2><p class="note">Matched child underlined; answer marked</p></div>
+        <ol class="ret" id="ret"></ol>
+      </section>
+      <section class="sheet base" aria-labelledby="baseHead">
+        <div class="sheet__head"><h2 id="baseHead">All three golden questions at this setting</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Golden question</th><th scope="col">Children only</th><th class="num" scope="col">Tokens</th><th scope="col">Parents</th><th class="num" scope="col">Tokens</th></tr></thead>
+          <tbody id="baseline"></tbody>
+          <tfoot><tr><td>Answers found</td><td id="tPlain"></td><td class="num" id="tPlainTok"></td><td id="tPdr"></td><td class="num" id="tPdrTok"></td></tr></tfoot>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)">“Children only” is plain chunking at the child size: the same two matches, sent as they are. Tokens use the four-characters-per-token rule of thumb; the footer gives the mean.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+// <engine>
+const TEXT=`Refunds and cancellations
+
+Larkspur Cloud bills monthly plans at the start of each billing cycle and annual plans once a year. You can cancel any plan from the Billing page. Cancelling stops the next charge, and your servers keep running until the end of the period you already paid for.
+
+Monthly plans are not refundable. If you cancel a monthly plan halfway through a cycle, the servers stay online until the cycle ends and then shut down. Annual plans work differently. You can get a full refund on an annual plan within 30 days of purchase, as long as the account has used less than 100 GB of outbound traffic. After day 30, refunds are prorated: you get back the unused whole months, minus a 15% early-termination fee. Refunds go back to the original payment method and take 5 to 10 business days to appear.
+
+Credits from SLA breaches are applied to the next invoice and cannot be paid out as cash. Promotional credits expire 12 months after they are issued.
+
+To request a refund, open a ticket in the Billing category and include the invoice number. Requests sent by email are not tracked and take longer.
+
+Outages and service credits
+
+Larkspur guarantees 99.95% monthly availability for every server plan. Availability is measured per region by the status page probes, and maintenance announced 7 days ahead does not count against it. When an outage pushes a region below 99.95%, affected accounts are owed service credits worth 10% of that month's server charges, or 25% below 99.0%. The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident.
+
+During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery.
+
+Data export and retention
+
+Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots, packaged as one archive per region. Large exports run in the background, and you get an email when the archive is ready.
+
+After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes, because support cannot restore deleted data.`;
+const QUERIES=[
+  {q:"How long do I have to get a full refund on an annual plan?", answer:"You can get a full refund on an annual plan within 30 days of purchase, as long as the account has used less than 100 GB of outbound traffic."},
+  {q:"Do I get service credits automatically after an outage?", answer:"The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident."},
+  {q:"What happens to my data after I cancel my plan?", answer:"After a plan is cancelled, its data is kept for 30 days and then permanently deleted."}];
+const K=2;            // children fetched per question, as in the M11 baseline
+const WHOLE=2300;     // the parent slider's last stop: no parent_splitter, the whole document is the parent
+
+// Port of LangChain's RecursiveCharacterTextSplitter (keep_separator=True, strip_whitespace=True, length=len), from the M13 lab.
+function splitKeep(text, sep){
+  if(sep==='') return [...text];
+  const parts=text.split(sep);
+  return [parts[0], ...parts.slice(1).map(p=>sep+p)].filter(s=>s);
+}
+function mergeSplits(splits, size, overlap){
+  const docs=[]; let cur=[]; let total=0;
+  for(const d of splits){
+    const len=d.length;
+    if(total+len>size){
+      if(cur.length){
+        const doc=cur.join('').trim(); if(doc) docs.push(doc);
+        while(total>overlap || (total+len>size && total>0)){ total-=cur[0].length; cur=cur.slice(1); }
+      }
+    }
+    cur.push(d); total+=len;
+  }
+  const doc=cur.join('').trim(); if(doc) docs.push(doc);
+  return docs;
+}
+function recursiveSplit(text, size, overlap=0, seps=['\n\n','\n',' ','']){
+  let sep=seps[seps.length-1], next=[];
+  for(let i=0;i<seps.length;i++){
+    if(seps[i]===''){ sep=''; break; }
+    if(text.includes(seps[i])){ sep=seps[i]; next=seps.slice(i+1); break; }
+  }
+  const out=[]; let good=[];
+  for(const s of splitKeep(text, sep)){
+    if(s.length<size) good.push(s);
+    else{
+      if(good.length){ out.push(...mergeSplits(good,size,overlap)); good=[]; }
+      if(!next.length) out.push(s); else out.push(...recursiveSplit(s,size,overlap,next));
+    }
+  }
+  if(good.length) out.push(...mergeSplits(good,size,overlap));
+  return out;
+}
+// Where each piece starts inside its container, the search LangChain's add_start_index does.
+function offsets(pieces, within, base){
+  let prev=-1;
+  return pieces.map(t=>{ const s=within.indexOf(t, prev+1); prev=s; return {text:t, start:base+s, end:base+s+t.length}; });
+}
+
+const STOP=new Set("a about above across after afterwards again against all almost alone along already also although always am among amongst amoungst amount an and another any anyhow anyone anything anyway anywhere are around as at back be became because become becomes becoming been before beforehand behind being below beside besides between beyond bill both bottom but by call can cannot cant co con could couldnt cry de describe detail do done down due during each eg eight either eleven else elsewhere empty enough etc even ever every everyone everything everywhere except few fifteen fifty fill find fire first five for former formerly forty found four from front full further get give go had has hasnt have he hence her here hereafter hereby herein hereupon hers herself him himself his how however hundred i ie if in inc indeed interest into is it its itself keep last latter latterly least less ltd made many may me meanwhile might mill mine more moreover most mostly move much must my myself name namely neither never nevertheless next nine no nobody none noone nor not nothing now nowhere of off often on once one only onto or other others otherwise our ours ourselves out over own part per perhaps please put rather re same see seem seemed seeming seems serious several she should show side since sincere six sixty so some somehow someone something sometime sometimes somewhere still such system take ten than that the their them themselves then thence there thereafter thereby therefore therein thereupon these they thick thin third this those though three through throughout thru thus to together too top toward towards twelve twenty two un under until up upon us very via was we well were what whatever when whence whenever where whereafter whereas whereby wherein whereupon wherever whether which while whither who whoever whole whom whose why will with within without would yet you your yours yourself yourselves".split(" "));
+// TF-IDF with scikit-learn's defaults, from the M11 lab: token pattern \b\w\w+\b, English stop words, smooth idf, L2-normalised rows.
+function tokenize(s){ return (s.toLowerCase().match(/\b\w\w+\b/g)||[]).filter(t=>!STOP.has(t)); }
+function tfidf(texts){
+  const toks=texts.map(tokenize), N=texts.length, df={};
+  toks.forEach(ts=>new Set(ts).forEach(t=>df[t]=(df[t]||0)+1));
+  const idf={}; for(const t in df) idf[t]=Math.log((1+N)/(1+df[t]))+1;
+  const vec=ts=>{ const v={}; ts.forEach(t=>{ if(idf[t]) v[t]=(v[t]||0)+idf[t]; }); const n=Math.hypot(...Object.values(v))||1; for(const t in v) v[t]/=n; return v; };
+  return {docs:toks.map(vec), query:q=>vec(tokenize(q))};
+}
+const cosine=(a,b)=>Object.keys(a).reduce((s,t)=>s+a[t]*(b[t]||0),0);
+
+// ParentDocumentRetriever.add_documents: split into parents (or keep the whole document), split each parent into children,
+// tag every child with its parent's id, embed the children, store the parents.
+function buildIndex(childSize, parentSize){
+  const parents = parentSize>=WHOLE ? [{text:TEXT, start:0, end:TEXT.length}] : offsets(recursiveSplit(TEXT,parentSize), TEXT, 0);
+  const children=[];
+  parents.forEach((p,pi)=>offsets(recursiveSplit(p.text,childSize), p.text, p.start).forEach(c=>children.push({...c, parent:pi})));
+  const ix=tfidf(children.map(c=>c.text));
+  return {parents, children, ix};
+}
+// invoke: the top-K children by cosine, then their parents' ids in rank order without repeats, then the parents.
+// Children that share no term with the question (score 0) are never counted as found, as in the M11 lab.
+function retrieve(index, q){
+  const qv=index.ix.query(q);
+  const ranked=index.children.map((c,i)=>({...c, i, score:cosine(qv,index.ix.docs[i])})).sort((a,b)=>b.score-a.score || a.i-b.i);
+  const hits=ranked.slice(0,K).filter(c=>c.score>0);
+  const ids=[]; hits.forEach(c=>{ if(!ids.includes(c.parent)) ids.push(c.parent); });
+  return {hits, parentIds:ids, returned:ids.map(i=>index.parents[i])};
+}
+// </engine>
+
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const tok=n=>Math.round(n/4);
+const fmt=n=>n.toLocaleString('en-US');
+
+let qi=0;
+QUERIES.forEach((Q,i)=>{
+  const id='q'+i;
+  $('queryOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="q" id="${id}" value="${i}"${i===0?' checked':''}><label class="opt" for="${id}">${Q.q}</label>`);
+  $(id).addEventListener('change',()=>{qi=i;render();});
+});
+const PRESETS=[
+  {label:'150 and 600, children cut, parents hold', child:150, parent:600},
+  {label:'150 and 400, parents too small', child:150, parent:400},
+  {label:'200 and 800, two children, one parent', child:200, parent:800},
+  {label:'400 and the whole page', child:400, parent:WHOLE},
+  {label:'400 and 400, plain chunking', child:400, parent:400},
+];
+const pEls=PRESETS.map(p=>{
+  const b=document.createElement('button'); b.type='button'; b.className='opt'; b.textContent=p.label; b.setAttribute('aria-pressed','false');
+  b.onclick=()=>{ $('child').value=p.child; $('parent').value=p.parent; render(); };
+  $('presets').appendChild(b); return b;
+});
+
+function outcome(index, Q){
+  const r=retrieve(index, Q.q);
+  const plainChars=r.hits.reduce((a,h)=>a+h.text.length,0), pdrChars=r.returned.reduce((a,p)=>a+p.text.length,0);
+  return {...r, plain:r.hits.some(h=>h.text.includes(Q.answer)), pdr:r.returned.some(p=>p.text.includes(Q.answer)), plainChars, pdrChars};
+}
+const yes=(el,v)=>{ el.textContent=v?'Yes':'No'; el.className='word '+(v?'is-good':'is-bad'); };
+
+function render(){
+  const child=+$('child').value, parent=+$('parent').value, whole=parent>=WHOLE;
+  $('childVal').textContent=child; $('parentVal').textContent=whole?'page':parent;
+  pEls.forEach((b,i)=>b.setAttribute('aria-pressed', String(PRESETS[i].child===child && PRESETS[i].parent===parent)));
+  const index=buildIndex(child,parent), Q=QUERIES[qi], o=outcome(index,Q);
+  const A0=TEXT.indexOf(Q.answer), A1=A0+Q.answer.length;
+  const plainIsSame=index.parents.length===index.children.length;
+
+  yes($('sPlain'),o.plain); yes($('sPdr'),o.pdr);
+  $('sPlainTok').textContent=tok(o.plainChars); $('sPdrTok').textContent=tok(o.pdrChars);
+  $('mapNote').textContent=`${index.children.length} children in the vector index, ${index.parents.length} parent${index.parents.length>1?'s':''} in the docstore`;
+
+  // index map: parents lane over children lane on one character axis
+  const X=p=>p/TEXT.length*1000, hitIds=o.hits.map(h=>h.i);
+  let svg=`<rect class="answer" x="${X(A0)}" y="0" width="${X(A1)-X(A0)}" height="150"/>`+
+          `<line class="answer-edge" x1="${X(A0)}" x2="${X(A0)}" y1="0" y2="150"/><line class="answer-edge" x1="${X(A1)}" x2="${X(A1)}" y1="0" y2="150"/>`;
+  index.parents.forEach((p,i)=>{
+    const on=o.parentIds.includes(i), x=X(p.start)+1, w=Math.max(2,X(p.end)-X(p.start)-2);
+    svg+=`<rect class="par${on?' par--ret':''}" x="${x}" y="8" width="${w}" height="40"/>`;
+    if(w>44) svg+=`<text class="lbl${on?' lbl--on':''}" x="${x+6}" y="34">P${i+1}</text>`;
+  });
+  index.children.forEach((c,i)=>{
+    const r=hitIds.indexOf(i), x=X(c.start)+1, w=Math.max(2,X(c.end)-X(c.start)-2);
+    svg+=`<rect class="kid${r>=0?' kid--hit':''}" x="${x}" y="98" width="${w}" height="40"/>`;
+    if(r>=0){ const cx=x+w/2, p=index.parents[c.parent]; const px=Math.min(Math.max(cx,X(p.start)+3),X(p.end)-3);
+      svg+=`<line class="link" x1="${cx}" y1="98" x2="${px}" y2="48"/>`;
+      if(w>22) svg+=`<text class="lbl lbl--on" x="${x+5}" y="124">${r+1}</text>`; }
+  });
+  svg+=`<line class="axis" x1="0" x2="1000" y1="156" y2="156"/>`;
+  for(let t=0;t<=2000;t+=500){ const x=X(t); svg+=`<line class="tick" x1="${x}" x2="${x}" y1="156" y2="162"/><text class="tick-l" x="${x}" y="186" text-anchor="${t===0?'start':'middle'}">${t}</text>`; }
+  svg+=`<text class="tick-l" x="1000" y="186" text-anchor="end">${TEXT.length}</text>`;
+  $('map').innerHTML=svg;
+
+  // searched: the top children
+  $('hits').innerHTML=o.hits.map((h,r)=>`<tr><td class="num">${r+1}</td><td class="id">#${h.i+1}</td><td class="num">${h.score.toFixed(3)}</td><td class="num">${h.text.length}</td><td class="id">P${h.parent+1}</td><td class="tx">${esc(h.text)}</td></tr>`).join('');
+
+  // returned: each parent once, with its matched children and the answer marked
+  $('ret').innerHTML='';
+  o.returned.forEach((p,j)=>{
+    const pi=o.parentIds[j], kids=o.hits.filter(h=>h.parent===pi);
+    const marks=new Array(p.text.length).fill(0);
+    kids.forEach(h=>{ for(let x=h.start-p.start;x<h.end-p.start;x++) marks[x]|=1; });
+    for(let x=Math.max(0,A0-p.start);x<Math.min(p.text.length,A1-p.start);x++) marks[x]|=2;
+    let html='';
+    for(let a=0;a<p.text.length;){ let b=a+1; while(b<p.text.length && marks[b]===marks[a]) b++;
+      let seg=esc(p.text.slice(a,b)); if(marks[a]&1) seg=`<span class="kid">${seg}</span>`; if(marks[a]&2) seg=`<mark>${seg}</mark>`; html+=seg; a=b; }
+    const li=document.createElement('li');
+    li.innerHTML=`<div class="meta"><b>P${pi+1}</b><span>${fmt(p.text.length)} characters</span><span>about ${tok(p.text.length)} tokens</span><span>via child ${kids.map(h=>'#'+(h.i+1)).join(' and ')}</span></div><p class="txt">${html}</p>`;
+    $('ret').appendChild(li);
+  });
+
+  // all three questions at this setting: the lab's report row
+  let base='', nP=0, nR=0, tP=0, tR=0;
+  QUERIES.forEach((q,i)=>{ const x=outcome(index,q); nP+=x.plain; nR+=x.pdr; tP+=tok(x.plainChars); tR+=tok(x.pdrChars);
+    base+=`<tr${i===qi?' class="cur"':''}><td>${q.q}</td><td class="${x.plain?'is-good':'is-bad'}">${x.plain?'found':'missed'}</td><td class="num">${tok(x.plainChars)}</td><td class="${x.pdr?'is-good':'is-bad'}">${x.pdr?'found':'missed'}</td><td class="num">${tok(x.pdrChars)}</td></tr>`; });
+  $('baseline').innerHTML=base;
+  $('tPlain').textContent=`${nP} of 3`; $('tPdr').textContent=`${nR} of 3`;
+  $('tPlainTok').textContent=Math.round(tP/3); $('tPdrTok').textContent=Math.round(tR/3);
+
+  // the reading, keyed to computed results
+  const top=o.hits[0], topParent=index.parents[top.parent], co=$('callout');
+  const extra=tok(o.pdrChars)-tok(o.plainChars);
+  if(plainIsSame){
+    co.innerHTML=`<b>This is plain chunking.</b> Every parent is no longer than ${child} characters, so each one yields a single child identical to itself: what is searched is what is returned. Make the parent larger than the child to separate the two.`;
+  } else if(!o.pdr){
+    const ansPar=index.parents.map((p,i)=>i).filter(i=>index.parents[i].end>A0 && index.parents[i].start<A1);
+    const stub=top.text.length<50 ? ` A short child such as “${esc(top.text)}” shares the question’s words and little else, so it ranks first.` : ``;
+    co.innerHTML=`<b>Neither returned parent holds the answer.</b> ` +
+      (ansPar.length>1 ? `The parent splitter cut the answer across P${ansPar[0]+1} and P${ansPar[1]+1}, so no parent holds it whole.` :
+        `The answer sits in P${ansPar[0]+1}, and none of its children made the top 2; the matches came from ${o.parentIds.map(i=>'P'+(i+1)).join(' and ')}.`) +
+      stub + ` A parent widens what a match brings back only as far as the parent boundary, and it cannot repair a wrong match.`;
+  } else if(!o.plain){
+    const cut=o.hits.find(h=>h.end>A0 && h.start<A1);
+    co.innerHTML=`<b>The child cut the answer; the parent holds it.</b> ` +
+      (!cut ? `No matched child touches the answer: the words of the question sit in the sentences around it. ` : `Child #${cut.i+1} holds only part of the answer: “${esc(TEXT.slice(Math.max(cut.start,A0),Math.min(cut.end,A1)))}”. `) +
+      `Sent as they are, the two children give the model ${tok(o.plainChars)} tokens and no complete answer. The retriever returns ${o.returned.length===1?'their parent':'their parents'} instead: ${tok(o.pdrChars)} tokens, with the whole answer inside.` +
+      (whole ? ` With no parent splitter that is the whole page for every question, ${tok(TEXT.length)} tokens each time.` : o.hits.length===2 && o.parentIds.length===1 ? ` Both children came from the same parent, so it is returned once.` : ``);
+  } else {
+    co.innerHTML=`<b>The child already held the answer.</b> Child #${top.i+1} alone answers the question. The parent${o.returned.length>1?'s add':' adds'} ${extra} tokens of neighbouring text, which helps when a question needs the surrounding policy and costs tokens when it does not.` +
+      (whole ? ` With the whole page as the parent, every question costs ${tok(TEXT.length)} tokens.` : ``);
+  }
+}
+$('child').addEventListener('input',render);
+$('parent').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

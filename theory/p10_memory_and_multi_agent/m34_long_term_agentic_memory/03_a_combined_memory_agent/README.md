@@ -1,0 +1,48 @@
+# M34.3 Theory: A combined-memory agent
+
+*[M34 theory](../README.md) · Lesson 34.3 · Notebooks: [`03a_combined_memory_agent_sqlite.ipynb`](../../../../course/p10_memory_and_multi_agent/m34_long_term_agentic_memory/notebooks/03a_combined_memory_agent_sqlite.ipynb) · [All theory pages](../../../README.md)*
+
+## Who writes each layer
+
+The capstone runs five layers in one agent and one SQLite file, `agent_memory.db`. `SqliteSaver` owns the `checkpoints` and `writes` tables; `SqliteStore` owns the `store` table, and four layers share it, kept apart by namespace. The table that matters is the last column: each layer has exactly one writer.
+
+| Layer | Scope id | Passed as | Read as | Writer |
+|---|---|---|---|---|
+| Short-term | `thread_id` | `config["configurable"]` | Full replay of the thread | The checkpointer, every step |
+| Session | `session_id` | `context` | Preloaded | The app, with a 30-minute TTL |
+| Semantic | `user_id` | `context` | Preloaded with keys | The model, through `save_user_fact` |
+| Episodic | `user_id` | `context` | Newest first, preloaded | A graph node after each answer |
+| Procedural | `agent_id` | `context` | Highest approved version | A human, after review |
+
+The agent itself never writes session items or procedures. The capstone stores a `checklist` procedure as v1 approved and v2 still `proposed`; the agent reads v1 and ignores v2, because only the highest **approved** version counts.
+
+### Episodes are written in code
+
+The episodic notebook gave the model a `save_episode` tool and the user asked for the save. Without that request, in six test runs of this agent with the tool and a system-prompt rule to use it, gpt-4o-mini never saved one episode. So the capstone adds a node:
+
+```mermaid
+flowchart LR
+    S([START]) --> A[agent]
+    A -- tool call --> T[tools]
+    T --> A
+    A -- final answer --> R["record_episode<br/>summarise, check, append"]
+    R --> E([END])
+```
+
+`record_episode` runs once per turn, after the final answer. It asks the model for a structured summary (`work_request`, `task`, `outcome`), and then code makes the decision: a turn counts as a task only if `work_request` quotes the user's own message, which code checks by looking for the quote's first 20 characters in it. A real task becomes a new episode under a fresh key, and the oldest episodes past `MAX_EPISODES = 3` are deleted.
+
+The end-to-end run checks every layer in code. Priya introduces herself and asks for a credentials-rotation checklist in visit 1; the checklist ends with the procedure's `Risk:` line and stays within the session's 60-word limit. In visit 2 (new thread, new session) the agent recalls her role and the checklist, and a changed preference overwrites its key instead of adding a fact. Marco, a different user on the same agent, sees none of it but gets the same procedure, because procedures are scoped to the agent, not the user.
+
+## The preload budget
+
+The capstone preloads all four store layers into the system prompt on every model call: facts with keys, episodes newest first, the session instruction and the approved procedures. That is the right design while memory is small, and it has two limits.
+
+- **A silent cap.** `store.search()` returns 10 items unless you pass `limit=`. The capstone passes `limit=100` everywhere; a preload without it drops the 11th fact with no error.
+- **A growing bill.** Every preloaded item is paid for on every call, including the calls inside the tool loop. Cap each layer (pruning, `MAX_EPISODES`), and when a layer outgrows the prompt, retrieve from it instead of loading all of it (lesson 34.4).
+
+The production path changes the backend, not the agent. `PostgresSaver` and `PostgresStore` replace the two SQLite primitives, and nodes and tools are untouched because they only see `runtime.store` and the compiled checkpointer. The move buys concurrent writers without `database is locked`, a working `omit_expired=True`, and `search(..., query=...)` over a pgvector index for recall by meaning. The notebook prints the snippet but does not run it, because it needs a Postgres server.
+
+The same layers can be two hand-written SQL tables: `PRIMARY KEY (user_id, key)` with `INSERT OR REPLACE` is the semantic upsert, and a fresh id per row is the episodic append. Tables give you joins and constraints; the store gives you namespaces, TTLs, embedding search and the Postgres swap. Read `SqliteStore`'s own `store` table only through `get` and `search`, since its schema may change between versions.
+
+---
+*Previous: [34.2 Session, semantic, episodic and procedural memory on SQLite](../02_session_semantic_episodic_and_procedural_memory_on_sqlite/README.md). Next: [34.4 Episodic + semantic stack and multi-hop graph memory](../04_episodic_semantic_stack_and_multi_hop_graph_memory/README.md).*

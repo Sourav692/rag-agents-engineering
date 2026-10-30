@@ -252,6 +252,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>RAG moves knowledge out of model weights (parametric) into an index you control (non-parametric), so you can update it, restrict it and cite it.</li>
 <li>The pipeline has an offline <strong>indexing</strong> phase (load → split → embed → store) and an online <strong>query</strong> phase (retrieve → augment → generate). A mistake made at indexing time often surfaces only in the generated answer.</li>
 <li><code>k</code> controls how much context the model reads. It trades recall against precision, tokens and latency, and it cannot recover a chunk the retriever scores as irrelevant.</li>
+<li>Embeddings match meaning where TF-IDF matches exact words. On the handbook they find the refund and outage evidence TF-IDF misses, and lose the export question TF-IDF answered at <code>k = 2</code>.</li>
 <li>Build the plain pipeline first, record its numbers on a fixed question set, then change one stage at a time and compare.</li>
 </ul>
 <h2 id="mental-model">Mental model</h2>
@@ -481,7 +482,7 @@ Precision@k = evidence chunks in the top k / k
 <ul>
 <li><strong>The export question is a ranking problem, and <code>k = 2</code> solves it.</strong> Past that, each extra chunk is noise: precision falls from 1.00 to 0.17 while the prompt grows almost sixfold.</li>
 <li><strong>The refund question is a representation problem.</strong> The <code>refund-timing</code> chunk says &ldquo;Refunds&rdquo;; the question says &ldquo;refund&rdquo;. TF-IDF matches exact tokens, so that chunk scores 0 and no <code>k</code> retrieves it. Meanwhile <code>reboot</code> scores 0.194 because both contain &ldquo;does&rdquo;.</li>
-<li><strong>The outage question is vocabulary mismatch.</strong> The evidence talks about &ldquo;outage&rdquo; and &ldquo;availability&rdquo;; the question says &ldquo;server goes down&rdquo;. TF-IDF ranks <code>reboot</code> and <code>sizing</code> first because they contain &ldquo;server&rdquo;. Embeddings (lesson 11.3, M14) and query rewriting (M18) fix this. A bigger <code>k</code> only adds noise.</li>
+<li><strong>The outage question is vocabulary mismatch.</strong> The evidence talks about &ldquo;outage&rdquo; and &ldquo;availability&rdquo;; the question says &ldquo;server goes down&rdquo;. TF-IDF ranks <code>reboot</code> and <code>sizing</code> first because they contain &ldquo;server&rdquo;. Embeddings (<a href="#">lesson 11.3</a>, M14) and query rewriting (M18) fix this. A bigger <code>k</code> only adds noise.</li>
 </ul>
 <figure class="lab-embed"><iframe src="02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html" title="Top-k and the baseline, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Top-k and the baseline. <a href="02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html">Open full screen</a></figcaption></figure>
 <p>Raising <code>k</code> has costs beyond tokens. Every extra chunk adds latency and gives the model text it can misread. Long prompts also have a position effect: models use information at the start and end of the context more reliably than information in the middle (Liu et al., <em>Lost in the Middle</em>, 2023). Retrieve generously when a reranker (M19) will trim the list afterwards; retrieve tightly when chunks go straight to the model.</p>
@@ -498,6 +499,189 @@ Precision@k = evidence chunks in the top k / k
     k=12 export: [0.95, 0.17]
     any k outage: [0.05, 0.05]
 </pre></figure>
+<h2 id="embedding-similarity">Embedding similarity</h2>
+<p class="lesson-of">Lesson 11.3: Semantic retrieval with embedding similarity. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/03a_retrieval_strategies.ipynb" target="_blank" rel="noopener"><code>03a_retrieval_strategies.ipynb</code></a></p>
+<p>An embedding model turns a text into a fixed-length list of numbers, a vector. Texts with similar meaning get vectors that point in similar directions, even when they share no words. Retrieval with embeddings has the same shape as the TF-IDF index in lesson 11.2; only the vectors change:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    C["12 handbook chunks"] --&gt; M1["Embedding model"] --&gt; V[("12 chunk vectors")]
+    Q[/"What happens if my&lt;br/&gt;server goes down?"/] --&gt; M2["Same model"] --&gt; QV["Query vector"]
+    V --&gt; S["Cosine with&lt;br/&gt;every chunk"]
+    QV --&gt; S
+    S --&gt; T["Top-k chunks"]
+</pre></figure>
+<p>The chunks are embedded once, at indexing time. The question is embedded when it arrives, and each chunk is scored by the cosine of the angle between the two vectors:</p>
+<pre class="sheet code"><code>cosine(q, d) = (q · d) / (|q| × |d|)   # -1 to 1; higher is closer
+distance     = 1 - cosine(q, d)         # NearestNeighbors(metric=&quot;cosine&quot;)
+</code></pre>
+<p>Notebook 03a fits scikit-learn&rsquo;s <code>NearestNeighbors(metric="cosine")</code> on the chunk vectors and prints a <em>distance</em>, so a lower number there means a closer chunk. When every vector has length 1, cosine is the plain dot product. OpenAI&rsquo;s embeddings come normalised that way, and sentence-transformers returns them so with <code>normalize_embeddings=True</code>.</p>
+<p>The question and the chunks must go through the same model. Two models produce vectors in different spaces, so the cosine between a vector from one and a vector from the other is meaningless. Notebook 03a uses one function, <code>get_gpt4_embedding</code>, for both sides. Changing the embedding model therefore means re-embedding the whole corpus (M14).</p>
+<h2 id="embeddings-against-tf-idf">Embeddings against TF-IDF</h2>
+<p>The comparison below uses the 12 Larkspur chunks and three golden questions from the <a href="02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html">lesson 11.2 lab</a>, embedded with <code>all-MiniLM-L6-v2</code>. That model is small (384 numbers per vector) and runs locally, so anyone can reproduce the scores. Notebook 03a uses OpenAI&rsquo;s <code>text-embedding-3-small</code>, whose scores will differ.</p>
+<pre class="sheet code"><code class="language-python">from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer(&quot;sentence-transformers/all-MiniLM-L6-v2&quot;)
+question = &quot;What happens if my server goes down?&quot;
+# 12 x 384, embedded once at indexing time
+chunks = model.encode(texts, normalize_embeddings=True)
+q = model.encode([question], normalize_embeddings=True)[0]
+# cosine, because every vector has length 1
+scores = chunks @ q
+</code></pre>
+<p>Each question has two evidence chunks, so recall moves in steps of 0.50:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>TF-IDF R@2</th>
+<th>TF-IDF R@3</th>
+<th>Embeddings R@2</th>
+<th>Embeddings R@3</th>
+<th>Embedding top three (cosine)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>How long does a refund take?</em></td>
+<td>0.50</td>
+<td>0.50</td>
+<td><strong>1.00</strong></td>
+<td>1.00</td>
+<td><code>refund-timing</code> 0.766, <code>refund-window</code> 0.608, <code>support</code> 0.297</td>
+</tr>
+<tr>
+<td><em>What happens if my server goes down?</em></td>
+<td>0.00</td>
+<td>0.00</td>
+<td>0.50</td>
+<td><strong>1.00</strong></td>
+<td><code>reboot</code> 0.394, <code>incidents</code> 0.314, <code>sla</code> 0.257</td>
+</tr>
+<tr>
+<td><em>Can I export my data after I cancel my plan?</em></td>
+<td><strong>1.00</strong></td>
+<td>1.00</td>
+<td>0.50</td>
+<td>1.00</td>
+<td><code>retention</code> 0.817, <code>cancel</code> 0.561, <code>export</code> 0.479</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Refund: the representation problem is gone.</strong> TF-IDF gave <code>refund-timing</code> a score of 0 because &ldquo;Refunds&rdquo; and &ldquo;refund&rdquo; are different tokens. The embedding model places both word forms close together and ranks that chunk first.</li>
+<li><strong>Outage: the vocabulary gap narrows.</strong> Both evidence chunks now reach the top three, though <code>reboot</code> still ranks first because rebooting a server is close in meaning to a server going down. The top three scores sit within 0.137 of each other, so a small change to the question can reorder them.</li>
+<li><strong>Export: embeddings lose a question TF-IDF answered.</strong> The question is half about cancelling, so the <code>cancel</code> chunk (0.561) outranks <code>export</code> (0.479). TF-IDF matched the literal word &ldquo;export&rdquo; and found both evidence chunks at <code>k = 2</code>.</li>
+</ul>
+<p>Embeddings measure how close two texts are in topic, which is not the same as whether a chunk contains the answer. TF-IDF wins when the question and the evidence share a rare exact word (a product name, an error code, &ldquo;export&rdquo;); embeddings win on paraphrase and word forms. Hybrid search (M17) combines the two scores, and a reranker (M19) reorders the candidates with a model that reads the question and each chunk together.</p>
+<p>The scores are not probabilities either. The best outage match scores 0.394, while the best export match scores 0.817. A fixed cut-off such as &ldquo;drop chunks below 0.5&rdquo; would send the outage question to the model with no context at all. Set any threshold per corpus and model from the golden set, and re-check it whenever the model changes.</p>
+<h2 id="what-langchain-replaces">What LangChain replaces</h2>
+<p class="lesson-of">Lesson 11.4: Your first LangChain RAG with Chroma. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/04a_langchain_rag_quickstart.ipynb" target="_blank" rel="noopener"><code>04a_langchain_rag_quickstart.ipynb</code></a></p>
+<p>Lessons 11.2 and 11.3 built the index by hand: embed each chunk, keep the vectors in a NumPy array, fit <code>NearestNeighbors</code>, embed the question, look up its neighbours. Notebook 04a does the same work through two LangChain interfaces, <code>Embeddings</code> and <code>VectorStore</code>:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>By hand (notebook 03a)</th>
+<th>LangChain with Chroma (notebook 04a)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Embed the chunks</td>
+<td><code>get_gpt4_embedding(doc)</code> in a loop, one API call per chunk</td>
+<td><code>OpenAIEmbeddings().embed_documents(texts)</code>, batched</td>
+</tr>
+<tr>
+<td>Store the vectors</td>
+<td><code>np.array(embeddings)</code>, then <code>NearestNeighbors(...).fit(...)</code></td>
+<td><code>Chroma.from_texts(texts, embedding=embeddings_model)</code></td>
+</tr>
+<tr>
+<td>Embed the question</td>
+<td><code>get_gpt4_embedding(query)</code></td>
+<td><code>embed_query(question)</code>, called by the store</td>
+</tr>
+<tr>
+<td>Search</td>
+<td><code>index.kneighbors(query_embedding)</code></td>
+<td><code>db.similarity_search(question, k=4)</code></td>
+</tr>
+<tr>
+<td>Hand results to a chain</td>
+<td>not covered</td>
+<td><code>db.as_retriever(search_kwargs={"k": 2})</code></td>
+</tr>
+</tbody>
+</table></div>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant N as Notebook
+    participant C as Chroma
+    participant E as Embeddings
+    N-&gt;&gt;C: from_texts(texts, embedding)
+    C-&gt;&gt;E: embed_documents(texts)
+    E--&gt;&gt;C: one vector per text
+    N-&gt;&gt;C: similarity_search(question, k)
+    C-&gt;&gt;E: embed_query(question)
+    E--&gt;&gt;C: query vector
+    C--&gt;&gt;N: k Documents, closest first
+</pre></figure>
+<p>The store keeps the embedding object and calls it for you, so the question always goes through the same model as the chunks. <code>Embeddings</code> has separate <code>embed_documents</code> and <code>embed_query</code> methods because some models encode questions and passages differently. For OpenAI&rsquo;s models the two do the same thing; <code>embed_query</code> calls <code>embed_documents([text])[0]</code>.</p>
+<p>Three defaults in notebook 04a surprise people the first time:</p>
+<ul>
+<li><strong><code>k</code> is 4</strong> when you call <code>similarity_search</code> without it. Set it explicitly, and measure it as in lesson 11.2.</li>
+<li><strong>Re-running the cell duplicates the index.</strong> <code>from_texts</code> without a <code>collection_name</code> writes to a collection called <code>langchain</code> and adds to whatever is already there. Running it twice on the 12 Larkspur chunks leaves 24 entries, and the refund question&rsquo;s top three comes back with <code>refund-timing</code> twice. Pass <code>ids=</code> so a re-run overwrites, or give each experiment its own collection.</li>
+<li><strong>Nothing is saved.</strong> Without <code>persist_directory</code>, the collection lives in memory and disappears when the kernel restarts.</li>
+</ul>
+<p>The notebook imports <code>Chroma</code> from <code>langchain_community.vectorstores</code>. That package now warns that it is being sunset; this repo depends on <code>langchain-chroma</code>, which has the same class: <code>from langchain_chroma import Chroma</code>.</p>
+<h2 id="distance-not-similarity">Distance, not similarity</h2>
+<p>Chroma ranks by distance, and its default metric is squared Euclidean (L2) distance, so <code>similarity_search_with_score</code> returns lower numbers for closer chunks. For vectors of length 1 the two measures are tied by <code>distance = 2 - 2 × cosine</code>, so L2 and cosine rank chunks in the same order. On the 12 Larkspur chunks, embedded with <code>all-MiniLM-L6-v2</code> as in lesson 11.3 (langchain-chroma 1.1.0, chromadb 1.5.9):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Chunk</th>
+<th>Cosine (11.3)</th>
+<th><code>similarity_search_with_score</code></th>
+<th><code>similarity_search_with_relevance_scores</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>How long does a refund take?</em></td>
+<td><code>refund-timing</code> (1st)</td>
+<td>0.766</td>
+<td>0.469</td>
+<td>0.668</td>
+</tr>
+<tr>
+<td><em>Can I export my data after I cancel my plan?</em></td>
+<td><code>retention</code> (1st)</td>
+<td>0.817</td>
+<td>0.367</td>
+<td>0.741</td>
+</tr>
+<tr>
+<td><em>What happens if my server goes down?</em></td>
+<td><code>reboot</code> (1st)</td>
+<td>0.394</td>
+<td>1.212</td>
+<td>0.143</td>
+</tr>
+<tr>
+<td><em>What happens if my server goes down?</em></td>
+<td><code>sla</code> (3rd, evidence)</td>
+<td>0.257</td>
+<td>1.487</td>
+<td><strong>-0.051</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>The relevance-score method converts L2 distance with <code>1 - distance / √2</code>, which assumes a range the distances do not keep to. The <code>sla</code> chunk, which holds the evidence for the outage question, gets a negative relevance score, and LangChain prints <code>Relevance scores must be between 0 and 1</code>. A retriever built with <code>search_type="similarity_score_threshold"</code> and <code>score_threshold=0.2</code> returns no chunks at all for the outage question, although all three top chunks have a cosine above 0.25.</p>
+<p>Choose the metric when you create the collection:</p>
+<pre class="sheet code"><code class="language-python">db = Chroma.from_texts(texts, embedding=embeddings_model,
+                       collection_name=&quot;handbook&quot;,
+                       collection_metadata={&quot;hnsw:space&quot;: &quot;cosine&quot;})
+</code></pre>
+<p>With cosine space, <code>similarity_search_with_score</code> returns <code>1 - cosine</code> (0.606 for <code>reboot</code>) and the relevance score is the cosine itself (0.394). The ranking does not change, and the same 0.2 threshold now returns <code>reboot</code>, <code>incidents</code> and <code>sla</code>. The metric is fixed when the collection is created; changing it means building a new collection (M15).</p>
 <h2 id="indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</h2>
 <p class="lesson-of">Lesson 11.5: The RAG lifecycle and a measured baseline. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/05a_rag_lifecycle_and_baseline.ipynb" target="_blank" rel="noopener"><code>05a_rag_lifecycle_and_baseline.ipynb</code></a></p>
 <p>The lifecycle has seven steps in two phases. Each step has one job and one typical failure.</p>
@@ -757,7 +941,7 @@ Precision@k = evidence chunks in the top k / k
 <li><code>k</code> trades recall against precision, tokens and latency. If a chunk scores zero, no <code>k</code> will retrieve it; fix the representation instead.</li>
 <li>Record a baseline on a frozen golden set, change one stage at a time, and keep only the changes that beat it.</li>
 </ul></article>
-    <nav class="toc" aria-label="M11 sections"><details open><summary>In M11</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#parametric-vs-non-parametric-knowledge">Parametric vs non-parametric knowledge</a></li><li><a href="#top-k">Top-k</a></li><li><a href="#indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</a></li><li><a href="#baseline-first-optimisation">Baseline-first optimisation</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M11 sections"><details open><summary>In M11</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#parametric-vs-non-parametric-knowledge">Parametric vs non-parametric knowledge</a></li><li><a href="#top-k">Top-k</a></li><li><a href="#embedding-similarity">Embedding similarity</a></li><li><a href="#embeddings-against-tf-idf">Embeddings against TF-IDF</a></li><li><a href="#what-langchain-replaces">What LangChain replaces</a></li><li><a href="#distance-not-similarity">Distance, not similarity</a></li><li><a href="#indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</a></li><li><a href="#baseline-first-optimisation">Baseline-first optimisation</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

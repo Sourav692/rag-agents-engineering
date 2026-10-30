@@ -64,4 +64,4 @@ The lifecycle notebook ends with the map from symptom to module:
 | Answer contradicts the retrieved chunk | Generation | M20 per-claim citations, M29 Self-RAG |
 
 ---
-*Previous: [11.2 Indexing from scratch with TF-IDF and nearest neighbours](../02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md). Next: [M11 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
+*Previous: [11.4 Your first LangChain RAG with Chroma](../04_your_first_langchain_rag_with_chroma/README.md). Next: [M11 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

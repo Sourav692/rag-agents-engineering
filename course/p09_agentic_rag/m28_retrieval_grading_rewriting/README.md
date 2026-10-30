@@ -8,6 +8,12 @@
 
 The smallest agentic step is to check what came back and try again when it is wrong. Every self-correcting architecture builds on this loop.
 
+## Theory
+
+Read the [theory page](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Grade, rewrite, retry](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Wrap a retriever as a LangGraph tool
@@ -21,9 +27,9 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 28.1 | Retriever as a tool; grade then rewrite in LangGraph | [`01a_simple_agentic_rag.ipynb`](notebooks/01a_simple_agentic_rag.ipynb) | — |
+| 28.1 | Retriever as a tool; grade then rewrite in LangGraph ([theory](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md)) | [`01a_simple_agentic_rag.ipynb`](notebooks/01a_simple_agentic_rag.ipynb) | — |
 | 28.2 | The same agent on Databricks Vector Search *(optional lesson)* | — | [`02a_simple_agentic_rag_databricks.ipynb`](optional/02a_simple_agentic_rag_databricks.ipynb) *(platform-specific)* |
-| 28.3 | Guardrails, query optimisation and a retry loop | [`03a_advanced_rag_agent.ipynb`](notebooks/03a_advanced_rag_agent.ipynb) | — |
+| 28.3 | Guardrails, query optimisation and a retry loop ([theory](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/03_guardrails_query_optimisation_and_a_retry_loop/README.md)) | [`03a_advanced_rag_agent.ipynb`](notebooks/03a_advanced_rag_agent.ipynb) | — |
 
 ## Hands-on lab
 
@@ -31,7 +37,7 @@ Grader loop: add a relevance grader and a two-retry rewrite loop to your Part VI
 
 ## Key concepts
 
-Document grader · Conditional edges · Bounded retries · Topic guardrails
+[Document grader](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md#document-grader) · [Conditional edges](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md#conditional-edges) · [Bounded retries](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/03_guardrails_query_optimisation_and_a_retry_loop/README.md#bounded-retries) · [Topic guardrails](../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/03_guardrails_query_optimisation_and_a_retry_loop/README.md#topic-guardrails)
 
 ## Folder layout
 

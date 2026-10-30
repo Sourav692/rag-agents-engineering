@@ -1,0 +1,64 @@
+# M34.1 Theory: Cross-thread memory with a Store
+
+*[M34 theory](../README.md) · Lesson 34.1 · Notebooks: [`01a_cross_thread_memory_store.ipynb`](../../../../course/p10_memory_and_multi_agent/m34_long_term_agentic_memory/notebooks/01a_cross_thread_memory_store.ipynb) · [All theory pages](../../../README.md)*
+
+## Store namespaces
+
+LangGraph has two persistence primitives, and they answer different questions:
+
+| | Checkpointer | Store |
+|---|---|---|
+| Remembers | One conversation's messages and state | Anything you put in it, across conversations |
+| Scoped by | `thread_id`, in `config["configurable"]` | A namespace tuple you choose |
+| Written by | The graph, after every step | Your nodes, tools and admin code |
+| Attached with | `compile(checkpointer=...)` | `compile(store=...)` |
+
+A new thread starts with an empty checkpoint. If Dana tells the Larkspur assistant her plan in one chat and opens another chat tomorrow, only the store can bring that fact back.
+
+A store item has three parts. The **namespace** is a tuple such as `("memories", "dana")`. The **key** names the item inside it. The **value** is a JSON-serialisable dict. The API is small:
+
+- `put(namespace, key, value)` creates or overwrites an item
+- `get(namespace, key)` reads one item, or `None`
+- `search(namespace, filter=...)` lists a namespace, optionally filtered on value fields; it returns 10 items unless you pass `limit=`
+
+```mermaid
+flowchart LR
+    subgraph cp["Checkpointer: one per thread"]
+        T1["thread 1<br/>Dana, Monday"]
+        T2["thread 2<br/>Dana, Friday"]
+        T3["thread 3<br/>Omar"]
+    end
+    subgraph st["Store: one per namespace"]
+        ND["(memories, dana)"]
+        NO["(memories, omar)"]
+    end
+    T1 -- write --> ND
+    T2 -- read --> ND
+    T3 -- read --> NO
+```
+
+The notebook runs exactly this: thread 1 stores "my name is Alice", thread 2 (same user, new thread) answers from the store, and thread 3 (another user) finds an empty namespace.
+
+### The namespace is the access boundary
+
+Nothing else in the store separates customers. Who may read what is decided by how you build the tuple, so the parts of it must come from trusted input:
+
+- **Pass ids in the run's context.** `StateGraph(..., context_schema=Context)` declares a dataclass such as `Context(user_id: str)`, and every call passes `graph.invoke(..., context=Context(user_id=...))`, filled by the server from the login. Nodes read it as `runtime.context` and the store as `runtime.store`, through a `runtime: Runtime[Context]` parameter.
+- **Keep ids out of tool schemas.** From lesson 34.2 on, memory tools take `runtime: ToolRuntime[Context]`. That parameter is injected by `ToolNode` and is not part of the schema the model sees, so the model cannot ask for `user_id="admin"`.
+- **Keep `thread_id` for the checkpointer.** It stays in `config["configurable"]`. A store namespace built from `thread_id` makes "long-term" memory vanish with every new chat.
+
+| Namespace | Scope | Larkspur example | What goes wrong if it is wrong |
+|---|---|---|---|
+| `("semantic", user_id)` | One customer, every visit | Dana is on an annual business plan | A global namespace leaks Dana's plan to Omar |
+| `("episodic", user_id)` | One customer, every visit | Showed Dana how to export from Settings, then Data | Keyed by `thread_id`, it is gone in the next chat |
+| `("session", session_id)` | One visit, any number of threads | Reply in French for this visit | Keyed by `user_id`, it never ends |
+| `("procedures", agent_id)` | One agent or tenant | The approved refund procedure | Keyed by `user_id`, a customer could own a rule |
+
+The notebook's first graph uses a deliberately naive write rule (save whatever follows the word "remember") to keep the focus on the store. Lesson 34.2 replaces it with tools and write rules per layer.
+
+### Swapping the backend
+
+`InMemoryStore` disappears with the process. `PostgresStore` implements the same interface, so the graph is recompiled with a different `store=` and no node changes. `PostgresStore.from_conn_string(...)` is a context manager that closes its connection when the `with` block ends, and `setup()` creates the tables on first use. The notebook probes for a local Postgres first and skips that part when none is running.
+
+---
+*Previous: [M34 overview](../README.md). Next: [34.2 Session, semantic, episodic and procedural memory on SQLite](../02_session_semantic_episodic_and_procedural_memory_on_sqlite/README.md).*

@@ -8,6 +8,12 @@
 
 Bi-encoders are fast but coarse. Retrieving wide and then reranking, compressing or expanding the context gives precision without losing recall.
 
+## Theory
+
+Read the [theory page](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Retrieve wide, rerank narrow](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/01_two_stage_retrieval_retrieve_wide_rerank_narrow/interactive/rerank-precision-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Design two-stage retrieval: high-recall first stage, precise second stage
@@ -21,12 +27,12 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 19.1 | Two-stage retrieval: retrieve wide, rerank narrow | [`01a_two_stage_reranking.ipynb`](notebooks/01a_two_stage_reranking.ipynb) | — |
-| 19.2 | Cross-encoder reranking in a RAG chain | [`02a_cross_encoder_reranking.ipynb`](notebooks/02a_cross_encoder_reranking.ipynb) | [`02b_reranking_cross_encoder_walkthrough.ipynb`](optional/02b_reranking_cross_encoder_walkthrough.ipynb) *(alternate)* |
-| 19.3 | LLM reranking vs cross-encoder reranking | [`03a_reranking_methods.ipynb`](notebooks/03a_reranking_methods.ipynb) | — |
-| 19.4 | Contextual compression | [`04a_contextual_compression.ipynb`](notebooks/04a_contextual_compression.ipynb) | — |
-| 19.5 | Context enrichment windows | [`05a_context_enrichment_window.ipynb`](notebooks/05a_context_enrichment_window.ipynb) | — |
-| 19.6 | Relevant segment extraction *(optional lesson)* | — | [`06a_relevant_segment_extraction.ipynb`](optional/06a_relevant_segment_extraction.ipynb) *(extension)* |
+| 19.1 | Two-stage retrieval: retrieve wide, rerank narrow ([theory](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/01_two_stage_retrieval_retrieve_wide_rerank_narrow/README.md)) | [`01a_two_stage_reranking.ipynb`](notebooks/01a_two_stage_reranking.ipynb) | — |
+| 19.2 | Cross-encoder reranking in a RAG chain ([theory](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/02_cross_encoder_reranking_in_a_rag_chain/README.md)) | [`02a_cross_encoder_reranking.ipynb`](notebooks/02a_cross_encoder_reranking.ipynb) | [`02b_reranking_cross_encoder_walkthrough.ipynb`](optional/02b_reranking_cross_encoder_walkthrough.ipynb) *(alternate)* |
+| 19.3 | LLM reranking vs cross-encoder reranking ([theory](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/03_llm_reranking_vs_cross_encoder_reranking/README.md)) | [`03a_reranking_methods.ipynb`](notebooks/03a_reranking_methods.ipynb) | — |
+| 19.4 | Contextual compression ([theory](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/04_contextual_compression/README.md)) | [`04a_contextual_compression.ipynb`](notebooks/04a_contextual_compression.ipynb) | — |
+| 19.5 | Context enrichment windows ([theory](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/05_context_enrichment_windows/README.md)) | [`05a_context_enrichment_window.ipynb`](notebooks/05a_context_enrichment_window.ipynb) | — |
+| 19.6 | Relevant segment extraction *(optional lesson)* ([theory](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/06_relevant_segment_extraction/README.md)) | — | [`06a_relevant_segment_extraction.ipynb`](optional/06a_relevant_segment_extraction.ipynb) *(extension)* |
 
 ## Hands-on lab
 
@@ -34,7 +40,7 @@ Precision stack: add a cross-encoder reranker over a top-50 hybrid retrieval and
 
 ## Key concepts
 
-Bi-encoder vs cross-encoder · Recall@50 → precision@5 · Lost in the middle · Context budget
+[Bi-encoder vs cross-encoder](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/02_cross_encoder_reranking_in_a_rag_chain/README.md#bi-encoder-vs-cross-encoder) · [Recall@50 → precision@5](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/01_two_stage_retrieval_retrieve_wide_rerank_narrow/README.md#recall50--precision5) · [Lost in the middle](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/01_two_stage_retrieval_retrieve_wide_rerank_narrow/README.md#lost-in-the-middle) · [Context budget](../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/04_contextual_compression/README.md#context-budget)
 
 ## Folder layout
 

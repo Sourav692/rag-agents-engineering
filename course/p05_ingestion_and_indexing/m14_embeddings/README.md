@@ -8,6 +8,12 @@
 
 The embedding model defines what 'similar' means for your corpus. Choosing one is a measurable decision that trades quality, cost, latency and data residency.
 
+## Theory
+
+Read the [theory page](../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p05_ingestion_and_indexing/m14_embeddings/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Cosine, dot and Euclidean](../../../theory/p05_ingestion_and_indexing/m14_embeddings/01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Explain dense embeddings, dimensions and cosine / dot-product / Euclidean similarity
@@ -21,10 +27,10 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 14.1 | Embedding fundamentals, similarity metrics and model selection | [`01a_embeddings_and_model_selection.ipynb`](notebooks/01a_embeddings_and_model_selection.ipynb) | — |
-| 14.2 | Hosted embeddings: OpenAI models and dimensions | [`02a_openai_embeddings.ipynb`](notebooks/02a_openai_embeddings.ipynb) | [`02b_openai_embeddings_tutorial.ipynb`](optional/02b_openai_embeddings_tutorial.ipynb) *(alternate)* |
-| 14.3 | Open-source embeddings with Hugging Face | [`03a_huggingface_embeddings.ipynb`](notebooks/03a_huggingface_embeddings.ipynb) | [`03b_huggingface_embeddings_tutorial.ipynb`](optional/03b_huggingface_embeddings_tutorial.ipynb) *(alternate)*<br>[`03c_embedding_models.ipynb`](optional/03c_embedding_models.ipynb) *(alternate)* |
-| 14.4 | Production concerns: batching, caching and similarity behaviour | [`04a_embeddings_deep_dive.ipynb`](notebooks/04a_embeddings_deep_dive.ipynb) | — |
+| 14.1 | Embedding fundamentals, similarity metrics and model selection ([theory](../../../theory/p05_ingestion_and_indexing/m14_embeddings/01_embedding_fundamentals_similarity_metrics_and_model_selection/README.md)) | [`01a_embeddings_and_model_selection.ipynb`](notebooks/01a_embeddings_and_model_selection.ipynb) | — |
+| 14.2 | Hosted embeddings: OpenAI models and dimensions ([theory](../../../theory/p05_ingestion_and_indexing/m14_embeddings/02_hosted_embeddings_openai_models_and_dimensions/README.md)) | [`02a_openai_embeddings.ipynb`](notebooks/02a_openai_embeddings.ipynb) | [`02b_openai_embeddings_tutorial.ipynb`](optional/02b_openai_embeddings_tutorial.ipynb) *(alternate)* |
+| 14.3 | Open-source embeddings with Hugging Face ([theory](../../../theory/p05_ingestion_and_indexing/m14_embeddings/03_open_source_embeddings_with_hugging_face/README.md)) | [`03a_huggingface_embeddings.ipynb`](notebooks/03a_huggingface_embeddings.ipynb) | [`03b_huggingface_embeddings_tutorial.ipynb`](optional/03b_huggingface_embeddings_tutorial.ipynb) *(alternate)*<br>[`03c_embedding_models.ipynb`](optional/03c_embedding_models.ipynb) *(alternate)* |
+| 14.4 | Production concerns: batching, caching and similarity behaviour ([theory](../../../theory/p05_ingestion_and_indexing/m14_embeddings/04_production_concerns_batching_caching_and_similarity_behaviour/README.md)) | [`04a_embeddings_deep_dive.ipynb`](notebooks/04a_embeddings_deep_dive.ipynb) | — |
 | 14.5 | Benchmarking embedding models with MLflow (Databricks) *(optional lesson)* | — | [`05a_compare_embedding_models_databricks.ipynb`](optional/05a_compare_embedding_models_databricks.ipynb) *(platform-specific)* |
 
 ## Hands-on lab
@@ -33,7 +39,7 @@ Embedding shoot-out: compare one hosted and two open-source models on a 30-quest
 
 ## Key concepts
 
-Vector dimensionality · Cosine similarity · Embedding cache · Domain fit
+[Vector dimensionality](../../../theory/p05_ingestion_and_indexing/m14_embeddings/02_hosted_embeddings_openai_models_and_dimensions/README.md#vector-dimensionality) · [Cosine similarity](../../../theory/p05_ingestion_and_indexing/m14_embeddings/01_embedding_fundamentals_similarity_metrics_and_model_selection/README.md#cosine-similarity) · [Embedding cache](../../../theory/p05_ingestion_and_indexing/m14_embeddings/04_production_concerns_batching_caching_and_similarity_behaviour/README.md#embedding-cache) · [Domain fit](../../../theory/p05_ingestion_and_indexing/m14_embeddings/03_open_source_embeddings_with_hugging_face/README.md#domain-fit)
 
 ## Folder layout
 

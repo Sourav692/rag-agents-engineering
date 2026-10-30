@@ -11,6 +11,7 @@ The running example throughout these pages and the lab is a small product handbo
 - RAG moves knowledge out of model weights (parametric) into an index you control (non-parametric), so you can update it, restrict it and cite it.
 - The pipeline has an offline **indexing** phase (load → split → embed → store) and an online **query** phase (retrieve → augment → generate). A mistake made at indexing time often surfaces only in the generated answer.
 - `k` controls how much context the model reads. It trades recall against precision, tokens and latency, and it cannot recover a chunk the retriever scores as irrelevant.
+- Embeddings match meaning where TF-IDF matches exact words. On the handbook they find the refund and outage evidence TF-IDF misses, and lose the export question TF-IDF answered at `k = 2`.
 - Build the plain pipeline first, record its numbers on a fixed question set, then change one stage at a time and compare.
 
 ## Mental model
@@ -37,8 +38,8 @@ The index is the only thing the two phases share. A bad chunk written at indexin
 |---|---|---|
 | 11.1 | The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context | [Parametric vs non-parametric knowledge](01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md#parametric-vs-non-parametric-knowledge) |
 | 11.2 | Indexing from scratch with TF-IDF and nearest neighbours | [Top-k](02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k) |
-| 11.3 | Semantic retrieval with embedding similarity | *planned* |
-| 11.4 | Your first LangChain RAG with Chroma | *planned* |
+| 11.3 | Semantic retrieval with embedding similarity | [Embedding similarity](03_semantic_retrieval_with_embedding_similarity/README.md#embedding-similarity)<br>[Embeddings against TF-IDF](03_semantic_retrieval_with_embedding_similarity/README.md#embeddings-against-tf-idf) |
+| 11.4 | Your first LangChain RAG with Chroma | [What LangChain replaces](04_your_first_langchain_rag_with_chroma/README.md#what-langchain-replaces)<br>[Distance, not similarity](04_your_first_langchain_rag_with_chroma/README.md#distance-not-similarity) |
 | 11.5 | The RAG lifecycle and a measured baseline | [Indexing vs retrieval vs generation](05_the_rag_lifecycle_and_a_measured_baseline/README.md#indexing-vs-retrieval-vs-generation)<br>[Baseline-first optimisation](05_the_rag_lifecycle_and_a_measured_baseline/README.md#baseline-first-optimisation) |
 
 ## Interactive lab

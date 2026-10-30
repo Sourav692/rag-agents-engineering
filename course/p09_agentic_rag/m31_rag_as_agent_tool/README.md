@@ -8,6 +8,12 @@
 
 In agent systems retrieval is one tool among many, and the agent decides when to call it. Tool design (name, description, inputs) now matters as much as retrieval quality.
 
+## Theory
+
+Read the [theory page](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Tool descriptions and routing](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/01_rag_as_a_tool_inside_a_langgraph_agent/interactive/tool-routing-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Expose a RAG pipeline as a tool the agent chooses to call in LangGraph
@@ -20,9 +26,9 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 31.1 | RAG as a tool inside a LangGraph agent | [`01a_rag_as_tool_in_agents.ipynb`](notebooks/01a_rag_as_tool_in_agents.ipynb) | — |
-| 31.2 | Managed RAG platforms: Contextual AI *(optional lesson)* | — | [`02a_agentic_rag_contextual_ai.ipynb`](optional/02a_agentic_rag_contextual_ai.ipynb) *(platform-specific)* |
-| 31.3 | Exercise: LlamaIndex Wikipedia agent with Chainlit *(optional lesson)* | — | [`03a_llamaindex_wikipedia_agent`](optional/03a_llamaindex_wikipedia_agent) *(extension)* |
+| 31.1 | RAG as a tool inside a LangGraph agent ([theory](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/01_rag_as_a_tool_inside_a_langgraph_agent/README.md)) | [`01a_rag_as_tool_in_agents.ipynb`](notebooks/01a_rag_as_tool_in_agents.ipynb) | — |
+| 31.2 | Managed RAG platforms: Contextual AI *(optional lesson)* ([theory](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/02_managed_rag_platforms_contextual_ai/README.md)) | — | [`02a_agentic_rag_contextual_ai.ipynb`](optional/02a_agentic_rag_contextual_ai.ipynb) *(platform-specific)* |
+| 31.3 | Exercise: LlamaIndex Wikipedia agent with Chainlit *(optional lesson)* ([theory](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/03_exercise_llamaindex_wikipedia_agent_with_chainlit/README.md)) | — | [`03a_llamaindex_wikipedia_agent`](optional/03a_llamaindex_wikipedia_agent) *(extension)* |
 
 ## Hands-on lab
 
@@ -30,7 +36,7 @@ Two-tool agent: give an agent a private-docs RAG tool and a web-search tool, and
 
 ## Key concepts
 
-Tool descriptions · Agent-decided retrieval · Managed RAG · Chat UI
+[Tool descriptions](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/01_rag_as_a_tool_inside_a_langgraph_agent/README.md#tool-descriptions) · [Agent-decided retrieval](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/01_rag_as_a_tool_inside_a_langgraph_agent/README.md#agent-decided-retrieval) · [Managed RAG](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/02_managed_rag_platforms_contextual_ai/README.md#managed-rag) · [Chat UI](../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/03_exercise_llamaindex_wikipedia_agent_with_chainlit/README.md#chat-ui)
 
 ## Folder layout
 

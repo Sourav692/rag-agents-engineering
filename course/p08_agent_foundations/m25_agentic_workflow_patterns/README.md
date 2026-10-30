@@ -8,6 +8,12 @@
 
 Every agentic RAG architecture is a combination of five patterns: CRAG is evaluator–optimizer, adaptive RAG is routing, query decomposition is orchestrator–worker. Learn the patterns once and the architectures become easy to read.
 
+## Theory
+
+Read the [theory page](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Fan-out and the concurrency cap](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/03_parallelization_sectioning_and_voting/interactive/fan-out-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Chain prompts with quality gates between steps
@@ -23,11 +29,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 25.1 | Prompt chaining with quality gates | [`01a_prompt_chaining_langgraph.ipynb`](notebooks/01a_prompt_chaining_langgraph.ipynb) | [`01b_prompt_chaining_structured_output.ipynb`](optional/01b_prompt_chaining_structured_output.ipynb) *(extension)*<br>[`01c_prompt_chaining_lcel.ipynb`](optional/01c_prompt_chaining_lcel.ipynb) *(alternate)* |
-| 25.2 | Routing by handler and by model tier | [`02a_routing_langgraph.ipynb`](notebooks/02a_routing_langgraph.ipynb)<br>[`02b_routing_by_model_tier.ipynb`](notebooks/02b_routing_by_model_tier.ipynb) | [`02c_routing_lcel_runnable_branch.ipynb`](optional/02c_routing_lcel_runnable_branch.ipynb) *(alternate)* |
-| 25.3 | Parallelization: sectioning and voting | [`03a_parallelization_langgraph.ipynb`](notebooks/03a_parallelization_langgraph.ipynb)<br>[`03b_parallelization_sectioning_and_voting.ipynb`](notebooks/03b_parallelization_sectioning_and_voting.ipynb) | [`03c_parallelization_lcel.ipynb`](optional/03c_parallelization_lcel.ipynb) *(alternate)* |
-| 25.4 | Orchestrator–worker with the Send API | [`04a_orchestrator_worker_send_api.ipynb`](notebooks/04a_orchestrator_worker_send_api.ipynb) | [`04b_orchestrator_worker_lcel_map.ipynb`](optional/04b_orchestrator_worker_lcel_map.ipynb) *(alternate)* |
-| 25.5 | Evaluator–optimizer loops, always bounded: LangGraph vs LCEL | [`05a_evaluator_optimizer_langgraph.ipynb`](notebooks/05a_evaluator_optimizer_langgraph.ipynb)<br>[`05b_evaluator_optimizer_lcel.ipynb`](notebooks/05b_evaluator_optimizer_lcel.ipynb) | — |
+| 25.1 | Prompt chaining with quality gates ([theory](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/01_prompt_chaining_with_quality_gates/README.md)) | [`01a_prompt_chaining_langgraph.ipynb`](notebooks/01a_prompt_chaining_langgraph.ipynb) | [`01b_prompt_chaining_structured_output.ipynb`](optional/01b_prompt_chaining_structured_output.ipynb) *(extension)*<br>[`01c_prompt_chaining_lcel.ipynb`](optional/01c_prompt_chaining_lcel.ipynb) *(alternate)* |
+| 25.2 | Routing by handler and by model tier ([theory](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/02_routing_by_handler_and_by_model_tier/README.md)) | [`02a_routing_langgraph.ipynb`](notebooks/02a_routing_langgraph.ipynb)<br>[`02b_routing_by_model_tier.ipynb`](notebooks/02b_routing_by_model_tier.ipynb) | [`02c_routing_lcel_runnable_branch.ipynb`](optional/02c_routing_lcel_runnable_branch.ipynb) *(alternate)* |
+| 25.3 | Parallelization: sectioning and voting ([theory](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/03_parallelization_sectioning_and_voting/README.md)) | [`03a_parallelization_langgraph.ipynb`](notebooks/03a_parallelization_langgraph.ipynb)<br>[`03b_parallelization_sectioning_and_voting.ipynb`](notebooks/03b_parallelization_sectioning_and_voting.ipynb) | [`03c_parallelization_lcel.ipynb`](optional/03c_parallelization_lcel.ipynb) *(alternate)* |
+| 25.4 | Orchestrator–worker with the Send API ([theory](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/04_orchestrator_worker_with_the_send_api/README.md)) | [`04a_orchestrator_worker_send_api.ipynb`](notebooks/04a_orchestrator_worker_send_api.ipynb) | [`04b_orchestrator_worker_lcel_map.ipynb`](optional/04b_orchestrator_worker_lcel_map.ipynb) *(alternate)* |
+| 25.5 | Evaluator–optimizer loops, always bounded: LangGraph vs LCEL ([theory](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/05_evaluator_optimizer_loops_always_bounded_langgraph_vs_lcel/README.md)) | [`05a_evaluator_optimizer_langgraph.ipynb`](notebooks/05a_evaluator_optimizer_langgraph.ipynb)<br>[`05b_evaluator_optimizer_lcel.ipynb`](notebooks/05b_evaluator_optimizer_lcel.ipynb) | — |
 
 ## Hands-on lab
 
@@ -35,7 +41,7 @@ Pattern mapping: rebuild query decomposition (M18) as orchestrator–worker and 
 
 ## Key concepts
 
-Workflow vs agent · Quality gates · Fan-out / fan-in · Bounded loops
+[Workflow vs agent](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/01_prompt_chaining_with_quality_gates/README.md#workflow-vs-agent) · [Quality gates](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/01_prompt_chaining_with_quality_gates/README.md#quality-gates) · [Fan-out / fan-in](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/03_parallelization_sectioning_and_voting/README.md#fan-out--fan-in) · [Bounded loops](../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/05_evaluator_optimizer_loops_always_bounded_langgraph_vs_lcel/README.md#bounded-loops)
 
 ## Folder layout
 

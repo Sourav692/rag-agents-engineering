@@ -8,6 +8,12 @@
 
 ReAct is the closed reason–act–observe loop most RAG agents run. LangChain 1.x packages it as `create_agent`, and middleware is where you add guardrails and human review.
 
+## Theory
+
+Read the [theory page](../../../theory/p08_agent_foundations/m24_react_agents/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p08_agent_foundations/m24_react_agents/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [The ReAct loop and its call cap](../../../theory/p08_agent_foundations/m24_react_agents/01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Build a ReAct agent in LangGraph and explain how it differs from single-shot tool calling
@@ -21,11 +27,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 24.1 | The ReAct loop in LangGraph; tool calling vs ReAct | [`01a_react_agent_langgraph.ipynb`](notebooks/01a_react_agent_langgraph.ipynb)<br>[`01b_tool_calling_vs_react.ipynb`](notebooks/01b_tool_calling_vs_react.ipynb) | — |
-| 24.2 | ReAct with LangChain `create_agent` | [`02a_react_with_create_agent.ipynb`](notebooks/02a_react_with_create_agent.ipynb) | — |
-| 24.3 | Models, messages and structured output in LangChain 1.x | [`03c_structured_output.ipynb`](notebooks/03c_structured_output.ipynb) | [`03a_model_integration.ipynb`](optional/03a_model_integration.ipynb) *(extension)*<br>[`03b_messages.ipynb`](optional/03b_messages.ipynb) *(extension)* |
-| 24.4 | Middleware, including human-in-the-loop | [`04a_middleware.ipynb`](notebooks/04a_middleware.ipynb) | — |
-| 24.5 | Applied ReAct: web research, SWE and computer-use agents | [`05a_web_research_agent.ipynb`](notebooks/05a_web_research_agent.ipynb) | [`05b_swe_agent_applied.ipynb`](optional/05b_swe_agent_applied.ipynb) *(extension)*<br>[`05c_browser_agent_computer_use.ipynb`](optional/05c_browser_agent_computer_use.ipynb) *(extension)*<br>[`05d_vision_driven_computer_use.ipynb`](optional/05d_vision_driven_computer_use.ipynb) *(extension)* |
+| 24.1 | The ReAct loop in LangGraph; tool calling vs ReAct ([theory](../../../theory/p08_agent_foundations/m24_react_agents/01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md)) | [`01a_react_agent_langgraph.ipynb`](notebooks/01a_react_agent_langgraph.ipynb)<br>[`01b_tool_calling_vs_react.ipynb`](notebooks/01b_tool_calling_vs_react.ipynb) | — |
+| 24.2 | ReAct with LangChain `create_agent` ([theory](../../../theory/p08_agent_foundations/m24_react_agents/02_react_with_langchain_create_agent/README.md)) | [`02a_react_with_create_agent.ipynb`](notebooks/02a_react_with_create_agent.ipynb) | — |
+| 24.3 | Models, messages and structured output in LangChain 1.x ([theory](../../../theory/p08_agent_foundations/m24_react_agents/03_models_messages_and_structured_output_in_langchain_1_x/README.md)) | [`03c_structured_output.ipynb`](notebooks/03c_structured_output.ipynb) | [`03a_model_integration.ipynb`](optional/03a_model_integration.ipynb) *(extension)*<br>[`03b_messages.ipynb`](optional/03b_messages.ipynb) *(extension)* |
+| 24.4 | Middleware, including human-in-the-loop ([theory](../../../theory/p08_agent_foundations/m24_react_agents/04_middleware_including_human_in_the_loop/README.md)) | [`04a_middleware.ipynb`](notebooks/04a_middleware.ipynb) | — |
+| 24.5 | Applied ReAct: web research, SWE and computer-use agents ([theory](../../../theory/p08_agent_foundations/m24_react_agents/05_applied_react_web_research_swe_and_computer_use_agents/README.md)) | [`05a_web_research_agent.ipynb`](notebooks/05a_web_research_agent.ipynb) | [`05b_swe_agent_applied.ipynb`](optional/05b_swe_agent_applied.ipynb) *(extension)*<br>[`05c_browser_agent_computer_use.ipynb`](optional/05c_browser_agent_computer_use.ipynb) *(extension)*<br>[`05d_vision_driven_computer_use.ipynb`](optional/05d_vision_driven_computer_use.ipynb) *(extension)* |
 | 24.6 | Exercise: intelligent travel assistant agent (with solution) *(optional lesson)* | — | [`06a_intelligent_travel_assistant_agent.ipynb`](exercises/06a_intelligent_travel_assistant_agent.ipynb) *(extension)*<br>[`06b_intelligent_travel_assistant_solution.ipynb`](exercises/06b_intelligent_travel_assistant_solution.ipynb) *(extension)* |
 
 ## Hands-on lab
@@ -34,7 +40,7 @@ ReAct research agent: give a `create_agent` agent your RAG retriever and a web-s
 
 ## Key concepts
 
-Reason–act–observe · create_agent · Middleware · Structured output
+[Reason–act–observe](../../../theory/p08_agent_foundations/m24_react_agents/01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md#reasonactobserve) · [create_agent](../../../theory/p08_agent_foundations/m24_react_agents/02_react_with_langchain_create_agent/README.md#create_agent) · [Middleware](../../../theory/p08_agent_foundations/m24_react_agents/04_middleware_including_human_in_the_loop/README.md#middleware) · [Structured output](../../../theory/p08_agent_foundations/m24_react_agents/03_models_messages_and_structured_output_in_langchain_1_x/README.md#structured-output)
 
 ## Folder layout
 

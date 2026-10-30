@@ -23,7 +23,11 @@ Semantic chunking cuts on meaning instead of length:
 | `interquartile` | 1.5 | mean + 1.5 × IQR |
 | `gradient` | 95 | the 95th percentile of the distance *gradient* (for text where everything is similar) |
 
-All four are relative to the document. In the diagram, the refund section has three real topic changes, but the default 95th percentile cuts only once, because a 13-sentence section has only 12 distances and only the largest clears its own 95th percentile. Lowering the amount to 75 cuts at all three. The reverse also happens: a document with no topic change still gets cut at its own top 5% of distances. Read the chunks before you trust the boundaries, and cap chunk size afterwards, because semantic chunks can grow past the embedding model's limit.
+All four are computed from the document's own distances, so a threshold tuned on one corpus does not transfer to another. In the diagram, the refund section has three real topic changes, but the default 95th percentile cuts only once. A 13-sentence section has 12 distances, and only the largest clears their 95th percentile. Lowering the amount to 75 cuts at all three.
+
+`percentile` always cuts somewhere, so a document with no topic change still gets split at its own top 5% of distances. `standard_deviation` and `interquartile` can decide a document has no boundary at all. On a short text, no distance is 3 standard deviations above the mean, so the default `standard_deviation` returns one chunk. That is correct for a document about one thing, and it leaves chunk size unbounded.
+
+Only local change counts. The comparison is sentence *i* against sentence *i + 1*, so a topic that drifts across five sentences never produces one large distance and never triggers a cut; `gradient` helps somewhat. Read the chunks before you trust the boundaries, and cap chunk size afterwards, because semantic chunks can grow past the embedding model's limit.
 
 The cost is a full extra embedding pass over every sentence at index time, before the chunks themselves are embedded.
 

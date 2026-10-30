@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What correction costs</title>
+<meta name="description" content="M29 lab: the baseline, CRAG and Self-RAG routing code from the notebooks, run on five Larkspur handbook questions; move k and count the LLM calls each pipeline spends.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the pipeline ledger, three rows that show each pipeline's route, its LLM-call count and what the generator reads, with handbook evidence as the only magenta mark · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P5 H4 E4 S4 R4 V4 · weakest: S, the route sentences are long on a phone; they wrap under the pipeline name in a single column below 40rem */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab; the question, the k slider and the pipeline ledger come first so they share a screen, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.query-opts .opt { width: 100%; justify-content: space-between; gap: var(--space-sm); }
+.opt .tag { font: 400 var(--text-sm)/1.25 var(--font-body); color: var(--color-muted); }
+.seg input:checked + .opt .tag { color: var(--color-paper-2); }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td, tbody th { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); text-align: left; font-weight: 400; }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; white-space: nowrap; }
+th:last-child, td:last-child { padding-right: 0; }
+code { font-family: var(--font-outlier); font-size: 0.9em; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+
+/* the pipeline ledger */
+#ledger th.pipe { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); white-space: nowrap; }
+#ledger td.calls { font: 500 var(--text-xl)/1 var(--font-outlier); color: var(--color-ink); }
+#ledger .route { color: var(--color-ink-2); }
+#ledger .reads { margin-top: var(--space-2xs); color: var(--color-muted); }
+#ledger code { color: var(--color-muted); }
+#ledger code.ev { color: var(--color-accent); font-weight: 500; }
+#ledger .web { color: var(--color-ink); }
+.sum tr.cur td, .sum tr.cur th { color: var(--color-ink); background: var(--color-paper-2); }
+.sum tfoot td { padding: var(--space-xs) var(--space-md) 0 0; border-top: var(--rule-bar) solid var(--color-rule-2); color: var(--color-ink); font-weight: 500; }
+.sum tfoot td:last-child { padding-right: 0; }
+@media (max-width: 40rem) {
+  #ledgerTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #ledger tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  #ledger tr > * { border: 0; padding: 0; }
+  #ledger td.what { grid-column: 1 / -1; }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the slider and the pipeline ledger share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .stats { order: 1; }
+html.embedded .reading { order: 2; }
+html.embedded .sheet.sum { order: 3; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its tables in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M29 lab, CRAG and Self-RAG</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Every correction is another LLM call.</h1>
+    <p class="lead">The twelve Larkspur Cloud handbook chunks from M11, five questions, and the routing code of the M29 notebooks. Pick a question and move <code>k</code>: the ledger counts the calls each pipeline makes and shows what its generator finally reads.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Question</legend><div class="seg__opts query-opts" id="queryOpts"></div></fieldset>
+      <div class="field">
+        <label for="k">Chunks retrieved per pass (k)</label>
+        <input type="range" id="k" min="1" max="5" step="1" value="5">
+        <output class="val" id="kVal" for="k"></output>
+      </div>
+      <div class="seg__opts" id="presets" role="group" aria-label="Jump to the k a notebook uses"></div>
+      <dl class="stats">
+        <div><dt>LLM calls, CRAG</dt><dd id="sCrag"></dd></div>
+        <div><dt>LLM calls, Self-RAG</dt><dd id="sSelf"></dd></div>
+        <div><dt>CRAG searched the web</dt><dd id="sWeb"></dd></div>
+        <div><dt>Self-RAG retrieval passes</dt><dd id="sPass"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="ledgerHead">
+        <div class="sheet__head"><h2 id="ledgerHead">Three pipelines on this question</h2><p class="note" id="ledgerNote"></p></div>
+        <div class="scroll"><table id="ledgerTable">
+          <thead><tr><th scope="col">Pipeline</th><th class="num" scope="col">LLM calls</th><th scope="col">Route, and what the generator reads</th></tr></thead>
+          <tbody id="ledger"></tbody>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)">Magenta chunk ids are the question’s evidence. The graders here are stand-ins with fixed rules: relevance agrees with the golden labels, groundedness says yes, utility says yes only when every evidence chunk reached the generator, and a rewrite repeats the question, so retrieval never improves. That makes the Self-RAG counts a worst case.</p>
+      </section>
+      <section class="sheet sum" aria-labelledby="sumHead">
+        <div class="sheet__head"><h2 id="sumHead">All five questions at this k</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Question</th><th class="num" scope="col">Baseline</th><th class="num" scope="col">CRAG</th><th class="num" scope="col">Self-RAG</th></tr></thead>
+          <tbody id="summary"></tbody>
+          <tfoot><tr><td>Mean LLM calls</td><td class="num" id="mBase"></td><td class="num" id="mCrag"></td><td class="num" id="mSelf"></td></tr></tfoot>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)">The retriever returns up to k chunks with a TF-IDF score above zero, like the score-threshold retriever in notebook 01a. CRAG follows 01a: grade each chunk, and rewrite and search the web when half or fewer are relevant. Self-RAG follows 02a: decide to retrieve, grade, generate, check groundedness and utility, with <code>max_iterations = 2</code>. A web search is a tool call, not counted as an LLM call.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// MODEL START: plain functions, no DOM; checked against the notebooks' LangGraph code in Python
+const DOCS=[
+["billing","Monthly plans are billed at the start of each billing cycle. Annual plans are billed once a year on the purchase date."],
+["cancel","You can cancel any plan from the Billing page. Cancelling stops the next charge, and servers keep running until the paid period ends."],
+["refund-window","An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic."],
+["refund-timing","Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement."],
+["sla","Larkspur guarantees 99.95% monthly availability. If an outage pushes availability below that, you receive service credits on the next invoice."],
+["incidents","During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery."],
+["sizing","Choose a server size by peak memory use. Each server plan lists vCPUs, memory and included outbound traffic."],
+["reboot","You can reboot a server from the console. A reboot takes about a minute and does not change the server IP address."],
+["export","Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots."],
+["retention","After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes."],
+["support","Support tickets are answered within 4 hours on business plans and within 24 hours on starter plans."],
+["promo","Promotional credits expire 12 months after they are issued and cannot be paid out as cash."]];
+const QUERIES=[
+  {q:"Can I export my data after I cancel my plan?", rel:["export","retention"]},
+  {q:"How long does a refund take?", rel:["refund-window","refund-timing"]},
+  {q:"What happens if my server goes down?", rel:["sla","incidents"]},
+  {q:"Does Larkspur offer GPU servers?", rel:[]},
+  {q:"How much does the starter plan cost per month?", rel:[]}];
+// scikit-learn's ENGLISH_STOP_WORDS, so the scores match TfidfVectorizer(stop_words="english")
+const STOP=new Set("a about above across after afterwards again against all almost alone along already also although always am among amongst amoungst amount an and another any anyhow anyone anything anyway anywhere are around as at back be became because become becomes becoming been before beforehand behind being below beside besides between beyond bill both bottom but by call can cannot cant co con could couldnt cry de describe detail do done down due during each eg eight either eleven else elsewhere empty enough etc even ever every everyone everything everywhere except few fifteen fifty fill find fire first five for former formerly forty found four from front full further get give go had has hasnt have he hence her here hereafter hereby herein hereupon hers herself him himself his how however hundred i ie if in inc indeed interest into is it its itself keep last latter latterly least less ltd made many may me meanwhile might mill mine more moreover most mostly move much must my myself name namely neither never nevertheless next nine no nobody none noone nor not nothing now nowhere of off often on once one only onto or other others otherwise our ours ourselves out over own part per perhaps please put rather re same see seem seemed seeming seems serious several she should show side since sincere six sixty so some somehow someone something sometime sometimes somewhere still such system take ten than that the their them themselves then thence there thereafter thereby therefore therein thereupon these they thick thin third this those though three through throughout thru thus to together too top toward towards twelve twenty two un under until up upon us very via was we well were what whatever when whence whenever where whereafter whereas whereby wherein whereupon wherever whether which while whither who whoever whole whom whose why will with within without would yet you your yours yourself yourselves".split(" "));
+function tokenize(s){ return (s.toLowerCase().match(/\b\w\w+\b/g)||[]).filter(t=>!STOP.has(t)); }
+function buildIndex(texts){
+  const toks=texts.map(tokenize), N=texts.length, df={};
+  toks.forEach(ts=>new Set(ts).forEach(t=>df[t]=(df[t]||0)+1));
+  const idf={}; for(const t in df) idf[t]=Math.log((1+N)/(1+df[t]))+1;
+  const vec=ts=>{ const v={}; ts.forEach(t=>{ if(idf[t]) v[t]=(v[t]||0)+idf[t]; }); const n=Math.hypot(...Object.values(v))||1; for(const t in v) v[t]/=n; return v; };
+  return {docs:toks.map(vec), query:q=>vec(tokenize(q))};
+}
+const cosine=(a,b)=>Object.keys(a).reduce((s,t)=>s+a[t]*(b[t]||0),0);
+const INDEX=buildIndex(DOCS.map(d=>d[1]));
+function rank(q){
+  const qv=INDEX.query(q);
+  return DOCS.map(([id,text],i)=>({id,text,i,score:cosine(qv,INDEX.docs[i])})).sort((a,b)=>b.score-a.score || a.i-b.i);
+}
+// up to k chunks that share at least one term with the question
+function retrieve(Q,k){ return rank(Q.q).filter(d=>d.score>0).slice(0,k); }
+const isRel=(Q,d)=>Q.rel.includes(d.id);
+
+function baseline(Q,k){
+  const docs=retrieve(Q,k);
+  return {llm:1, web:0, ctx:docs.map(d=>d.id), retrieved:docs.length};
+}
+// notebook 01a: grade_documents, then generate_or_search on relevance_frac <= 0.5
+function crag(Q,k){
+  const docs=retrieve(Q,k); let llm=0, kept=[], frac=null, web;
+  if(docs.length){
+    llm+=docs.length;                                  // one doc_grader call per chunk
+    kept=docs.filter(d=>isRel(Q,d));
+    frac=1-(docs.length-kept.length)/docs.length;
+    web=frac<=0.5;
+  } else web=true;                                     // no documents retrieved
+  if(web) llm+=1;                                      // rewrite_query
+  llm+=1;                                              // generate_answer
+  return {llm, web:web?1:0, ctx:kept.map(d=>d.id), retrieved:docs.length, kept:kept.length, frac};
+}
+// notebook 02a: decide_retrieval, retrieve, grade_relevance, rephrase_and_retry, generate, grade_groundedness, grade_utility
+function selfRag(Q,k,maxIter=2){
+  let llm=1, it=0, docs=[], node='retrieve', passes=[], util=false, noCtx=false;
+  for(;;){
+    if(node==='retrieve'){
+      const r=retrieve(Q,k); llm+=r.length; docs=r.filter(d=>isRel(Q,d));
+      passes.push({graded:r.length, kept:docs.length, out:''});
+      node = docs.length ? 'generate' : (it<maxIter ? 'rephrase' : 'generate');
+      if(!docs.length && it>=maxIter) passes[passes.length-1].capped=true;
+    } else if(node==='rephrase'){
+      llm+=1; it+=1; passes[passes.length-1].out+='rewrite'; node='retrieve';
+    } else {
+      llm+=1;                                          // generate
+      noCtx=!docs.length;
+      if(!noCtx) llm+=1;                               // grade_groundedness; with no documents it passes without a call
+      llm+=1;                                          // grade_utility
+      util=Q.rel.length>0 && Q.rel.every(id=>docs.some(d=>d.id===id));
+      const p=passes[passes.length-1]; p.gen=true; p.util=util; p.noCtx=noCtx;
+      if(util) break;
+      if(it<maxIter){ node='rephrase'; continue; }
+      p.capped=true; break;
+    }
+  }
+  return {llm, web:0, ctx:docs.map(d=>d.id), passes, util, noCtx};
+}
+// MODEL END
+
+let qi=0;
+const TAGS=["in the handbook","in the handbook","in the handbook","not in the handbook","not in the handbook"];
+QUERIES.forEach((Q,i)=>{
+  const id='q'+i;
+  $('queryOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="q" id="${id}" value="${i}"${i===0?' checked':''}><label class="opt" for="${id}"><span>${Q.q}</span><span class="tag">${TAGS[i]}</span></label>`);
+  $(id).addEventListener('change',()=>{qi=i;render();});
+});
+const PRESETS=[[3,'k = 3, as in 02a'],[5,'k = 5, as in 01a']];
+const pEls=PRESETS.map(([k,t])=>{ const b=document.createElement('button'); b.type='button'; b.className='opt'; b.textContent=t; b.onclick=()=>{$('k').value=k;render();}; $('presets').appendChild(b); return b; });
+
+const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+function chips(Q,ids){
+  if(!ids.length) return 'nothing from the handbook';
+  return ids.map(id=>`<code class="${Q.rel.includes(id)?'ev':''}">${id}</code>`).join(', ');
+}
+function evidenceIn(Q,ids){ return Q.rel.filter(id=>ids.includes(id)).length; }
+
+function render(){
+  const k=+$('k').value, Q=QUERIES[qi];
+  const b=baseline(Q,k), c=crag(Q,k), s=selfRag(Q,k);
+  $('kVal').textContent=k;
+  pEls.forEach((el,i)=>el.setAttribute('aria-pressed',String(PRESETS[i][0]===k)));
+  $('ledgerNote').textContent=Q.rel.length?`Evidence: ${Q.rel.join(', ')}`:'No chunk answers this question';
+
+  const cRoute = c.retrieved
+    ? `Graded ${c.retrieved}, kept ${c.kept} (${c.frac.toFixed(2)} relevant). ${c.web?'That is 0.50 or less, so it rewrote the question and searched the web.':'More than 0.50, so it generated.'}`
+    : 'Retrieved nothing, so it rewrote the question and searched the web.';
+  const sRoute = 'Decided to retrieve. ' + s.passes.map((p,i)=>{
+      let t=`Pass ${i+1}: graded ${p.graded}, kept ${p.kept}`;
+      if(p.gen) t+= p.noCtx ? ', generated with no context, groundedness passed without a check' : ', generated, grounded';
+      if(p.gen) t+= p.util ? ', useful' : ', not useful';
+      if(p.out) t+=', rewrote';
+      if(p.capped) t+=', iteration cap reached';
+      return t+'.';
+    }).join(' ');
+  const rows=[
+    ['Baseline', b.llm, `Retrieved ${b.retrieved} and generated.`, `Reads ${chips(Q,b.ctx)}.`],
+    ['CRAG', c.llm, cRoute, `Reads ${chips(Q,c.ctx)}${c.web?', <span class="web">plus up to 6 web pages</span>':''}.`],
+    ['Self-RAG', s.llm, sRoute, `Reads ${chips(Q,s.ctx)}.`]];
+  $('ledger').innerHTML=rows.map(([n,calls,route,reads])=>`<tr><th class="pipe" scope="row">${n}</th><td class="num calls">${calls}</td><td class="what"><p class="route">${route}</p><p class="reads">${reads}</p></td></tr>`).join('');
+
+  $('sCrag').textContent=c.llm; $('sSelf').textContent=s.llm;
+  $('sWeb').textContent=c.web?'Yes':'No'; $('sWeb').className='word '+(c.web?'is-bad':'is-good');
+  $('sPass').textContent=s.passes.length;
+
+  let sb=0, sc=0, ss=0, sum='';
+  QUERIES.forEach((q,i)=>{ const x=baseline(q,k).llm, y=crag(q,k), z=selfRag(q,k).llm; sb+=x; sc+=y.llm; ss+=z;
+    sum+=`<tr${i===qi?' class="cur"':''}><td>${q.q}</td><td class="num">${x}</td><td class="num">${y.llm}${y.web?' + web':''}</td><td class="num">${z}</td></tr>`; });
+  $('summary').innerHTML=sum;
+  const n=QUERIES.length;
+  $('mBase').textContent=(sb/n).toFixed(1); $('mCrag').textContent=(sc/n).toFixed(1); $('mSelf').textContent=(ss/n).toFixed(1);
+
+  // the reading, keyed to computed results
+  const all=Q.rel.length, cIn=evidenceIn(Q,c.ctx), sIn=evidenceIn(Q,s.ctx);
+  const ranked=rank(Q.q), zero=Q.rel.filter(id=>ranked.find(d=>d.id===id).score===0);
+  const co=$('callout');
+  if(!all){
+    co.innerHTML=`<b>The handbook has no answer.</b> The baseline reads ${plural(b.retrieved,'unrelated chunk')} in 1 call. CRAG grades them all as irrelevant and searches the web in ${c.llm} calls, but a private handbook is not on the web. Self-RAG makes ${s.passes.length} retrieval passes, ${s.llm} calls, then generates with no context, and its groundedness check passes without running. All three now depend on the prompt’s instruction to say it does not know.`;
+  } else if(c.kept===0){
+    co.innerHTML=`<b>The evaluator is right and the fallback is wrong.</b> No evidence is retrieved, because <code>${zero.join(', ')}</code> share no term with the question. CRAG correctly grades every chunk irrelevant, then asks the web about a private handbook (${c.llm} calls). Self-RAG loops to its cap, ${s.llm} calls, and answers with no context. A rewrite that says “outage” would fix it; here the rewrite repeats the question, the worst case.`;
+  } else if(cIn===all && c.web){
+    co.innerHTML=`<b>CRAG searched the web with all the evidence in hand.</b> It kept both evidence chunks, but ${c.kept} of ${c.retrieved} is ${c.frac.toFixed(2)}, and the rule needs more than 0.50. At k = ${k} it spends ${c.llm} calls and mixes web pages into a complete answer. At k = 3 or below the same question costs ${crag(Q,3).llm} calls and no web search.`;
+  } else if(cIn===all){
+    co.innerHTML=`<b>Both correctors agree with the baseline.</b> The evidence is retrieved and kept on the first pass. CRAG spends ${c.llm} calls and Self-RAG ${s.llm} to confirm what the baseline did in 1: on an easy question, correction is pure cost.`;
+  } else if(zero.length){
+    co.innerHTML=`<b>Correction cannot find a chunk retrieval never returns.</b> <code>${zero.join(', ')}</code> scores 0 for this question, so no grader ever sees it. CRAG ${c.web?`adds web pages to <code>${c.ctx.join(', ')}</code> (${c.llm} calls)`:`answers from <code>${c.ctx.join(', ')}</code> alone (${c.llm} calls)`}. Self-RAG’s utility check notices the gap and loops to its cap: ${s.llm} calls, and it still reads only <code>${s.ctx.join(', ')}</code>.`;
+  } else {
+    co.innerHTML=`<b>CRAG grades chunks, not answers.</b> At k = ${k} only <code>${c.ctx.join(', ')}</code> comes back; it is relevant, so ${c.frac.toFixed(2)} passes the rule and CRAG answers in ${c.llm} calls with half the evidence. Self-RAG’s utility check catches the missing half and loops: ${s.llm} calls. Raise k to 2 and both evidence chunks arrive.`;
+  }
+}
+$('k').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

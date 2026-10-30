@@ -11,7 +11,7 @@ The running example is page 7 of the Larkspur Cloud customer handbook: two colum
 - Every loader returns `Document(page_content, metadata)`. `page_content` is embedded and shown to the model; `metadata` is never embedded, and it is the only thing you can filter on exactly.
 - A **loader** gets bytes from a source; a **parser** turns those bytes into text and structure. Which parser you choose decides what the index can contain.
 - **Element-level parsing** gives one typed Document per title, paragraph, table or list item, so you can drop boilerplate, keep tables whole and tag every chunk with its section.
-- Design the **metadata schema** for the filters, citations and access rules you will need later. Adding a field after indexing means re-ingesting the corpus.
+- Design the **metadata schema** for the filters, citations and access rules you will need later. Adding a field after indexing means re-ingesting the corpus, and every loader names its fields differently (`page` counts from 0 in PyPDF, `seq_num` from 1 in JSONLoader), so map them onto the schema at load time.
 - Implement `lazy_load` so a large source streams through the pipeline instead of loading into memory at once.
 
 ## Mental model
@@ -25,6 +25,7 @@ flowchart LR
     D --> V{"Validate<br/>counts, lengths, empty text"}
     V --> SPLIT[Split: M13]
 ```
+<!-- animated: diagrams/ingestion-pipeline.anim.html -->
 
 Loading is lossy. A PDF parser drops layout, an HTML loader drops visual hierarchy, a Word loader drops comments, and a CSV loader drops column types. Know what each loader drops; you cannot retrieve what was never extracted.
 
@@ -34,9 +35,9 @@ Loading is lossy. A PDF parser drops layout, an HTML loader drops visual hierarc
 |---|---|---|
 | 12.1 | The Document abstraction and metadata design | [Loader vs parser](01_the_document_abstraction_and_metadata_design/README.md#loader-vs-parser)<br>[Metadata schema](01_the_document_abstraction_and_metadata_design/README.md#metadata-schema) |
 | 12.2 | Plain text and Markdown (single vs element mode) | *planned* |
-| 12.3 | Semi-structured sources: CSV rows and JSON / JSONL with jq schemas | *planned* |
+| 12.3 | Semi-structured sources: CSV rows and JSON / JSONL with jq schemas | [One record, one Document](03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md#one-record-one-document)<br>[Content fields and metadata fields](03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md#content-fields-and-metadata-fields) |
 | 12.4 | PDF and Word: parser comparison and element-level parsing | [Element-level parsing](04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md#element-level-parsing) |
-| 12.5 | Web, YouTube and arXiv sources; bulk directory loading | *planned* |
+| 12.5 | Web, YouTube and arXiv sources; bulk directory loading | [Routing a mixed folder](05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md#routing-a-mixed-folder)<br>[Web pages, transcripts and papers](05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md#web-pages-transcripts-and-papers) |
 | 12.6 | Custom loaders with lazy loading | [Lazy loading](06_custom_loaders_with_lazy_loading/README.md#lazy-loading) |
 
 ## Interactive lab
