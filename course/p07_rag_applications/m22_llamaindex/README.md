@@ -8,6 +8,12 @@
 
 The techniques are framework-independent. Rebuilding them in LlamaIndex proves you understand the idea and not only one API.
 
+## Theory
+
+Read the [theory page](../../../theory/p07_rag_applications/m22_llamaindex/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p07_rag_applications/m22_llamaindex/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Sentence window lab](../../../theory/p07_rag_applications/m22_llamaindex/04_sentence_window_retrieval/interactive/sentence-window-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Map LangChain concepts to LlamaIndex (Document/Node, Retriever, QueryEngine, NodePostprocessor)
@@ -20,10 +26,10 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 22.1 | Simple PDF and CSV RAG in LlamaIndex | [`01a_simple_rag_with_llamaindex.ipynb`](notebooks/01a_simple_rag_with_llamaindex.ipynb) | [`01b_simple_csv_rag_with_llamaindex.ipynb`](optional/01b_simple_csv_rag_with_llamaindex.ipynb) *(extension)* |
-| 22.2 | Fusion retrieval with QueryFusionRetriever | [`02a_fusion_retrieval_with_llamaindex.ipynb`](notebooks/02a_fusion_retrieval_with_llamaindex.ipynb) | — |
-| 22.3 | Reranking with node postprocessors | [`03a_reranking_with_llamaindex.ipynb`](notebooks/03a_reranking_with_llamaindex.ipynb) | — |
-| 22.4 | Sentence-window retrieval | [`04a_context_enrichment_window_with_llamaindex.ipynb`](notebooks/04a_context_enrichment_window_with_llamaindex.ipynb) | — |
+| 22.1 | Simple PDF and CSV RAG in LlamaIndex ([theory](../../../theory/p07_rag_applications/m22_llamaindex/01_simple_pdf_and_csv_rag_in_llamaindex/README.md)) | [`01a_simple_rag_with_llamaindex.ipynb`](notebooks/01a_simple_rag_with_llamaindex.ipynb) | [`01b_simple_csv_rag_with_llamaindex.ipynb`](optional/01b_simple_csv_rag_with_llamaindex.ipynb) *(extension)* |
+| 22.2 | Fusion retrieval with QueryFusionRetriever ([theory](../../../theory/p07_rag_applications/m22_llamaindex/02_fusion_retrieval_with_queryfusionretriever/README.md)) | [`02a_fusion_retrieval_with_llamaindex.ipynb`](notebooks/02a_fusion_retrieval_with_llamaindex.ipynb) | — |
+| 22.3 | Reranking with node postprocessors ([theory](../../../theory/p07_rag_applications/m22_llamaindex/03_reranking_with_node_postprocessors/README.md)) | [`03a_reranking_with_llamaindex.ipynb`](notebooks/03a_reranking_with_llamaindex.ipynb) | — |
+| 22.4 | Sentence-window retrieval ([theory](../../../theory/p07_rag_applications/m22_llamaindex/04_sentence_window_retrieval/README.md)) | [`04a_context_enrichment_window_with_llamaindex.ipynb`](notebooks/04a_context_enrichment_window_with_llamaindex.ipynb) | — |
 
 ## Hands-on lab
 
@@ -31,7 +37,7 @@ Port one of your Part VI pipelines (hybrid + rerank) to LlamaIndex and confirm t
 
 ## Key concepts
 
-Nodes · QueryEngine · Postprocessors · Sentence window
+[Nodes](../../../theory/p07_rag_applications/m22_llamaindex/01_simple_pdf_and_csv_rag_in_llamaindex/README.md#nodes) · [QueryEngine](../../../theory/p07_rag_applications/m22_llamaindex/01_simple_pdf_and_csv_rag_in_llamaindex/README.md#queryengine) · [Postprocessors](../../../theory/p07_rag_applications/m22_llamaindex/03_reranking_with_node_postprocessors/README.md#postprocessors) · [Sentence window](../../../theory/p07_rag_applications/m22_llamaindex/04_sentence_window_retrieval/README.md#sentence-window)
 
 ## Folder layout
 

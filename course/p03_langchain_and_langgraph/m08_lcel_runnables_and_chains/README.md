@@ -8,6 +8,12 @@
 
 Every RAG chain in Parts IV–VII is an LCEL pipeline: retriever | prompt | model | parser. Summarization chains are also the first taste of map-reduce over documents.
 
+## Theory
+
+Read the [theory page](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Stuff, map-reduce or refine](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Compose Runnables with the pipe operator and run them with invoke, batch and stream
@@ -21,11 +27,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 8.1 | LCEL and the Runnable interface | [`01a_LCEL_Introduction.ipynb`](notebooks/01a_LCEL_Introduction.ipynb)<br>[`01b_Runnables.ipynb`](notebooks/01b_Runnables.ipynb) | — |
-| 8.2 | LCEL deep dive | [`02a_LCEL_Deepdive.ipynb`](notebooks/02a_LCEL_Deepdive.ipynb) | [`02b_LCEL_and_Runnables.ipynb`](optional/02b_LCEL_and_Runnables.ipynb) *(alternate)* |
-| 8.3 | Branching, routing and merging chains | [`03a_Branching_Routing_Merging_Chains.ipynb`](notebooks/03a_Branching_Routing_Merging_Chains.ipynb) | — |
-| 8.4 | Legacy chains and migration to LCEL | [`04a_Chain_Migrations.ipynb`](notebooks/04a_Chain_Migrations.ipynb) | [`04b_Basics_of_Chains.ipynb`](optional/04b_Basics_of_Chains.ipynb) *(extension)*<br>[`04c_Chains_Basics_and_OutputParsers.ipynb`](optional/04c_Chains_Basics_and_OutputParsers.ipynb) *(extension)*<br>[`04d_Advanced_Chains.ipynb`](optional/04d_Advanced_Chains.ipynb) *(extension)*<br>[`04e_Chain_Migration_Advanced.ipynb`](optional/04e_Chain_Migration_Advanced.ipynb) *(extension)* |
-| 8.5 | Summarization: stuff, map-reduce, refine | [`05a_Summarization_Essentials.ipynb`](notebooks/05a_Summarization_Essentials.ipynb)<br>[`05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb`](notebooks/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb) | — |
+| 8.1 | LCEL and the Runnable interface ([theory](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/01_lcel_and_the_runnable_interface/README.md)) | [`01a_LCEL_Introduction.ipynb`](notebooks/01a_LCEL_Introduction.ipynb)<br>[`01b_Runnables.ipynb`](notebooks/01b_Runnables.ipynb) | — |
+| 8.2 | LCEL deep dive ([theory](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/02_lcel_deep_dive/README.md)) | [`02a_LCEL_Deepdive.ipynb`](notebooks/02a_LCEL_Deepdive.ipynb) | [`02b_LCEL_and_Runnables.ipynb`](optional/02b_LCEL_and_Runnables.ipynb) *(alternate)* |
+| 8.3 | Branching, routing and merging chains ([theory](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/03_branching_routing_and_merging_chains/README.md)) | [`03a_Branching_Routing_Merging_Chains.ipynb`](notebooks/03a_Branching_Routing_Merging_Chains.ipynb) | — |
+| 8.4 | Legacy chains and migration to LCEL ([theory](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/04_legacy_chains_and_migration_to_lcel/README.md)) | [`04a_Chain_Migrations.ipynb`](notebooks/04a_Chain_Migrations.ipynb) | [`04b_Basics_of_Chains.ipynb`](optional/04b_Basics_of_Chains.ipynb) *(extension)*<br>[`04c_Chains_Basics_and_OutputParsers.ipynb`](optional/04c_Chains_Basics_and_OutputParsers.ipynb) *(extension)*<br>[`04d_Advanced_Chains.ipynb`](optional/04d_Advanced_Chains.ipynb) *(extension)*<br>[`04e_Chain_Migration_Advanced.ipynb`](optional/04e_Chain_Migration_Advanced.ipynb) *(extension)* |
+| 8.5 | Summarization: stuff, map-reduce, refine ([theory](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/05_summarization_stuff_map_reduce_refine/README.md)) | [`05a_Summarization_Essentials.ipynb`](notebooks/05a_Summarization_Essentials.ipynb)<br>[`05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb`](notebooks/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb) | — |
 
 ## Hands-on lab
 
@@ -33,7 +39,7 @@ Chain rewrite: rebuild one legacy chain as LCEL, add a branch that routes short 
 
 ## Key concepts
 
-Runnable interface · Pipe composition · RunnableParallel / Branch · Map-reduce summarisation
+[Runnable interface](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/01_lcel_and_the_runnable_interface/README.md#runnable-interface) · [Pipe composition](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/02_lcel_deep_dive/README.md#pipe-composition) · [RunnableParallel / Branch](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/03_branching_routing_and_merging_chains/README.md#runnableparallel--branch) · [Map-reduce summarisation](../../../theory/p03_langchain_and_langgraph/m08_lcel_runnables_and_chains/05_summarization_stuff_map_reduce_refine/README.md#map-reduce-summarisation)
 
 ## Folder layout
 

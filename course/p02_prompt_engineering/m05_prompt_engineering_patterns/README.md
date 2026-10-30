@@ -8,6 +8,12 @@
 
 Query rewriting, grading, routing and answer generation are all prompts. The patterns here are the building blocks of every LLM step in a RAG pipeline.
 
+## Theory
+
+Read the [theory page](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Self-consistency: when a vote helps](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Apply persona, flipped-interaction, N-shot, directional-stimulus, template and meta-language patterns
@@ -21,10 +27,10 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 5.1 | Core prompt patterns | [`01a_prompt_engineering_patterns.ipynb`](notebooks/01a_prompt_engineering_patterns.ipynb) | — |
-| 5.2 | Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct | [`02a_advanced_prompt_engineering_patterns.ipynb`](notebooks/02a_advanced_prompt_engineering_patterns.ipynb) | — |
-| 5.3 | The same tasks across models | [`03a_openai_gpt_4o_mini.ipynb`](notebooks/03a_openai_gpt_4o_mini.ipynb) | [`03b_google_gemini_1_5_flash.ipynb`](optional/03b_google_gemini_1_5_flash.ipynb) *(alternate)*<br>[`03c_meta_llama_3_2_90b_groq.ipynb`](optional/03c_meta_llama_3_2_90b_groq.ipynb) *(alternate)*<br>[`03d_meta_llama_3_2_1b_huggingface.ipynb`](optional/03d_meta_llama_3_2_1b_huggingface.ipynb) *(alternate)* |
-| 5.4 | Applied prompting on business tasks | [`04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb`](notebooks/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb) | — |
+| 5.1 | Core prompt patterns ([theory](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/01_core_prompt_patterns/README.md)) | [`01a_prompt_engineering_patterns.ipynb`](notebooks/01a_prompt_engineering_patterns.ipynb) | — |
+| 5.2 | Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct ([theory](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/README.md)) | [`02a_advanced_prompt_engineering_patterns.ipynb`](notebooks/02a_advanced_prompt_engineering_patterns.ipynb) | — |
+| 5.3 | The same tasks across models ([theory](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/03_the_same_tasks_across_models/README.md)) | [`03a_openai_gpt_4o_mini.ipynb`](notebooks/03a_openai_gpt_4o_mini.ipynb) | [`03b_google_gemini_1_5_flash.ipynb`](optional/03b_google_gemini_1_5_flash.ipynb) *(alternate)*<br>[`03c_meta_llama_3_2_90b_groq.ipynb`](optional/03c_meta_llama_3_2_90b_groq.ipynb) *(alternate)*<br>[`03d_meta_llama_3_2_1b_huggingface.ipynb`](optional/03d_meta_llama_3_2_1b_huggingface.ipynb) *(alternate)* |
+| 5.4 | Applied prompting on business tasks ([theory](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/04_applied_prompting_on_business_tasks/README.md)) | [`04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb`](notebooks/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb) | — |
 
 ## Hands-on lab
 
@@ -32,7 +38,7 @@ Prompt bake-off: write three prompts for grading whether a retrieved passage ans
 
 ## Key concepts
 
-Few-shot · Chain-of-thought · Self-consistency · ReAct format
+[Few-shot](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/01_core_prompt_patterns/README.md#few-shot) · [Chain-of-thought](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/README.md#chain-of-thought) · [Self-consistency](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/README.md#self-consistency) · [ReAct format](../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/README.md#react-format)
 
 ## Folder layout
 

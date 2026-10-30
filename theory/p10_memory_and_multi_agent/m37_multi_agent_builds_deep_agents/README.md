@@ -49,7 +49,7 @@ One node talks to the guest, specialists do the work, and plain functions betwee
 ## How it connects
 
 - **Before:** [M33](../m33_conversational_memory_rag/README.md) and [M34](../m34_long_term_agentic_memory/README.md) teach the checkpointers, threads, summaries and stores these builds use for memory. [M35](../m35_multi_agent_architectures/README.md) and [M36](../m36_collaboration_parallel_agents/README.md) teach supervisors, routers, parallel branches and `Send` one at a time. [M24](../../p08_agent_foundations/m24_react_agents/README.md) covers `create_agent` and middleware, and [M27](../../p08_agent_foundations/m27_human_approval_applied_agents/README.md) human approval with `interrupt()`.
-- **Next:** M38 to M41 move tools and agents behind protocols: MCP servers for tools, A2A between agents. The coordinator and specialist split stays the same.
+- **Next:** [M38](../../p11_agent_protocols/m38_mcp_foundations/README.md) to M41 move tools and agents behind protocols: MCP servers for tools, A2A between agents. The coordinator and specialist split stays the same.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
@@ -103,4 +103,4 @@ One node talks to the guest, specialists do the work, and plain functions betwee
 - A deep agent's safety comes from its harness: the backend decides what code can do, sub-agents keep their own context, and memory needs a real user key.
 
 ---
-*Previous: [M36 Collaboration, control and parallel agents](../m36_collaboration_parallel_agents/README.md). Next: M38 MCP foundations (no theory page yet).*
+*Previous: [M36 Collaboration, control and parallel agents](../m36_collaboration_parallel_agents/README.md). Next: [M38 MCP foundations](../../p11_agent_protocols/m38_mcp_foundations/README.md).*

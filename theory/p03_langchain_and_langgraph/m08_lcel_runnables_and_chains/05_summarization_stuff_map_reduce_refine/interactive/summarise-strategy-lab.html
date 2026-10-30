@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stuff, map-reduce or refine</title>
+<meta name="description" content="M08 lab: split a Larkspur handbook document with a port of RecursiveCharacterTextSplitter, route it by length with a RunnableBranch, and count the model calls and rounds each summarisation strategy needs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·m08-summarise·2026-10-31·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the rounds timeline, one lane per strategy, with the lane the router picks in magenta · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, lanes of blocks are a familiar object; the shared scale (refine's one-call rounds) is what makes the gap between the strategies readable */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(36% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt { opacity: 0.55; cursor: not-allowed; transform: none; }
+.opt .num { font-family: var(--font-outlier); font-weight: 400; margin-left: var(--space-xs); opacity: 0.8; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 5ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-accent); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); }
+th:last-child, td:last-child { padding-right: 0; }
+code { font-family: var(--font-outlier); font-size: 0.9em; }
+tr.is-pick td { color: var(--color-ink); background: var(--color-paper-2); }
+tr.is-pick td:first-child { color: var(--color-accent); font-weight: 500; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.router { margin-top: var(--space-sm); padding: var(--space-xs) var(--space-sm); background: var(--color-paper-2); font: 400 var(--text-sm)/1.5 var(--font-outlier); color: var(--color-ink-2); overflow-x: auto; white-space: pre; }
+
+/* the rounds timeline: one lane per strategy, one block per round, all lanes on the same scale */
+.lanes { display: grid; gap: var(--space-sm); margin-top: var(--space-md); }
+.lane { display: grid; grid-template-columns: 11ch minmax(0, 1fr) 9ch; gap: var(--space-sm); align-items: center; }
+.lane__name { font: 500 var(--text-sm)/1.2 var(--font-display); color: var(--color-ink-2); }
+.lane__n { font: 400 var(--text-sm)/1 var(--font-outlier); color: var(--color-muted); text-align: right; white-space: nowrap; }
+.track { display: flex; gap: var(--space-3xs); height: 28px; }
+.round { flex: 0 0 auto; display: grid; place-items: center; background: var(--color-ink-2); color: var(--color-paper); font: 500 var(--text-xs)/1 var(--font-outlier); overflow: hidden; }
+.round.is-reduce { background: var(--color-muted); }
+.lane.is-pick .lane__name { color: var(--color-accent); }
+.lane.is-pick .round { background: var(--color-accent); color: var(--color-accent-ink); }
+.lane.is-pick .round.is-reduce { background: var(--color-accent-2); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-md); margin-top: var(--space-sm); font-size: var(--text-sm); color: var(--color-muted); }
+.legend i { display: inline-block; width: 14px; height: 10px; margin-right: var(--space-2xs); }
+.legend .k-call { background: var(--color-ink-2); } .legend .k-reduce { background: var(--color-muted); } .legend .k-pick { background: var(--color-accent); }
+
+.chunks td.tx { color: var(--color-ink-2); }
+.chunks td.tx span { color: var(--color-muted); }
+@media (max-width: 40rem) {
+  .lane { grid-template-columns: 9ch minmax(0, 1fr) 8ch; gap: var(--space-xs); }
+  .lane__n { font-size: var(--text-xs); }
+  .lane__name { font-size: var(--text-xs); }
+}
+
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the slider and the timeline share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.chunks { order: 2; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab splits the text and counts the calls in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M08 lab, LCEL, Runnables and chains</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Map-reduce buys a small prompt with more calls.</h1>
+    <p class="lead">Three Larkspur Cloud handbook documents, split by a port of LangChain’s <code>RecursiveCharacterTextSplitter</code> with an overlap of 20, as in notebook 05a. A <code>RunnableBranch</code> sends short documents to stuff and long ones to map-reduce. Move the chunk size and count what each strategy costs.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Document</legend><div class="seg__opts" id="docOpts"></div></fieldset>
+      <div class="field">
+        <label for="size">Chunk size, in characters (<code>chunk_size</code>)</label>
+        <input type="range" id="size" min="200" max="1200" step="50" value="400">
+        <output class="val" id="sizeVal" for="size"></output>
+      </div>
+      <fieldset class="seg"><legend>Map calls allowed at once (<code>max_concurrency</code>)</legend><div class="seg__opts" id="mcOpts"></div></fieldset>
+      <dl class="stats">
+        <div><dt>Chunks</dt><dd id="sChunks"></dd></div>
+        <div><dt>Router picks</dt><dd class="word" id="sRoute"></dd></div>
+        <div><dt>Map-reduce calls</dt><dd id="sCalls"></dd></div>
+        <div><dt>Map-reduce rounds</dt><dd id="sRounds"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="stratHead">
+        <div class="sheet__head"><h2 id="stratHead">The three strategies on this document</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Strategy</th><th class="num" scope="col">Model calls</th><th class="num" scope="col">Rounds</th><th class="num" scope="col">Most source text in one call</th></tr></thead>
+          <tbody id="strat"></tbody>
+        </table></div>
+        <div class="lanes" id="lanes" aria-label="Rounds per strategy, one block per round, labelled with the calls that run in it"></div>
+        <p class="legend"><span><i class="k-call"></i>A round of calls</span><span><i class="k-reduce"></i>The reduce call</span><span><i class="k-pick"></i>The strategy the router picks</span></p>
+        <pre class="router" aria-label="The router">summarise = RunnableBranch(
+    (lambda x: len(x["text"]) &lt;= 1500, stuff_chain),
+    map_reduce_chain,
+)</pre>
+        <p class="note" style="margin-top: var(--space-sm)">A round is one wait on the model: calls in the same round run at the same time. Refine’s calls after the first also read the running summary, and the reduce call reads the joined summaries; their length depends on the model, so the last column counts source text only. The 1,500-character limit stands in for a context budget.</p>
+      </section>
+      <section class="sheet chunks" aria-labelledby="chunkHead">
+        <div class="sheet__head"><h2 id="chunkHead">Chunks the map step reads</h2><p class="note" id="chunkNote"></p></div>
+        <div class="scroll"><table>
+          <thead><tr><th class="num" scope="col">#</th><th class="num" scope="col">Characters</th><th scope="col">Starts with</th></tr></thead>
+          <tbody id="chunks"></tbody>
+        </table></div>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt=n=>n.toLocaleString('en-US');
+// core:start
+const OVERLAP=20, STUFF_LIMIT=1500;
+const HANDBOOK={
+  refunds:"Refunds and cancellations\n\nLarkspur Cloud bills monthly plans at the start of each billing cycle and annual plans once a year. You can cancel any plan from the Billing page. Cancelling stops the next charge, and your servers keep running until the end of the period you already paid for.\n\nMonthly plans are not refundable. If you cancel a monthly plan halfway through a cycle, the servers stay online until the cycle ends and then shut down. Annual plans work differently. You can get a full refund on an annual plan within 30 days of purchase, as long as the account has used less than 100 GB of outbound traffic. After day 30, refunds are prorated: you get back the unused whole months, minus a 15% early-termination fee. Refunds go back to the original payment method and take 5 to 10 business days to appear.\n\nCredits from SLA breaches are applied to the next invoice and cannot be paid out as cash. Promotional credits expire 12 months after they are issued.\n\nTo request a refund, open a ticket in the Billing category and include the invoice number. Requests sent by email are not tracked and take longer.",
+  outages:"Outages and service credits\n\nLarkspur guarantees 99.95% monthly availability for every server plan. If an outage pushes availability below that, you receive service credits on the next invoice. Credits are worked out per server, so a single failed server does not earn credits for the rest of the account.\n\nDuring an incident, follow the status page for updates rather than opening a ticket. Engineers publish a root-cause report within 72 hours of recovery, and the report names the servers and regions that were affected.\n\nIf a server stops responding and the status page shows no incident, reboot it from the console before you contact support. A reboot takes about a minute and does not change the server IP address.",
+  exports:"Exporting your data\n\nExport your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots. Large exports are split into several archives, and each archive link stays valid for seven days.\n\nAfter a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes. Support cannot restore data once the 30 days have passed.",
+  sizing:"Choosing a server size\n\nChoose a server size by peak memory use, not average use. Each server plan lists vCPUs, memory and included outbound traffic. Traffic above the included amount is billed on the next invoice.\n\nYou can resize a server from the console. Moving to a larger size keeps the disk and the IP address; moving to a smaller size needs a disk that fits the new plan. Support tickets about sizing are answered within 4 hours on business plans and within 24 hours on starter plans."};
+const DOCS=[
+  {label:"Refunds section", text:HANDBOOK.refunds},
+  {label:"Refunds and outages", text:[HANDBOOK.refunds,HANDBOOK.outages].join("\n\n")},
+  {label:"Whole handbook", text:[HANDBOOK.refunds,HANDBOOK.outages,HANDBOOK.exports,HANDBOOK.sizing].join("\n\n")}];
+
+// Port of LangChain's RecursiveCharacterTextSplitter (keep_separator=True, strip_whitespace=True, length=len),
+// the same port as the M13 lab. Checked against langchain_text_splitters on all three documents for every chunk size from 200 to 1200.
+function splitKeep(text, sep){
+  if(sep==='') return [...text];
+  const parts=text.split(sep);
+  return [parts[0], ...parts.slice(1).map(p=>sep+p)].filter(s=>s);
+}
+function mergeSplits(splits, size, overlap){
+  const docs=[]; let cur=[]; let total=0;
+  for(const d of splits){
+    const len=d.length;
+    if(total+len>size){
+      if(cur.length){
+        const doc=cur.join('').trim(); if(doc) docs.push(doc);
+        while(total>overlap || (total+len>size && total>0)){ total-=cur[0].length; cur=cur.slice(1); }
+      }
+    }
+    cur.push(d); total+=len;
+  }
+  const doc=cur.join('').trim(); if(doc) docs.push(doc);
+  return docs;
+}
+function recursiveSplit(text, size, overlap, seps=['\n\n','\n',' ','']){
+  let sep=seps[seps.length-1], next=[];
+  for(let i=0;i<seps.length;i++){
+    if(seps[i]===''){ sep=''; break; }
+    if(text.includes(seps[i])){ sep=seps[i]; next=seps.slice(i+1); break; }
+  }
+  const out=[]; let good=[];
+  for(const s of splitKeep(text, sep)){
+    if(s.length<size) good.push(s);
+    else{
+      if(good.length){ out.push(...mergeSplits(good,size,overlap)); good=[]; }
+      if(!next.length) out.push(s); else out.push(...recursiveSplit(s,size,overlap,next));
+    }
+  }
+  if(good.length) out.push(...mergeSplits(good,size,overlap));
+  return out;
+}
+// What each strategy costs, written the way notebook 05b writes them out:
+// stuff = one call on the whole text; map-reduce = map_chain.batch(chunks, max_concurrency=m) then one reduce call;
+// refine = one call on the first chunk, then one call per remaining chunk, each waiting for the last.
+function plan(text, size, m){
+  const chunks=recursiveSplit(text, size, OVERLAP), n=chunks.length;
+  const maxChunk=Math.max(...chunks.map(c=>c.length));
+  return {chunks, n, route: text.length<=STUFF_LIMIT ? 'stuff' : 'map-reduce',
+    stuff:{calls:1, rounds:1, most:text.length},
+    mapreduce:{calls:n+1, rounds:Math.ceil(n/m)+1, most:maxChunk},
+    refine:{calls:n, rounds:n, most:maxChunk}};
+}
+// core:end
+
+const MCS=[1,2,4,8,16];
+let di=0, mc=4;
+DOCS.forEach((d,i)=>{
+  $('docOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="doc" id="d${i}" value="${i}"${i===di?' checked':''}><label class="opt" for="d${i}">${d.label}<span class="num">${fmt(d.text.length)}</span></label>`);
+  $('d'+i).addEventListener('change',()=>{di=i;render();});
+});
+MCS.forEach(m=>{
+  $('mcOpts').insertAdjacentHTML('beforeend',`<input type="radio" name="mc" id="m${m}" value="${m}"${m===mc?' checked':''}><label class="opt" for="m${m}">${m}</label>`);
+  $('m'+m).addEventListener('change',()=>{mc=m;render();});
+});
+
+function lane(name, rounds, perRound, reduce, pick, scale){
+  const w=`calc((100% - ${(scale-1)*2}px) / ${scale})`;
+  const blocks=perRound.map((c,i)=>`<span class="round${reduce&&i===perRound.length-1?' is-reduce':''}" style="width:${w}">${c}</span>`).join('');
+  return `<div class="lane${pick?' is-pick':''}"><span class="lane__name">${name}</span><div class="track">${blocks}</div><span class="lane__n">${rounds} round${rounds>1?'s':''}</span></div>`;
+}
+
+function render(){
+  const size=+$('size').value, D=DOCS[di], p=plan(D.text,size,mc), n=p.n;
+  $('sizeVal').textContent=size;
+  $('sChunks').textContent=n;
+  $('sRoute').textContent=p.route;
+  $('sCalls').textContent=p.mapreduce.calls;
+  $('sRounds').textContent=p.mapreduce.rounds;
+
+  const rows=[['stuff',p.stuff],['map-reduce',p.mapreduce],['refine',p.refine]];
+  $('strat').innerHTML=rows.map(([k,s])=>`<tr${k===p.route?' class="is-pick"':''}><td>${k}${k===p.route?' (router)':''}</td><td class="num">${s.calls}</td><td class="num">${s.rounds}</td><td class="num">${fmt(s.most)}</td></tr>`).join('');
+
+  // map rounds carry min(m, calls left); the reduce is its own round
+  const mapRounds=[]; for(let left=n; left>0; left-=mc) mapRounds.push(Math.min(mc,left));
+  const scale=Math.max(p.refine.rounds, p.mapreduce.rounds);
+  $('lanes').innerHTML=
+    lane('stuff',1,[1],false,p.route==='stuff',scale)+
+    lane('map-reduce',p.mapreduce.rounds,[...mapRounds,1],true,p.route==='map-reduce',scale)+
+    lane('refine',n,Array(n).fill(1),false,false,scale);
+
+  const total=p.chunks.reduce((a,c)=>a+c.length,0);
+  $('chunkNote').textContent=`${fmt(total)} characters in all, the document has ${fmt(D.text.length)}`;
+  $('chunks').innerHTML=p.chunks.map((c,i)=>`<tr><td class="num">${i+1}</td><td class="num">${fmt(c.length)}</td><td class="tx">${esc(c.slice(0,64))}<span>${c.length>64?'…':''}</span></td></tr>`).join('');
+
+  const co=$('callout'), mr=p.mapreduce;
+  let t;
+  if(p.route==='stuff'){
+    t=`<b>The router sends this to stuff.</b> At ${fmt(D.text.length)} characters the document is under the ${fmt(STUFF_LIMIT)}-character limit, so one call reads all of it. Map-reduce would spend ${mr.calls} calls on the same text, and refine ${n} calls in ${n} rounds.`;
+  } else {
+    t=`<b>The router sends this to map-reduce.</b> At ${fmt(D.text.length)} characters the document is over the ${fmt(STUFF_LIMIT)}-character limit. The map step makes ${n} call${n>1?'s':''} of at most ${fmt(mr.most)} characters each, in ${mr.rounds-1} round${mr.rounds>2?'s':''} at <code>max_concurrency</code> ${mc}, then one reduce call. Refine makes ${n} calls one after another: ${n} rounds against ${mr.rounds}.`;
+  }
+  if(mc===1 && n>1) t+=` With one call at a time the map step is a loop, so map-reduce takes ${mr.rounds} rounds, one more than refine.`;
+  else if(mc>=n && n>1) t+=` All ${n} map calls fit in the first round, so map-reduce finishes in 2 rounds.`;
+  if(n===1) t+=` At this chunk size the whole document is one chunk, so map-reduce only adds a reduce call to what stuff does in one.`;
+  co.innerHTML=t;
+}
+$('size').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reducers and the message list</title>
+<meta name="description" content="M09 lab: a Larkspur Cloud support graph classifies a question, routes it to a handler and answers; change the reducer on messages and what each node returns, and read the state after every step.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·m09reduce·2026-10-31·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the state ledger, one row per step, with every copy of the question marked in magenta · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, the nodes are deterministic stand-ins for LLM calls; the intro and the ledger note say the classifier is a keyword rule and the answer is the handbook page sharing the most words */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(40% 0.16 27); --color-success: oklch(36% 0.10 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the state ledger on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt { opacity: 0.55; cursor: not-allowed; transform: none; }
+.query-opts .opt { width: 100%; }
+.decl { margin: 0; padding: var(--space-xs) var(--space-sm); background: var(--color-paper-2); border-left: var(--rule-bar) solid var(--color-rule-2); font: 400 var(--text-sm)/1.5 var(--font-outlier); color: var(--color-ink); overflow-x: auto; white-space: pre; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); min-width: 0; }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); overflow-wrap: anywhere; }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+code { font-family: var(--font-outlier); font-size: 0.9em; }
+
+/* the ledger: one row per step, the node's write and the state after the reducer merged it */
+.ledger { list-style: none; margin: 0; padding: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.ledger > li { display: grid; grid-template-columns: 3ch minmax(0, 1fr) auto; gap: var(--space-2xs) var(--space-sm); padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.ledger .n { font: 500 var(--text-sm)/1.6 var(--font-outlier); color: var(--color-muted); }
+.ledger .node { font: 600 var(--text-md)/1.4 var(--font-display); color: var(--color-ink); }
+.ledger .count { font: 500 var(--text-lg)/1.2 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); text-align: right; }
+.ledger .rows { grid-column: 2 / -1; display: grid; grid-template-columns: 9ch minmax(0, 1fr); gap: var(--space-2xs) var(--space-sm); align-items: baseline; }
+.ledger .k { font-size: var(--text-sm); color: var(--color-muted); }
+.msgs { display: flex; flex-wrap: wrap; gap: var(--space-2xs); min-width: 0; }
+.msg { display: inline-block; padding: 0 var(--space-xs); border: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font: 400 var(--text-sm)/1.6 var(--font-outlier); color: var(--color-ink-2); overflow-wrap: anywhere; }
+.msg.q { border-color: var(--color-accent); color: var(--color-accent-2); background: color-mix(in oklab, var(--color-accent) 10%, var(--color-sheet)); }
+.msg.dup { border-style: dashed; }
+.none { font-size: var(--text-sm); color: var(--color-error); }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading p + p { margin-top: var(--space-xs); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.answer dl { display: grid; grid-template-columns: 8ch minmax(0, 1fr); gap: var(--space-xs) var(--space-md); margin: 0; }
+.answer dd { margin: 0; color: var(--color-ink); }
+.answer dd code { color: var(--color-ink); }
+@media (max-width: 40rem) {
+  .ledger .rows { grid-template-columns: minmax(0, 1fr); }
+  .sheet { padding-inline: var(--space-md); }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls and the ledger share a screen */
+html.embedded .layout { gap: var(--space-md); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .query-opts .opt { width: auto; }
+html.embedded .sheet.trace { order: 1; }
+html.embedded .stats { order: 2; }
+html.embedded .reading { order: 3; }
+html.embedded .sheet.answer { order: 4; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab runs its graph in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M09 lab, LangGraph core</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>The reducer decides what a write does.</h1>
+    <p class="lead">A Larkspur Cloud support graph: <code>classify</code> picks a route, a conditional edge sends the question to <code>billing</code>, <code>technical</code> or <code>human</code>, and the handler answers from the handbook. Change the reducer on <code>messages</code> and what each node returns, then read the state after every step.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Question</legend><div class="seg__opts query-opts" id="qOpts"></div></fieldset>
+      <fieldset class="seg"><legend>Reducer on messages</legend><div class="seg__opts" id="rOpts"></div></fieldset>
+      <fieldset class="seg"><legend>Each node returns</legend><div class="seg__opts" id="sOpts"></div></fieldset>
+      <pre class="decl" id="decl" aria-label="The state declaration and the node's return line for these settings"></pre>
+      <dl class="stats">
+        <div><dt>Messages in the final state</dt><dd id="sCount"></dd></div>
+        <div><dt>Copies of the question</dt><dd id="sCopies"></dd></div>
+        <div><dt>Route taken</dt><dd class="word" id="sRoute"></dd></div>
+        <div><dt>Answer source</dt><dd class="word" id="sSource"></dd></div>
+      </dl>
+      <div class="reading" aria-live="polite"><p id="callout"></p><p id="routeNote"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet trace" aria-labelledby="traceHead">
+        <div class="sheet__head"><h2 id="traceHead">State after each step</h2><p class="note">Magenta marks the customer’s question</p></div>
+        <ol class="ledger" id="ledger"></ol>
+        <p class="note" style="margin-top: var(--space-sm)">Each row shows what the node returned and the <code>messages</code> list after the reducer merged it. The nodes are deterministic stand-ins for model calls: <code>classify</code> is a keyword rule and each handler answers with the handbook page that shares the most words with the question.</p>
+      </section>
+      <section class="sheet answer" aria-labelledby="ansHead">
+        <div class="sheet__head"><h2 id="ansHead">The structured answer</h2><p class="note">The <code>answer</code> key in the final state</p></div>
+        <dl id="answer"></dl>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// <engine> the graph, ported line for line from the Python reference that runs it in LangGraph 1.2.18
+const SECTIONS={
+ billing:[
+  ["billing","Monthly plans are billed at the start of each billing cycle. Annual plans are billed once a year on the purchase date."],
+  ["cancel","You can cancel any plan from the Billing page. Cancelling stops the next charge, and servers keep running until the paid period ends."],
+  ["refund-window","An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic."],
+  ["refund-timing","Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement."],
+  ["promo","Promotional credits expire 12 months after they are issued and cannot be paid out as cash."]],
+ technical:[
+  ["sla","Larkspur guarantees 99.95% monthly availability. If an outage pushes availability below that, you receive service credits on the next invoice."],
+  ["incidents","During an incident, follow the status page for updates. Engineers publish a root-cause report within 72 hours of recovery."],
+  ["sizing","Choose a server size by peak memory use. Each server plan lists vCPUs, memory and included outbound traffic."],
+  ["reboot","You can reboot a server from the console. A reboot takes about a minute and does not change the server IP address."],
+  ["export","Export your data at any time from Settings, then Data. Exports include databases, object storage and server snapshots."],
+  ["retention","After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes."]]};
+const RULES=[["billing",new Set(["refund","refunds","invoice","billed","billing","charge","cancel","plan"])],
+             ["technical",new Set(["server","down","outage","reboot","export","data"])]];
+const STOP=new Set("a an and after by can do does get how i if is it my of on the to what when will with you your".split(" "));
+const QUESTIONS=["When will my refund appear on my statement?","Will I get credits after an outage?",
+                 "Can I export my data after I cancel my plan?","Can I pay by bank transfer?"];
+const words=s=>(s.toLowerCase().match(/\b\w\w+\b/g)||[]).filter(w=>!STOP.has(w));
+const question=ms=>{ const m=ms.find(m=>m.type==="human"); return m?m.content:null; };
+let nextId=0;
+// add_messages: give every message an id, replace a message whose id is already in the list, append the rest
+function addMessages(left,right){
+  const l=left.map(m=>m.id?m:{...m,id:"m"+(nextId++)}), r=right.map(m=>m.id?m:{...m,id:"m"+(nextId++)});
+  const out=l.slice(), at=new Map(out.map((m,i)=>[m.id,i]));
+  r.forEach(m=>{ if(at.has(m.id)) out[at.get(m.id)]=m; else { at.set(m.id,out.length); out.push(m); } });
+  return out;
+}
+const REDUCE={none:(cur,upd)=>upd, add:(cur,upd)=>cur.concat(upd), add_messages:addMessages};
+function run(qi,reducer,style){
+  nextId=0;
+  const merge=REDUCE[reducer], ai=c=>({type:"ai",content:c});
+  const emit=(state,msg)=>style==="whole"?state.messages.concat([msg]):[msg];
+  const nodes={
+    classify(state){
+      const ws=new Set(words(question(state.messages)||""));
+      const hit=RULES.find(([,kw])=>[...ws].some(w=>kw.has(w)));
+      const route=hit?hit[0]:"human";
+      return {route, messages:emit(state,ai("Route: "+route))};
+    },
+    human(state){
+      const answer={route:"human",source:null,text:"Passed to a support agent."};
+      return {answer, messages:emit(state,ai("Answer: handoff"))};
+    }};
+  ["billing","technical"].forEach(section=>{ nodes[section]=state=>{
+    const q=question(state.messages); let answer;
+    if(q===null) answer={route:section,source:null,text:"No question left in state."};
+    else { const ws=new Set(words(q)); let best=null, score=0;
+      SECTIONS[section].forEach(([id,text])=>{ const tw=new Set(words(text)); const s=[...ws].filter(w=>tw.has(w)).length; if(s>score){best=[id,text];score=s;} });
+      answer={route:section,source:best?best[0]:null,text:best?best[1]:"No matching page."}; }
+    return {answer, messages:emit(state,ai("Answer: "+(answer.source??"None")))};
+  };});
+  const input=[{type:"human",content:QUESTIONS[qi]}];
+  let state={messages:merge([],input)};
+  const steps=[{node:"input",returned:input,after:state.messages}];
+  const apply=(name)=>{ const upd=nodes[name](state); const next={...state,...upd,messages:merge(state.messages,upd.messages)}; steps.push({node:name,returned:upd.messages,after:next.messages}); state=next; };
+  apply("classify");
+  apply(state.route);          // the conditional edge: lambda s: s["route"]
+  return {steps, route:state.route, answer:state.answer, final:state.messages};
+}
+// </engine>
+
+const REDUCERS=[["none","None (overwrite)"],["add","operator.add"],["add_messages","add_messages"]];
+const STYLES=[["delta","Only its new message"],["whole","The whole list plus its message"]];
+let qi=0, reducer="add_messages", style="delta";
+function seg(box,name,items,cur,set){
+  items.forEach(([v,label],i)=>{ const id=name+i;
+    $(box).insertAdjacentHTML('beforeend',`<input type="radio" name="${name}" id="${id}" value="${v}"${v===cur?' checked':''}><label class="opt" for="${id}">${label}</label>`);
+    $(id).addEventListener('change',()=>{set(v);render();}); });
+}
+seg('qOpts','q',QUESTIONS.map((q,i)=>[i,q]),0,v=>qi=v);
+seg('rOpts','r',REDUCERS,reducer,v=>reducer=v);
+seg('sOpts','s',STYLES,style,v=>style=v);
+
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function chips(ms){
+  if(!ms.length) return '<span class="none">empty</span>';
+  const seen=new Set();
+  return ms.map(m=>{ const key=m.type+':'+m.content; const dup=seen.has(key); seen.add(key);
+    const isQ=m.type==='human'; const label=isQ?'Human: '+m.content:'AI: '+m.content;
+    return `<span class="msg${isQ?' q':''}${dup?' dup':''}">${esc(label)}</span>`; }).join('');
+}
+function render(){
+  const r=run(qi,reducer,style);
+  const ann={none:'list',add:'Annotated[list, operator.add]',add_messages:'Annotated[list, add_messages]'}[reducer];
+  $('decl').textContent=`messages: ${ann}\nreturn {"messages": ${style==='whole'?'state["messages"] + [msg]':'[msg]'}}`;
+  $('ledger').innerHTML=r.steps.map((s,i)=>`<li><span class="n">${i}</span><span class="node">${s.node==='input'?'Input':'<code>'+s.node+'</code>'}</span><span class="count">${s.after.length}</span>
+    <div class="rows"><span class="k">${s.node==='input'?'Sent':'Returned'}</span><div class="msgs">${chips(s.returned)}</div><span class="k">State after</span><div class="msgs">${chips(s.after)}</div></div></li>`).join('');
+  const copies=r.final.filter(m=>m.type==='human').length;
+  $('sCount').textContent=r.final.length;
+  $('sCopies').textContent=copies; $('sCopies').className=copies===1?'is-good':'is-bad';
+  $('sRoute').textContent=r.route;
+  $('sSource').textContent=r.answer.source||'none';
+  $('answer').innerHTML=`<dt>route</dt><dd><code>${r.answer.route}</code></dd><dt>source</dt><dd><code>${r.answer.source||'None'}</code></dd><dt>text</dt><dd>${esc(r.answer.text)}</dd>`;
+  const n=r.steps.map(s=>s.after.length).join(', then ');
+  let c;
+  if(copies===0) c=`<b>The question is gone.</b> With no reducer, each write replaces <code>messages</code>. After <code>classify</code> the list holds only its route message, so the ${r.route} node has no question to answer. Sizes: ${n}.`;
+  else if(copies>1) c=`<b>The question is in the state ${copies} times.</b> <code>operator.add</code> concatenates whatever a node returns, so a node that returns the whole list doubles it. Sizes: ${n}. A chat-model node would read, and bill for, every copy.`;
+  else if(reducer==='none') c=`<b>Correct, but only by discipline.</b> With no reducer the last write wins, and every node here copies the whole list forward. One node that returns only its new message erases the history. Sizes: ${n}.`;
+  else if(reducer==='add_messages' && style==='whole') c=`<b>No copies, even though each node returned the whole list.</b> <code>add_messages</code> matches messages by id: the old messages replace themselves and only the new one is appended. Sizes: ${n}.`;
+  else c=`<b>Each node appends one message.</b> The reducer adds the node's write to the list, so the question survives and the history reads in order. Sizes: ${n}.`;
+  $('callout').innerHTML=c;
+  const src=r.answer.source?` and the ${r.route} node answered from <code>${r.answer.source}</code>.`:`, but the ${r.route} node had no question left to answer.`;
+  const rn=[
+    `The router matched <code>refund</code>, a billing word${src}`,
+    `The router matched <code>outage</code>, a technical word${src}`,
+    `This is a data question, but the router checks billing words first: <code>cancel</code> and <code>plan</code> send it to billing, which ${r.answer.source?'answers from <code>'+r.answer.source+'</code> instead of <code>export</code>':'has no question left to answer'}.`,
+    `No rule matched, so the conditional edge took the fallback route to a human. A keyword router misses a billing question worded without its keywords.`][qi];
+  $('routeNote').innerHTML=rn;
+}
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

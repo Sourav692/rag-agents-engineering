@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Server config lab</title>
+<meta name="description" content="M38 lab: switch MCP servers on in server_config.json and read how many tool definitions reach the model on every call, and where each tool call is routed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0, kept from the M11 lab) · redesign: none, new lab in the course lab system
+ * nav: top bar, the wordmark and the lab's name · signature: the server ledger, where a server that still sends 14 definitions receives 0 calls · states: full only; the page holds every recorded value, so it has no loading, empty or error state beyond "no servers"
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a ledger of five rows is plain; the magenta "receives 0 calls" cell and the routed call below it carry the point */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(36% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, td.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+legend, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.servers .opt { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3xs); padding-block: var(--space-xs); }
+.servers .opt code { font: 400 var(--text-sm)/1.3 var(--font-outlier); color: inherit; opacity: 0.85; overflow-wrap: anywhere; }
+.servers .seg__opts { display: grid; gap: var(--space-2xs); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd small { font-size: var(--text-sm); color: var(--color-muted); letter-spacing: 0; }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.id, code { font-family: var(--font-outlier); font-size: 0.9em; }
+td.id { white-space: nowrap; color: var(--color-ink); }
+tr.is-off td { color: var(--color-muted); }
+td.lost { color: var(--color-accent); font-weight: 500; }
+tfoot td { padding: var(--space-xs) var(--space-md) 0 0; border-top: var(--rule-bar) solid var(--color-rule-2); color: var(--color-ink); font-weight: 500; }
+tfoot td:last-child { padding-right: 0; }
+.names { display: flex; flex-wrap: wrap; gap: var(--space-3xs) var(--space-2xs); }
+.names code { font-size: var(--text-xs); padding: 0 var(--space-3xs); background: var(--color-paper-2); color: var(--color-ink-2); }
+.names code.dup { background: color-mix(in oklab, var(--color-accent) 18%, transparent); color: var(--color-ink); }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.call { display: grid; gap: var(--space-xs); margin: 0; }
+.call div { display: grid; grid-template-columns: 9ch minmax(0, 1fr); gap: var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+.call dt { padding-top: var(--space-3xs); }
+.call dd { margin: 0; color: var(--color-ink); min-width: 0; overflow-wrap: anywhere; }
+.call dd code { font-size: var(--text-sm); }
+.call dd.err code { color: var(--color-error); }
+.call dd.ok code { color: var(--color-success); }
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the switches and the ledger share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.route { order: 2; }
+/* framed, the switches drop their command lines and sit in one row; the full-screen lab keeps them */
+html.embedded .servers .seg__opts { display: flex; flex-wrap: wrap; }
+html.embedded .servers .opt { width: auto; }
+html.embedded .servers .opt code { display: none; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab builds its tables in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M38 lab, MCP foundations</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Every server in the config talks on every call.</h1>
+    <p class="lead">The lesson 38.4 chatbot reads <code>server_config.json</code>, connects to each server, and sends every tool it finds to the model on every request. Switch servers on and off. The tool lists are the real <code>list_tools</code> replies, recorded with MCP SDK 1.30.0.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg servers"><legend>Servers in server_config.json, in file order</legend><div class="seg__opts" id="serverOpts"></div></fieldset>
+      <div class="seg__opts" id="presets" role="group" aria-label="Load a config"></div>
+      <dl class="stats">
+        <div><dt>Tool definitions per call</dt><dd id="sDefs"></dd></div>
+        <div><dt>Characters of tool JSON</dt><dd id="sChars"></dd></div>
+        <div><dt>About this many tokens</dt><dd id="sTok"></dd></div>
+        <div><dt>Names sent twice</dt><dd id="sDup"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="ledHead">
+        <div class="sheet__head"><h2 id="ledHead">What each server sends and receives</h2><p class="note">One row per server</p></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Server</th><th class="num" scope="col">Tools sent</th><th class="num" scope="col">Characters</th><th class="num" scope="col">Calls it gets</th><th scope="col">Tool names</th></tr></thead>
+          <tbody id="ledger"></tbody>
+          <tfoot><tr><td>Every request</td><td class="num" id="tDefs"></td><td class="num" id="tChars"></td><td class="num" id="tNames"></td><td></td></tr></tfoot>
+        </table></div>
+        <p class="note" style="margin-top: var(--space-sm)">Characters count each definition the chatbot builds (<code>name</code>, <code>description</code>, <code>input_schema</code>) as compact JSON. Tokens use the four-characters-per-token rule of thumb. “Calls it gets” counts the tool names that <code>tool_to_session</code> routes to that server.</p>
+      </section>
+      <section class="sheet route" aria-labelledby="callHead">
+        <div class="sheet__head"><h2 id="callHead">One call through the router</h2></div>
+        <dl class="call" id="call"></dl>
+        <p class="note" style="margin-top: var(--space-sm)">Results recorded from <code>@modelcontextprotocol/server-filesystem</code> 2.1.0. <code>research_server.py</code> sits in the project folder, which the page calls <code>mcp_project</code>; <code>handbook/</code> is a folder inside it.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// list_tools replies, recorded through the notebook's MCP_ChatBot (MCP SDK 1.30.0, server-filesystem 2.1.0, mcp-server-fetch 2026.10.28)
+const DEFS={"fs":[{"name":"read_file","description":"Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"tail":{"description":"If provided, returns only the last N lines of the file","type":"number"},"head":{"description":"If provided, returns only the first N lines of the file","type":"number"}},"required":["path"]}},{"name":"read_text_file","description":"Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"tail":{"description":"If provided, returns only the last N lines of the file","type":"number"},"head":{"description":"If provided, returns only the first N lines of the file","type":"number"}},"required":["path"]}},{"name":"read_media_file","description":"Read a file and return it as a base64-encoded content block with its MIME type. Image and audio files are returned as image/audio content; any other file type is returned as an embedded resource. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"}},"required":["path"]}},{"name":"read_multiple_files","description":"Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file's content is returned with its path as a reference. Failed reads for individual files won't stop the entire operation. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"paths":{"minItems":1,"type":"array","items":{"type":"string"},"description":"Array of file paths to read. Each path must be a string pointing to a valid file within allowed directories."}},"required":["paths"]}},{"name":"write_file","description":"Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}},{"name":"edit_file","description":"Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"edits":{"type":"array","items":{"type":"object","properties":{"oldText":{"type":"string","description":"Text to search for - must match exactly"},"newText":{"type":"string","description":"Text to replace with"}},"required":["oldText","newText"]}},"dryRun":{"default":false,"description":"Preview changes using git-style diff format","type":"boolean"}},"required":["path","edits"]}},{"name":"create_directory","description":"Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"}},"required":["path"]}},{"name":"list_directory","description":"Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"}},"required":["path"]}},{"name":"list_directory_with_sizes","description":"Get a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"sortBy":{"default":"name","description":"Sort entries by name or size","type":"string","enum":["name","size"]}},"required":["path"]}},{"name":"directory_tree","description":"Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"excludePatterns":{"default":[],"type":"array","items":{"type":"string"}}},"required":["path"]}},{"name":"move_file","description":"Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"source":{"type":"string"},"destination":{"type":"string"}},"required":["source","destination"]}},{"name":"search_files","description":"Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"},"pattern":{"type":"string"},"excludePatterns":{"default":[],"type":"array","items":{"type":"string"}}},"required":["path","pattern"]}},{"name":"get_file_info","description":"Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, type and hard-link count. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{"path":{"type":"string"}},"required":["path"]}},{"name":"list_allowed_directories","description":"Returns the list of directories that this server is allowed to access. Subdirectories within these allowed directories are also accessible. Use this to understand which directories and their nested paths are available before trying to access files.","input_schema":{"type":"object","$schema":"https://json-schema.org/draft/2020-12/schema","properties":{}}}],"research":[{"name":"search_papers","description":"\n    Search for papers on arXiv based on a topic and store their information.\n    \n    Args:\n        topic: The topic to search for\n        max_results: Maximum number of results to retrieve (default: 5)\n        \n    Returns:\n        List of paper IDs found in the search\n    ","input_schema":{"properties":{"topic":{"title":"Topic","type":"string"},"max_results":{"default":5,"title":"Max Results","type":"integer"}},"required":["topic"],"title":"search_papersArguments","type":"object"}},{"name":"extract_info","description":"\n    Search for information about a specific paper across all topic directories.\n    \n    Args:\n        paper_id: The ID of the paper to look for\n        \n    Returns:\n        JSON string with paper information if found, error message if not found\n    ","input_schema":{"properties":{"paper_id":{"title":"Paper Id","type":"string"}},"required":["paper_id"],"title":"extract_infoArguments","type":"object"}}],"fetch":[{"name":"fetch","description":"Fetches a URL from the internet and optionally extracts its contents as markdown.\n\nAlthough originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.","input_schema":{"properties":{"url":{"description":"URL to fetch","format":"uri","minLength":1,"title":"Url","type":"string"},"max_length":{"default":5000,"description":"Maximum number of characters to return.","maximum":999999,"minimum":1,"title":"Max Length","type":"integer"},"start_index":{"default":0,"description":"On return output starting at this character index, useful if a previous fetch was truncated and more context is required.","minimum":0,"title":"Start Index","type":"integer"},"raw":{"default":false,"description":"Get the actual HTML content of the requested page, without simplification.","title":"Raw","type":"boolean"}},"required":["url"],"type":"object","title":"fetchArguments"}}],"larkspur":[{"name":"search_handbook","description":"\n    Search the Larkspur Cloud handbook and return the k best chunks.\n\n    Args:\n        query: The customer's question\n        k: Number of chunks to return (default: 2)\n    ","input_schema":{"properties":{"query":{"title":"Query","type":"string"},"k":{"default":2,"title":"K","type":"integer"}},"required":["query"],"title":"search_handbookArguments","type":"object"}}]};
+const SERVERS=[
+  {id:'filesystem', cmd:'npx -y @modelcontextprotocol/server-filesystem .', defs:'fs'},
+  {id:'research', cmd:'uv run research_server.py', defs:'research'},
+  {id:'fetch', cmd:'uvx mcp-server-fetch', defs:'fetch'},
+  {id:'larkspur', cmd:'uv run larkspur_server.py', defs:'larkspur'},
+  {id:'handbook-files', cmd:'npx -y @modelcontextprotocol/server-filesystem ./handbook', defs:'fs'}];
+// what read_text_file {"path": "research_server.py", "head": 1} returned from each filesystem server
+const RECORDED={
+  'filesystem': {isError:false, text:'import arxiv'},
+  'handbook-files': {isError:true, text:"ENOENT: no such file or directory, open '…/mcp_project/handbook/research_server.py'"}};
+
+// A port of MCP_ChatBot.connect_to_servers in notebook 04a: servers in file order,
+// each tool appended to available_tools, and tool_to_session[name] overwritten by the last server.
+function connect(enabled){
+  const available_tools=[], tool_to_session={};
+  SERVERS.filter(s=>enabled.has(s.id)).forEach(s=>{
+    DEFS[s.defs].forEach(t=>{
+      tool_to_session[t.name]=s.id;
+      available_tools.push({name:t.name, description:t.description, input_schema:t.input_schema, server:s.id});
+    });
+  });
+  return {available_tools, tool_to_session};
+}
+const chars=t=>JSON.stringify({name:t.name, description:t.description, input_schema:t.input_schema}).length;
+
+const enabled=new Set(['filesystem','research','fetch']);
+let prev=null;
+SERVERS.forEach((s,i)=>{
+  const id='s'+i;
+  $('serverOpts').insertAdjacentHTML('beforeend',`<input type="checkbox" id="${id}" value="${s.id}"${enabled.has(s.id)?' checked':''}><label class="opt" for="${id}"><span>${s.id}</span><code>${s.cmd}</code></label>`);
+  $(id).addEventListener('change',e=>{ e.target.checked?enabled.add(s.id):enabled.delete(s.id); render(s.id); });
+});
+const PRESETS=[
+  ['Notebook config',['filesystem','research','fetch']],
+  ['Retriever only',['larkspur']],
+  ['Add the retriever',['filesystem','research','fetch','larkspur']],
+  ['Two filesystem servers',['filesystem','research','fetch','larkspur','handbook-files']]];
+const pEls=PRESETS.map(([label,ids])=>{ const b=document.createElement('button'); b.type='button'; b.className='opt'; b.textContent=label;
+  b.onclick=()=>{ enabled.clear(); ids.forEach(x=>enabled.add(x)); SERVERS.forEach((s,i)=>$('s'+i).checked=enabled.has(s.id)); render(null,label); };
+  $('presets').appendChild(b); return b; });
+
+function summary(en){
+  const c=connect(en), defs=c.available_tools;
+  const total=defs.reduce((a,t)=>a+chars(t),0);
+  const count={}; defs.forEach(t=>count[t.name]=(count[t.name]||0)+1);
+  const dup=Object.keys(count).filter(n=>count[n]>1);
+  return {c, defs, total, names:Object.keys(count).length, dup};
+}
+
+function render(changed, preset){
+  const m=summary(enabled), {c,defs,total,dup}=m, tok=Math.round(total/4);
+  pEls.forEach((b,i)=>b.setAttribute('aria-pressed',String(PRESETS[i][1].length===enabled.size && PRESETS[i][1].every(x=>enabled.has(x)))));
+  $('sDefs').textContent=defs.length;
+  $('sChars').textContent=total.toLocaleString('en-US');
+  $('sTok').textContent=tok.toLocaleString('en-US');
+  $('sDup').textContent=dup.length; $('sDup').className=dup.length?'is-bad':'';
+
+  let rows='';
+  SERVERS.forEach(s=>{
+    const on=enabled.has(s.id), list=DEFS[s.defs];
+    const ch=list.reduce((a,t)=>a+chars(t),0);
+    const gets=on ? list.filter(t=>c.tool_to_session[t.name]===s.id).length : 0;
+    const lost=on && gets<list.length;
+    const nm=list.map(t=>`<code${on&&dup.includes(t.name)?' class="dup"':''}>${t.name}</code>`).join(' ');
+    rows+=`<tr class="${on?'':'is-off'}"><td class="id">${s.id}</td><td class="num">${on?list.length:'off'}</td><td class="num">${on?ch.toLocaleString('en-US'):''}</td><td class="num${lost?' lost':''}">${on?gets:''}</td><td><span class="names">${nm}</span></td></tr>`;
+  });
+  $('ledger').innerHTML=rows;
+  $('tDefs').textContent=defs.length; $('tChars').textContent=total.toLocaleString('en-US'); $('tNames').textContent=m.names;
+
+  // one call: the model asks the filesystem tool for a file in the project folder
+  const route=c.tool_to_session['read_text_file'];
+  let call=`<div><dt>Model asks</dt><dd><code>read_text_file {"path": "research_server.py", "head": 1}</code></dd></div>`;
+  if(!route){
+    call+=`<div><dt>Routed to</dt><dd>No server in this config offers <code>read_text_file</code>, so the model never sees the tool and cannot ask for it.</dd></div>`;
+  } else {
+    const r=RECORDED[route];
+    call+=`<div><dt>Routed to</dt><dd><code>${route}</code>, from <code>tool_to_session["read_text_file"]</code></dd></div>`;
+    call+=`<div><dt>Result</dt><dd class="${r.isError?'err':'ok'}"><code>${r.text}</code></dd></div>`;
+  }
+  $('call').innerHTML=call;
+
+  // the reading names what just changed, then what the numbers mean
+  let lead='';
+  if(changed && prev){
+    const dd=defs.length-prev.defs.length, dc=total-prev.total;
+    lead=`${enabled.has(changed)?'Adding':'Removing'} <code>${changed}</code> ${dd>=0?'added':'removed'} ${Math.abs(dd)} definition${Math.abs(dd)===1?'':'s'} and ${Math.abs(dc).toLocaleString('en-US')} characters. `;
+  } else if(preset){ lead=`${preset}: `; }
+  const co=$('callout');
+  if(!defs.length){
+    co.innerHTML=lead+`<b>No servers, no tools.</b> The model answers from its weights alone, and the chatbot launches no subprocess.`;
+  } else if(dup.length){
+    co.innerHTML=lead+`<b>${dup.length} tool names arrive twice.</b> The model gets ${defs.length} definitions for ${m.names} names, about ${tok.toLocaleString('en-US')} tokens on every call. <code>tool_to_session</code> keeps the last server for each name, so every <code>filesystem</code> tool now runs on <code>${route}</code>: the file is in the project folder, and the call reports it missing.`;
+  } else {
+    const fs=defs.filter(t=>t.server==='filesystem'||t.server==='handbook-files');
+    const share=fs.length?Math.round(100*fs.reduce((a,t)=>a+chars(t),0)/total):0;
+    co.innerHTML=lead+`<b>${defs.length} tool${defs.length===1?'':'s'}, about ${tok.toLocaleString('en-US')} tokens of definitions on every call.</b> `+
+      (share ? `The filesystem server alone is ${share}% of that, whether or not the question touches a file. ` : `None of it is filesystem tooling, so the definitions stay small. `)+
+      `Every request pays for every connected server’s tools, even when the model calls none of them.`;
+  }
+  prev={defs, total};
+}
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

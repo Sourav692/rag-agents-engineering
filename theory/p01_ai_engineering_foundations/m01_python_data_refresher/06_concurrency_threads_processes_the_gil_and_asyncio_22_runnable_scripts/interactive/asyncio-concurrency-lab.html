@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Concurrent calls with asyncio</title>
+<meta name="description" content="M01 lab: eight Larkspur handbook questions sent to a model through asyncio.gather; move the Semaphore limit, switch between an async and a sync client, and read the wall time on the call timeline.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (by request: the course lab system in CLAUDE.md, as the M11 top-k lab) · redesign: none, new lab
+ * nav: top bar, the wordmark and the lab's name · signature: the call timeline, one row per question, queue time as a hairline and the call that ends last in magenta · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: P, the call times are representative, so the page says so under the timeline and quotes only what the schedule computes */
+/* Hallmark · embedded mode · inside a frame (a module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+img, video { max-width: 100%; height: auto; display: block; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+[data-slot] { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--color-paper-2, var(--color-paper)), var(--color-paper-3, var(--color-paper))); }
+[data-slot] > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+[data-slot]:has(> img) > :not(img):not([data-keep]) { display: none !important; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* photographs: muted */
+[data-slot] > img { filter: saturate(0.65) contrast(0.97); }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.id, code { font-family: var(--font-outlier); font-size: 0.9em; }
+td.id { white-space: nowrap; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+mark { background: color-mix(in oklab, var(--color-accent) 20%, transparent); color: var(--color-ink); }
+.controls { display: grid; gap: var(--space-lg); }
+.field output.val { min-width: 2ch; }
+.tl { list-style: none; margin: 0; padding: 0; }
+.tl li { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) 7.5rem; gap: var(--space-sm); align-items: center; padding-block: var(--space-2xs); border-top: var(--rule-hair) solid var(--color-rule); }
+.tl__q { font-size: var(--text-sm); line-height: 1.3; color: var(--color-ink-2); }
+.tl__t { font: 400 var(--text-sm)/1.3 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-muted); text-align: right; white-space: nowrap; }
+.track { position: relative; height: 18px; }
+.track i { position: absolute; top: 0; height: 100%; left: calc(var(--a) / var(--span) * 100%); width: calc((var(--b) - var(--a)) / var(--span) * 100%); }
+.track i.wait { top: 8px; height: 2px; background: var(--color-rule-2); opacity: 0.45; }
+.track i.call { background: var(--color-ink-2); }
+.tl li.is-last .track i.call { background: var(--color-accent); }
+.tl li.is-last .tl__t { color: var(--color-accent); }
+.axis { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) 7.5rem; gap: var(--space-sm); border-top: var(--rule-bar) solid var(--color-rule-2); padding-top: var(--space-2xs); }
+.axis__scale { position: relative; height: 1.4em; font: 400 var(--text-xs)/1 var(--font-outlier); color: var(--color-muted); }
+.axis__scale span { position: absolute; top: 2px; left: calc(var(--x) / var(--span) * 100%); transform: translateX(-50%); }
+.axis__scale span:first-child { transform: none; }
+pre { margin: 0; padding: var(--space-sm) 0 0; overflow-x: auto; font: 400 var(--text-sm)/1.55 var(--font-outlier); color: var(--color-ink); }
+pre b { font-weight: 500; color: var(--color-accent); }
+@media (max-width: 40rem) {
+  .tl li { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3xs) var(--space-sm); }
+  .tl li .track { grid-column: 1 / -1; grid-row: 2; }
+  .axis { grid-template-columns: minmax(0, 1fr); }
+  .axis > span { display: none; }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls and the timeline share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.code { order: 2; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+  html.embedded .tl li, html.embedded .axis { grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) 6.5rem; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its timeline in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M01 lab, Python and data toolkit</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Concurrency ends at the slowest call.</h1>
+    <p class="lead">Eight questions about the Larkspur Cloud handbook, one model call each, started together with <code>asyncio.gather</code>. A <code>Semaphore</code> caps how many are in flight. Move the cap and switch the client, and read the wall time.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <div class="controls">
+        <div class="field">
+          <label for="limit">Calls allowed in flight, <code>asyncio.Semaphore(n)</code></label>
+          <input type="range" id="limit" min="1" max="8" step="1" value="2">
+          <output class="val" id="limitVal" for="limit"></output>
+        </div>
+        <fieldset class="seg"><legend>Client inside <code>async def</code></legend><div class="seg__opts">
+          <input type="radio" name="client" id="cAsync" value="async" checked><label class="opt" for="cAsync">await llm.ainvoke</label>
+          <input type="radio" name="client" id="cSync" value="sync"><label class="opt" for="cSync">llm.invoke, which blocks</label>
+        </div></fieldset>
+      </div>
+      <dl class="stats">
+        <div><dt>Wall time</dt><dd id="sWall"></dd></div>
+        <div><dt>Faster than one at a time</dt><dd id="sSpeed"></dd></div>
+        <div><dt>Most calls in flight</dt><dd id="sPeak"></dd></div>
+        <div><dt>Longest wait in the queue</dt><dd id="sWait"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="tlHead">
+        <div class="sheet__head"><h2 id="tlHead">Call timeline</h2><p class="note">Seconds from the start of <code>gather</code></p></div>
+        <ol class="tl" id="timeline"></ol>
+        <div class="axis" aria-hidden="true"><span></span><div class="axis__scale" id="axis"></div><span></span></div>
+        <p class="note" style="margin-top: var(--space-sm)">A dark bar is a call in flight; the hairline before it is time spent waiting for the semaphore. The call that ends last is in magenta, and its end is the wall time. Call times are representative, not measured; the schedule is what asyncio does with them.</p>
+      </section>
+      <section class="sheet code" aria-labelledby="codeHead">
+        <div class="sheet__head"><h2 id="codeHead">The code this timeline runs</h2></div>
+        <pre id="code"></pre>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// eight handbook questions and representative call times in seconds
+const CALLS=[
+  ["How long does a refund take?",1.2],
+  ["When is an annual plan billed?",0.8],
+  ["What happens if my server goes down?",2.6],
+  ["Can I export my data after I cancel?",1.0],
+  ["How fast does support answer on a starter plan?",1.5],
+  ["Does a reboot change my server IP address?",0.9],
+  ["Which server size should I choose?",1.9],
+  ["Do promotional credits expire?",1.1]];
+const LAT=CALLS.map(c=>c[1]);
+const SPAN=11;
+
+// asyncio.gather over ask(q) with `async with sem`: the semaphore hands a free slot to the waiter that asked first.
+// A sync client never awaits, so each call holds the event loop until it returns: the calls run one after another.
+function schedule(limit, blocking){
+  const out=[];
+  if(blocking){ let t=0; LAT.forEach(d=>{ out.push([t,t+d]); t+=d; }); return out; }
+  const free=new Array(limit).fill(0);
+  LAT.forEach(d=>{
+    let j=0; for(let s=1;s<limit;s++) if(free[s]<free[j]-1e-9) j=s;
+    const st=free[j]; free[j]=st+d; out.push([st,st+d]);
+  });
+  return out;
+}
+const wallOf=s=>Math.max(...s.map(c=>c[1]));
+function peakOf(s){ return Math.max(...s.map(([a])=>s.filter(([x,y])=>x<=a+1e-9 && a<y-1e-9).length)); }
+const f1=x=>(Math.floor(x*10+0.5+1e-9)/10).toFixed(1);
+const SEQ=wallOf(schedule(1,false));
+
+$('axis').innerHTML=Array.from({length:SPAN+1},(_,i)=>i%2===0?`<span style="--x: ${i}; --span: ${SPAN}">${i}</span>`:'').join('');
+
+function render(){
+  const limit=+$('limit').value, blocking=$('cSync').checked;
+  const s=schedule(limit,blocking), wall=wallOf(s), peak=peakOf(s);
+  const last=s.findIndex(c=>Math.abs(c[1]-wall)<1e-9);
+  const wait=Math.max(...s.map(c=>c[0]));
+  $('limitVal').textContent=limit;
+  $('timeline').innerHTML=CALLS.map(([q],i)=>{
+    const [a,b]=s[i];
+    return `<li class="${i===last?'is-last':''}"><span class="tl__q">${q}</span><div class="track" style="--span: ${SPAN}"><i class="wait" style="--a: 0; --b: ${a}"></i><i class="call" style="--a: ${a}; --b: ${b}"></i></div><span class="tl__t">${f1(a)} to ${f1(b)} s</span></li>`;
+  }).join('');
+  $('sWall').textContent=f1(wall)+' s';
+  $('sSpeed').textContent=(SEQ/wall).toFixed(1)+'×';
+  $('sPeak').textContent=peak;
+  $('sWait').textContent=f1(wait)+' s';
+
+  const slow=Math.max(...LAT);
+  const co=$('callout');
+  if(blocking){
+    co.innerHTML=`<b>The sync client runs one call at a time at any limit.</b> <code>llm.invoke</code> never awaits, so each call holds the event loop until it returns and no other coroutine can start. Wall time is the sum of the eight calls, ${f1(wall)} s, with the semaphore set to ${limit}. Use <code>await llm.ainvoke</code>, or move the sync call to a thread with <code>asyncio.to_thread</code>.`;
+  } else if(limit===1){
+    co.innerHTML=`<b>A semaphore of 1 is a for loop.</b> Each call waits for the one before it, so the wall time is the sum of the eight calls, ${f1(wall)} s. The last question waits ${f1(wait)} s before it is even sent.`;
+  } else if(Math.abs(wall-slow)<1e-9){
+    const first=[...Array(8).keys()].map(i=>i+1).find(n=>Math.abs(wallOf(schedule(n,false))-slow)<1e-9);
+    co.innerHTML=`<b>The slowest call sets the floor.</b> From a limit of ${first} on, the wall time is ${f1(wall)} s, the time of <i>What happens if my server goes down?</i> alone, and a higher limit cannot lower it. Below the floor, the reason to keep a cap is the provider's rate limit, not speed.`;
+  } else {
+    const next=wallOf(schedule(limit+1,false));
+    co.innerHTML=`<b>${limit} calls in flight: ${f1(wall)} s, ${(SEQ/wall).toFixed(1)} times faster than one at a time.</b> Each call starts the moment a slot frees up, so the queue drains in the order the questions were passed to <code>gather</code>. One more slot would save ${f1(wall-next)} s.`;
+  }
+  $('code').innerHTML=
+`sem = asyncio.Semaphore(<b>${limit}</b>)
+
+async def ask(question):
+    async with sem:
+        return ${blocking?'<b>llm.invoke(question)</b>        # blocks the loop':'<b>await llm.ainvoke(question)</b>'}
+
+async def main(questions):
+    return await asyncio.gather(*(ask(q) for q in questions))
+
+answers = asyncio.run(main(QUESTIONS))   # 8 questions`;
+}
+$('limit').addEventListener('input',render);
+document.querySelectorAll('input[name="client"]').forEach(r=>r.addEventListener('change',render));
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

@@ -8,6 +8,12 @@
 
 MCP connects agents to tools; A2A connects agents to each other across frameworks. Together they let a RAG agent be one service in a larger multi-agent system.
 
+## Theory
+
+Read the [theory page](../../../theory/p11_agent_protocols/m41_a2a_protocol/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p11_agent_protocols/m41_a2a_protocol/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [What comes back over A2A](../../../theory/p11_agent_protocols/m41_a2a_protocol/02_a_langgraph_agent_over_a2a/interactive/a2a-exchange-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Describe agents with Agent Cards and exchange tasks and messages
@@ -21,10 +27,10 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 41.1 | A2A basics: Agent Cards, tasks, messages | [`01a_a2a_protocol_basics.ipynb`](notebooks/01a_a2a_protocol_basics.ipynb) | — |
-| 41.2 | A LangGraph agent over A2A | [`02a_langgraph_agent_over_a2a.ipynb`](notebooks/02a_langgraph_agent_over_a2a.ipynb) | — |
-| 41.3 | Cross-framework agent interop | [`03a_cross_framework_agent_interop.ipynb`](notebooks/03a_cross_framework_agent_interop.ipynb) | — |
-| 41.4 | Capstone: agentic RAG with MCP and A2A | [`mcp_a2a_agentic_rag`](projects/mcp_a2a_agentic_rag) | — |
+| 41.1 | A2A basics: Agent Cards, tasks, messages ([theory](../../../theory/p11_agent_protocols/m41_a2a_protocol/01_a2a_basics_agent_cards_tasks_messages/README.md)) | [`01a_a2a_protocol_basics.ipynb`](notebooks/01a_a2a_protocol_basics.ipynb) | — |
+| 41.2 | A LangGraph agent over A2A ([theory](../../../theory/p11_agent_protocols/m41_a2a_protocol/02_a_langgraph_agent_over_a2a/README.md)) | [`02a_langgraph_agent_over_a2a.ipynb`](notebooks/02a_langgraph_agent_over_a2a.ipynb) | — |
+| 41.3 | Cross-framework agent interop ([theory](../../../theory/p11_agent_protocols/m41_a2a_protocol/03_cross_framework_agent_interop/README.md)) | [`03a_cross_framework_agent_interop.ipynb`](notebooks/03a_cross_framework_agent_interop.ipynb) | — |
+| 41.4 | Capstone: agentic RAG with MCP and A2A ([theory](../../../theory/p11_agent_protocols/m41_a2a_protocol/04_capstone_agentic_rag_with_mcp_and_a2a/README.md)) | [`mcp_a2a_agentic_rag`](projects/mcp_a2a_agentic_rag) | — |
 
 ## Hands-on lab
 
@@ -32,7 +38,7 @@ Agent as a service: put your agentic RAG graph behind A2A and call it from an ag
 
 ## Key concepts
 
-Agent Card · Tasks & messages · Cross-framework interop · MCP + A2A
+[Agent Card](../../../theory/p11_agent_protocols/m41_a2a_protocol/01_a2a_basics_agent_cards_tasks_messages/README.md#agent-card) · [Tasks & messages](../../../theory/p11_agent_protocols/m41_a2a_protocol/02_a_langgraph_agent_over_a2a/README.md#tasks--messages) · [Cross-framework interop](../../../theory/p11_agent_protocols/m41_a2a_protocol/03_cross_framework_agent_interop/README.md#cross-framework-interop) · [MCP + A2A](../../../theory/p11_agent_protocols/m41_a2a_protocol/04_capstone_agentic_rag_with_mcp_and_a2a/README.md#mcp--a2a)
 
 ## Folder layout
 

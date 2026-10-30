@@ -8,6 +8,12 @@
 
 Every RAG answer ends in a model call. Knowing how to call hosted and open models directly, and when a reasoning model is worth its cost, makes every later choice about the generator concrete.
 
+## Theory
+
+Read the [theory page](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Where effort stops paying](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/04_reasoning_effort_levers_and_cost/interactive/effort-knee-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Call the OpenAI and Gemini chat APIs directly from Python
@@ -21,10 +27,10 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 2.1 | Calling commercial LLM APIs: OpenAI and Gemini | [`01a_using_chatgpt_or_google_gemini.ipynb`](notebooks/01a_using_chatgpt_or_google_gemini.ipynb) | — |
-| 2.2 | Open-source LLMs via Hugging Face Inference and locally | [`02a_open_source_llms_via_hugging_face_inference_api.ipynb`](notebooks/02a_open_source_llms_via_hugging_face_inference_api.ipynb) | [`02b_open_source_llms_locally.ipynb`](optional/02b_open_source_llms_locally.ipynb) *(extension)* |
-| 2.3 | Reasoning vs non-reasoning models | [`03a_Reasoning_vs_NonReasoning.ipynb`](notebooks/03a_Reasoning_vs_NonReasoning.ipynb) | — |
-| 2.4 | Reasoning-effort levers and cost | [`04a_Reasoning_Effort_Levers.ipynb`](notebooks/04a_Reasoning_Effort_Levers.ipynb) | — |
+| 2.1 | Calling commercial LLM APIs: OpenAI and Gemini ([theory](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/01_calling_commercial_llm_apis_openai_and_gemini/README.md)) | [`01a_using_chatgpt_or_google_gemini.ipynb`](notebooks/01a_using_chatgpt_or_google_gemini.ipynb) | — |
+| 2.2 | Open-source LLMs via Hugging Face Inference and locally ([theory](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/02_open_source_llms_via_hugging_face_inference_and_locally/README.md)) | [`02a_open_source_llms_via_hugging_face_inference_api.ipynb`](notebooks/02a_open_source_llms_via_hugging_face_inference_api.ipynb) | [`02b_open_source_llms_locally.ipynb`](optional/02b_open_source_llms_locally.ipynb) *(extension)* |
+| 2.3 | Reasoning vs non-reasoning models ([theory](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/03_reasoning_vs_non_reasoning_models/README.md)) | [`03a_Reasoning_vs_NonReasoning.ipynb`](notebooks/03a_Reasoning_vs_NonReasoning.ipynb) | — |
+| 2.4 | Reasoning-effort levers and cost ([theory](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/04_reasoning_effort_levers_and_cost/README.md)) | [`04a_Reasoning_Effort_Levers.ipynb`](notebooks/04a_Reasoning_Effort_Levers.ipynb) | — |
 
 ## Hands-on lab
 
@@ -32,7 +38,7 @@ Generator choice: answer 20 questions with a fast model, a reasoning model at tw
 
 ## Key concepts
 
-Chat completions · Inference endpoints · Reasoning models · Cost vs accuracy
+[Chat completions](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/01_calling_commercial_llm_apis_openai_and_gemini/README.md#chat-completions) · [Inference endpoints](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/02_open_source_llms_via_hugging_face_inference_and_locally/README.md#inference-endpoints) · [Reasoning models](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/03_reasoning_vs_non_reasoning_models/README.md#reasoning-models) · [Cost vs accuracy](../../../theory/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/04_reasoning_effort_levers_and_cost/README.md#cost-vs-accuracy)
 
 ## Folder layout
 

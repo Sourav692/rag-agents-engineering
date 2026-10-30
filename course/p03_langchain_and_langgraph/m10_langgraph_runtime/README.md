@@ -8,6 +8,12 @@
 
 Grade-and-retry loops, human approval, conversation threads and multi-agent teams need checkpoints, interrupts, subgraphs, streaming and bounded cycles.
 
+## Theory
+
+Read the [theory page](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [What runs twice on resume](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/06_state_management_in_practice/interactive/resume-side-effects-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Persist graph state with checkpointers, threads and branching
@@ -21,12 +27,12 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 10.1 | Checkpointing and threads | [`01a_Checkpointing.ipynb`](notebooks/01a_Checkpointing.ipynb) | — |
-| 10.2 | Interrupts and human-in-the-loop | [`02a_HITL_Mechanics.ipynb`](notebooks/02a_HITL_Mechanics.ipynb)<br>[`02b_LangGraph_Interrupt_Primitive.ipynb`](notebooks/02b_LangGraph_Interrupt_Primitive.ipynb)<br>[`02c_HITL_Patterns.ipynb`](notebooks/02c_HITL_Patterns.ipynb) | — |
-| 10.3 | Subgraphs | [`03a_Subgraphs.ipynb`](notebooks/03a_Subgraphs.ipynb) | — |
-| 10.4 | Async and streaming | [`04a_Async_and_Streaming.ipynb`](notebooks/04a_Async_and_Streaming.ipynb) | — |
-| 10.5 | Retry policies and bounded cycles | [`05a_Retries.ipynb`](notebooks/05a_Retries.ipynb)<br>[`05b_Cycles_and_Loops.ipynb`](notebooks/05b_Cycles_and_Loops.ipynb) | — |
-| 10.6 | State management in practice | [`06a_LangGraph_State_Management.ipynb`](notebooks/06a_LangGraph_State_Management.ipynb) | — |
+| 10.1 | Checkpointing and threads ([theory](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/01_checkpointing_and_threads/README.md)) | [`01a_Checkpointing.ipynb`](notebooks/01a_Checkpointing.ipynb) | — |
+| 10.2 | Interrupts and human-in-the-loop ([theory](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/02_interrupts_and_human_in_the_loop/README.md)) | [`02a_HITL_Mechanics.ipynb`](notebooks/02a_HITL_Mechanics.ipynb)<br>[`02b_LangGraph_Interrupt_Primitive.ipynb`](notebooks/02b_LangGraph_Interrupt_Primitive.ipynb)<br>[`02c_HITL_Patterns.ipynb`](notebooks/02c_HITL_Patterns.ipynb) | — |
+| 10.3 | Subgraphs ([theory](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/03_subgraphs/README.md)) | [`03a_Subgraphs.ipynb`](notebooks/03a_Subgraphs.ipynb) | — |
+| 10.4 | Async and streaming ([theory](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/04_async_and_streaming/README.md)) | [`04a_Async_and_Streaming.ipynb`](notebooks/04a_Async_and_Streaming.ipynb) | — |
+| 10.5 | Retry policies and bounded cycles ([theory](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/05_retry_policies_and_bounded_cycles/README.md)) | [`05a_Retries.ipynb`](notebooks/05a_Retries.ipynb)<br>[`05b_Cycles_and_Loops.ipynb`](notebooks/05b_Cycles_and_Loops.ipynb) | — |
+| 10.6 | State management in practice ([theory](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/06_state_management_in_practice/README.md)) | [`06a_LangGraph_State_Management.ipynb`](notebooks/06a_LangGraph_State_Management.ipynb) | — |
 
 ## Hands-on lab
 
@@ -34,7 +40,7 @@ Approval loop: add a checkpointer and an interrupt before the answer node of you
 
 ## Key concepts
 
-Checkpointer · interrupt() · Subgraphs · Streaming modes
+[Checkpointer](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/01_checkpointing_and_threads/README.md#checkpointer) · [interrupt()](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/02_interrupts_and_human_in_the_loop/README.md#interrupt) · [Subgraphs](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/03_subgraphs/README.md#subgraphs) · [Streaming modes](../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/04_async_and_streaming/README.md#streaming-modes)
 
 ## Folder layout
 

@@ -160,7 +160,7 @@ def render(m, pages):
 
     def h2(mt):
         text = re.sub(r"<[^>]+>", "", mt.group(1))
-        toc.append((slug(text), text.split(":")[0]))
+        toc.append((slug(text), html.unescape(text).split(":")[0]))  # text is already escaped HTML
         return f'<h2 id="{slug(text)}">{mt.group(1)}</h2>'
 
     body = re.sub(r"<h2>(.*?)</h2>", h2, body)

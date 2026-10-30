@@ -97,4 +97,4 @@ Derived representations can make distributed evidence easier to find. They also 
 - Measure retrieval, source support, update work and generation quality separately.
 
 ---
-*Previous: M41 A2A: Agent-to-Agent Protocol (no theory page yet). Next: [M43 Knowledge Graphs with Neo4j](../m43_knowledge_graphs_neo4j/README.md).*
+*Previous: [M41 A2A: Agent-to-Agent Protocol](../../p11_agent_protocols/m41_a2a_protocol/README.md). Next: [M43 Knowledge Graphs with Neo4j](../m43_knowledge_graphs_neo4j/README.md).*

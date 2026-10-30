@@ -8,6 +8,12 @@
 
 Agentic RAG, memory and multi-agent systems are all LangGraph graphs. This module covers the core: state, nodes, edges, reducers and routing.
 
+## Theory
+
+Read the [theory page](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Reducers and the message list](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/01_state_graphs_and_reducers/interactive/reducer-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Build a StateGraph with nodes, edges and reducers, including MessagesState
@@ -21,11 +27,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 9.1 | State, graphs and reducers | [`01a_State_and_Graph_Basics.ipynb`](notebooks/01a_State_and_Graph_Basics.ipynb)<br>[`01b_MessagesState.ipynb`](notebooks/01b_MessagesState.ipynb) | — |
-| 9.2 | Conditional edges and LLM nodes | [`02a_Conditional_Routing.ipynb`](notebooks/02a_Conditional_Routing.ipynb)<br>[`02b_LLM_Powered_Chatbot.ipynb`](notebooks/02b_LLM_Powered_Chatbot.ipynb) | — |
-| 9.3 | State schemas and validation | [`03a_Different_Graph_States.ipynb`](notebooks/03a_Different_Graph_States.ipynb)<br>[`03b_Pydantic_State_Validation.ipynb`](notebooks/03b_Pydantic_State_Validation.ipynb) | — |
-| 9.4 | Nodes, runtime context and Command | [`04a_Node_Patterns.ipynb`](notebooks/04a_Node_Patterns.ipynb)<br>[`04b_Runtime_Context.ipynb`](notebooks/04b_Runtime_Context.ipynb)<br>[`04c_Command_Objects.ipynb`](notebooks/04c_Command_Objects.ipynb) | — |
-| 9.5 | Input/output schemas and configuration | [`05a_Advanced_State.ipynb`](notebooks/05a_Advanced_State.ipynb) | — |
+| 9.1 | State, graphs and reducers ([theory](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/01_state_graphs_and_reducers/README.md)) | [`01a_State_and_Graph_Basics.ipynb`](notebooks/01a_State_and_Graph_Basics.ipynb)<br>[`01b_MessagesState.ipynb`](notebooks/01b_MessagesState.ipynb) | — |
+| 9.2 | Conditional edges and LLM nodes ([theory](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/02_conditional_edges_and_llm_nodes/README.md)) | [`02a_Conditional_Routing.ipynb`](notebooks/02a_Conditional_Routing.ipynb)<br>[`02b_LLM_Powered_Chatbot.ipynb`](notebooks/02b_LLM_Powered_Chatbot.ipynb) | — |
+| 9.3 | State schemas and validation ([theory](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/03_state_schemas_and_validation/README.md)) | [`03a_Different_Graph_States.ipynb`](notebooks/03a_Different_Graph_States.ipynb)<br>[`03b_Pydantic_State_Validation.ipynb`](notebooks/03b_Pydantic_State_Validation.ipynb) | — |
+| 9.4 | Nodes, runtime context and Command ([theory](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/04_nodes_runtime_context_and_command/README.md)) | [`04a_Node_Patterns.ipynb`](notebooks/04a_Node_Patterns.ipynb)<br>[`04b_Runtime_Context.ipynb`](notebooks/04b_Runtime_Context.ipynb)<br>[`04c_Command_Objects.ipynb`](notebooks/04c_Command_Objects.ipynb) | — |
+| 9.5 | Input/output schemas and configuration ([theory](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/05_input_output_schemas_and_configuration/README.md)) | [`05a_Advanced_State.ipynb`](notebooks/05a_Advanced_State.ipynb) | — |
 
 ## Hands-on lab
 
@@ -33,7 +39,7 @@ First graph: build a graph that classifies a question, routes it to one of two n
 
 ## Key concepts
 
-StateGraph · Reducers · Conditional edges · Command
+[StateGraph](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/01_state_graphs_and_reducers/README.md#stategraph) · [Reducers](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/01_state_graphs_and_reducers/README.md#reducers) · [Conditional edges](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/02_conditional_edges_and_llm_nodes/README.md#conditional-edges) · [Command](../../../theory/p03_langchain_and_langgraph/m09_langgraph_core/04_nodes_runtime_context_and_command/README.md#command)
 
 ## Folder layout
 
