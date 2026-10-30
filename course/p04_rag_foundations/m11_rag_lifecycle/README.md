@@ -8,6 +8,12 @@
 
 Before tuning anything you need a working pipeline and a number to beat. This module builds both, first by hand and then with LangChain.
 
+## Theory
+
+Read the [theory page](../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p04_rag_foundations/m11_rag_lifecycle/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Top-k and the baseline](../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Explain the knowledge problem RAG solves: stale training data, private data, hallucination, and context-window limits
@@ -21,11 +27,11 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 11.1 | The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context | *Lecture / discussion* | — |
-| 11.2 | Indexing from scratch with TF-IDF and nearest neighbours | [`02a_indexing_from_scratch.ipynb`](notebooks/02a_indexing_from_scratch.ipynb) | — |
+| 11.1 | The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md)) | *Lecture / discussion* | — |
+| 11.2 | Indexing from scratch with TF-IDF and nearest neighbours ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md)) | [`02a_indexing_from_scratch.ipynb`](notebooks/02a_indexing_from_scratch.ipynb) | — |
 | 11.3 | Semantic retrieval with embedding similarity | [`03a_retrieval_strategies.ipynb`](notebooks/03a_retrieval_strategies.ipynb) | — |
 | 11.4 | Your first LangChain RAG with Chroma | [`04a_langchain_rag_quickstart.ipynb`](notebooks/04a_langchain_rag_quickstart.ipynb) | — |
-| 11.5 | The RAG lifecycle and a measured baseline | [`05a_rag_lifecycle_and_baseline.ipynb`](notebooks/05a_rag_lifecycle_and_baseline.ipynb) | — |
+| 11.5 | The RAG lifecycle and a measured baseline ([theory](../../../theory/p04_rag_foundations/m11_rag_lifecycle/05_the_rag_lifecycle_and_a_measured_baseline/README.md)) | [`05a_rag_lifecycle_and_baseline.ipynb`](notebooks/05a_rag_lifecycle_and_baseline.ipynb) | — |
 
 ## Hands-on lab
 
@@ -33,7 +39,7 @@ Baseline pipeline: build the canonical lifecycle notebook end to end on the cour
 
 ## Key concepts
 
-Parametric vs non-parametric knowledge · Indexing vs retrieval vs generation · Top-k · Baseline-first optimisation
+[Parametric vs non-parametric knowledge](../../../theory/p04_rag_foundations/m11_rag_lifecycle/01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md#parametric-vs-non-parametric-knowledge) · [Indexing vs retrieval vs generation](../../../theory/p04_rag_foundations/m11_rag_lifecycle/05_the_rag_lifecycle_and_a_measured_baseline/README.md#indexing-vs-retrieval-vs-generation) · [Top-k](../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k) · [Baseline-first optimisation](../../../theory/p04_rag_foundations/m11_rag_lifecycle/05_the_rag_lifecycle_and_a_measured_baseline/README.md#baseline-first-optimisation)
 
 ## Folder layout
 

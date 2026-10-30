@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chunk size and overlap</title>
+<meta name="description" content="M13 lab: LangChain's recursive splitter running on a refund policy; move chunk size and overlap and see whether the answer stays in one chunk.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the chunk map, one chart of the 1,111-character section with the answer sentence as its only magenta mark · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R4 V4 · weakest: H, two sliders and five presets compete; the sliders lead and the presets sit under them at a quieter weight */
+/* Hallmark · dropped #bRecall, #bPrec, #bTok, #bDone, #bChunks, #bStored, #bIntact, #bShare, #bDocs, #bBoiler, #bTable, #bSection and the eyebrow · the fill bars under each figure repeated the figures they sat under */
+/* Hallmark · dropped #clist · the animated ranking list became the #ranking table, so rows no longer animate top */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+img, video { max-width: 100%; height: auto; display: block; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+[data-slot] { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--color-paper-2, var(--color-paper)), var(--color-paper-3, var(--color-paper))); }
+[data-slot] > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+[data-slot]:has(> img) > :not(img):not([data-keep]) { display: none !important; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* photographs: muted */
+[data-slot] > img { filter: saturate(0.65) contrast(0.97); }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.id, code { font-family: var(--font-outlier); font-size: 0.9em; }
+td.id { white-space: nowrap; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+mark { background: color-mix(in oklab, var(--color-accent) 20%, transparent); color: var(--color-ink); }
+.golden { display: grid; gap: var(--space-xs); }
+.golden q { font: 500 var(--text-lg)/1.35 var(--font-display); color: var(--color-ink); quotes: "“" "”"; }
+.golden blockquote { margin: 0; padding: var(--space-sm) var(--space-md); background: var(--color-sheet); border-top: var(--rule-hair) solid var(--color-rule); font-family: var(--font-outlier); font-size: var(--text-sm); color: var(--color-ink); }
+.nowrap { white-space: nowrap; }
+.map { overflow-x: auto; }
+#ruler { width: 100%; min-width: 560px; height: auto; }
+#ruler .chunk { fill: var(--color-ink-2); }
+#ruler .chunk--hit { fill: var(--color-ink); }
+#ruler .chunk-n { fill: var(--color-sheet); font: 500 18px var(--font-outlier); }
+#ruler .overlap { fill: var(--color-paper-3); }
+#ruler .answer { fill: var(--color-accent); opacity: 0.16; }
+#ruler .answer-edge { stroke: var(--color-accent); stroke-width: 2; }
+#ruler .axis { stroke: var(--color-rule-2); stroke-width: 1; }
+#ruler .tick { stroke: var(--color-rule); stroke-width: 1; }
+#ruler .tick-l { fill: var(--color-muted); font: 400 18px var(--font-outlier); }
+.key { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); margin-top: var(--space-xs); font-size: var(--text-sm); color: var(--color-muted); }
+.key span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: var(--space-2xs); vertical-align: -1px; background: var(--sw); }
+.chunks { list-style: none; margin: 0; padding: 0; }
+.chunks li { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--space-md); padding-block: var(--space-sm); border-top: var(--rule-hair) solid var(--color-rule); }
+.chunks li:first-child { border-top: 0; }
+.chunks .meta { display: grid; align-content: start; gap: var(--space-3xs); font-size: var(--text-sm); color: var(--color-muted); }
+.chunks .meta b { font: 500 var(--text-md)/1.2 var(--font-outlier); color: var(--color-ink); }
+.chunks .txt { margin: 0; font: 400 var(--text-sm)/1.6 var(--font-outlier); white-space: pre-wrap; color: var(--color-ink-2); }
+.chunks .ov { background: var(--color-paper-2); }
+@media (max-width: 40rem) { .chunks li { grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); } }
+</style>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its tables and chart in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M13 lab, chunking</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Where the splitter cuts decides what the retriever can find.</h1>
+    <p class="lead">LangChain’s <code>RecursiveCharacterTextSplitter</code>, ported line for line, runs here on one handbook section. Move chunk size and overlap and check whether the answer to the golden question survives in one piece.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <div class="golden">
+        <p class="label">Golden question</p>
+        <q>How long do I have to get a full refund on an annual plan?</q>
+        <p class="label">The answer, as the handbook states it</p>
+        <blockquote id="answer"></blockquote>
+      </div>
+      <div class="field">
+        <label for="size">chunk_size, in characters</label>
+        <input type="range" id="size" min="80" max="1200" step="20" value="300">
+        <output class="val" id="sizeVal" for="size"></output>
+      </div>
+      <div class="field">
+        <label for="overlap">chunk_overlap, in characters</label>
+        <input type="range" id="overlap" min="0" max="200" step="10" value="0">
+        <output class="val" id="overlapVal" for="overlap"></output>
+      </div>
+      <div class="seg__opts" id="presets" role="group" aria-label="Settings to try"></div>
+      <p class="note">Overlap is capped at half the chunk size. Separators are <code>["\n\n", "\n", " ", ""]</code>, and length counts characters, the LangChain default.</p>
+      <dl class="stats">
+        <div><dt>Chunks</dt><dd id="sChunks"></dd></div>
+        <div><dt>Stored text over source text</dt><dd id="sStored"></dd></div>
+        <div><dt>Answer in one chunk</dt><dd id="sIntact"></dd></div>
+        <div><dt>Answer’s share of its chunk</dt><dd id="sShare"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet" aria-labelledby="mapHead">
+        <div class="sheet__head"><h2 id="mapHead">Chunk map of the <span class="nowrap">1,111-character</span> section</h2></div>
+        <div class="map"><svg id="ruler" viewBox="0 0 1000 160" role="img" aria-label="Chunk ranges across the section, with the answer sentence marked"></svg></div>
+        <p class="key"><span style="--sw: var(--color-ink-2)">chunk range</span><span style="--sw: var(--color-paper-3)">text stored twice (overlap)</span><span style="--sw: var(--color-accent)">the answer sentence</span></p>
+      </section>
+      <section class="sheet" aria-labelledby="chunksHead">
+        <div class="sheet__head"><h2 id="chunksHead">The chunks</h2><p class="note">Answer marked; repeated text shaded</p></div>
+        <ol class="chunks" id="chunks"></ol>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const TEXT=`Refunds and cancellations
+
+Larkspur Cloud bills monthly plans at the start of each billing cycle and annual plans once a year. You can cancel any plan from the Billing page. Cancelling stops the next charge, and your servers keep running until the end of the period you already paid for.
+
+Monthly plans are not refundable. If you cancel a monthly plan halfway through a cycle, the servers stay online until the cycle ends and then shut down. Annual plans work differently. You can get a full refund on an annual plan within 30 days of purchase, as long as the account has used less than 100 GB of outbound traffic. After day 30, refunds are prorated: you get back the unused whole months, minus a 15% early-termination fee. Refunds go back to the original payment method and take 5 to 10 business days to appear.
+
+Credits from SLA breaches are applied to the next invoice and cannot be paid out as cash. Promotional credits expire 12 months after they are issued.
+
+To request a refund, open a ticket in the Billing category and include the invoice number. Requests sent by email are not tracked and take longer.`;
+const ANSWER="You can get a full refund on an annual plan within 30 days of purchase, as long as the account has used less than 100 GB of outbound traffic.";
+const A0=TEXT.indexOf(ANSWER), A1=A0+ANSWER.length;
+
+// Port of LangChain's RecursiveCharacterTextSplitter (keep_separator=True, strip_whitespace=True, length=len).
+// Checked against langchain_text_splitters on this text for every slider position: identical output.
+function splitKeep(text, sep){
+  if(sep==='') return [...text];
+  const parts=text.split(sep);
+  return [parts[0], ...parts.slice(1).map(p=>sep+p)].filter(s=>s);
+}
+function mergeSplits(splits, size, overlap){
+  const docs=[]; let cur=[]; let total=0;
+  for(const d of splits){
+    const len=d.length;
+    if(total+len>size){
+      if(cur.length){
+        const doc=cur.join('').trim(); if(doc) docs.push(doc);
+        while(total>overlap || (total+len>size && total>0)){ total-=cur[0].length; cur=cur.slice(1); }
+      }
+    }
+    cur.push(d); total+=len;
+  }
+  const doc=cur.join('').trim(); if(doc) docs.push(doc);
+  return docs;
+}
+function recursiveSplit(text, size, overlap, seps=['\n\n','\n',' ','']){
+  let sep=seps[seps.length-1], next=[];
+  for(let i=0;i<seps.length;i++){
+    if(seps[i]===''){ sep=''; break; }
+    if(text.includes(seps[i])){ sep=seps[i]; next=seps.slice(i+1); break; }
+  }
+  const out=[]; let good=[];
+  for(const s of splitKeep(text, sep)){
+    if(s.length<size) good.push(s);
+    else{
+      if(good.length){ out.push(...mergeSplits(good,size,overlap)); good=[]; }
+      if(!next.length) out.push(s); else out.push(...recursiveSplit(s,size,overlap,next));
+    }
+  }
+  if(good.length) out.push(...mergeSplits(good,size,overlap));
+  return out;
+}
+// Where each chunk starts in the source, the same search LangChain's add_start_index does.
+function withOffsets(chunks){
+  let prev=-1;
+  return chunks.map(c=>{ const s=TEXT.indexOf(c, prev+1); prev=s; return {text:c, start:s, end:s+c.length}; });
+}
+
+const PRESETS=[
+  {label:'140 and 0, smaller than the fact', size:140, overlap:0},
+  {label:'300 and 0, cut mid-condition', size:300, overlap:0},
+  {label:'300 and 150, overlap rescues it', size:300, overlap:150},
+  {label:'500 and 50, fits with neighbours', size:500, overlap:50},
+  {label:'1200 and 0, the whole section', size:1200, overlap:0},
+];
+const presetEls=PRESETS.map(p=>{
+  const b=document.createElement('button'); b.type='button'; b.className='opt'; b.textContent=p.label; b.setAttribute('aria-pressed','false');
+  b.onclick=()=>{ $('size').value=p.size; $('overlap').value=p.overlap; render(); };
+  $('presets').appendChild(b); return b;
+});
+$('answer').textContent=ANSWER;
+
+function render(){
+  const size=+$('size').value;
+  const maxOv=Math.floor(size/2/10)*10;
+  if(+$('overlap').value>maxOv) $('overlap').value=maxOv;
+  const overlap=+$('overlap').value;
+  $('sizeVal').textContent=size; $('overlapVal').textContent=overlap;
+  presetEls.forEach((b,i)=>b.setAttribute('aria-pressed', String(PRESETS[i].size===size && PRESETS[i].overlap===overlap)));
+
+  const chunks=withOffsets(recursiveSplit(TEXT,size,overlap));
+  const stored=chunks.reduce((a,c)=>a+c.text.length,0);
+  const hitIdx=chunks.findIndex(c=>c.text.includes(ANSWER));
+  const hit=hitIdx>=0 ? chunks[hitIdx] : null;
+  const share=hit ? ANSWER.length/hit.text.length : 0;
+  const parts=chunks.map((c,i)=>({i, from:Math.max(c.start,A0), to:Math.min(c.end,A1)})).filter(p=>p.to>p.from);
+
+  $('sChunks').textContent=chunks.length;
+  $('sStored').textContent=(stored/TEXT.length).toFixed(2)+'×';
+  $('sIntact').textContent=hit ? 'Yes, #'+(hitIdx+1) : 'No';
+  $('sIntact').className='word '+(hit ? 'is-good' : 'is-bad');
+  $('sShare').textContent=hit ? Math.round(share*100)+'%' : 'none'; $('sShare').className=hit ? '' : 'word';
+
+  // chunk map: two lanes so overlapping neighbours stay visible, a character axis beneath
+  const X=p=>p/TEXT.length*1000;
+  let svg=`<rect class="answer" x="${X(A0)}" y="0" width="${X(A1)-X(A0)}" height="112"/>`+
+          `<line class="answer-edge" x1="${X(A0)}" x2="${X(A0)}" y1="0" y2="112"/><line class="answer-edge" x1="${X(A1)}" x2="${X(A1)}" y1="0" y2="112"/>`;
+  chunks.forEach((c,i)=>{
+    const y=i%2 ? 60 : 14;
+    svg+=`<rect class="chunk${i===hitIdx?' chunk--hit':''}" x="${X(c.start)}" y="${y}" width="${Math.max(2,X(c.end)-X(c.start))}" height="34"/>`;
+    if(X(c.end)-X(c.start)>22) svg+=`<text class="chunk-n" x="${X(c.start)+6}" y="${y+24}">${i+1}</text>`;
+    const nxt=chunks[i+1];
+    if(nxt && nxt.start<c.end) svg+=`<rect class="overlap" x="${X(nxt.start)}" y="48" width="${X(c.end)-X(nxt.start)}" height="12"/>`;
+  });
+  svg+=`<line class="axis" x1="0" x2="1000" y1="118" y2="118"/>`;
+  for(let t=0;t<=1000;t+=200){ const x=X(t); svg+=`<line class="tick" x1="${x}" x2="${x}" y1="118" y2="124"/><text class="tick-l" x="${x}" y="146" text-anchor="${t===0?'start':'middle'}">${t}</text>`; }
+  svg+=`<text class="tick-l" x="1000" y="146" text-anchor="end">1111</text>`;
+  $('ruler').innerHTML=svg;
+
+  // chunk rows, with the answer and the overlap marked inside each chunk
+  $('chunks').innerHTML='';
+  chunks.forEach((c,i)=>{
+    const prev=chunks[i-1], ovEnd=prev && prev.end>c.start ? prev.end-c.start : 0;
+    const a0=Math.max(0,A0-c.start), a1=Math.min(c.text.length,A1-c.start);
+    let html='';
+    for(let j=0;j<c.text.length;){
+      const inAns=j>=a0 && j<a1, inOv=j<ovEnd;
+      let k=j+1; while(k<c.text.length && (k>=a0 && k<a1)===inAns && (k<ovEnd)===inOv) k++;
+      let seg=esc(c.text.slice(j,k));
+      if(inOv) seg=`<span class="ov">${seg}</span>`;
+      if(inAns) seg=`<mark>${seg}</mark>`;
+      html+=seg; j=k;
+    }
+    const isPart=parts.some(p=>p.i===i);
+    const status=i===hitIdx ? '<span class="is-good">whole answer</span>' : isPart ? '<span class="is-bad">part of the answer</span>' : '';
+    const li=document.createElement('li');
+    li.innerHTML=`<div class="meta"><b>#${i+1}</b><span>${c.text.length} characters</span><span>starts at ${c.start}</span>${ovEnd?`<span>${ovEnd} repeated from #${i}</span>`:''}${status}</div><p class="txt">${html}</p>`;
+    $('chunks').appendChild(li);
+  });
+
+  // the reading, keyed to computed results, not to slider positions
+  const co=$('callout');
+  if(size<=ANSWER.length){
+    co.innerHTML=`<b>The chunk is smaller than the fact.</b> The answer sentence is ${ANSWER.length} characters and the splitter may not emit more than ${size}, so it lands in ${parts.length} pieces. No overlap value fixes this; only a bigger chunk does.`;
+  } else if(!hit){
+    const first=parts[0], tail=TEXT.slice(Math.max(first.from,first.to-34),first.to).trim();
+    co.innerHTML=`<b>The answer is cut in two.</b> Chunk #${first.i+1} ends with “…${esc(tail)}”, and the rest of the sentence starts chunk #${parts[1].i+1}. A retriever that returns #${first.i+1} hands the model the 30-day rule without its 100 GB condition, and the model answers with half the policy. ` +
+      (overlap>0 ? `An overlap of ${overlap} is not enough: the splitter carries whole words from the end of one chunk into the next only while they fit inside the overlap, and the part of the sentence left in #${first.i+1} is ${first.to-first.from} characters.` : `Add overlap and look for the value where one chunk carries the whole sentence.`);
+  } else if(share>=0.5){
+    co.innerHTML=`<b>Precise chunk.</b> Chunk #${hitIdx+1} holds the whole answer, and the answer is ${Math.round(share*100)}% of it, so little else competes for the embedding or the model’s attention.` +
+      (stored/TEXT.length>1.15 ? ` The price is storage: overlap makes the index hold ${(stored/TEXT.length).toFixed(2)}× the source text.` : '');
+  } else if(share<0.25){
+    co.innerHTML=`<b>Whole, but diluted.</b> Chunk #${hitIdx+1} contains the answer, but the answer is only ${Math.round(share*100)}% of its ${hit.text.length} characters. The rest covers monthly plans, refund timing and credits, so the chunk’s embedding averages several topics and the model reads ${hit.text.length-ANSWER.length} characters it does not need. Hit rate looks fine here; big chunks cost faithfulness and tokens.`;
+  } else {
+    co.innerHTML=`<b>Balanced.</b> Chunk #${hitIdx+1} keeps the answer whole and it is ${Math.round(share*100)}% of the chunk. Neighbouring sentences come along, which helps when the question needs context and costs tokens when it does not.` +
+      (stored/TEXT.length>1.15 ? ` Overlap stores ${(stored/TEXT.length).toFixed(2)}× the source.` : '');
+  }
+}
+$('size').addEventListener('input',render);
+$('overlap').addEventListener('input',render);
+render();
+</script>
+</body>
+</html>

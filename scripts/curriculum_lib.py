@@ -5,6 +5,7 @@ where a file comes from and where it lands live in one place.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 CURRICULUM = ROOT / "curriculum.yaml"
 COURSE_DIR = "course"
+THEORY_DIR = "theory"
 TIERS = ("mandatory", "alternate", "platform", "extension")
 
 
@@ -60,6 +62,16 @@ def load(path: Path = CURRICULUM) -> dict:
 
 def module_dir(module: dict) -> str:
     return f"{COURSE_DIR}/{_PART_FOLDER[module['part']]}/{module['folder']}"
+
+
+def theory_dir(module: dict) -> str:
+    """theory/ mirrors course/: theory/<part folder>/<module folder>."""
+    return f"{THEORY_DIR}/{_PART_FOLDER[module['part']]}/{module['folder']}"
+
+
+def lesson_folder(n: int, title: str) -> str:
+    """A lesson's theory folder: lesson number and slugged title, e.g. 03_numpy_pandas_and_matplotlib."""
+    return f"{n:02d}_{re.sub(r'[^a-z0-9]+', '_', title.lower()).strip('_')}"
 
 
 def items(cur: dict) -> list[Item]:

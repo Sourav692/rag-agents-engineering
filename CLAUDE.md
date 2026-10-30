@@ -29,7 +29,8 @@ The **RAG & Agents Engineering** course: 13 parts, 45 modules and 377 notebooks,
 | `data/` | `docs/site/index.html` (interactive syllabus) | `README.md`, `CLAUDE.md`, `LICENSE` |
 | `docs/source/<key>/` (archived source docs) | every `README.md` under `course/` and `capstones/` | `pyproject.toml`, `uv.lock` |
 | `docs/third_party/`, `docs/content-inventory.csv` | every `course/**/lab/README.md` | `docs/agentic-architectures.yaml` (data for the coverage doc) |
-| `.env.example` | `docs/agentic-architecture-coverage.md`, `docs/combined-repo.md` and their pages in `docs/site/` | |
+| `.env.example` | `docs/agentic-architecture-coverage.md`, `docs/combined-repo.md` and their pages in `docs/site/` | `theory/<part>/<module>/` (theory pages, diagrams, labs) |
+| | `theory/README.md` (index of theory pages), `theory/<part>/<module>/index.html` (one HTML page per module) | |
 
 ### Sync workflow
 
@@ -57,6 +58,35 @@ Edit `curriculum.yaml`, then run `scripts/migrate.py` and `scripts/build_curricu
 - Every `.ipynb` in the nine source repos must appear exactly once. `tests/test_course.py` and `migrate.py --check` enforce this.
 - Module text uses resolved module numbers (`M20`). If modules are renumbered, update those references.
 - Generated docs never hard-code module numbers: `build_curriculum.py` and `build_docs.py` look modules up by `key`, so renumbering only needs a rebuild. `docs/agentic-architectures.yaml` names notebooks by source path and modules by key for the same reason; the build fails if one is no longer placed.
+
+## Theory pages
+
+Concept explanations with diagrams live in `theory/`, outside `course/`, because `migrate.py` deletes `course/` on every sync. They are written here, not in the source repos, and use the same part and module folder names as `course/`, with one folder per lesson.
+
+```
+theory/<part folder>/<module folder>/     # e.g. theory/p04_rag_foundations/m11_rag_lifecycle/, as in course/
+  README.md                               # module page: overview, lesson list, interview questions, takeaways
+  index.html                              # generated: the module page and its lesson pages as one HTML page
+  diagrams/*.anim.html                    # animated SVG fragments (also inside lesson folders)
+  <NN>_<slug of lesson title>/            # e.g. 02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/
+    README.md                             # lesson page: that lesson's key concepts
+    diagrams/*.svg                        # static diagrams Mermaid cannot draw (spatial layouts, charts)
+    interactive/*.html                    # labs: one self-contained HTML file each, opened locally in a browser
+```
+
+- **Writing a module:** use the project skill `theory-module` (`.claude/skills/theory-module/`, run as `/theory-module <module> [lesson or topic]`). It resolves the module, plans concepts per lesson, writes the pages, diagrams and lab in the M11 format, and runs every check below. M11 is its reference build.
+- **Names:** `theory_dir()` and `lesson_folder()` in `scripts/curriculum_lib.py` give the paths; `NN` is the lesson's position in the module (`lesson_folder(3, "NumPy, pandas and Matplotlib")` is `03_numpy_pandas_and_matplotlib`). Renaming a part, module or lesson in `curriculum.yaml` means `git mv` on its theory folder; the test fails until you do.
+- **Module page outline:** TL;DR, mental model, a `## Lessons` table linking each lesson page (*planned* for lessons without one), the interactive lab, how it connects, an Interview Spotlight with 5 production questions, key takeaways.
+- **Lesson page outline:** a header line with the module page, lesson number and notebooks, then one `## <concept>` section for each of the module's `concepts:` taught in that lesson (exact text, so the generated READMEs and the syllabus site can link to the anchor), and a previous/next footer. Each concept is a `##` heading on exactly one page of the module.
+- **One HTML page per module, always:** `scripts/build_theory_html.py` (run by `build_curriculum.py`) renders every module that has a module page into `theory/<part>/<module>/index.html`: the module page with its `## Lessons` table replaced by the lesson pages in lesson order, each under a "Lesson N.M: title. Notebooks: …" line, in the Almanac design from `scripts/site/theory.template.html`. Never write a per-lesson HTML page, a multi-module HTML page or an `index.html` by hand; edit the READMEs and rebuild. Labs and SVGs are linked relatively, so the page works opened from disk; notebooks and Markdown pages link to GitHub; Mermaid loads from jsdelivr, and offline the diagram source shows instead. A new module gets its page from the same template, so a design change goes in the template and reaches every module. Lint the template's output with Hallmark's `sloplint --genre editorial --render` on a copy of the whole `theory/` tree outside the repo (so the relative SVGs load); its waivers live in the template's stamp.
+- **Labs inside the module page:** a `<!-- lab: interactive/<name>.html -->` line in a lesson page (invisible on GitHub) embeds that lab at that spot in `index.html`: a lazy frame, an "Open full screen" link to the standalone file, and a focus ring the page script sets. Put it in the section whose claims the lab tests (M11: after the top-k bullets). The lab file stays the one source and still opens on its own. A lab is embeddable only once it has an embedded mode: a head script adds `embedded` to `<html>` when `window.self !== window.top`; `html.embedded` rules hide its bar and intro, drop the inner scrollbar and order its parts so the control and its main output share a screen in a ~700px column; and a `ResizeObserver` posts `{ labHeight }` to the parent, which sizes the frame. M11's top-k lab has it; add it to a lab before you mark its lesson.
+- **Animated diagrams:** an animated version of a Mermaid diagram is an SVG fragment in `diagrams/<name>.anim.html`, named by an HTML comment on the line after the Mermaid block (`<!-- animated: diagrams/<name>.anim.html -->`, invisible on GitHub). `build_theory_html.py` draws each fragment in place of its diagram in `index.html`, with the controller from `scripts/site/theory-anim.{css,js}`; the README keeps the Mermaid version, since GitHub cannot run the animation. Animate only diagrams that show a process over time (a pipeline, a loop); decision trees and charts stay static. Each fragment: inline SVG coloured only through the page tokens, steps marked with the `in-N`, `mv-N`, `n-N`, `e-N` classes, Previous, Play and Next buttons, and a numbered step list whose buttons are the short step names. It plays itself while on screen, never under reduced motion, and shows its finished frame without script. Use the lab's real numbers or none. GIFs are for social posts only; export them from the SVG rather than drawing them. M11 has the first two (the lifecycle and the baseline loop).
+- **Diagrams:** Mermaid inline first (it renders on GitHub and diffs cleanly); SVG in `diagrams/` with its own light background; HTML labs only when a parameter is worth playing with.
+- **Labs:** built with the Hallmark skill in its Almanac theme (slate paper, a pale printed sheet for tables and charts, Hanken Grotesk heads, Newsreader text, IBM Plex Mono for figures and code, one deep magenta for the evidence or answer mark). Each lab is one self-contained HTML file: the Hallmark stamp, the Almanac tokens and inline JS, with Google Fonts the only external request. Keep new labs in that system and run Hallmark's `sloplint --scope app --render` on a copy outside the repo, because it writes `.hallmark/` beside the file. Run the real algorithm in JS when it is small (TF-IDF, recursive splitting) and check it against the Python library before publishing; label hand-written outputs as representative.
+- **Diagrams in SVG** use the same Almanac colours as hex (sheet `#e5eaef`, ink `#060e15`, muted `#3b434b`, magenta `#970d63`).
+- **Running example:** the fictional Larkspur Cloud handbook, shared across pages.
+- **Links:** theory pages link to notebooks by their `course/` path and to modules by number; `check_links.py` catches a broken path after renumbering, but update module numbers in the prose by hand.
+- **Build:** `build_curriculum.py` adds a Theory section and concept anchors to the module README and the site card for every module that has a module page, links each lesson row to its lesson page, and regenerates `theory/README.md`. `test_theory_pages_mirror_the_course_layout` checks folder names, that each concept heading appears once, that the module page links every lesson page, and that every lab is linked from the page beside it; `test_theory_module_pages_have_a_current_index_html` fails when a module's `index.html` is missing or older than its READMEs.
 
 ## How the migration transforms files
 

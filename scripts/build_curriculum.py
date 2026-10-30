@@ -13,11 +13,13 @@ from collections import Counter, defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_docs  # noqa: E402
-from curriculum_lib import ROOT, items, load, module_dir, source_module  # noqa: E402
+import build_theory_html  # noqa: E402
+from curriculum_lib import ROOT, THEORY_DIR, items, lesson_folder, load, module_dir, source_module, theory_dir  # noqa: E402
 
 GH = "https://github.com/Sourav692"
 COURSE_REPO = "rag-agents-engineering"
 SITE = ROOT / "scripts/site"
+THEORY = THEORY_DIR  # hand-written theory pages, laid out like course/; only theory/README.md is generated
 
 CUR = load()
 COURSE = CUR["course"]
@@ -55,6 +57,36 @@ def parse_ref(it):
     return {"repo": it.repo, "mod": it.folder, "name": os.path.splitext(it.file)[0], "file": it.file,
             "url": f"{GH}/{COURSE_REPO}/{kind}/main/{it.dest}", "optional": it.optional,
             "reason": None if not it.optional else it.tier, "path": it.source_path, "item": it}
+
+
+def theory_of(m):
+    """The module's theory page, its lesson pages and labs under theory/<part>/<module>/, or None if it has none yet."""
+    d = theory_dir(m)
+    if not (ROOT / d / "README.md").exists():
+        return None
+    lessons = {}  # lesson number -> its theory page
+    for n, les in enumerate(m["lessons"], 1):
+        page = f"{d}/{lesson_folder(n, les['title'])}/README.md"
+        if (ROOT / page).exists():
+            lessons[n] = page
+    concepts = {}  # key concept -> the page with its `##` heading
+    for page in [f"{d}/README.md", *lessons.values()]:
+        heads = re.findall(r"^## (.+?)\s*$", (ROOT / page).read_text(), re.M)
+        concepts.update({c: page for c in m["concepts"] if c in heads and c not in concepts})
+    labs = []
+    for p in sorted((ROOT / d).glob("**/interactive/*.html")):
+        title = re.search(r"<title>(.*?)</title>", p.read_text(), re.S)
+        labs.append((title.group(1).strip() if title else p.stem, p.relative_to(ROOT).as_posix()))
+    return {"readme": f"{d}/README.md", "lessons": lessons, "concepts": concepts, "labs": labs}
+
+
+def concept_page(t, c):
+    return f"{t['concepts'].get(c, t['readme'])}#{anchor(c)}"
+
+
+def anchor(heading):
+    """GitHub's anchor for a Markdown heading; theory pages give each key concept its own `##` heading."""
+    return re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
 
 
 def short(mod):
@@ -380,7 +412,16 @@ def module_card(m):
     out.append('<div class="m-cols"><div><h4>Learning objectives</h4><ul class="obj">')
     out += [f"<li>{code_fmt(o)}</li>" for o in m["objectives"]]
     out.append('</ul><h4>Key concepts</h4><ul class="chips">')
-    out += [f"<li>{E(c)}</li>" for c in m["concepts"]]
+    t = theory_of(m)
+    if t:
+        url = f"{GH}/{COURSE_REPO}/blob/main/{t['readme']}"
+        out += [f'<li><a href="{GH}/{COURSE_REPO}/blob/main/{concept_page(t, c)}" target="_blank" rel="noopener">{E(c)}</a></li>'
+                for c in m["concepts"]]
+        out.append(f'</ul><h4>Theory</h4><ul class="theory"><li><a href="{url}" target="_blank" rel="noopener">Theory page</a></li>')
+        # the site is opened from docs/site/, so labs are linked relative to it and run locally
+        out += [f'<li><a href="../../{path}" target="_blank" rel="noopener">Lab · {E(title)}</a></li>' for title, path in t["labs"]]
+    else:
+        out += [f"<li>{E(c)}</li>" for c in m["concepts"]]
     out.append('</ul></div><div><h4>Lessons</h4><ol class="lessons">')
     for i, (t, refs) in enumerate(m["lessons_r"], 1):
         all_opt = bool(refs) and all(parse_ref(x)["optional"] for x in refs)
@@ -535,7 +576,20 @@ def module_readme(m):
     L = [f"# M{m['num']:02d} — {m['title']}\n", GEN_NOTE,
          f"**Part {p['num']} · {p['title']}** · **Level:** {LEVELS[m['level']]} · **Time:** ~{m['hours']} h · "
          f"**Notebooks:** {mc} mandatory, {oc} optional\n",
-         "## Why it matters\n", m["why"] + "\n", "## Learning objectives\n"]
+         "## Why it matters\n", m["why"] + "\n"]
+    t = theory = theory_of(m)
+    concepts = " · ".join(m["concepts"])
+    if t:
+        page = os.path.relpath(ROOT / t["readme"], ROOT / MD_FROM)
+        L += ["## Theory\n", f"Read the [theory page]({page}) before the notebooks: the module overview and interview "
+              "questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. "
+              f"[`index.html`]({os.path.relpath(ROOT / t['readme'].replace('README.md', 'index.html'), ROOT / MD_FROM)}) "
+              "has the module and its lessons as one page (open it in a browser).\n"]
+        L += [f"- Interactive lab: [{title}]({os.path.relpath(ROOT / path, ROOT / MD_FROM)}) (open the file in a browser)"
+              for title, path in t["labs"]]
+        L.append("")
+        concepts = " · ".join(f"[{c}]({os.path.relpath(ROOT / concept_page(t, c), ROOT / MD_FROM)})" for c in m["concepts"])
+    L.append("## Learning objectives\n")
     L += [f"- {o}" for o in m["objectives"]]
     L += ["\n## Lessons\n", "Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platform-specific variants or extensions.\n",
           "| # | Topic | Mandatory | Optional |", "|---|---|---|---|"]
@@ -545,9 +599,11 @@ def module_readme(m):
         if not refs:
             core = ["*Lecture / discussion*"]
         title = t + (" *(optional lesson)*" if refs and not core else "")
+        if theory and i in theory["lessons"]:
+            title += f" ([theory]({os.path.relpath(ROOT / theory['lessons'][i], ROOT / MD_FROM)}))"
         L.append(f"| {m['num']}.{i} | {title} | {'<br>'.join(core) or '—'} | {'<br>'.join(opt) or '—'} |")
     L += ["\n## Hands-on lab\n", f"{m['lab']} Details: [lab/README.md](lab/README.md).\n",
-          "## Key concepts\n", " · ".join(m["concepts"]) + "\n",
+          "## Key concepts\n", concepts + "\n",
           "## Folder layout\n",
           "- `notebooks/` — mandatory track, plus the helper files those notebooks import",
           "- `optional/` — alternate, platform-specific and extension notebooks",
@@ -589,6 +645,29 @@ def course_readme():
         ms = ", ".join(f"[M{m['num']:02d}]({p['folder']}/{m['folder']}/README.md)" for m in mods_by_part[p["id"]])
         L.append(f"| [{p['num']}]({p['folder']}/README.md) | {p['title']} | {p['weeks']} | {LEVELS[p['level']]} | {ms} |")
     write("course/README.md", "\n".join(L))
+
+
+def theory_index():
+    L = ["# Theory\n",
+         "> The index is generated by `scripts/build_curriculum.py`. The pages are hand-written: edit "
+         "`theory/<part>/<module>/README.md` and its lesson folders (see `CLAUDE.md` → Theory pages).\n",
+         "Laid out like `course/`: one folder per module, one subfolder per lesson. A module page has the overview, "
+         "interview questions and takeaways; each lesson page explains that lesson's concepts with diagrams. Each module's "
+         "`index.html` joins its pages into one page to read in a browser. Some lessons "
+         "have interactive labs (single HTML files, open them in a browser).\n",
+         "| Module | Theory | Lessons with theory | Interactive labs |", "|---|---|---|---|"]
+    for p in PARTS:
+        L.append(f"| **Part {p['num']} · {p['title']}** | | | |")
+        for m in mods_by_part[p["id"]]:
+            t = theory_of(m)
+            rel = lambda path: os.path.relpath(path, THEORY)  # noqa: E731
+            page = (f"[README.md]({rel(t['readme'])})<br>[index.html]({rel(t['readme'].replace('README.md', 'index.html'))})"
+                    if t else "*planned*")
+            lessons = "<br>".join(f"[{m['num']}.{n} {m['lessons'][n - 1]['title']}]({rel(path)})"
+                                  for n, path in t["lessons"].items()) if t else ""
+            labs = "<br>".join(f"[{title}]({rel(path)})" for title, path in t["labs"]) if t else ""
+            L.append(f"| M{m['num']:02d} {m['title']} | {page} | {lessons or '—'} | {labs or '—'} |")
+    write(f"{THEORY}/README.md", "\n".join(L))
 
 
 def capstone_readmes():
@@ -688,6 +767,8 @@ if __name__ == "__main__":
         part_readme(p)
     for m in MODULES:
         module_readme(m)
+    theory_index()
+    build_theory_html.main()
     capstone_readmes()
     notice()
     build_docs.main()

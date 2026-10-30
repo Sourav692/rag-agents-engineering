@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 from check_links import broken_links  # noqa: E402
-from curriculum_lib import COURSE_DIR, TIERS, items, load  # noqa: E402
+from curriculum_lib import COURSE_DIR, TIERS, items, lesson_folder, load, theory_dir  # noqa: E402
 
 CUR = load()
 ITEMS = items(CUR)
@@ -90,3 +90,48 @@ def test_architecture_coverage_refs_are_placed():
     missing = [s for a in data["architectures"] for s in a["notebooks"] if s not in placed]
     missing += [k for c in data["course_only"] for k in c["modules"] if k not in keys]
     assert not missing, missing
+
+
+def test_theory_pages_mirror_the_course_layout():
+    """theory/ mirrors course/: module pages at theory/<part>/<module>/, lesson pages in <NN>_<slug of lesson title>/.
+
+    Every key concept has a `##` heading on exactly one of the module's pages, the module page links each lesson
+    page, and every lab is linked from the page beside it.
+    """
+    known = {theory_dir(m): m for m in CUR["modules"]}
+    bad = []
+    for readme in sorted((ROOT / "theory").glob("**/README.md")):
+        rel = readme.relative_to(ROOT).parent.as_posix()
+        if rel == "theory" or rel in known:
+            continue
+        parent = readme.parent.parent.relative_to(ROOT).as_posix()
+        m = known.get(parent)
+        if not m or readme.parent.name not in {lesson_folder(n, les["title"]) for n, les in enumerate(m["lessons"], 1)}:
+            bad.append(f"{rel}: not a module of curriculum.yaml or a lesson folder of one")
+    for d, m in known.items():
+        page = ROOT / d / "README.md"
+        if not page.exists():
+            continue
+        md = page.read_text(encoding="utf-8")
+        lessons = [ROOT / d / lesson_folder(n, les["title"]) / "README.md" for n, les in enumerate(m["lessons"], 1)]
+        lessons = [p for p in lessons if p.exists()]
+        bad += [f"{d}: lesson page not linked: {p.parent.name}" for p in lessons if f"{p.parent.name}/README.md" not in md]
+        heads = Counter(h for p in [page, *lessons] for h in re.findall(r"^## (.+?)\s*$", p.read_text(encoding="utf-8"), re.M))
+        bad += [f"{d}: '## {c}' on {heads[c]} pages, want 1" for c in m["concepts"] if heads[c] != 1]
+    for lab in sorted((ROOT / "theory").glob("**/interactive/*.html")):
+        beside = lab.parent.parent / "README.md"
+        if not beside.exists() or f"interactive/{lab.name}" not in beside.read_text(encoding="utf-8"):
+            bad.append(f"{lab.relative_to(ROOT)}: not linked from {beside.relative_to(ROOT)}")
+    assert not bad, bad
+
+
+def test_theory_module_pages_have_a_current_index_html():
+    """Every module page has the index.html that build_theory_html.py renders from it and its lesson pages."""
+    import build_theory_html
+
+    mods = [m for m in CUR["modules"] if (ROOT / theory_dir(m) / "README.md").exists()]
+    pages = {f"{theory_dir(m)}/README.md": f"{theory_dir(m)}/index.html" for m in mods}
+    stale = [theory_dir(m) for m in mods
+             if not (ROOT / theory_dir(m) / "index.html").exists()
+             or (ROOT / theory_dir(m) / "index.html").read_text() != build_theory_html.render(m, pages)]
+    assert not stale, f"run scripts/build_curriculum.py: {stale}"

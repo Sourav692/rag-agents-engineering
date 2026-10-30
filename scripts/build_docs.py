@@ -329,6 +329,7 @@ def combined_repo():
     ]
     support = [
         ("capstones/", ", ".join(c["title"] for c in CUR["capstones"])),
+        ("theory/", "Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs"),
         ("src/", "helpers/ (identical in 05, 08, 09 and 10, checked on every sync) and rag_paths.py (from 05, rewritten to course/ paths)"),
         ("data/", "Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)"),
         ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, "

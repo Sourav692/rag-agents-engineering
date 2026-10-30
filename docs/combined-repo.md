@@ -100,11 +100,12 @@ rag-agents-engineering/
 │   └── p13_architecture_and_capstone/  # Part XIII · Weeks 25–26
 │       └── m45_architecture_synthesis/  # 1 mandatory · 0 optional
 ├── capstones/                 # Enterprise Knowledge Assistant, Customer-Support Routing Copilot, Multi-Agent Research Analyst, Research GraphRAG Explorer
+├── theory/                    # Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs
 ├── src/                       # helpers/ (identical in 05, 08, 09 and 10, checked on every sync) and rag_paths.py (from 05, rewritten to course/ paths)
 ├── data/                      # Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)
 ├── docs/                      # site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md
 ├── scripts/                   # migrate.py (copy, rename, rewrite paths), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets
-├── tests/                     # 10 offline checks: manifest, tiers vs folders, module order, notebook JSON, stale paths, links, rag_paths, scripts compile and more
+├── tests/                     # 12 offline checks: manifest, tiers vs folders, module order, notebook JSON, stale paths, links, rag_paths, scripts compile and more
 └── .github/workflows/         # ci.yml: runs the tests and fails if generated files are out of date with curriculum.yaml
 ```
 

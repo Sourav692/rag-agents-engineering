@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>One PDF page, three parsers</title>
+<meta name="description" content="M12 lab: one two-column handbook page through PyPDF, PyMuPDF and Unstructured, mapped back to the page and to a metadata schema.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (deal 3/3, seed course-notes-interactive-labs-bf72·b66d38f5·2026-10-29·r0) · redesign: full
+ * nav: top bar, the wordmark and the lab's name · signature: the handbook page printed on the sheet, each region lighting up when the Document it became is hovered · states: full only; the page computes every value itself, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: P, the outputs are representative rather than run; the note under the schema says so in one line */
+/* Hallmark · dropped #bRecall, #bPrec, #bTok, #bDone, #bChunks, #bStored, #bIntact, #bShare, #bDocs, #bBoiler, #bTable, #bSection and the eyebrow · the fill bars under each figure repeated the figures they sat under */
+/* Hallmark · dropped #clist · the animated ranking list became the #ranking table, so rows no longer animate top */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-2: oklch(37% 0.160 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-card: 0; --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px; --shadow-card: none;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); scroll-padding-top: var(--space-3xl); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight, 700); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 20ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-section); } h3 { max-width: 40ch; font-size: var(--text-title); line-height: 1.2; }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 52ch; }
+p { margin: 0; text-wrap: pretty; }
+p:not([class]) { max-width: 65ch; }
+img, video { max-width: 100%; height: auto; display: block; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }
+.num, .figure, td.num { font-variant-numeric: tabular-nums; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+[data-slot] { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--color-paper-2, var(--color-paper)), var(--color-paper-3, var(--color-paper))); }
+[data-slot] > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+[data-slot]:has(> img) > :not(img):not([data-keep]) { display: none !important; }
+@media (max-width: 60rem) { :root { --gutter: 24px; --section-gap-s: 80px; --section-gap: 96px; --section-gap-l: 120px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --section-gap-s: 56px; --section-gap: 72px; --section-gap-l: 96px; --gap-columns: 16px; } }
+@media (prefers-reduced-motion: reduce) { *:not(.keep-motion), *:not(.keep-motion)::before, *:not(.keep-motion)::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+/* photographs: muted */
+[data-slot] > img { filter: saturate(0.65) contrast(0.97); }
+/* lab shell: a top bar, controls and readings on the left, the lab's object on a printed sheet at the right */
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); color: var(--color-ink); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.intro h1 { max-width: 30ch; color: var(--color-ink); }
+.intro .lead { color: var(--color-ink-2); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.label, legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt, button.opt:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt, button.opt[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.opt:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 4ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; color: var(--color-ink); }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); }
+.stats dd.word { font: 600 var(--text-xl)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.is-good { color: var(--color-success); }
+.is-bad { color: var(--color-error); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.sheet h2 { font-size: var(--text-xl); color: var(--color-ink); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+td.id, code { font-family: var(--font-outlier); font-size: 0.9em; }
+td.id { white-space: nowrap; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; color: var(--color-ink); }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+mark { background: color-mix(in oklab, var(--color-accent) 20%, transparent); color: var(--color-ink); }
+.controls { display: grid; gap: var(--space-sm); margin-bottom: var(--space-lg); }
+.call { font-family: var(--font-outlier); font-size: var(--text-sm); color: var(--color-ink-2); overflow-wrap: anywhere; }
+.workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-xl); align-items: start; }
+@media (max-width: 60rem) { .workbench { grid-template-columns: minmax(0, 1fr); } }
+.page { background: var(--color-accent-ink); padding: var(--space-md); font-size: var(--text-sm); line-height: 1.45; color: var(--color-ink); outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.page [data-el] { padding: var(--space-3xs) var(--space-2xs); outline: 2px solid transparent; outline-offset: 0; transition: background-color var(--dur-short) var(--ease-out); }
+.page [data-el].lit { background: color-mix(in oklab, var(--color-accent) 12%, transparent); outline-color: var(--color-accent); }
+.page .run { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--text-xs); color: var(--color-muted); }
+.page .run--head { border-bottom: var(--rule-hair) solid var(--color-rule); margin-bottom: var(--space-xs); }
+.page .run--foot { border-top: var(--rule-hair) solid var(--color-rule); margin-top: var(--space-xs); }
+.page .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-lg); }
+@media (max-width: 40rem) { .page .cols { grid-template-columns: minmax(0, 1fr); } }
+.page h3 { font-size: var(--text-md); margin-bottom: var(--space-2xs); }
+.page p { margin-bottom: var(--space-xs); }
+.page table { font-size: var(--text-xs); }
+.page thead th { white-space: normal; font-size: var(--text-xs); }
+.page th, .page td { padding: var(--space-2xs); border: var(--rule-hair) solid var(--color-rule); text-align: left; font-family: var(--font-body); color: var(--color-ink); }
+.page ul { margin: 0; padding-left: var(--space-md); }
+.page [data-el="table"] { overflow-x: auto; }
+.docs { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow: auto; }
+.doc { padding: var(--space-sm) 0; border-top: var(--rule-hair) solid var(--color-rule); outline-offset: 2px; cursor: default; }
+.doc:first-child { border-top: 0; }
+.doc.lit .doc__head b { color: var(--color-accent); }
+.doc:focus-visible { outline: 2px solid var(--color-focus); }
+.doc__head { display: flex; gap: var(--space-sm); align-items: baseline; margin-bottom: var(--space-2xs); font-size: var(--text-sm); color: var(--color-muted); }
+.doc__head b { font: 600 var(--text-md)/1.2 var(--font-display); color: var(--color-ink); }
+.doc pre { margin: 0; font: 400 var(--text-xs)/1.55 var(--font-outlier); white-space: pre-wrap; color: var(--color-ink-2); }
+.doc pre .bp { color: var(--color-muted); text-decoration: line-through; }
+.doc pre .hy { background: color-mix(in oklab, var(--color-accent) 20%, transparent); }
+.doc .md { margin-top: var(--space-2xs); font: 400 var(--text-xs)/1.5 var(--font-outlier); white-space: pre-wrap; color: var(--color-muted); }
+.key { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); margin-top: var(--space-sm); font-size: var(--text-sm); color: var(--color-muted); }
+.key .bp { text-decoration: line-through; }
+.key .hy { background: color-mix(in oklab, var(--color-accent) 20%, transparent); color: var(--color-ink); }
+.st-free { color: var(--color-success); }
+.st-derive { color: var(--color-ink); }
+.st-miss { color: var(--color-error); }
+.schema td:first-child { font-family: var(--font-outlier); color: var(--color-ink); }
+td.st-free, td.st-derive, td.st-miss { white-space: nowrap; }
+@media (max-width: 37.5rem) {
+  .schema thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .schema tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  .schema td { border: 0; padding: 0; }
+  .schema td:nth-child(2), .schema td:nth-child(4) { grid-column: 1 / -1; }
+  .schema td:nth-child(2) { color: var(--color-muted); }
+}
+</style>
+</head>
+<body>
+<noscript><p class="container note">This lab computes its tables and chart in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M12 lab, document ingestion</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Three parsers turn one page into three different indexes.</h1>
+    <p class="lead">Page 7 of a two-column product handbook goes through three LangChain PDF loaders, as in lesson 12.4. Pick a loader, then hover or focus an output Document to see which part of the page it came from.</p>
+  </div>
+  <div class="controls">
+    <fieldset class="seg"><legend>Loader</legend><div class="seg__opts" id="tabs"></div></fieldset>
+    <p class="call" id="call"></p>
+  </div>
+  <div class="workbench">
+    <section class="sheet" aria-labelledby="pageHead">
+      <div class="sheet__head"><h2 id="pageHead">handbook.pdf, page 7</h2></div>
+      <div class="page" id="paper">
+        <div class="run run--head" data-el="header"><span>Larkspur Cloud</span><span>Customer Handbook</span></div>
+        <div class="cols">
+          <div>
+            <h3 data-el="t4">4. Plans and pricing</h3>
+            <p data-el="p4">Every plan includes DDoS protection, daily snapshots and a dedicated IPv4 address. Outbound traffic above the included amount is billed at $0.01 per GB.</p>
+            <div data-el="table">
+              <table>
+                <thead><tr><th>Plan</th><th>vCPU</th><th>Memory</th><th>Traffic</th><th>Price / month</th></tr></thead>
+                <tbody>
+                <tr><td>Starter</td><td>1</td><td>2 GB</td><td>1 TB</td><td>$6</td></tr>
+                <tr><td>Business</td><td>4</td><td>16 GB</td><td>5 TB</td><td>$48</td></tr>
+                <tr><td>Scale</td><td>16</td><td>64 GB</td><td>20 TB</td><td>$190</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3 data-el="t5">5. Refunds</h3>
+            <p data-el="p5">Annual plans can be refunded; monthly plans cannot. Refunds go back to the original payment method within 5 to 10 business days.</p>
+            <ul>
+              <li data-el="l1">Within 30 days: full refund if outbound traffic is under 100 GB.</li>
+              <li data-el="l2">After day 30: unused whole months, minus a 15% early-termination fee.</li>
+              <li data-el="l3">SLA and promotional credits are never paid out as cash.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="run run--foot" data-el="footer"><span>Page 7 of 24</span><span>Revised March 2026</span></div>
+      </div>
+    </section>
+    <section class="sheet" aria-labelledby="outHead">
+      <div class="sheet__head"><h2 id="outHead">Output of <code id="outName"></code></h2></div>
+      <ol class="docs" id="docs"></ol>
+      <p class="key"><span><span class="bp">struck</span>: header or footer text inside the content</span><span><span class="hy">marked</span>: a line-break hyphen left in a word</span></p>
+    </section>
+  </div>
+  <div class="layout" style="margin-top: var(--space-xl)">
+    <div class="stack">
+      <dl class="stats">
+        <div><dt>Documents from this page</dt><dd id="sDocs"></dd></div>
+        <div><dt>Header and footer</dt><dd id="sBoiler"></dd></div>
+        <div><dt>Table rows</dt><dd id="sTable"></dd></div>
+        <div><dt>Section known</dt><dd id="sSection"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <section class="sheet" aria-labelledby="schemaHead">
+      <div class="sheet__head"><h2 id="schemaHead">The lab’s metadata schema, filled by this loader</h2></div>
+      <div class="scroll"><table class="schema">
+        <thead><tr><th scope="col">Field</th><th scope="col">Used later for</th><th scope="col">Status</th><th scope="col">How</th></tr></thead>
+        <tbody id="schema"></tbody>
+      </table></div>
+      <p class="note" style="margin-top: var(--space-sm)">Outputs are written to show each loader’s default behaviour on a two-column page with a table: one Document per page for PyPDF and PyMuPDF, one per element for Unstructured in <code>mode="elements"</code> with the <code>hi_res</code> strategy (the <code>fast</code> strategy finds no tables and fewer headers). Element ids are shortened to <code>e4</code> and <code>e5</code>; real ones are hashes. Exact text varies by PDF producer, so run lesson 12.4’s notebook on your own files before you pick a parser.</p>
+    </section>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// [[text, cls]] segments: cls 'bp' = header/footer, 'hy' = hyphenation artefact
+const seg=(...parts)=>parts.map(p=>Array.isArray(p)?`<span class="${p[1]}">${esc(p[0])}</span>`:esc(p)).join('');
+
+const LOADERS={
+  pypdf:{
+    name:'PyPDFLoader', call:'PyPDFLoader("handbook.pdf").load()  # mode="page" by default',
+    docs:[{cat:'page', regions:['header','t4','p4','table','t5','p5','l1','l2','l3','footer'],
+      html:seg(['Larkspur Cloud Customer Handbook\n','bp'],'4. Plans and pricing\nEvery plan includes DDoS protection, daily ',['snap-\nshots','hy'],' and a dedicated IPv4 address. Outbound\ntraffic above the included amount is billed at\n$0.01 per GB.\nPlan vCPU Memory Traffic Price / month\nStarter 1 2 GB 1 TB $6\nBusiness 4 16 GB 5 TB $48\nScale 16 64 GB 20 TB $190\n5. Refunds\nAnnual plans can be refunded; monthly plans\ncannot. Refunds go back to the original payment\nmethod within 5 to 10 business days.\n• Within 30 days: full refund if outbound traffic\nis under 100 GB.\n• After day 30: unused whole months, minus a\n15% early-termination fee.\n• SLA and promotional credits are never paid out\nas cash.\n',['Page 7 of 24 Revised March 2026','bp']),
+      md:"{'source': 'handbook.pdf', 'page': 6, 'page_label': '7', 'total_pages': 24,\n 'producer': 'Typst 0.12', 'creationdate': '2026-03-01T09:12:00+00:00'}"}],
+    boiler:'mixed in', table:'flattened', section:'no',
+    schema:{source:['free',"metadata['source']"], type:['derive','take it from the file extension'], section:['miss','parse “4.” and “5.” headings out of page_content yourself'], page:['free',"metadata['page'] is 0-based: page 7 is 6, so add 1 before you cite it"], date:['free',"metadata['creationdate'], if the producer wrote one"]},
+    callout:`<b>One Document holds the whole page.</b> The header and footer sit inside the text, so every chunk cut from it can start with the handbook’s running head and every page looks alike to the embedding. The table survives as rows of space-separated values, readable but with nothing to say which number is memory and which is traffic. Sections 4 and 5 share one Document, so a chunk about pricing and a chunk about refunds carry the same metadata.`},
+  pymupdf:{
+    name:'PyMuPDFLoader', call:'PyMuPDFLoader("handbook.pdf").load()  # one Document per page',
+    docs:[{cat:'page', regions:['header','t4','p4','table','t5','p5','l1','l2','l3','footer'],
+      html:seg(['Larkspur Cloud Customer Handbook\n','bp'],'4. Plans and pricing\nEvery plan includes DDoS protection, daily ',['snap-\nshots','hy'],' and a dedicated IPv4 address. Outbound\ntraffic above the included amount is billed at\n$0.01 per GB.\nPlan\nvCPU\nMemory\nTraffic\nPrice / month\nStarter\n1\n2 GB\n1 TB\n$6\nBusiness\n4\n16 GB\n5 TB\n$48\nScale\n16\n64 GB\n20 TB\n$190\n5. Refunds\nAnnual plans can be refunded; monthly plans\ncannot. Refunds go back to the original payment\nmethod within 5 to 10 business days.\n• Within 30 days: full refund if outbound traffic\nis under 100 GB.\n• After day 30: unused whole months, minus a\n15% early-termination fee.\n• SLA and promotional credits are never paid out\nas cash.\n',['Page 7 of 24\nRevised March 2026','bp']),
+      md:"{'source': 'handbook.pdf', 'file_path': 'handbook.pdf', 'page': 6, 'total_pages': 24,\n 'format': 'PDF 1.7', 'title': 'Customer Handbook', 'author': 'Larkspur Cloud',\n 'creationDate': 'D:20260301091200Z', 'modDate': 'D:20260301091200Z', 'producer': 'Typst 0.12'}"}],
+    boiler:'mixed in', table:'one cell per line', section:'no',
+    schema:{source:['free',"metadata['source']"], type:['derive',"metadata['format'] says PDF; map it to your own type names"], section:['miss','parse headings yourself'], page:['free',"metadata['page'], 0-based like PyPDF"], date:['free',"metadata['creationDate'] and ['modDate'] in PDF date format; normalise to ISO"]},
+    callout:`<b>Faster, richer document metadata, the same page-sized blob.</b> PyMuPDF reads the PDF’s title, author and dates for you, and it is usually the fastest of the three. The content problem is unchanged: header and footer are still inside the text, and each table cell lands on its own line, so “16 GB” is no longer next to “Business” once a splitter cuts the page.`},
+  unstructured:{
+    name:'UnstructuredPDFLoader', call:'UnstructuredPDFLoader("handbook.pdf", mode="elements", strategy="hi_res", infer_table_structure=True).load()',
+    docs:[
+      {cat:'Header', regions:['header'], html:esc('Larkspur Cloud Customer Handbook'), md:"page_number: 7, parent_id: none"},
+      {cat:'Title', regions:['t4'], html:esc('4. Plans and pricing'), md:"page_number: 7, element_id: e4"},
+      {cat:'NarrativeText', regions:['p4'], html:esc('Every plan includes DDoS protection, daily snapshots and a dedicated IPv4 address. Outbound traffic above the included amount is billed at $0.01 per GB.'), md:"page_number: 7, parent_id: e4"},
+      {cat:'Table', regions:['table'], html:esc('Plan vCPU Memory Traffic Price / month Starter 1 2 GB 1 TB $6 Business 4 16 GB 5 TB $48 Scale 16 64 GB 20 TB $190'), md:"page_number: 7, parent_id: e4\ntext_as_html: <table><tr><td>Plan</td><td>vCPU</td>… <tr><td>Business</td><td>4</td><td>16 GB</td>…</table>"},
+      {cat:'Title', regions:['t5'], html:esc('5. Refunds'), md:"page_number: 7, element_id: e5"},
+      {cat:'NarrativeText', regions:['p5'], html:esc('Annual plans can be refunded; monthly plans cannot. Refunds go back to the original payment method within 5 to 10 business days.'), md:"page_number: 7, parent_id: e5"},
+      {cat:'ListItem', regions:['l1'], html:esc('Within 30 days: full refund if outbound traffic is under 100 GB.'), md:"page_number: 7, parent_id: e5"},
+      {cat:'ListItem', regions:['l2'], html:esc('After day 30: unused whole months, minus a 15% early-termination fee.'), md:"page_number: 7, parent_id: e5"},
+      {cat:'ListItem', regions:['l3'], html:esc('SLA and promotional credits are never paid out as cash.'), md:"page_number: 7, parent_id: e5"},
+      {cat:'Footer', regions:['footer'], html:esc('Page 7 of 24 Revised March 2026'), md:"page_number: 7, parent_id: none"}],
+    boiler:'separate', table:'kept as HTML', section:'yes',
+    schema:{source:['free',"metadata['source'] and ['filename']"], type:['free',"metadata['filetype'] for the file; metadata['category'] for the element (Title, Table, ListItem…)"], section:['free',"follow metadata['parent_id'] to the Title element: “5. Refunds”"], page:['free',"metadata['page_number'] is 1-based, ready to cite"], date:['derive',"metadata['last_modified'] is the file’s mtime, not the publication date; set it from your source system"]},
+    callout:`<b>Ten Documents, each one a typed piece of the page.</b> You can drop <code>Header</code> and <code>Footer</code> before chunking, keep the table whole and give the LLM its <code>text_as_html</code>, and stamp every chunk with its section by following <code>parent_id</code> to the Title. The cost is speed and dependencies: Unstructured is the slowest of the three, and its layout models need extra system packages.`}
+};
+
+const ORDER=['pypdf','pymupdf','unstructured'];
+let cur='pypdf';
+ORDER.forEach((k,i)=>{
+  $('tabs').insertAdjacentHTML('beforeend',`<input type="radio" name="loader" id="ld-${k}" value="${k}"${i===0?' checked':''}><label class="opt" for="ld-${k}">${LOADERS[k].name}</label>`);
+  $('ld-'+k).addEventListener('change',()=>{cur=k;render();});
+});
+const FIELDS=[['source','citations, deduplication'],['type','routing loaders and prompts by format'],['section','filtering, section-aware answers'],['page','citations a reader can check'],['date','freshness filters, “latest policy” questions']];
+const LABEL={free:'from the loader', derive:'derive it', miss:'missing'};
+
+function light(regions,on){
+  document.querySelectorAll('#paper [data-el]').forEach(e=>e.classList.toggle('lit', on && regions.includes(e.dataset.el)));
+}
+function render(){
+  const L=LOADERS[cur];
+  $('call').textContent=L.call; $('outName').textContent=L.name;
+
+  $('docs').innerHTML='';
+  L.docs.forEach((d,i)=>{
+    const el=document.createElement('li'); el.className='doc'; el.tabIndex=0;
+    el.innerHTML=`<div class="doc__head"><b>Document ${i+1}</b><span>${d.cat}</span></div><pre>${d.html}</pre><div class="md">${esc(d.md)}</div>`;
+    const on=()=>{el.classList.add('lit'); light(d.regions,true);}, off=()=>{el.classList.remove('lit'); light([],false);};
+    el.addEventListener('mouseenter',on); el.addEventListener('mouseleave',off);
+    el.addEventListener('focus',on); el.addEventListener('blur',off);
+    $('docs').appendChild(el);
+  });
+
+  const good=v=>['separate','kept as HTML','yes'].includes(v);
+  const set=(id,v)=>{ $('s'+id).textContent=v; $('s'+id).className='word '+(good(v)?'is-good':'is-bad'); };
+  $('sDocs').textContent=L.docs.length;
+  set('Boiler',L.boiler); set('Table',L.table); set('Section',L.section);
+
+  $('schema').innerHTML=FIELDS.map(([f,use])=>{ const [st,how]=L.schema[f];
+    return `<tr><td>${f}</td><td>${use}</td><td class="st-${st}">${LABEL[st]}</td><td>${esc(how)}</td></tr>`; }).join('');
+  const free=FIELDS.filter(([f])=>L.schema[f][0]==='free').length;
+  $('callout').innerHTML=L.callout+` <b>${free} of 5</b> schema fields come straight from this loader.`;
+}
+render();
+</script>
+</body>
+</html>

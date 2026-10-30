@@ -8,6 +8,12 @@
 
 The chunk is the unit of retrieval. Its size and boundaries decide what the retriever can find and how much noise reaches the model.
 
+## Theory
+
+Read the [theory page](../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p05_ingestion_and_indexing/m13_chunking/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [Chunk size and overlap](../../../theory/p05_ingestion_and_indexing/m13_chunking/01_splitter_fundamentals_character_recursive_token_and_structure_aware/interactive/chunk-size-overlap-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Apply character, recursive, token and structure-aware (Markdown, HTML, code) splitters
@@ -21,10 +27,10 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 13.1 | Splitter fundamentals: character, recursive, token and structure-aware | [`01a_document_splitting_and_chunking.ipynb`](notebooks/01a_document_splitting_and_chunking.ipynb) | [`01b_document_splitters_and_chunkers.ipynb`](optional/01b_document_splitters_and_chunkers.ipynb) *(alternate)*<br>[`01c_text_splitters_and_chunking_strategies.ipynb`](optional/01c_text_splitters_and_chunking_strategies.ipynb) *(alternate)* |
-| 13.2 | Semantic chunking: breakpoints on embedding distance | [`02a_semantic_chunking.ipynb`](notebooks/02a_semantic_chunking.ipynb) | [`02b_semantic_chunking_walkthrough.ipynb`](optional/02b_semantic_chunking_walkthrough.ipynb) *(alternate)*<br>[`02c_semantic_chunking_rag_techniques.ipynb`](optional/02c_semantic_chunking_rag_techniques.ipynb) *(alternate)* |
-| 13.3 | Proposition chunking with LLM quality checks | [`03a_proposition_chunking.ipynb`](notebooks/03a_proposition_chunking.ipynb) | [`03b_proposition_chunking_rag_techniques.ipynb`](optional/03b_proposition_chunking_rag_techniques.ipynb) *(alternate)* |
-| 13.4 | Choosing chunk size empirically: retrieval quality, faithfulness, latency | [`04a_choosing_chunk_size.ipynb`](notebooks/04a_choosing_chunk_size.ipynb) | [`04b_choose_chunk_size_llamaindex.ipynb`](optional/04b_choose_chunk_size_llamaindex.ipynb) *(alternate)* |
+| 13.1 | Splitter fundamentals: character, recursive, token and structure-aware ([theory](../../../theory/p05_ingestion_and_indexing/m13_chunking/01_splitter_fundamentals_character_recursive_token_and_structure_aware/README.md)) | [`01a_document_splitting_and_chunking.ipynb`](notebooks/01a_document_splitting_and_chunking.ipynb) | [`01b_document_splitters_and_chunkers.ipynb`](optional/01b_document_splitters_and_chunkers.ipynb) *(alternate)*<br>[`01c_text_splitters_and_chunking_strategies.ipynb`](optional/01c_text_splitters_and_chunking_strategies.ipynb) *(alternate)* |
+| 13.2 | Semantic chunking: breakpoints on embedding distance ([theory](../../../theory/p05_ingestion_and_indexing/m13_chunking/02_semantic_chunking_breakpoints_on_embedding_distance/README.md)) | [`02a_semantic_chunking.ipynb`](notebooks/02a_semantic_chunking.ipynb) | [`02b_semantic_chunking_walkthrough.ipynb`](optional/02b_semantic_chunking_walkthrough.ipynb) *(alternate)*<br>[`02c_semantic_chunking_rag_techniques.ipynb`](optional/02c_semantic_chunking_rag_techniques.ipynb) *(alternate)* |
+| 13.3 | Proposition chunking with LLM quality checks ([theory](../../../theory/p05_ingestion_and_indexing/m13_chunking/03_proposition_chunking_with_llm_quality_checks/README.md)) | [`03a_proposition_chunking.ipynb`](notebooks/03a_proposition_chunking.ipynb) | [`03b_proposition_chunking_rag_techniques.ipynb`](optional/03b_proposition_chunking_rag_techniques.ipynb) *(alternate)* |
+| 13.4 | Choosing chunk size empirically: retrieval quality, faithfulness, latency ([theory](../../../theory/p05_ingestion_and_indexing/m13_chunking/04_choosing_chunk_size_empirically_retrieval_quality_faithfulness_latency/README.md)) | [`04a_choosing_chunk_size.ipynb`](notebooks/04a_choosing_chunk_size.ipynb) | [`04b_choose_chunk_size_llamaindex.ipynb`](optional/04b_choose_chunk_size_llamaindex.ipynb) *(alternate)* |
 
 ## Hands-on lab
 
@@ -32,7 +38,7 @@ Chunking bake-off: index the same corpus with recursive, semantic and propositio
 
 ## Key concepts
 
-Chunk size and overlap · Breakpoint threshold · Propositions · Structure-aware splitting
+[Chunk size and overlap](../../../theory/p05_ingestion_and_indexing/m13_chunking/01_splitter_fundamentals_character_recursive_token_and_structure_aware/README.md#chunk-size-and-overlap) · [Breakpoint threshold](../../../theory/p05_ingestion_and_indexing/m13_chunking/02_semantic_chunking_breakpoints_on_embedding_distance/README.md#breakpoint-threshold) · [Propositions](../../../theory/p05_ingestion_and_indexing/m13_chunking/03_proposition_chunking_with_llm_quality_checks/README.md#propositions) · [Structure-aware splitting](../../../theory/p05_ingestion_and_indexing/m13_chunking/01_splitter_fundamentals_character_recursive_token_and_structure_aware/README.md#structure-aware-splitting)
 
 ## Folder layout
 

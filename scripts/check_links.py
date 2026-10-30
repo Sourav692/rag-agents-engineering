@@ -14,7 +14,7 @@ import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {".git", ".venv", ".ipynb_checkpoints", "__pycache__", "node_modules"}
+SKIP = {".git", ".venv", ".ipynb_checkpoints", "__pycache__", "node_modules", ".claude"}  # .claude: skill templates hold placeholder links
 ARCHIVED = ("docs/source/",)
 MD_LINK = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 IMG_TAG = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.I)
