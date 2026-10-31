@@ -115,6 +115,23 @@ def test_fde_site_slugs_cover_the_curriculum():
     assert not bad, bad
 
 
+def test_fde_site_mistakes_cover_every_module():
+    """docs/fde-site-mistakes.yaml gives every module one to four short common mistakes, and names no other module."""
+    import yaml
+
+    data = yaml.safe_load((ROOT / "docs/fde-site-mistakes.yaml").read_text())
+    keys = {m["key"] for m in CUR["modules"]}
+    bad = [f"{k}: not a module" for k in data if k not in keys]
+    bad += [f"{k}: no common mistakes" for k in keys if not data.get(k)]
+    for k, items in data.items():
+        if not isinstance(items, list) or not 1 <= len(items) <= 4:
+            bad.append(f"{k}: want 1 to 4 mistakes")
+            continue
+        bad += [f"{k}: {x!r} is not one short phrase" for x in items
+                if not isinstance(x, str) or not 2 <= len(x.split()) <= 16 or x.endswith(".") or "—" in x]
+    assert not bad, bad
+
+
 def test_site_curriculum_export_is_complete_and_stable():
     """export_site_curriculum.py lists every theory page once, plus an Overview and Interview page per module."""
     import export_site_curriculum
@@ -130,6 +147,7 @@ def test_site_curriculum_export_is_complete_and_stable():
     assert len(data["RAG_LESSONS"]) == len(pages) + 2 * len(modules)
     homed = {les["slug"] for les in data["RAG_LESSONS"]}
     assert all(set(m["lessons"]) <= homed for m in data["RAG_MODULES"])
+    assert all(m["commonMistakes"] for m in data["RAG_MODULES"])
     notebook_only = sum(len(m.get("notebookOnly", [])) for m in data["RAG_MODULES"])
     assert notebook_only == sum(len(m["lessons"]) for m in modules) - len(pages)
 

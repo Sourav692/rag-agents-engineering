@@ -4,7 +4,8 @@
 
 Writes RAG_TRACKS, RAG_MODULES and RAG_LESSONS, typed for the site's curriculum.ts, from
 - curriculum.yaml (parts, modules, lessons, notebooks),
-- docs/fde-site-slugs.yaml (the frozen ids) and docs/fde-site-copy.yaml (track copy),
+- docs/fde-site-slugs.yaml (the frozen ids), docs/fde-site-copy.yaml (track copy) and
+  docs/fde-site-mistakes.yaml (each module's common mistakes, drawn from its Check yourself),
 - theory/ (which lessons have a page, labs, reading length, the first interview question).
 
 Each part is one track with one section; each module's lessons are its Overview, its lesson
@@ -87,7 +88,7 @@ def first_question(readme: str) -> str:
     return british(q.group(1).strip())
 
 
-def module_entry(m: dict, code: str, track: dict, ids: dict) -> tuple[dict, list[dict]]:
+def module_entry(m: dict, code: str, track: dict, ids: dict, mistakes: list[str]) -> tuple[dict, list[dict]]:
     tdir = ROOT / theory_dir(m)
     readme = (tdir / "README.md").read_text()
     vendored = f"{VENDORED}/{theory_dir(m).split('/', 1)[1]}"
@@ -120,7 +121,7 @@ def module_entry(m: dict, code: str, track: dict, ids: dict) -> tuple[dict, list
         "status": "ready", **({"practiceMinutes": LAB_MINUTES} if labs else {}),
         "objective": british(m["objectives"][0]), "scope": scope, "prerequisites": [], "deliverable": british(m["lab"]),
         "assessment": "Answer the five Interview questions without notes" + (", then run the lab." if labs else "."),
-        "interviewProbe": first_question(readme), "commonMistakes": [],
+        "interviewProbe": first_question(readme), "commonMistakes": [british(x) for x in mistakes],
         "lessons": [les["slug"] for les in lessons], "seeAlso": [],
         **({"notebookOnly": notebook_only} if notebook_only else {}),
     }
@@ -132,13 +133,14 @@ def export() -> str:
     cur = load()
     slugs = yaml.safe_load((ROOT / "docs/fde-site-slugs.yaml").read_text())
     copy = yaml.safe_load((ROOT / "docs/fde-site-copy.yaml").read_text())
+    mistakes = yaml.safe_load((ROOT / "docs/fde-site-mistakes.yaml").read_text())
     tracks, modules, lessons = [], [], []
     prerequisite = FIRST_PREREQUISITE
     for p in cur["parts"]:
         t, c = slugs["tracks"][p["id"]], copy[p["id"]]
         mods = [m for m in cur["modules"] if m["part"] == p["id"] and (ROOT / theory_dir(m) / "README.md").exists()]
         for i, m in enumerate(mods, 1):
-            module, home = module_entry(m, f"{t['code']}.{i}", t, slugs["modules"][m["key"]])
+            module, home = module_entry(m, f"{t['code']}.{i}", t, slugs["modules"][m["key"]], mistakes[m["key"]])
             modules.append(module)
             lessons += home
         tracks.append({

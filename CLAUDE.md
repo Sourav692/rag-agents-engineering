@@ -90,7 +90,7 @@ theory/<part folder>/<module folder>/     # e.g. theory/p04_rag_foundations/m11_
 
 ## forwarddeployedprep.com export
 
-The theory pages are also the AI Engineering topic of forwarddeployedprep.com (plan: `.website_plan/2026-10-31-ai-engineering-integration-plan.md`, local only). Two hand-maintained files feed it: `docs/fde-site-slugs.yaml` (frozen site ids; never change a published slug, even when a title changes) and `docs/fde-site-copy.yaml` (track copy). `scripts/export_site_curriculum.py --out <site>/site/src/lib/rag-tracks.ts` writes the site's curriculum data; the site's `npm run import:rag-theory -- --from <this repo>` vendors the pages. Both are deterministic, and tests fail when a part, module or lesson has no slug.
+The theory pages are also the AI Engineering topic of forwarddeployedprep.com (plan: `.website_plan/2026-10-31-ai-engineering-integration-plan.md`, local only). Three hand-maintained files feed it: `docs/fde-site-slugs.yaml` (frozen site ids; never change a published slug, even when a title changes), `docs/fde-site-copy.yaml` (track copy) and `docs/fde-site-mistakes.yaml` (three common mistakes per module, each drawn from that module's Check yourself questions; update it when those change). `scripts/export_site_curriculum.py --out <site>/site/src/lib/rag-tracks.ts` writes the site's curriculum data; the site's `npm run import:rag-theory -- --from <this repo>` vendors the pages. Both are deterministic, and tests fail when a part, module or lesson has no slug.
 
 ## How the migration transforms files
 
