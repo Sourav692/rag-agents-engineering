@@ -50,5 +50,28 @@ Every earlier pattern is a directed acyclic flow, so each maps onto an LCEL oper
 
 Choosing between the two LangChain loops comes down to what you need around the loop. The Python `for` loop is easy to read and returns a dict you shaped, but traces each pass as separate chain runs and has no streaming, checkpointing or interrupts. The middleware loop is one agent run with every pass nested, keeps the full message history as its state, and inherits tools, streaming and persistence from the agent runtime. Two details matter there: `can_jump_to=["model"]` on the decorator is what creates the conditional edge, and the critique reaches the next draft as an appended `HumanMessage`. When the loop needs checkpoints, interrupts or a human in it, that is the point to move to LangGraph.
 
+## Check yourself
+
+<details>
+<summary>1. Why did replacing one holistic grade with one boolean per criterion make the joke loop converge?</summary>
+
+Against a loose holistic grade the evaluator kept finding something that could be better. With four yes-or-no criteria, a met criterion passes even if the joke could improve, length is checked in code (`MAX_WORDS = 40`), and `approved` is computed only when every check passes, so the model never asserts the grade itself.
+
+</details>
+
+<details>
+<summary>2. With a cap of 5 iterations, how many LLM calls can one run make at most, and how should you count a run that hits the cap?</summary>
+
+Ten, because each pass makes one generator call and one evaluator call. A run that ends at the cap returns its last draft marked `needs_improvement`, so count it as a failure and watch the share of runs that end there.
+
+</details>
+
+<details>
+<summary>3. A teammate builds the loop in LCEL by piping generator, evaluator and generator again, or by adding a retry. Why does neither work?</summary>
+
+`a | b | a` builds a three-step chain that runs `a` twice; it never loops. `.with_retry()` retries blind, with no memory of why the last attempt failed, and feeding the critique forward is the point of the pattern. Use a Python `for` loop or `after_model` with `jump_to`, and move to LangGraph when the loop needs checkpoints or interrupts.
+
+</details>
+
 ---
 *Previous: [25.4 Orchestrator-worker with the Send API](../04_orchestrator_worker_with_the_send_api/README.md). Next: [M25 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

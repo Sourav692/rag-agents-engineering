@@ -39,5 +39,28 @@ Some values a node needs are not data the graph works on. Notebook 05a's `call_m
 
 For Larkspur, the question, route and answer are state; the reply language and the conversation's `thread_id` go in config; the customer id and the database client go in runtime context ([lesson 9.4](../04_nodes_runtime_context_and_command/README.md)). Putting a client or a secret in state is the usual mistake: state is returned to the caller, and once [M10](../../m10_langgraph_runtime/README.md) adds a checkpointer, it is saved after every step. The `thread_id` in config is what that checkpointer uses to find a conversation's saved state.
 
+## Check yourself
+
+<details>
+<summary>1. Why split a graph's state into input, private and output schemas when the nodes still read and write every key?</summary>
+
+Because only what crosses the boundary changes. The caller sends the question and gets the answer, so bookkeeping such as `llm_calls` stays private and no caller starts to depend on it. For Larkspur, that leaves room to rename or add internal keys without breaking the web widget.
+
+</details>
+
+<details>
+<summary>2. The Larkspur graph needs a reply language, a thread id, a customer id and a database client. Where does each one go?</summary>
+
+The reply language and the `thread_id` go in `config["configurable"]`, as per-call settings. The customer id and the database client go in runtime context, as dependencies. Neither place is returned; state holds only the question, route and answer the graph works on.
+
+</details>
+
+<details>
+<summary>3. A teammate puts the database client and a secret in state. Why is that a mistake, and why does it get worse once a checkpointer is added?</summary>
+
+State is returned to the caller, so the client and the secret leave the graph with the answer. Once M10 adds a checkpointer, state is also saved after every step. Dependencies and secrets belong in runtime context, which is never returned.
+
+</details>
+
 ---
 *Previous: [9.4 Nodes, runtime context and Command](../04_nodes_runtime_context_and_command/README.md). Next: [M09 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

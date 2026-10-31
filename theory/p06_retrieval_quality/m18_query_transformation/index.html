@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -460,6 +465,19 @@ th:last-child, td:last-child { padding-right: 0; }
     E -- no --&gt; P["Plain retrieval"]
 </pre></figure>
 <p>Plain retrieval is a valid exit. The M11 lab&rsquo;s export question already retrieves both its evidence chunks at <code>k = 2</code>, and every transformation on it adds cost with nothing to gain. A router (lesson 18.7) can make this choice per question instead of applying one technique to all traffic.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does "What happens if my server goes down?" score 0.000 against both Larkspur chunks that answer it?</summary>
+<p>The vocabulary differs. The answering chunks say &ldquo;outage&rdquo;, &ldquo;availability&rdquo; and &ldquo;incident&rdquo; and never &ldquo;down&rdquo;, so a term matcher finds no overlap; the top three, <code>reboot</code>, <code>sizing</code> and <code>export</code>, match only on &ldquo;server&rdquo;. Embeddings (M14) close part of this gap, and query expansion adds the handbook&rsquo;s words to the query.</p>
+</details>
+<details>
+<summary>2. In the expansion chain, which text goes to the retriever and which goes to the answer prompt, and why?</summary>
+<p>The expanded text goes to the retriever; the original question goes to the answer prompt. The expansion exists only to find the chunks, and the model should answer what the user asked, not the expansion. The cost is one LLM call before every retrieval and a risk of dilution if too many terms are added.</p>
+</details>
+<details>
+<summary>3. Should you apply a query transformation to "Can I export my data after I cancel my plan?" on the Larkspur index?</summary>
+<p>No. The M11 lab already retrieves both its evidence chunks at <code>k = 2</code>, so every transformation adds cost with nothing to gain. Plain retrieval is a valid exit, and a router (lesson 18.7) can make that choice per question.</p>
+</details>
 <h2 id="rrf">RRF</h2>
 <p class="lesson-of">Lesson 18.3: RAG-Fusion with Reciprocal Rank Fusion. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/notebooks/03a_rag_fusion.ipynb" target="_blank" rel="noopener"><code>03a_rag_fusion.ipynb</code></a></p>
 <p>Multi-query (lesson 18.2) asks an LLM for three phrasings of the question, retrieves for each, and merges the lists into a flat union. The union keeps every chunk once, in the order it was first seen, and throws away two signals: where each list ranked the chunk, and how many lists found it. A chunk that every variant ranked first looks the same as one that scraped in at fourth place in one list.</p>
@@ -643,6 +661,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Parse variants with a schema.</strong> Splitting the LLM&rsquo;s reply on newlines turns headers, numbering and blank lines into queries. In RAG-Fusion each junk query produces a ranked list that votes in the fusion. Both notebooks bind a Pydantic model with <code>with_structured_output()</code> to get a guaranteed <code>list[str]</code>.</li>
 <li><strong>Cost.</strong> One LLM call for the variants, then one retrieval per variant, run in parallel with <code>retriever.map()</code>. RRF itself is a dictionary and a sort.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does RAG-Fusion keep that multi-query's flat union throws away?</summary>
+<p>Where each list ranked a chunk and how many lists found it. RRF adds <code>1 / (rank + k)</code> for every variant that retrieved the chunk; with <code>k = 60</code>, first place adds about 0.0167 and fourth place about 0.0159, so being found by more variants matters more than placing first in one. It uses ranks because scores from different queries are not on the same scale.</p>
+</details>
+<details>
+<summary>2. Two variants rank refund-window at 1 and 0; three rank retention at 3, 3 and 2. Which comes first at k = 60, and at k = 1?</summary>
+<p>At <code>k = 60</code> <code>retention</code> wins, 0.0479 to 0.0331, because the large <code>k</code> flattens the curve and agreement counts. At <code>k = 1</code> <code>refund-window</code> wins, 1.50 to 0.83, because rank position dominates. The ordering changes only when rank and agreement disagree, as they do here.</p>
+</details>
+<details>
+<summary>3. A fusion chain answers fluently, but its context holds bare identifiers instead of passages. What went wrong?</summary>
+<p>The merge returned <code>doc.id</code> values instead of documents, as the 02a notebook&rsquo;s original <code>get_unique_union()</code> did, so the model answered from memory. Key the merge by <code>page_content</code>, return the <code>Document</code> objects, and assert that the context holds real text.</p>
+</details>
 <h2 id="hyde">HyDE</h2>
 <p class="lesson-of">Lesson 18.5: HyDE: embed a hypothetical answer. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/notebooks/05a_hyde.ipynb" target="_blank" rel="noopener"><code>05a_hyde.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/optional/05b_hyde_walkthrough.ipynb" target="_blank" rel="noopener"><code>05b_hyde_walkthrough.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/optional/05c_hyde_rag_techniques.ipynb" target="_blank" rel="noopener"><code>05c_hyde_rag_techniques.ipynb</code></a> (optional)</p>
 <p>HyDE (Hypothetical Document Embeddings, Gao et al., <a href="https://arxiv.org/abs/2212.10496" target="_blank" rel="noopener">arXiv:2212.10496</a>) attacks the shape half of the <a href="#querydocument-asymmetry">query-document asymmetry</a>. Instead of embedding the question, it asks an LLM to write an answer, embeds that answer, and searches with its vector. An invented answer is declarative, long and full of the vocabulary documentation uses, so it lands nearer the real passage than the question does.</p>
@@ -710,6 +741,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>The Larkspur handbook is the private case. No model was trained on Larkspur&rsquo;s refund window or its outage credits, so a hypothetical answer to <em>What happens if my server goes down?</em> is written from what the model knows about hosting providers in general. That text is likely to use outage vocabulary, which helps here, and it can also name terms the handbook never uses, which pull the vector toward nothing. The 05a notebook ends with the test that settles it: retrieve with and without HyDE on the same questions and count the overlap, rather than assume a gain.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The hypothetical answer HyDE writes may state wrong facts. Why does that not mislead the user?</summary>
+<p>It is only a search key. It is embedded, then discarded: it never reaches the user and never enters the context. The chunks that come back from the index are real, and the answer is built from them.</p>
+</details>
+<details>
+<summary>2. You pass the HyDE embedder to Chroma.from_documents to build the Larkspur index. Does indexing call the LLM?</summary>
+<p>No. <code>embed_documents()</code> passes straight through to the base embedder, so indexing stays plain, while <code>embed_query()</code> runs the LLM and embeds its text, so every <code>similarity_search()</code> applies HyDE. The base embedder must be the model that built the index, or the vectors are not comparable.</p>
+</details>
+<details>
+<summary>3. Should you turn HyDE on for the Larkspur handbook?</summary>
+<p>Only after testing it. No model was trained on Larkspur&rsquo;s refund window or outage credits, so a hypothetical answer comes from general hosting knowledge: its outage vocabulary may help, and terms the handbook never uses can pull the vector toward nothing. Retrieve with and without HyDE on the same questions and count the overlap.</p>
+</details>
 <h2 id="decomposing-compound-questions">Decomposing compound questions</h2>
 <p class="lesson-of">Lesson 18.6: Query decomposition for multi-hop questions. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/notebooks/06a_query_decomposition.ipynb" target="_blank" rel="noopener"><code>06a_query_decomposition.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/optional/06b_query_decomposition_walkthrough.ipynb" target="_blank" rel="noopener"><code>06b_query_decomposition_walkthrough.ipynb</code></a> (optional)</p>
 <p>Some questions carry two or three needs. <em>What is LangSmith, and why do we need it?</em>, the 06a notebook&rsquo;s example, asks for a definition and a justification, and the answers live in different chunks. Dense retrieval gives the whole question one vector, which lands between the two needs and close to neither. With a top-k cut, one need can crowd the other out entirely.</p>
@@ -761,6 +805,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The first version of the notebook asked for prose and split it on newlines. The prompt asked for sub-questions and then for &ldquo;multiple search queries&rdquo;, the model returned both under markdown headers, and the split produced about 18 items: headers, blank strings and bullets. Each one triggered a retrieval and an LLM call, roughly 18 of each instead of 3, and the same chain returned 3 clean lines on some runs, so the bug came and went. The fix is a prompt that asks for one thing and a Pydantic schema bound with <code>with_structured_output()</code>, which returns a <code>list[str]</code> of exactly the sub-questions.</p>
 <h3>On the Larkspur handbook</h3>
 <p>M11&rsquo;s symptom table sends &ldquo;half an answer; one fact found, another missed&rdquo; to decomposition. <em>Can I export my data after I cancel my plan?</em> reads like two needs, how to export and what happens to data after cancelling. The M11 lab already retrieves both evidence chunks for it at <code>k = 2</code>, because one chunk says &ldquo;Export your data&rdquo; and the other &ldquo;After a plan is cancelled&rdquo;. Decomposing it would cost four extra LLM calls and add nothing. Decompose the questions whose parts the single query misses, found on the golden set, and route the rest past it (lesson 18.7).</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The 06a notebook asks "What is LangSmith, and why do we need it?" Why does a single dense query struggle with it?</summary>
+<p>The question carries two needs, a definition and a justification, whose answers live in different chunks. One vector lands between them and close to neither, and with a top-k cut one need can crowd the other out. Decomposition splits the question before retrieval so each need gets its own search.</p>
+</details>
+<details>
+<summary>2. How many LLM calls and retrievals does decomposing into three sub-questions cost, and how do you cut the wall-clock time?</summary>
+<p>5 LLM calls and 3 retrievals, against 1 and 1 for plain RAG. The sub-questions are independent, so <code>rag_chain.batch(...)</code> runs them in parallel and recovers most of the wall time at the same token cost.</p>
+</details>
+<details>
+<summary>3. A decomposition chain sometimes makes about 18 retrievals and LLM calls instead of 3. What causes it, and what is the fix?</summary>
+<p>The prompt asked for prose and the code split it on newlines; the model returned sub-questions and search queries under markdown headers, so headers, blank strings and bullets each became a sub-question. Ask for one thing and bind a Pydantic schema with <code>with_structured_output()</code>, which returns a <code>list[str]</code> of exactly the sub-questions.</p>
+</details>
 <h2 id="logical-vs-semantic-routing">Logical vs semantic routing</h2>
 <p class="lesson-of">Lesson 18.7: Routing: LLM classifier and semantic routing. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/notebooks/07a_routing_with_llm_classifier.ipynb" target="_blank" rel="noopener"><code>07a_routing_with_llm_classifier.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m18_query_transformation/notebooks/07b_semantic_routing.ipynb" target="_blank" rel="noopener"><code>07b_semantic_routing.ipynb</code></a></p>
 <p>A router decides where a question goes before anything answers it: which prompt, which data source, which transformation. Lesson 18.7 builds the same four-way router twice, over the notebooks&rsquo; personal finance, book review, health and fitness, and travel destinations. <strong>Logical routing</strong> asks an LLM to read the question and choose. <strong>Semantic routing</strong> embeds the question and picks the destination whose example questions it is closest to.</p>
@@ -854,6 +911,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Do I get a refund if an outage lasts a day?</em> belongs to billing and reliability at once. Expect its two scores to sit close, the margin check to fail, and the classifier to decide, or send it to both routes. Self-querying (lesson 18.8) is the related move inside one source: instead of choosing a destination it turns part of the question into a metadata filter, such as a plan type or a date.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the fixed LLM classifier return its route through a Literal field, and what does that still not guarantee?</summary>
+<p>Free text broke the first version: <code>'health &amp; fitness'</code> matched none of the exact strings, every branch fell through and the router returned <code>None</code> while appearing to work. A <code>Literal</code> guarantees a valid route name, not a sensible one; asked the capital of France, it still picks one of the four, so a production router needs an explicit <code>other</code> route.</p>
+</details>
+<details>
+<summary>2. "Are meal-prep books worth buying?" wins its semantic route by about 0.002, with every route near 0.28. With thresholds of 0.35 and 0.02, where does it go?</summary>
+<p>To the LLM classifier. It fails both checks: its top score is below 0.35 and its margin over the runner-up is below 0.02. Without the thresholds the semantic router would have returned that guess with the same confidence as an exact match.</p>
+</details>
+<details>
+<summary>3. A Larkspur customer asks "Do I get a refund if an outage lasts a day?" What should you expect the router to do with it?</summary>
+<p>It belongs to billing and reliability at once, so expect the two route scores to sit close and the margin check to fail. The classifier then decides, or you send the question to both routes. The page&rsquo;s Larkspur examples are illustrative, so check this on logged traffic.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="03_rag_fusion_with_reciprocal_rank_fusion/interactive/query-variant-fusion-lab.html"><strong>Query variants and rank fusion</strong></a>: open the file in a browser. It opens on the outage question at three chunks: both evidence chunks are in, against none for the question as asked. Switch to <strong>Flat union</strong> and <code>incidents</code> drops to rank 5. Then pick <em>How long does a refund take?</em>, set the cut to 2, and move <code>k</code> from 60 to 1 to watch <code>refund-window</code> climb back above <code>retention</code>.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -910,7 +980,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>RRF rewards agreement, and agreement on a distractor still counts. Tune <code>k</code> and the cut on your golden set instead of taking 60 on trust.</li>
 <li>Route cheaply by similarity, check the margin, and pay for an LLM classifier only when the margin is small.</li>
 </ul></article>
-    <nav class="toc" aria-label="M18 sections"><details open><summary>In M18</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#querydocument-asymmetry">Query–document asymmetry</a></li><li><a href="#rrf">RRF</a></li><li><a href="#hyde">HyDE</a></li><li><a href="#decomposing-compound-questions">Decomposing compound questions</a></li><li><a href="#logical-vs-semantic-routing">Logical vs semantic routing</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M18 sections"><details open><summary>In M18</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#querydocument-asymmetry">Query–document asymmetry</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#rrf">RRF</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hyde">HyDE</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#decomposing-compound-questions">Decomposing compound questions</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#logical-vs-semantic-routing">Logical vs semantic routing</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

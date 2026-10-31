@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -425,6 +430,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A one-phrase edit changes the fingerprint as completely as a new sentence, so any edit after review needs a new preview and a new decision. In the refused runs the audit log still shows an <code>approve</code>. That entry is correct: the reviewer approved <code>c4e9e330698e</code>, and the text that tried to publish was something else.</p>
 <p>The gate enforces whatever the reviewer decides. Approve the uptime post in the lab and it reaches the feed. A gate protects only as much as its reviewers read, and the module page&rsquo;s interview questions cover how to measure that.</p>
 <p><code>HumanInTheLoopMiddleware</code> (M24) gives a <code>create_agent</code> agent the same pause before a tool call, built on the same <code>interrupt()</code> and checkpointer (M10). Building the gate by hand adds the two parts this lesson needs: a preview of the effect and a fingerprint that ties the approval to it.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why must the dry run be its own graph node before the review node, rather than code inside the review node?</summary>
+<p>On resume LangGraph re-runs the paused node from the top, so anything placed before <code>interrupt()</code> in the review node runs twice. A preview generated there could differ from the one the reviewer approved.</p>
+</details>
+<details>
+<summary>2. The eu-west post is approved, then 72 hours is edited to 48 hours before it publishes. What happens, and what does the audit log show?</summary>
+<p>The fingerprint at publish is <code>11673ae3c1d4</code>, not the approved <code>c4e9e330698e</code>, so the publish node returns <code>REFUSED: the post differs from the approved preview</code>. The audit log still shows an <code>approve</code>, and that is correct: the reviewer approved <code>c4e9e330698e</code>. Any edit after review needs a new preview and a new decision.</p>
+</details>
+<details>
+<summary>3. A reviewer answers the approval prompt with yes. Does the post go out, and why is that the right behaviour?</summary>
+<p>No. The gate fails closed: <code>normalize_decision</code> strips and lowercases the answer and accepts only the exact word <code>approve</code>, so <code>yes</code> and <code>approved</code> are rejections, logged as unclear answers. An ambiguous answer should never publish.</p>
+</details>
 <h2 id="text-to-sql">Text-to-SQL</h2>
 <p class="lesson-of">Lesson 27.4: Text-to-SQL: workflow vs ReAct agent. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/notebooks/04a_text2sql_workflow.ipynb" target="_blank" rel="noopener"><code>04a_text2sql_workflow.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/notebooks/04b_text2sql_react_agent.ipynb" target="_blank" rel="noopener"><code>04b_text2sql_react_agent.ipynb</code></a></p>
 <p>Text-to-SQL turns a question into a query, runs it, and writes the answer from the rows. Both notebooks use a comic-store database built from <code>comicdb_create_script.sql</code>: eight tables (Branch, Publisher, Comic, Customer, Employee, Inventory, Sale, SaleTransactions) holding 50 comics, 20 customers, 20 sales and 40 sale lines.</p>
@@ -626,6 +644,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>The module&rsquo;s <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/lab/README.md" target="_blank" rel="noopener">lab brief</a> measures this split: the same 20 questions over a product catalogue, answered by CSV RAG from M20 and by the text-to-SQL agent, with the winner recorded per question type.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The ReAct agent reads schemas and checks each query before it runs. Which errors do those steps fix, and which do they not?</summary>
+<p>They fix wrong column names and syntax errors. They do not fix a wrong definition, such as counting sale lines instead of summing <code>Quantity</code>. That is why both designs are scored question by question against reference SQL.</p>
+</details>
+<details>
+<summary>2. For the question of which customer has purchased the most comics, the generated SQL counts sale lines. What answer comes back, and what is correct?</summary>
+<p>Counting lines gives Natasha Romanoff (5 lines, for 6 copies). Summing <code>Quantity</code> gives Tony Stark (8 copies, on 4 lines), which matches the reference SQL. The query runs and the answer reads well, so only the ground-truth check shows it is wrong.</p>
+</details>
+<details>
+<summary>3. Why can a vector retriever not answer how many Superhero comics have never been sold, when text-to-SQL can?</summary>
+<p>The answer (9) depends on all 50 comics and all 40 sale lines, and a retriever returns only the <code>k</code> chunks most similar to the question, so no top-k slice contains it. SQL computes over every row, then the model only phrases the result. Vector RAG fits prose answers such as policies.</p>
+</details>
 <h2 id="workflow-apps">Workflow apps</h2>
 <p class="lesson-of">Lesson 27.5: LLM workflow apps: review analyst, IT support desk, tailored writer, quiz generator. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/optional/05a_review_analyst.ipynb" target="_blank" rel="noopener"><code>05a_review_analyst.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/optional/05b_multilingual_it_support_desk.ipynb" target="_blank" rel="noopener"><code>05b_multilingual_it_support_desk.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/optional/05c_audience_tailored_writer.ipynb" target="_blank" rel="noopener"><code>05c_audience_tailored_writer.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m27_human_approval_applied_agents/optional/05d_quiz_generator.ipynb" target="_blank" rel="noopener"><code>05d_quiz_generator.ipynb</code></a> (optional)</p>
 <p>A workflow app runs a fixed sequence of LLM steps over business text: reviews, support tickets, a fact sheet, a PDF. There is no tool loop. The model fills typed fields, and code does everything that has a right answer: routing, checking and assembling the final document. The four notebooks are four versions of one shape.</p>
@@ -651,6 +682,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>On the Larkspur handbook the same shape triages the support queue. One structured call per ticket returns the language, a category (refund, outage, sizing) and a draft reply. Code routes outage tickets to the incident template, checks that every number in a reply appears in the handbook (the 30-day refund window, the 99.95% availability target), and holds any reply that fails for a person. A reply that issues a refund is an action, so it goes through the approval gate from <a href="#approval-gates">27.1</a>.</p>
 <p>These apps are workflows in the sense of lesson 27.4: the same steps every time, cheap, easy to test. Choose an agent only when the next step depends on what the model finds.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why do the workflow apps render the final document from a template instead of asking the model to merge the checked parts?</summary>
+<p>A model asked to merge a checked summary and checked questions could reword them after the checks ran. A template cannot, so what the user reads is exactly what passed the checks.</p>
+</details>
+<details>
+<summary>2. The writer's fact sheet gives RAM, screen sizes and a battery rating but no camera figure, and an advert claims 50 MP. What catches it?</summary>
+<p>The code check that every number in the output appears in the source flags &ldquo;50 MP&rdquo; as invented. String and number checks are cheap enough to run on every call. The Larkspur triage version runs the same check against the handbook&rsquo;s numbers, such as the 30-day refund window.</p>
+</details>
+<details>
+<summary>3. For the multilingual support desk, should you use one structured call per ticket or the four-step translate chain?</summary>
+<p>The notebook measures both on the same tickets before choosing. One structured call makes a quarter of the LLM calls, and the chain&rsquo;s free-text steps can leak a code fence or &ldquo;The customer message in English is:&rdquo; into the reply.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html"><strong>The approval gate</strong></a>: open the file in a browser. Keep the eu-west post and try the answers <code>␣Approve␣</code>, <code>approved</code> and <code>sure, why not</code>: the first publishes, the other two fail closed. Then set the answer back to <code>approve</code> and pick <em>Small edit</em>: the reviewer said yes, the audit log records an approve, and the post still does not publish. Last, approve the uptime post. It reaches the feed, because the gate enforces whatever the reviewer decides.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -707,7 +751,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Use SQL to retrieve when the answer is a count, sum or ranking over rows, enforce read-only access in the connection, and write ambiguous business terms down as rules.</li>
 <li>Let the LLM fill typed fields and keep routing, checks and the final document in code, where a test can run on every output.</li>
 </ul></article>
-    <nav class="toc" aria-label="M27 sections"><details open><summary>In M27</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#dry-run">Dry run</a></li><li><a href="#approval-gates">Approval gates</a></li><li><a href="#text-to-sql">Text-to-SQL</a></li><li><a href="#workflow-or-react-agent">Workflow or ReAct agent</a></li><li><a href="#sql-or-vectors">SQL or vectors</a></li><li><a href="#workflow-apps">Workflow apps</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M27 sections"><details open><summary>In M27</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#dry-run">Dry run</a></li><li><a href="#approval-gates">Approval gates</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#text-to-sql">Text-to-SQL</a></li><li><a href="#workflow-or-react-agent">Workflow or ReAct agent</a></li><li><a href="#sql-or-vectors">SQL or vectors</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#workflow-apps">Workflow apps</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

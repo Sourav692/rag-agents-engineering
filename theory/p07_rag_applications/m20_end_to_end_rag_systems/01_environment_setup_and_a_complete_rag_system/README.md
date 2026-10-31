@@ -47,5 +47,28 @@ The instruction does not guarantee compliance. A model can still blend in outsid
 
 The optional `01c` notebook builds the same pipeline on FAISS from one PDF, `Understanding_Climate_Change.pdf`, with 1,000-character chunks, 200 overlap and `k=2`, and reconstructs the index matrix to show its shape: one row per chunk, 1,536 columns.
 
+## Check yourself
+
+<details>
+<summary>1. What three things in the 01b prompt keep an answer grounded?</summary>
+
+The evidence is retrieved for this question, five chunks rather than the corpus. The instruction limits the model to that evidence. And the model has a way out: it may say it does not know, because without a permitted refusal a model asked about something the context lacks answers from training.
+
+</details>
+
+<details>
+<summary>2. A user asks the Larkspur system whether Larkspur offers a free tier. What should the grounded answer be, and how do you know the model complies?</summary>
+
+"I don't know", because no chunk in the handbook covers a free tier. The instruction does not guarantee compliance, so put questions with no answer in the golden set and count the refusals.
+
+</details>
+
+<details>
+<summary>3. Embedding the string Hello, world! with embed documents returns 13 vectors. What went wrong?</summary>
+
+`embed_documents` expects a list of strings, and a Python string is iterable, so each of the 13 characters was embedded on its own. Use `embed_query(text)` or `embed_documents([text])` for one 1,536-dimension vector. Inside an indexing loop the same mistake stores garbage without an error.
+
+</details>
+
 ---
 *Previous: [M20 overview](../README.md). Next: [20.2 Answers with sources and per-claim citations](../02_answers_with_sources_and_per_claim_citations/README.md).*

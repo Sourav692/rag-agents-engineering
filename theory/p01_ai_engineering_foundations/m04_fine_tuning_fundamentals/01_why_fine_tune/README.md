@@ -42,5 +42,28 @@ The base model does what pre-training taught it: continue the text with somethin
 
 The weights changed and the architecture did not. Everything that separates the two columns came from the training data, which is why the rest of this module is about the data.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the refund-time answer stay in the Larkspur index while opening every answer with Yes or No can go into a fine-tune?</summary>
+
+The refund time is a fact the policy team will change: RAG picks up a change with a re-index, while a fine-tuned model would need a rebuilt dataset and a retrain, and risks stale facts. Leading with Yes or No, and declining off-topic questions, is behaviour, which a fine-tune can carry in the weights on a smaller, cheaper model.
+
+</details>
+
+<details>
+<summary>2. You send Tell me how to train my dog to sit, without any wrapper, to the Llama 2 base and chat models. What does each return, and why?</summary>
+
+The base model continues with similar questions ("Tell me how to train my dog to stay. ..."), because pre-training taught it to continue text. The chat model treats it as a request but first finishes the sentence ("on command."), because it was trained with the `[INST]` wrapper; with the wrapper its answer starts cleanly.
+
+</details>
+
+<details>
+<summary>3. A team wants to fine-tune for a behaviour but cannot write a few hundred examples of it. What should they do?</summary>
+
+Not fine-tune: without the examples they can neither train for the behaviour nor evaluate it. The decision chain says to prompt it if a clear prompt with examples works (M05), retrieve it if the gap is a fact that changes (M11), and otherwise define the task before training.
+
+</details>
+
 ---
 *Previous: [M04 overview](../README.md). Next: [4.2 Where fine-tuning fits](../02_where_fine_tuning_fits/README.md).*

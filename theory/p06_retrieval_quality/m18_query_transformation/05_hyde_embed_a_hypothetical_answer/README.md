@@ -44,5 +44,28 @@ The paper generates several hypothetical answers and averages their embeddings, 
 
 The Larkspur handbook is the private case. No model was trained on Larkspur's refund window or its outage credits, so a hypothetical answer to *What happens if my server goes down?* is written from what the model knows about hosting providers in general. That text is likely to use outage vocabulary, which helps here, and it can also name terms the handbook never uses, which pull the vector toward nothing. The 05a notebook ends with the test that settles it: retrieve with and without HyDE on the same questions and count the overlap, rather than assume a gain.
 
+## Check yourself
+
+<details>
+<summary>1. The hypothetical answer HyDE writes may state wrong facts. Why does that not mislead the user?</summary>
+
+It is only a search key. It is embedded, then discarded: it never reaches the user and never enters the context. The chunks that come back from the index are real, and the answer is built from them.
+
+</details>
+
+<details>
+<summary>2. You pass the HyDE embedder to Chroma.from_documents to build the Larkspur index. Does indexing call the LLM?</summary>
+
+No. `embed_documents()` passes straight through to the base embedder, so indexing stays plain, while `embed_query()` runs the LLM and embeds its text, so every `similarity_search()` applies HyDE. The base embedder must be the model that built the index, or the vectors are not comparable.
+
+</details>
+
+<details>
+<summary>3. Should you turn HyDE on for the Larkspur handbook?</summary>
+
+Only after testing it. No model was trained on Larkspur's refund window or outage credits, so a hypothetical answer comes from general hosting knowledge: its outage vocabulary may help, and terms the handbook never uses can pull the vector toward nothing. Retrieve with and without HyDE on the same questions and count the overlap.
+
+</details>
+
 ---
 *Previous: [18.3 RAG-Fusion with Reciprocal Rank Fusion](../03_rag_fusion_with_reciprocal_rank_fusion/README.md). Next: [18.6 Query decomposition for multi-hop questions](../06_query_decomposition_for_multi_hop_questions/README.md).*

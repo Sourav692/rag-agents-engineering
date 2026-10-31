@@ -38,5 +38,28 @@ The [interactive lab](interactive/follow-up-retrieval-lab.html) runs six three-t
 
 The lab is the module's lab brief in miniature. On your own corpus, write the multi-turn conversations, label the evidence for each turn, and report hit rate on turns 2 and 3 separately from turn 1, with and without the rewrite. A single average over all turns hides the follow-ups, because first questions are usually standalone.
 
+## Check yourself
+
+<details>
+<summary>1. The model receives the chat history, yet the follow-up How long do I have? retrieves nothing useful. Why, and what does a history-aware retriever add?</summary>
+
+The retriever reads only the literal question, and its one useful term, "long", appears in no handbook chunk, so every chunk scores zero. A history-aware retriever first has an LLM rewrite the latest message as a standalone question from the history, and the retriever searches for that. On turn 1, with an empty history, it skips the rewrite.
+
+</details>
+
+<details>
+<summary>2. In the lab at k = 1, appending earlier questions hits on 5 of 6 turn-2 messages but only 1 of 6 on turn 3. Why the collapse?</summary>
+
+Turn 2 usually continues turn 1's topic, so the extra words help. Turn 3 often changes topic, and two earlier questions outweigh one new one, so the old topic takes the only slot in 5 of 6 chats. At `k = 2` appending catches up to 0.92, but only by spending a slot on the old topic every time.
+
+</details>
+
+<details>
+<summary>3. With the rewrite, How long until the money is back? still misses its evidence. Would a better rewrite prompt fix it?</summary>
+
+No. The evidence chunk says "Refunds" and "business days", and no phrasing of the question uses those words. A rewrite restores the subject, not the handbook's vocabulary; that is a representation problem, which embeddings (M14) address.
+
+</details>
+
 ---
 *Previous: [33.3 Trimming, windowing and summary memory](../03_trimming_windowing_and_summary_memory/README.md). Next: [33.6 LangGraph threads, checkpoints and memory optimisations](../06_langgraph_threads_checkpoints_and_memory_optimisations/README.md).*

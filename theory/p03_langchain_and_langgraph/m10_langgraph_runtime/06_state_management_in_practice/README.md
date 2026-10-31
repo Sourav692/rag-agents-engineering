@@ -42,5 +42,28 @@ Two guards account for every difference:
 
 Put together, these are the notebook's closing rules: workers stay stateless, state lives in the checkpointer, the `events` field is the audit log, the workflow is an explicit graph with the human gate as a waiting state, and every side effect can run twice without harm.
 
+## Check yourself
+
+<details>
+<summary>1. Two reviewers fan out from the start node and both return risk, and the run stops. Why, and what fixes it?</summary>
+
+The `risk` field has no reducer, so LangGraph cannot choose between two writes in one step and raises "Can receive only one value per step". Give the field a reducer, such as `operator.add`, and the merge is deterministic; that is how parallel reviewers' scores are summed.
+
+</details>
+
+<details>
+<summary>2. In the lab, refund-99's provider applies the refund and the response is lost, then a RetryPolicy retries. How many refunds does the customer get with guards off, and with guards on?</summary>
+
+Two with guards off, one with guards on. With guards on the call carries the key `refund:refund-99`, so the provider recognises the second request and returns the stored result. A 503 before the refund is harmless to retry either way.
+
+</details>
+
+<details>
+<summary>3. The billing team gets every high-risk approval notice twice, even with no faults. What causes it, and what is the fix?</summary>
+
+The notice is sent inside `human_gate` above `interrupt()`, and a resume re-runs that node from its first line. Move the notice into its own `notify` node before the gate, so it runs once. The graph gains a node and one checkpoint (8 instead of 7), and the client still makes 2 calls.
+
+</details>
+
 ---
 *Previous: [10.5 Retry policies and bounded cycles](../05_retry_policies_and_bounded_cycles/README.md). Next: [M10 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

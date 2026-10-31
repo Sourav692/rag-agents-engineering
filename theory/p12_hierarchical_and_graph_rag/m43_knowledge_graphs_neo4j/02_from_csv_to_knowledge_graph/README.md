@@ -37,5 +37,28 @@ Cast numeric and date fields explicitly when the query needs their types. `DictR
 
 Check imported entity keys, relationship counts and a few known paths against the input. Re-run a small fixture with the same rows and then with an edited description. The entity count should stay fixed while the description changes. Keep a source document identifier and version on extracted assertions so that deleting an obsolete handbook edition does not leave unsupported plan capabilities behind.
 
+## Check yourself
+
+<details>
+<summary>1. The healthcare notebook merges a provider on both name and bio. Why does that break repeated imports?</summary>
+
+`MERGE` matches the whole property pattern, so when a bio changes the pattern no longer matches and the import creates a second provider. Merge on a stable key, such as `MERGE (p:Plan {id: $plan_id})`, back it with a uniqueness constraint, and update descriptive properties separately with `SET`.
+
+</details>
+
+<details>
+<summary>2. A CSV row links a plan to a region that is not in the graph. What should the import do with it?</summary>
+
+Match both endpoint entities before merging the relationship, and report the row whose endpoint is missing instead of creating a link to nothing. Rows without a valid key go to quarantine before any entity is merged.
+
+</details>
+
+<details>
+<summary>3. Larkspur deletes an obsolete handbook edition, but some plans still show capabilities that only that edition asserted. What did the import leave out?</summary>
+
+A source document identifier and version on each extracted assertion. With them, deleting the edition also removes the assertions it supported; without them, unsupported plan capabilities stay behind.
+
+</details>
+
 ---
 *Previous: [43.1 Graph fundamentals and Cypher](../01_graph_fundamentals_and_cypher/README.md). Next: [43.3 Natural-language graph QA (text-to-Cypher)](../03_natural_language_graph_qa_text_to_cypher/README.md).*

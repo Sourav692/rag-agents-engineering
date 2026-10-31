@@ -60,5 +60,28 @@ Four details carry the design:
 
 The notebook proves the wiring before it spends a token. `create_research_system(nodes=...)` takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.
 
+## Check yourself
+
+<details>
+<summary>1. What separates the one-shot planner in 05c from the supervisor in 05a, and what does each give up?</summary>
+
+The supervisor decides after every worker report, so it can adapt, but it is the hardest to bound and needs `MAX_SUPERVISOR_TURNS = 6`. The planner decides the list of queries once, up front, and never sees a result: it cannot adapt, but its cost is known before the first search runs.
+
+</details>
+
+<details>
+<summary>2. The reviewer scores a first draft 0.9 for completeness, 0.8 for clarity and 0.6 for actionability, with all four sections present. What does quality_gate do?</summary>
+
+It sends the draft back to the writer. `quality_score` is the minimum, 0.6, which is below `QUALITY_THRESHOLD` 0.7. The writer gets its previous draft and the feedback, and `MAX_DRAFTS = 2` ends the loop after the second reviewed draft whatever the scores say.
+
+</details>
+
+<details>
+<summary>3. A web forum post quotes an old Larkspur refund window while the handbook gives the current one. What must the research team preserve so the writer can handle it?</summary>
+
+The source of every finding. The analyst lists contradictions across all findings before anyone writes, and the writer should cite both sources and say which one is the policy. It can only do that if the findings keep their sources.
+
+</details>
+
 ---
 *Previous: [37.3 Scaling: parallel agents, memory merging, language and sentiment, web search](../03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md). Next: [37.6 Deep agents: orchestrator, sub-agents, skills and long-term memory](../06_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md).*

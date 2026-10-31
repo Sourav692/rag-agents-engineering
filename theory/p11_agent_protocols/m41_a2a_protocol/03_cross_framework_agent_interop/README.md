@@ -56,5 +56,28 @@ return "\n".join(p.root.text for p in message.parts if p.root.kind == "text")
 
 An agent that publishes its output as artifacts (`TaskUpdater.add_artifact`) puts it in `result.artifacts` instead; read those the same way.
 
+## Check yourself
+
+<details>
+<summary>1. What must the research and writer agents agree on for one orchestrator to call both, and what may differ?</summary>
+
+Four things: the card's shape, the `message/send` method, the Message and Task objects, and the well-known card path. Framework, prompt, tools and temperature may all differ, and the orchestrator imports none of them, so a CrewAI crew could replace the writer without an orchestrator change.
+
+</details>
+
+<details>
+<summary>2. The writer agent receives 1,492 characters of field names and TaskStatus text instead of research notes. What went wrong in the connector?</summary>
+
+Both executors enqueue a Task, and a Task has no `parts`, so `AgentConnector` falls through to `str(result)`, the Python repr of the whole Task around a 185-character answer. Check for an error first, then branch on `result.kind` and read the text parts of `result.status.message` for a task.
+
+</details>
+
+<details>
+<summary>3. Why pick agents from the registry by skill id or tags rather than by card name, as the notebook does?</summary>
+
+Picking by skill survives a rename and lets two agents offer the same skill. The registry holds URLs only and capabilities come from each card at run time, so a new agent joins by adding one URL. The registry is also a trust list: only agents on it get your traffic.
+
+</details>
+
 ---
 *Previous: [41.2 A LangGraph agent over A2A](../02_a_langgraph_agent_over_a2a/README.md). Next: [41.4 Capstone: agentic RAG with MCP and A2A](../04_capstone_agentic_rag_with_mcp_and_a2a/README.md).*

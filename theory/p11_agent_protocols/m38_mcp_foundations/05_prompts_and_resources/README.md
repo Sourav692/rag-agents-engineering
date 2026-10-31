@@ -44,5 +44,28 @@ flowchart TD
 
 For Larkspur the split is: `search_handbook` is a tool, because the model needs it mid-answer with a query it writes; the sections are resources, for a support console that lets an engineer attach a section; and `answer_with_citations` is a prompt the engineer starts on purpose.
 
+## Check yourself
+
+<details>
+<summary>1. What decides whether a server feature should be a tool, a resource or a prompt?</summary>
+
+Who decides to use it. The model chooses a tool mid-answer through `tools/call`. The user chooses a resource, read-only data fetched with `resources/read`, and a prompt, a server-owned template fetched with `prompts/get`; in the lesson 7 chatbot that means typing `@topic` or `/prompt name arg=value`.
+
+</details>
+
+<details>
+<summary>2. Why is search_handbook a tool on the Larkspur server, while the handbook sections are resources and answer_with_citations is a prompt?</summary>
+
+The model needs `search_handbook` mid-answer with a query it writes, so it is a tool. The sections are data a support console lets an engineer attach (`handbook://sections` and the template `handbook://section/{chunk_id}`), so they are resources. `answer_with_citations` is something the engineer starts on purpose, so it is a prompt.
+
+</details>
+
+<details>
+<summary>3. The lesson 7 chatbot never puts the papers topic template in its routing table. Why, and how does reading a topic still work?</summary>
+
+`connect_to_server` calls `list_resources()`, which returns static resources but not templates, so `papers://{topic}` never enters the table. `get_resource` works around it: for an unknown `papers://` URI it uses any session that has a `papers://` resource. With two servers using that scheme, it picks the first.
+
+</details>
+
 ---
 *Previous: [38.4 Connecting to reference servers](../04_connecting_to_reference_servers/README.md). Next: [38.6 Remote servers and deployment](../06_remote_servers_and_deployment/README.md).*

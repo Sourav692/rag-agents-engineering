@@ -50,5 +50,28 @@ Only documents are cached by default (`query_embedding_cache=False`), which suit
 
 Notebook 14.1 runs both paths on the same six texts and compares the vectors. They are semantically identical (cosine about 1.0) but not bit-identical, because a batched request and a single request take different paths through the server. The difference is numerical noise, so never use exact equality to decide whether two vectors came from the same text; that is the cache's job. For an asymmetric model the two methods differ on purpose, which is one more reason to keep the two calls separate (lesson 14.3).
 
+## Check yourself
+
+<details>
+<summary>1. Why should an indexing job call embed documents on a batch instead of looping embed query, and why not compare the two outputs for exact equality?</summary>
+
+`embed_documents` sends many texts in one request, while looping `embed_query` pays one network round trip per chunk, the difference between minutes and hours on a real corpus. The two paths return vectors that are semantically identical (cosine about 1.0) but not bit-identical, because they take different paths through the server. Never use exact equality to decide whether two vectors came from the same text; that is the cache's job.
+
+</details>
+
+<details>
+<summary>2. You edit one of the 12 Larkspur chunks from 100 GB to 200 GB and re-index through the cache. How many texts reach the model, and how many keys are stored?</summary>
+
+One of 12 texts reaches the model, and the store holds 13 keys. The edited text hashes to a new key, and the pre-edit vector stays in the store, which grows until you clear it.
+
+</details>
+
+<details>
+<summary>3. After you swap embedding models, re-indexing sends zero texts to the model and retrieval quality collapses. What is wrong?</summary>
+
+Both models share the default empty namespace of `from_bytes_store`, so the cache returns the first model's vectors for the second model's requests. The index now mixes two vector spaces, with no error. Put the model name and its `dimensions` setting in the namespace.
+
+</details>
+
 ---
 *Previous: [14.3 Open-source embeddings with Hugging Face](../03_open_source_embeddings_with_hugging_face/README.md). Next: [M14 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -57,5 +57,28 @@ Score more than one thing. The optional lesson 14.5 notebook, [`05a_compare_embe
 
 The smallest model tied for best relevance, and the ranking reversed on the second metric. Read the second column with care: the notebook's `rag_app` returns the retrieved text itself as the response, so groundedness here grades retrieved text, not an LLM's answer. Eight documents and 15 queries cannot settle a model choice; they show the method. Run it on the full golden set, and decide which metric your product needs before you look at the results.
 
+## Check yourself
+
+<details>
+<summary>1. How does a poor domain fit show up, given that it raises no error?</summary>
+
+As the wrong chunk ranked first. A general-purpose model can place two Larkspur chunks that differ by one condition almost on top of each other, or miss that a customer's "bandwidth" is the handbook's "outbound traffic". Leaderboards such as MTEB give a shortlist; the decision comes from scoring that shortlist on your own documents and questions.
+
+</details>
+
+<details>
+<summary>2. You are building a golden set for the question about exporting data after cancelling a plan. What kind of chunk should it include besides the answer, and why?</summary>
+
+A hard negative: a chunk on the same topic that does not answer the question, such as `cancel`. Hard negatives are what separate models; a six-document toy set separates none.
+
+</details>
+
+<details>
+<summary>3. You swap a hosted OpenAI model for all-MiniLM-L6-v2 with default settings and keep scoring by dot product. What goes wrong?</summary>
+
+Normalisation is off by default in `HuggingFaceEmbeddings`, so the vectors do not have length 1 and dot product rewards longer vectors. Pass `encode_kwargs={"normalize_embeddings": True}` or score with cosine.
+
+</details>
+
 ---
 *Previous: [14.2 Hosted embeddings: OpenAI models and dimensions](../02_hosted_embeddings_openai_models_and_dimensions/README.md). Next: [14.4 Production concerns: batching, caching and similarity behaviour](../04_production_concerns_batching_caching_and_similarity_behaviour/README.md).*

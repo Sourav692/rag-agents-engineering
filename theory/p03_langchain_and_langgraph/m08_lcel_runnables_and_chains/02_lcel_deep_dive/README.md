@@ -42,5 +42,28 @@ rag_chain.invoke("How long does a refund take?")
 
 The question string goes to both dict values. The retriever turns it into Documents and `format_docs` joins them into one string; the passthrough keeps the question as it is. The prompt receives `{"context": ..., "question": ...}`, which is exactly the pair of variables it declares.
 
+## Check yourself
+
+<details>
+<summary>1. What does Python actually do when you join two Runnables with the pipe operator, and what object comes back?</summary>
+
+`a | b` calls `a.__or__(b)`, the same way `2 + 4` calls `(2).__add__(4)`. LangChain's `Runnable.__or__` returns a `RunnableSequence` holding both sides, whose `invoke` runs the first step and feeds its output to the next. It also flattens, so `(a | b) | c` is one sequence of three steps.
+
+</details>
+
+<details>
+<summary>2. The Larkspur RAG chain starts with a plain dict of context and question. What does each value receive, and what reaches the prompt?</summary>
+
+The dict becomes a `RunnableParallel`, so the question string goes to both values. The retriever turns it into Documents and `format_docs` joins them into one string, while the passthrough keeps the question as it is. The prompt receives `{"context": ..., "question": ...}`, exactly the two variables it declares.
+
+</details>
+
+<details>
+<summary>3. A later step needs the original question, but the RunnableParallel before it replaced its input. What should you use instead?</summary>
+
+`.assign()`. `RunnableParallel` replaces its input with the new dict, while `.assign(key=runnable)` computes the new key from the current dict and returns the old keys with it. That is how a pipe carries the question forward while later steps add `context`, then `answer`, then `sources`.
+
+</details>
+
 ---
 *Previous: [8.1 LCEL and the Runnable interface](../01_lcel_and_the_runnable_interface/README.md). Next: [8.3 Branching, routing and merging chains](../03_branching_routing_and_merging_chains/README.md).*

@@ -40,5 +40,28 @@ Dartboard and MMR ([M17.4](../../../p06_retrieval_quality/m17_retrievers_hybrid_
 
 Two details to know when running `03a`. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls `get_context_with_dartboard(test_query, k=3)`, while the function's parameter is `num_results`; Python raises a `TypeError`, and `num_results=3` is the fix.
 
+## Check yourself
+
+<details>
+<summary>1. Why does a second copy of a chunk already in the set add nothing to the dartboard score?</summary>
+
+A set scores by how close its nearest member lies to where the darts land. The copy lies exactly where the first one does, so it brings no landing place any closer. A chunk that covers ground nearby adds the most.
+
+</details>
+
+<details>
+<summary>2. With the Larkspur chunks stored five times and the default oversampling factor of 3, what does dartboard return for the export question, and why?</summary>
+
+`export`, `retention`, `export`. Recall reaches 1.00 against 0.50 for plain top-3, but the pool of 9 drawn from five copies of each chunk holds only two distinct chunks, so the third pick is a copy. At a factor of 4 the pool holds three and the picks become `export`, `retention`, `cancel`.
+
+</details>
+
+<details>
+<summary>3. Your retriever scores with a cross-encoder rather than embeddings. Can you still use dartboard selection, and how does it differ from MMR?</summary>
+
+Yes: the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores. Both pick greedily; MMR subtracts a redundancy penalty with a linear λ, while dartboard adds log probabilities, with `SIGMA` setting how quickly closeness stops counting.
+
+</details>
+
 ---
 *Previous: [32.2 Retrieval with a user-feedback loop](../02_retrieval_with_a_user_feedback_loop/README.md). Next: [M32 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

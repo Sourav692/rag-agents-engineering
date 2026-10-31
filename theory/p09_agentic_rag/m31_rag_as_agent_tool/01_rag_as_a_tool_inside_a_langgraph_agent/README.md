@@ -82,5 +82,28 @@ A model reads meaning, so word forms such as "refund" and "refunds" matter far l
 
 Every description is sent with every call, so each added word costs tokens on every turn of every conversation. Treat the descriptions as a retrieval setting: keep a routing golden set of questions with the tool each one should use, score each change against it and against held-out questions, and add the misses you find in production traces.
 
+## Check yourself
+
+<details>
+<summary>1. What does letting the model decide when to retrieve gain over a fixed classifier, and what does it give up?</summary>
+
+It handles small talk with no retrieval, rewrites a follow-up into a better query, and searches again when the first chunks miss. It gives up a decision you control in code: a model that answers a refund question without calling `handbook_search` answers from its training data, with nothing to cite.
+
+</details>
+
+<details>
+<summary>2. With the specific descriptions, the question about Hetzner's price for a 4 GB server goes to the handbook tool. Why, and what fixes it?</summary>
+
+"server" appears only in the handbook description, and neither description says which tool owns other providers' prices, so the router guessed. State where each tool stops: Larkspur's own prices and policies belong to `handbook_search`, other providers' prices to `web_search`.
+
+</details>
+
+<details>
+<summary>3. The tuned descriptions route 19 of 20 golden questions because they copy words from those questions. What else must you check before trusting them?</summary>
+
+The held-out questions, where they reach 4 of 5 and still give the Node.js question no tool, and the cost: 133 tokens on every model call against 84. Keep a routing golden set and held-out questions, score each description change against both, and add misses from production traces.
+
+</details>
+
 ---
 *Previous: [M31 overview](../README.md). Next: [31.2 Managed RAG platforms: Contextual AI](../02_managed_rag_platforms_contextual_ai/README.md).*

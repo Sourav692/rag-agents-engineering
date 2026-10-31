@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -362,6 +367,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>A prompt&rsquo;s text goes to the agent as if the user had typed it. A resource goes in wrapped as <code>CONTEXT … TASK: &lt;what you asked&gt;</code>, or with a request to acknowledge it and keep it in memory when you give no task; the <code>MemorySaver</code> checkpointer keeps it for the rest of the thread. Both servers read files and are started by relative path (<code>python weather_server.py</code>, <code>Path("delivery_log.txt")</code>), so the client only works when it is run from the project folder.</p>
 <p>For Larkspur, the same rules give one decision per feature. <code>search_handbook</code> raises when the index is missing and returns chunk ids and text otherwise; the refund policy can be a resource a support engineer attaches by hand; and a prompt like M38&rsquo;s <code>answer_with_citations</code> is something the engineer starts on purpose.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. With no API key set, get_weather returns an error message with isError false. Why, and why is that a problem for the model?</summary>
+<p><code>get_weather</code> catches every failure and returns a dict with an <code>error</code> key, so the call counts as a success and the model reads the message as weather data. A tool that raises comes back with <code>isError: true</code>, and <code>langchain-mcp-adapters</code> turns it into a <code>ToolMessage</code> with <code>status="error"</code>. Raise when the call failed; return data when it worked.</p>
+</details>
+<details>
+<summary>2. The delivery log resource function returns a list of nine strings. What does the model see after the client reads it?</summary>
+<p>One JSON array. FastMCP serialises the <code>list[str]</code> as one text block, not one block per line, and the client joins the text blocks and pastes the result into a message, wrapped as <code>CONTEXT … TASK: &lt;what you asked&gt;</code>. The <code>MemorySaver</code> checkpointer keeps it for the rest of the thread.</p>
+</details>
+<details>
+<summary>3. You want the client to check get_weather results against a schema. Why does the server give it nothing to check, and what change fixes that?</summary>
+<p><code>get_weather</code> is typed <code>-&gt; dict</code>, so FastMCP lists it with no <code>outputSchema</code> and its results carry no <code>structuredContent</code>. The return type decides the schema: a typed return, such as a Pydantic model, gives the client a schema to check results against.</p>
+</details>
 <h2 id="multi-server">Multi-server</h2>
 <p class="lesson-of">Lesson 39.2: Multi-server MCP. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/03_multi_server_mcp" target="_blank" rel="noopener"><code>03_multi_server_mcp</code></a></p>
 <p>Project 03 puts the weather server next to a second one, a task server whose <code>add_task</code> and <code>list_tasks</code> tools keep a to-do list in <code>tasks.txt</code>. The client names both in one dict and hands it to <code>MultiServerMCPClient</code> from <code>langchain-mcp-adapters</code>:</p>
@@ -397,6 +415,19 @@ all_tools = await client.get_tools()   # one flat list: get_weather, add_task, l
 </ul>
 <p>The hand-built client in project 02 wraps each server in its own <code>try</code>, prints <code>Connection failed for &lt;name&gt;</code>, and starts with the tools it got. Neither is right by default. A Larkspur assistant can answer refund questions with the status server down, so it should start degraded and say which tools are missing; an agent whose every task needs both servers should refuse to start. Load per server, record which ones failed, and put that list in the system prompt and the logs.</p>
 <p>Failures during a call are a separate case. A tool that raises comes back as <code>isError: true</code>, and the adapter returns it to the model as a <code>ToolMessage</code> with <code>status="error"</code> so the agent can try something else. A dead process or a dropped connection is not a tool error: the adapter raises, and the agent run stops unless your code catches it.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Two servers behind one MultiServerMCPClient both offer a tool named search. What happens, and how do you prevent it?</summary>
+<p><code>ToolNode</code> indexes tools in a dict by name (langgraph 1.2.18), so the server loaded last answers every <code>search</code> call and nothing warns you. <code>MultiServerMCPClient(..., tool_name_prefix=True)</code> renames each tool <code>&lt;server&gt;_&lt;tool&gt;</code>, such as <code>weather_get_weather</code> and <code>tasks_add_task</code>.</p>
+</details>
+<details>
+<summary>2. A Larkspur user asks whether there is an outage right now. What makes the model pick search_status over search_handbook?</summary>
+<p>The descriptions. The model chooses by name and description alone and cannot see server boundaries; <code>search_status</code> says it searches live status pages and <code>search_handbook</code> says it searches the handbook&rsquo;s policies. If both said &ldquo;search Larkspur information&rdquo;, the model would have to guess.</p>
+</details>
+<details>
+<summary>3. The status server's command is missing, get_tools raises, and the Larkspur assistant starts with no tools at all. What should it do instead?</summary>
+<p>Load each server on its own with <code>get_tools(server_name=...)</code> and record which ones failed. <code>get_tools()</code> uses <code>asyncio.gather</code>, so one failure loses every server. The assistant can still answer refund questions, so it should start degraded and name the missing tools in the system prompt and the logs; an agent that needs both servers for every task should refuse to start.</p>
+</details>
 <h2 id="client-sessions">Client sessions</h2>
 <p class="lesson-of">Lesson 39.4: Your own client and a multi-server client. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/01_build_your_own_server_client" target="_blank" rel="noopener"><code>01_build_your_own_server_client</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/02_multi_server_client" target="_blank" rel="noopener"><code>02_multi_server_client</code></a></p>
 <p>Every client in these projects is built from the same three layers, each an async context manager:</p>
@@ -465,6 +496,19 @@ async with client.session(&quot;handbook&quot;) as session:
 </pre></figure>
 <p>The client stops after that round. If the second reply asks for another tool, the client does not run it and returns only the first part&rsquo;s text. It also sends <code>execution_result.content</code>, a list of MCP content objects, as the function response, where a plain string or dict would be safer. <code>langchain_mcp_client.py</code> in the same project replaces all of it with two calls: <code>load_mcp_tools(session)</code> converts the tools and <code>create_react_agent(llm, tools)</code> runs the loop until the model stops asking for tools. In langgraph 1.2.18 <code>create_react_agent</code> is deprecated in favour of <code>create_agent</code> from <code>langchain.agents</code>, which <a href="../../p08_agent_foundations/m24_react_agents/index.html">M24</a> uses.</p>
 <p>The terminal server these clients drive runs any shell command the model writes, with <code>shell=True</code> and the working directory set to <code>~/Desktop/github/langgraph-ai/mcp/01-build-your-own-server-client/workspace</code>, a path from the author&rsquo;s machine. Point it at a folder of your own before running it, and treat the tool as remote code execution: project 02&rsquo;s copy runs it inside a container, which limits what a bad command can reach.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does a session per tool call cost 4 messages per call, when a held session costs 1 per call after setup?</summary>
+<p>A held session pays its setup once (an <code>initialize</code>, a notification and a <code>tools/list</code> per server, 6 messages for two servers) and then sends only the call. A session per call opens and initialises a new session each time, and with SDK 1.30.0 also sends <code>tools/list</code> after the call, because <code>call_tool</code> checks the result against the tool&rsquo;s output schema and a new session has not listed its tools yet.</p>
+</details>
+<details>
+<summary>2. A Larkspur server keeps a cache in memory, but over stdio through get_tools the cache is empty on every call. Why, and how do you keep it?</summary>
+<p>Over stdio a session is also a process, and <code>get_tools()</code> opens a new session for each tool call, so 8 calls were answered by 8 different server processes and each started empty. Hold the session with <code>async with client.session("handbook") as session</code> and <code>load_mcp_tools(session)</code>, so calls reuse one process.</p>
+</details>
+<details>
+<summary>3. Gemini's second reply in the hand-written client asks for another tool. What does the client do, and what replaces its loop in the LangChain version?</summary>
+<p>It stops after one round: it does not run the second tool and returns only the first part&rsquo;s text. <code>langchain_mcp_client.py</code> converts the tools with <code>load_mcp_tools(session)</code> and runs <code>create_react_agent(llm, tools)</code>, which loops until the model stops asking for tools; in langgraph 1.2.18 that is deprecated in favour of <code>create_agent</code>.</p>
+</details>
 <h2 id="sse">SSE</h2>
 <p class="lesson-of">Lesson 39.5: Transports: SSE and streamable HTTP. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/03_sse_transport_server_client" target="_blank" rel="noopener"><code>03_sse_transport_server_client</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/04_streamable_http_client" target="_blank" rel="noopener"><code>04_streamable_http_client</code></a></p>
 <p><a href="../m38_mcp_foundations/index.html">Lesson 38.6</a> compares the two HTTP transports side by side. Project 03 builds the SSE one by hand, which shows how it works. The server is a Starlette app with two routes around the SDK&rsquo;s <code>SseServerTransport</code>:</p>
@@ -584,6 +628,19 @@ mcp.run(transport=&quot;streamable-http&quot;)
 <li><strong>Streamable HTTP, stateless</strong> for tools that keep no per-client state and must scale out: Larkspur&rsquo;s <code>status</code> search can run as many replicas as it needs, and any of them can answer any request.</li>
 </ul>
 <p>Lesson 39.3&rsquo;s Databricks server ends with <code>mcp.run()</code>. In SDK 1.30.0 <code>run()</code> defaults to <code>transport="stdio"</code>, so as written the server reads its standard input instead of listening for HTTP. A server that a platform reaches by URL needs <code>transport="streamable-http"</code> and must listen on the host and port the platform expects.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Over SSE, every POST the client sends gets 202 Accepted. Where does the answer arrive, and what does that mean for the session?</summary>
+<p>On the long-lived <code>GET /sse</code> stream, as an event matched by JSON-RPC id. The whole session lives on that one connection: when the GET ends, the server drops the session id, so a proxy that closes idle connections will cut it.</p>
+</details>
+<details>
+<summary>2. Two Larkspur servers with held sessions make 8 tool calls over Streamable HTTP. How many HTTP requests do stateful and stateless mode use, and where does the gap come from?</summary>
+<p>18 stateful and 14 stateless. Stateful setup takes 4 requests per server (<code>initialize</code>, the notification, a GET for the server&rsquo;s own stream, <code>tools/list</code>) and a <code>DELETE /mcp</code> to close; stateless takes 3 and has nothing to close. Each tool call is 1 POST in both modes.</p>
+</details>
+<details>
+<summary>3. A stateful Streamable HTTP client behind a load balancer starts getting 404 Session not found. What happened, and what do you change?</summary>
+<p>The server does not know the session id: it came from another replica, or it expired after 1,800 seconds with no request in flight. The client has to initialise again. With several replicas, route by <code>mcp-session-id</code>, or run stateless if the tools keep no per-client state.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_your_own_client_and_a_multi_server_client/interactive/session-wire-lab.html"><strong>Sessions on the wire</strong></a>: open the file in a browser. Start with stdio and held sessions, and slide the tool calls to 8: 2 server processes, 14 messages. Switch the client to <code>get_tools()</code>: 10 processes and 38 messages, and every call lands on a process that has never seen the one before it. Then try Streamable HTTP with each client, and the stateless server, to see what each transport adds per call.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -640,7 +697,7 @@ mcp.run(transport=&quot;streamable-http&quot;)
 <li>Pick the transport by where the server runs: stdio for a local subprocess, Streamable HTTP for anything shared, and stateless mode when replicas must answer any request.</li>
 <li>Treat an MCP server that runs commands as a remote shell. Narrow tools, authentication and a sandbox come before the first deployment.</li>
 </ul></article>
-    <nav class="toc" aria-label="M39 sections"><details open><summary>In M39</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#what-comes-back-from-a-server">What comes back from a server</a></li><li><a href="#multi-server">Multi-server</a></li><li><a href="#when-one-server-fails">When one server fails</a></li><li><a href="#client-sessions">Client sessions</a></li><li><a href="#a-client-written-by-hand">A client written by hand</a></li><li><a href="#sse">SSE</a></li><li><a href="#streamable-http">Streamable HTTP</a></li><li><a href="#choosing-a-transport">Choosing a transport</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M39 sections"><details open><summary>In M39</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#what-comes-back-from-a-server">What comes back from a server</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#multi-server">Multi-server</a></li><li><a href="#when-one-server-fails">When one server fails</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#client-sessions">Client sessions</a></li><li><a href="#a-client-written-by-hand">A client written by hand</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sse">SSE</a></li><li><a href="#streamable-http">Streamable HTTP</a></li><li><a href="#choosing-a-transport">Choosing a transport</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

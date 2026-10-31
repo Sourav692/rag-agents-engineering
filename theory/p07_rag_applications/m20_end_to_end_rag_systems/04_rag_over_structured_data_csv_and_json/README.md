@@ -82,5 +82,28 @@ The notebook builds each branch in its simplest form:
 - **Self-query.** `llm.with_structured_output(ListingQuery)` turns *Which properties cost less than $400,000?* into a semantic part and, when extraction works, `max_price=400000`, which becomes a Chroma filter `{"price": {"$lte": 400000}}`. (`$lte` lets a listing at exactly $400,000 through; "less than" is `$lt`.) The full version is [M18](../../../p06_retrieval_quality/m18_query_transformation/README.md)'s self-querying lesson.
 - **Query generation.** The model writes one line of pandas over the schema and the notebook `eval`s it. That executes model-written code with full interpreter access, and a data field can carry a prompt injection. In production, generate SQL against a read-only connection with a timeout, or run a sandboxed executor.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the 04a rule embed only a server's description and keep its name, vCPUs, memory and price in metadata?</summary>
+
+Free text carries meaning and belongs in `page_content`; identifiers, numbers and dates are things you filter on, and a filter compares metadata exactly. Fields also dilute the vector. With descriptions only, `ls-mem-4` and `ls-mem-2` rank first for the memory-hungry database question, 0.115 ahead of the third row; with every column embedded, `ls-mem-2` beats the general-purpose `ls-small` by 0.0004.
+
+</details>
+
+<details>
+<summary>2. A user asks for the average monthly price of a Larkspur server, and the system retrieves 4 rows. What comes back, and why?</summary>
+
+A fluent answer built on four rows that average $36.25, against the table's $102.50. The most expensive server, `ls-gpu-1` at $480, ranks last for this question, so only retrieving all 10 rows gets it right. Aggregation needs every row, so route it to a query engine (SQL or pandas).
+
+</details>
+
+<details>
+<summary>3. A user asks Tell me about ls-cpu-8. Which route should handle it, and what goes wrong with semantic search?</summary>
+
+Get by id: `store.get(ids=["ls-cpu-8"])`. With description-only text the description never names the server, so similarity ranks the sibling `ls-cpu-4` first (0.535 against 0.517). At `k = 1` the model reads only `ls-cpu-4` and would describe the wrong server.
+
+</details>
+
 ---
 *Previous: [20.3 Explainable retrieval](../03_explainable_retrieval/README.md). Next: [20.5 Fully local RAG with Hugging Face and FAISS](../05_fully_local_rag_with_hugging_face_and_faiss/README.md).*

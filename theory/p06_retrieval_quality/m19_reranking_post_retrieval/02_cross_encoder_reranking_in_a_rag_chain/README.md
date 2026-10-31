@@ -45,5 +45,28 @@ Three details in that code matter in production:
 
 Cross-encoder scores rank the candidates for one question. Nothing guarantees that a score means the same thing across questions or across models. The 19.6 notebook notes that Cohere's reranker returns values "very close to 0 or 1" and spreads them with a beta transform before using them. Before you set a fixed score threshold, check its distribution on your golden set.
 
+## Check yourself
+
+<details>
+<summary>1. For the export question, why can a cross-encoder separate the retention chunk from the cancel chunk when a bi-encoder may not?</summary>
+
+A bi-encoder summarises each chunk into one vector before any question exists, and that vector serves every question, so `cancel` can sit as close to the question as `retention`. A cross-encoder reads the question and one chunk as a single input, every question token attending to every chunk token, so it can tell that only `retention` says what happens to the data.
+
+</details>
+
+<details>
+<summary>2. Notebook 02b's rerank step is slow on every question and passes all 10 chunks to the model. What two changes fix it?</summary>
+
+Load the `CrossEncoder` once at start-up instead of inside `rerank_documents`, where it loads again on every question. Then slice the sorted list to the top few, as the earlier cell does with `[0:2]`, so the step narrows as well as reorders.
+
+</details>
+
+<details>
+<summary>3. You plan to drop every chunk whose cross-encoder score falls below a fixed threshold. What must you check first?</summary>
+
+The score distribution on your golden set. Cross-encoder scores rank the candidates for one question; nothing guarantees a score means the same thing across questions or models. The 19.6 notebook finds Cohere's scores bunched very close to 0 or 1 and spreads them with a beta transform before using them.
+
+</details>
+
 ---
 *Previous: [19.1 Two-stage retrieval: retrieve wide, rerank narrow](../01_two_stage_retrieval_retrieve_wide_rerank_narrow/README.md). Next: [19.3 LLM reranking vs cross-encoder reranking](../03_llm_reranking_vs_cross_encoder_reranking/README.md).*

@@ -63,5 +63,28 @@ Notebooks 03c and 03d add capabilities without changing the coordinator, the che
 
 Each notebook adds its capability to the core from 37.1 on its own; no notebook composes all of them into one graph.
 
+## Check yourself
+
+<details>
+<summary>1. Why does each parallel hotel branch need its own message key instead of sharing messages?</summary>
+
+A `ToolNode` answers the latest tool call in its list, which may be the other branch's. Both hotels have a tool called `run_query`, so the wrong database can answer silently. Give each branch its own key with `ToolNode(..., messages_key=...)` and `partial(tools_condition, messages_key=...)`.
+
+</details>
+
+<details>
+<summary>2. For a Deluxe room in two months, Hotel 1 has room 104 free and Hotel 2 has room 108. What should the merged reply say, and how is it checked?</summary>
+
+It should recommend Hotel 1 first, because `PRIORITY = ["hotel1", "hotel2"]`, so 104 appears before 108, and offer Hotel 2 as the alternative with numbers, prices and dates exactly as the assistants gave them. Code checks the position of the room numbers in the reply against the ground truth from `free_rooms()`, not against the model's claim.
+
+</details>
+
+<details>
+<summary>3. In the two-hotel graph, the guest gets two replies and the first one misses a hotel. What is wrong with the wiring?</summary>
+
+Each branch's end goes straight to the merge node, so the merge runs once per branch. Add a sync node at the end of each branch and a join, `add_edge(["hotel1_done", "hotel2_done"], "merge_answers")`, so the merge waits for both.
+
+</details>
+
 ---
 *Previous: [37.2 Hardening: edge cases, testing and system-wide error handling](../02_hardening_edge_cases_testing_and_system_wide_error_handling/README.md). Next: [37.5 Research systems: supervisor financial research, summarisation, full research system](../05_research_systems_supervisor_financial_research_summarisation_full_research_system/README.md).*

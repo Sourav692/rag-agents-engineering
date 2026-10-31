@@ -55,5 +55,28 @@ Design against three hard constraints:
 - **Value types are restricted.** Chroma 1.5, the version this course installs, accepts `str`, `int`, `float`, `bool`, `None` and non-empty lists of a single one of those types. A nested dict, an empty list or a mixed list such as `[1, "x"]` fails the write. Flatten before you index.
 - **Filters match exactly.** `{"department": "Engineering"}` does not match `"engineering"`. Normalise values when you load.
 
+## Check yourself
+
+<details>
+<summary>1. A teammate says the PDF loader is bad because the extracted text comes out wrong. Do you change the loader or the parser?</summary>
+
+The parser. The loader decides where documents come from and how many there are per file; the parser decides what text is extracted, in what order and with what structure. Changing how files are fetched does not fix wrong text, and `GenericLoader` lets you swap the parser without touching the fetching.
+
+</details>
+
+<details>
+<summary>2. You load the handbook page with PyPDF for the lab's five-field schema. Which fields does it fill, and which must you supply yourself?</summary>
+
+PyPDF fills `source`, `page` and `date`, so you supply `type` and `section`. Unstructured would fill `section` through `parent_id`. Even a filled field can be wrong for your purpose: take `date` from your CMS rather than the file's modification time.
+
+</details>
+
+<details>
+<summary>3. You store each document's title only in metadata, and questions that name the title never retrieve its chunks. What went wrong?</summary>
+
+Metadata is not embedded, so a title that lives only there never matches a query. If a field should affect similarity, also put it into the chunk text, which is what M16's contextual chunk headers do. Keep it in metadata as well when you want to filter on it.
+
+</details>
+
 ---
 *Previous: [M12 overview](../README.md). Next: [12.3 Semi-structured sources: CSV rows and JSON / JSONL with jq schemas](../03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md).*

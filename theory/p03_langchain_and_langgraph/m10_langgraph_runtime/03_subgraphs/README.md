@@ -34,5 +34,28 @@ The runtime features from this module reach inside subgraphs:
 
 Choose a subgraph when a piece has its own loop or its own state that the parent should not carry, when a team owns it separately, or when several parents reuse it. [M35](../../../p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md) to M37 build multi-agent systems out of exactly these pieces. For a straight sequence of steps on the same state, plain nodes are simpler.
 
+## Check yourself
+
+<details>
+<summary>1. When can you add a compiled subgraph directly as a node, and when do you need a wrapper node?</summary>
+
+Add it directly when parent and child share keys, as with `MessagesState` on both sides: the parent's `messages` channel is the child's. When the keys differ, as with the notebook's `parent_messages`, a wrapper calls `subgraph.invoke({"messages": ...})` and writes the result back. The child does not change; only the parent knows the mapping.
+
+</details>
+
+<details>
+<summary>2. A directly added child writes a private scratch key next to a shared decision key. What does the parent receive?</summary>
+
+Only `decision`. A directly added subgraph returns only the keys the parent declares, so `scratch` is dropped. The child can keep working notes the parent never sees, and a key you expect in the parent has to be in the parent's schema.
+
+</details>
+
+<details>
+<summary>3. A two-node approval child (a check, then a gate) runs through a wrapper, pauses at the gate and resumes. What runs twice?</summary>
+
+The gate and the wrapper. Resuming re-runs only the interrupted child node, so the check runs once and the gate twice. The wrapper function also runs again from its first line, so any parent-side code before `subgraph.invoke` repeats.
+
+</details>
+
 ---
 *Previous: [10.2 Interrupts and human-in-the-loop](../02_interrupts_and_human_in_the_loop/README.md). Next: [10.4 Async and streaming](../04_async_and_streaming/README.md).*

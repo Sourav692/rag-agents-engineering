@@ -88,5 +88,28 @@ A segment that is found gives character offsets to highlight in the interface. A
 
 Highlights serve the reader, who can check the answer against the handbook in one glance, and they serve the team. Logged segments show which chunks answers actually use, and a chunk that is retrieved often and never highlighted is a candidate for the grader to drop or for retrieval to stop returning.
 
+## Check yourself
+
+<details>
+<summary>1. The relevance grader drops off-topic chunks before generation. Why can it not raise recall?</summary>
+
+It can only drop chunks that retrieval returned. On the refund question it should drop `reboot`, which ranked second only because both texts contain "does", but it cannot add `refund-timing`, which was never retrieved. Grading removes noise and leaves recall where retrieval put it.
+
+</details>
+
+<details>
+<summary>2. Only the refund-window chunk survives grading, and the answer states how many days a refund takes. What should the hallucination grader return, and what prevents such answers?</summary>
+
+`no`: that chunk states the 30-day window and nothing about how long a refund takes, so any number of days is unsupported. The notebook's prompt, "Answer the question based upon your knowledge", invites it. A prompt that says to answer only from the documents, and to say when they do not cover the question, stops most of these answers before they are written.
+
+</details>
+
+<details>
+<summary>3. A highlighted segment parses correctly but is not found in the chunk it cites. What should the app do?</summary>
+
+The parser checks only the JSON shape, so the model may have paraphrased or merged sentences. When `text.find(segment)` returns -1, fall back to citing the whole chunk and log the miss, because a rising miss rate means the highlighting prompt or model has drifted. Also compare the list lengths before `zip`, which silently drops rows.
+
+</details>
+
 ---
 *Previous: [M32 overview](../README.md). Next: [32.2 Retrieval with a user-feedback loop](../02_retrieval_with_a_user_feedback_loop/README.md).*

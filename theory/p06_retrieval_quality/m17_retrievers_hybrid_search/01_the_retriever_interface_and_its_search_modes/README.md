@@ -26,5 +26,28 @@ Similarity search always returns `k` chunks. Ask the twelve-sentence store about
 
 The wrappers spend LLM calls to fix different problems. Multi-query adds one LLM call per question and several searches to raise recall when the wording is off. Compression adds one LLM call per retrieved chunk to cut tokens and noise. Ensemble adds no LLM call; it costs one extra search per retriever, and in `01a` it merges a compressed retriever with a plain one over the same store, which shows that ensembles are not only for dense plus sparse. [17.6](../06_retriever_patterns_compared_hybrid_rerank_on_databricks_vector_search/README.md#choosing-a-retriever-pattern) compares them side by side.
 
+## Check yourself
+
+<details>
+<summary>1. Why can a chain not tell a plain vector search from a hybrid, compressed, multi-query retriever?</summary>
+
+Every retriever has one signature: `invoke(query)` takes a string and returns a list of `Document`s. A wrapper that calls another retriever and post-processes its list is itself a retriever, so retrievers stack and the chain sees the same interface at every depth.
+
+</details>
+
+<details>
+<summary>2. Chroma in cosine space reports a distance of 0.35375 for a chunk. What does the score threshold mode compare, and does the chunk pass a threshold of 0.3?</summary>
+
+It compares a relevance score, where higher is closer: for cosine, Chroma computes `1 - distance`, so 0.35375 becomes 0.64625, which passes 0.3. `similarity_search_with_score` reports the distance, where lower is closer; mixing the two directions is the usual threshold mistake.
+
+</details>
+
+<details>
+<summary>3. Larkspur users ask about a product Larkspur does not sell, and the model still receives three handbook chunks. Why, and what is the first defence?</summary>
+
+Similarity search always returns `k` chunks, however far away they are. A score threshold is the first defence. Set it from real score distributions, which is why `01a` writes the score into `doc.metadata["score"]`, and remember that a threshold belongs to one embedding model and one distance function.
+
+</details>
+
 ---
 *Previous: [M17 overview](../README.md). Next: [17.2 Dense + sparse hybrid retrieval with BM25 and EnsembleRetriever](../02_dense_sparse_hybrid_retrieval_with_bm25_and_ensembleretriever/README.md).*

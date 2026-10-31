@@ -63,5 +63,28 @@ flowchart TD
 
 Only the last box is an effort problem. For the Larkspur assistant, *How much was my last refund?* is the first box: the amount lives in the billing system, so the fix is a tool call to the account API (M23), and *Can I get a refund after 45 days?* is the last box, where effort is worth sweeping.
 
+## Check yourself
+
+<details>
+<summary>1. How does the notebook price each step up the effort dial, and when does a step count as pure cost?</summary>
+
+Each step's price is the cost of that level minus the cost of the level below, divided by the accuracy gain times 100: dollars per extra percentage point. A step with no accuracy gain reads `no gain`, and every step after it is pure cost. The knee is the last step whose price per point you would pay.
+
+</details>
+
+<details>
+<summary>2. Using the lab's table, which setting do you pick if one extra accuracy point is worth $1 per 10,000 answers?</summary>
+
+`o4-mini` at low. The step from `gpt-4o-mini` to low costs $0.68 per point, which is under $1; the step to medium costs $1.19 per point, which is over it. High adds no gain and costs $48.40 more per 10,000 answers than medium.
+
+</details>
+
+<details>
+<summary>3. Across low, medium and high, accuracy stays flat while reasoning tokens climb. What does that signal for a question such as last Tuesday's EU refund total?</summary>
+
+Effort is the wrong lever: the fact is missing, so every level reaches `INSUFFICIENT DATA` and the higher ones pay more to get there. Fix it with retrieval, a tool call or a database, such as a tool call to the account API (M23) for a customer's last refund. Raise effort only for a task that is genuinely hard.
+
+</details>
+
 ---
 *Previous: [2.3 Reasoning vs non-reasoning models](../03_reasoning_vs_non_reasoning_models/README.md). Next: [M02 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -47,5 +47,28 @@ For the Larkspur support desk the same shape triages tickets: a classifier label
 
 The notebook ends with moderation: piping a chain into the legacy `OpenAIModerationChain` from `langchain_classic` screens its output before it reaches the caller. Any Runnable can take that last position, which is how output checks and guardrails attach to a pipe.
 
+## Check yourself
+
+<details>
+<summary>1. How does RunnableBranch choose a chain, and where does a label such as "summarize and email" end up in notebook 03a?</summary>
+
+It tests the conditions in order, runs the first whose condition returns true, and runs the default when none does. The 03a conditions are substring tests, so "summarize and email" matches the first condition and goes to the summary chain; it never reaches the email chain. Order decides ties.
+
+</details>
+
+<details>
+<summary>2. The Larkspur plan comparison runs description, pros and cons in parallel, then one merge. How many model calls and rounds is that, and what sets the wall time?</summary>
+
+4 model calls in 2 rounds. The three LLM branches run at the same time and `itemgetter('topic')` copies the topic through without a model call; the merge reads all four keys. The wall time is the slowest branch plus the merge.
+
+</details>
+
+<details>
+<summary>3. In notebook 03a the router's default returns a fixed apology. What should the default do for the Larkspur support desk, and why?</summary>
+
+Hand the ticket to a person and count it. A default is where every ticket the classifier cannot place lands, so a rising default rate is an early sign that the classifier has drifted, and a fixed string hides that.
+
+</details>
+
 ---
 *Previous: [8.2 LCEL deep dive](../02_lcel_deep_dive/README.md). Next: [8.4 Legacy chains and migration to LCEL](../04_legacy_chains_and_migration_to_lcel/README.md).*

@@ -39,5 +39,28 @@ Two smaller points: `pyproject.toml` lists `a2a-python` where `requirements.txt`
 
 A smoke test that sends one golden question through the host and checks that the reply contains handbook text, not `Error communicating`, catches the first failure on the first run.
 
+## Check yourself
+
+<details>
+<summary>1. In the capstone, when does the host use MCP and when does it use A2A?</summary>
+
+MCP connects it to tools and data: `web_search` and `terminal`, started over stdio, return a tool result that the host's own model reasons over, and each use lasts one call. A2A connects it to another agent: the host reads `agent_registry.json`, fetches the RAG agent's card and delegates, getting an answer from an agent with its own model, tools and state, tracked as a Task that can be polled, streamed or cancelled.
+
+</details>
+
+<details>
+<summary>2. A user asks the host to tell me about today's AWS outage. Where does the question go, and is that right?</summary>
+
+To the RAG agent. `_is_document_question` matches the keyword `tell me about`, so the host calls the document agent directly, though only the web can answer. Keyword routing is fast and predictable, and it misroutes.
+
+</details>
+
+<details>
+<summary>3. Under a2a-sdk 0.3.26 every document question comes back as a reply starting Error communicating with agent. What is wrong, and what catches it early?</summary>
+
+`agent_connect.py` builds `A2AClient(base_url=self.agent_card.base_url, ...)` and calls `send_request`, but `AgentCard` has no `base_url` and `A2AClient` has `send_message`, not `send_request`. `send_task` returns the error string and the host passes it on as the answer. A smoke test that sends one golden question and checks for handbook text, not `Error communicating`, catches it on the first run.
+
+</details>
+
 ---
 *Previous: [41.3 Cross-framework agent interop](../03_cross_framework_agent_interop/README.md). Next: [M41 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

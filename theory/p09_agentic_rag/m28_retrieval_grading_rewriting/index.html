@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -454,6 +459,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The schema decides what the router can trust. <code>binary_score</code> is a plain <code>str</code>, and the comparison is exact, so a model that answers <code>"Yes"</code> sends a relevant retrieval to <code>rewrite</code>. <code>03a</code> normalises with <code>.strip().upper()</code> before comparing, and its topic classifier goes further with <code>Literal["RELEVANT", "IRRELEVANT"]</code>, which makes Pydantic reject any other value.</p>
 <p>The prompt sets the bar. <code>01a</code> grades a document relevant if it &ldquo;contains keyword(s) or semantic meaning related to the user question&rdquo;. <code>03a</code> also accepts &ldquo;context that helps understand the topic&rdquo;. On the Larkspur handbook, <em>How long does a refund take?</em> retrieves <code>refund-window</code> first: it is about refunds, and it says an annual plan can get a full refund within 30 days. It does not say how long a refund takes. A grader that accepts &ldquo;related&rdquo; passes it, and the model answers from a chunk without the answer. A grader that asks &ldquo;does this answer the question?&rdquo; fails it and sends the query to rewrite, which in the <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">lab</a> finds <code>refund-timing</code> at 0.720.</p>
 <p>The grader reads text because a similarity score cannot do its job. A retriever returns <code>k</code> chunks for every query, whatever they score. In the lab, <em>Do you offer a student discount?</em> shares no word with the handbook and still retrieves <code>billing</code> and <code>cancel</code> at 0.000. Its rewrite <em>Student discount pricing for plans</em> retrieves <code>support</code> at 0.503 and <code>billing</code> at 0.461, both above the 0.227 that <code>refund-window</code> scores for the refund question, and neither mentions a discount. No score threshold separates those cases; reading the chunk does.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the rewrite node send the new question back to the agent instead of straight to the retriever?</summary>
+<p>The model reads the rewritten question as the last message and decides again whether to call the tool, and with what query. Nothing on this path counts the trips, so the loop ends only when the grader says yes, which lesson 28.3 fixes with bounded retries.</p>
+</details>
+<details>
+<summary>2. The refund-duration question retrieves the refund-window chunk first. Does a grader that accepts related text pass it, and what follows?</summary>
+<p>Yes: the chunk is about refunds, but it only says an annual plan can get a full refund within 30 days, not how long a refund takes. The model then answers from a chunk without the answer. A grader that asks &ldquo;does this answer the question?&rdquo; fails it and sends the query to rewrite, which finds <code>refund-timing</code> at 0.720.</p>
+</details>
+<details>
+<summary>3. The first notebook's grader sends a clearly relevant retrieval to rewrite, and the model's verdict was Yes with a capital letter. Why?</summary>
+<p><code>binary_score</code> is a plain <code>str</code> and the router compares it exactly with <code>"yes"</code>, so <code>"Yes"</code> fails. Normalise before comparing, as <code>03a</code> does with <code>.strip().upper()</code>, or type the field as a <code>Literal</code> so Pydantic rejects any other value.</p>
+</details>
 <h2 id="topic-guardrails">Topic guardrails</h2>
 <p class="lesson-of">Lesson 28.3: Guardrails, query optimisation and a retry loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m28_retrieval_grading_rewriting/notebooks/03a_advanced_rag_agent.ipynb" target="_blank" rel="noopener"><code>03a_advanced_rag_agent.ipynb</code></a></p>
 <p>Notebook <code>03a</code> builds an eight-node support agent. Before it retrieves anything, it asks whether the question belongs to the assistant at all:</p>
@@ -613,6 +631,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>Each <code>optimize_query</code> call rewrites the previous rewrite, since it reads <code>enhanced_query</code> and writes the result back to it. Two rounds can drift from what the customer asked. <code>01a</code> rewrites <code>messages[0]</code>, the original question, every time.</p>
 <p>A rewrite helps only if it moves toward the documents&rsquo; words. In the lab, the outage question&rsquo;s first rewrite, <em>What happens when my server is unavailable?</em>, swaps one everyday phrase for another. TF-IDF matches exact tokens, so it retrieves <code>reboot</code> at 0.416 and <code>sizing</code> at 0.389 again, the same as the original. The second rewrite uses the handbook&rsquo;s vocabulary, &ldquo;outage&rdquo; and &ldquo;availability&rdquo;, and retrieves <code>sla</code> at 0.470 and <code>incidents</code> at 0.253. M18 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the topic check run before retrieval instead of leaving off-topic questions to the document grader?</summary>
+<p>The grader cannot tell &ldquo;off topic&rdquo; from &ldquo;not in the handbook&rdquo;: both look like a retrieval where nothing passes, both spend the retry budget and both end in the same no-results reply. In the lab the weather question costs 1 call with the check and 8 without.</p>
+</details>
+<details>
+<summary>2. With two rewrites allowed and two chunks per retrieval, how many LLM calls does a question the handbook cannot answer cost?</summary>
+<p>Nine: 1 for the topic check, 6 grader calls (2 per retrieval over 3 retrievals) and 2 rewrites, with no answer call. In general it is <code>1 + 2(m + 1) + m</code> for a bound of <code>m</code>, because unanswerable questions always pay the full bound.</p>
+</details>
+<details>
+<summary>3. Raising the bound from two rewrites to three costs three more calls on the golden set. What does it buy?</summary>
+<p>Nothing: the answered count stays at 3. The extra retrieval and calls all go to the student-discount question, which the handbook cannot answer at any bound. Set the bound where the golden set&rsquo;s answered count stops rising, and keep <code>recursion_limit</code> as a backstop.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html"><strong>Grade, rewrite, retry</strong></a>: open the file in a browser. Pick <em>What happens if my server goes down?</em> and lower the bound from 2 to 1: the evidence is one rewrite out of reach. Pick <em>Do you offer a student discount?</em> and raise the bound to 3: three more calls and no answer. Then switch the topic check off and pick the weather question.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -669,7 +700,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Bound every retry loop with a counter in the state that resets each turn, and set the bound where the golden set stops gaining answers.</li>
 <li>Check the topic before retrieval when off-topic traffic is real, and watch the no-results rate it leaves behind: those questions are gaps in the handbook.</li>
 </ul></article>
-    <nav class="toc" aria-label="M28 sections"><details open><summary>In M28</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#document-grader">Document grader</a></li><li><a href="#topic-guardrails">Topic guardrails</a></li><li><a href="#bounded-retries">Bounded retries</a></li><li><a href="#two-rewrites-two-jobs">Two rewrites, two jobs</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M28 sections"><details open><summary>In M28</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#document-grader">Document grader</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#topic-guardrails">Topic guardrails</a></li><li><a href="#bounded-retries">Bounded retries</a></li><li><a href="#two-rewrites-two-jobs">Two rewrites, two jobs</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

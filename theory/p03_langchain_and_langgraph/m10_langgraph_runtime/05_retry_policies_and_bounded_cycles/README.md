@@ -48,5 +48,28 @@ The notebook's guard has three parts:
 
 A loop on the Larkspur desk, such as "rewrite the customer reply until the tone checker passes", gets the same treatment: a counter in the rewriting node, a cap in the router, an explicit `recursion_limit`, and a fallback path when the cap is hit. [M29](../../../p09_agentic_rag/m29_crag_and_self_rag/README.md)'s grade-and-rewrite loops are built this way.
 
+## Check yourself
+
+<details>
+<summary>1. Why should a RetryPolicy name its exceptions in retry_on instead of relying on the default?</summary>
+
+So a bug fails on the first attempt instead of after every wait. The default retries `ConnectionError` and HTTP 5xx errors and skips the programming errors on its list, but any class not on that list is retried, including a custom `APIError(Exception)`. Naming the exceptions makes the policy retry only what you mean.
+
+</details>
+
+<details>
+<summary>2. With the notebook's policy and a weather API that fails 70% of the time, how long does a run that exhausts the policy wait, and how often does that happen?</summary>
+
+15 to 19 seconds: waits of 1, 2, 4 and 8 seconds, plus up to 1 second of jitter each, and no wait after the fifth failure. All five attempts fail with probability 0.7^5 ≈ 0.168, about one run in six.
+
+</details>
+
+<details>
+<summary>3. A rewrite loop bumps its attempt counter in the router function, and the loop runs until GraphRecursionError. What went wrong?</summary>
+
+Anything a router writes to `state` is discarded, so the counter never grows and the cap is never reached. The node must count (`generate` returns `iteration + 1`) and the router only reads it, checking success first, then the cap. Pass an explicit `recursion_limit` as the backstop, since the default of 10,007 steps is far too high to save an LLM budget.
+
+</details>
+
 ---
 *Previous: [10.4 Async and streaming](../04_async_and_streaming/README.md). Next: [10.6 State management in practice](../06_state_management_in_practice/README.md).*

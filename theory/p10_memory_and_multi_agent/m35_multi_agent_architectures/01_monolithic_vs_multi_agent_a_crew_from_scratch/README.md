@@ -39,5 +39,28 @@ A `Crew` collects agents in a `with` block and runs them in topological order: a
 
 The last part of the notebook draws the same fan-in crew as a LangGraph `StateGraph`, with one `add_edge` per dependency. A crew is a fixed dependency graph. Everything in lesson 35.2 onward adds a node that chooses the next agent at run time.
 
+## Check yourself
+
+<details>
+<summary>1. The specialist team makes roughly four times the monolithic agent's model calls. Why is its latency set by the slowest analyst, not the sum of all three?</summary>
+
+`START` has an edge to all three analysts, so LangGraph runs them in the same super-step, in parallel. The report writer has an edge from each analyst and starts only when all three have finished. The time is the slowest analyst plus the synthesis call.
+
+</details>
+
+<details>
+<summary>2. On one company, the team's report scores a point higher than the monolithic report from the judge. Is that enough to switch to the team?</summary>
+
+No. One request on one company is one sample, and a gap of a point or two on the judge alone is noise. The notebook also measures both reports in code (word count, headings, whether each requested topic is covered), and the judge scores each report without knowing which approach wrote it.
+
+</details>
+
+<details>
+<summary>3. A crew built from the optional notebook declares writer >> reviewer and reviewer >> writer. What happens when you run it?</summary>
+
+The crew raises an error before any model is called. It runs agents in topological order, and a cycle has no topological order. A crew is a fixed dependency graph; choosing the next agent at run time needs the patterns from lesson 35.2 on.
+
+</details>
+
 ---
 *Previous: [M35 overview](../README.md). Next: [35.2 The five multi-agent architectures and agent communication](../02_the_five_multi_agent_architectures_and_agent_communication/README.md).*

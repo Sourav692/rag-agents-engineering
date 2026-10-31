@@ -52,5 +52,28 @@ The orchestrator's prompt tells it to recall memories at the start of each conve
 
 The module's deployed design, in [`deep_agent_overview.md`](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md), runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.
 
+## Check yourself
+
+<details>
+<summary>1. How does a call to the task tool keep the research agent's searches out of the orchestrator's context?</summary>
+
+The `task` tool runs the sub-agent with its own messages and tools, and only its final message returns to the orchestrator. The search calls and notes stay in the sub-agent's context; the orchestrator reads only the report.
+
+</details>
+
+<details>
+<summary>2. The harness loads eight skills from 06c_skills. What does the orchestrator's system prompt hold for them before any is needed?</summary>
+
+Only each skill's `name` and `description` from the `SKILL.md` frontmatter, eight short lines in all. When a task matches a description, the model calls `read_file` for the full instructions. This is progressive disclosure.
+
+</details>
+
+<details>
+<summary>3. A teammate sets USE_SANDBOX=true, believing the agent's commands now run in a cloud sandbox. Are they safe?</summary>
+
+No. Despite the script's comment, the code selects `LocalShellBackend`, which the library documents as unrestricted shell execution on the host with no isolation. Code execution belongs in a real sandbox backend, with a person approving each command through `interrupt_on`.
+
+</details>
+
 ---
 *Previous: [37.5 Research systems: supervisor financial research, summarisation, full research system](../05_research_systems_supervisor_financial_research_summarisation_full_research_system/README.md). Next: [M37 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

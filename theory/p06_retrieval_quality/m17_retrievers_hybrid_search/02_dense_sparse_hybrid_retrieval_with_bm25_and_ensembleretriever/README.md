@@ -71,5 +71,28 @@ bm25 = BM25Retriever.from_documents(chunks, preprocess_func=tokens, k=5)
 
 On the same corpus this lifts the second sentence to 1.947, because `application` now matches. `ORD-88213?` becomes `ord-88213`, so an ID typed at the end of a question still matches the chunk that contains it. `LLMs` still misses `LLM`; matching word forms needs a stemmer, the same gap that kept the `refund-timing` chunk ("Refunds") away from "refund" in the M11 lab. Tune `k1` and `b` through `bm25_params` only after the tokeniser is right; the tokens decide what can match at all.
 
+## Check yourself
+
+<details>
+<summary>1. Why does BM25 find the Larkspur chunk that quotes ORD-88213 when a dense retriever misses it?</summary>
+
+An order ID has no learned meaning for an embedding model, so its few characters move the chunk's vector very little. BM25 treats the ID as one more token, and a rare token gets a high idf, the case BM25 weights most. Dense retrieval wins the opposite case, such as a server "going down" when the evidence says "outage".
+
+</details>
+
+<details>
+<summary>2. With the rank_bm25 defaults, what is a word worth at one, two and ten occurrences in an average-length chunk, and at one occurrence in a chunk twice that length?</summary>
+
+1.00, 1.43 and 2.17 times its idf, and 0.69 in the double-length chunk. Each extra occurrence adds less, up to a ceiling of `k1 + 1` times the idf, and `b` scales term frequency down for chunks longer than average.
+
+</details>
+
+<details>
+<summary>3. The default BM25Retriever matches only build and can in "How can I build an application using LLMs?" What is wrong, and what do you fix first?</summary>
+
+The default tokeniser is `text.split()`: whitespace only, no lower-casing, punctuation kept, so `application` misses `application.` and `LLMs?` misses `LLM`. Pass a `preprocess_func` that lower-cases, strips punctuation and keeps hyphenated IDs together; that lifts the second sentence to 1.947. Tune `k1` and `b` only after the tokeniser is right.
+
+</details>
+
 ---
 *Previous: [17.1 The retriever interface and its search modes](../01_the_retriever_interface_and_its_search_modes/README.md). Next: [17.3 Fusion retrieval: score normalisation vs rank fusion](../03_fusion_retrieval_score_normalisation_vs_rank_fusion/README.md).*

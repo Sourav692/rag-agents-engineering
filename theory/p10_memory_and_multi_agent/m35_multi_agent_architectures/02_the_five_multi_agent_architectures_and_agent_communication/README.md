@@ -61,5 +61,28 @@ flowchart LR
 
 The notebook marks one boundary. This loop is not a blackboard: its order is fixed (draft, critique, draft), and only the exit is decided at run time. A blackboard has a controller that picks which of several specialists acts next from what is on the shared board; M36 builds one.
 
+## Check yourself
+
+<details>
+<summary>1. What does a node return to choose the next agent at run time, and how does LangGraph know which edges to draw for it?</summary>
+
+It returns `Command(goto="writer", update={...})`: the update goes into state and the named node runs next. The return annotation, such as `Command[Literal["writer", "__end__"]]`, lists the nodes it may jump to, and LangGraph draws those as edges. `add_edge` fixes a path at build time; `Command(goto=...)` picks one at run time.
+
+</details>
+
+<details>
+<summary>2. Larkspur's support assistant may need one specialist or two, so the order is not known in advance. Which question then decides between a swarm and a supervisor?</summary>
+
+Whether an agent should pass the conversation on, which comes down to whether conversations stay with one specialist across turns. If yes, use handoffs and a swarm (35.5). If no, and peers need not negotiate and one supervisor can handle the specialists, use a supervisor (35.4).
+
+</details>
+
+<details>
+<summary>3. A yes-or-no critic sometimes approves drafts that miss a criterion. How does the notebook's critic design prevent that, and what ends the loop?</summary>
+
+The critic never gives the verdict. For each of three criteria it quotes the sentence from the draft that meets it, or writes `none`; code checks that each quote is really in the draft and computes the verdict. `MAX_ITERATIONS = 3` ends the loop whether or not the critic approves.
+
+</details>
+
 ---
 *Previous: [35.1 Monolithic vs multi-agent; a crew from scratch](../01_monolithic_vs_multi_agent_a_crew_from_scratch/README.md). Next: [35.3 Supervisor workflow with human review](../03_supervisor_workflow_with_human_review/README.md).*

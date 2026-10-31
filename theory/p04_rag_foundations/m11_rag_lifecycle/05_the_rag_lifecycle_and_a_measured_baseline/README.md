@@ -63,5 +63,28 @@ The lifecycle notebook ends with the map from symptom to module:
 | Retrieved chunk holds half the fact | Chunk boundary | M13 chunking |
 | Answer contradicts the retrieved chunk | Generation | M20 per-claim citations, M29 Self-RAG |
 
+## Check yourself
+
+<details>
+<summary>1. An answer is wrong. What one check tells you whether to debug retrieval or generation?</summary>
+
+Print the retrieved chunks and look for the correct passage. If it is missing, retrieval failed: fix loading, splitting, embedding, `k` or the query. If it is there, generation failed: fix the prompt, the context order or the model.
+
+</details>
+
+<details>
+<summary>2. A teammate rewrites the prompt and the refund question is still wrong. The refund chunk never appears in the top-k. Why did the rewrite not help?</summary>
+
+The model never saw the evidence, so no prompt can make it use that evidence. This is a retrieval failure. The refund question needs better term matching (M14 embeddings, M17 hybrid search), measured against the golden set.
+
+</details>
+
+<details>
+<summary>3. A new chunking strategy lifts recall@2 on two questions and breaks a third. Do you keep it?</summary>
+
+Not as it stands. The loop keeps a change only when the row improves on the questions it targets without breaking the others. Revert it, or fix the regression and re-run the golden set before it becomes the new baseline.
+
+</details>
+
 ---
 *Previous: [11.4 Your first LangChain RAG with Chroma](../04_your_first_langchain_rag_with_chroma/README.md). Next: [M11 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

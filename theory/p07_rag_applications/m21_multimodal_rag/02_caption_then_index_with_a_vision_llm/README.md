@@ -42,5 +42,28 @@ Write the caption prompt for the questions the figure must answer:
 
 A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption's metadata (`name`), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML ([M12, lesson 12.4](../../../p05_ingestion_and_indexing/m12_document_ingestion/04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md)) keeps rows and columns that a caption has to describe in prose.
 
+## Check yourself
+
+<details>
+<summary>1. What does captioning move to index time, and what does that buy at query time?</summary>
+
+A vision model looks at each figure once and writes text about it, so the cost lands once per image and never per question. From then on the figure is a text chunk with the same embedder, vector store and retriever as the paragraphs around it. Every tool from M14 to M19 still applies: hybrid search, reranking, metadata filters.
+
+</details>
+
+<details>
+<summary>2. The caption Bar chart of monthly availability in Q2 against a target line ranks well for the availability question. Can it answer which month missed the target?</summary>
+
+No. It is found but cannot answer, because nothing in it says May or 99.91%. Write the caption prompt for the questions the figure must answer: every printed value with its label and unit, the title, axes, legend and reference line, the figure's place, and an explicit escape for anything unreadable.
+
+</details>
+
+<details>
+<summary>3. The vision model reads 8 GB as 16 GB in a caption. How do you keep that wrong value out of answers?</summary>
+
+Retrieve on the caption, then send the original image to a vision model at answer time; the notebook already keeps the image file name in each caption's metadata (`name`). The caption then only has to be good enough to find the figure. Where the PDF has a real text layer, an element-level parser that returns tables as HTML (M12, lesson 12.4) avoids describing them in prose at all.
+
+</details>
+
 ---
 *Previous: [21.1 Shared text–image embedding space with CLIP](../01_shared_text_image_embedding_space_with_clip/README.md). Next: [21.3 Page-image retrieval with ColPali](../03_page_image_retrieval_with_colpali/README.md).*

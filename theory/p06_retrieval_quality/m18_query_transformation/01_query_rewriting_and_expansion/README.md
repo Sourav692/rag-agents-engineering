@@ -63,5 +63,28 @@ flowchart TD
 
 Plain retrieval is a valid exit. The M11 lab's export question already retrieves both its evidence chunks at `k = 2`, and every transformation on it adds cost with nothing to gain. A router (lesson 18.7) can make this choice per question instead of applying one technique to all traffic.
 
+## Check yourself
+
+<details>
+<summary>1. Why does "What happens if my server goes down?" score 0.000 against both Larkspur chunks that answer it?</summary>
+
+The vocabulary differs. The answering chunks say "outage", "availability" and "incident" and never "down", so a term matcher finds no overlap; the top three, `reboot`, `sizing` and `export`, match only on "server". Embeddings (M14) close part of this gap, and query expansion adds the handbook's words to the query.
+
+</details>
+
+<details>
+<summary>2. In the expansion chain, which text goes to the retriever and which goes to the answer prompt, and why?</summary>
+
+The expanded text goes to the retriever; the original question goes to the answer prompt. The expansion exists only to find the chunks, and the model should answer what the user asked, not the expansion. The cost is one LLM call before every retrieval and a risk of dilution if too many terms are added.
+
+</details>
+
+<details>
+<summary>3. Should you apply a query transformation to "Can I export my data after I cancel my plan?" on the Larkspur index?</summary>
+
+No. The M11 lab already retrieves both its evidence chunks at `k = 2`, so every transformation adds cost with nothing to gain. Plain retrieval is a valid exit, and a router (lesson 18.7) can make that choice per question.
+
+</details>
+
 ---
 *Previous: [M18 overview](../README.md). Next: [18.3 RAG-Fusion with Reciprocal Rank Fusion](../03_rag_fusion_with_reciprocal_rank_fusion/README.md).*

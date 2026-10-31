@@ -72,5 +72,28 @@ The notebook runs both on the same two stub tools. With `gpt-4o-mini`, the text 
 
 On *What's the weather in Tokyo and calculate 25% of 80?* the native agent asked for both tools in one turn and needed 2 model calls; the text agent, one `Action` per turn, needed 3. LangChain 1.x `create_agent` uses native tool calls, so there is nothing to parse. The ReAct idea, read every observation before choosing the next step, is unchanged.
 
+## Check yourself
+
+<details>
+<summary>1. Why does adding one edge from the tools node back to the agent turn a single-shot graph into a ReAct agent?</summary>
+
+With `tools → END` the last message is the `ToolMessage`, so the user gets search snippets and no search can build on another. With `tools → agent`, `tools_condition` sends the run back to the model after every observation, so each search can use what earlier results named. The run ends when the model replies without a tool call.
+
+</details>
+
+<details>
+<summary>2. In the lab, the first search for the refund question misses the refund-timing chunk. What does the loop do next, and how many calls does the run need?</summary>
+
+The model reads the first result and rewords its query, and the second search finds `refund-timing` (the chunk says "Refunds", the question says "refund"). The ReAct run takes 3 calls and reaches evidence 1.00, against 0.50 for the single shot.
+
+</details>
+
+<details>
+<summary>3. A text-based ReAct agent picks the weather tool for Tokyo but the tool finds no such city. What failed, and how do you fix it?</summary>
+
+The transport failed, not the choice: the model wrote `Action Input: 'Tokyo'` with the quotes, so the tool looked up `'Tokyo'`. Text-driven tools need input cleaning, and `handle_parsing_errors=True` turns a format break into an observation. Native tool calling, as in `create_agent`, removes the parsing step.
+
+</details>
+
 ---
 *Previous: [M24 overview](../README.md). Next: [24.2 ReAct with LangChain `create_agent`](../02_react_with_langchain_create_agent/README.md).*

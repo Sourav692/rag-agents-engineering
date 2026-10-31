@@ -65,5 +65,28 @@ The reducer and what the nodes return have to agree. The [interactive lab](inter
 
 Reducers matter again when nodes run in parallel. If two nodes in the same step write a key that has no reducer, LangGraph 1.2.18 raises `InvalidUpdateError: At key 'out': Can receive only one value per step`. The fan-out patterns in [M25](../../../p08_agent_foundations/m25_agentic_workflow_patterns/README.md) give such keys a reducer, usually `operator.add`.
 
+## Check yourself
+
+<details>
+<summary>1. What does a reducer decide, and what happens to a key that has none?</summary>
+
+A reducer decides what a node's write does to a key; LangGraph calls it as `function(current, update)`. Without one, the write replaces the value. In notebook 01a, three nodes write into a `str` key and the final state holds only `'Hello this is the final node'`; the customer's input is gone after the first node.
+
+</details>
+
+<details>
+<summary>2. The state starts as count 5 and animals lion and tiger. A node returns count 1 and animals cat. What is the state with custom_increment on count and operator.add on animals?</summary>
+
+`{"count": 6, "animals": ["lion", "tiger", "cat"]}`. Each reducer combines the current value with the update. Without reducers the same write gives `{"count": 1, "animals": ["cat"]}`.
+
+</details>
+
+<details>
+<summary>3. The Larkspur graph with operator.add on messages ends with 7 messages, the question four times. What went wrong, and what fixes it?</summary>
+
+The nodes return the whole list, `state["messages"] + [msg]`, and `operator.add` concatenates that copy onto the original: 1, then 3, then 7 messages. Either have each node return only its new message, or use `add_messages`, which gives 3 either way because the copied messages carry ids and replace themselves.
+
+</details>
+
 ---
 *Previous: [M09 overview](../README.md). Next: [9.2 Conditional edges and LLM nodes](../02_conditional_edges_and_llm_nodes/README.md).*

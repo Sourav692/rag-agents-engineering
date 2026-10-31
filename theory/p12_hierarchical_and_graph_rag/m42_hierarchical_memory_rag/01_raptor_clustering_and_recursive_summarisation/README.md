@@ -56,5 +56,28 @@ Move the result budget and inspect the ledger. The lab reports positive-score hi
 
 For the notebook lab, freeze the corpus and question set, then compare flat retrieval, recursive summaries and graph retrieval at the same final context budget. Record indexing calls separately from retrieval and generation calls. Test precise facts, cross-section comparisons, changed policies and questions that the corpus cannot answer.
 
+## Check yourself
+
+<details>
+<summary>1. Why does collapsed-tree retrieval rank every level together instead of selecting parents first and then searching their children?</summary>
+
+Ranking all levels in one pool lets the mix of passages and summaries change with the question. A top-down traversal commits to parents first, so an early wrong branch can exclude a relevant leaf. The notebook's `build_vectorstore` puts all levels in one FAISS store, which is what makes mixed-level search possible.
+
+</details>
+
+<details>
+<summary>2. In the lab at a budget of two nodes, what changes when summaries join the pool for the service continuity question, and for the export steps question?</summary>
+
+For continuity, positive hits rise from 1 to 2, both are summaries, and the source identifiers reached rise from 1 to 4, with context growing from 16 to 24 words. For export steps nothing changes: 2 hits, no summaries, 37 words. Reaching more source identifiers describes ancestry, not a better answer or retained facts.
+
+</details>
+
+<details>
+<summary>3. A customer asks for the exact data-deletion condition, and the top hit is a summary linked to the retention passage. Can you quote the condition from the summary?</summary>
+
+No. A summary can be accurate overall and still omit the exception the customer asks about, so follow it back to the source passages before quoting a condition or number. The notebook's first-level `child_ids` are missing, because its leaves have no `id`, so do not treat its metadata as verified provenance.
+
+</details>
+
 ---
 *Previous: [M42 overview](../README.md). Next: [42.2 MemoRAG: global memory and clue-guided retrieval](../02_memorag_global_memory_and_clue_guided_retrieval/README.md).*

@@ -69,5 +69,28 @@ What the File API inputs cost, from the Gemini API documentation (checked Octobe
 
 Gemini accepts PDFs up to 50 MB or 1,000 pages. A request that sends files inline is capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it. Video goes in the same way, and Gemini samples it into frames itself; lesson 6.2 shows what that sampling decides.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the notebook upload the interview recording through the File API instead of sending it inline with each prompt?</summary>
+
+`genai.upload_file` uploads the file once and returns a handle that takes the image's place in the contents list, so one handle serves the chapters, transcript and summary prompts. Inline requests are capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it.
+
+</details>
+
+<details>
+<summary>2. How many tokens does Gemini count for the 40-page Larkspur handbook as a PDF, and for a 10-minute support call as audio?</summary>
+
+10,320 for the PDF, at 258 tokens per page. 19,200 for the call, at 32 tokens per second over 600 seconds.
+
+</details>
+
+<details>
+<summary>3. You want the starter plan's included outbound traffic from a pricing-page screenshot. How do you build the prompt?</summary>
+
+Send the screenshot first and the question last, say what the image holds, and add "If the value is not printed on the page, say so." Ask one question per call: separate calls pay for the image again, but each answer is easier to grade.
+
+</details>
+
 ---
 *Previous: [M06 overview](../README.md). Next: [6.2 Multimodal prompting with GPT-4o](../02_multimodal_prompting_with_gpt_4o/README.md).*

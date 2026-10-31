@@ -58,5 +58,28 @@ Every merge beats the question as asked. Fusion and the union retrieve the same 
 - **Parse variants with a schema.** Splitting the LLM's reply on newlines turns headers, numbering and blank lines into queries. In RAG-Fusion each junk query produces a ranked list that votes in the fusion. Both notebooks bind a Pydantic model with `with_structured_output()` to get a guaranteed `list[str]`.
 - **Cost.** One LLM call for the variants, then one retrieval per variant, run in parallel with `retriever.map()`. RRF itself is a dictionary and a sort.
 
+## Check yourself
+
+<details>
+<summary>1. What does RAG-Fusion keep that multi-query's flat union throws away?</summary>
+
+Where each list ranked a chunk and how many lists found it. RRF adds `1 / (rank + k)` for every variant that retrieved the chunk; with `k = 60`, first place adds about 0.0167 and fourth place about 0.0159, so being found by more variants matters more than placing first in one. It uses ranks because scores from different queries are not on the same scale.
+
+</details>
+
+<details>
+<summary>2. Two variants rank refund-window at 1 and 0; three rank retention at 3, 3 and 2. Which comes first at k = 60, and at k = 1?</summary>
+
+At `k = 60` `retention` wins, 0.0479 to 0.0331, because the large `k` flattens the curve and agreement counts. At `k = 1` `refund-window` wins, 1.50 to 0.83, because rank position dominates. The ordering changes only when rank and agreement disagree, as they do here.
+
+</details>
+
+<details>
+<summary>3. A fusion chain answers fluently, but its context holds bare identifiers instead of passages. What went wrong?</summary>
+
+The merge returned `doc.id` values instead of documents, as the 02a notebook's original `get_unique_union()` did, so the model answered from memory. Key the merge by `page_content`, return the `Document` objects, and assert that the context holds real text.
+
+</details>
+
 ---
 *Previous: [18.1 Query rewriting and expansion](../01_query_rewriting_and_expansion/README.md). Next: [18.5 HyDE: embed a hypothetical answer](../05_hyde_embed_a_hypothetical_answer/README.md).*

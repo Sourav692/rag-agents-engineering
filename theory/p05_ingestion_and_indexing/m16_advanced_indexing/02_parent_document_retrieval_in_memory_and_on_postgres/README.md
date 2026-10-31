@@ -53,5 +53,28 @@ The child size decides what can be matched. The parent size decides what the mod
 
 Across the 217 settings where parents are larger than children, the children alone contain the whole answer in 394 of the 651 question and setting pairs; their parents contain it in 613. Size the child near the length of the evidence your questions need (the refund sentence is 141 characters) and the parent near a section, then check on the golden set that no parent boundary cuts an answer.
 
+## Check yourself
+
+<details>
+<summary>1. At query time, how does the parent-document retriever turn matching children into the text the model reads?</summary>
+
+It runs a similarity search over the children, collects their parent ids in rank order without repeats, fetches those parents with `docstore.mget`, and drops any id the docstore does not return. Children from one parent therefore return it once: at 200 / 800 both outage matches come from the same parent, and the model reads it once.
+
+</details>
+
+<details>
+<summary>2. At child size 150 and parent size 600, what does the model get for the refund question from the children alone, and what from their parents?</summary>
+
+The best child ends at "…as long as the account has used less", so sent alone it gives the 30-day rule without the 100 GB condition. Its parent holds the whole sentence. In the lab table the children answer 0 of 3 questions whole and the parents 3 of 3, at 53 against 206 tokens on average.
+
+</details>
+
+<details>
+<summary>3. After a restart, the retriever returns nothing for questions it answered before, and raises no error. What happened?</summary>
+
+The docstore was an `InMemoryStore`, which disappears when the process stops, while the vector store persisted the children. `invoke` drops parent ids the docstore does not return, so every hit vanishes silently. Persist both halves, as notebook 02b does with `PGVector` and a Postgres docstore, after checking its `mget` order, error handling and ids.
+
+</details>
+
 ---
 *Previous: [16.1 Multi-representation indexing: search summaries, return documents](../01_multi_representation_indexing_search_summaries_return_documents/README.md). Next: [16.3 Hierarchical indices: summary tier and detail tier](../03_hierarchical_indices_summary_tier_and_detail_tier/README.md).*

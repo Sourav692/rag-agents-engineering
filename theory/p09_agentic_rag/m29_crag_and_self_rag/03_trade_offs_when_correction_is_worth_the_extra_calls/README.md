@@ -55,5 +55,28 @@ For the Larkspur assistant that means:
 - **Retrieval misses are fixed in retrieval.** The outage question fails on wording; one rewrite against the index is cheaper than three Self-RAG passes or a web search.
 - **Every loop gets a counter and a budget.** `max_iterations` caps the rewrite loops in 02a; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.
 
+## Check yourself
+
+<details>
+<summary>1. Why does correction cost the most on the questions where it helps the least?</summary>
+
+The two questions the handbook cannot answer are the most expensive for Self-RAG, 14 to 20 calls, and they still end with a generation that has no context to be grounded in. CRAG sends both to the web, which cannot see a private handbook. The checks spend their budget looking for evidence that does not exist.
+
+</details>
+
+<details>
+<summary>2. At k equal to 3, all three pipelines answer the export question from both evidence chunks. How many LLM calls does each one pay?</summary>
+
+The baseline pays 1, CRAG 4 and Self-RAG 7, all for the same context. On an easy question the checks are pure overhead.
+
+</details>
+
+<details>
+<summary>3. Self-RAG spends 18 calls on the refund question and never retrieves the refund-timing chunk. Where should the fix go?</summary>
+
+Upstream, in retrieval. `refund-timing` shares no term with "How long does a refund take?", so it is never retrieved and never graded, and three passes return the same chunks. Fix it with better retrieval (M14, M17) or a rewrite that changes the words (M18), not with more checks.
+
+</details>
+
 ---
 *Previous: [29.2 Self-RAG: retrieve-or-not, relevance, groundedness, utility](../02_self_rag_retrieve_or_not_relevance_groundedness_utility/README.md). Next: [M29 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

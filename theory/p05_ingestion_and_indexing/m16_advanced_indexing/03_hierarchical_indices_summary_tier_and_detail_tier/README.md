@@ -36,5 +36,28 @@ And what they cost:
 
 For the Larkspur handbook, each section ("Refunds and cancellations", "Outages and service credits", "Data export and retention") would be one summary. *Do I get service credits automatically after an outage?* would pick the outage summary first and then compare only that section's chunks, so a refund chunk about "Credits from SLA breaches" cannot crowd it out.
 
+## Check yourself
+
+<details>
+<summary>1. For the question about service credits after an outage, why can a refund chunk about credits from SLA breaches not crowd out the answer?</summary>
+
+The question first picks the best section summaries, so the outage summary wins as a whole. The detail search then runs only inside the chosen pages, and chunks compete only with their neighbours. A chunk with matching words on an unrelated page never enters the result.
+
+</details>
+
+<details>
+<summary>2. With 3 summaries and 5 chunks per summary, how many chunks can reach the model, and what happens if you raise the chunk count to 10?</summary>
+
+Up to 15 chunks, because the result size is `k_summaries × k_chunks`. Raising `k_chunks` to 10 allows up to 30, so changing either number changes the prompt budget.
+
+</details>
+
+<details>
+<summary>3. A chunk that would score well against the question never appears in the results. Which tier do you check first, and what should you log?</summary>
+
+The summary tier. If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.
+
+</details>
+
 ---
 *Previous: [16.2 Parent-document retrieval, in memory and on Postgres](../02_parent_document_retrieval_in_memory_and_on_postgres/README.md). Next: [16.4 Question-side indexing: HyPE and document augmentation](../04_question_side_indexing_hype_and_document_augmentation/README.md).*

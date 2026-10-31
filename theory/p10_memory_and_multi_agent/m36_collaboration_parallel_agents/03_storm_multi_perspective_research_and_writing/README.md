@@ -50,5 +50,28 @@ The notebook attaches a callback that counts every chat-model call, structured-o
 
 Latency is a different number from cost. The interviews are independent of each other, but the notebook runs them in a Python `for` loop, so their waits add up. Dispatching one branch per persona with `Send` ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md#map-reduce--async)'s map-reduce) puts them in one superstep: the same calls, with the interview stage taking about as long as its slowest interview. The section drafts are independent in the same way.
 
+## Check yourself
+
+<details>
+<summary>1. In STORM, why do only the extracted facts travel into the outline and the drafts, while the interview transcripts stay behind?</summary>
+
+Each stage consumes the previous stage's typed object (`PerspectiveList`, `ResearchFindings`, `ArticleOutline`), so no stage parses free text. The facts list is the payload; the transcripts are kept for audit, so you can trace which question surfaced which fact.
+
+</details>
+
+<details>
+<summary>2. How many model calls does a STORM run make with 5 perspectives, 2 interview turns and 5 sections?</summary>
+
+33 calls: 1 for the perspectives, 5 × (2 × 2 + 1) = 25 for the interviews, 1 for the outline, 5 for the sections and 1 for the title. The table's row for `P` = 5 and `T` = 2 gives 28 + S, which is 33 at `S` = 5.
+
+</details>
+
+<details>
+<summary>3. A STORM outline comes back with exactly one section per persona. What has gone wrong, and where do you fix it?</summary>
+
+The outline is a concatenation of the research threads, not a synthesis. Outline synthesis is where `P` threads become one narrative, so fix the editor-in-chief's synthesis prompt to ask for a merged structure. If the sections also repeat each other, the personas overlap, and the perspective prompt needs tightening.
+
+</details>
+
 ---
 *Previous: [36.2 Debate](../02_debate/README.md). Next: [36.4 Meta-controllers, ensembles and emergent systems](../04_meta_controllers_ensembles_and_emergent_systems/README.md).*

@@ -66,5 +66,28 @@ For the Larkspur generator:
 
 Sending each question to the right model at run time is routing by model tier, built in [M25 lesson 25.2](../../../p08_agent_foundations/m25_agentic_workflow_patterns/02_routing_by_handler_and_by_model_tier/README.md#routing-by-model-tier).
 
+## Check yourself
+
+<details>
+<summary>1. Why can a reasoning model's bill be much larger than its visible reply suggests?</summary>
+
+Reasoning tokens sit inside `completion_tokens` and bill at the output rate, but you never receive them; `usage.completion_tokens_details.reasoning_tokens` reports how many there were. In the page's `o4-mini` call, 700 reasoning tokens make 98% of a $0.003135 bill, while the prompt and the three-token reply alone would cost $0.000055. Log `usage` per request instead of estimating from the reply.
+
+</details>
+
+<details>
+<summary>2. Which Larkspur question suits a reasoning model: how long a refund takes, or whether a refund is possible after 45 days?</summary>
+
+The 45-day question. It combines the 30-day window, the plan type and the proration rule, and a wrong amount turns into a support ticket: Task A's shape. The refund time is one sentence of the `refund-timing` chunk, Task B's shape, where a reasoning model only adds latency and cost.
+
+</details>
+
+<details>
+<summary>3. You raise the effort on a reasoning model and reasoning_tokens stays at 0 on every call. What does that tell you?</summary>
+
+The parameter never reached the model. Only the fast model should report 0 reasoning tokens; a reasoning model that reports 0, or a count that stays flat as effort rises, means any conclusion about effort comes from a test that never ran. Fix the request before you compare settings.
+
+</details>
+
 ---
 *Previous: [2.2 Open-source LLMs via Hugging Face Inference and locally](../02_open_source_llms_via_hugging_face_inference_and_locally/README.md). Next: [2.4 Reasoning-effort levers and cost](../04_reasoning_effort_levers_and_cost/README.md).*

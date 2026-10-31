@@ -87,5 +87,28 @@ Company: Rasmussen Group
 
 It skips splitting, embeds each row, and asks *which company does sheryl Baxter work for?* with `similarity_top_k=2`. The answer is in row 1 (Rasmussen Group), and the row's own text names her, so one retrieved row is enough. A question about many rows ("how many customers are in Chile?") gets the same two rows, and no prompt can count the other 98. Row-per-Document RAG answers lookups; counts, sums and filters belong to a query over the table, which M20 covers.
 
+## Check yourself
+
+<details>
+<summary>1. You port a LangChain notebook's chunk size of 200 to SentenceSplitter unchanged. Why are the chunks different?</summary>
+
+`SentenceSplitter` counts tokens, not characters, so 200 tokens is several times longer than 200 characters. It also subtracts the node's metadata string from `chunk_size` before splitting: on the PDF, `page_label` and `file_path` come to 38 tokens, so a 200-token chunk holds at most 162 tokens of text.
+
+</details>
+
+<details>
+<summary>2. After the 01a ingestion pipeline runs with a FAISS store, how many vectors does FAISS hold, and which index does the notebook query?</summary>
+
+None. The pipeline has no embedding transformation, and `IngestionPipeline` only adds nodes that already have an embedding to its vector store. `VectorStoreIndex(nodes)` then embeds the nodes again into the default in-memory store, and that is the index queried. Put `Settings.embed_model` in the pipeline and pass the store through `StorageContext` to end with 123 vectors in FAISS.
+
+</details>
+
+<details>
+<summary>3. The CSV variant answers which company Sheryl Baxter works for, but gets the number of customers in Chile wrong. Why?</summary>
+
+With `similarity_top_k=2` the engine retrieves two rows, and no prompt can count the other 98. A lookup works because one row names her. Counts, sums and filters belong to a query over the table, which M20 covers.
+
+</details>
+
 ---
 *Previous: [M22 overview](../README.md). Next: [22.2 Fusion retrieval with QueryFusionRetriever](../02_fusion_retrieval_with_queryfusionretriever/README.md).*

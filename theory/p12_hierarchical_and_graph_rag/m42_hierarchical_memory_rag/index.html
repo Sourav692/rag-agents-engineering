@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -359,6 +364,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The continuity query reaches more source identifiers through summaries. It has not retrieved the full source passages or demonstrated a better generated answer. For the export question, adding summary candidates leaves the selected context unchanged at this budget.</p>
 <p>Move the result budget and inspect the ledger. The lab reports positive-score hits, summary hits, distinct source identifiers reached through those hits, and context words. Source coverage describes ancestry, not fact retention: a summary linked to both export and retention passages may still omit the exact deletion condition. The specific export question exposes that distinction beside the thematic question.</p>
 <p>For the notebook lab, freeze the corpus and question set, then compare flat retrieval, recursive summaries and graph retrieval at the same final context budget. Record indexing calls separately from retrieval and generation calls. Test precise facts, cross-section comparisons, changed policies and questions that the corpus cannot answer.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does collapsed-tree retrieval rank every level together instead of selecting parents first and then searching their children?</summary>
+<p>Ranking all levels in one pool lets the mix of passages and summaries change with the question. A top-down traversal commits to parents first, so an early wrong branch can exclude a relevant leaf. The notebook&rsquo;s <code>build_vectorstore</code> puts all levels in one FAISS store, which is what makes mixed-level search possible.</p>
+</details>
+<details>
+<summary>2. In the lab at a budget of two nodes, what changes when summaries join the pool for the service continuity question, and for the export steps question?</summary>
+<p>For continuity, positive hits rise from 1 to 2, both are summaries, and the source identifiers reached rise from 1 to 4, with context growing from 16 to 24 words. For export steps nothing changes: 2 hits, no summaries, 37 words. Reaching more source identifiers describes ancestry, not a better answer or retained facts.</p>
+</details>
+<details>
+<summary>3. A customer asks for the exact data-deletion condition, and the top hit is a summary linked to the retention passage. Can you quote the condition from the summary?</summary>
+<p>No. A summary can be accurate overall and still omit the exception the customer asks about, so follow it back to the source passages before quoting a condition or number. The notebook&rsquo;s first-level <code>child_ids</code> are missing, because its leaves have no <code>id</code>, so do not treat its metadata as verified provenance.</p>
+</details>
 <h2 id="global-memory">Global memory</h2>
 <p class="lesson-of">Lesson 42.2: MemoRAG: global memory and clue-guided retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/optional/02a_memorag.ipynb" target="_blank" rel="noopener"><code>02a_memorag.ipynb</code></a> (optional)</p>
 <p>Corpus memory gives the retriever a view of the document collection before it searches for passages. For “How does Larkspur protect continuity?”, memory can suggest export, retention, availability and incident reports as clues. The final answer still needs source passages that support each claim.</p>
@@ -411,6 +429,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The notebook&rsquo;s duplicate check uses <code>similarity_search("")</code> to obtain existing topics. A nearest-neighbour result is a subset, so this does not enumerate the whole store or establish uniqueness. Use an explicit topic registry or stable record identifiers when implementing updates. It also returns <code>None</code> when no memory exists, while <code>process_query</code> iterates the result; an empty-memory fallback should retrieve with the original question.</p>
 <p>Treat memory as derived data with dependencies. When Larkspur changes retention rules, update the source index and regenerate memory entries derived from those passages. Shared memory must not expose restricted documents through its summaries or clues. Test deletions against both stored memory and generated answers.</p>
 <p>The optional notebook loads a prebuilt FAISS memory store and uses paid model calls. Reading it establishes the implementation shape; it does not establish a measured advantage on the Larkspur questions. Report any comparison only after running both pipelines on the same question set and budget.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What is a MemoRAG clue for, and why must the answer still rest on retrieved passages rather than on the clue?</summary>
+<p>A clue, drafted from corpus memory, helps the retriever locate evidence, such as export, retention and availability for a continuity question. It can contain an incorrect detail, so the generator must check the retrieved material, and every claim in the answer needs a source passage that supports it.</p>
+</details>
+<details>
+<summary>2. Larkspur changes its retention rules. What has to change besides the source index?</summary>
+<p>Every memory entry derived from those passages has to be regenerated, because memory is derived data with dependencies. Test deletions against both the stored memory and the generated answers. Shared memory also must not expose restricted documents through its summaries or clues.</p>
+</details>
+<details>
+<summary>3. The notebook checks for duplicate topics with similarity_search on an empty string. Why can that not establish that a topic is new?</summary>
+<p>A nearest-neighbour search returns a subset, so it does not enumerate the whole store and cannot prove uniqueness. Use an explicit topic registry or stable record identifiers instead. The same path returns <code>None</code> when no memory exists, so an empty-memory fallback should retrieve with the original question.</p>
+</details>
 <h2 id="dual-level-retrieval">Dual-level retrieval</h2>
 <p class="lesson-of">Lesson 42.3: LightRAG: low-level and high-level graph retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/notebooks/03a_light_rag.ipynb" target="_blank" rel="noopener"><code>03a_light_rag.ipynb</code></a></p>
 <p>LightRAG searches for specific entities and broader relationships through separate routes. For “How does cancellation affect export?”, the low-level route can locate Cancellation and Export. The high-level route can locate a relationship profile about data portability. The two routes contribute evidence to one answer.</p>
@@ -452,6 +483,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><code>lightrag_retrieve</code> defaults to four entity hits and four relation hits. Those are seed counts, not a bound on the final context: a high-degree entity can add many edges. The low-level expansion adds incident edges to <code>selected_edges</code>, but does not add all of those edges&rsquo; source chunk identifiers to <code>relevant_chunks</code>. The returned relationship block can therefore contain an assertion whose source passage is absent. Join source identifiers for every selected assertion and test that invariant before relying on the answer&rsquo;s provenance.</p>
 <p>For Larkspur, preserve separate product identifiers, relation direction where it carries meaning, and source versions. Restrict graph expansion to authorised evidence. If a policy is withdrawn, recompute merged profiles as well as removing the source passage, since old wording can survive inside a node description.</p>
 <p>To evaluate the two routes, run entity-only, relation-only and combined retrieval on the same precise and cross-section questions. Inspect answer support, source coverage and context size. Record extraction failures and indexing cost separately; a graph with plausible labels can still omit the relationship the question needs.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. For the question How does cancellation affect export?, what does each LightRAG route search for?</summary>
+<p>The low-level route searches entity profiles for keywords such as Cancellation and Export, then expands to their direct edges. The high-level route searches relation profiles for themes such as data portability, then adds the endpoint entities. High-level here means thematic relationships, not RAPTOR&rsquo;s upper summary levels or GraphRAG community reports.</p>
+</details>
+<details>
+<summary>2. Larkspur withdraws a policy and removes its source passage from the index. Is the graph now clean?</summary>
+<p>No. Node and relationship descriptions are merged across passages, so the old wording can survive inside a profile. Recompute the merged profiles as well as removing the source passage.</p>
+</details>
+<details>
+<summary>3. A retrieved relationship block contains an assertion whose source passage is absent from the context. What in the notebook causes this?</summary>
+<p>The low-level expansion adds incident edges to <code>selected_edges</code> but does not add those edges&rsquo; source chunk identifiers to <code>relevant_chunks</code>. Join source identifiers for every selected assertion, and test that invariant, before relying on the answer&rsquo;s provenance.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_raptor_clustering_and_recursive_summarisation/interactive/collapsed-tree-lab.html"><strong>Search the leaves or the whole tree</strong></a>: open the file in a browser. Compare the thematic question in leaf-only and collapsed modes. Move the result budget and inspect which summary or source passage enters the context. Switch to the specific export question and check whether a broad summary displaces the precise evidence.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -508,7 +552,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Distinguish a paper&rsquo;s algorithm from the simplified implementation in its teaching notebook.</li>
 <li>Measure retrieval, source support, update work and generation quality separately.</li>
 </ul></article>
-    <nav class="toc" aria-label="M42 sections"><details open><summary>In M42</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#abstraction-levels">Abstraction levels</a></li><li><a href="#collapsed-tree-retrieval">Collapsed-tree retrieval</a></li><li><a href="#global-memory">Global memory</a></li><li><a href="#dual-level-retrieval">Dual-level retrieval</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M42 sections"><details open><summary>In M42</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#abstraction-levels">Abstraction levels</a></li><li><a href="#collapsed-tree-retrieval">Collapsed-tree retrieval</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#global-memory">Global memory</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dual-level-retrieval">Dual-level retrieval</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

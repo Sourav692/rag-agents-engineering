@@ -39,5 +39,28 @@ To see what the cache holds, `scan_cache_dir()` in `01a` returns an `HFCacheInfo
 
 Datasets use the same Hub and their own cache. Notebook `01b` calls `load_dataset('rotten_tomatoes', cache_dir='rotten_tomatoes_data')`; the relative `cache_dir` writes a data folder next to the notebook instead of into the shared cache. The dataset has three splits (8,530 training, 1,066 validation and 1,066 test reviews), and the notebook divides its correct predictions by a hard-coded 1066. Write `len(test_df)` instead, so the accuracy stays right if the split changes. The Hub now lists the dataset as `cornell-movie-review-data/rotten_tomatoes`; if the short name stops resolving, use the full id.
 
+## Check yourself
+
+<details>
+<summary>1. Why does loading a model with revision main not guarantee the same weights in every environment?</summary>
+
+A name is not a version. `main` is a branch that moves when the owner pushes, and `refs/main` holds whichever commit hash it points to now. Pass `revision=` with a commit hash to load the same weights everywhere, which is how `transformers` pins its own default models.
+
+</details>
+
+<details>
+<summary>2. The owner of all-MiniLM-L6-v2 pushes a commit that changes only tokenizer.json. What does your next load of main download, and what stays on disk?</summary>
+
+Only the new `tokenizer.json`. The new snapshot's `model.safetensors` symlink points at the same 90,868,376-byte blob, because that file did not change. The old revision stays on disk until you remove it; `hf cache prune` removes revisions no branch points to.
+
+</details>
+
+<details>
+<summary>3. Several containers share one model cache, and the servers must never call the Hub. Which settings do you use?</summary>
+
+Point `HF_HOME` or `HF_HUB_CACHE` at the shared volume, and set `HF_HUB_OFFLINE=1` so the library reads only from the cache. Pin each model with `revision=` and a commit hash so every container loads the same snapshot.
+
+</details>
+
 ---
 *Previous: [M03 overview](../README.md). Next: [3.2 Pipelines, tokenization and pretrained models](../02_pipelines_tokenization_and_pretrained_models/README.md).*

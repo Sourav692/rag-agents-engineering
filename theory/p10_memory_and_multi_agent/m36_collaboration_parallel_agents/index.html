@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -368,6 +373,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <h3>What it costs, and when it pays</h3>
 <p>Every specialist turn sits between two controller turns, so a run with <code>k</code> specialists makes up to <code>k + 1</code> controller calls on top of the specialists&rsquo; own. Traces are harder to read than a pipeline&rsquo;s because the path changes from run to run; in the research-team notebook a fact-check that flags a finding sends the controller back to the researcher, a loop-back no edge in the graph spells out.</p>
 <p>Use a blackboard when the next step depends on what earlier steps found: diagnosis, triage, research with verification. When the order is known before the run starts, a pipeline or a fan-out (<a href="#">lesson 36.5</a>) is cheaper and easier to test.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A request asks for a technical or a financial analysis depending on the news sentiment. Why does the fixed pipeline never follow it, while the blackboard can?</summary>
+<p>The pipeline&rsquo;s edges cannot skip a node, so <code>news → technical → financial → writer</code> runs both analyses on every request. The blackboard controller reads the news analyst&rsquo;s post and then picks one branch. It can still choose wrong, because it is an LLM, so the notebook computes the check from <code>steps</code> on every run.</p>
+</details>
+<details>
+<summary>2. In the Larkspur outage escalation, the incident analyst posts that availability stayed above the 99.95% SLA. Which specialists should run next?</summary>
+<p>The controller should call the status analyst, not the credits analyst, and then the writer drafts a reply that points to the status page and the root-cause report. A fixed pipeline would pay for both analysts on every escalation.</p>
+</details>
+<details>
+<summary>3. A blackboard controller keeps picking specialists and never returns FINISH. What in the notebooks stops the run, and why is that better than relying on recursion_limit?</summary>
+<p>A cap in code: once <code>MAX_SPECIALIST_CALLS = 6</code> specialists have run, the controller returns <code>FINISH</code> without calling the model, so the run ends with a reply. <code>recursion_limit = 20</code> is only the backstop, and it ends the run with an error rather than a clean stop.</p>
+</details>
 <h2 id="debate">Debate</h2>
 <p class="lesson-of">Lesson 36.2: Debate. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/optional/02a_debate.ipynb" target="_blank" rel="noopener"><code>02a_debate.ipynb</code></a> (optional)</p>
 <p>In a debate two agents argue opposite sides of a question over several rounds, each reading the whole transcript and rebutting the other&rsquo;s latest point, and a neutral judge writes the verdict. The blackboard agents cooperate on one artifact; debaters disagree on purpose, so the judge sees the strongest case for both sides before deciding.</p>
@@ -416,6 +434,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Debate earns its cost on questions with legitimate trade-offs and no single correct answer: architecture choices, build or buy, policy. The notebook&rsquo;s question is whether a six-person team should start a new B2B SaaS product with microservices or a monolith. For a factual question with one correct answer, the single call is the better choice.</p>
 <p>On the Larkspur handbook that line is easy to draw. &ldquo;How long does a refund take?&rdquo; has one answer, 5 to 10 business days, and belongs to retrieval. &ldquo;Should the support assistant stop retrieving and put the whole handbook in a long-context prompt?&rdquo; is a trade-off between cost per call, accuracy on facts buried mid-context and access control (<a href="../../p04_rag_foundations/m11_rag_lifecycle/index.html#interview-spotlight-5-questions-you-might-get-asked">M11</a>&rsquo;s fifth interview question); a debate transcript and its judged verdict are a useful input to that decision. When two retrieved chunks disagree, for example an old and a new refund policy, fix the index first with version metadata and a filter (<a href="../../p05_ingestion_and_indexing/m12_document_ingestion/index.html">M12</a>) rather than asking two agents to argue about which one is current.</p>
 <p>Known weaknesses: both debaters can miss a consideration neither persona was primed to raise, a weak persona makes the debate lopsided, and the judge is a single point of bias unless its prompt keeps it even-handed.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why must each debater rebut the opponent's strongest recent point before adding one or two of its own?</summary>
+<p>Without the rebuttal rule the debate turns into two parallel monologues, and the judge has nothing to weigh. Engagement is what lets the judge&rsquo;s verdict name the strongest point from each side and the weak or overstated claims.</p>
+</details>
+<details>
+<summary>2. How many LLM calls does the notebook's three-round debate cost against a single call, and what do the extra calls buy?</summary>
+<p><code>2N + 1</code> calls, so 7 for <code>N = 3</code> (six turns and one verdict), against 1. They buy a transcript, the strongest point from each side and a judged recommendation. A capable model often hedges on its own, so the single call is the baseline to compare against.</p>
+</details>
+<details>
+<summary>3. Two retrieved Larkspur chunks give an old and a new refund policy. Should two agents debate which one is current?</summary>
+<p>No. Fix the index first with version metadata and a filter (M12). Debate earns its cost on trade-offs with no single correct answer; a factual question such as how long a refund takes (5 to 10 business days) belongs to retrieval.</p>
+</details>
 <h2 id="storm">STORM</h2>
 <p class="lesson-of">Lesson 36.3: STORM: multi-perspective research and writing. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/notebooks/03a_storm.ipynb" target="_blank" rel="noopener"><code>03a_storm.ipynb</code></a></p>
 <p>STORM (Synthesis of Topic Outlines through Retrieval and Multi-perspective question asking; Shao et al., NAACL 2024, <a href="https://arxiv.org/abs/2402.14207" target="_blank" rel="noopener">arXiv:2402.14207</a>) writes a long article on a topic the writer knows little about. A single &ldquo;write an article about X&rdquo; prompt tends to give one generic angle. STORM researches first, from several perspectives, and writes only from what the research found:</p>
@@ -482,6 +513,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The notebook attaches a callback that counts every chat-model call, structured-output calls included, and compares the count with this arithmetic. Capping <code>P</code> (<code>perspectives[:NUM_PERSPECTIVES]</code>) and <code>S</code> (<code>MAX_SECTIONS = 6</code>) keeps the cost bounded when the model returns more than it was asked for.</p>
 <p>Latency is a different number from cost. The interviews are independent of each other, but the notebook runs them in a Python <code>for</code> loop, so their waits add up. Dispatching one branch per persona with <code>Send</code> (<a href="#map-reduce--async">lesson 36.5</a>&rsquo;s map-reduce) puts them in one superstep: the same calls, with the interview stage taking about as long as its slowest interview. The section drafts are independent in the same way.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. In STORM, why do only the extracted facts travel into the outline and the drafts, while the interview transcripts stay behind?</summary>
+<p>Each stage consumes the previous stage&rsquo;s typed object (<code>PerspectiveList</code>, <code>ResearchFindings</code>, <code>ArticleOutline</code>), so no stage parses free text. The facts list is the payload; the transcripts are kept for audit, so you can trace which question surfaced which fact.</p>
+</details>
+<details>
+<summary>2. How many model calls does a STORM run make with 5 perspectives, 2 interview turns and 5 sections?</summary>
+<p>33 calls: 1 for the perspectives, 5 × (2 × 2 + 1) = 25 for the interviews, 1 for the outline, 5 for the sections and 1 for the title. The table&rsquo;s row for <code>P</code> = 5 and <code>T</code> = 2 gives 28 + S, which is 33 at <code>S</code> = 5.</p>
+</details>
+<details>
+<summary>3. A STORM outline comes back with exactly one section per persona. What has gone wrong, and where do you fix it?</summary>
+<p>The outline is a concatenation of the research threads, not a synthesis. Outline synthesis is where <code>P</code> threads become one narrative, so fix the editor-in-chief&rsquo;s synthesis prompt to ask for a merged structure. If the sections also repeat each other, the personas overlap, and the perspective prompt needs tightening.</p>
+</details>
 <h2 id="three-kinds-of-controller">Three kinds of controller</h2>
 <p class="lesson-of">Lesson 36.4: Meta-controllers, ensembles and emergent systems. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/optional/04a_meta_controller.ipynb" target="_blank" rel="noopener"><code>04a_meta_controller.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/optional/04b_ensemble_parallel_exploration.ipynb" target="_blank" rel="noopener"><code>04b_ensemble_parallel_exploration.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/optional/04c_cellular_automata.ipynb" target="_blank" rel="noopener"><code>04c_cellular_automata.ipynb</code></a> (optional)</p>
 <p>A router, a meta-controller and a blackboard controller are all one structured-output call that picks from a fixed set. They differ in what they pick and how often:</p>
@@ -567,6 +611,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="emergent-systems">Emergent systems</h2>
 <p>The cellular-automata notebook has no controller at all. Every cell of a warehouse grid is a small agent with one local rule: its distance to the packing station is 1 plus the smallest distance among its neighbours. Applied to every cell at once, tick after tick, the rule spreads a distance wave around the walls, and a carrier reaches the station by always stepping to the neighbour with the lowest value. The notebook checks the emergent paths against a global breadth-first search over the same grid, then walls off a cell next to the station and shows the path rerouting with no change to the code.</p>
 <p>This is the far end of the control range in this module: no controller, only a local rule applied everywhere in synchronous ticks. It solves a global problem without a planner, at the cost of many cheap updates, and the notebook trusts the result only after the breadth-first check.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A router and a meta-controller each make one structured-output call before any work starts. What does each one choose?</summary>
+<p>A router chooses which specialist answers inside one fixed graph. A meta-controller chooses which whole architecture runs (a direct answer, a search agent, a planner or a debate), each wrapped as a plain <code>(query: str) -&gt; str</code> callable it never sees inside. A blackboard controller differs from both by deciding again after every contribution.</p>
+</details>
+<details>
+<summary>2. A Larkspur customer asks whether there is an incident right now. Which strategy should the meta-controller pick, and why not direct_answer?</summary>
+<p><code>search_agent</code>, because only the live status page knows the answer. <code>direct_answer</code> suits a self-contained fact the model already knows, such as what a vCPU is. A misrouted request still gets an answer, which is why the notebook compares each chosen route with the route the request was written for.</p>
+</details>
+<details>
+<summary>3. All three ensemble analysts end with Buy, and the CIO recommends Hold. Is that a failure?</summary>
+<p>Only if the CIO&rsquo;s summary gives no reason. The CIO&rsquo;s recommendation is a <code>Literal</code> of the same three values, so code can set the majority vote beside the verdict. A CIO that departs from the majority and says why is fine; one that departs with no reason is the failure to look for.</p>
+</details>
 <h2 id="map-reduce--async">Map-reduce / async</h2>
 <p class="lesson-of">Lesson 36.5: Parallel agents, async nodes and streaming. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/notebooks/05a_parallel_agents.ipynb" target="_blank" rel="noopener"><code>05a_parallel_agents.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/notebooks/05b_async_multi_agent_streaming.ipynb" target="_blank" rel="noopener"><code>05b_async_multi_agent_streaming.ipynb</code></a></p>
 <p>An agent spends almost all of its time waiting: for a model, a search, a database. Three agents that each wait one second take 3 s one after another and about 1 s together, because the waits overlap; nothing runs faster. Notebook 05b measures exactly that with <code>asyncio.sleep(1)</code> standing in for a model call. The rest of this page is how LangGraph arranges the overlap and where it goes wrong.</p>
@@ -779,6 +836,19 @@ graph.add_edge(&quot;answer_one&quot;, &quot;synth&quot;)
 <li><strong>Fast local work.</strong> Arithmetic and string handling are work, not waiting; async adds overhead to them.</li>
 </ul>
 <p>Whole runs can overlap too. <code>asyncio.gather</code> over three <code>ainvoke</code> calls runs three complete team runs in about the time of one (1.5 s against about 4.5 s), with no change to the graph. In a notebook, <code>await</code> directly; <code>asyncio.run(...)</code> fails inside a running event loop.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Three agents that each wait one second finish in about one second together. Why, and what does making nodes async not change?</summary>
+<p>The waits overlap; nothing runs faster. Edges from one source put nodes in the same superstep, and that is what makes them parallel. Making nodes <code>async def</code> adds overlap on one event loop but does not change which nodes are parallel, so a chain of async nodes still runs in order.</p>
+</details>
+<details>
+<summary>2. In the lab, moving the rewrite inside the credits node brings the answer from 3.4 s to 2.7 s. Where does the saving come from?</summary>
+<p>As its own node, <code>rewrite</code> finishes at 0.9 s, but <code>credits</code> cannot start until the superstep ends at 1.6 s, when <code>export</code> finishes. The outage branch waits 0.7 s at the barrier for work it does not depend on. Inside one node, every branch is one node long and that wait disappears.</p>
+</details>
+<details>
+<summary>3. The synthesizer writes a reply with nothing about outage credits, then runs a second time. What causes this, and how do you fix it?</summary>
+<p>The join uses separate edges, so it runs once for every superstep in which a predecessor finished; its first run saw 3 of 4 sub-answers. Use a list edge, <code>add_edge([...], "synth")</code>, when the predecessors are known at build time, or <code>defer=True</code> when branches are chosen at run time. A list edge never runs if a conditional edge skips one of its named nodes.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="05_parallel_agents_async_nodes_and_streaming/interactive/parallel-subquestions-lab.html"><strong>Parallel sub-question agents</strong></a>: open the file in a browser. It opens on a parallel run with the outage rewrite as its own node and separate edges into the synthesizer: the synthesizer runs twice, and its first run saw 3 of 4 sub-answers. Switch the join to a list edge and it runs once, at 3.4 s. Then move the rewrite inside the agent and the answer lands at 2.7 s, against 5.7 s one at a time. Finally drag <code>max_concurrency</code> down to 1 and watch the parallel graph give the time back.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -835,7 +905,7 @@ graph.add_edge(&quot;answer_one&quot;, &quot;synth&quot;)
 <li>Parallel branches cost as much as the slowest task in each superstep; keep branches the same length, join with a list edge or <code>defer=True</code>, and put a reducer on every shared key.</li>
 <li>Debate and STORM multiply calls by design. Count them, run the cheap baseline beside them, and keep them for trade-offs and research where the trail is the product.</li>
 </ul></article>
-    <nav class="toc" aria-label="M36 sections"><details open><summary>In M36</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#blackboard">Blackboard</a></li><li><a href="#debate">Debate</a></li><li><a href="#storm">STORM</a></li><li><a href="#three-kinds-of-controller">Three kinds of controller</a></li><li><a href="#ensembles-vote-against-verdict">Ensembles</a></li><li><a href="#emergent-systems">Emergent systems</a></li><li><a href="#map-reduce--async">Map-reduce / async</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M36 sections"><details open><summary>In M36</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#blackboard">Blackboard</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#debate">Debate</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#storm">STORM</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#three-kinds-of-controller">Three kinds of controller</a></li><li><a href="#ensembles-vote-against-verdict">Ensembles</a></li><li><a href="#emergent-systems">Emergent systems</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#map-reduce--async">Map-reduce / async</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

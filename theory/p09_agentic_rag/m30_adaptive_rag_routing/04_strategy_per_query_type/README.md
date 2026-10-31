@@ -33,5 +33,28 @@ The demo corpus is one sentence about the Earth. Every search returns that one c
 
 The Adaptive-RAG paper behind lesson 30.3 routes on a different axis, question complexity: no retrieval, one step or several. The two combine. A complexity router decides how many rounds of retrieval to run; a type router decides what each round looks for.
 
+## Check yourself
+
+<details>
+<summary>1. What does the per-query strategy router choose, compared with the routers in the earlier lessons of this module?</summary>
+
+The earlier routers send a question to a place: a knowledge base, a person or the web. This one sends it to a method over the same index, spending retrieval work where the question needs it: precision for a fact, coverage for an analysis, spread for an opinion, the user's situation for a contextual question.
+
+</details>
+
+<details>
+<summary>2. A Larkspur customer asks whether to move from monthly to annual billing. Which query type is it, and how does that strategy retrieve?</summary>
+
+Analytical. The answer needs the billing cycle, the refund window and cancellation, three chunks a single query may not reach together. The strategy generates 4 sub-questions, retrieves 2 chunks for each and has the LLM pick the 4 most diverse and relevant, for 4 LLM calls in all.
+
+</details>
+
+<details>
+<summary>3. In the notebook's demo all four strategies return the same evidence. Does that show routing by query type does not help?</summary>
+
+No. The demo corpus is one sentence about the Earth, so every search returns that one chunk and the strategies cannot differ. Run the four sample questions over a real corpus and compare each strategy with plain top-k retrieval on the same golden set, the way M11 sets a baseline.
+
+</details>
+
 ---
 *Previous: [30.3 Adaptive RAG: vector store vs web, with hallucination grading](../03_adaptive_rag_vector_store_vs_web_with_hallucination_grading/README.md). Next: [M30 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

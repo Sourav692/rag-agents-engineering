@@ -72,5 +72,28 @@ The metrics map onto the stages like this:
 
 For an architecture decision, run every candidate over the same golden set and record one row each: the stage metrics, model calls and retrievals per question, and latency. Retrieval metrics such as recall@k need no judge; the M11 baseline row is computed from the golden set's labelled evidence chunks. The judged metrics cost model calls at evaluation time, one or more per metric per question, which is a reason to keep the golden set fixed and small enough to run on every change. Report per question as well as the mean: on the outage question, TF-IDF and dense retrieval differ completely, and a mean over three questions blurs it.
 
+## Check yourself
+
+<details>
+<summary>1. What does a single-vector retriever lose that ColBERT's late interaction keeps?</summary>
+
+Which part of the passage matched. A 180-token passage that mentions the answer once becomes one point, pulled toward everything else it says. ColBERT keeps a contextual vector for every token and scores with MaxSim: for each question token, its best similarity with any passage token, summed over the question tokens.
+
+</details>
+
+<details>
+<summary>2. How many numbers does ColBERTv2 store for a 180-token passage before compression, against one text-embedding-3-small vector?</summary>
+
+180 × 128 = 23,040 numbers, against 1,536: 15 times as many. ColBERTv2 then shrinks each token vector to a centroid id plus a residual of 1 or 2 bits per dimension.
+
+</details>
+
+<details>
+<summary>3. An end-to-end correctness score says the outage answer is wrong. Which metrics tell you whether retrieval or generation caused it?</summary>
+
+The stage metrics. `context_recall` (RAGAS, needs a reference answer) and `ContextualRelevancyMetric` (deepeval) judge retrieval; recall@k needs no judge at all, only the labelled evidence chunks. `faithfulness` judges generation against the retrieved context. Report them per question, because a mean over three questions blurs the outage case.
+
+</details>
+
 ---
 *Previous: [45.1 The agentic RAG architecture map](../01_the_agentic_rag_architecture_map/README.md). Next: [45.3 Decision framework: picking the simplest architecture that works](../03_decision_framework_picking_the_simplest_architecture_that_works/README.md).*

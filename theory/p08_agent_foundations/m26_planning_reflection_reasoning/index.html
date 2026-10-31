@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -463,6 +468,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The cap needs the same arithmetic. Six lookups with one wrong result need 7 executed steps. At the notebook&rsquo;s <code>max_iterations = 6</code>, the lab&rsquo;s run stops with one lookup unanswered after 9 LLM calls; at 7 it completes in 10. ReAct has its own ceiling: notebook 01a runs it with <code>recursion_limit = 20</code> graph steps, and each search costs two (an agent turn and the tool). Six lookups with four wrong results need 10 searches and 21 steps, so LangGraph raises <code>GraphRecursionError</code> and the user gets no answer.</p>
 <figure class="lab-embed"><iframe src="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html" title="Plan or react: the call budget, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Plan or react: the call budget. <a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html">Open full screen</a></figcaption></figure>
 <p>The lab&rsquo;s models are scripted, so its numbers are exact for these prompts and chunks but not for a live model: a real ReAct agent may stop early, as in notebook 01a, and a real replanner may need more than one rewrite. Its numbers match the notebooks&rsquo; own node and router code run under LangGraph with the same scripted models on all 1,764 settings.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the plan-and-execute agent make two LLM calls whatever the length of its plan?</summary>
+<p>The planner writes every step as a plain search query in one structured-output call, the executor runs each query with no LLM, and the synthesizer makes the one call that writes the answer. ReAct makes one call per search plus one to answer, and each call re-reads the whole conversation.</p>
+</details>
+<details>
+<summary>2. On clean runs with six lookups, how many tokens does ReAct read compared with the fixed plan, and why the gap?</summary>
+<p>About 1,676 against about 620, 2.7 times as much. ReAct&rsquo;s prompt grows with every result and it pays for that prompt on every call. At two lookups the two read about the same (about 362 and 363).</p>
+</details>
+<details>
+<summary>3. A replanning run with six lookups and one wrong result stops with one lookup unanswered. What caused it, and what fixes it?</summary>
+<p>The cap: <code>max_iterations = 6</code> counts executed steps, and six lookups with one wrong result need 7. The run stops after 9 LLM calls; at 7 it completes in 10. Size the cap from N + 2 + 2f calls for N lookups and f wrong results.</p>
+</details>
 <h2 id="chain-of-verification">Chain-of-verification</h2>
 <p class="lesson-of">Lesson 26.4: Chain-of-verification and constitutional critique. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m26_planning_reflection_reasoning/notebooks/04a_chain_of_verification.ipynb" target="_blank" rel="noopener"><code>04a_chain_of_verification.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m26_planning_reflection_reasoning/optional/04b_constitutional_ai_critique_loop.ipynb" target="_blank" rel="noopener"><code>04b_constitutional_ai_critique_loop.ipynb</code></a> (optional)</p>
 <p>Reflection (lesson 26.3) asks the model to re-read its own answer. If the model did not know a fact was wrong the first time, re-reading rarely shows it: the draft sits in the prompt and the model agrees with itself. Chain-of-verification (CoVe; Dhuliawala et al., 2023) checks claims in calls that cannot see the draft.</p>
@@ -579,6 +597,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The revised answer adds the traffic condition to the first claim and changes 90 days to 30 in the third. Each verification question is self-contained (&ldquo;a Larkspur annual plan&rdquo;, not &ldquo;the plan&rdquo;), so retrieval for it works without the draft, and each correction traces to one question and one chunk. To measure it on a golden set, count claims per answer that no retrieved chunk supports, before and after, and count the correct claims the reviser removed as a separate number. A drop in the first with a rise in the second is the Hayes failure at scale.</p>
 <p>The optional notebook 04b runs the same draft, critique and revise loop against a written constitution: each named rule gets its own structured verdict (<code>rule</code>, <code>passes</code>, <code>critique</code>), only the failing rules go back to the reviser, and <code>MAX_ITERATIONS</code> bounds the loop. The notebook labels it a teaching pattern, not a safety system.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does chain-of-verification answer each verification question in a call that cannot see the draft?</summary>
+<p>If the model did not know a fact was wrong the first time, re-reading rarely shows it: with the draft in the prompt, the model agrees with itself. A fresh call with no draft, no other questions and no earlier answers checks each claim on its own.</p>
+</details>
+<details>
+<summary>2. A customer cancels an annual plan 20 days after buying it, and the draft promises a full refund and 90 days of data retention. What does the revised answer change?</summary>
+<p>It adds the condition from the <code>refund-window</code> chunk: a full refund within 30 days only if the account used less than 100 GB of outbound traffic. It changes 90 days to 30, then permanent deletion, from the <code>retention</code> chunk. The claim that the refund appears in 5 to 10 business days is kept.</p>
+</details>
+<details>
+<summary>3. After adding verification, unsupported claims per answer fall, but the count of correct claims removed rises. What is happening?</summary>
+<p>The reviser is adding errors, as when it removed Rutherford B. Hayes, whose verified birthplace was &ldquo;Delaware, Ohio&rdquo;, and its own <code>corrections_made</code> called that a fix. Only scoring in code against the ground truth exposes it, which is why the removed correct claims are counted as a separate number.</p>
+</details>
 <h2 id="tree-of-thoughts--lats">Tree of thoughts / LATS</h2>
 <p class="lesson-of">Lesson 26.6: Self-consistency, tree of thoughts and LATS. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m26_planning_reflection_reasoning/notebooks/06a_self_consistency.ipynb" target="_blank" rel="noopener"><code>06a_self_consistency.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m26_planning_reflection_reasoning/notebooks/06b_tree_of_thoughts.ipynb" target="_blank" rel="noopener"><code>06b_tree_of_thoughts.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m26_planning_reflection_reasoning/optional/06c_lats.ipynb" target="_blank" rel="noopener"><code>06c_lats.ipynb</code></a> (optional)</p>
 <p>A single chain of thought is one sample from many possible reasoning paths. The three notebooks spend extra LLM calls on more paths, each in a different place:</p>
@@ -637,6 +668,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>An unvisited child scores infinity, so every child is tried once. Notebook 06c sets <code>c = 1.4</code>, <code>K_CANDIDATES = 4</code>, <code>MAX_ITERATIONS = 10</code> and rewards of 1, 0.33 and 0 for <code>sure</code>, <code>likely</code> and <code>impossible</code>. A node whose children all died gets one more expansion (<code>MAX_EXPANSIONS = 2</code>) with the latest reflections in its prompt, then is pruned for good. Each dead end becomes a one-sentence lesson that later proposals read, which is Reflexion (lesson 26.3) used inside a search.</p>
 <p>On these eight puzzles LATS did not win: the notebook reports it solved 2 to 4 of 8, the ToT beam about 4, and LATS spent more LLM calls. Its solved runs finished in two or three iterations, because it stops at the first success. LATS was designed for problems with a larger branching factor and a better value model.</p>
 <p>For a Larkspur support assistant most questions have one good path, and lessons 26.1 and 26.4 are the tools to reach for. Reach for these patterns when one path is not reliable enough and something can score a partial answer: a code check, a test suite, or a judge you have measured. Without that evaluator, more branches only multiply the calls.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. When does a majority vote over sampled answers fail to fix a wrong answer?</summary>
+<p>When the error is systematic and the samples agree on the same wrong answer. On three-digit numbers whose digits add up to 10, most wrong answers were 55, which a vote locks in; on the sum of the digits from 1 to 100 the wrong answers were scattered and the vote washed them out. Consistent is not the same as correct.</p>
+</details>
+<details>
+<summary>2. In the Game of 24 search, an LLM evaluator judged the state with 4 and 24 left as sure. What should judge two-number states instead?</summary>
+<p>Code. With two numbers left, the notebook checks the six operations exactly, because where code can decide, it should. The LLM said <code>sure</code> only because 24 was in the list.</p>
+</details>
+<details>
+<summary>3. Should Larkspur's support assistant answer handbook questions with tree of thoughts or LATS?</summary>
+<p>Usually not. Most of its questions have one good path, and plan-and-execute or chain-of-verification fit them. Reach for these search patterns only when one path is not reliable enough and something can score a partial answer: a code check, a test suite or a judge you have measured. Without that, more branches only multiply the calls.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html"><strong>Plan or react: the call budget</strong></a>: open the file in a browser. Clear the wrong-result toggle and slide the lookups from 1 to 6: the fixed plan stays at 2 LLM calls while ReAct&rsquo;s tokens climb past the replanner&rsquo;s at six. Then press lookup 1 again and compare the three answers. Finally set six lookups, keep one wrong, and drop the cap from 7 to 6 to see a lookup go unanswered.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -693,7 +737,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Any loop that can grow needs a cap, set from planned steps plus allowed retries, and a fallback that says what is missing.</li>
 <li>Verify claims in calls that cannot see the draft, and spend tree search only where an evaluator can tell a good partial answer from a bad one.</li>
 </ul></article>
-    <nav class="toc" aria-label="M26 sections"><details open><summary>In M26</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#plan-and-execute">Plan-and-execute</a></li><li><a href="#replanning">Replanning</a></li><li><a href="#chain-of-verification">Chain-of-verification</a></li><li><a href="#tree-of-thoughts--lats">Tree of thoughts / LATS</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M26 sections"><details open><summary>In M26</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#plan-and-execute">Plan-and-execute</a></li><li><a href="#replanning">Replanning</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-verification">Chain-of-verification</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tree-of-thoughts--lats">Tree of thoughts / LATS</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -167,6 +167,25 @@ def test_theory_pages_mirror_the_course_layout():
     assert not bad, bad
 
 
+def test_lesson_pages_end_with_check_yourself():
+    """Every lesson page ends with `## Check yourself`: three numbered questions, each a <details> whose answer is hidden."""
+    q = re.compile(r"<details>\n<summary>(\d)\. [^<\n]+\?</summary>\n\n.+?\n\n</details>", re.S)
+    bad = []
+    for m in CUR["modules"]:
+        for n, les in enumerate(m["lessons"], 1):
+            page = ROOT / theory_dir(m) / lesson_folder(n, les["title"]) / "README.md"
+            if not page.exists():
+                continue
+            md = page.read_text(encoding="utf-8")
+            heads = re.findall(r"^## (.+?)\s*$", md, re.M)
+            check = md.split("\n## Check yourself\n", 1)[-1].split("\n---\n", 1)[0]
+            if not heads or heads[-1] != "Check yourself":
+                bad.append(f"{page.relative_to(ROOT)}: last section is not ## Check yourself")
+            elif [mt.group(1) for mt in q.finditer(check)] != ["1", "2", "3"] or check.count("<details>") != 3:
+                bad.append(f"{page.relative_to(ROOT)}: Check yourself needs questions 1 to 3, each a <details> block")
+    assert not bad, f"{len(bad)} lesson page(s): {bad[:5]}"
+
+
 def test_theory_module_pages_have_a_current_index_html():
     """Every module page has the index.html that build_theory_html.py renders from it and its lesson pages."""
     import build_theory_html

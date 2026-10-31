@@ -66,5 +66,28 @@ The client stops after that round. If the second reply asks for another tool, th
 
 The terminal server these clients drive runs any shell command the model writes, with `shell=True` and the working directory set to `~/Desktop/github/langgraph-ai/mcp/01-build-your-own-server-client/workspace`, a path from the author's machine. Point it at a folder of your own before running it, and treat the tool as remote code execution: project 02's copy runs it inside a container, which limits what a bad command can reach.
 
+## Check yourself
+
+<details>
+<summary>1. Why does a session per tool call cost 4 messages per call, when a held session costs 1 per call after setup?</summary>
+
+A held session pays its setup once (an `initialize`, a notification and a `tools/list` per server, 6 messages for two servers) and then sends only the call. A session per call opens and initialises a new session each time, and with SDK 1.30.0 also sends `tools/list` after the call, because `call_tool` checks the result against the tool's output schema and a new session has not listed its tools yet.
+
+</details>
+
+<details>
+<summary>2. A Larkspur server keeps a cache in memory, but over stdio through get_tools the cache is empty on every call. Why, and how do you keep it?</summary>
+
+Over stdio a session is also a process, and `get_tools()` opens a new session for each tool call, so 8 calls were answered by 8 different server processes and each started empty. Hold the session with `async with client.session("handbook") as session` and `load_mcp_tools(session)`, so calls reuse one process.
+
+</details>
+
+<details>
+<summary>3. Gemini's second reply in the hand-written client asks for another tool. What does the client do, and what replaces its loop in the LangChain version?</summary>
+
+It stops after one round: it does not run the second tool and returns only the first part's text. `langchain_mcp_client.py` converts the tools with `load_mcp_tools(session)` and runs `create_react_agent(llm, tools)`, which loops until the model stops asking for tools; in langgraph 1.2.18 that is deprecated in favour of `create_agent`.
+
+</details>
+
 ---
 *Previous: [39.2 Multi-server MCP](../02_multi_server_mcp/README.md). Next: [39.5 Transports: SSE and streamable HTTP](../05_transports_sse_and_streamable_http/README.md).*

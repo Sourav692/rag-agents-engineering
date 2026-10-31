@@ -41,5 +41,28 @@ Every technique in this module is a choice of key and payload:
 
 For the Larkspur page, a summary of "Refunds and cancellations" is a sharp key for *What is your refund policy?*. For *How long do I have to get a full refund on an annual plan?* it depends on what the summariser kept. If the summary mentions the 30-day refund on annual plans, the question matches and the payload brings the 100 GB condition back with it. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match. Check a summary key on questions about details as well as questions about topics.
 
+## Check yourself
+
+<details>
+<summary>1. Why does a plain index struggle to use one text for both matching and answering?</summary>
+
+The two jobs pull in opposite directions. Matching works best on short, focused text, because one vector has to stand for the whole entry; answering works best on complete text, because the model can only use what it reads. Multi-representation indexing gives each job its own text: a search key that is embedded and a payload that is returned.
+
+</details>
+
+<details>
+<summary>2. In notebook 01a, what do a similarity search on the vector store and a call to the retriever return for the question What is LangSmith?</summary>
+
+`vectorstore.similarity_search` returns a summary, because the Chroma collection holds only summary embeddings. `retriever.invoke` returns the full post that summary points to: the `MultiVectorRetriever` reads the `doc_id` in the summary's metadata and fetches the document from the `InMemoryByteStore`.
+
+</details>
+
+<details>
+<summary>3. A summary key matches the question about the refund policy but misses the one about a full refund on an annual plan. What went wrong?</summary>
+
+The summariser left the detail out. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match, even though the payload holds the answer. Check a summary key on questions about details as well as questions about topics.
+
+</details>
+
 ---
 *Previous: [M16 overview](../README.md). Next: [16.2 Parent-document retrieval, in memory and on Postgres](../02_parent_document_retrieval_in_memory_and_on_postgres/README.md).*

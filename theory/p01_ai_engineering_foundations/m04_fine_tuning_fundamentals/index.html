@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -403,6 +408,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The base model does what pre-training taught it: continue the text with something that looks like more of the same, here a list of similar questions. The chat model treats the text as a request. The <code>[INST]</code> row shows the second lesson: the chat model was trained with that wrapper, and with it the answer starts cleanly; without it, the model first completes the sentence (“on command.”). A fine-tuned model expects the format it was trained on, which lesson 4.3 comes back to.</p>
 <p>The weights changed and the architecture did not. Everything that separates the two columns came from the training data, which is why the rest of this module is about the data.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the refund-time answer stay in the Larkspur index while opening every answer with Yes or No can go into a fine-tune?</summary>
+<p>The refund time is a fact the policy team will change: RAG picks up a change with a re-index, while a fine-tuned model would need a rebuilt dataset and a retrain, and risks stale facts. Leading with Yes or No, and declining off-topic questions, is behaviour, which a fine-tune can carry in the weights on a smaller, cheaper model.</p>
+</details>
+<details>
+<summary>2. You send Tell me how to train my dog to sit, without any wrapper, to the Llama 2 base and chat models. What does each return, and why?</summary>
+<p>The base model continues with similar questions (&ldquo;Tell me how to train my dog to stay. &hellip;&rdquo;), because pre-training taught it to continue text. The chat model treats it as a request but first finishes the sentence (&ldquo;on command.&rdquo;), because it was trained with the <code>[INST]</code> wrapper; with the wrapper its answer starts cleanly.</p>
+</details>
+<details>
+<summary>3. A team wants to fine-tune for a behaviour but cannot write a few hundred examples of it. What should they do?</summary>
+<p>Not fine-tune: without the examples they can neither train for the behaviour nor evaluate it. The decision chain says to prompt it if a clear prompt with examples works (M05), retrieve it if the gap is a fact that changes (M11), and otherwise define the task before training.</p>
+</details>
 <h2 id="pre-training-then-fine-tuning">Pre-training, then fine-tuning</h2>
 <p class="lesson-of">Lesson 4.2: Where fine-tuning fits. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/02_where_finetuning_fits/02a_where_finetuning_fits_in_lab.ipynb" target="_blank" rel="noopener"><code>02a_where_finetuning_fits_in_lab.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/02_where_finetuning_fits/02b_where_finetuning_fits_in_lecture.ipynb" target="_blank" rel="noopener"><code>02b_where_finetuning_fits_in_lecture.ipynb</code></a> (optional)</p>
 <p>Both stages train the same way: show the model text and adjust the weights so it predicts each next token better. What differs is the data.</p>
@@ -447,6 +465,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A Larkspur example in the second form:</p>
 <pre class="sheet code"><code class="language-json">{&quot;question&quot;: &quot;### Question:\nCan I export my data after I cancel my plan?\n\n### Answer:&quot;, &quot;answer&quot;: &quot;Yes, for 30 days. After that the data is permanently deleted, so export it from Settings, then Data, first.&quot;}
 </code></pre>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Pre-training and fine-tuning both train the model to predict each next token. What makes their results differ?</summary>
+<p>The data. Pre-training uses a huge, unlabelled corpus of raw web text such as C4, and gives the model language, facts and patterns of text. Fine-tuning uses a small, curated, labelled set (1,400 question and answer rows in <code>lamini_docs.jsonl</code>) and teaches a format, a task, a tone and when to decline.</p>
+</details>
+<details>
+<summary>2. You will train the Larkspur examples with AutoTrain, and at evaluation time you want to score only the answer. Which of the two formats does each step need?</summary>
+<p>AutoTrain takes a <code>text_column</code>, so training needs the text-only form: one <code>text</code> field with <code>### Question:</code> and <code>### Answer:</code> inside it. Scoring only the answer needs the question-and-answer form, with the prompt and the answer in separate fields. The notebook formats the same rows both ways and writes both to JSON Lines.</p>
+</details>
+<details>
+<summary>3. A teammate proposes pre-training a model on the Larkspur handbook to teach it the house style. Why does the comparison point to fine-tuning instead?</summary>
+<p>Pre-training needs web-scale raw text and is run by model labs once per model; it teaches language and general knowledge. Fine-tuning needs hundreds to thousands of curated pairs, you run it whenever the behaviour needs to change, and a tone or format is what it teaches.</p>
+</details>
 <h2 id="instruction-tuning">Instruction tuning</h2>
 <p class="lesson-of">Lesson 4.3: Instruction tuning. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/notebooks/03_instruction_tuning/03a_instruction_tuning_lab.ipynb" target="_blank" rel="noopener"><code>03a_instruction_tuning_lab.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/03_instruction_tuning/03b_instruction_tuning_lecture.ipynb" target="_blank" rel="noopener"><code>03b_instruction_tuning_lecture.ipynb</code></a> (optional)</p>
 <p>Instruction tuning is fine-tuning on pairs of a request and a good response. It is the first step that turned the base Llama 2 of lesson 4.1 into the chat model. What it teaches is a pattern: text shaped like a request is followed by text shaped like an answer, and then the answer ends.</p>
@@ -480,6 +511,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Mark where the answer starts and where it ends.</strong> A header such as <code>### Answer:</code> tells the model to start answering; an end token (<code>&lt;|endoftext|&gt;</code> for Pythia) tells it, and your decoder, that the answer is over.</li>
 <li><strong>Check the tokenized row, not the string.</strong> Decode a few prepared rows before training; <a href="#data-preparation">the lab in lesson 4.4</a> shows what to look for.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What pattern does instruction tuning teach a base model?</summary>
+<p>That text shaped like a request is followed by text shaped like an answer, and then the answer ends. It is fine-tuning on pairs of a request and a good response, and it was the first step that turned base Llama 2 into the chat model.</p>
+</details>
+<details>
+<summary>2. An Alpaca row has an empty input field. Which template does the notebook fill, and what does the output line look like?</summary>
+<p>The second template, without the <code>### Input:</code> block, filled with the row&rsquo;s <code>instruction</code>. The notebook writes one <code>{"input": ..., "output": ...}</code> object per line to <code>alpaca_processed.jsonl</code>: the hydrated prompt as <code>input</code> and the answer as <code>output</code>. A Larkspur row has the same shape, with the customer&rsquo;s question as the instruction.</p>
+</details>
+<details>
+<summary>3. The lesson 4.5 model trained on the bare question followed by the bare answer. You add a ### Answer: header to the serving prompt only. What goes wrong?</summary>
+<p>The model now sees a format it was never trained on. Training and inference matched only by accident, and changing either side alone breaks that. Keep one formatting function in code that both the data script and the serving code import, and mark where the answer starts and ends.</p>
+</details>
 <h2 id="data-preparation">Data preparation</h2>
 <p class="lesson-of">Lesson 4.4: Data preparation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/notebooks/04_data_preparation/04a_data_preparation_lab.ipynb" target="_blank" rel="noopener"><code>04a_data_preparation_lab.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/04_data_preparation/04b_data_preparation_lecture.ipynb" target="_blank" rel="noopener"><code>04b_data_preparation_lecture.ipynb</code></a> (optional)</p>
 <p>A model trains on token ids, in rectangular batches. Data preparation turns each formatted example into one row of ids, makes the rows fit a length limit and a common width, and holds some rows back for evaluation.</p>
@@ -537,6 +581,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>The refusal rows show how a behaviour gets in: the model declines off-topic questions because 39 training answers do. A Larkspur dataset needs its own share of those rows, written in the house style, or the fine-tuned assistant will answer <em>What do you think of Mars?</em> as cheerfully as the base model. Deduplicate before you split, and check that no test question also appears in training.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The Pythia tokenizer appends no end token, and padding reuses the end-of-text id. What do you add to each training text, and what do you set at padded label positions?</summary>
+<p>Append <code>tokenizer.eos_token</code> to each training text, so every row shows the model where an answer stops. Then set the padded positions in <code>labels</code> to -100: padding uses id 0 and <code>labels</code> copies <code>input_ids</code>, so without that step the loss would train on the padding.</p>
+</details>
+<details>
+<summary>2. In the lab's Larkspur batch at max_length 48, what does each truncation side remove from the refund example?</summary>
+<p>Right truncation cuts 11 answer tokens from the end, so the model trains on an answer that stops mid-sentence. Left truncation keeps the answer but cuts the <code>### Question:</code> header and 7 question tokens, so the model trains on an answer to a question it cannot fully see. Neither raises an error.</p>
+</details>
+<details>
+<summary>3. A fine-tuned Larkspur assistant answers What do you think of Mars? as cheerfully as the base model. What was missing from its training data?</summary>
+<p>Refusal rows. In <code>lamini_docs.jsonl</code> the model learns to decline off-topic questions because 39 training answers ask to keep the discussion relevant to Lamini. A Larkspur dataset needs its own share of those rows, written in the house style.</p>
+</details>
 <h2 id="trainer">Trainer</h2>
 <p class="lesson-of">Lesson 4.5: Training. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/notebooks/05_training/05a_training_lab.ipynb" target="_blank" rel="noopener"><code>05a_training_lab.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/05_training/05b_training_lecture.ipynb" target="_blank" rel="noopener"><code>05b_training_lecture.ipynb</code></a> (optional)</p>
 <p>The Hugging Face <code>Trainer</code> runs the training loop you would otherwise write by hand: batch the data, run the model forward, compute the loss, run it backward, step the optimizer and the learning-rate schedule, evaluate, log and save checkpoints. <code>TrainingArguments</code> holds every setting. The lesson 4.5 notebook trains <code>EleutherAI/pythia-70m</code> (70.4 million parameters, about 0.28 GB of weights in 32-bit floats) on <code>lamini/lamini_docs</code> with these:</p>
@@ -695,6 +752,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The learning rate is not constant either. With the default linear schedule, <code>warmup_steps=1</code> and 3 steps in all, <code>transformers</code>’ <code>get_linear_schedule_with_warmup</code> gives the three updates learning rates of 0, 1e-5 and 5e-6. The first of the three updates changes nothing. And because evaluation and checkpoints happen every 120 updates, this run never computes an <code>eval_loss</code>, so <code>load_best_model_at_end</code> has no checkpoint to choose.</p>
 <p>That is why the notebook calls its result “finetuned slightly” and then loads <code>lamini/lamini_docs_finetuned</code>, the same base model trained for two epochs: 2,520 examples against 12. A run that sees under 1% of the data, with one of its three updates at a learning rate of 0, shows the mechanics of training and almost none of its effect.</p>
 <p>For a real Larkspur run, size it in examples: decide how many epochs the data supports, derive the number of updates, set warmup to a fraction of them, and put <code>eval_steps</code> well inside the run so the held-out loss is tracked while it trains.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. With a batch size of 1 and 4 gradient-accumulation steps, how does the trainer produce one optimizer update?</summary>
+<p>It runs four micro-batches of one example each forward and backward, adding their gradients. Once four are collected it steps the optimizer at the learning rate from the schedule and zeroes the gradients. The update matches a batch of 4 while only one example is held in memory.</p>
+</details>
+<details>
+<summary>2. In the lesson 4.5 run, what learning rates do the three updates get, and what share of an epoch does the model see?</summary>
+<p>0, 1e-5 and 5e-6, from the linear schedule with <code>warmup_steps=1</code>, so the first update changes nothing. Three updates of 4 examples each see 12 of the 1,260 training rows: 0.95% of one epoch.</p>
+</details>
+<details>
+<summary>3. Why does load_best_model_at_end have no checkpoint to choose in the lesson 4.5 run, and how should a real Larkspur run be set?</summary>
+<p>Evaluation and checkpoints happen every 120 updates and the run has 3, so it never computes an <code>eval_loss</code>. Size a real run in examples: decide the epochs the data supports, derive the number of updates, set warmup to a fraction of them, and put <code>eval_steps</code> well inside the run.</p>
+</details>
 <h2 id="evaluation">Evaluation</h2>
 <p class="lesson-of">Lesson 4.6: Evaluation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/notebooks/06_evaluation/06a_evaluation_lab.ipynb" target="_blank" rel="noopener"><code>06a_evaluation_lab.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/06_evaluation/06b_evaluation_lecture.ipynb" target="_blank" rel="noopener"><code>06b_evaluation_lecture.ipynb</code></a> (optional)</p>
 <p>Training loss tells you the model fits its training rows. Evaluation asks whether it does the job on rows it never saw, and whether it still does the jobs it could do before. The lesson 4.6 notebook tries three methods on <code>lamini/lamini_docs_finetuned</code>, from strictest to broadest.</p>
@@ -752,6 +822,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Then change one handbook fact, say the refund window, and run both again without retraining. RAG picks up the change after a re-index; the fine-tuned model answers with the old window until it is trained again. For Larkspur that points to both: fine-tune for the style and the refusals, retrieve the facts, and evaluate the combination against the same baseline.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does running ARC Easy after fine-tuning tell you, and how do you use it?</summary>
+<p>It does not measure the fine-tuned task. It checks that fine-tuning did not cost the model what it could already do. Run it on the base model and the fine-tuned model and compare the two.</p>
+</details>
+<details>
+<summary>2. The stored evaluation set scores 0 exact matches in 139. What do the predictions show, and what caused it?</summary>
+<p>127 of the 139 predictions repeat a sentence of more than 20 characters, and the median prediction is 5,128 characters against a median target of 304. The <code>lamini/lamini_docs</code> training rows carry no end token, so the model never saw an answer stop.</p>
+</details>
+<details>
+<summary>3. You change the Larkspur refund window and rerun the RAG baseline and the fine-tuned model without retraining. What happens, and what design does that suggest?</summary>
+<p>RAG gives the new window after a re-index; the fine-tuned model keeps answering with the old one until it is trained again. Fine-tune for the style and the refusals, retrieve the facts, and evaluate the combination against the same baseline.</p>
+</details>
 <h2 id="lora-and-4-bit-loading">LoRA and 4-bit loading</h2>
 <p class="lesson-of">Lesson 4.7: Fine-tuning Llama 2 with AutoTrain. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/optional/07_llama2_autotrain/07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb" target="_blank" rel="noopener"><code>07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb</code></a> (optional)</p>
 <p>Lessons 4.3 to 4.6 update every weight of a 70-million-parameter model. That does not scale to a 7-billion-parameter one on a single GPU. Llama 2 7B has 6,738,415,616 parameters: 13.5 GB in 16-bit floats before any gradients or optimizer state. The lesson 4.7 notebook fine-tunes it with two flags that change what is stored and what is trained, <code>--use_peft</code> and <code>--use_int4</code>.</p>
@@ -809,6 +892,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>Its other defaults are worth reading too: 4 gradient-accumulation steps, warmup over 10% of the run, a 2,048-token <code>model_max_length</code>, and an <code>add_eos_token</code> setting, on by default, that appends the end token in its default trainer, the step lessons 4.4 and 4.6 show the M04 data missing.</p>
 <p>The notebook’s other two cells sketch Lamini’s <code>BasicModelRunner</code> and <code>trl</code>’s <code>SFTTrainer</code>, but use names the notebook never defines (<code>base_model</code>, <code>peft_config</code>, <code>training_arguments</code>, among others), so they do not run as written.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does LoRA with 4-bit loading bring a 7B fine-tune within reach of one GPU?</summary>
+<p>LoRA freezes every original weight matrix and trains small <code>A</code> and <code>B</code> matrices beside it, so at rank 16 on every linear layer only 39,976,960 parameters (0.59%) train, and gradients and optimizer state exist only for those. 4-bit loading stores the frozen weights in about 3.4 GB instead of 13.5 GB in 16-bit floats. Together this is QLoRA.</p>
+</details>
+<details>
+<summary>2. How many trainable parameters does rank-16 LoRA add to a 4096 by 4096 query projection, and what share of the layer is that?</summary>
+<p><code>r × (d_in + d_out)</code> = 16 × (4,096 + 4,096) = 131,072 trainable parameters, beside 16,777,216 frozen ones: 0.78%.</p>
+</details>
+<details>
+<summary>3. You run the notebook's autotrain llm command on autotrain-advanced 0.8.36 and it stops with an error. Why, and what else would you change?</summary>
+<p>Its flag names are from an older AutoTrain, and the CLI parses arguments strictly. Use <code>--peft</code>, <code>--quantization int4</code>, <code>--lr</code>, <code>--batch-size</code>, <code>--epochs</code>, and <code>--username</code> with <code>--push-to-hub</code>. Also drop the learning rate of <code>0.4</code>, which is more than 13,000 times the default <code>3e-5</code>; keep the default unless a measured run says otherwise.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_data_preparation/interactive/truncation-padding-lab.html"><strong>Truncation and padding</strong></a>: open the file in a browser. Start at <code>max_length = 48</code> with right truncation and watch the refund answer lose its last 11 tokens; switch to left truncation and the <code>### Question:</code> header goes instead. Then set the end token to <em>Appended</em>, slide to 64 so every row ends with it, and pick <em>To max_length</em> to see padding rise to 27% of the batch.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -865,7 +961,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Report training runs in examples and epochs, and read the learning-rate schedule for the steps you actually run.</li>
 <li>Evaluate the fine-tuned model on held-out questions, on the behaviour you trained for, against the baseline it is meant to replace.</li>
 </ul></article>
-    <nav class="toc" aria-label="M04 sections"><details open><summary>In M04</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#when-to-fine-tune">When to fine-tune</a></li><li><a href="#base-and-chat-models">Base and chat models</a></li><li><a href="#pre-training-then-fine-tuning">Pre-training, then fine-tuning</a></li><li><a href="#instruction-tuning">Instruction tuning</a></li><li><a href="#the-template-at-inference">The template at inference</a></li><li><a href="#data-preparation">Data preparation</a></li><li><a href="#checking-the-rows">Checking the rows</a></li><li><a href="#trainer">Trainer</a></li><li><a href="#steps-examples-and-epochs">Steps, examples and epochs</a></li><li><a href="#evaluation">Evaluation</a></li><li><a href="#against-the-rag-baseline">Against the RAG baseline</a></li><li><a href="#lora-and-4-bit-loading">LoRA and 4-bit loading</a></li><li><a href="#the-autotrain-command-today">The AutoTrain command today</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M04 sections"><details open><summary>In M04</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#when-to-fine-tune">When to fine-tune</a></li><li><a href="#base-and-chat-models">Base and chat models</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pre-training-then-fine-tuning">Pre-training, then fine-tuning</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#instruction-tuning">Instruction tuning</a></li><li><a href="#the-template-at-inference">The template at inference</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#data-preparation">Data preparation</a></li><li><a href="#checking-the-rows">Checking the rows</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#trainer">Trainer</a></li><li><a href="#steps-examples-and-epochs">Steps, examples and epochs</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#evaluation">Evaluation</a></li><li><a href="#against-the-rag-baseline">Against the RAG baseline</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#lora-and-4-bit-loading">LoRA and 4-bit loading</a></li><li><a href="#the-autotrain-command-today">The AutoTrain command today</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

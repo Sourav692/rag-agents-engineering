@@ -49,5 +49,28 @@ The optional notebooks keep the `agent ⇄ tools` graph and change only the tool
 - **Browser agent.** `screenshot_text`, `click`, `type_text` and `navigate` are ordinary tools over a deterministic mock browser. Actions now change state, so the turn cap becomes a safety bound, and success is graded on the environment (the cart's contents), not the agent's words.
 - **Vision-driven computer use.** When the observation is pixels, locating a control is the hard part. In the notebook's runs `gpt-4o-mini` missed 53 of 53 clicks, even with every miss fed back; `gpt-4o` missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
 
+## Check yourself
+
+<details>
+<summary>1. Why can the planned research pipeline not follow a lead that one of its searches turns up?</summary>
+
+Its questions are fixed before any result comes back, and no edge goes back to planning, so it cannot notice an empty search or add one. The ReAct researcher chooses each search after reading the last observation, which is how it went on to search for things its results had named.
+
+</details>
+
+<details>
+<summary>2. You need a weekly report with the same sections on a fixed topic, at a predictable cost. Planned pipeline or ReAct agent?</summary>
+
+The planned pipeline. It suits known-shape reports and batch jobs, its cost is fixed, and it runs the same steps every time, so it is easy to test. A ReAct agent suits open questions and multi-hop facts, and its cost varies and needs a call cap.
+
+</details>
+
+<details>
+<summary>3. A vision-driven computer-use agent keeps clicking, never reaches its goal and raises no error. What is going on, and what stops it?</summary>
+
+It cannot locate the controls from pixels: in the notebook `gpt-4o-mini` missed 53 of 53 clicks even with every miss fed back. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
+
+</details>
+
 ---
 *Previous: [24.4 Middleware, including human-in-the-loop](../04_middleware_including_human_in_the_loop/README.md). Next: [M24 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

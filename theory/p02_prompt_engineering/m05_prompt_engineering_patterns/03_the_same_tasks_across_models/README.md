@@ -44,5 +44,28 @@ Answer:
 
 Run it on each candidate model with the same golden questions and passages, and score each answer for whether it is supported by the passages. A model that answers *What happens if my server goes down?* from general knowledge when the passages hold only the reboot instructions fails this prompt, however fluent the answer is.
 
+## Check yourself
+
+<details>
+<summary>1. Why is printing each model's reply not enough to compare the four models on the ten tasks?</summary>
+
+Reading replies by eye gives an impression, not a comparison. Each task needs its own check: exact match for the sentiment label, a line count for the five-line summary, valid JSON for a template, a labelled list of symptoms for the clinical note. Scoring against your own labels is the M05 lab brief on a small scale.
+
+</details>
+
+<details>
+<summary>2. The Larkspur answer prompt gets only the reboot passages for What happens if my server goes down? A model answers fluently from general knowledge. Does it pass?</summary>
+
+No. The prompt tells the model to answer only from the handbook passages and to reply "The handbook does not cover this." when they do not contain the answer. Each answer is scored for whether the passages support it, however fluent it is.
+
+</details>
+
+<details>
+<summary>3. Notebook 03c now fails on its first call although nobody changed its code. What is the likely cause, and what practice keeps the fix small?</summary>
+
+The model id was retired: Groq shut down `llama-3.2-90b-vision-preview` on 14 April 2025 and names `meta-llama/llama-4-scout-17b-16e-instruct` as the replacement. Keep the model id in one place, inside the `get_completion` wrapper, so the fix is a one-line change.
+
+</details>
+
 ---
 *Previous: [5.2 Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct](../02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/README.md). Next: [5.4 Applied prompting on business tasks](../04_applied_prompting_on_business_tasks/README.md).*

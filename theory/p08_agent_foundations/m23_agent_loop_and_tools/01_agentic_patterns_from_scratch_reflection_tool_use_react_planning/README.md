@@ -57,5 +57,28 @@ The loop has two exits. The `<response>` tag is the model's own decision to stop
 
 For Larkspur's support agent the loop is identical with different tools. *How long does a refund take?* becomes a thought ("I need the refund policy"), a call to `search_handbook`, an observation holding the retrieved chunks, and a response that quotes them. The M23 lab runs that question through LangGraph's version of this loop, including a first call that fails.
 
+## Check yourself
+
+<details>
+<summary>1. Why can the ReAct agent chain three dependent tool calls when the one-round tool-use agent cannot?</summary>
+
+The `ToolAgent` in `01b` runs one round of tool calls and then answers, so it cannot use one result to choose the next call. `ReactAgent.run()` loops, and every observation stays in the chat history, so the model sees `6912` before it asks to multiply it by 5.
+
+</details>
+
+<details>
+<summary>2. The ReAct task sums 1234 and 5678, multiplies the result by 5, then takes the log. How many observations does your code send back, and what is the second?</summary>
+
+Three observations: `6912`, `34560` and `10.450452222917992`. The second, `34560`, is the result of `multiply_two_elements(6912, 5)`. After the third the model finishes inside `<response>` with about 10.45.
+
+</details>
+
+<details>
+<summary>3. A hand-written ReAct agent keeps calling a search tool that returns nothing useful, and the bill keeps growing. Which exit was missing?</summary>
+
+`max_rounds`, the exit you own (10 by default). The `<response>` tag only fires when the model decides it is done, and a model that keeps asking for tools never decides that. Without `max_rounds` the loop runs and bills forever.
+
+</details>
+
 ---
 *Previous: [M23 overview](../README.md). Next: [23.3 Defining tools and binding them to a model](../03_defining_tools_and_binding_them_to_a_model/README.md).*

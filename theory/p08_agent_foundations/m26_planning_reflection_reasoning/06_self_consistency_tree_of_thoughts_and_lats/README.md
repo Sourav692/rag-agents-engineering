@@ -48,5 +48,28 @@ On these eight puzzles LATS did not win: the notebook reports it solved 2 to 4 o
 
 For a Larkspur support assistant most questions have one good path, and lessons 26.1 and 26.4 are the tools to reach for. Reach for these patterns when one path is not reliable enough and something can score a partial answer: a code check, a test suite, or a judge you have measured. Without that evaluator, more branches only multiply the calls.
 
+## Check yourself
+
+<details>
+<summary>1. When does a majority vote over sampled answers fail to fix a wrong answer?</summary>
+
+When the error is systematic and the samples agree on the same wrong answer. On three-digit numbers whose digits add up to 10, most wrong answers were 55, which a vote locks in; on the sum of the digits from 1 to 100 the wrong answers were scattered and the vote washed them out. Consistent is not the same as correct.
+
+</details>
+
+<details>
+<summary>2. In the Game of 24 search, an LLM evaluator judged the state with 4 and 24 left as sure. What should judge two-number states instead?</summary>
+
+Code. With two numbers left, the notebook checks the six operations exactly, because where code can decide, it should. The LLM said `sure` only because 24 was in the list.
+
+</details>
+
+<details>
+<summary>3. Should Larkspur's support assistant answer handbook questions with tree of thoughts or LATS?</summary>
+
+Usually not. Most of its questions have one good path, and plan-and-execute or chain-of-verification fit them. Reach for these search patterns only when one path is not reliable enough and something can score a partial answer: a code check, a test suite or a judge you have measured. Without that, more branches only multiply the calls.
+
+</details>
+
 ---
 *Previous: [26.4 Chain-of-verification and constitutional critique](../04_chain_of_verification_and_constitutional_critique/README.md). Next: [M26 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -42,5 +42,28 @@ flowchart LR
     T -- no --> KEEP[Same chunk]
 ```
 
+## Check yourself
+
+<details>
+<summary>1. A topic drifts slowly across five sentences. Why does semantic chunking never cut there?</summary>
+
+The distance compares sentence i with sentence i + 1 only, so a gradual drift never produces one large distance to clear the threshold. The `gradient` threshold helps somewhat. Read the chunks before you trust the boundaries.
+
+</details>
+
+<details>
+<summary>2. The 13-sentence refund section has three real topic changes, yet the default percentile threshold cuts only once. Why, and what changes that?</summary>
+
+A 13-sentence section has 12 distances, and only the largest clears their 95th percentile. Lowering the amount to 75 cuts at all three topic changes. Every threshold type is computed from the document's own distances, so a value tuned on one corpus does not transfer to another.
+
+</details>
+
+<details>
+<summary>3. The standard deviation threshold returns a short document as one chunk. Is that a bug, and what should you add after the chunker?</summary>
+
+Not necessarily: on a short text no distance is 3 standard deviations above the mean, and one chunk is correct for a document about one thing. But it leaves chunk size unbounded. Cap chunk size afterwards, because semantic chunks can grow past the embedding model's limit.
+
+</details>
+
 ---
 *Previous: [13.1 Splitter fundamentals: character, recursive, token and structure-aware](../01_splitter_fundamentals_character_recursive_token_and_structure_aware/README.md). Next: [13.3 Proposition chunking with LLM quality checks](../03_proposition_chunking_with_llm_quality_checks/README.md).*

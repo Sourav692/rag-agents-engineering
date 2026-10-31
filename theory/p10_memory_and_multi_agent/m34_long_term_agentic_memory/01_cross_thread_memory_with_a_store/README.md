@@ -60,5 +60,28 @@ The notebook's first graph uses a deliberately naive write rule (save whatever f
 
 `InMemoryStore` disappears with the process. `PostgresStore` implements the same interface, so the graph is recompiled with a different `store=` and no node changes. `PostgresStore.from_conn_string(...)` is a context manager that closes its connection when the `with` block ends, and `setup()` creates the tables on first use. The notebook probes for a local Postgres first and skips that part when none is running.
 
+## Check yourself
+
+<details>
+<summary>1. Dana gives the Larkspur assistant her plan in one chat and opens a new chat the next day. Why can the checkpointer not recall it, and what can?</summary>
+
+The checkpointer is scoped by `thread_id`, and a new thread starts with an empty checkpoint. A store is scoped by a namespace tuple you choose, such as `("memories", "dana")`, so a node in the new thread can read what an earlier thread wrote there.
+
+</details>
+
+<details>
+<summary>2. A memory tool takes user_id as an ordinary argument that the model fills in. What is the risk, and how should the id reach the tool instead?</summary>
+
+The namespace is the only access boundary in the store, so a model that can choose `user_id="admin"` can read or write another customer's memories. Pass the id in the run's context, `context=Context(user_id=...)`, filled by the server from the login. Tools take `runtime: ToolRuntime[Context]`, which `ToolNode` injects and which is not in the schema the model sees.
+
+</details>
+
+<details>
+<summary>3. A team keys the episodic namespace by thread_id, and customers say the assistant forgets past help in every new chat. What went wrong?</summary>
+
+Every new chat has a new `thread_id`, so every chat writes to and reads from a fresh, empty namespace, and "long-term" memory vanishes with each chat. Key episodes by `("episodic", user_id)` and keep `thread_id` for the checkpointer only.
+
+</details>
+
 ---
 *Previous: [M34 overview](../README.md). Next: [34.2 Session, semantic, episodic and procedural memory on SQLite](../02_session_semantic_episodic_and_procedural_memory_on_sqlite/README.md).*

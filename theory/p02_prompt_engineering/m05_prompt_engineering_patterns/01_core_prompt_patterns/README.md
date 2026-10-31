@@ -68,5 +68,28 @@ sequenceDiagram
 
 That history is also why the cost of a flipped interaction grows with every turn. The notebook stores the conversation in `store["unused"]`, the history for the session id it passes, so that is where to read the messages back.
 
+## Check yourself
+
+<details>
+<summary>1. What do the few-shot examples teach the news classifier that its instruction leaves open, and what do they cost?</summary>
+
+They teach the label set and its spelling, the output shape (the bare label, then stop) and where the boundaries between classes are. They cost tokens on every call: the few-shot prompt sends 321 tokens against the zero-shot prompt's 31. In a RAG grader that runs once per retrieved chunk, that cost multiplies again by `k`.
+
+</details>
+
+<details>
+<summary>2. The Larkspur grading prompt has one yes example and one no example on an unrelated topic. Which two examples should you add?</summary>
+
+A nearby passage that does not answer, labelled no: the `billing` chunk for *How long does a refund take?*. And a passage that answers in other words, labelled yes: the one saying refunds take 5 to 10 business days to appear on your statement. The current no example shares no topic with the question, so it only teaches an easy boundary; keep yes and no balanced and measure the grader against your own labels.
+
+</details>
+
+<details>
+<summary>3. A flipped-interaction assistant gets more expensive with every question it asks. Why?</summary>
+
+It is the only one of these patterns with state. Each turn sends the whole conversation history back to the model, stored per `session_id` by `RunnableWithMessageHistory`, so the prompt grows with every turn and so does the cost.
+
+</details>
+
 ---
 *Previous: [M05 overview](../README.md). Next: [5.2 Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct](../02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/README.md).*

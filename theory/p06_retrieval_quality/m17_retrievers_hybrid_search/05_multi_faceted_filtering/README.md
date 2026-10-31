@@ -30,5 +30,28 @@ The settings are specific to this setup. A relevance threshold of 0.35 belongs t
 
 For the Larkspur handbook, the useful facets come from metadata written at ingestion: the handbook section, which M13's header splitter writes, and the `version` and `date` fields of the [M12 metadata schema](../../../p05_ingestion_and_indexing/m12_document_ingestion/01_the_document_abstraction_and_metadata_design/README.md#metadata-schema). A question about refunds on annual plans can filter to the Refunds section and the current version before ranking, which removes last year's policy without asking MMR or the reranker to notice it.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the multi-faceted filter run the metadata, score and keyword checks before the diversity check?</summary>
+
+Order is a cost decision. The first three are a dictionary lookup, a comparison and a string search; the diversity check needs one embedding call per chunk. Running the cheap exact checks first means the embedding model sees only the chunks that survive them.
+
+</details>
+
+<details>
+<summary>2. A Chilean customer ranks 11th by similarity for the Chile question. Will the post-filters find it, and what should you do instead?</summary>
+
+No. The four filters only remove from the 10 chunks the search returned, so a chunk ranked 11th never comes back. When the filter is known before the search, push it into the store with `similarity_search(query, k=10, filter={"country": "Chile"})`, so all 10 slots go to matching chunks. Keep post-filters for what the store cannot express, such as diversity.
+
+</details>
+
+<details>
+<summary>3. You copy the 0.35 relevance threshold and the substring test for chile into a different project. What should you check first?</summary>
+
+That they still mean anything there. The 0.35 threshold belongs to `all-MiniLM-L6-v2` on this corpus, and a lower-cased substring test for `chile` also accepts a longer word that contains it. Re-measure the threshold for your embedding model and corpus, and check the keyword test against the words your documents use.
+
+</details>
+
 ---
 *Previous: [17.4 Maximal Marginal Relevance for diversity](../04_maximal_marginal_relevance_for_diversity/README.md). Next: [17.6 Retriever patterns compared; hybrid + rerank on Databricks Vector Search](../06_retriever_patterns_compared_hybrid_rerank_on_databricks_vector_search/README.md).*

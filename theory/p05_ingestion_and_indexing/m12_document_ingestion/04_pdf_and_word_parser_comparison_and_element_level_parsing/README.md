@@ -33,5 +33,28 @@ Element-level parsing costs time and dependencies, so use it where layout carrie
 
 Word and Markdown files have the same switch. In this lesson's Word notebook, `UnstructuredWordDocumentLoader` returns the file as one Document by default; with `mode="elements"` and `chunking_strategy="by_title"` it returns pieces of at most 3,000 characters and starts a new one at every heading. Lesson 12.2 does the same for Markdown with `UnstructuredMarkdownLoader`: `mode="single"` gives one Document, `mode="elements"` one per heading, paragraph or list item, each with a `category`.
 
+## Check yourself
+
+<details>
+<summary>1. Why does leaving the handbook's page header in every chunk hurt retrieval?</summary>
+
+If every chunk starts with "Larkspur Cloud · Customer Handbook", every chunk shares that text, and similarity between chunks from different pages rises. An element-level parser returns `Header` and `Footer` as separate elements you can drop; with page-level text, strip the repeated lines instead.
+
+</details>
+
+<details>
+<summary>2. The pricing table was loaded with PyPDFLoader and then split. Why can a question about which plan has 16 GB of memory fail, and what would Unstructured give instead?</summary>
+
+PyPDF flattens the table into rows of space-separated values, and once a splitter cuts a row, "16 GB" no longer has a column name. `UnstructuredPDFLoader` with `mode="elements"` and `hi_res` returns the table as one `Table` element with `text_as_html`. Keep it as one chunk and give the model its HTML or Markdown form.
+
+</details>
+
+<details>
+<summary>3. Your corpus is plain prose PDFs with no tables or forms. Should you switch everything to element-level parsing?</summary>
+
+No. Element-level parsing is the slowest option and needs layout models and system packages, and plain prose PDFs do fine with PyPDF or PyMuPDF. Use it where layout carries meaning: reports, manuals, forms, anything with tables. Choose before you ingest, because changing granularity later means re-ingesting.
+
+</details>
+
 ---
 *Previous: [12.3 Semi-structured sources: CSV rows and JSON / JSONL with jq schemas](../03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md). Next: [12.5 Web, YouTube and arXiv sources; bulk directory loading](../05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md).*

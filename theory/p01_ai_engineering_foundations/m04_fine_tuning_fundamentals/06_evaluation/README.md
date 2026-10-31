@@ -41,5 +41,28 @@ The module lab asks for one comparison: the M11 RAG baseline and a small fine-tu
 
 Then change one handbook fact, say the refund window, and run both again without retraining. RAG picks up the change after a re-index; the fine-tuned model answers with the old window until it is trained again. For Larkspur that points to both: fine-tune for the style and the refusals, retrieve the facts, and evaluate the combination against the same baseline.
 
+## Check yourself
+
+<details>
+<summary>1. What does running ARC Easy after fine-tuning tell you, and how do you use it?</summary>
+
+It does not measure the fine-tuned task. It checks that fine-tuning did not cost the model what it could already do. Run it on the base model and the fine-tuned model and compare the two.
+
+</details>
+
+<details>
+<summary>2. The stored evaluation set scores 0 exact matches in 139. What do the predictions show, and what caused it?</summary>
+
+127 of the 139 predictions repeat a sentence of more than 20 characters, and the median prediction is 5,128 characters against a median target of 304. The `lamini/lamini_docs` training rows carry no end token, so the model never saw an answer stop.
+
+</details>
+
+<details>
+<summary>3. You change the Larkspur refund window and rerun the RAG baseline and the fine-tuned model without retraining. What happens, and what design does that suggest?</summary>
+
+RAG gives the new window after a re-index; the fine-tuned model keeps answering with the old one until it is trained again. Fine-tune for the style and the refusals, retrieve the facts, and evaluate the combination against the same baseline.
+
+</details>
+
 ---
 *Previous: [4.5 Training](../05_training/README.md). Next: [4.7 Fine-tuning Llama 2 with AutoTrain](../07_fine_tuning_llama_2_with_autotrain/README.md).*

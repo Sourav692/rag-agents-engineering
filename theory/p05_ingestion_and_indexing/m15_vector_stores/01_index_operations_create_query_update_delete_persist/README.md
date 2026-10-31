@@ -52,5 +52,28 @@ Reopening a store fails silently in two ways:
 
 The notebook turns both into startup errors with an `open_store()` check: refuse an empty collection, and compare the stored vector's dimension with the live model's. The dimension check misses a model swap with equal dimensions (`text-embedding-3-large` truncated to 1,536 against `text-embedding-3-small`), so also store the model name in the collection's metadata and assert it.
 
+## Check yourself
+
+<details>
+<summary>1. Why does an ingestion pipeline that mints a fresh UUID on every run make retrieval worse over time?</summary>
+
+Re-adding the same text under a new ID stores it twice: a six-document Chroma store becomes 7 entries. Each copy takes a top-k slot that a different chunk needed, and every run duplicates every chunk again. Derive IDs from the document instead, such as `refunds.md::0`, a content hash or a business key.
+
+</details>
+
+<details>
+<summary>2. Code written for a Pinecone cosine index keeps results scoring above 0.8. You move it to Chroma with default settings. What goes wrong?</summary>
+
+Chroma 1.5.9 returns a distance in `l2` space by default, where lower is closer, so `score > 0.8` keeps the wrong end and can reject everything. Never compare scores across backends or hard-code a threshold without checking what the backend returns. Set any cut-off from known-good and known-bad queries run on the store you ship.
+
+</details>
+
+<details>
+<summary>3. After a restart, every search returns nothing and no error is raised. What is the likely cause, and what check turns it into an error?</summary>
+
+A wrong collection name: `Chroma(collection_name="typo", ...)` creates a new, empty collection. The notebook's `open_store()` check refuses an empty collection and compares the stored vector's dimension with the live model's. Also store the model name in the collection's metadata and assert it, because a swap with equal dimensions passes the dimension check.
+
+</details>
+
 ---
 *Previous: [M15 overview](../README.md). Next: [15.2 Embedded stores: Chroma and FAISS](../02_embedded_stores_chroma_and_faiss/README.md).*

@@ -150,6 +150,7 @@ def render(m, pages):
     rest = re.sub(r"!\[[^\]]*\]\((/[^)]+\.svg)\)", lambda mt: keep(svg(mt.group(1))), rest)
     rest = re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", lambda mt: f"[{mt.group(1)}]({link(mt.group(2))})", rest)
     rest = re.sub(r"(?m)^(?!\s*(?:[-*]|\d+\.) )(?=\S)(.+)\n(\s*(?:[-*]|\d+\.) )", r"\1\n\n\2", rest)  # lists after a line
+    rest = rest.replace("<details>\n", '<details markdown="1">\n')  # Check yourself answers are Markdown
     body = markdown.markdown(rest, extensions=["tables", "fenced_code", "sane_lists", "smarty", "md_in_html"])
     for i, frag in enumerate(blocks):
         body = body.replace(f"<p>BLOCK{i}X</p>", frag)

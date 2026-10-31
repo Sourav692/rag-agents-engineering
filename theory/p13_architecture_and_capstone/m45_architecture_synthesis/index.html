@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -378,6 +383,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>Memory (<a href="../../p10_memory_and_multi_agent/m33_conversational_memory_rag/index.html">M33</a>, <a href="../../p10_memory_and_multi_agent/m34_long_term_agentic_memory/index.html">M34</a>) cuts across all five. A follow-up such as <em>How long do I have?</em> needs rewriting into a standalone question before any of these architectures can retrieve for it.</p>
 <p>The families also stack. The M28 agent is a tool-based loop with a self-correcting grader; adaptive RAG in M30 is a router in front of two graders. When a design names several families, count each component&rsquo;s calls separately, so a later review can remove one without guessing what it cost.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What common unit does the lesson use to compare the architectures, and what does that unit leave out?</summary>
+<p>Model calls per question, because every architecture is the M11 pipeline with components added: plain RAG is 1 call, routing and tool loops 2 to 7, and self-correcting loops climb to 10 and 20. It leaves out index-time LLM work, which is the main cost of collapsed-tree RAPTOR and GraphRAG, so those have no counted query cost on the axis.</p>
+</details>
+<details>
+<summary>2. The agentic RAG agent with query rewriting is a tool-based loop with a self-correcting grader. How should a design document count its cost?</summary>
+<p>Count each component&rsquo;s calls separately: the loop&rsquo;s calls and the grader&rsquo;s calls. A later review can then remove one component and know what it saves, instead of guessing from a single total.</p>
+</details>
+<details>
+<summary>3. A customer asks a follow-up, How long do I have?, and every architecture retrieves the wrong chunks. What is missing?</summary>
+<p>Memory (M33, M34), which cuts across all five families. The follow-up has to be rewritten into a standalone question using the conversation before any architecture can retrieve for it.</p>
+</details>
 <h2 id="the-stack-in-one-notebook">The stack in one notebook</h2>
 <p class="lesson-of">Lesson 45.2: End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS). Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p13_architecture_and_capstone/m45_architecture_synthesis/notebooks/02a_rag_ecosystem.ipynb" target="_blank" rel="noopener"><code>02a_rag_ecosystem.ipynb</code></a></p>
 <p><code>02a_rag_ecosystem.ipynb</code> walks the whole RAG stack in one place. Its recap note says what is new: the early parts are a refresher of earlier modules, the parts it owns are RAPTOR, ColBERT and agentic self-correction, and the evaluation sections are pointers. Of those three, only ColBERT runs as code here; RAPTOR and self-correction are described and linked out.</p>
@@ -493,6 +511,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>For an architecture decision, run every candidate over the same golden set and record one row each: the stage metrics, model calls and retrievals per question, and latency. Retrieval metrics such as recall@k need no judge; the M11 baseline row is computed from the golden set&rsquo;s labelled evidence chunks. The judged metrics cost model calls at evaluation time, one or more per metric per question, which is a reason to keep the golden set fixed and small enough to run on every change. Report per question as well as the mean: on the outage question, TF-IDF and dense retrieval differ completely, and a mean over three questions blurs it.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does a single-vector retriever lose that ColBERT's late interaction keeps?</summary>
+<p>Which part of the passage matched. A 180-token passage that mentions the answer once becomes one point, pulled toward everything else it says. ColBERT keeps a contextual vector for every token and scores with MaxSim: for each question token, its best similarity with any passage token, summed over the question tokens.</p>
+</details>
+<details>
+<summary>2. How many numbers does ColBERTv2 store for a 180-token passage before compression, against one text-embedding-3-small vector?</summary>
+<p>180 × 128 = 23,040 numbers, against 1,536: 15 times as many. ColBERTv2 then shrinks each token vector to a centroid id plus a residual of 1 or 2 bits per dimension.</p>
+</details>
+<details>
+<summary>3. An end-to-end correctness score says the outage answer is wrong. Which metrics tell you whether retrieval or generation caused it?</summary>
+<p>The stage metrics. <code>context_recall</code> (RAGAS, needs a reference answer) and <code>ContextualRelevancyMetric</code> (deepeval) judge retrieval; recall@k needs no judge at all, only the labelled evidence chunks. <code>faithfulness</code> judges generation against the retrieved context. Report them per question, because a mean over three questions blurs the outage case.</p>
+</details>
 <h2 id="architecture-selection">Architecture selection</h2>
 <p class="lesson-of">Lesson 45.3: Decision framework: picking the simplest architecture that works</p>
 <p>Choosing an architecture is a chain of questions asked of the golden set. Each question names a failure, and each &ldquo;yes&rdquo; points at the family that fixes it. A &ldquo;no&rdquo; moves on to the next question, so a design only reaches the expensive families when the cheaper fixes are ruled out.</p>
@@ -538,6 +569,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Parts to test.</strong> Every grader is a prompt with its own failure mode. M28&rsquo;s topic check rejects silently, and M29&rsquo;s groundedness check is skipped when no document passed. Each one needs questions in the golden set that exercise it.</li>
 </ul>
 <p>The lab brief turns this into a document: a two-page design for your capstone that justifies each component against a simpler alternative. For each component, write the failure on the golden set that it fixes, the simpler alternative you tried first, the measured gain and the calls it adds per question.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the decision chain ask whether a wrong answer costs a ticket only after the retrieval, routing, index and loop questions?</summary>
+<p>So the check runs on top of the best retrieval the design already has, and grades good chunks instead of looping over bad ones. Each earlier question rules out a cheaper fix first, so a design reaches the expensive families only when it needs them.</p>
+</details>
+<details>
+<summary>2. The service-credits question runs over three knowledge bases with a budget of 2 model calls. What does the lab pick, and what changes at 3?</summary>
+<p>Nothing fits at 2: the router&rsquo;s 2 calls answer only the outage half and never ask billing. At a budget of 3 the swarm qualifies and is picked. On one index the pick would be decomposition at 5 calls.</p>
+</details>
+<details>
+<summary>3. TF-IDF misses the outage evidence, and a teammate proposes Self-RAG to recover it. What does the framework recommend instead?</summary>
+<p>Fix retrieval, because the evidence is missing from the top k. Dense retrieval ranks <code>incidents</code> and <code>sla</code> first and second in a single call, while the loops pay to work around the miss: the M28 retry loop takes 10 calls and Self-RAG 14. M29&rsquo;s own rule is that retrieval misses are fixed in retrieval.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="03_decision_framework_picking_the_simplest_architecture_that_works/interactive/architecture-picker-lab.html"><strong>The simplest architecture that works</strong></a>: open the file in a browser. It opens on the outage question with one handbook index, a budget of 5 calls and a cheap wrong answer: dense retrieval wins at 1 call, and the ladder shows TF-IDF and the hybrid blend falling short. Set the wrong answer to cost a support ticket and the only counted rung that has a check and answers is the M28 retry loop at 10 calls, so nothing fits until the budget reaches 10. Then pick the service-credits question and switch between one index and three knowledge bases: decomposition at 5 calls against a swarm at 3, with the router&rsquo;s 2 calls never asking billing.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -594,7 +638,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Count what each component costs in model calls, retrievals and index-time work, and set a budget per question before choosing; loops get a cap in code.</li>
 <li>Change the data when the question needs it: summaries for themes, explicit edges for constraints, separate knowledge bases only when routing to them buys something.</li>
 </ul></article>
-    <nav class="toc" aria-label="M45 sections"><details open><summary>In M45</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-architecture-map">The architecture map</a></li><li><a href="#what-each-family-adds">What each family adds</a></li><li><a href="#the-stack-in-one-notebook">The stack in one notebook</a></li><li><a href="#late-interaction-colbert">Late interaction (ColBERT)</a></li><li><a href="#end-to-end-evaluation">End-to-end evaluation</a></li><li><a href="#architecture-selection">Architecture selection</a></li><li><a href="#complexity-budget">Complexity budget</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M45 sections"><details open><summary>In M45</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-architecture-map">The architecture map</a></li><li><a href="#what-each-family-adds">What each family adds</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-stack-in-one-notebook">The stack in one notebook</a></li><li><a href="#late-interaction-colbert">Late interaction (ColBERT)</a></li><li><a href="#end-to-end-evaluation">End-to-end evaluation</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#architecture-selection">Architecture selection</a></li><li><a href="#complexity-budget">Complexity budget</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

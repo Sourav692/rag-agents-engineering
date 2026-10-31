@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -398,6 +403,21 @@ app.invoke(request, cfg)
 </ul>
 <p>Use the snapshot&rsquo;s own <code>config</code> when you fork. The <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/06a_LangGraph_State_Management.ipynb" target="_blank" rel="noopener">06a notebook</a> notes that a hand-built config without <code>checkpoint_ns</code> breaks <code>update_state</code>.</p>
 <p>A replayed node runs its code again. If <code>execute</code> sends a refund, replay sends another one; <a href="#resume-and-side-effects">lesson 10.6</a> shows how to make that harmless.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How does one compiled graph with a checkpointer serve every Larkspur customer at once without mixing their conversations?</summary>
+<p>The <code>thread_id</code> in the config is the key. Calls with the same id share one saved history, so a second turn sees the first; calls with different ids never see each other. The checkpointer saves a snapshot of the whole state after every step, filed under that id.</p>
+</details>
+<details>
+<summary>2. The finished refund-17 thread holds 6 checkpoints. You fork it from step 2, setting risk to high, and continue. How many checkpoints are there now, and what happens to the original branch?</summary>
+<ol start="9">
+<li><code>update_state</code> writes a new checkpoint (source <code>update</code>, step 3, still waiting on <code>execute</code>) whose parent is the old one, and continuing the fork runs <code>execute</code> and <code>done</code> on it. The original branch stays in the history.</li>
+</ol>
+</details>
+<details>
+<summary>3. Larkspur runs several workers that share threads, and threads must survive a restart. Which saver do you choose?</summary>
+<p><code>PostgresSaver</code>. <code>InMemorySaver</code> is gone on restart, and <code>SqliteSaver</code> writes a file that suits one process on one machine. The graph code does not change between savers, so the workers stay stateless and any of them can continue any thread.</p>
+</details>
 <h2 id="interrupt">interrupt()</h2>
 <p class="lesson-of">Lesson 10.2: Interrupts and human-in-the-loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/02a_HITL_Mechanics.ipynb" target="_blank" rel="noopener"><code>02a_HITL_Mechanics.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/02b_LangGraph_Interrupt_Primitive.ipynb" target="_blank" rel="noopener"><code>02b_LangGraph_Interrupt_Primitive.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/02c_HITL_Patterns.ipynb" target="_blank" rel="noopener"><code>02c_HITL_Patterns.ipynb</code></a></p>
 <p><code>interrupt(payload)</code> called inside a node stops the run at that line. LangGraph saves the state, and <code>invoke</code> returns with the payload under <code>__interrupt__</code>. The thread now waits at that node; <code>get_state(cfg).next</code> is <code>("human_gate",)</code>. Days later, any process calls <code>invoke(Command(resume=value), cfg)</code> on the same thread, and <code>interrupt()</code> returns <code>value</code> inside the node.</p>
@@ -435,6 +455,19 @@ app.invoke(request, cfg)
 <li><strong>Review a tool call.</strong> <code>interrupt()</code> inside a sensitive tool, or a wrapper such as the notebook&rsquo;s <code>add_human_in_the_loop</code>, lets a person accept, edit or answer instead of running it. <code>HumanInTheLoopMiddleware</code> in <a href="../../p08_agent_foundations/m24_react_agents/index.html">M24</a> packages the same idea for <code>create_agent</code>.</li>
 </ul>
 <p>Whichever shape you use, approve on an exact value and treat anything else as no. <a href="../../p08_agent_foundations/m27_human_approval_applied_agents/index.html">M27</a> builds that fail-closed gate, with a fingerprint that catches edits made after the review. What can happen twice around the gate is the subject of the lab in <a href="#resume-and-side-effects">lesson 10.6</a>.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does anything written above the interrupt call in human_gate happen twice for one approval?</summary>
+<p>On resume, LangGraph does not continue mid-function; it calls the node again from the top, and this time <code>interrupt()</code> returns the resume value. In the refund graph <code>human_gate</code> runs 2 times per approval, so a notification, a counter or an LLM call above the <code>interrupt()</code> line repeats.</p>
+</details>
+<details>
+<summary>2. A teammate runs the refund graph without a checkpointer. The first call returns an interrupt payload. What happens when they resume?</summary>
+<p>The resume call raises <code>RuntimeError: Cannot use Command(resume=...) without checkpointer</code>. The first call still returned <code>__interrupt__</code>, but nothing was saved, so there is no parked thread to continue.</p>
+</details>
+<details>
+<summary>3. The billing team must approve or reject each Larkspur refund. Which pattern fits, and how should the gate treat the resume value?</summary>
+<p>Approve or reject: the gate returns <code>Command(goto="execute")</code> or <code>Command(goto="cancel")</code> with <code>update={"decision": ...}</code>, annotated as <code>Command[Literal["execute", "cancel"]]</code>. <code>interrupt()</code> returns whatever the caller passes, so approve only on an exact value and treat anything else as no, the fail-closed gate M27 builds.</p>
+</details>
 <h2 id="subgraphs">Subgraphs</h2>
 <p class="lesson-of">Lesson 10.3: Subgraphs. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/03a_Subgraphs.ipynb" target="_blank" rel="noopener"><code>03a_Subgraphs.ipynb</code></a></p>
 <p>A subgraph is an ordinary compiled graph used as a node of another graph. The notebook builds a weather agent (an <code>agent</code> node, a <code>ToolNode</code>, a loop between them), invokes it on its own to check its input and output, then nests it two ways. On the Larkspur desk the same move turns a self-contained &ldquo;check refund eligibility&rdquo; agent into one step of the refund graph.</p>
@@ -463,6 +496,19 @@ app.invoke(request, cfg)
 <li><strong>Streaming.</strong> <code>stream(..., subgraphs=True)</code> yields <code>(namespace, chunk)</code> pairs, where the namespace names the subgraph node (<code>("approval:&lt;task id&gt;",)</code>) and the parent&rsquo;s own events have the empty namespace <code>()</code>.</li>
 </ul>
 <p>Choose a subgraph when a piece has its own loop or its own state that the parent should not carry, when a team owns it separately, or when several parents reuse it. <a href="../../p10_memory_and_multi_agent/m35_multi_agent_architectures/index.html">M35</a> to M37 build multi-agent systems out of exactly these pieces. For a straight sequence of steps on the same state, plain nodes are simpler.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. When can you add a compiled subgraph directly as a node, and when do you need a wrapper node?</summary>
+<p>Add it directly when parent and child share keys, as with <code>MessagesState</code> on both sides: the parent&rsquo;s <code>messages</code> channel is the child&rsquo;s. When the keys differ, as with the notebook&rsquo;s <code>parent_messages</code>, a wrapper calls <code>subgraph.invoke({"messages": ...})</code> and writes the result back. The child does not change; only the parent knows the mapping.</p>
+</details>
+<details>
+<summary>2. A directly added child writes a private scratch key next to a shared decision key. What does the parent receive?</summary>
+<p>Only <code>decision</code>. A directly added subgraph returns only the keys the parent declares, so <code>scratch</code> is dropped. The child can keep working notes the parent never sees, and a key you expect in the parent has to be in the parent&rsquo;s schema.</p>
+</details>
+<details>
+<summary>3. A two-node approval child (a check, then a gate) runs through a wrapper, pauses at the gate and resumes. What runs twice?</summary>
+<p>The gate and the wrapper. Resuming re-runs only the interrupted child node, so the check runs once and the gate twice. The wrapper function also runs again from its first line, so any parent-side code before <code>subgraph.invoke</code> repeats.</p>
+</details>
 <h2 id="streaming-modes">Streaming modes</h2>
 <p class="lesson-of">Lesson 10.4: Async and streaming. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/04a_Async_and_Streaming.ipynb" target="_blank" rel="noopener"><code>04a_Async_and_Streaming.ipynb</code></a></p>
 <p><code>invoke</code> returns once, at the end. <code>stream</code> (and <code>astream</code>) yields chunks while the graph runs, and <code>stream_mode</code> decides what a chunk is. The installed LangGraph 1.2.18 has seven modes. Here is what each yields for one run of the four-node low-risk refund (triage, assess, execute, done), counted in the scratchpad:</p>
@@ -529,6 +575,19 @@ app.invoke(request, cfg)
 <li><strong><code>streaming=True</code> on the model</strong> makes the provider send tokens as they are generated, which <code>messages</code> mode then passes through.</li>
 <li><strong>Checkpoints work the same.</strong> The async graph is compiled with <code>MemorySaver</code>, and a second <code>ainvoke</code> on the same thread sees the first turn.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A RAG graph streamed in messages mode shows the grader's "yes relevant" before the answer. Why, and how do you stop it reaching the screen?</summary>
+<p><code>messages</code> mode streams tokens from every chat-model call inside every node, not only the one that writes the answer. Each chunk&rsquo;s metadata names its node, so filter on <code>metadata["langgraph_node"]</code> before you render.</p>
+</details>
+<details>
+<summary>2. The Larkspur client shows progress labels and must show an approval card when the refund run pauses. Which stream mode fits, and how does it know to show the card?</summary>
+<p><code>updates</code>. Each chunk is <code>{node: what it returned}</code>, so it names the node that just finished; the low-risk refund yields 4 of them. When the run pauses, the last chunk is <code>{"__interrupt__": ...}</code>, which tells the client to show the approval card.</p>
+</details>
+<details>
+<summary>3. A FastAPI chat endpoint calls invoke synchronously and slows down as conversations grow. What does making the nodes async change?</summary>
+<p>A synchronous <code>invoke</code> holds its worker for the whole run, model calls included. An <code>async def</code> node gives the event loop back while it waits on the model or a tool, so the handler can serve other customers meanwhile. Async does not stream by itself; a chat endpoint usually wants <code>astream</code> with <code>messages</code> and <code>updates</code>.</p>
+</details>
 <h2 id="retry-policies">Retry policies</h2>
 <p class="lesson-of">Lesson 10.5: Retry policies and bounded cycles. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/05a_Retries.ipynb" target="_blank" rel="noopener"><code>05a_Retries.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/05b_Cycles_and_Loops.ipynb" target="_blank" rel="noopener"><code>05b_Cycles_and_Loops.ipynb</code></a></p>
 <p>A <code>RetryPolicy</code> attached with <code>add_node(name, fn, retry_policy=...)</code> re-runs that node when it raises, inside the same <code>invoke</code>. The caller sees one call; the <code>updates</code> stream shows the node once, when it finally succeeds. The 05a notebook wraps a weather API that fails 70% of the time:</p>
@@ -630,6 +689,19 @@ app.invoke(request, cfg)
 <li><strong><code>recursion_limit</code> is the backstop.</strong> It counts steps, not loops. The installed LangGraph&rsquo;s default is 10,007 (set by <code>LANGGRAPH_DEFAULT_RECURSION_LIMIT</code>), far too high to save an LLM budget. Pass it per run: the same loop with no counter and <code>{"recursion_limit": 10}</code> stops after 10 steps (five generates, five validations) with <code>GraphRecursionError</code>.</li>
 </ul>
 <p>A loop on the Larkspur desk, such as &ldquo;rewrite the customer reply until the tone checker passes&rdquo;, gets the same treatment: a counter in the rewriting node, a cap in the router, an explicit <code>recursion_limit</code>, and a fallback path when the cap is hit. <a href="../../p09_agentic_rag/m29_crag_and_self_rag/index.html">M29</a>&rsquo;s grade-and-rewrite loops are built this way.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why should a RetryPolicy name its exceptions in retry_on instead of relying on the default?</summary>
+<p>So a bug fails on the first attempt instead of after every wait. The default retries <code>ConnectionError</code> and HTTP 5xx errors and skips the programming errors on its list, but any class not on that list is retried, including a custom <code>APIError(Exception)</code>. Naming the exceptions makes the policy retry only what you mean.</p>
+</details>
+<details>
+<summary>2. With the notebook's policy and a weather API that fails 70% of the time, how long does a run that exhausts the policy wait, and how often does that happen?</summary>
+<p>15 to 19 seconds: waits of 1, 2, 4 and 8 seconds, plus up to 1 second of jitter each, and no wait after the fifth failure. All five attempts fail with probability 0.7^5 ≈ 0.168, about one run in six.</p>
+</details>
+<details>
+<summary>3. A rewrite loop bumps its attempt counter in the router function, and the loop runs until GraphRecursionError. What went wrong?</summary>
+<p>Anything a router writes to <code>state</code> is discarded, so the counter never grows and the cap is never reached. The node must count (<code>generate</code> returns <code>iteration + 1</code>) and the router only reads it, checking success first, then the cap. Pass an explicit <code>recursion_limit</code> as the backstop, since the default of 10,007 steps is far too high to save an LLM budget.</p>
+</details>
 <h2 id="reducers-and-parallel-writes">Reducers and parallel writes</h2>
 <p class="lesson-of">Lesson 10.6: State management in practice. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/06a_LangGraph_State_Management.ipynb" target="_blank" rel="noopener"><code>06a_LangGraph_State_Management.ipynb</code></a></p>
 <p>The 06a notebook runs without an API key: its LLM and tools are deterministic stubs, so every result in this section comes from running its code. The state schema is the contract between steps, and each field&rsquo;s reducer decides how a node&rsquo;s partial update lands. In the notebook, nodes <code>a</code> then <code>b</code> each return <code>1</code> for two fields:</p>
@@ -707,6 +779,19 @@ app.invoke(request, cfg)
 <li><strong>Make external writes idempotent.</strong> A 503 before the provider refunds is harmless to retry. A lost response after it refunds is not: with guards off the customer is refunded twice. With guards on, the call carries the key <code>refund:refund-99</code>, the provider recognises the second request and returns the stored result. The notebook&rsquo;s <code>EXECUTION_LEDGER</code> does the same check in process.</li>
 </ul>
 <p>Put together, these are the notebook&rsquo;s closing rules: workers stay stateless, state lives in the checkpointer, the <code>events</code> field is the audit log, the workflow is an explicit graph with the human gate as a waiting state, and every side effect can run twice without harm.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Two reviewers fan out from the start node and both return risk, and the run stops. Why, and what fixes it?</summary>
+<p>The <code>risk</code> field has no reducer, so LangGraph cannot choose between two writes in one step and raises &ldquo;Can receive only one value per step&rdquo;. Give the field a reducer, such as <code>operator.add</code>, and the merge is deterministic; that is how parallel reviewers&rsquo; scores are summed.</p>
+</details>
+<details>
+<summary>2. In the lab, refund-99's provider applies the refund and the response is lost, then a RetryPolicy retries. How many refunds does the customer get with guards off, and with guards on?</summary>
+<p>Two with guards off, one with guards on. With guards on the call carries the key <code>refund:refund-99</code>, so the provider recognises the second request and returns the stored result. A 503 before the refund is harmless to retry either way.</p>
+</details>
+<details>
+<summary>3. The billing team gets every high-risk approval notice twice, even with no faults. What causes it, and what is the fix?</summary>
+<p>The notice is sent inside <code>human_gate</code> above <code>interrupt()</code>, and a resume re-runs that node from its first line. Move the notice into its own <code>notify</code> node before the gate, so it runs once. The graph gains a node and one checkpoint (8 instead of 7), and the client still makes 2 calls.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="06_state_management_in_practice/interactive/resume-side-effects-lab.html"><strong>What runs twice on resume</strong></a>: open the file in a browser. Pick the high-risk refund with no fault and guards off: the billing team gets 2 approval notices for one request, because the notice sits above <code>interrupt()</code>. Then choose <em>Response lost, RetryPolicy</em>: the retry that saves the run also refunds the customer twice. Turn the guards on and both counts drop to 1, with the same number of client calls.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -763,7 +848,7 @@ app.invoke(request, cfg)
 <li>Pick the stream mode for the screen: <code>updates</code> for progress, <code>messages</code> filtered by node for typing, <code>values</code> when the client renders whole state.</li>
 <li>Bound every loop twice: a counter that a node increments and the router reads, and an explicit <code>recursion_limit</code> as the backstop.</li>
 </ul></article>
-    <nav class="toc" aria-label="M10 sections"><details open><summary>In M10</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#checkpointer">Checkpointer</a></li><li><a href="#history-replay-and-forks">History, replay and forks</a></li><li><a href="#interrupt">interrupt()</a></li><li><a href="#approval-patterns">Approval patterns</a></li><li><a href="#subgraphs">Subgraphs</a></li><li><a href="#streaming-modes">Streaming modes</a></li><li><a href="#async-nodes">Async nodes</a></li><li><a href="#retry-policies">Retry policies</a></li><li><a href="#bounded-cycles">Bounded cycles</a></li><li><a href="#reducers-and-parallel-writes">Reducers and parallel writes</a></li><li><a href="#resume-and-side-effects">Resume and side effects</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M10 sections"><details open><summary>In M10</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#checkpointer">Checkpointer</a></li><li><a href="#history-replay-and-forks">History, replay and forks</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interrupt">interrupt()</a></li><li><a href="#approval-patterns">Approval patterns</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#subgraphs">Subgraphs</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#streaming-modes">Streaming modes</a></li><li><a href="#async-nodes">Async nodes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#retry-policies">Retry policies</a></li><li><a href="#bounded-cycles">Bounded cycles</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reducers-and-parallel-writes">Reducers and parallel writes</a></li><li><a href="#resume-and-side-effects">Resume and side effects</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

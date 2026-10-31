@@ -41,5 +41,28 @@ The revised answer adds the traffic condition to the first claim and changes 90 
 
 The optional notebook 04b runs the same draft, critique and revise loop against a written constitution: each named rule gets its own structured verdict (`rule`, `passes`, `critique`), only the failing rules go back to the reviser, and `MAX_ITERATIONS` bounds the loop. The notebook labels it a teaching pattern, not a safety system.
 
+## Check yourself
+
+<details>
+<summary>1. Why does chain-of-verification answer each verification question in a call that cannot see the draft?</summary>
+
+If the model did not know a fact was wrong the first time, re-reading rarely shows it: with the draft in the prompt, the model agrees with itself. A fresh call with no draft, no other questions and no earlier answers checks each claim on its own.
+
+</details>
+
+<details>
+<summary>2. A customer cancels an annual plan 20 days after buying it, and the draft promises a full refund and 90 days of data retention. What does the revised answer change?</summary>
+
+It adds the condition from the `refund-window` chunk: a full refund within 30 days only if the account used less than 100 GB of outbound traffic. It changes 90 days to 30, then permanent deletion, from the `retention` chunk. The claim that the refund appears in 5 to 10 business days is kept.
+
+</details>
+
+<details>
+<summary>3. After adding verification, unsupported claims per answer fall, but the count of correct claims removed rises. What is happening?</summary>
+
+The reviser is adding errors, as when it removed Rutherford B. Hayes, whose verified birthplace was "Delaware, Ohio", and its own `corrections_made` called that a fix. Only scoring in code against the ground truth exposes it, which is why the removed correct claims are counted as a separate number.
+
+</details>
+
 ---
 *Previous: [26.1 Plan-and-execute vs ReAct; decompose, execute, replan](../01_plan_and_execute_vs_react_decompose_execute_replan/README.md). Next: [26.6 Self-consistency, tree of thoughts and LATS](../06_self_consistency_tree_of_thoughts_and_lats/README.md).*

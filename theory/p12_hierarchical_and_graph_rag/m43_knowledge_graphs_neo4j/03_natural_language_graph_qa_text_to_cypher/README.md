@@ -27,5 +27,28 @@ Test valid paraphrases, an unknown entity, ambiguous plan names, a question requ
 
 Generated queries need database-enforced read permissions and bounded execution. Use a read-only principal, query timeout and result limits; a prompt instruction alone does not restrict database authority. LangChain's [chain security note](https://reference.langchain.com/python/langchain-community/chains/graph_qa/cypher/GraphCypherQAChain/allow_dangerous_requests) explains that an opt-in flag acknowledges risk rather than enforcing permissions.
 
+## Check yourself
+
+<details>
+<summary>1. Why must Text-to-Cypher generation see the graph schema, and when must that schema be refreshed?</summary>
+
+The schema tells the model which labels, relationship types and properties exist, so it can write a pattern that matches, such as `SUPPORTS` and `AVAILABLE_IN` bound to one plan. After a schema change, refresh the schema used for generation and re-run the questions that exercise the changed labels and properties.
+
+</details>
+
+<details>
+<summary>2. A generated query returns no EU export plans, though the hand-written query finds one. What kinds of mistake would you look for in the generated Cypher?</summary>
+
+Compare its pattern with the reference: a misspelled relationship, a reversed direction, a missing region condition or a wrong property key. Each can produce an empty or misleading result without a syntax error. Save the question, Cypher, parameters, rows and answer as separate trace fields so you can see where it went wrong.
+
+</details>
+
+<details>
+<summary>3. A team relies on a prompt that says generate read-only queries, plus the allow_dangerous_requests flag. Is the database protected?</summary>
+
+No. A prompt instruction does not restrict database authority, and the opt-in flag acknowledges the risk rather than enforcing permissions. Use a read-only database principal, a query timeout and result limits.
+
+</details>
+
 ---
 *Previous: [43.2 From CSV to knowledge graph](../02_from_csv_to_knowledge_graph/README.md). Next: [43.4 Vector indexes on graph nodes](../04_vector_indexes_on_graph_nodes/README.md).*

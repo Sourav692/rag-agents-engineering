@@ -57,5 +57,28 @@ That is why the notebook calls its result “finetuned slightly” and then load
 
 For a real Larkspur run, size it in examples: decide how many epochs the data supports, derive the number of updates, set warmup to a fraction of them, and put `eval_steps` well inside the run so the held-out loss is tracked while it trains.
 
+## Check yourself
+
+<details>
+<summary>1. With a batch size of 1 and 4 gradient-accumulation steps, how does the trainer produce one optimizer update?</summary>
+
+It runs four micro-batches of one example each forward and backward, adding their gradients. Once four are collected it steps the optimizer at the learning rate from the schedule and zeroes the gradients. The update matches a batch of 4 while only one example is held in memory.
+
+</details>
+
+<details>
+<summary>2. In the lesson 4.5 run, what learning rates do the three updates get, and what share of an epoch does the model see?</summary>
+
+0, 1e-5 and 5e-6, from the linear schedule with `warmup_steps=1`, so the first update changes nothing. Three updates of 4 examples each see 12 of the 1,260 training rows: 0.95% of one epoch.
+
+</details>
+
+<details>
+<summary>3. Why does load_best_model_at_end have no checkpoint to choose in the lesson 4.5 run, and how should a real Larkspur run be set?</summary>
+
+Evaluation and checkpoints happen every 120 updates and the run has 3, so it never computes an `eval_loss`. Size a real run in examples: decide the epochs the data supports, derive the number of updates, set warmup to a fraction of them, and put `eval_steps` well inside the run.
+
+</details>
+
 ---
 *Previous: [4.4 Data preparation](../04_data_preparation/README.md). Next: [4.6 Evaluation](../06_evaluation/README.md).*

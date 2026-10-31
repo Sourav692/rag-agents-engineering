@@ -27,5 +27,28 @@ flowchart LR
 
 If the retry also fails, the ticket goes to a person, not to the customer. For Larkspur, the same contract triages support tickets: `orig_lang`, a `category` from a fixed list (billing, refunds, exports, outages, server sizing), an English translation for the support team, and a draft reply in the customer's language that the answer step fills from the handbook. Fix the category list in the prompt, as the few-shot classifier in lesson 5.1 fixes its labels, so the reply can be routed by code.
 
+## Check yourself
+
+<details>
+<summary>1. Why do the notebook's prompts wrap each input in triple backticks, and what does that not guarantee?</summary>
+
+Delimiters let the model tell the instruction from the text it works on, such as a review or an IT ticket. That makes an instruction hidden inside the input easier to ignore, but it does not guarantee the model ignores it.
+
+</details>
+
+<details>
+<summary>2. You adapt the IT support JSON contract to triage Larkspur tickets. What fields does it need, and what makes the reply routable by code?</summary>
+
+`orig_lang`, a `category`, an English translation for the support team, and a draft reply in the customer's language that the answer step fills from the handbook. The category must come from a fixed list in the prompt (billing, refunds, exports, outages, server sizing), as the few-shot classifier fixes its labels, so code can route on it.
+
+</details>
+
+<details>
+<summary>3. A ticket's reply comes back as something that is not valid JSON with all six fields. What should the production pipeline do?</summary>
+
+Parse and validate every reply, then retry once with the error. If the retry also fails, the ticket goes to a person, not to the customer. The notebook only displays the reply as Markdown, so a broken reply would pass unnoticed.
+
+</details>
+
 ---
 *Previous: [5.3 The same tasks across models](../03_the_same_tasks_across_models/README.md). Next: [M05 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -51,5 +51,28 @@ Two fixes, both checked with langchain-chroma 1.1.0:
 - **Create the collection with the metric you mean.** `Chroma(..., collection_metadata={"hnsw:space": "cosine"})` makes the distance `1 - cosine`, and `1 - distance` is then the cosine (last column).
 - **Return what you computed, and say what it is.** Send `distance` and the metric name, and leave thresholds to the server, where one person owns them.
 
+## Check yourself
+
+<details>
+<summary>1. When retrieval is served over MCP, which decisions move to the server and which stay with the host?</summary>
+
+The server decides chunking, embeddings, the distance metric and the shape of the result, and every host shares those choices. The host's model decides when to ingest, what query to write, how many chunks to ask for, and whether to call `clear_db`, which empties the collection with no confirmation.
+
+</details>
+
+<details>
+<summary>2. A client keeps chunks whose reported similarity_score is above 0.5. What cosine does that threshold really require, and why?</summary>
+
+Above 0.75. The collection uses squared L2 by default, which on unit vectors is `2 - 2 × cosine`, so `1 - distance` reports `2 × cosine - 1`. Creating the collection with `collection_metadata={"hnsw:space": "cosine"}` makes `1 - distance` the cosine.
+
+</details>
+
+<details>
+<summary>3. You re-ingest a PDF whose new version splits into two chunks instead of three, and retrieve still returns text the new version dropped. Why?</summary>
+
+Chunk ids are positions, `<file stem>_chunk_<i>`, and langchain-chroma 1.1.0's `add_documents` upserts. The two new chunks replace ids 0 and 1, and the old third chunk stays. For the same reason, two PDFs with the same name in different folders overwrite each other.
+
+</details>
+
 ---
 *Previous: [40.4 Tools, resources and prompts together](../04_tools_resources_and_prompts_together/README.md). Next: [40.6 Research assistant with MCP and LangGraph](../06_research_assistant_with_mcp_and_langgraph/README.md).*

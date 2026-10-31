@@ -35,5 +35,28 @@ These are the authors' numbers, not a measurement in this course. The notebook r
 
 RSE spends the context budget (19.4) in a bounded way: at the notebook's settings, at most 30 chunks of 800 characters, 24,000 characters in all. For the Larkspur handbook the sections are short, so set `max_length` to a section's chunk count and the overall cap to what the generation prompt can hold.
 
+## Check yourself
+
+<details>
+<summary>1. How does relevant segment extraction decide how much context to send, where an enrichment window adds a fixed amount?</summary>
+
+It subtracts a penalty (0.2 in the notebook) from each chunk's reranker value, so irrelevant chunks go negative, then finds the contiguous runs with the highest sum. Each run goes as one segment in document order, including low-scored chunks between relevant ones. On the Nike report the first segment is chunks 323 to 336, though only 7 of chunks 320 to 339 were marked relevant.
+
+</details>
+
+<details>
+<summary>2. Five chunks have values of -0.2, -0.2, 0.4, 0.8 and -0.1. Which segment does the search return, and why does it stop there?</summary>
+
+Chunks 2 to 3, with a value of 1.2. Extending to chunk 4 would subtract 0.1, and no other run of chunks has a positive sum, so no second segment clears `minimum_value=0.7` and the search stops after one.
+
+</details>
+
+<details>
+<summary>3. The Larkspur handbook's sections are short. How should you set the segment length limits, and what do the notebook's settings cost?</summary>
+
+Set `max_length` to a section's chunk count and the overall cap to what the generation prompt can hold. The notebook's `overall_max_length=30` chunks of 800 characters allows up to 24,000 characters of context, far more than a short handbook section needs.
+
+</details>
+
 ---
 *Previous: [19.5 Context enrichment windows](../05_context_enrichment_windows/README.md). Next: [M19 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -73,5 +73,28 @@ The same three handbook sentences, retrieved for the 45-day question through two
 
 The order is the same; the scale runs the other way. On unit-length vectors the squared distance is 2 minus twice the cosine (2 - 2 × 0.6922 = 0.6156). Feed the L2 list to `relative_score` and the nearest sentence scales to 0 while the farthest gets the full weight. Use `IndexFlatIP` on normalised vectors when FAISS feeds a fusion retriever, and print each retriever's raw scores once before trusting the fused list.
 
+## Check yourself
+
+<details>
+<summary>1. With its default settings and two retrievers, how much work does QueryFusionRetriever do per question?</summary>
+
+`num_queries` defaults to 4, so it keeps your question, asks `Settings.llm` for 3 more and runs every query on every retriever: 8 retrievals and one LLM call. `02a` sets `num_queries=1` to turn query generation off. The default `similarity_top_k` of 2 then cuts the fused list.
+
+</details>
+
+<details>
+<summary>2. Under distance-based scoring with two hits per list, the prorated rule ends third. Why, and what weight change brings it into the top two?</summary>
+
+With two scores per list, mean ± 3 std always maps the better one to 2/3 and the worse to 1/3, whatever the gap. The weights then decide: 0.6 × 1/3 = 0.2 for the vector runner-up beats 0.4 × 1/3 = 0.1333 for the BM25 runner-up, the prorated rule. Flip the weights to 0.4 and 0.6, and the prorated rule takes second place at 0.2.
+
+</details>
+
+<details>
+<summary>3. You feed a FAISS IndexFlatL2 retriever into relative score fusion, and the nearest sentence gets the lowest fused score. What went wrong?</summary>
+
+`IndexFlatL2` returns squared L2 distances, where lower is better, and every fusion mode assumes higher is better. Min-max scaling then maps the nearest sentence to 0 and gives the farthest the full weight. Use `IndexFlatIP` on normalised vectors, and print each retriever's raw scores once before trusting the fused list.
+
+</details>
+
 ---
 *Previous: [22.1 Simple PDF and CSV RAG in LlamaIndex](../01_simple_pdf_and_csv_rag_in_llamaindex/README.md). Next: [22.3 Reranking with node postprocessors](../03_reranking_with_node_postprocessors/README.md).*

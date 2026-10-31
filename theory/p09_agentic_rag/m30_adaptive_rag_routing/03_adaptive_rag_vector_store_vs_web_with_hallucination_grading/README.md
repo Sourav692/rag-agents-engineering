@@ -65,5 +65,28 @@ Counting the LLM calls per path from the graph, before any retry:
 
 A question the router sends to the vector store and the grader then rejects is the most expensive path. If many questions take it, the router's topic list is wrong or the index is missing content, and both are cheaper to fix than to grade around.
 
+## Check yourself
+
+<details>
+<summary>1. You index documents on a new topic, but the source router keeps sending questions about it to the web. Why?</summary>
+
+The topic list in the router's system prompt is its only knowledge of the index. Until someone edits that prompt, questions on the new topic do not match the list and go to `web_search`. For Larkspur, the list would be the handbook's sections.
+
+</details>
+
+<details>
+<summary>2. Four chunks are retrieved and two are graded relevant. Does the graph generate from them or search the web?</summary>
+
+It searches the web, keeping the 2 chunks that passed. The rule is `relevance_frac <= 0.5`, so exactly half counts as failure, and `web_search` appends the pages to those chunks so the answer can draw on both sources.
+
+</details>
+
+<details>
+<summary>3. The hallucination grader keeps returning yes for one question. What happens, and what should you add?</summary>
+
+In this grader `yes` means the answer may contain unsupported content, so the graph returns to `generate_answer` every time. Nothing counts the retries, so it loops until the recursion limit (10,007 steps by default), at two LLM calls a round. Add a counter to `GraphState`, stop after one or two retries, and return the best answer with a warning or escalate it.
+
+</details>
+
 ---
 *Previous: [30.2 Customer-facing routing with sentiment and human escalation](../02_customer_facing_routing_with_sentiment_and_human_escalation/README.md). Next: [30.4 Strategy per query type](../04_strategy_per_query_type/README.md).*

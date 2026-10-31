@@ -48,5 +48,28 @@ The hand-built client in project 02 wraps each server in its own `try`, prints `
 
 Failures during a call are a separate case. A tool that raises comes back as `isError: true`, and the adapter returns it to the model as a `ToolMessage` with `status="error"` so the agent can try something else. A dead process or a dropped connection is not a tool error: the adapter raises, and the agent run stops unless your code catches it.
 
+## Check yourself
+
+<details>
+<summary>1. Two servers behind one MultiServerMCPClient both offer a tool named search. What happens, and how do you prevent it?</summary>
+
+`ToolNode` indexes tools in a dict by name (langgraph 1.2.18), so the server loaded last answers every `search` call and nothing warns you. `MultiServerMCPClient(..., tool_name_prefix=True)` renames each tool `<server>_<tool>`, such as `weather_get_weather` and `tasks_add_task`.
+
+</details>
+
+<details>
+<summary>2. A Larkspur user asks whether there is an outage right now. What makes the model pick search_status over search_handbook?</summary>
+
+The descriptions. The model chooses by name and description alone and cannot see server boundaries; `search_status` says it searches live status pages and `search_handbook` says it searches the handbook's policies. If both said "search Larkspur information", the model would have to guess.
+
+</details>
+
+<details>
+<summary>3. The status server's command is missing, get_tools raises, and the Larkspur assistant starts with no tools at all. What should it do instead?</summary>
+
+Load each server on its own with `get_tools(server_name=...)` and record which ones failed. `get_tools()` uses `asyncio.gather`, so one failure loses every server. The assistant can still answer refund questions, so it should start degraded and name the missing tools in the system prompt and the logs; an agent that needs both servers for every task should refuse to start.
+
+</details>
+
 ---
 *Previous: [39.1 Single-server MCP, with resources](../01_single_server_mcp_with_resources/README.md). Next: [39.4 Your own client and a multi-server client](../04_your_own_client_and_a_multi_server_client/README.md).*

@@ -27,5 +27,28 @@ Test a local entity question, a relationship join, a paraphrase whose entity nam
 
 The notebook also rewrites conversational follow-ups before retrieval. Record the rewritten question, since a wrong resolved pronoun can send both retrieval branches to the wrong entity. Keep the original user question available when judging the final answer.
 
+## Check yourself
+
+<details>
+<summary>1. The end-to-end notebook combines two kinds of retrieval. What does each one contribute to the context?</summary>
+
+`Neo4jVector` with `search_type="hybrid"` combines keyword and vector search over `Document` text. `structured_retriever` extracts the question's entities, resolves them through a full-text index and fetches their incoming and outgoing relationships. The final retriever concatenates the graph facts with the retrieved text.
+
+</details>
+
+<details>
+<summary>2. A question about a highly connected entity misses the relationship it needs. Which caps in the graph branch could explain it?</summary>
+
+The branch keeps at most two entity candidates and fifty relationship rows, and a highly connected entity can use up the neighbourhood budget before the needed relationship appears. These caps are not relevance guarantees, so log which identity matched and which rows were truncated.
+
+</details>
+
+<details>
+<summary>3. Ingestion ran with include_source=True. Can the answer model cite a passage for each graph claim?</summary>
+
+No. The structured retriever excludes `MENTIONS` edges and returns relation strings, which carry no per-claim citation. Retrieve the supporting passage identifiers and text alongside each graph assertion and carry them into the prompt.
+
+</details>
+
 ---
 *Previous: [43.5 LLM entity and relationship extraction](../05_llm_entity_and_relationship_extraction/README.md). Next: [M43 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

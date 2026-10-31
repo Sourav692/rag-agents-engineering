@@ -35,5 +35,28 @@ Rules for analysis sessions over MCP:
 - **Recompute the headline numbers** before a deck leaves the room. Here that took one pandas cell and found two wrong figures and one wrong verdict.
 - **Check the paging limit against the data.** `EXCEL_MCP_PAGING_CELLS_LIMIT` is 4000 cells per read; this sheet is 612 cells, so one read covered it. A larger sheet arrives in pages, and a model that stops after the first page analyses part of the data.
 
+## Check yourself
+
+<details>
+<summary>1. In this Claude analysis run, which part does the arithmetic, and why does that make the deck hard to trust?</summary>
+
+The model. The excel and ppt servers only move cells and slides, so no figure has a derivation you can inspect, and the two wrong figures look the same as the right ones. Make the tool compute instead: ask for formulas, or give the host a code or SQL tool.
+
+</details>
+
+<details>
+<summary>2. The deck reports that only 42.9% of critical tickets were resolved. What does the ticket sheet give, and where did 42.9% come from?</summary>
+
+71.4%, 5 of 7. 42.9% is agent A001's resolution rate (3 of 7), one block up in the same sheet, reported as the critical-ticket rate, and it drives the slide's "Critical Ticket Problems" finding. One pandas cell recomputing the headline numbers caught it.
+
+</details>
+
+<details>
+<summary>3. The next ticket sheet has 6,000 cells. What can go wrong when the model reads it through the excel server, and what do you check?</summary>
+
+`EXCEL_MCP_PAGING_CELLS_LIMIT` is 4000 cells per read, so the sheet arrives in pages, and a model that stops after the first page analyses part of the data. Check the paging limit against the data size; this project's 612-cell sheet fit in one read.
+
+</details>
+
 ---
 *Previous: [40.2 MCP servers with Claude Desktop](../02_mcp_servers_with_claude_desktop/README.md). Next: [40.4 Tools, resources and prompts together](../04_tools_resources_and_prompts_together/README.md).*

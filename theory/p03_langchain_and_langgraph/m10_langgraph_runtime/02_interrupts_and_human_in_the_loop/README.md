@@ -47,5 +47,28 @@ The 02b and 02c notebooks build four shapes on the same primitive. On the Larksp
 
 Whichever shape you use, approve on an exact value and treat anything else as no. [M27](../../../p08_agent_foundations/m27_human_approval_applied_agents/README.md) builds that fail-closed gate, with a fingerprint that catches edits made after the review. What can happen twice around the gate is the subject of the lab in [lesson 10.6](../06_state_management_in_practice/README.md#resume-and-side-effects).
 
+## Check yourself
+
+<details>
+<summary>1. Why does anything written above the interrupt call in human_gate happen twice for one approval?</summary>
+
+On resume, LangGraph does not continue mid-function; it calls the node again from the top, and this time `interrupt()` returns the resume value. In the refund graph `human_gate` runs 2 times per approval, so a notification, a counter or an LLM call above the `interrupt()` line repeats.
+
+</details>
+
+<details>
+<summary>2. A teammate runs the refund graph without a checkpointer. The first call returns an interrupt payload. What happens when they resume?</summary>
+
+The resume call raises `RuntimeError: Cannot use Command(resume=...) without checkpointer`. The first call still returned `__interrupt__`, but nothing was saved, so there is no parked thread to continue.
+
+</details>
+
+<details>
+<summary>3. The billing team must approve or reject each Larkspur refund. Which pattern fits, and how should the gate treat the resume value?</summary>
+
+Approve or reject: the gate returns `Command(goto="execute")` or `Command(goto="cancel")` with `update={"decision": ...}`, annotated as `Command[Literal["execute", "cancel"]]`. `interrupt()` returns whatever the caller passes, so approve only on an exact value and treat anything else as no, the fail-closed gate M27 builds.
+
+</details>
+
 ---
 *Previous: [10.1 Checkpointing and threads](../01_checkpointing_and_threads/README.md). Next: [10.3 Subgraphs](../03_subgraphs/README.md).*

@@ -55,5 +55,28 @@ The pause is a real suspension: the state is checkpointed under the `thread_id` 
 
 One pitfall breaks real deployments. When the middleware interrupts, the `AIMessage` with the tool call is already saved on the thread. Invoking that thread again with a new user message instead of `Command(resume=...)` leaves the call unanswered, and the provider rejects the next request: *An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'* (OpenAI, error 400). Resume a parked thread, or start a new one.
 
+## Check yourself
+
+<details>
+<summary>1. Why should human approval gate tools that write, such as sending email, but not tools that only read?</summary>
+
+The middleware turns an irreversible call into a decision, and only writes are irreversible. Pausing on reads adds friction with no safety gain. The pause is a real suspension checkpointed under the `thread_id`, so approval needs a checkpointer.
+
+</details>
+
+<details>
+<summary>2. With summarisation triggered at 10 messages and keeping 4, history grows by two messages a turn. On which turn does it shrink, and to how many messages?</summary>
+
+On the sixth turn. The notebook's history grew 2, 4, 6, 8 and 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure; tokens or a fraction of the window track what runs out.
+
+</details>
+
+<details>
+<summary>3. An agent paused on a send_email approval is invoked again with a new user message, and OpenAI returns error 400. Why, and what should the app do?</summary>
+
+The `AIMessage` with the tool call was saved on the thread when the middleware interrupted, and the new message leaves that call without a matching tool message, which the provider rejects. Resume the parked thread with `Command(resume=...)`, one decision per gated call, or start a new thread.
+
+</details>
+
 ---
 *Previous: [24.3 Models, messages and structured output in LangChain 1.x](../03_models_messages_and_structured_output_in_langchain_1_x/README.md). Next: [24.5 Applied ReAct: web research, SWE and computer-use agents](../05_applied_react_web_research_swe_and_computer_use_agents/README.md).*

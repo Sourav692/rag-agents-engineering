@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -413,6 +418,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Wrong embedding model.</strong> The store opens and searches return results, but the query vector and the stored vectors come from different models, so the ranking means nothing.</li>
 </ul>
 <p>The notebook turns both into startup errors with an <code>open_store()</code> check: refuse an empty collection, and compare the stored vector&rsquo;s dimension with the live model&rsquo;s. The dimension check misses a model swap with equal dimensions (<code>text-embedding-3-large</code> truncated to 1,536 against <code>text-embedding-3-small</code>), so also store the model name in the collection&rsquo;s metadata and assert it.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does an ingestion pipeline that mints a fresh UUID on every run make retrieval worse over time?</summary>
+<p>Re-adding the same text under a new ID stores it twice: a six-document Chroma store becomes 7 entries. Each copy takes a top-k slot that a different chunk needed, and every run duplicates every chunk again. Derive IDs from the document instead, such as <code>refunds.md::0</code>, a content hash or a business key.</p>
+</details>
+<details>
+<summary>2. Code written for a Pinecone cosine index keeps results scoring above 0.8. You move it to Chroma with default settings. What goes wrong?</summary>
+<p>Chroma 1.5.9 returns a distance in <code>l2</code> space by default, where lower is closer, so <code>score &gt; 0.8</code> keeps the wrong end and can reject everything. Never compare scores across backends or hard-code a threshold without checking what the backend returns. Set any cut-off from known-good and known-bad queries run on the store you ship.</p>
+</details>
+<details>
+<summary>3. After a restart, every search returns nothing and no error is raised. What is the likely cause, and what check turns it into an error?</summary>
+<p>A wrong collection name: <code>Chroma(collection_name="typo", ...)</code> creates a new, empty collection. The notebook&rsquo;s <code>open_store()</code> check refuses an empty collection and compares the stored vector&rsquo;s dimension with the live model&rsquo;s. Also store the model name in the collection&rsquo;s metadata and assert it, because a swap with equal dimensions passes the dimension check.</p>
+</details>
 <h2 id="ann-search">ANN search</h2>
 <p class="lesson-of">Lesson 15.2: Embedded stores: Chroma and FAISS. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/notebooks/02a_chromadb.ipynb" target="_blank" rel="noopener"><code>02a_chromadb.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/notebooks/02b_faiss.ipynb" target="_blank" rel="noopener"><code>02b_faiss.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/optional/02c_vector_stores_in_practice.ipynb" target="_blank" rel="noopener"><code>02c_vector_stores_in_practice.ipynb</code></a> (optional)</p>
 <p>Exact nearest-neighbour search compares the query with every stored vector. <code>FAISS.from_documents</code> builds exactly that, an <code>IndexFlatL2</code>: the answer is always the true top <code>k</code>, and the cost grows with every vector you add. At the size of the M15 notebooks (a handful of chunks) exact search is instant, which is why none of them shows a difference between exact and approximate results.</p>
@@ -506,6 +524,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The filter difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged <code>t="no"</code> that sat close to the query and 3 tagged <code>t="yes"</code> further away. <code>similarity_search(q, k=3, filter={"t": "yes"})</code> returned 0 results, because none of the 3 was among the 20 nearest candidates; with <code>fetch_k=28</code> it returned all 3. Chroma, asked for <code>k=5</code> with a filter only 2 entries match, returned those 2.</p>
 <p>The notebooks&rsquo; guidance: start with Chroma for anything you might keep, choose FAISS for a static corpus you search often, and move to a hosted store (lesson 15.3) when you need concurrent writers or more than one machine.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can an approximate nearest-neighbour index miss the right chunk without anyone noticing?</summary>
+<p>An ANN index visits only a small part of the collection and gives up the guarantee of the true top k. A miss raises no error: the index returns the next-best chunk with a normal-looking score, so a recall drop shows up as worse answers. Measure recall@k against an exact search on your own queries, and raise <code>ef_search</code> until the misses stop mattering for the golden set.</p>
+</details>
+<details>
+<summary>2. A FAISS store holds 25 chunks tagged no near the query and 3 tagged yes further away. A search filtered to yes with k of 3 returns nothing. Why?</summary>
+<p>The FAISS wrapper filters in Python after ranking, on the <code>fetch_k=20</code> nearest candidates, and none of the 3 matching chunks was among them. With <code>fetch_k=28</code> it returns all 3. Chroma filters inside the store before ranking, so it returns every match up to <code>k</code>.</p>
+</details>
+<details>
+<summary>3. Your index needs several writers at once across more than one machine. Is Chroma or FAISS the right choice?</summary>
+<p>Neither. Both run inside your Python process with no server, so the notebooks&rsquo; guidance is to move to a hosted store (lesson 15.3) when you need concurrent writers or more than one machine. On one machine, choose Chroma for anything you might keep and update, and FAISS for a static corpus you search often.</p>
+</details>
 <h2 id="collections-and-namespaces">Collections and namespaces</h2>
 <p class="lesson-of">Lesson 15.3: Managed stores: Astra DB and Pinecone. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/notebooks/03b_pinecone.ipynb" target="_blank" rel="noopener"><code>03b_pinecone.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/optional/03a_astra_db.ipynb" target="_blank" rel="noopener"><code>03a_astra_db.ipynb</code></a> (optional)</p>
 <p>Every store groups its entries, and the grouping decides what one query can see. The names differ:</p>
@@ -559,6 +590,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="when-a-managed-store-earns-its-cost">When a managed store earns its cost</h2>
 <p>The managed stores take the same LangChain calls as Chroma: <code>add_documents</code>, <code>similarity_search(query, k, filter=...)</code>, <code>as_retriever(...)</code>. The Pinecone notebook filters with <code>{"source": "tweet"}</code> and runs a retriever with <code>search_type="similarity_score_threshold"</code> and <code>score_threshold=0.4</code>, a threshold that only means something on that index&rsquo;s cosine scale. Switching stores changes the setup and the bill; the calls stay the same.</p>
 <p>Lesson 15.1&rsquo;s notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index, so the embedding model goes with you, and the IDs you derived in lesson 15.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 15.4), has no API key to manage, no network hop and no bill per query.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why is one Pinecone namespace per customer a stronger boundary than a metadata filter on the customer id?</summary>
+<p>Pinecone reads and writes always target one namespace, so a query in one namespace cannot return another namespace&rsquo;s records. A metadata filter is something a caller can leave out. For Larkspur, this also means re-indexing the handbook never touches customer data.</p>
+</details>
+<details>
+<summary>2. The Pinecone notebook asks text-embedding-3-small for 1,024 dimensions. Why, and what happens if you later want 1,536?</summary>
+<p>The index was created with <code>dimension=1024</code> and <code>metric="cosine"</code>, and the embedding output must match it. An index&rsquo;s dimension cannot change, so the embedding model and its output size are part of the index&rsquo;s identity. Moving to 1,536 means a new index and a re-index into it.</p>
+</details>
+<details>
+<summary>3. Your Larkspur index runs fine on Chroma with one writer. When should you move it to a managed store?</summary>
+<p>When you need concurrent writers, horizontal scale or managed availability, and not before. Until then an embedded store, or pgvector in a Postgres you already run, has no API key to manage, no network hop and no bill per query. The move is a re-index, and the stable IDs from lesson 15.1 keep the second load idempotent.</p>
+</details>
 <h2 id="metadata-filters">Metadata filters</h2>
 <p class="lesson-of">Lesson 15.4: Postgres + pgvector with metadata-filtered search. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/notebooks/04a_filtered_search_pgvector.ipynb" target="_blank" rel="noopener"><code>04a_filtered_search_pgvector.ipynb</code></a></p>
 <p>A metadata filter restricts a similarity search to entries whose metadata matches a predicate. It is how one index serves many scopes: one customer, one product, one section of the handbook, documents newer than a date. The notebook indexes two restaurants&rsquo; FAQs and reviews into one PGVector collection and narrows each query with a filter on <code>restaurant</code>, <code>category</code> or <code>cuisine</code>.</p>
@@ -604,6 +648,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Post-filtering</strong> ranks first, then drops what fails the filter. LangChain&rsquo;s FAISS wrapper does this on <code>fetch_k=20</code> candidates (lesson 15.2), so a selective filter can return fewer than <code>k</code> results or none.</p>
 <p>Adding an ANN index to pgvector moves it towards post-filtering. The <a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">pgvector README</a> says: &ldquo;With approximate indexes, filtering is applied <em>after</em> the index is scanned.&rdquo; Its example: if a condition matches 10% of rows, an HNSW scan with the default <code>hnsw.ef_search</code> of 40 leaves &ldquo;only 4 rows&rdquo; on average. From version 0.8.0, iterative index scans (<code>SET hnsw.iterative_scan = strict_order</code> or <code>relaxed_order</code>) keep scanning until enough rows pass the filter.</p>
 <p>The symptom of post-filtering is a query that asks for <code>k = 5</code> and gets 2. Log <code>len(results)</code> beside <code>k</code> on every filtered query; raising <code>k</code> hides the problem without fixing it.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why is a metadata filter on the tenant not enough for access control?</summary>
+<p>A caller who omits the filter sees everything. Enforce the filter in the service that builds the query, or give each tenant its own namespace or collection (lesson 15.3).</p>
+</details>
+<details>
+<summary>2. A filter dict with source and category as two keys works on PGVector. What happens when the same code moves to Chroma, and how should it be written?</summary>
+<p>PGVector reads the two keys as AND, but Chroma raises <code>ValueError: Expected where to have exactly one operator</code>. Write <code>{"$and": [{...}, {...}]}</code>, the portable form, whenever code may move between stores.</p>
+</details>
+<details>
+<summary>3. You add an HNSW index to pgvector, and a filtered query asking for 5 results now returns 2. What happened, and what do you change?</summary>
+<p>With an approximate index, pgvector applies the filter after scanning the index, so it behaves like post-filtering: a condition matching 10% of rows leaves about 4 rows at the default <code>hnsw.ef_search</code> of 40. From version 0.8.0, iterative index scans keep scanning until enough rows pass the filter. Log <code>len(results)</code> beside <code>k</code> on every filtered query, because raising <code>k</code> hides the problem without fixing it.</p>
+</details>
 <h2 id="idempotent-re-indexing">Idempotent re-indexing</h2>
 <p class="lesson-of">Lesson 15.5: Incremental indexing: Indexing API and record manager. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m15_vector_stores/notebooks/05a_indexing_api.ipynb" target="_blank" rel="noopener"><code>05a_indexing_api.ipynb</code></a></p>
 <p>A sync job is idempotent when running it twice on the same folder leaves the store as one run did and embeds nothing the second time. LangChain&rsquo;s Indexing API gives you that with three parts: the vector store, a <strong>record manager</strong> that remembers what has been written, and the <code>index()</code> function that compares the two on every run.</p>
@@ -723,6 +780,19 @@ index(docs, record_manager, vectorstore, cleanup=&quot;incremental&quot;, source
 <li><strong><code>scoped_full</code> matches <code>incremental</code> at this size.</strong> The difference appears when one source&rsquo;s chunks span several batches: <code>incremental</code> cleans after each batch and does redundant work, while <code>scoped_full</code> collects the sources it saw and cleans once at the end.</li>
 </ul>
 <p>For Larkspur&rsquo;s nightly sync, <code>incremental</code> keyed on <code>source</code> handles policy edits and new files, and a weekly <code>full</code> run over the complete folder, guarded by a file-count check, removes files the team deleted. <code>SQLRecordManager</code> keeps the keys in the same Postgres as the vectors and reads the time from the database, so every writer stamps keys on one clock; an update raises a time-sync error if that clock reads earlier than the run&rsquo;s start.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. You switch to a new embedding model and rerun the sync job. Why does it embed nothing, and how do you rebuild?</summary>
+<p>Each chunk&rsquo;s ID is a hash of its text and metadata only, so a model change leaves every hash the same. The run skips every chunk and leaves the old model&rsquo;s vectors in place. Build a new collection with its own record-manager namespace, or run once with <code>force_update=True</code>.</p>
+</details>
+<details>
+<summary>2. The outages file is deleted from the Larkspur folder and the nightly sync runs with incremental cleanup. How many of its chunks are removed?</summary>
+<p>None. <code>incremental</code> cleans a source only when that source sends at least one chunk in the batch, and a deleted file sends none. Its 2 chunks stay until a <code>full</code> run or an explicit <code>delete()</code> by ID.</p>
+</details>
+<details>
+<summary>3. A loader bug returns only the refunds file, and the job runs with full cleanup. What happens, and how do you guard against it?</summary>
+<p><code>full</code> treats every key not seen in the run as deleted, so the 8 chunks from the other files are deleted. Run <code>full</code> only over the whole corpus, and refuse to run it when the loader returns far fewer files than last time. Larkspur&rsquo;s plan is a nightly <code>incremental</code> sync plus a weekly <code>full</code> run guarded by a file-count check.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="05_incremental_indexing_indexing_api_and_record_manager/interactive/record-manager-lab.html"><strong>The record manager and cleanup modes</strong></a>: open the file in a browser. Run <code>index()</code> once to embed all 10 chunks. Set <code>refunds.md</code> to <strong>14 days</strong> and run with cleanup <strong>None</strong>: 1 chunk is added, none is deleted, and the store now holds the 30-day rule and the 14-day rule side by side. Switch to <strong>incremental</strong> and run again to delete the stale one. Then mark <code>outages.md</code> <strong>Deleted</strong> and run under <strong>incremental</strong> (nothing is deleted) and under <strong>full</strong> (its 2 chunks go).</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -779,7 +849,7 @@ index(docs, record_manager, vectorstore, cleanup=&quot;incremental&quot;, source
 <li>Filter before the search when the filter is selective; after-search filtering silently returns fewer than <code>k</code>.</li>
 <li>Sync with the Indexing API and <code>cleanup="incremental"</code> keyed on <code>source</code>. Use <code>full</code> only when the loader returns the whole corpus, and never on a batch that might be empty.</li>
 </ul></article>
-    <nav class="toc" aria-label="M15 sections"><details open><summary>In M15</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stable-ids-and-the-missing-update">Stable IDs and the missing update</a></li><li><a href="#what-a-score-means">What a score means</a></li><li><a href="#persisting-and-reopening">Persisting and reopening</a></li><li><a href="#ann-search">ANN search</a></li><li><a href="#chroma-or-faiss">Chroma or FAISS</a></li><li><a href="#collections-and-namespaces">Collections and namespaces</a></li><li><a href="#when-a-managed-store-earns-its-cost">When a managed store earns its cost</a></li><li><a href="#metadata-filters">Metadata filters</a></li><li><a href="#filtering-before-or-after-the-search">Filtering before or after the search</a></li><li><a href="#idempotent-re-indexing">Idempotent re-indexing</a></li><li><a href="#choosing-a-cleanup-mode">Choosing a cleanup mode</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M15 sections"><details open><summary>In M15</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stable-ids-and-the-missing-update">Stable IDs and the missing update</a></li><li><a href="#what-a-score-means">What a score means</a></li><li><a href="#persisting-and-reopening">Persisting and reopening</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#ann-search">ANN search</a></li><li><a href="#chroma-or-faiss">Chroma or FAISS</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#collections-and-namespaces">Collections and namespaces</a></li><li><a href="#when-a-managed-store-earns-its-cost">When a managed store earns its cost</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#metadata-filters">Metadata filters</a></li><li><a href="#filtering-before-or-after-the-search">Filtering before or after the search</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#idempotent-re-indexing">Idempotent re-indexing</a></li><li><a href="#choosing-a-cleanup-mode">Choosing a cleanup mode</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

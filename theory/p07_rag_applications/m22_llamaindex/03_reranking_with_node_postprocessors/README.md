@@ -51,5 +51,28 @@ The cell that sets up the example also carries a port bug. It builds `Document(p
 
 Postprocessors see whatever the one before them produced. With lesson 22.4's `MetadataReplacementPostProcessor` in the same list, putting the reranker first means it scores the single sentence that was embedded; putting it second means it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide which text the reranker should judge, and write the list in that order.
 
+## Check yourself
+
+<details>
+<summary>1. Where does a node postprocessor run, and what may it do to the retrieved list?</summary>
+
+It runs after the retriever and before the synthesizer, in the order of the `node_postprocessors` list. It can reorder the nodes, drop some, replace their scores or rewrite their text. `03a` uses the slot for two-stage retrieval: retrieve 10, rerank, keep `top_n=5`.
+
+</details>
+
+<details>
+<summary>2. On the 45-day refund question, the cross-encoder gives the prorated rule a score of -2.1011. Would a filter that drops nodes below 0 be safe?</summary>
+
+No: it would drop the sentence that answers the question. `ms-marco-MiniLM-L-6-v2` returns a logit, not a probability, so its scores only rank. Calibrate any cut-off on the golden set.
+
+</details>
+
+<details>
+<summary>3. A query engine runs both a reranker and the sentence-window replacement. Should the reranker come before or after the replacement?</summary>
+
+It depends on which text you want judged. First in the list, the reranker scores the single sentence that was embedded; second, it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide, then write the list in that order.
+
+</details>
+
 ---
 *Previous: [22.2 Fusion retrieval with QueryFusionRetriever](../02_fusion_retrieval_with_queryfusionretriever/README.md). Next: [22.4 Sentence-window retrieval](../04_sentence_window_retrieval/README.md).*

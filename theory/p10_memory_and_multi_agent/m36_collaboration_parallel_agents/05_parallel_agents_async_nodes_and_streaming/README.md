@@ -98,5 +98,28 @@ In the lab, with the rewrite inside the agent node, the first sub-answer (`refun
 
 Whole runs can overlap too. `asyncio.gather` over three `ainvoke` calls runs three complete team runs in about the time of one (1.5 s against about 4.5 s), with no change to the graph. In a notebook, `await` directly; `asyncio.run(...)` fails inside a running event loop.
 
+## Check yourself
+
+<details>
+<summary>1. Three agents that each wait one second finish in about one second together. Why, and what does making nodes async not change?</summary>
+
+The waits overlap; nothing runs faster. Edges from one source put nodes in the same superstep, and that is what makes them parallel. Making nodes `async def` adds overlap on one event loop but does not change which nodes are parallel, so a chain of async nodes still runs in order.
+
+</details>
+
+<details>
+<summary>2. In the lab, moving the rewrite inside the credits node brings the answer from 3.4 s to 2.7 s. Where does the saving come from?</summary>
+
+As its own node, `rewrite` finishes at 0.9 s, but `credits` cannot start until the superstep ends at 1.6 s, when `export` finishes. The outage branch waits 0.7 s at the barrier for work it does not depend on. Inside one node, every branch is one node long and that wait disappears.
+
+</details>
+
+<details>
+<summary>3. The synthesizer writes a reply with nothing about outage credits, then runs a second time. What causes this, and how do you fix it?</summary>
+
+The join uses separate edges, so it runs once for every superstep in which a predecessor finished; its first run saw 3 of 4 sub-answers. Use a list edge, `add_edge([...], "synth")`, when the predecessors are known at build time, or `defer=True` when branches are chosen at run time. A list edge never runs if a conditional edge skips one of its named nodes.
+
+</details>
+
 ---
 *Previous: [36.4 Meta-controllers, ensembles and emergent systems](../04_meta_controllers_ensembles_and_emergent_systems/README.md). Next: [M36 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

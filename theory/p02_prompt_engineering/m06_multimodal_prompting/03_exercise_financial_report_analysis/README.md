@@ -36,5 +36,28 @@ Two more rules keep the answers honest:
 
 Sent to `gpt-4o` at `detail="high"`, each of the two images costs 765 tokens: 2 by 2 tiles of 512 pixels, after `Figure.png` is scaled to 768 by 950. The same method reads a Larkspur pricing page: extract each plan's printed figures first, then answer from the extracted list.
 
+## Check yourself
+
+<details>
+<summary>1. Why should the prompt extract each value with its label, unit and period before answering the five questions?</summary>
+
+Extraction before interpretation leaves a record you can check against the page. It also lets code test the extracted values, such as whether the balance sheet adds up, before any answer is built on them.
+
+</details>
+
+<details>
+<summary>2. The model extracts total liabilities of 377,961 million and total equity of 25,810 million at 30 September 2024. What check do you run, and where?</summary>
+
+Add them in code, not in the prompt: 377,961 + 25,810 = 403,771, the printed total assets. If the sum does not match, re-read the page or flag it for review; most misread digits in any of the three values show up here.
+
+</details>
+
+<details>
+<summary>3. A question asks for a figure the two report pages do not print, and another chart has no value labels. How should each be handled?</summary>
+
+The first should get the answer that the figure is not on the page, not a guess from neighbouring figures. For a chart without labels, ask for the axis range and an estimate, and grade the answer with a tolerance.
+
+</details>
+
 ---
 *Previous: [6.2 Multimodal prompting with GPT-4o](../02_multimodal_prompting_with_gpt_4o/README.md). Next: [M06 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

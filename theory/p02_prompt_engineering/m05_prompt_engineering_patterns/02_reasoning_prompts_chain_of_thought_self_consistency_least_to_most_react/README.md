@@ -95,5 +95,28 @@ The notebook's tool, `search_web`, takes the top five DuckDuckGo results, fetche
 
 The notebook first asks *Tell me about LangGraph in detail including who made it and key features* with no tool, and its own comment expects the model to decline or make up an answer; the agent then answers the same question from the pages `search_web` fetched. For Larkspur the tool is a handbook search, and *Can I export my data after I cancel my plan?* takes one round: the search returns the `export` and `retention` chunks, and the answer is to export from Settings, then Data, within 30 days of cancelling. The proration question from the section above takes two tools, the handbook and the customer's billing record. M23 and M24 build this loop in LangGraph.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the least-to-most example in notebook 02a make the field goal test harder to pass?</summary>
+
+In few-shot chain-of-thought the model copies the reasoning of the examples, not only their format. That example lists a 28-yard kick as valid although its own text says it was blocked; its answer survives only because that kick was not the longest. It teaches the exact mistake the test checks for: counting the blocked 31-yard kick and answering 31 instead of 35.
+
+</details>
+
+<details>
+<summary>2. A yes/no grader path is right 40% of the time. What does a 15-path majority vote score, and how would four distinct wrong answers change that?</summary>
+
+0.213, worse than a single path's 0.400: the one wrong answer is more common than the right one, and the vote amplifies it. With four equally likely wrong answers the same 40% path wins the vote 78% of the time (0.780), because no single wrong answer gathers enough votes. These figures assume independent paths, the best case; paths from one model share blind spots and gain less.
+
+</details>
+
+<details>
+<summary>3. A ReAct agent built with create_tool_calling_agent replies with text that says Action: search_web, but no search runs. Why?</summary>
+
+The action is a structured `tool_calls` entry, not text, and nothing parses an `Action:` line. `AgentExecutor` takes a reply with no `tool_calls` as the final answer, even if its text says `Action:`, and ends the run there.
+
+</details>
+
 ---
 *Previous: [5.1 Core prompt patterns](../01_core_prompt_patterns/README.md). Next: [5.3 The same tasks across models](../03_the_same_tasks_across_models/README.md).*

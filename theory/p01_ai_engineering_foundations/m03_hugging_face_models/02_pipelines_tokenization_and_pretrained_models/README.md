@@ -72,5 +72,28 @@ How the next token is picked is the decoding strategy, set by `generate()`'s arg
 
 Two details catch people out. `max_new_tokens=20` counts only generated tokens, while `max_length=40` counts the prompt too and leaves room for 36 new tokens after the 4-token prompt. And GPT-2 has no padding token; `02c` passes `pad_token_id=tokenizer.eos_token_id` to silence the warning `generate()` gives about it. The code comment in `02b`'s first tokenizer cell, `tensor([[1026, 373, 257, 3223, 290, 6388, 88]])`, is the encoding of *It was a dark and stormy*, not of the sentence in that cell.
 
+## Check yourself
+
+<details>
+<summary>1. Why is pipeline with only a task name a risk in production code?</summary>
+
+It loads the task's default model, chosen by the installed `transformers` version, and the library warns that a pipeline without a model name and revision is not recommended in production. In 5.17.0, `text-classification` loads `distilbert/distilbert-base-uncased-finetuned-sst-2-english` at `714eb0f`. Pass `model=` and `revision=` with a commit hash to choose it yourself.
+
+</details>
+
+<details>
+<summary>2. The FAQ page is 291 MiniLM tokens. Why does the support-speed question score 0.229 against the whole page but 0.687 against the support answer alone?</summary>
+
+sentence-transformers cuts every input at `max_seq_length: 256`, so the page's last 35 tokens, the 183 characters with the support response times, never reach the model. The whole page and its first 1,231 characters give the same vector, so the page's embedding carries no trace of the answer. This is why M13 sizes chunks in the embedding model's tokens.
+
+</details>
+
+<details>
+<summary>3. A GPT-2 reply generated with default settings repeats itself in long text. Which generate arguments from the notebook change that?</summary>
+
+The default is greedy decoding, which is deterministic and prone to repetition. Beam search with `num_beams=5` and `repetition_penalty=1.2` lowers the score of tokens already used. Sampling with `do_sample=True` draws from the probabilities instead, shaped by `temperature`, `top_k` and `top_p`.
+
+</details>
+
 ---
 *Previous: [3.1 Hub setup, datasets and models](../01_hub_setup_datasets_and_models/README.md). Next: [3.5 Building demos with Gradio](../05_building_demos_with_gradio/README.md).*

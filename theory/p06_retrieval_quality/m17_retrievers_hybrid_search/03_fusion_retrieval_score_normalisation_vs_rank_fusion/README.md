@@ -75,5 +75,28 @@ The [interactive lab](interactive/hybrid-fusion-lab.html) runs real BM25 in Java
 
 RAG-Fusion in [M18](../../m18_query_transformation/README.md) uses the same formula to merge the result lists of several rewritten queries instead of several retrievers.
 
+## Check yourself
+
+<details>
+<summary>1. Why can min-max weighted fusion produce confident-looking scores for a question the corpus cannot answer?</summary>
+
+Min-max is relative to the current query's results: the best chunk always gets 1.0 and the worst 0.0, even when no chunk is relevant. One outlier also squashes the rest toward 0, so the same `alpha` weighs the two retrievers differently from one question to the next.
+
+</details>
+
+<details>
+<summary>2. With weights of 0.7 dense and 0.3 BM25, as in notebook 02a, where does a chunk that only BM25 ranks first end up after RRF?</summary>
+
+Below every chunk the dense retriever returns at rank 82 or better. It scores 0.3/61 = 0.0049, while dense rank 82 scores 0.7/142 = 0.00493. For an exact-ID question the dense retriever misses, the ID chunk sinks; with equal weights it would tie a chunk that only the dense retriever ranks first.
+
+</details>
+
+<details>
+<summary>3. In the lab, RRF with 4 chunks per retriever answers 5 of 7 golden questions fully, and both misses have evidence at rank 5. Do you tune c or something else?</summary>
+
+Raise the hand-over depth, not `c`. With 10 chunks per retriever RRF reaches a mean recall@3 of 0.93 at any `c` from 2 to 100. Rank fusion cannot rescue a chunk that never made either list, so the depth each retriever returns matters more than `c`.
+
+</details>
+
 ---
 *Previous: [17.2 Dense + sparse hybrid retrieval with BM25 and EnsembleRetriever](../02_dense_sparse_hybrid_retrieval_with_bm25_and_ensembleretriever/README.md). Next: [17.4 Maximal Marginal Relevance for diversity](../04_maximal_marginal_relevance_for_diversity/README.md).*

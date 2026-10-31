@@ -40,5 +40,28 @@ Hybrid in the store and `EnsembleRetriever` in the application do the same job i
 
 `06b` describes the reranker as about 15% better in quality for 1 to 1.5 seconds of extra latency. The notebook states these figures without measuring them; measure your own on the golden set before you pay that latency. [M19](../../m19_reranking_post_retrieval/README.md) covers rerankers and the retrieve-wide, rerank-narrow design.
 
+## Check yourself
+
+<details>
+<summary>1. In the nested pipeline, why do multi-query and compression pull in opposite directions, and what do they cost in LLM calls?</summary>
+
+Multi-query widens the pool for recall; compression narrows each chunk for precision. Together they cost one LLM call for the variants, one per chunk in the union for extraction, and one for the answer, so the call count grows with the size of the union.
+
+</details>
+
+<details>
+<summary>2. Small 200-character chunks match Larkspur questions well, but the passages that reach the model lack context. Which pattern fixes that, and at what cost?</summary>
+
+`ParentDocumentRetriever`. It searches the small child chunks (200 characters with 20 overlap in `06a`) and returns their 800-character parents. The extra cost is a docstore lookup, with no LLM call.
+
+</details>
+
+<details>
+<summary>3. Notebook 06b says the Databricks reranker is about 15% better for 1 to 1.5 seconds of extra latency. Should you turn it on for Larkspur on that basis?</summary>
+
+Not on that basis. The notebook states the figures without measuring them. Measure the quality gain and the added latency on your own golden set before you pay that latency; M19 covers rerankers in depth.
+
+</details>
+
 ---
 *Previous: [17.5 Multi-faceted filtering](../05_multi_faceted_filtering/README.md). Next: [M17 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

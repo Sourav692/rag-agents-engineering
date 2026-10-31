@@ -47,5 +47,28 @@ retriever = vectorstore.as_retriever(
 
 MMR measures similarity, not correctness or freshness. If the index holds this year's and last year's refund policy, MMR treats them as near-copies and keeps whichever it picks first. Filter on `version` or `date` metadata before MMR ([17.5](../05_multi_faceted_filtering/README.md)). Tune λ and `fetch_k` on golden questions that need two or more distinct chunks, and check that single-fact questions do not lose their second-best supporting chunk.
 
+## Check yourself
+
+<details>
+<summary>1. What does MMR return at lambda_mult 1.0, and why is its first pick the same at every value of lambda?</summary>
+
+At 1.0 the redundancy penalty is 0, so MMR returns the `k` most similar candidates, plain similarity search. The first pick is always the candidate most similar to the query, because nothing is picked yet for it to be redundant with. At 0.0 only the `fetch_k` pool keeps later picks on topic.
+
+</details>
+
+<details>
+<summary>2. Notebook 04a asks how LangChain supports agents and memory over 300-character chunks with 50 of overlap. Why does MMR suit this question and this index?</summary>
+
+The question has two parts that may sit in different chunks, and plain top-k can fill all its slots with one of them. Neighbouring chunks share up to 50 characters, so top-k can also return two windows onto the same passage. MMR charges each candidate for what is already picked, which leaves room for the second part.
+
+</details>
+
+<details>
+<summary>3. The Larkspur index holds this year's and last year's refund policy, and MMR keeps last year's. Why, and what should run first?</summary>
+
+MMR measures similarity, not correctness or freshness. It treats the two policies as near-copies and keeps whichever it picks first. Filter on `version` or `date` metadata before MMR runs (17.5).
+
+</details>
+
 ---
 *Previous: [17.3 Fusion retrieval: score normalisation vs rank fusion](../03_fusion_retrieval_score_normalisation_vs_rank_fusion/README.md). Next: [17.5 Multi-faceted filtering](../05_multi_faceted_filtering/README.md).*

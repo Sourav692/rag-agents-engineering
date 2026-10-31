@@ -48,5 +48,28 @@ The notebook hides the difference behind one function, `get_completion(prompt, m
 
 LangChain (M07) is the general version of `get_completion`: one chat-model interface over many providers, so a RAG chain does not change when the generator does.
 
+## Check yourself
+
+<details>
+<summary>1. Why does each turn of a long chat conversation cost more than the turn before it?</summary>
+
+The call is stateless: the API remembers nothing between calls. A follow-up works only if you send the earlier turns again in `messages`, so every turn pays for all the turns before it in `prompt_tokens`.
+
+</details>
+
+<details>
+<summary>2. You call the notebook's get_completion with the model name gpt-4o-mini. What comes back, and what should a wrapper you own do instead?</summary>
+
+The string `"LLM not configured! ..."`, printed where the model's reply should be. The function branches only on exactly `"gpt-4o"` or `"gemini-2.5-pro"` and returns that sentence for anything else. Your own wrapper should raise on a model it does not know.
+
+</details>
+
+<details>
+<summary>3. You are starting a new Gemini integration. Should you copy the notebook's google-generativeai calls?</summary>
+
+No. The installed `google-generativeai` 0.8.6 describes itself as deprecated and legacy, with support ended on November 30, 2025; its successor is `google-genai`, which the repository also installs. The notebook's Gemini cells are there to show the shape of a second SDK, and one interface over both providers (`get_completion` here, LangChain in M07) keeps the rest of the code unchanged when you switch.
+
+</details>
+
 ---
 *Previous: [M02 overview](../README.md). Next: [2.2 Open-source LLMs via Hugging Face Inference and locally](../02_open_source_llms_via_hugging_face_inference_and_locally/README.md).*

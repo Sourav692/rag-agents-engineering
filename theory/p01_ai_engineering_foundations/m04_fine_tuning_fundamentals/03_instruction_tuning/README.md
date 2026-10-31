@@ -47,5 +47,28 @@ Three rules keep training and inference in step:
 - **Mark where the answer starts and where it ends.** A header such as `### Answer:` tells the model to start answering; an end token (`<|endoftext|>` for Pythia) tells it, and your decoder, that the answer is over.
 - **Check the tokenized row, not the string.** Decode a few prepared rows before training; [the lab in lesson 4.4](../04_data_preparation/README.md#data-preparation) shows what to look for.
 
+## Check yourself
+
+<details>
+<summary>1. What pattern does instruction tuning teach a base model?</summary>
+
+That text shaped like a request is followed by text shaped like an answer, and then the answer ends. It is fine-tuning on pairs of a request and a good response, and it was the first step that turned base Llama 2 into the chat model.
+
+</details>
+
+<details>
+<summary>2. An Alpaca row has an empty input field. Which template does the notebook fill, and what does the output line look like?</summary>
+
+The second template, without the `### Input:` block, filled with the row's `instruction`. The notebook writes one `{"input": ..., "output": ...}` object per line to `alpaca_processed.jsonl`: the hydrated prompt as `input` and the answer as `output`. A Larkspur row has the same shape, with the customer's question as the instruction.
+
+</details>
+
+<details>
+<summary>3. The lesson 4.5 model trained on the bare question followed by the bare answer. You add a ### Answer: header to the serving prompt only. What goes wrong?</summary>
+
+The model now sees a format it was never trained on. Training and inference matched only by accident, and changing either side alone breaks that. Keep one formatting function in code that both the data script and the serving code import, and mark where the answer starts and ends.
+
+</details>
+
 ---
 *Previous: [4.2 Where fine-tuning fits](../02_where_fine_tuning_fits/README.md). Next: [4.4 Data preparation](../04_data_preparation/README.md).*

@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -430,6 +435,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Fine-tuning and RAG combine well: fine-tune for tone and format, retrieve for facts. M04 covers when fine-tuning is worth it.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A model trained before March 2026 answers the Larkspur refund-window question fluently. Why can you not trust that answer?</summary>
+<p>Parametric knowledge stops at the training cut-off, and the refund policy changed in March 2026, so the answer may be stale. The model also cannot point to a source, so nobody can check it, and it produces fluent text even about what it never saw. RAG puts the current policy passage in the prompt, so the model answers from evidence it can quote.</p>
+</details>
+<details>
+<summary>2. The refund window changes again next month. What does updating that fact take under RAG, fine-tuning and long context?</summary>
+<p>With RAG you re-index one document. With fine-tuning you retrain. With long context you edit the prompt, but every call pays for the whole corpus in tokens.</p>
+</details>
+<details>
+<summary>3. Larkspur wants answers in its house tone that also state current policy with citations. Which approach fits?</summary>
+<p>Combine them: fine-tune for tone and format, retrieve for facts. Fine-tuning alone gives no citations and goes wrong when facts change after training; RAG cites per chunk and picks up a change with a re-index. M04 covers when fine-tuning is worth it.</p>
+</details>
 <h2 id="top-k">Top-k</h2>
 <p class="lesson-of">Lesson 11.2: Indexing from scratch with TF-IDF and nearest neighbours. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/02a_indexing_from_scratch.ipynb" target="_blank" rel="noopener"><code>02a_indexing_from_scratch.ipynb</code></a></p>
 <p>The retriever scores every chunk against the question and returns the <code>k</code> best. Those <code>k</code> chunks are all the model sees. Two metrics describe the result against a golden set of questions whose evidence chunks you have labelled:</p>
@@ -499,6 +517,19 @@ Precision@k = evidence chunks in the top k / k
     k=12 export: [0.95, 0.17]
     any k outage: [0.05, 0.05]
 </pre></figure>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does no value of k let TF-IDF retrieve the refund-timing chunk for How long does a refund take?</summary>
+<p>It is a representation problem. The chunk says &ldquo;Refunds&rdquo; and the question says &ldquo;refund&rdquo;, and TF-IDF matches exact tokens, so the chunk scores 0. Recall stays at 0.50 at every <code>k</code>, while a bigger <code>k</code> only adds noise.</p>
+</details>
+<details>
+<summary>2. For the export question, what are recall and precision at k = 2 and at k = 12, and which k do you pick?</summary>
+<p>At <code>k = 2</code> recall and precision are both 1.00, for about 60 tokens of context. At <code>k = 12</code> recall is still 1.00 but precision falls to 0.17 and the context grows almost sixfold, to about 348 tokens. Pick <code>k = 2</code>: past it every extra chunk is noise.</p>
+</details>
+<details>
+<summary>3. When should a pipeline retrieve generously with a large k, and when tightly?</summary>
+<p>Retrieve generously when a reranker (M19) will trim the list afterwards. Retrieve tightly when the chunks go straight to the model, because every extra chunk adds latency and text the model can misread, and models use information in the middle of a long context less reliably than at its start and end.</p>
+</details>
 <h2 id="embedding-similarity">Embedding similarity</h2>
 <p class="lesson-of">Lesson 11.3: Semantic retrieval with embedding similarity. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/03a_retrieval_strategies.ipynb" target="_blank" rel="noopener"><code>03a_retrieval_strategies.ipynb</code></a></p>
 <p>An embedding model turns a text into a fixed-length list of numbers, a vector. Texts with similar meaning get vectors that point in similar directions, even when they share no words. Retrieval with embeddings has the same shape as the TF-IDF index in lesson 11.2; only the vectors change:</p>
@@ -573,6 +604,19 @@ scores = chunks @ q
 </ul>
 <p>Embeddings measure how close two texts are in topic, which is not the same as whether a chunk contains the answer. TF-IDF wins when the question and the evidence share a rare exact word (a product name, an error code, &ldquo;export&rdquo;); embeddings win on paraphrase and word forms. Hybrid search (M17) combines the two scores, and a reranker (M19) reorders the candidates with a model that reads the question and each chunk together.</p>
 <p>The scores are not probabilities either. The best outage match scores 0.394, while the best export match scores 0.817. A fixed cut-off such as &ldquo;drop chunks below 0.5&rdquo; would send the outage question to the model with no context at all. Set any threshold per corpus and model from the golden set, and re-check it whenever the model changes.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why must the question and the chunks be embedded with the same model?</summary>
+<p>Two models produce vectors in different spaces, so the cosine between a vector from one and a vector from the other is meaningless. Notebook 03a uses one function, <code>get_gpt4_embedding</code>, for both sides. It follows that changing the embedding model means re-embedding the whole corpus (M14).</p>
+</details>
+<details>
+<summary>2. With all-MiniLM-L6-v2, why does the export question fall from recall@2 of 1.00 under TF-IDF to 0.50?</summary>
+<p>Embeddings measure closeness in topic, and the question is half about cancelling. After <code>retention</code> (0.817), the <code>cancel</code> chunk (0.561) outranks the <code>export</code> evidence chunk (0.479). TF-IDF matched the literal word &ldquo;export&rdquo; and found both evidence chunks; hybrid search (M17) combines the two scores.</p>
+</details>
+<details>
+<summary>3. A teammate drops every chunk whose cosine is below 0.5. What happens to the outage question?</summary>
+<p>It reaches the model with no context at all, because its best match, <code>reboot</code>, scores 0.394. The scores are not probabilities: the best export match scores 0.817 on the same model. Set any threshold per corpus and model from the golden set, and re-check it when the model changes.</p>
+</details>
 <h2 id="what-langchain-replaces">What LangChain replaces</h2>
 <p class="lesson-of">Lesson 11.4: Your first LangChain RAG with Chroma. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/04a_langchain_rag_quickstart.ipynb" target="_blank" rel="noopener"><code>04a_langchain_rag_quickstart.ipynb</code></a></p>
 <p>Lessons 11.2 and 11.3 built the index by hand: embed each chunk, keep the vectors in a NumPy array, fit <code>NearestNeighbors</code>, embed the question, look up its neighbours. Notebook 04a does the same work through two LangChain interfaces, <code>Embeddings</code> and <code>VectorStore</code>:</p>
@@ -682,6 +726,19 @@ scores = chunks @ q
                        collection_metadata={&quot;hnsw:space&quot;: &quot;cosine&quot;})
 </code></pre>
 <p>With cosine space, <code>similarity_search_with_score</code> returns <code>1 - cosine</code> (0.606 for <code>reboot</code>) and the relevance score is the cosine itself (0.394). The ranking does not change, and the same 0.2 threshold now returns <code>reboot</code>, <code>incidents</code> and <code>sla</code>. The metric is fixed when the collection is created; changing it means building a new collection (M15).</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Chroma's default metric is squared L2 distance. Why does it rank unit-length vectors in the same order as cosine?</summary>
+<p>For vectors of length 1, <code>distance = 2 - 2 × cosine</code>, so a higher cosine always means a lower distance. The order is the same; only the direction of the numbers flips, so lower scores from <code>similarity_search_with_score</code> mean closer chunks.</p>
+</details>
+<details>
+<summary>2. You run the from_texts cell twice on the 12 Larkspur chunks. What does the refund question's top three look like, and how do you prevent it?</summary>
+<p>The default <code>langchain</code> collection now holds 24 entries, and <code>refund-timing</code> comes back twice in the top three. Pass <code>ids=</code> so a re-run overwrites the same entries, or give each experiment its own collection.</p>
+</details>
+<details>
+<summary>3. A retriever with score_threshold 0.2 returns nothing for the outage question, though its top three chunks have cosine above 0.25. Why, and what is the fix?</summary>
+<p>The relevance score converts L2 distance with <code>1 - distance / √2</code>, which assumes a range the distances do not keep to: <code>reboot</code> gets 0.143 and the <code>sla</code> evidence chunk -0.051. Create the collection with <code>collection_metadata={"hnsw:space": "cosine"}</code>, so the relevance score is the cosine itself and the same threshold returns <code>reboot</code>, <code>incidents</code> and <code>sla</code>. The metric is fixed at creation, so this means a new collection (M15).</p>
+</details>
 <h2 id="indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</h2>
 <p class="lesson-of">Lesson 11.5: The RAG lifecycle and a measured baseline. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p04_rag_foundations/m11_rag_lifecycle/notebooks/05a_rag_lifecycle_and_baseline.ipynb" target="_blank" rel="noopener"><code>05a_rag_lifecycle_and_baseline.ipynb</code></a></p>
 <p>The lifecycle has seven steps in two phases. Each step has one job and one typical failure.</p>
@@ -885,6 +942,19 @@ scores = chunks @ q
 </tr>
 </tbody>
 </table></div>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. An answer is wrong. What one check tells you whether to debug retrieval or generation?</summary>
+<p>Print the retrieved chunks and look for the correct passage. If it is missing, retrieval failed: fix loading, splitting, embedding, <code>k</code> or the query. If it is there, generation failed: fix the prompt, the context order or the model.</p>
+</details>
+<details>
+<summary>2. A teammate rewrites the prompt and the refund question is still wrong. The refund chunk never appears in the top-k. Why did the rewrite not help?</summary>
+<p>The model never saw the evidence, so no prompt can make it use that evidence. This is a retrieval failure. The refund question needs better term matching (M14 embeddings, M17 hybrid search), measured against the golden set.</p>
+</details>
+<details>
+<summary>3. A new chunking strategy lifts recall@2 on two questions and breaks a third. Do you keep it?</summary>
+<p>Not as it stands. The loop keeps a change only when the row improves on the questions it targets without breaking the others. Revert it, or fix the regression and re-run the golden set before it becomes the new baseline.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html"><strong>Top-k and the baseline</strong></a>: open the file in a browser. Pick <em>Can I export my data after I cancel my plan?</em> and slide <code>k</code> from 1 to 12 to see recall saturate at <code>k = 2</code> while tokens keep climbing. Then switch to <em>What happens if my server goes down?</em> and look for a <code>k</code> that helps; there is none.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -941,7 +1011,7 @@ scores = chunks @ q
 <li><code>k</code> trades recall against precision, tokens and latency. If a chunk scores zero, no <code>k</code> will retrieve it; fix the representation instead.</li>
 <li>Record a baseline on a frozen golden set, change one stage at a time, and keep only the changes that beat it.</li>
 </ul></article>
-    <nav class="toc" aria-label="M11 sections"><details open><summary>In M11</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#parametric-vs-non-parametric-knowledge">Parametric vs non-parametric knowledge</a></li><li><a href="#top-k">Top-k</a></li><li><a href="#embedding-similarity">Embedding similarity</a></li><li><a href="#embeddings-against-tf-idf">Embeddings against TF-IDF</a></li><li><a href="#what-langchain-replaces">What LangChain replaces</a></li><li><a href="#distance-not-similarity">Distance, not similarity</a></li><li><a href="#indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</a></li><li><a href="#baseline-first-optimisation">Baseline-first optimisation</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M11 sections"><details open><summary>In M11</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#parametric-vs-non-parametric-knowledge">Parametric vs non-parametric knowledge</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-k">Top-k</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-similarity">Embedding similarity</a></li><li><a href="#embeddings-against-tf-idf">Embeddings against TF-IDF</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#what-langchain-replaces">What LangChain replaces</a></li><li><a href="#distance-not-similarity">Distance, not similarity</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</a></li><li><a href="#baseline-first-optimisation">Baseline-first optimisation</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

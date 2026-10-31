@@ -78,5 +78,28 @@ The cap needs the same arithmetic. Six lookups with one wrong result need 7 exec
 
 The lab's models are scripted, so its numbers are exact for these prompts and chunks but not for a live model: a real ReAct agent may stop early, as in notebook 01a, and a real replanner may need more than one rewrite. Its numbers match the notebooks' own node and router code run under LangGraph with the same scripted models on all 1,764 settings.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the plan-and-execute agent make two LLM calls whatever the length of its plan?</summary>
+
+The planner writes every step as a plain search query in one structured-output call, the executor runs each query with no LLM, and the synthesizer makes the one call that writes the answer. ReAct makes one call per search plus one to answer, and each call re-reads the whole conversation.
+
+</details>
+
+<details>
+<summary>2. On clean runs with six lookups, how many tokens does ReAct read compared with the fixed plan, and why the gap?</summary>
+
+About 1,676 against about 620, 2.7 times as much. ReAct's prompt grows with every result and it pays for that prompt on every call. At two lookups the two read about the same (about 362 and 363).
+
+</details>
+
+<details>
+<summary>3. A replanning run with six lookups and one wrong result stops with one lookup unanswered. What caused it, and what fixes it?</summary>
+
+The cap: `max_iterations = 6` counts executed steps, and six lookups with one wrong result need 7. The run stops after 9 LLM calls; at 7 it completes in 10. Size the cap from N + 2 + 2f calls for N lookups and f wrong results.
+
+</details>
+
 ---
 *Previous: [M26 overview](../README.md). Next: [26.4 Chain-of-verification and constitutional critique](../04_chain_of_verification_and_constitutional_critique/README.md).*

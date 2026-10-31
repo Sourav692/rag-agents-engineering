@@ -32,5 +32,28 @@ Compression has the same risk as M13's propositions: an LLM sits between the sou
 
 Filtering has a simpler failure. The optional `02b` notebook's `evaluate_documents` asks `gpt-4o-mini` whether each chunk suits the question and keeps it only if the reply equals the string `"True"` exactly. A reply of `"True."` drops the chunk. Ask for structured output, as 19.3's pointwise reranker does, instead of matching text.
 
+## Check yourself
+
+<details>
+<summary>1. Why do the saving and spending steps after retrieval have to be planned together?</summary>
+
+They draw on one context budget, set by the context window, input-token cost, reading latency and the position effect. A pipeline that adds each hit's neighbours can afford it by keeping three chunks instead of five; one that compresses each chunk can keep more of them.
+
+</details>
+
+<details>
+<summary>2. The extractor keeps "full refund within 30 days of purchase" from Larkspur's refund-window chunk and drops the 100 GB condition. What goes wrong, and what guards against it?</summary>
+
+The model gives a confident wrong answer, because the condition that limits the refund never reaches the prompt. An LLM sits between the source and the prompt, so check compressed context for faithfulness on the golden set, and keep each chunk's id so the citation points at the full source text.
+
+</details>
+
+<details>
+<summary>3. The optional 02b filter drops chunks that the model judged relevant. What is the likely cause?</summary>
+
+It keeps a chunk only when the reply equals the string `"True"` exactly, so a reply of `"True."` drops it. Ask for structured output, as 19.3's pointwise reranker does, instead of matching text.
+
+</details>
+
 ---
 *Previous: [19.3 LLM reranking vs cross-encoder reranking](../03_llm_reranking_vs_cross_encoder_reranking/README.md). Next: [19.5 Context enrichment windows](../05_context_enrichment_windows/README.md).*

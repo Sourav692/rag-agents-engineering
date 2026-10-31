@@ -34,5 +34,28 @@ For Larkspur, preserve separate product identifiers, relation direction where it
 
 To evaluate the two routes, run entity-only, relation-only and combined retrieval on the same precise and cross-section questions. Inspect answer support, source coverage and context size. Record extraction failures and indexing cost separately; a graph with plausible labels can still omit the relationship the question needs.
 
+## Check yourself
+
+<details>
+<summary>1. For the question How does cancellation affect export?, what does each LightRAG route search for?</summary>
+
+The low-level route searches entity profiles for keywords such as Cancellation and Export, then expands to their direct edges. The high-level route searches relation profiles for themes such as data portability, then adds the endpoint entities. High-level here means thematic relationships, not RAPTOR's upper summary levels or GraphRAG community reports.
+
+</details>
+
+<details>
+<summary>2. Larkspur withdraws a policy and removes its source passage from the index. Is the graph now clean?</summary>
+
+No. Node and relationship descriptions are merged across passages, so the old wording can survive inside a profile. Recompute the merged profiles as well as removing the source passage.
+
+</details>
+
+<details>
+<summary>3. A retrieved relationship block contains an assertion whose source passage is absent from the context. What in the notebook causes this?</summary>
+
+The low-level expansion adds incident edges to `selected_edges` but does not add those edges' source chunk identifiers to `relevant_chunks`. Join source identifiers for every selected assertion, and test that invariant, before relying on the answer's provenance.
+
+</details>
+
 ---
 *Previous: [42.2 MemoRAG: global memory and clue-guided retrieval](../02_memorag_global_memory_and_clue_guided_retrieval/README.md). Next: [M42 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
