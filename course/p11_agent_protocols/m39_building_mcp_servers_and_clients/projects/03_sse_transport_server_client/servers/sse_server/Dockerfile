@@ -14,4 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8081
 
 # Run the SSE server
-CMD ["python", "terminal_server_sse.py"]
+# Inside the container the server must listen on all interfaces; publish the port on
+# 127.0.0.1 only (docker run -p 127.0.0.1:8081:8081 ...).
+CMD ["python", "terminal_server_sse.py", "--host", "0.0.0.0"]

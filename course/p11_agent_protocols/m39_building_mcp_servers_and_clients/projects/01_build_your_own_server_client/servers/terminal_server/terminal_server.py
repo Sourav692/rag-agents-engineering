@@ -1,12 +1,14 @@
 import os
 import subprocess
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 # Initialize the MCP server instance with terminal capabilities
 server = FastMCP("terminal")
 
 # Define the base working directory for command execution
-WORKSPACE_PATH = os.path.expanduser("~/Desktop/github/langgraph-ai/mcp/01-build-your-own-server-client/workspace")
+# Defaults to this project's workspace/ folder; set WORKSPACE_PATH to use another one.
+WORKSPACE_PATH = os.environ.get("WORKSPACE_PATH", str(Path(__file__).resolve().parents[2] / "workspace"))
 
 @server.tool()
 async def execute_shell_command(cmd: str) -> str:

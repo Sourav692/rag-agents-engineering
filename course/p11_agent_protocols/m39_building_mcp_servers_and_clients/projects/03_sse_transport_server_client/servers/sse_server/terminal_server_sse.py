@@ -56,6 +56,7 @@ import subprocess  # For executing shell commands in the run_command tool
 from mcp.server.fastmcp import FastMCP  # High-level wrapper that simplifies MCP server creation
 from mcp.server import Server  # Core MCP server implementation (used internally by FastMCP)
 from mcp.server.sse import SseServerTransport  # SSE transport layer for real-time communication
+from mcp.server.transport_security import TransportSecuritySettings  # Host and Origin checks
 
 from starlette.applications import Starlette  # Lightweight ASGI web framework
 from starlette.routing import Route, Mount  # URL routing components
@@ -102,7 +103,8 @@ async def run_command(command: str) -> str:
             shell=True,                 # Enable shell interpretation (allows pipes, etc.)
             cwd=DEFAULT_WORKSPACE,      # Set working directory
             capture_output=True,        # Capture both stdout and stderr
-            text=True                   # Return strings instead of bytes
+            text=True,                  # Return strings instead of bytes
+            timeout=30                  # Stop runaway commands
         )
         
         # Return stdout if available, otherwise stderr (for error messages)
@@ -157,7 +159,16 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
     
     # Create the SSE transport layer
     # "/messages/" is the base path where clients send tool requests
-    sse = SseServerTransport("/messages/")
+    # run_command executes any shell command, so refuse requests whose Host header is not
+    # this machine. That blocks DNS-rebinding attacks from a web page in your browser.
+    sse = SseServerTransport(
+        "/messages/",
+        security_settings=TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=["127.0.0.1:*", "localhost:*"],
+            allowed_origins=["http://127.0.0.1:*", "http://localhost:*"],
+        ),
+    )
 
     async def handle_sse(request: Request) -> None:
         """
@@ -216,8 +227,9 @@ if __name__ == "__main__":
     # Set up command-line argument parsing for flexible deployment
     import argparse
     parser = argparse.ArgumentParser(description='Run MCP Server with SSE Transport')
-    parser.add_argument('--host', default='0.0.0.0', 
-                       help='Host address to bind to (0.0.0.0 for all interfaces)')
+    # run_command has no authentication: listen on localhost unless told otherwise.
+    parser.add_argument('--host', default=os.environ.get('MCP_HOST', '127.0.0.1'),
+                       help='Host address to bind to (default 127.0.0.1; 0.0.0.0 only inside a container)')
     parser.add_argument('--port', type=int, default=8081, 
                        help='Port number to listen on')
     args = parser.parse_args()

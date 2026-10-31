@@ -28,18 +28,17 @@ SERPAPI_URL = "https://serpapi.com/search"
 logger.info(f"🚀 Starting MCP Web Search Server...")
 logger.info(f"Starting MCP Web Search Server...")
 if SERPAPI_KEY:
-    logger.info(f"✅ SERPAPI_KEY found: {SERPAPI_KEY[:10]}...")
+    logger.info("✅ SERPAPI_KEY found")
 else:
     logger.warning(f"⚠️  SERPAPI_KEY not found in environment variables")
     logger.warning(f"   Set SERPAPI_KEY to enable web search functionality")
-    logger.info(f"   Available env vars: {list(os.environ.keys())}")
     logger.info(f"   Current working directory: {os.getcwd()}")
     # Try loading from .env file manually
     from dotenv import load_dotenv
     load_dotenv()
     SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
     if SERPAPI_KEY:
-        logger.info(f"✅ SERPAPI_KEY loaded from .env: {SERPAPI_KEY[:10]}...")
+        logger.info("✅ SERPAPI_KEY loaded from .env")
     else:
         logger.warning(f"❌ SERPAPI_KEY still not found after loading .env")
 

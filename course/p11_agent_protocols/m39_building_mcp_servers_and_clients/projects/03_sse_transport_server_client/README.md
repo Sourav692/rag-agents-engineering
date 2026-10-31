@@ -128,10 +128,10 @@ Here are the files in the current directory:
 ## Available Tools
 
 ### Terminal Server Tools
-- `execute_shell_command`: Execute shell commands in a secure environment
+- `run_command`: Execute any shell command in the workspace folder. There is no command filtering: anyone who can reach the server can run commands as its user
   - Parameters: `command` (string) - The shell command to execute
   - Returns: Command output and execution status
-  - Security: Restricted to workspace directory, containerizable
+  - Security: the working directory is the workspace, but commands can reach anything the user can. The server listens on 127.0.0.1, rejects other Host headers and stops each command after 30 seconds. Run it in the container for isolation
 
 ## Configuration
 
@@ -154,7 +154,7 @@ The server runs on `localhost:8081` by default. Modify `terminal_server_sse.py` 
 ```bash
 cd servers/sse_server
 docker build -t mcp-sse-server .
-docker run -p 8081:8081 -v $(pwd)/../../workspace:/workspace mcp-sse-server
+docker run -p 127.0.0.1:8081:8081 -v $(pwd)/../../workspace:/root/mcp/workspace mcp-sse-server
 ```
 
 ### Client with Docker Server

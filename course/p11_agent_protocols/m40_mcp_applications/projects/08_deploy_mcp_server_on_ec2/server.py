@@ -11,6 +11,7 @@ import os
 import shutil
 import hashlib
 import json
+import re
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -21,6 +22,24 @@ mcp = FastMCP("Research Assistant")
 # Constants
 current_dir = Path(__file__).parent.absolute()
 CHROMA_DB_ROOT = current_dir / "research_chroma_dbs"
+
+TOPIC_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{2,62}")
+
+
+def topic_dir(topic: str) -> Path:
+    """Return the folder for a topic, refusing names that could leave CHROMA_DB_ROOT.
+
+    The model chooses `topic`, so treat it as untrusted: letters, digits, `_` and `-` only
+    (3 to 63 characters, which is also what Chroma accepts as a collection name).
+    """
+    if not TOPIC_NAME.fullmatch(topic):
+        raise ValueError(f"Invalid topic name {topic!r}: use 3-63 letters, digits, '_' or '-'")
+    path = (CHROMA_DB_ROOT / topic).resolve()
+    if path.parent != CHROMA_DB_ROOT.resolve():
+        raise ValueError(f"Invalid topic name {topic!r}")
+    return path
+
+
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 # Initialize embeddings once
@@ -51,7 +70,7 @@ def save_content_hashes(topic_path: Path, hashes: Set[str]):
 
 def get_vectorstore(topic: str) -> Chroma:
     """Get or create a ChromaDB vectorstore for a topic."""
-    topic_path = CHROMA_DB_ROOT / topic
+    topic_path = topic_dir(topic)
     topic_path.mkdir(parents=True, exist_ok=True)
     
     return Chroma(
@@ -71,7 +90,7 @@ def save_research_data(content: List[str], topic: str = "default") -> str:
         topic: Topic name for organizing the data (creates separate DB)
     """
     try:
-        topic_path = CHROMA_DB_ROOT / topic
+        topic_path = topic_dir(topic)
         topic_path.mkdir(parents=True, exist_ok=True)
         
         # Load existing content hashes
@@ -130,7 +149,7 @@ def search_research_data(query: str, topic: str = "default", max_results: int = 
         max_results: Maximum number of results to return
     """
     try:
-        topic_path = CHROMA_DB_ROOT / topic
+        topic_path = topic_dir(topic)
         
         if not topic_path.exists():
             return f"No research data found for topic: {topic}"
@@ -208,7 +227,7 @@ def delete_research_topic(topic: str) -> str:
         topic: Topic name to delete
     """
     try:
-        topic_path = CHROMA_DB_ROOT / topic
+        topic_path = topic_dir(topic)
         
         if not topic_path.exists():
             return f"Topic '{topic}' does not exist"
@@ -236,7 +255,7 @@ def get_topic_info(topic: str) -> str:
         topic: Topic name to get info for
     """
     try:
-        topic_path = CHROMA_DB_ROOT / topic
+        topic_path = topic_dir(topic)
         
         if not topic_path.exists():
             return f"Topic '{topic}' does not exist"
@@ -265,4 +284,6 @@ def get_topic_info(topic: str) -> str:
 
 if __name__ == "__main__":
 
-    mcp.run(transport="http", host="0.0.0.0")
+    # This server has no authentication. It listens on localhost unless MCP_HOST says otherwise.
+    # On EC2, set MCP_HOST=0.0.0.0 only with the security group limited to your own IP address.
+    mcp.run(transport="http", host=os.environ.get("MCP_HOST", "127.0.0.1"))

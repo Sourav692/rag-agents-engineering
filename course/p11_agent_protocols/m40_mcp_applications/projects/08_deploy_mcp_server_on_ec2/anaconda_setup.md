@@ -13,10 +13,10 @@ Connect to your EC2 instance using SSH:
 **From Windows (Command Prompt/PowerShell):**
 ```bash
 # If pem file is in current directory
-ssh -i "mcp.pem" ec2-user@ec2-3-6-90-231.ap-south-1.compute.amazonaws.com
+ssh -i "mcp.pem" ec2-user@<EC2_PUBLIC_DNS>
 
 # If pem file is in .ssh folder
-ssh -i "~/.ssh/mcp.pem" ec2-user@ec2-3-6-90-231.ap-south-1.compute.amazonaws.com
+ssh -i "~/.ssh/mcp.pem" ec2-user@<EC2_PUBLIC_DNS>
 ```
 
 **Note:** Always use `ec2-user` (not `root`) for Amazon Linux instances. The system will display a Deep Learning AMI welcome message showing available tools and GPU configurations.
@@ -70,3 +70,13 @@ pip install uv
 ```
 
 You should now have a fully functional Anaconda environment with Python 3.13 and conda package manager.
+## Run the server safely
+
+`server.py` has no authentication, so anyone who can reach port 8000 can call its tools. It listens on `127.0.0.1` unless you set `MCP_HOST`.
+
+```bash
+# Before exposing it, limit the instance's security group to your own IP address on port 8000.
+MCP_HOST=0.0.0.0 python server.py
+```
+
+`mcp-remote --allow-http` in `claude_desktop_config.json` sends traffic in plain text. Use it only for a short test from your own IP address, and put the server behind HTTPS and authentication before you share it.

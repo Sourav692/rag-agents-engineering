@@ -43,11 +43,16 @@ def run_query_on_databricks(sql_query: str):
     warehouse_id = os.getenv("WAREHOUSE_ID")
     host = cfg.host
     http_path = f"/sql/1.0/warehouses/{warehouse_id}"
-    if not all([host, http_path]):
+    if not (host and warehouse_id):
         raise ValueError("Missing required Databricks connection environment variables.")
+    # The model writes this SQL, so allow one read-only statement only.
+    # ponytail: keyword check, not a parser; the real control is read-only grants for the app's service principal.
+    statement = sql_query.strip().rstrip(";").strip()
+    if ";" in statement or (statement.split(None, 1) or [""])[0].upper() not in {"SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN"}:
+        raise ValueError("Only a single read-only statement (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN) is allowed.")
 
     with databricks.sql.connect(server_hostname=host, http_path=http_path, credentials_provider=lambda: cfg.authenticate) as conn, conn.cursor() as cur:
-        cur.execute(sql_query)
+        cur.execute(statement)
         rows = cur.fetchall()
         return pd.DataFrame(rows, columns=[c[0] for c in cur.description])
 

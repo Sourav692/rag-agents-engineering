@@ -24,7 +24,7 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 - **Paths and imports move.** migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged.
 - **Mixed licences.** NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/.
 - **Visibility.** The course repo is private.
-- **Provenance.** docs/content-inventory.csv maps every one of the 990 copied files to its source repo and path.
+- **Provenance.** docs/content-inventory.csv maps every one of the 1022 copied files to its source repo and path.
 - **Dependency clashes.** pandas pinned >=2.2 for llama-index; colpali, finance and the protocol SDKs isolated as conflicting groups.
 - **Drift in reference docs.** Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale.
 
