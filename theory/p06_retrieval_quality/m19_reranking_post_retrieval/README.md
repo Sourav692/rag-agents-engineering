@@ -113,4 +113,4 @@ Each stage has its own metric and its own failure. Stage 1 fails when the eviden
 - Spend the context budget where the evidence is: compress noisy chunks, expand chunks whose answer crosses a boundary, and count both against the same token limit.
 
 ---
-*Previous: [M18 Query transformation and routing](../m18_query_transformation/README.md). Next: M20 End-to-end RAG systems (no theory page yet).*
+*Previous: [M18 Query transformation and routing](../m18_query_transformation/README.md). Next: [M20 End-to-end RAG systems](../../p07_rag_applications/m20_end_to_end_rag_systems/README.md).*

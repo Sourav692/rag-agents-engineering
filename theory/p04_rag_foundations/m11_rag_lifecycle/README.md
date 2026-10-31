@@ -103,4 +103,4 @@ The index is the only thing the two phases share. A bad chunk written at indexin
 - Record a baseline on a frozen golden set, change one stage at a time, and keep only the changes that beat it.
 
 ---
-*Previous: M10 LangGraph runtime (no theory page yet). Next: [M12 Document ingestion](../../p05_ingestion_and_indexing/m12_document_ingestion/README.md).*
+*Previous: [M10 LangGraph runtime](../../p03_langchain_and_langgraph/m10_langgraph_runtime/README.md). Next: [M12 Document ingestion](../../p05_ingestion_and_indexing/m12_document_ingestion/README.md).*

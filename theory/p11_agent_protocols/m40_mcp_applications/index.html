@@ -250,19 +250,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="tldr">TL;DR</h2>
 <ul>
 <li>A server is written once and reached by any host: Claude Desktop starts it from a config entry, an <code>mcp_use</code> agent on Ollama starts it from the same kind of entry, and a LangGraph app loads its tools through <code>langchain-mcp-adapters</code>. The host, not the server, decides how long a session lives.</li>
-<li>Session lifetime is the cost you do not see in the code. In the lab, three questions with two retrieval calls each start the server once when the client holds a session, three times with a session per question (06&rsquo;s <code>app.py</code>) and seven times with <code>MultiServerMCPClient.get_tools()</code> (07&rsquo;s client): 17, 27 and 47 messages on the wire.</li>
+<li>The client decides how long a session lives, and nothing in the server&rsquo;s code shows the cost. In the lab, three questions with two retrieval calls each start the server once when the client holds a session, three times with a session per question (06&rsquo;s <code>app.py</code>) and seven times with <code>MultiServerMCPClient.get_tools()</code> (07&rsquo;s client): 17, 27 and 47 messages on the wire.</li>
 <li>Over stdio, the server&rsquo;s stdout is the protocol channel. With unbuffered output, each stray <code>print()</code> reaches the client as a line it cannot parse; mcp 1.30.0&rsquo;s client logs &ldquo;Failed to parse JSONRPC message from server&rdquo; and carries on, and other hosts may not be as forgiving.</li>
 <li>A tool result is a contract every client reads. 06&rsquo;s <code>retrieve</code> reports <code>similarity_score = 1 - distance</code> on Chroma&rsquo;s default squared L2 distance, so a chunk at right angles to the query scores −1.0 and an opposite one −3.0. A client that filters on that field filters on the wrong scale.</li>
 <li>The EC2 server binds <code>0.0.0.0</code> with no authentication. fastmcp&rsquo;s default is <code>127.0.0.1:8000/mcp</code>; changing the host publishes every tool, including one that passes a model-chosen topic name to <code>shutil.rmtree</code>.</li>
 </ul>
 <h2 id="mental-model">Mental model</h2>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
-    subgraph hosts["Hosts: own the model and the session"]
+    subgraph hosts["Hosts"]
         CD["Claude Desktop&lt;br/&gt;claude_desktop_config.json"]
         LA["Local agent&lt;br/&gt;mcp_use + Ollama"]
         LG["LangGraph app&lt;br/&gt;langchain-mcp-adapters"]
     end
-    subgraph srv["larkspur-handbook server"]
+    subgraph srv["larkspur-handbook"]
         T["retrieve(query, n)"]
     end
     CD -- stdio --&gt; T
@@ -489,11 +489,11 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
     R --&gt; C["Prompt: create_match_report"]
 </pre></figure>
 <p>The prompts are scripts for the model: <code>personalized_job_recommender</code> says to read the resume, &ldquo;Call job search mcp tool&rdquo;, then &ldquo;Optionally call save job mcp tool on top matches&rdquo;. <code>create_match_report</code> starts &ldquo;Given the attached jobs data and resume&rdquo;, so it only works once the user has attached both resources. The server writes the workflow; the host has to support every step of it.</p>
-<p>That is where hosts differ. In langchain-mcp-adapters 0.3.2, <code>load_mcp_tools</code> and <code>MultiServerMCPClient.get_tools()</code> load tools only. Resources come from <code>client.get_resources(...)</code> and prompts from <code>client.get_prompt(...)</code>, and the application has to fetch them and put them in the conversation itself. A LangGraph app that only loads tools sees 2 of this server&rsquo;s 7 features, and <code>create_match_report</code> has nothing attached to read.</p>
+<p>Hosts differ in how much of that they support. In langchain-mcp-adapters 0.3.2, <code>load_mcp_tools</code> and <code>MultiServerMCPClient.get_tools()</code> load tools only. Resources come from <code>client.get_resources(...)</code> and prompts from <code>client.get_prompt(...)</code>, and the application has to fetch them and put them in the conversation itself. A LangGraph app that only loads tools sees 2 of this server&rsquo;s 7 features, and <code>create_match_report</code> has nothing attached to read.</p>
 <p>Two design points the server gets wrong for anything beyond one user:</p>
 <ul>
 <li><strong>Hidden coupling between tools.</strong> <code>save_job</code> only works after <code>search_jobs</code>, because it reads the single file <code>fetched_jobs_temp.json</code>. Two users of a shared server overwrite each other&rsquo;s search, and <code>save_job</code> saves a job from someone else&rsquo;s results or reports the id as not found.</li>
-<li><strong>Paths relative to the working directory.</strong> <code>BASE_DIR = Path(".")</code> puts <code>jobs/</code> and <code>resume/</code> wherever the server process starts. Claude Desktop&rsquo;s entry uses <code>uv --directory</code> for that reason (<a href="#claude-desktop">40.2</a>); anchor paths on <code>Path(__file__).parent</code> instead, as the 06 and 07 servers do.</li>
+<li><strong>Paths relative to the working directory.</strong> <code>BASE_DIR = Path(".")</code> puts <code>jobs/</code> and <code>resume/</code> wherever the server process starts. The Claude Desktop entry passes <code>uv --directory</code>, which sets it (<a href="#claude-desktop">40.2</a>); anchor paths on <code>Path(__file__).parent</code> instead, as the 06 and 07 servers do.</li>
 </ul>
 <h2 id="rag-over-mcp">RAG over MCP</h2>
 <p class="lesson-of">Lesson 40.5: RAG over MCP with LangChain. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p11_agent_protocols/m40_mcp_applications/projects/06_mcp_rag_with_langchain" target="_blank" rel="noopener"><code>06_mcp_rag_with_langchain</code></a></p>
@@ -641,7 +641,7 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <p>The assistant has two memories, held in different processes. The client&rsquo;s <code>MemorySaver</code> keeps the conversation for the thread <code>research_session</code> and loses it when <code>client.py</code> exits. The research server keeps findings in Chroma on disk, across sessions and for any host that connects, Claude Desktop included (it is the <code>research_server</code> entry in the <a href="#claude-desktop">40.2 config</a>).</p>
 <p>Two fixes before it runs here: <code>client.py</code> imports <code>ChatPromptTemplate</code> and <code>MessagesPlaceholder</code> from <code>langchain.prompts</code>, which raises <code>ModuleNotFoundError</code> under langchain 1.4.7 (they live in <code>langchain_core.prompts</code>); and topic names become directory names unchecked, which <a href="#deployment">lesson 40.7</a> shows is dangerous once the server is shared.</p>
 <h2 id="how-long-a-session-lives">How long a session lives</h2>
-<p><code>get_tools()</code> returns tools, not a connection. The docstring of <code>MultiServerMCPClient.get_tools()</code> in langchain-mcp-adapters 0.3.2 says it plainly: &ldquo;A new session will be created for each tool call&rdquo;. For a stdio server, a new session is a new process.</p>
+<p><code>MultiServerMCPClient.get_tools()</code> returns tools with no open connection behind them. Its docstring in langchain-mcp-adapters 0.3.2 says: &ldquo;A new session will be created for each tool call&rdquo;. For a stdio server, a new session is a new process.</p>
 <figure class="anim sheet" aria-labelledby="anim-percall-cap">
   <div class="anim__canvas" tabindex="0" aria-label="A tool call with a session per call, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 352" role="img" aria-labelledby="anim-percall-title anim-percall-desc">
@@ -670,7 +670,7 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
       <path class="edge" d="M190 150 H259" marker-end="url(#ah-percall)"/>
       <text class="small" x="226" y="138">no call</text>
       <path class="edge dashed e-8 in-8" d="M40 250 C16 250 16 62 37 62" marker-end="url(#ah-percall)"/>
-      <text class="small in-8" x="80" y="300">ToolMessage</text>
+      <text class="small in-8" x="290" y="318">ToolMessage</text>
 
       <!-- the process -->
       <path class="edge e-3 in-3" d="M190 236 C300 236 300 64 417 64" marker-end="url(#ah-percall)"/>
@@ -708,7 +708,7 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
     <li><button type="button" data-tok="40,48">Back</button><span>The result goes back to chat_node as a ToolMessage, and the next call starts another process.</span></li>
   </ol>
 </figure>
-<p>The <code>tools/list</code> after the call is not the adapter&rsquo;s doing. mcp 1.30.0&rsquo;s <code>ClientSession</code> validates each structured tool result against the tool&rsquo;s output schema, and a session that has not listed its tools yet lists them first. A held session pays for that once; a session per call pays for it every time.</p>
+<p>The <code>tools/list</code> after the call comes from the SDK. mcp 1.30.0&rsquo;s <code>ClientSession</code> validates each structured tool result against the tool&rsquo;s output schema, and a session that has not listed its tools yet lists them first. A held session pays for that once; a session per call pays for it every time.</p>
 <p>The <a href="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html">interactive lab</a> records the real JSON-RPC traffic of the Larkspur handbook server under three client patterns, with a scripted model so every run makes the same calls. Its numbers:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -852,7 +852,7 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li>Treat tool names, argument schemas and result fields as a public interface: a return value that breaks its own output schema, or a score on an undocumented scale, breaks every client at once.</li>
 <li>A deployed MCP server is an API with an LLM choosing the arguments. Bind it narrowly, authenticate it, and validate every argument that touches the filesystem.</li>
 </ul></article>
-    <nav class="toc" aria-label="M40 sections"><details open><summary>In M40</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-local-agent-over-mcp">A local agent over MCP</a></li><li><a href="#return-types-are-part-of-the-contract">Return types are part of the contract</a></li><li><a href="#claude-desktop">Claude Desktop</a></li><li><a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a></li><li><a href="#checking-the-agentrsquos-numbers">Checking the agent&amp;rsquo;s numbers</a></li><li><a href="#one-server-three-controllers">One server, three controllers</a></li><li><a href="#rag-over-mcp">RAG over MCP</a></li><li><a href="#distance-is-not-similarity">Distance is not similarity</a></li><li><a href="#mcp--langgraph">MCP + LangGraph</a></li><li><a href="#how-long-a-session-lives">How long a session lives</a></li><li><a href="#deployment">Deployment</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M40 sections"><details open><summary>In M40</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-local-agent-over-mcp">A local agent over MCP</a></li><li><a href="#return-types-are-part-of-the-contract">Return types are part of the contract</a></li><li><a href="#claude-desktop">Claude Desktop</a></li><li><a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a></li><li><a href="#checking-the-agentrsquos-numbers">Checking the agent’s numbers</a></li><li><a href="#one-server-three-controllers">One server, three controllers</a></li><li><a href="#rag-over-mcp">RAG over MCP</a></li><li><a href="#distance-is-not-similarity">Distance is not similarity</a></li><li><a href="#mcp--langgraph">MCP + LangGraph</a></li><li><a href="#how-long-a-session-lives">How long a session lives</a></li><li><a href="#deployment">Deployment</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -98,4 +98,4 @@ Both routes must return evidence that the answer can cite. The graph supplies ca
 - Re-evaluate source coverage, update work and answer quality whenever extraction or routing changes.
 
 ---
-*Previous: [M43 Knowledge Graphs with Neo4j](../m43_knowledge_graphs_neo4j/README.md). Next: M45 Agentic RAG Architectures: Choosing a Design (no theory page yet).*
+*Previous: [M43 Knowledge Graphs with Neo4j](../m43_knowledge_graphs_neo4j/README.md). Next: [M45 Agentic RAG Architectures: Choosing a Design](../../p13_architecture_and_capstone/m45_architecture_synthesis/README.md).*

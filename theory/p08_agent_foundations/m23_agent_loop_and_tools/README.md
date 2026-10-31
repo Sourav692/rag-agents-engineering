@@ -100,4 +100,4 @@ The model never runs anything. It writes a request; your code decides whether to
 - Run tools that touch customer data in your own process, where you can log, refuse and stub them. Hosted tools fit commodity capabilities with nothing to enforce.
 
 ---
-*Previous: M22 Framework fluency: LlamaIndex (no theory page yet). Next: [M24 ReAct agents and LangChain create_agent](../m24_react_agents/README.md).*
+*Previous: [M22 Framework fluency: LlamaIndex](../../p07_rag_applications/m22_llamaindex/README.md). Next: [M24 ReAct agents and LangChain create_agent](../m24_react_agents/README.md).*

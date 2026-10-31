@@ -8,6 +8,12 @@
 
 You now know more than a dozen architectures. The final skill is choosing the simplest one that meets the requirement.
 
+## Theory
+
+Read the [theory page](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/README.md) before the notebooks: the module overview and interview questions, with a page per lesson that explains its key concepts with diagrams and trade-offs. [`index.html`](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/index.html) has the module and its lessons as one page (open it in a browser).
+
+- Interactive lab: [The simplest architecture that works](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/03_decision_framework_picking_the_simplest_architecture_that_works/interactive/architecture-picker-lab.html) (open the file in a browser)
+
 ## Learning objectives
 
 - Place every architecture from the course on one map: entry-level, self-correcting, routing, tool-based, structural
@@ -20,9 +26,9 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 45.1 | The agentic RAG architecture map | [`01a_AGENTIC_RAG_ARCHITECTURES.md`](notebooks/01a_AGENTIC_RAG_ARCHITECTURES.md) | — |
-| 45.2 | End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS) | [`02a_rag_ecosystem.ipynb`](notebooks/02a_rag_ecosystem.ipynb) | — |
-| 45.3 | Decision framework: picking the simplest architecture that works | *Lecture / discussion* | — |
+| 45.1 | The agentic RAG architecture map ([theory](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/01_the_agentic_rag_architecture_map/README.md)) | [`01a_AGENTIC_RAG_ARCHITECTURES.md`](notebooks/01a_AGENTIC_RAG_ARCHITECTURES.md) | — |
+| 45.2 | End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS) ([theory](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/02_end_to_end_rag_ecosystem_walkthrough_incl_colbert_and_ragas/README.md)) | [`02a_rag_ecosystem.ipynb`](notebooks/02a_rag_ecosystem.ipynb) | — |
+| 45.3 | Decision framework: picking the simplest architecture that works ([theory](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/03_decision_framework_picking_the_simplest_architecture_that_works/README.md)) | *Lecture / discussion* | — |
 
 ## Hands-on lab
 
@@ -30,7 +36,7 @@ Architecture review: write a two-page design document for your capstone that jus
 
 ## Key concepts
 
-Architecture selection · Complexity budget · Late interaction (ColBERT) · End-to-end evaluation
+[Architecture selection](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/03_decision_framework_picking_the_simplest_architecture_that_works/README.md#architecture-selection) · [Complexity budget](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/03_decision_framework_picking_the_simplest_architecture_that_works/README.md#complexity-budget) · [Late interaction (ColBERT)](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/02_end_to_end_rag_ecosystem_walkthrough_incl_colbert_and_ragas/README.md#late-interaction-colbert) · [End-to-end evaluation](../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/02_end_to_end_rag_ecosystem_walkthrough_incl_colbert_and_ragas/README.md#end-to-end-evaluation)
 
 ## Folder layout
 
