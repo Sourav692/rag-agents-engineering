@@ -92,6 +92,28 @@ def test_architecture_coverage_refs_are_placed():
     assert not missing, missing
 
 
+def test_fde_site_slugs_cover_the_curriculum():
+    """docs/fde-site-slugs.yaml gives every part, module and lesson one valid, unique site slug."""
+    import yaml
+
+    data = yaml.safe_load((ROOT / "docs/fde-site-slugs.yaml").read_text())
+    slug = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+    bad = [f"part {p['id']}: no track" for p in CUR["parts"] if p["id"] not in data["tracks"]]
+    bad += [f"module {m['key']}: no slug" for m in CUR["modules"] if m["key"] not in data["modules"]]
+    for m in CUR["modules"]:
+        lessons = data["modules"].get(m["key"], {}).get("lessons", {})
+        bad += [f"{m['key']}: lesson {les['title']!r} has no slug" for les in m["lessons"] if les["title"] not in lessons]
+        bad += [f"{m['key']}: duplicate lesson slug {s}" for s, n in Counter([*lessons.values(), "overview", "interview-questions"]).items() if n > 1]
+    for kind, values in (("track", [t["slug"] for t in data["tracks"].values()]),
+                         ("module", [m["slug"] for m in data["modules"].values()])):
+        bad += [f"duplicate {kind} slug {s}" for s, n in Counter(values).items() if n > 1]
+    every = [*(v for t in data["tracks"].values() for v in (t["slug"], t["section"])),
+             *(m["slug"] for m in data["modules"].values()),
+             *(s for m in data["modules"].values() for s in m["lessons"].values())]
+    bad += [f"invalid slug {s}" for s in every if not slug.match(s) or len(s) > 80]
+    assert not bad, bad
+
+
 def test_theory_pages_mirror_the_course_layout():
     """theory/ mirrors course/: module pages at theory/<part>/<module>/, lesson pages in <NN>_<slug of lesson title>/.
 
