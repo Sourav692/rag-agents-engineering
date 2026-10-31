@@ -103,13 +103,13 @@ def test_fde_site_slugs_cover_the_curriculum():
     for m in CUR["modules"]:
         lessons = data["modules"].get(m["key"], {}).get("lessons", {})
         bad += [f"{m['key']}: lesson {les['title']!r} has no slug" for les in m["lessons"] if les["title"] not in lessons]
-        bad += [f"{m['key']}: duplicate lesson slug {s}" for s, n in Counter([*lessons.values(), "overview", "interview-questions"]).items() if n > 1]
+    # the site keys lessons by slug alone, so lesson slugs are unique across every module
+    lessons = [s for m in data["modules"].values() for s in (m["overview"], m["interview"], *m["lessons"].values())]
     for kind, values in (("track", [t["slug"] for t in data["tracks"].values()]),
-                         ("module", [m["slug"] for m in data["modules"].values()])):
+                         ("module", [m["slug"] for m in data["modules"].values()]), ("lesson", lessons)):
         bad += [f"duplicate {kind} slug {s}" for s, n in Counter(values).items() if n > 1]
     every = [*(v for t in data["tracks"].values() for v in (t["slug"], t["section"])),
-             *(m["slug"] for m in data["modules"].values()),
-             *(s for m in data["modules"].values() for s in m["lessons"].values())]
+             *(m["slug"] for m in data["modules"].values()), *lessons]
     bad += [f"invalid slug {s}" for s in every if not slug.match(s) or len(s) > 80]
     assert not bad, bad
 
