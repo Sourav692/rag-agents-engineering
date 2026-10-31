@@ -102,7 +102,8 @@ def test_fde_site_slugs_cover_the_curriculum():
     bad += [f"module {m['key']}: no slug" for m in CUR["modules"] if m["key"] not in data["modules"]]
     for m in CUR["modules"]:
         lessons = data["modules"].get(m["key"], {}).get("lessons", {})
-        bad += [f"{m['key']}: lesson {les['title']!r} has no slug" for les in m["lessons"] if les["title"] not in lessons]
+        bad += [f"{m['key']}: lesson {les['title']!r} has no slug"
+                for les in m["lessons"] if les["title"] not in lessons]
     # the site keys lessons by slug alone, so lesson slugs are unique across every module
     lessons = [s for m in data["modules"].values() for s in (m["overview"], m["interview"], *m["lessons"].values())]
     for kind, values in (("track", [t["slug"] for t in data["tracks"].values()]),
@@ -112,6 +113,25 @@ def test_fde_site_slugs_cover_the_curriculum():
              *(m["slug"] for m in data["modules"].values()), *lessons]
     bad += [f"invalid slug {s}" for s in every if not slug.match(s) or len(s) > 80]
     assert not bad, bad
+
+
+def test_site_curriculum_export_is_complete_and_stable():
+    """export_site_curriculum.py lists every theory page once, plus an Overview and Interview page per module."""
+    import export_site_curriculum
+
+    out = export_site_curriculum.export()
+    assert out == export_site_curriculum.export()
+    data = {name: json.loads(re.search(rf"export const {name}: \w+\[\] = (.*?)\n(?=\nexport|\Z)", out, re.S).group(1))
+            for name in ("RAG_TRACKS", "RAG_MODULES", "RAG_LESSONS")}
+    pages = sorted(p.parent for m in CUR["modules"] for p in (ROOT / theory_dir(m)).glob("*/README.md"))
+    modules = [m for m in CUR["modules"] if (ROOT / theory_dir(m) / "README.md").exists()]
+    assert len(data["RAG_TRACKS"]) == len(CUR["parts"])
+    assert len(data["RAG_MODULES"]) == len(modules)
+    assert len(data["RAG_LESSONS"]) == len(pages) + 2 * len(modules)
+    homed = {les["slug"] for les in data["RAG_LESSONS"]}
+    assert all(set(m["lessons"]) <= homed for m in data["RAG_MODULES"])
+    notebook_only = sum(len(m.get("notebookOnly", [])) for m in data["RAG_MODULES"])
+    assert notebook_only == sum(len(m["lessons"]) for m in modules) - len(pages)
 
 
 def test_theory_pages_mirror_the_course_layout():

@@ -88,6 +88,10 @@ theory/<part folder>/<module folder>/     # e.g. theory/p04_rag_foundations/m11_
 - **Links:** theory pages link to notebooks by their `course/` path and to modules by number; `check_links.py` catches a broken path after renumbering, but update module numbers in the prose by hand.
 - **Build:** `build_curriculum.py` adds a Theory section and concept anchors to the module README and the site card for every module that has a module page, links each lesson row to its lesson page, and regenerates `theory/README.md`. `test_theory_pages_mirror_the_course_layout` checks folder names, that each concept heading appears once, that the module page links every lesson page, and that every lab is linked from the page beside it; `test_theory_module_pages_have_a_current_index_html` fails when a module's `index.html` is missing or older than its READMEs.
 
+## forwarddeployedprep.com export
+
+The theory pages are also the AI Engineering topic of forwarddeployedprep.com (plan: `.website_plan/2026-10-31-ai-engineering-integration-plan.md`, local only). Two hand-maintained files feed it: `docs/fde-site-slugs.yaml` (frozen site ids; never change a published slug, even when a title changes) and `docs/fde-site-copy.yaml` (track copy). `scripts/export_site_curriculum.py --out <site>/site/src/lib/rag-tracks.ts` writes the site's curriculum data; the site's `npm run import:rag-theory -- --from <this repo>` vendors the pages. Both are deterministic, and tests fail when a part, module or lesson has no slug.
+
 ## How the migration transforms files
 
 - **Depth:** notebooks move from `modules/<m>/notebooks/` to `course/<part>/<module>/<folder>/`, one level deeper. `../../../data/`, `../../../src` and `../../../docs/` are rewritten to the new depth; source docs go to `docs/source/<key>/`.
