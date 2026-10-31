@@ -56,5 +56,28 @@ A Larkspur support assistant could route on the handbook's own sections. The exa
 
 *Do I get a refund if an outage lasts a day?* belongs to billing and reliability at once. Expect its two scores to sit close, the margin check to fail, and the classifier to decide, or send it to both routes. Self-querying (lesson 18.8) is the related move inside one source: instead of choosing a destination it turns part of the question into a metadata filter, such as a plan type or a date.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the fixed LLM classifier return its route through a Literal field, and what does that still not guarantee?</summary>
+
+Free text broke the first version: `'health & fitness'` matched none of the exact strings, every branch fell through and the router returned `None` while appearing to work. A `Literal` guarantees a valid route name, not a sensible one; asked the capital of France, it still picks one of the four, so a production router needs an explicit `other` route.
+
+</details>
+
+<details>
+<summary>2. "Are meal-prep books worth buying?" wins its semantic route by about 0.002, with every route near 0.28. With thresholds of 0.35 and 0.02, where does it go?</summary>
+
+To the LLM classifier. It fails both checks: its top score is below 0.35 and its margin over the runner-up is below 0.02. Without the thresholds the semantic router would have returned that guess with the same confidence as an exact match.
+
+</details>
+
+<details>
+<summary>3. A Larkspur customer asks "Do I get a refund if an outage lasts a day?" What should you expect the router to do with it?</summary>
+
+It belongs to billing and reliability at once, so expect the two route scores to sit close and the margin check to fail. The classifier then decides, or you send the question to both routes. The page's Larkspur examples are illustrative, so check this on logged traffic.
+
+</details>
+
 ---
 *Previous: [18.6 Query decomposition for multi-hop questions](../06_query_decomposition_for_multi_hop_questions/README.md). Next: [M18 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

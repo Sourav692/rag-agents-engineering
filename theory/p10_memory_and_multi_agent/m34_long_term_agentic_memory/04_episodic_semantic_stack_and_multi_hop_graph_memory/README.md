@@ -50,5 +50,28 @@ The reader asks the model for one start entity, traverses up to `max_hops`, and 
 
 The optional Part 5 loads the same triples into Neo4j and lets the model write Cypher against the schema, run read-only. M43 builds on that.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the update node extract semantic facts from the user's message only, and never from the assistant's reply?</summary>
+
+So the model's own suggestions cannot come back later as things the user said. Code also writes the subject as `user`, so "Alex", "I" and "the user" stay one person, and keys each fact by its normalised text, so restating a fact overwrites it instead of adding a copy.
+
+</details>
+
+<details>
+<summary>2. Alex asks for a good alternative to that stock, naming neither his goal nor the stock. What must retrieval return, and how is that stock resolved?</summary>
+
+It must return the Apple episode and the conservative-investor fact; the notebook checks both in code. The retrieve node sorts the two recalled episodes oldest first, so the prompt can tell the model to resolve "that stock" from the most recent conversation.
+
+</details>
+
+<details>
+<summary>3. Graph memory says the facts are insufficient to answer the Project Helios question. What setting do you check, and why would similarity search not answer it either?</summary>
+
+Check `max_hops`: at 1 the traversal stops at the Atlas team, and the answer needs three hops (team, Priya Chandran, Marcus Webb). Similarity search returns items that look like the question, and no single sentence mentions both Project Helios and Marcus Webb, so it cannot chase the relations between them.
+
+</details>
+
 ---
 *Previous: [34.3 A combined-memory agent](../03_a_combined_memory_agent/README.md). Next: [34.5 MemGPT tiers, Voyager skill library, Agent Workflow Memory](../05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/README.md).*

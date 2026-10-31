@@ -40,5 +40,28 @@ What the deployment needs before anyone else uses it:
 - **Keep destructive tools off the shared server,** or require a human approval step in the host before they run ([M27](../../../p08_agent_foundations/m27_human_approval_applied_agents/README.md)).
 - **Re-ingest after changing the embedding model.** Topics saved by the local server hold `nomic-embed-text` vectors; the EC2 server embeds queries with `text-embedding-3-small`, a different vector space, so copied databases cannot be searched.
 
+## Check yourself
+
+<details>
+<summary>1. What does host 0.0.0.0 change compared with fastmcp's default, and why is it risky for this server?</summary>
+
+The default `127.0.0.1` listens on the machine only; `0.0.0.0` listens on every interface. Whatever the security group lets through then reaches all five tools with no authentication, because the server passes no `auth` provider to `FastMCP`.
+
+</details>
+
+<details>
+<summary>2. The model calls delete_research_topic with the topic /home/ec2-user. What does the tool delete, and what check would have stopped it?</summary>
+
+`/home/ec2-user` itself: `CHROMA_DB_ROOT / topic` discards the root when the topic is an absolute path, and the tool calls `shutil.rmtree` on any path that exists. Accept only topic names that match a slug pattern such as `^[a-z0-9_-]{1,64}$`, then resolve the path and check it is still under the root.
+
+</details>
+
+<details>
+<summary>3. You copy the topics saved by the local server to the EC2 server, and searches there find nothing relevant. What went wrong?</summary>
+
+The local server stored `nomic-embed-text` vectors, and the EC2 server embeds queries with `text-embedding-3-small`, a different vector space. Copied databases cannot be searched; re-ingest after changing the embedding model.
+
+</details>
+
 ---
 *Previous: [40.6 Research assistant with MCP and LangGraph](../06_research_assistant_with_mcp_and_langgraph/README.md). Next: [M40 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

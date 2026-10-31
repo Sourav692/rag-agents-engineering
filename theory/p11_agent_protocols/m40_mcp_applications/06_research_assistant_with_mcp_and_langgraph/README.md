@@ -61,5 +61,28 @@ Each pattern has a reason to exist:
 
 Message counts are not latency, and the lab does not time anything, because start-up cost depends on the machine and the server. Measure your own: log one line on the server's stderr at start-up and count the lines per conversation.
 
+## Check yourself
+
+<details>
+<summary>1. The research assistant has two memories. Where does each live, and how long does it last?</summary>
+
+The client's `MemorySaver` keeps the conversation for the thread `research_session` and loses it when `client.py` exits. The research server keeps findings in Chroma on disk, across sessions and for any host that connects, Claude Desktop included.
+
+</details>
+
+<details>
+<summary>2. For 3 questions with 3 tool calls each, what does the lab record for holding one session versus a session per tool call?</summary>
+
+Holding one session: 1 start, 23 messages, 9,963 bytes. A session per tool call, as in the 07 client: 10 starts, 68 messages, 19,726 bytes. A session per question sits between, at 3 starts, 33 messages and 12,131 bytes.
+
+</details>
+
+<details>
+<summary>3. You turn the research assistant into a chat that holds long conversations. Which session pattern should the client use, and why not the get_tools default?</summary>
+
+Hold one session per conversation: `async with client.session("research_server") as session:` then `load_mcp_tools(session)`, for one process and one handshake. The `get_tools()` default opens a session per tool call, the costliest pattern: every start rebuilds the Ollama embeddings client, and `npx -y firecrawl-mcp` starts Node for every crawl. Log one stderr line at server start-up to count the starts.
+
+</details>
+
 ---
 *Previous: [40.5 RAG over MCP with LangChain](../05_rag_over_mcp_with_langchain/README.md). Next: [40.7 Deploying an MCP server on EC2](../07_deploying_an_mcp_server_on_ec2/README.md).*

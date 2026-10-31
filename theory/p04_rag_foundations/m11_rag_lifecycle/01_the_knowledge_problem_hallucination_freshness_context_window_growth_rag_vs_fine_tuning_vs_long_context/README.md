@@ -37,5 +37,28 @@ The three ways to give a model new knowledge solve different problems:
 
 Fine-tuning and RAG combine well: fine-tune for tone and format, retrieve for facts. M04 covers when fine-tuning is worth it.
 
+## Check yourself
+
+<details>
+<summary>1. A model trained before March 2026 answers the Larkspur refund-window question fluently. Why can you not trust that answer?</summary>
+
+Parametric knowledge stops at the training cut-off, and the refund policy changed in March 2026, so the answer may be stale. The model also cannot point to a source, so nobody can check it, and it produces fluent text even about what it never saw. RAG puts the current policy passage in the prompt, so the model answers from evidence it can quote.
+
+</details>
+
+<details>
+<summary>2. The refund window changes again next month. What does updating that fact take under RAG, fine-tuning and long context?</summary>
+
+With RAG you re-index one document. With fine-tuning you retrain. With long context you edit the prompt, but every call pays for the whole corpus in tokens.
+
+</details>
+
+<details>
+<summary>3. Larkspur wants answers in its house tone that also state current policy with citations. Which approach fits?</summary>
+
+Combine them: fine-tune for tone and format, retrieve for facts. Fine-tuning alone gives no citations and goes wrong when facts change after training; RAG cites per chunk and picks up a change with a re-index. M04 covers when fine-tuning is worth it.
+
+</details>
+
 ---
 *Previous: [M11 overview](../README.md). Next: [11.2 Indexing from scratch with TF-IDF and nearest neighbours](../02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md).*

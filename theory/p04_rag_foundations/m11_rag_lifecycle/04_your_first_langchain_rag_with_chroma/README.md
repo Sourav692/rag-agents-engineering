@@ -61,5 +61,28 @@ db = Chroma.from_texts(texts, embedding=embeddings_model,
 
 With cosine space, `similarity_search_with_score` returns `1 - cosine` (0.606 for `reboot`) and the relevance score is the cosine itself (0.394). The ranking does not change, and the same 0.2 threshold now returns `reboot`, `incidents` and `sla`. The metric is fixed when the collection is created; changing it means building a new collection (M15).
 
+## Check yourself
+
+<details>
+<summary>1. Chroma's default metric is squared L2 distance. Why does it rank unit-length vectors in the same order as cosine?</summary>
+
+For vectors of length 1, `distance = 2 - 2 × cosine`, so a higher cosine always means a lower distance. The order is the same; only the direction of the numbers flips, so lower scores from `similarity_search_with_score` mean closer chunks.
+
+</details>
+
+<details>
+<summary>2. You run the from_texts cell twice on the 12 Larkspur chunks. What does the refund question's top three look like, and how do you prevent it?</summary>
+
+The default `langchain` collection now holds 24 entries, and `refund-timing` comes back twice in the top three. Pass `ids=` so a re-run overwrites the same entries, or give each experiment its own collection.
+
+</details>
+
+<details>
+<summary>3. A retriever with score_threshold 0.2 returns nothing for the outage question, though its top three chunks have cosine above 0.25. Why, and what is the fix?</summary>
+
+The relevance score converts L2 distance with `1 - distance / √2`, which assumes a range the distances do not keep to: `reboot` gets 0.143 and the `sla` evidence chunk -0.051. Create the collection with `collection_metadata={"hnsw:space": "cosine"}`, so the relevance score is the cosine itself and the same threshold returns `reboot`, `incidents` and `sla`. The metric is fixed at creation, so this means a new collection (M15).
+
+</details>
+
 ---
 *Previous: [11.3 Semantic retrieval with embedding similarity](../03_semantic_retrieval_with_embedding_similarity/README.md). Next: [11.5 The RAG lifecycle and a measured baseline](../05_the_rag_lifecycle_and_a_measured_baseline/README.md).*

@@ -44,5 +44,28 @@ sequenceDiagram
 
 Lazy loading keeps memory flat for a million-record source, and the first vectors reach the index while the loader is still reading. A failure part-way through only loses the current batch, as long as you record a checkpoint (the last id or `updated_at` written).
 
+## Check yourself
+
+<details>
+<summary>1. With lazy loading, why do the first vectors reach the index before the loader has finished reading the source?</summary>
+
+`lazy_load()` is a generator that yields one Document at a time. The indexer splits each one, adds it to a batch, and sends each batch of 100 chunks to be embedded and upserted while the loader keeps reading. With `load()`, nothing else runs until the whole corpus sits in memory as a list.
+
+</details>
+
+<details>
+<summary>2. The TicketLoader ingests a million tickets and crashes part-way through. How much work is lost, and what lets you resume?</summary>
+
+Only the current batch, as long as you record a checkpoint: the last id or `updated_at` written. The loader takes a `since` argument and passes it to the paginated API, so a restart can begin from the checkpoint instead of the first ticket.
+
+</details>
+
+<details>
+<summary>3. A teammate writes a custom loader that overrides load and builds a list of every record. Which method should they implement instead?</summary>
+
+`lazy_load()`, as a generator. `BaseLoader` derives `load()` from `lazy_load()`, so the generator gives them both methods. A list keeps the whole corpus in memory, which a million-record source cannot afford, and nothing reaches the index until it is complete.
+
+</details>
+
 ---
 *Previous: [12.5 Web, YouTube and arXiv sources; bulk directory loading](../05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md). Next: [M12 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

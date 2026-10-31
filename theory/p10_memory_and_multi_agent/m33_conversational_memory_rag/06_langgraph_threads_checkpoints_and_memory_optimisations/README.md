@@ -71,5 +71,28 @@ flowchart TD
 
 For agents built with `create_agent`, LangChain 1.x ships the summary strategy as `SummarizationMiddleware`. M34 adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.
 
+## Check yourself
+
+<details>
+<summary>1. The sliding-window and trim-on-read graphs both send the model the last three messages. What differs between them, and when does it matter?</summary>
+
+The sliding window deletes: a `truncate` node returns `RemoveMessage` ids and the `add_messages` reducer removes them from checkpointed state. Trim on read hides: it trims a copy for the model, and the thread still holds all 12 messages. Pick trim on read when you need the full thread for audit or replay.
+
+</details>
+
+<details>
+<summary>2. How many checkpoints does a one-node chat graph write per turn, and why more than one?</summary>
+
+Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn, so the notebook's tool-calling agent writes about 5. `get_state_history(config)` walks them newest first for replay, forking and debugging.
+
+</details>
+
+<details>
+<summary>3. A summary graph runs its folds, yet each turn starts with an empty summary. What is the likely cause?</summary>
+
+The app passes `{"summary": ""}` on every turn. The `summary` channel has no reducer, so any value written to it replaces the old one and wipes the memory being built. Pass the empty summary only on the first turn.
+
+</details>
+
 ---
 *Previous: [33.4 Conversational RAG with history-aware retrieval](../04_conversational_rag_with_history_aware_retrieval/README.md). Next: [M33 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

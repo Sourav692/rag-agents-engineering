@@ -48,5 +48,28 @@ The [interactive lab](interactive/server-config-lab.html) runs the notebook's me
 
 A reference server's definitions are text the model reads, written by someone else. The fetch server's description says: “Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access.” Read what a server tells your model before you connect it, and pin its version (`@modelcontextprotocol/server-filesystem@2.1.0`, `mcp-server-fetch@2026.10.28`) so an update cannot change that text unseen.
 
+## Check yourself
+
+<details>
+<summary>1. The 04a chatbot fills two structures as it connects to each server. What does each one do?</summary>
+
+`available_tools` holds every tool definition and goes to the model on every request. `tool_to_session` maps each tool name to the session of the server that offers it, so `process_query` knows where to send a call. One tells the model what exists; the other routes the call.
+
+</details>
+
+<details>
+<summary>2. With filesystem, research and fetch connected, how much tool text reaches the model before the user's question, and which server dominates it?</summary>
+
+17 definitions, 10,107 characters, about 2,527 tokens, on every call. The filesystem server's 14 tools are 8,072 characters, 80% of the total. Adding the Larkspur retriever as a fourth server would add one tool and 417 characters.
+
+</details>
+
+<details>
+<summary>3. You add a second filesystem server rooted at the handbook folder, and reading research_server.py now fails with ENOENT. What went wrong?</summary>
+
+`tool_to_session` is a dict, so the second server's 14 tool names overwrote the first server's routes. The model receives 32 definitions for 18 names, and every filesystem call now reaches the handbook server, where `research_server.py` does not exist. Tool names must be unique across servers.
+
+</details>
+
 ---
 *Previous: [38.3 Building an MCP client](../03_building_an_mcp_client/README.md). Next: [38.5 Prompts and resources](../05_prompts_and_resources/README.md).*

@@ -70,5 +70,28 @@ The three misroutes fail for different reasons:
 
 A floor removes the misroutes that have no signal, cheaply. Confident misroutes need a better classifier (embeddings, an LLM, or several example tickets per route) and a labelled routing set to find them, since the router's own score cannot.
 
+## Check yourself
+
+<details>
+<summary>1. Why can the query-type classifier crash on a label such as factual, while the knowledge-base classifier never returns a label the code cannot handle?</summary>
+
+The knowledge-base classifier's field is a `Literal['Technical', 'Billing', 'General']`, so the parsed output can only be one of those three strings. The query-type classifier's field is a plain `str` used to index a dictionary of strategies, so `factual` or `Factual query` raises a `KeyError`. With a `Literal`, the structured-output parser rejects the value instead.
+
+</details>
+
+<details>
+<summary>2. The outage-compensation ticket scores 0.416 for technical, the same as a genuine restart ticket. Can a confidence floor catch this misroute?</summary>
+
+Not without heavy cost. Once stop words are removed both tickets reduce to "server", so they score the same and no floor separates them; catching it at 0.42 sends 8 correct tickets to the fallback too. Confident misroutes need a better classifier and a labelled routing set, since the router's own score cannot find them.
+
+</details>
+
+<details>
+<summary>3. Under load, two requests sometimes retrieve from each other's knowledge base. What in the notebook causes this, and what is the fix?</summary>
+
+`retrieve_knowledge_base_content` writes the filter onto the shared retriever's `search_kwargs`, so concurrent requests overwrite each other's filter. Pass the filter per call instead, with `kbase_search.invoke(query, filter={"category": category})`, which `VectorStoreRetriever` merges over its defaults.
+
+</details>
+
 ---
 *Previous: [M30 overview](../README.md). Next: [30.2 Customer-facing routing with sentiment and human escalation](../02_customer_facing_routing_with_sentiment_and_human_escalation/README.md).*

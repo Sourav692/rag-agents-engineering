@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -432,6 +437,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>If you must send many, put the strongest at the edges.</strong> LangChain&rsquo;s <code>LongContextReorder</code> document transformer places the highest-ranked documents at the start and the end and the weakest in the middle. The M19 notebooks do not use it; reranking and a small cut usually make it unnecessary.</li>
 </ul>
 <p>The notebook&rsquo;s own list of when to rerank makes the same point from the other side: when only the top 3 chunks are used, or when the context window is limited and needs the best documents.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can no reranker fix an answer whose evidence is not among the 50 first-stage candidates?</summary>
+<p>A reranker reorders; it cannot fetch. The top 5 after reranking is a subset of the top 50 before it, so recall@5 after the rerank can never exceed recall@50 before it. If <code>retention</code> is missing from the candidates for the export question, the fix belongs in stage 1: hybrid search (M17) or query rewriting (M18).</p>
+</details>
+<details>
+<summary>2. The outage question's two SLA chunks sit at stage-1 ranks 9 and 11. What is precision@5 without a reranker, and with the bge reranker at k = 20 and k = 10?</summary>
+<p>0.20 with no reranker. At <code>k = 20</code> the bge reranker lifts the SLA chunks to ranks 3 and 2 and precision@5 rises to 0.60, for about 623 ms of CPU time. At <code>k = 10</code> one SLA chunk is outside the candidates, so precision@5 stops at 0.40.</p>
+</details>
+<details>
+<summary>3. Stage 1 sends 20 chunks for the export question, retention lands at position 11, and the answer ignores it. Why, and what should change?</summary>
+<p>Models use passages near the start or end of the context most reliably and the middle least, so position 11 of 20 is where evidence gets lost. Send fewer chunks, in rank order with the best first. If you must send many, put the strongest at the edges, as <code>LongContextReorder</code> does.</p>
+</details>
 <h2 id="bi-encoder-vs-cross-encoder">Bi-encoder vs cross-encoder</h2>
 <p class="lesson-of">Lesson 19.2: Cross-encoder reranking in a RAG chain. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m19_reranking_post_retrieval/notebooks/02a_cross_encoder_reranking.ipynb" target="_blank" rel="noopener"><code>02a_cross_encoder_reranking.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m19_reranking_post_retrieval/optional/02b_reranking_cross_encoder_walkthrough.ipynb" target="_blank" rel="noopener"><code>02b_reranking_cross_encoder_walkthrough.ipynb</code></a> (optional)</p>
 <p>Both models read text with a transformer encoder. They differ in what goes into the encoder together.</p>
@@ -501,6 +519,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><code>02b</code>&rsquo;s chain version returns all 10 reranked chunks, so it reorders without narrowing. Slice the sorted list to the top few, as its earlier cell does with <code>[0:2]</code>.</li>
 </ul>
 <p>Cross-encoder scores rank the candidates for one question. Nothing guarantees that a score means the same thing across questions or across models. The 19.6 notebook notes that Cohere&rsquo;s reranker returns values &ldquo;very close to 0 or 1&rdquo; and spreads them with a beta transform before using them. Before you set a fixed score threshold, check its distribution on your golden set.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. For the export question, why can a cross-encoder separate the retention chunk from the cancel chunk when a bi-encoder may not?</summary>
+<p>A bi-encoder summarises each chunk into one vector before any question exists, and that vector serves every question, so <code>cancel</code> can sit as close to the question as <code>retention</code>. A cross-encoder reads the question and one chunk as a single input, every question token attending to every chunk token, so it can tell that only <code>retention</code> says what happens to the data.</p>
+</details>
+<details>
+<summary>2. Notebook 02b's rerank step is slow on every question and passes all 10 chunks to the model. What two changes fix it?</summary>
+<p>Load the <code>CrossEncoder</code> once at start-up instead of inside <code>rerank_documents</code>, where it loads again on every question. Then slice the sorted list to the top few, as the earlier cell does with <code>[0:2]</code>, so the step narrows as well as reorders.</p>
+</details>
+<details>
+<summary>3. You plan to drop every chunk whose cross-encoder score falls below a fixed threshold. What must you check first?</summary>
+<p>The score distribution on your golden set. Cross-encoder scores rank the candidates for one question; nothing guarantees a score means the same thing across questions or models. The 19.6 notebook finds Cohere&rsquo;s scores bunched very close to 0 or 1 and spreads them with a beta transform before using them.</p>
+</details>
 <h2 id="llm-reranker-or-cross-encoder">LLM reranker or cross-encoder</h2>
 <p class="lesson-of">Lesson 19.3: LLM reranking vs cross-encoder reranking. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m19_reranking_post_retrieval/notebooks/03a_reranking_methods.ipynb" target="_blank" rel="noopener"><code>03a_reranking_methods.ipynb</code></a></p>
 <p>An LLM can rerank in two ways, and this module shows both. Lesson 19.1&rsquo;s notebook is <strong>listwise</strong>: one prompt holds all eight numbered candidates and asks for &ldquo;comma-separated document indices&rdquo; from most to least relevant. This lesson&rsquo;s notebook is <strong>pointwise</strong>: <code>rerank_documents</code> asks <code>gpt-4o</code> (temperature 0) to rate one document &ldquo;on a scale of 1-10&rdquo;, reads the number through structured output (<code>RatingScore.relevance_score</code>), repeats for every candidate, then sorts and keeps <code>top_n=3</code>. The same notebook&rsquo;s <code>CrossEncoderRetriever</code> retrieves 10 and keeps 5 after one <code>predict</code> call over the 10 pairs with <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>.</p>
@@ -554,6 +585,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>The notebook&rsquo;s last example builds a corpus of five chunks to show why reranking helps. Three are short sentences that repeat the question&rsquo;s words without naming the city (&ldquo;The capital of France is great.&rdquo;), and two are longer passages about visiting Paris. <code>compare_rag_techniques</code> prints the top 2 by plain similarity next to the top 2 from the LLM reranker. The notebook does not save its outputs, so run it to see which chunks each method picks.</p>
 <p>For Larkspur&rsquo;s support assistant the choice comes down to traffic and stakes. A cross-encoder runs locally with no per-call fee and no parsing step to fail, so it is the default second stage. An LLM reranker earns its cost on low-volume, high-stakes questions where it can follow an instruction a cross-encoder cannot, such as &ldquo;prefer the current policy over the archived one&rdquo;. A middle path is to let the cross-encoder cut 50 to 10 and the LLM order the last 10. Whichever you pick, compare them on golden-set precision@5 and p95 latency together.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How do the listwise and pointwise LLM rerankers differ in calls per question and in what the model sees?</summary>
+<p>Listwise (19.1) makes one call holding every numbered candidate, so the model sees them all and returns an order as text to parse. Pointwise (19.3) makes one call per candidate, 15 in the example and up to 30 in <code>CustomRetriever</code>, and the model rates each chunk from 1 to 10 without seeing the others.</p>
+</details>
+<details>
+<summary>2. The pointwise reranker scores 15 candidates in whole numbers from 1 to 10. What happens to the ranking, and why does it matter?</summary>
+<p>There must be ties, since 15 candidates share 10 possible scores. Python&rsquo;s sort is stable, so tied chunks keep their stage-1 order, and the reranker decides less of the final order than it appears to.</p>
+</details>
+<details>
+<summary>3. Which reranker should Larkspur's support assistant use by default, and when does an LLM reranker earn its cost?</summary>
+<p>A cross-encoder by default: it runs locally, has no per-call fee and no parsing step to fail. An LLM reranker earns its cost on low-volume, high-stakes questions that need an instruction such as &ldquo;prefer the current policy over the archived one&rdquo;. A middle path lets the cross-encoder cut 50 to 10 and the LLM order those 10; compare on precision@5 and p95 latency together.</p>
+</details>
 <h2 id="context-budget">Context budget</h2>
 <p class="lesson-of">Lesson 19.4: Contextual compression. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m19_reranking_post_retrieval/notebooks/04a_contextual_compression.ipynb" target="_blank" rel="noopener"><code>04a_contextual_compression.ipynb</code></a></p>
 <p>The context budget is the share of each prompt that retrieved text may take. Four things set it: the model&rsquo;s context window, the cost of input tokens, the latency of reading them, and the position effect from 19.1, which makes a long context less reliable than a short one. Every step after retrieval either saves from that budget or spends it:</p>
@@ -610,6 +654,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Whichever compressor fills the slot, its output is what the prompt receives. The retriever and the chain stay the same.</p>
 <p>Compression has the same risk as M13&rsquo;s propositions: an LLM sits between the source and the prompt. On the Larkspur <code>refund-window</code> chunk, an extractor that keeps &ldquo;An annual plan can get a full refund within 30 days of purchase&rdquo; and drops &ldquo;if the account used less than 100 GB of outbound traffic&rdquo; produces a confident wrong answer. Check compressed context for faithfulness on the golden set, and keep each chunk&rsquo;s id so the citation points at the full source text.</p>
 <p>Filtering has a simpler failure. The optional <code>02b</code> notebook&rsquo;s <code>evaluate_documents</code> asks <code>gpt-4o-mini</code> whether each chunk suits the question and keeps it only if the reply equals the string <code>"True"</code> exactly. A reply of <code>"True."</code> drops the chunk. Ask for structured output, as 19.3&rsquo;s pointwise reranker does, instead of matching text.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why do the saving and spending steps after retrieval have to be planned together?</summary>
+<p>They draw on one context budget, set by the context window, input-token cost, reading latency and the position effect. A pipeline that adds each hit&rsquo;s neighbours can afford it by keeping three chunks instead of five; one that compresses each chunk can keep more of them.</p>
+</details>
+<details>
+<summary>2. The extractor keeps "full refund within 30 days of purchase" from Larkspur's refund-window chunk and drops the 100 GB condition. What goes wrong, and what guards against it?</summary>
+<p>The model gives a confident wrong answer, because the condition that limits the refund never reaches the prompt. An LLM sits between the source and the prompt, so check compressed context for faithfulness on the golden set, and keep each chunk&rsquo;s id so the citation points at the full source text.</p>
+</details>
+<details>
+<summary>3. The optional 02b filter drops chunks that the model judged relevant. What is the likely cause?</summary>
+<p>It keeps a chunk only when the reply equals the string <code>"True"</code> exactly, so a reply of <code>"True."</code> drops it. Ask for structured output, as 19.3&rsquo;s pointwise reranker does, instead of matching text.</p>
+</details>
 <h2 id="enrichment-windows">Enrichment windows</h2>
 <p class="lesson-of">Lesson 19.5: Context enrichment windows. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m19_reranking_post_retrieval/notebooks/05a_context_enrichment_window.ipynb" target="_blank" rel="noopener"><code>05a_context_enrichment_window.ipynb</code></a></p>
 <p>Small chunks retrieve precisely and large chunks answer completely (M13). An enrichment window keeps both: index small chunks, and when one is retrieved, send it to the model together with the chunks on either side of it.</p>
@@ -652,6 +709,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Every chunk carries the whole document.</strong> The splitter stores the full text in each chunk&rsquo;s metadata under <code>text</code>, so the index holds one copy of the document per chunk.</li>
 <li><strong>Indexes restart per document.</strong> With more than one document, the key must include the document id, or a window can join the end of one file to the start of another. Two hits next to each other also produce overlapping windows; merge them, which is the problem 19.6 solves in general.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How long is a three-chunk window at a 250-character split with 20 of overlap, and why does a window add less when chunks overlap more?</summary>
+<p>710 characters: <code>2 × (250 - 20) + 250</code>. Neighbouring chunks start <code>chunk_size - chunk_overlap</code> characters apart, so more overlap means each neighbour adds less new text; at 400 with 200 overlap the window is 800 characters, only twice the chunk.</p>
+</details>
+<details>
+<summary>2. A 300-character split cuts Larkspur's refund rule across two chunks. How does an enrichment window repair the cut?</summary>
+<p>M13&rsquo;s 300-character split ends chunk 2 of the refund section at &ldquo;used less than&rdquo; and starts chunk 3 with the 100 GB condition. A window around chunk 2 sends chunks 1 to 3 together, so both halves of the rule reach the model while the index keeps its small, precise chunks.</p>
+</details>
+<details>
+<summary>3. Windows built with the notebook's helper repeat or lose text at the joins. What is the likely cause?</summary>
+<p>The <code>chunk_overlap</code> passed to <code>retrieve_with_context_overlap</code> differs from the overlap used to split. The helper takes it as its own argument and drops that many characters at each join, so a mismatch repeats or deletes text. The AI-history call works only because its default of 20 matches the split.</p>
+</details>
 <h2 id="relevant-segment-extraction">Relevant segment extraction</h2>
 <p class="lesson-of">Lesson 19.6: Relevant segment extraction. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p06_retrieval_quality/m19_reranking_post_retrieval/optional/06a_relevant_segment_extraction.ipynb" target="_blank" rel="noopener"><code>06a_relevant_segment_extraction.ipynb</code></a> (optional)</p>
 <p>An enrichment window (19.5) grows every hit by a fixed amount. Relevant segment extraction (RSE) lets the reranker&rsquo;s scores decide how much to send. It rests on one observation from the notebook: &ldquo;relevant chunks tend to be clustered within their original documents&rdquo;. RSE finds those clusters and sends each one as a single contiguous segment, in document order, including chunks between two relevant ones that the reranker scored low.</p>
@@ -705,6 +775,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>These are the authors&rsquo; numbers, not a measurement in this course. The notebook reports the context length as roughly equal in both configurations, so the gain does not come from sending more text.</p>
 <p>RSE spends the context budget (19.4) in a bounded way: at the notebook&rsquo;s settings, at most 30 chunks of 800 characters, 24,000 characters in all. For the Larkspur handbook the sections are short, so set <code>max_length</code> to a section&rsquo;s chunk count and the overall cap to what the generation prompt can hold.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How does relevant segment extraction decide how much context to send, where an enrichment window adds a fixed amount?</summary>
+<p>It subtracts a penalty (0.2 in the notebook) from each chunk&rsquo;s reranker value, so irrelevant chunks go negative, then finds the contiguous runs with the highest sum. Each run goes as one segment in document order, including low-scored chunks between relevant ones. On the Nike report the first segment is chunks 323 to 336, though only 7 of chunks 320 to 339 were marked relevant.</p>
+</details>
+<details>
+<summary>2. Five chunks have values of -0.2, -0.2, 0.4, 0.8 and -0.1. Which segment does the search return, and why does it stop there?</summary>
+<p>Chunks 2 to 3, with a value of 1.2. Extending to chunk 4 would subtract 0.1, and no other run of chunks has a positive sum, so no second segment clears <code>minimum_value=0.7</code> and the search stops after one.</p>
+</details>
+<details>
+<summary>3. The Larkspur handbook's sections are short. How should you set the segment length limits, and what do the notebook's settings cost?</summary>
+<p>Set <code>max_length</code> to a section&rsquo;s chunk count and the overall cap to what the generation prompt can hold. The notebook&rsquo;s <code>overall_max_length=30</code> chunks of 800 characters allows up to 24,000 characters of context, far more than a short handbook section needs.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_two_stage_retrieval_retrieve_wide_rerank_narrow/interactive/rerank-precision-lab.html"><strong>Rerank precision lab</strong></a>: open the file in a browser. It ranks a 100-chunk handbook with <code>all-MiniLM-L6-v2</code>, reranks with two real cross-encoders, and prints rerank latency measured on a laptop CPU.</p>
 <ul>
@@ -766,7 +849,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Send the model a few chunks, best first. Position in a long prompt changes how reliably the model uses a fact.</li>
 <li>Spend the context budget where the evidence is: compress noisy chunks, expand chunks whose answer crosses a boundary, and count both against the same token limit.</li>
 </ul></article>
-    <nav class="toc" aria-label="M19 sections"><details open><summary>In M19</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#recall50--precision5">Recall@50 → precision@5</a></li><li><a href="#lost-in-the-middle">Lost in the middle</a></li><li><a href="#bi-encoder-vs-cross-encoder">Bi-encoder vs cross-encoder</a></li><li><a href="#llm-reranker-or-cross-encoder">LLM reranker or cross-encoder</a></li><li><a href="#context-budget">Context budget</a></li><li><a href="#enrichment-windows">Enrichment windows</a></li><li><a href="#relevant-segment-extraction">Relevant segment extraction</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M19 sections"><details open><summary>In M19</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#recall50--precision5">Recall@50 → precision@5</a></li><li><a href="#lost-in-the-middle">Lost in the middle</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bi-encoder-vs-cross-encoder">Bi-encoder vs cross-encoder</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#llm-reranker-or-cross-encoder">LLM reranker or cross-encoder</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#context-budget">Context budget</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#enrichment-windows">Enrichment windows</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#relevant-segment-extraction">Relevant segment extraction</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

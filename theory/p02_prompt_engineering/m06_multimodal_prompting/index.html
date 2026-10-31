@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -338,6 +343,19 @@ response = gemini.generate_content([image1, image2, prompt])
 </tbody>
 </table></div>
 <p>Gemini accepts PDFs up to 50 MB or 1,000 pages. A request that sends files inline is capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it. Video goes in the same way, and Gemini samples it into frames itself; lesson 6.2 shows what that sampling decides.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the notebook upload the interview recording through the File API instead of sending it inline with each prompt?</summary>
+<p><code>genai.upload_file</code> uploads the file once and returns a handle that takes the image&rsquo;s place in the contents list, so one handle serves the chapters, transcript and summary prompts. Inline requests are capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it.</p>
+</details>
+<details>
+<summary>2. How many tokens does Gemini count for the 40-page Larkspur handbook as a PDF, and for a 10-minute support call as audio?</summary>
+<p>10,320 for the PDF, at 258 tokens per page. 19,200 for the call, at 32 tokens per second over 600 seconds.</p>
+</details>
+<details>
+<summary>3. You want the starter plan's included outbound traffic from a pricing-page screenshot. How do you build the prompt?</summary>
+<p>Send the screenshot first and the question last, say what the image holds, and add &ldquo;If the value is not printed on the page, say so.&rdquo; Ask one question per call: separate calls pay for the image again, but each answer is easier to grade.</p>
+</details>
 <h2 id="image-content-parts">Image content parts</h2>
 <p class="lesson-of">Lesson 6.2: Multimodal prompting with GPT-4o. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m06_multimodal_prompting/optional/02a_multimodal_openai_gpt_4o.ipynb" target="_blank" rel="noopener"><code>02a_multimodal_openai_gpt_4o.ipynb</code></a> (optional)</p>
 <p>In the Chat Completions API a user message&rsquo;s <code>content</code> can be a list of typed parts instead of a string. The notebook mixes one text part and one image part:</p>
@@ -523,6 +541,19 @@ while curr_frame &lt; total_frames - 1:
 </ul>
 <p>Gemini takes the video file itself and samples it at 1 frame per second by default; a custom <code>fps</code> can be set in the request. Its documentation warns that &ldquo;fast action sequences might lose detail due to the 1 FPS sampling rate&rdquo;. At 1 frame per second the lab&rsquo;s 1.2 s toast always gets a frame.</p>
 <p><code>process_video</code> has two sharp edges. <code>int(fps * seconds_per_frame)</code> truncates: at 29.97 fps and 3 s the step is 89 frames, so frames come every 2.97 s. And when <code>seconds_per_frame</code> is below one frame&rsquo;s duration the step is 0 and the <code>while</code> loop never ends; a stubbed run of the notebook&rsquo;s own function at 0.02 s and 30 fps confirms it. <code>max(1, round(fps * seconds_per_frame))</code> stops the hang and brings the 29.97 fps gap back to 3.003 s. The import <code>from moviepy.editor import VideoFileClip</code> needs moviepy 1.x, since moviepy 2 removed <code>moviepy.editor</code>; this repo pins <code>moviepy&lt;2</code> for that reason.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. When should an image part use a base64 data URL rather than a public https URL?</summary>
+<p>Use a data URL for private files, such as a Larkspur customer&rsquo;s console screenshot: the request carries the bytes, about a third larger after base64. A public URL keeps the request small, but OpenAI fetches the image itself, so it works only for images anyone can reach.</p>
+</details>
+<details>
+<summary>2. What does a 1920 by 1080 screenshot cost gpt-4o at detail high, and at detail low?</summary>
+<p>1,105 tokens at high: it fits within 2048 by 2048, its shortest side is scaled to 768 (giving 1365 by 768), and six 512-pixel tiles cost 85 + 6 × 170. At low it costs the base 85 tokens, 13 times less.</p>
+</details>
+<details>
+<summary>3. At the notebook's default 2-second gap, the lab's frames never show the Export ready toast. Why, and which gap guarantees it?</summary>
+<p>The toast lasts 1.2 s, shorter than the gap, so it can fall between two frames. Only a gap shorter than the shortest event guarantees a frame on it: 1 s in the lab, at 90 frames and 7,650 tokens at low detail. The 2.5 s gap catches it by luck and would miss it if the toast came 1.2 s later.</p>
+</details>
 <h2 id="questions-about-a-report-page">Questions about a report page</h2>
 <p class="lesson-of">Lesson 6.3: Exercise: financial report analysis. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m06_multimodal_prompting/exercises/03a_financial_report_analysis.ipynb" target="_blank" rel="noopener"><code>03a_financial_report_analysis.ipynb</code></a> (optional)</p>
 <p>The exercise sends two page images from ABN AMRO&rsquo;s third-quarter 2024 report to <code>gemini-2.5-flash</code>:</p>
@@ -574,6 +605,19 @@ while curr_frame &lt; total_frames - 1:
 <li><strong>Allow &ldquo;not on the page&rdquo;.</strong> A question whose answer is not printed should get that answer, not a guess from neighbouring figures.</li>
 </ul>
 <p>Sent to <code>gpt-4o</code> at <code>detail="high"</code>, each of the two images costs 765 tokens: 2 by 2 tiles of 512 pixels, after <code>Figure.png</code> is scaled to 768 by 950. The same method reads a Larkspur pricing page: extract each plan&rsquo;s printed figures first, then answer from the extracted list.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why should the prompt extract each value with its label, unit and period before answering the five questions?</summary>
+<p>Extraction before interpretation leaves a record you can check against the page. It also lets code test the extracted values, such as whether the balance sheet adds up, before any answer is built on them.</p>
+</details>
+<details>
+<summary>2. The model extracts total liabilities of 377,961 million and total equity of 25,810 million at 30 September 2024. What check do you run, and where?</summary>
+<p>Add them in code, not in the prompt: 377,961 + 25,810 = 403,771, the printed total assets. If the sum does not match, re-read the page or flag it for review; most misread digits in any of the three values show up here.</p>
+</details>
+<details>
+<summary>3. A question asks for a figure the two report pages do not print, and another chart has no value labels. How should each be handled?</summary>
+<p>The first should get the answer that the figure is not on the page, not a guess from neighbouring figures. For a chart without labels, ask for the axis range and an estimate, and grade the answer with a tolerance.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_multimodal_prompting_with_gpt_4o/interactive/frame-sampling-lab.html"><strong>Frame sampling</strong></a>: open the file in a browser. Start at the notebook&rsquo;s default gap of 2 s and find the step no frame lands on. Drop to 1 s to catch all eight steps and read what that costs, then try 2.5 s, which catches all eight by luck. Switch to high detail to see the same frames cost 13 times as much.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -630,7 +674,7 @@ while curr_frame &lt; total_frames - 1:
 <li>When you sample video yourself, set the gap below the shortest event you need to see, and check what that costs.</li>
 <li>Give the model a way out for unreadable input (<code>[NOT_EXTRACTED]</code>, &ldquo;not on the page&rdquo;) and grade answers on questions with known values.</li>
 </ul></article>
-    <nav class="toc" aria-label="M06 sections"><details open><summary>In M06</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#image-prompts">Image prompts</a></li><li><a href="#pdf-and-audio-input">PDF and audio input</a></li><li><a href="#image-content-parts">Image content parts</a></li><li><a href="#frame-sampling">Frame sampling</a></li><li><a href="#questions-about-a-report-page">Questions about a report page</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M06 sections"><details open><summary>In M06</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#image-prompts">Image prompts</a></li><li><a href="#pdf-and-audio-input">PDF and audio input</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#image-content-parts">Image content parts</a></li><li><a href="#frame-sampling">Frame sampling</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#questions-about-a-report-page">Questions about a report page</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

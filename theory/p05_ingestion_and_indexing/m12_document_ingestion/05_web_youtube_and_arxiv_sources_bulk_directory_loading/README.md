@@ -55,5 +55,28 @@ Remote sources fail more quietly than files, because the loader returns whatever
 
 **arXiv papers.** `ArxivLoader` downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost, so a citation can name the paper but not the page. `Published` holds the date of the latest version, not the first submission. `load_max_docs` defaults to 100, and `get_summaries_as_docs()` returns only the abstracts, which is often enough for a "find me papers about X" index and far cheaper to embed.
 
+## Check yourself
+
+<details>
+<summary>1. Why map every loader's metadata onto one schema right after loading, before splitting?</summary>
+
+Each loader writes its own keys with its own counting rules: `PyPDFLoader` counts `page` from 0, `CSVLoader` counts `row` from 0, `JSONLoader` counts `seq_num` from 1, and `ArxivLoader` sets no `source`. One mapping function gives every later stage one shape, with `page` always 1-based, `date` always ISO and `source` always something a reader can open. Dropping unset fields instead of storing `None` means a filter on `page` only ever meets numbers.
+
+</details>
+
+<details>
+<summary>2. A nightly DirectoryLoader job runs with silent errors turned on and reports success. How do you check that no file was skipped?</summary>
+
+Compare the number of files in the folder with the number of distinct `source` values in the loaded Documents. With `silent_errors=True` a file that fails to parse only shows up in the log. With the default `False`, the whole run stops at the first failure instead.
+
+</details>
+
+<details>
+<summary>3. A web crawl indexes a 404 error page, and a page that renders in the browser comes back almost empty. What causes each?</summary>
+
+`RecursiveUrlLoader` defaults to `check_response_status=False`, so error responses become Documents and get indexed; set it to `True`. The loader fetches HTML and does not run JavaScript, so a browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.
+
+</details>
+
 ---
 *Previous: [12.4 PDF and Word: parser comparison and element-level parsing](../04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md). Next: [12.6 Custom loaders with lazy loading](../06_custom_loaders_with_lazy_loading/README.md).*

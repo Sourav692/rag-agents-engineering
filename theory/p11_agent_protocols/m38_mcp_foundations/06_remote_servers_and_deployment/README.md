@@ -58,5 +58,28 @@ The lesson 9 project ships a `Dockerfile`: `python:3.11-slim`, `uv pip install -
 
 Before anyone outside can reach the server, it needs what a stdio server never did: authentication, because anyone who can reach the URL can call the tools; TLS; and logs of which client called what. The 1.30.0 `FastMCP` constructor takes `auth` settings and a `token_verifier` for the first. Notebook 06a's optional section deploys to Render, and its resources link Cloudflare's guide to remote MCP servers.
 
+## Check yourself
+
+<details>
+<summary>1. Why does a stateful Streamable HTTP server behind several replicas need sticky routing, while a stateless one does not?</summary>
+
+A stateful server remembers a client through the `mcp-session-id` header set on the `initialize` reply, so every request in that session must reach the replica that holds it. With `stateless_http=True` there is no session: any replica can answer, but the server cannot keep anything between calls.
+
+</details>
+
+<details>
+<summary>2. The lesson 9 Dockerfile runs fine with mcp 1.8.0, but with SDK 1.30.0 nothing outside the container reaches it. What changed, and what is the fix?</summary>
+
+The FastMCP default host. In 1.8.0 it is `0.0.0.0`, reachable through the container's mapped port; in 1.30.0 it is `127.0.0.1`, which only the container itself can reach. Set `host="0.0.0.0"` in the constructor and the server behaves the same under both.
+
+</details>
+
+<details>
+<summary>3. On a fresh deployment the folders resource says No topics found and extract_info fails with No such file or directory. What is wrong?</summary>
+
+The research server keeps papers in a `papers/` folder beside it, and a fresh copy has none; `extract_info` lists the folder without checking that it exists. A remote server needs storage that outlives the container, and tools that handle an empty start.
+
+</details>
+
 ---
 *Previous: [38.5 Prompts and resources](../05_prompts_and_resources/README.md). Next: [M38 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

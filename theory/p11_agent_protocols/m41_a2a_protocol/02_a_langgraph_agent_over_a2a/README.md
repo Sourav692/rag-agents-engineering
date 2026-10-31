@@ -67,5 +67,28 @@ flowchart LR
 
 The notebook builds the graph with `langgraph.prebuilt.create_react_agent`. The installed langgraph 1.2.18 marks it deprecated in favour of `langchain.agents.create_agent` ([M24](../../../p08_agent_foundations/m24_react_agents/README.md)); it still runs, and the executor would wrap either one the same way.
 
+## Check yourself
+
+<details>
+<summary>1. When should an A2A executor reply with a Task rather than a Message?</summary>
+
+When the work takes time, can fail halfway, or needs another turn from the caller. A Task can be polled by its `id` for as long as the task store keeps it, and it moves through states; a Message suits a one-shot answer, and `tasks/get` on it answers -32001.
+
+</details>
+
+<details>
+<summary>2. After the handbook agent's task reaches completed, the caller wants to ask a follow-up. Can it send the message with the same taskId?</summary>
+
+No. `completed` is terminal, and a message aimed at a terminal task gets error -32602, so the follow-up starts a new task in the same `contextId`. Only a task in an interrupted state, `input-required` or `auth-required`, continues with the same `taskId`.
+
+</details>
+
+<details>
+<summary>3. With the index not loaded, a message/send caller gets error -32603 carrying the raw exception text and no task id. What causes this, and what is better?</summary>
+
+Notebook 41.2's executor sets the task to `failed` and then re-raises, which turns the failure into a JSON-RPC error. Set `failed` and return without re-raising: the caller gets a Task in state `failed`, handles it like any other result, and the raw exception text stays out of a reply that may go to another team's agent.
+
+</details>
+
 ---
 *Previous: [41.1 A2A basics: Agent Cards, tasks, messages](../01_a2a_basics_agent_cards_tasks_messages/README.md). Next: [41.3 Cross-framework agent interop](../03_cross_framework_agent_interop/README.md).*

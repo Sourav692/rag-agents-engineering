@@ -38,5 +38,28 @@ Two details from the notebook:
 - **`streaming=True` on the model** makes the provider send tokens as they are generated, which `messages` mode then passes through.
 - **Checkpoints work the same.** The async graph is compiled with `MemorySaver`, and a second `ainvoke` on the same thread sees the first turn.
 
+## Check yourself
+
+<details>
+<summary>1. A RAG graph streamed in messages mode shows the grader's "yes relevant" before the answer. Why, and how do you stop it reaching the screen?</summary>
+
+`messages` mode streams tokens from every chat-model call inside every node, not only the one that writes the answer. Each chunk's metadata names its node, so filter on `metadata["langgraph_node"]` before you render.
+
+</details>
+
+<details>
+<summary>2. The Larkspur client shows progress labels and must show an approval card when the refund run pauses. Which stream mode fits, and how does it know to show the card?</summary>
+
+`updates`. Each chunk is `{node: what it returned}`, so it names the node that just finished; the low-risk refund yields 4 of them. When the run pauses, the last chunk is `{"__interrupt__": ...}`, which tells the client to show the approval card.
+
+</details>
+
+<details>
+<summary>3. A FastAPI chat endpoint calls invoke synchronously and slows down as conversations grow. What does making the nodes async change?</summary>
+
+A synchronous `invoke` holds its worker for the whole run, model calls included. An `async def` node gives the event loop back while it waits on the model or a tool, so the handler can serve other customers meanwhile. Async does not stream by itself; a chat endpoint usually wants `astream` with `messages` and `updates`.
+
+</details>
+
 ---
 *Previous: [10.3 Subgraphs](../03_subgraphs/README.md). Next: [10.5 Retry policies and bounded cycles](../05_retry_policies_and_bounded_cycles/README.md).*

@@ -29,5 +29,28 @@ Before LCEL, LangChain packaged each pattern as a class: `LLMChain` for prompt p
 
 The optional notebooks show more legacy classes: 04b builds `LLMChain` and `SimpleSequentialChain`, 04c adds `StructuredOutputParser`, 04d covers `SequentialChain` and the router class `MultiPromptChain` (whose LCEL form is lesson 8.3's `RunnableBranch`), and 04e rewrites `ConversationalRetrievalChain` as a rephrase pipe followed by a retrieval pipe.
 
+## Check yourself
+
+<details>
+<summary>1. A Larkspur service built with load_summarize_chain runs on 1.x and prints no warning when the chain is built. Why is that not proof it is safe?</summary>
+
+`load_summarize_chain` returns a deprecated `StuffDocumentsChain` and warns nothing at build time; the only warning comes from `.run()`, and it is about `.run()`, not the class. The code keeps working until 2.0 removes it, so audits should grep for imports from `langchain_classic` rather than wait for warnings.
+
+</details>
+
+<details>
+<summary>2. Callers read the result key from a RetrievalQA chain's output dict. What do they receive after you swap in the LCEL pipe?</summary>
+
+The answer string itself. `RetrievalQA` takes the key `query` and returns `result` in a dict, while the pipe takes a plain string and returns a string. Step 2 of the migration maps that output shape behind the same function so callers do not break.
+
+</details>
+
+<details>
+<summary>3. A legacy notebook pulls rlm/rag-prompt from the hub and raises a ValueError. Which of the three options should you take?</summary>
+
+Inline the prompt in `ChatPromptTemplate.from_messages`. It makes no network call and loads no untrusted object. The other two are `langsmith.Client().pull_prompt(..., dangerously_pull_public_prompt=True)`, which accepts the risk, and keeping `hub.pull`, which raises.
+
+</details>
+
 ---
 *Previous: [8.3 Branching, routing and merging chains](../03_branching_routing_and_merging_chains/README.md). Next: [8.5 Summarization: stuff, map-reduce, refine](../05_summarization_stuff_map_reduce_refine/README.md).*

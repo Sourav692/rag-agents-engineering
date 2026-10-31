@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -386,6 +391,19 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
 </ul>
 <figure class="lab-embed"><iframe src="01_state_graphs_and_reducers/interactive/reducer-lab.html" title="Reducers and the message list, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Reducers and the message list. <a href="01_state_graphs_and_reducers/interactive/reducer-lab.html">Open full screen</a></figcaption></figure>
 <p>Reducers matter again when nodes run in parallel. If two nodes in the same step write a key that has no reducer, LangGraph 1.2.18 raises <code>InvalidUpdateError: At key 'out': Can receive only one value per step</code>. The fan-out patterns in <a href="../../p08_agent_foundations/m25_agentic_workflow_patterns/index.html">M25</a> give such keys a reducer, usually <code>operator.add</code>.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does a reducer decide, and what happens to a key that has none?</summary>
+<p>A reducer decides what a node&rsquo;s write does to a key; LangGraph calls it as <code>function(current, update)</code>. Without one, the write replaces the value. In notebook 01a, three nodes write into a <code>str</code> key and the final state holds only <code>'Hello this is the final node'</code>; the customer&rsquo;s input is gone after the first node.</p>
+</details>
+<details>
+<summary>2. The state starts as count 5 and animals lion and tiger. A node returns count 1 and animals cat. What is the state with custom_increment on count and operator.add on animals?</summary>
+<p><code>{"count": 6, "animals": ["lion", "tiger", "cat"]}</code>. Each reducer combines the current value with the update. Without reducers the same write gives <code>{"count": 1, "animals": ["cat"]}</code>.</p>
+</details>
+<details>
+<summary>3. The Larkspur graph with operator.add on messages ends with 7 messages, the question four times. What went wrong, and what fixes it?</summary>
+<p>The nodes return the whole list, <code>state["messages"] + [msg]</code>, and <code>operator.add</code> concatenates that copy onto the original: 1, then 3, then 7 messages. Either have each node return only its new message, or use <code>add_messages</code>, which gives 3 either way because the copied messages carry ids and replace themselves.</p>
+</details>
 <h2 id="conditional-edges">Conditional edges</h2>
 <p class="lesson-of">Lesson 9.2: Conditional edges and LLM nodes. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/02a_Conditional_Routing.ipynb" target="_blank" rel="noopener"><code>02a_Conditional_Routing.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/02b_LLM_Powered_Chatbot.ipynb" target="_blank" rel="noopener"><code>02b_LLM_Powered_Chatbot.ipynb</code></a></p>
 <p>A normal edge always goes from A to B. A conditional edge calls a routing function after its source node finishes; the function reads the state and returns the name of the node to run next.</p>
@@ -430,6 +448,19 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
 <li><strong><code>stream_mode="values"</code>:</strong> the full state after each step, useful for watching a list grow, as in the M09 lab.</li>
 <li><strong><code>stream_mode="updates"</code>:</strong> only what each node returned, keyed by node name, such as <code>{"chatbot": {"messages": [...]}}</code>. It is smaller, and it names the node that made each change.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Notebook 02b's chatbot answers a first question, then gets "What did we discuss so far?" in a second invoke and cannot say. Why?</summary>
+<p>The graph keeps no memory between calls. Each <code>invoke</code> starts from the input you pass, so the second question reaches the model on its own and the first is gone. Notebook 01a works around it by passing the first run&rsquo;s messages plus the new one; M10 replaces that with a checkpointer that saves state per thread.</p>
+</details>
+<details>
+<summary>2. The Larkspur router gets "Can I export my data after I cancel my plan?" Which node answers it, and why?</summary>
+<p>The billing node, from the <code>cancel</code> page. The router checks the billing words first, and <code>cancel</code> and <code>plan</code> match before the technical rule sees <code>export</code> and <code>data</code>. Rule order decides the close calls, even when the question is really about data.</p>
+</details>
+<details>
+<summary>3. You leave the destination list out of the conditional edge, and a run whose router returns an unknown name ends with no error and no answer. What happened?</summary>
+<p>LangGraph 1.2.18 logged &ldquo;wrote to unknown channel branch:to:humid, ignoring it&rdquo; and ended the run, and the drawn graph shows no branches. With the destination list passed, the same route fails loudly with <code>KeyError: 'humid'</code>. Pass the list, and add a fallback route such as <code>human</code> so a router gap becomes a handoff.</p>
+</details>
 <h2 id="choosing-a-state-schema">Choosing a state schema</h2>
 <p class="lesson-of">Lesson 9.3: State schemas and validation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/03a_Different_Graph_States.ipynb" target="_blank" rel="noopener"><code>03a_Different_Graph_States.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/03b_Pydantic_State_Validation.ipynb" target="_blank" rel="noopener"><code>03b_Pydantic_State_Validation.ipynb</code></a></p>
 <p><code>StateGraph</code> accepts four kinds of schema, and notebook 03a runs the same two-node graph on each. The wiring, the nodes and the reducers (<code>Annotated[int, custom_add]</code>, <code>Annotated[list, add_messages]</code>) stay the same; the choice changes how nodes read the state and where a bad input is caught. Measured on LangGraph 1.2.18:</p>
@@ -483,6 +514,19 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
     D -- no --&gt; T["TypedDict"]
 </pre></figure>
 <p>For the Larkspur support graph the question arrives from a web widget, so the state schema itself is a Pydantic model: <code>question: str</code>, with <code>route</code> and <code>answer</code> given defaults. The check comes from the state schema. In LangGraph 1.2.18 a Pydantic <code>input_schema</code> on a <code>TypedDict</code> state lets <code>{"question": 123}</code> through to the first node, which fails with <code>TypeError</code>; with a Pydantic state the same input stops at <code>invoke</code> before any node runs. Lesson <a href="#">9.5</a> then narrows what the caller sends and receives. Validation costs a parse on every <code>invoke</code>, which is small next to one model call.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A graph with a TypedDict state receives a name of 123, and its node fails with a TypeError. Why did the schema not stop it?</summary>
+<p><code>TypedDict</code> annotations are hints for you and your editor; LangGraph checks no types, so the run starts and the node fails when it adds a string to the int. With a Pydantic <code>BaseModel</code> state, the same input raises <code>ValidationError</code> at <code>graph.invoke</code> and no node runs.</p>
+</details>
+<details>
+<summary>2. The Larkspur question arrives from a web widget. Why make the state schema itself Pydantic instead of adding a Pydantic input schema to a TypedDict state?</summary>
+<p>In LangGraph 1.2.18 the Pydantic <code>input_schema</code> on a <code>TypedDict</code> state lets <code>{"question": 123}</code> through to the first node, which fails with <code>TypeError</code>. The check comes from the state schema: with a Pydantic state the same input stops at <code>invoke</code> before any node runs.</p>
+</details>
+<details>
+<summary>3. A node in a Pydantic-state graph returns 5 for a str field, and the run finishes cleanly. How should Larkspur protect its structured answer?</summary>
+<p>Validate it in the node. Pydantic checks what comes in at <code>invoke</code>, not what nodes write, so the final state simply holds <code>5</code>. A node whose output matters builds its answer as a Pydantic model before returning it.</p>
+</details>
 <h2 id="node-signatures-and-runtime-context">Node signatures and runtime context</h2>
 <p class="lesson-of">Lesson 9.4: Nodes, runtime context and Command. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/04a_Node_Patterns.ipynb" target="_blank" rel="noopener"><code>04a_Node_Patterns.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/04b_Runtime_Context.ipynb" target="_blank" rel="noopener"><code>04b_Runtime_Context.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/04c_Command_Objects.ipynb" target="_blank" rel="noopener"><code>04c_Command_Objects.ipynb</code></a></p>
 <p>A node always receives the state first. It can ask for more by declaring a second parameter, and LangGraph passes it in:</p>
@@ -542,6 +586,19 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
 <li><strong><code>goto</code> adds to static edges.</strong> If the node also has <code>add_edge("check_temp_node", "success")</code>, a hot reading runs <code>warn_user</code> and <code>success</code> in the same step, and both write <code>final_action_performed</code>, so the run fails with <code>InvalidUpdateError: Can receive only one value per step</code>.</li>
 </ul>
 <p>Choose a conditional edge when routing is a pure read of state: the router is testable alone, and the graph lists every destination at build time. Choose <code>Command</code> when the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. The same object carries <code>resume</code> for a paused run in <a href="../m10_langgraph_runtime/index.html">M10</a> and <code>graph=Command.PARENT</code> for handoffs between agents in <a href="../../p10_memory_and_multi_agent/m35_multi_agent_architectures/index.html">M35</a>.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. When should a node return a Command instead of leaving the route to a conditional edge?</summary>
+<p>When the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. When routing is a pure read of state, a conditional edge is better: the router is testable alone and the graph lists every destination at build time.</p>
+</details>
+<details>
+<summary>2. Notebook 04c's check_temp_node also gets a static edge to success, and a reading of 95 arrives. What happens?</summary>
+<p>The run fails. A reading above 90 makes the node <code>goto</code> <code>warn_user</code>, and <code>goto</code> adds to static edges, so <code>warn_user</code> and <code>success</code> run in the same step. Both write <code>final_action_performed</code>, and LangGraph raises <code>InvalidUpdateError: Can receive only one value per step</code>.</p>
+</details>
+<details>
+<summary>3. A node reads user_agent from runtime context and fails with an AttributeError on NoneType. What went wrong?</summary>
+<p>The graph was invoked with no <code>context</code>. In LangGraph 1.2.18 a missing context fails when the node reads it, not when the graph starts. Pass it with <code>invoke(..., context={...})</code>, and include <code>user_agent</code>, which has no default; <code>context={}</code> raises <code>TypeError</code> for it.</p>
+</details>
 <h2 id="input-output-and-private-state">Input, output and private state</h2>
 <p class="lesson-of">Lesson 9.5: Input/output schemas and configuration. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m09_langgraph_core/notebooks/05a_Advanced_State.ipynb" target="_blank" rel="noopener"><code>05a_Advanced_State.ipynb</code></a></p>
 <p>With one schema, the caller sends and receives the graph&rsquo;s whole state. Notebook 05a&rsquo;s <code>ChatMessages</code> holds <code>question</code>, <code>answer</code> and <code>llm_calls</code>, a counter the node bumps on each call, and <code>invoke({"question": ...})</code> returns all three. The counter is bookkeeping, but every caller now sees it and may start to depend on it.</p>
@@ -588,6 +645,19 @@ StateGraph(state_schema=OverallState, input_schema=InputState, output_schema=Out
 </tbody>
 </table></div>
 <p>For Larkspur, the question, route and answer are state; the reply language and the conversation&rsquo;s <code>thread_id</code> go in config; the customer id and the database client go in runtime context (<a href="#">lesson 9.4</a>). Putting a client or a secret in state is the usual mistake: state is returned to the caller, and once <a href="../m10_langgraph_runtime/index.html">M10</a> adds a checkpointer, it is saved after every step. The <code>thread_id</code> in config is what that checkpointer uses to find a conversation&rsquo;s saved state.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why split a graph's state into input, private and output schemas when the nodes still read and write every key?</summary>
+<p>Because only what crosses the boundary changes. The caller sends the question and gets the answer, so bookkeeping such as <code>llm_calls</code> stays private and no caller starts to depend on it. For Larkspur, that leaves room to rename or add internal keys without breaking the web widget.</p>
+</details>
+<details>
+<summary>2. The Larkspur graph needs a reply language, a thread id, a customer id and a database client. Where does each one go?</summary>
+<p>The reply language and the <code>thread_id</code> go in <code>config["configurable"]</code>, as per-call settings. The customer id and the database client go in runtime context, as dependencies. Neither place is returned; state holds only the question, route and answer the graph works on.</p>
+</details>
+<details>
+<summary>3. A teammate puts the database client and a secret in state. Why is that a mistake, and why does it get worse once a checkpointer is added?</summary>
+<p>State is returned to the caller, so the client and the secret leave the graph with the answer. Once M10 adds a checkpointer, state is also saved after every step. Dependencies and secrets belong in runtime context, which is never returned.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_state_graphs_and_reducers/interactive/reducer-lab.html"><strong>Reducers and the message list</strong></a>: open the file in a browser. Keep the refund question and set the reducer to <em>None (overwrite)</em>: the question disappears after the first node and the billing node has nothing to answer. Switch to <em>operator.add</em> and let each node return the whole list: the state grows 1, 3, 7. Then pick <em>add_messages</em> with the same setting and watch it stay at 3. Last, try the export question and see the router send it to billing.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -644,7 +714,7 @@ StateGraph(state_schema=OverallState, input_schema=InputState, output_schema=Out
 <li>Use <code>Command</code> when a node must write and route together, and test that every <code>goto</code> names a real node.</li>
 <li>Validate input with a Pydantic state schema, narrow what callers send and receive with input and output schemas, and keep settings and dependencies out of state.</li>
 </ul></article>
-    <nav class="toc" aria-label="M09 sections"><details open><summary>In M09</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stategraph">StateGraph</a></li><li><a href="#reducers">Reducers</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#a-chat-model-inside-a-node">A chat model inside a node</a></li><li><a href="#choosing-a-state-schema">Choosing a state schema</a></li><li><a href="#node-signatures-and-runtime-context">Node signatures and runtime context</a></li><li><a href="#command">Command</a></li><li><a href="#input-output-and-private-state">Input, output and private state</a></li><li><a href="#config-context-or-state">Config, context or state</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M09 sections"><details open><summary>In M09</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stategraph">StateGraph</a></li><li><a href="#reducers">Reducers</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#a-chat-model-inside-a-node">A chat model inside a node</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-state-schema">Choosing a state schema</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#node-signatures-and-runtime-context">Node signatures and runtime context</a></li><li><a href="#command">Command</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#input-output-and-private-state">Input, output and private state</a></li><li><a href="#config-context-or-state">Config, context or state</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

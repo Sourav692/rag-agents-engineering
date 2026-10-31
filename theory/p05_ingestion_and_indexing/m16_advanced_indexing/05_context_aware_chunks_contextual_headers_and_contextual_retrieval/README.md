@@ -52,5 +52,28 @@ The post says the context is "usually 50-100 tokens" and is prepended "before em
 | Limit | Cannot say where in the document a chunk sits | The document must fit the model's context window |
 | Start here when | Chunks lose their subject (company, product, section) | Headers are not enough on the golden set |
 
+## Check yourself
+
+<details>
+<summary>1. Chunk 86 of the Nike report scores about 0.1 against Nike climate change impact without a header and 0.92 with one. Why?</summary>
+
+The chunk is about the effects of climate change but never says "Nike". The header prepends `Document Title: ...` to the chunk text, so the company name is part of what gets embedded and reranked.
+
+</details>
+
+<details>
+<summary>2. The Larkspur chunk about claiming credits within 30 days never says which credits. What header would you add, and where does it come from?</summary>
+
+The document title and the section path, "Outages and service credits". M13's `MarkdownHeaderTextSplitter` already puts the section path in metadata, and M12 keeps titles there, but metadata is not embedded until you copy it into the text. Use the same header-plus-chunk text in the reranker and show it to the LLM with each result.
+
+</details>
+
+<details>
+<summary>3. Headers are not enough on your golden set, so you consider contextual retrieval. What does it cost, and what limits it?</summary>
+
+One LLM call per chunk, each with the whole document in the prompt; Anthropic relies on prompt caching to bring this to $1.02 per million document tokens under its stated assumptions. The document must fit the model's context window, which is why notebook 05b contextualises only two of its twelve sample PDFs.
+
+</details>
+
 ---
 *Previous: [16.4 Question-side indexing: HyPE and document augmentation](../04_question_side_indexing_hype_and_document_augmentation/README.md). Next: [M16 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -117,5 +117,28 @@ flowchart LR
 
 Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or use `lock.acquire(timeout=5)` so a thread fails with a visible error instead of hanging.
 
+## Check yourself
+
+<details>
+<summary>1. Two threads each count to 100 million in pure Python. Why can they not use two cores, and what can?</summary>
+
+CPython's GIL lets one thread execute Python bytecode at a time, so threads overlap waiting but not pure-Python computation. Processes can, because each has its own interpreter and its own GIL (script 04, or a `ProcessPoolExecutor`). They cost more: a new interpreter per process, pickled arguments and no shared memory by default.
+
+</details>
+
+<details>
+<summary>2. The eight Larkspur calls run under Semaphore(4), but the code calls llm.invoke inside async def. What wall time do you expect, and what is the fix?</summary>
+
+About 11.0 s, the same as one call at a time. A call that never awaits holds the event loop until it returns, so the calls run one after another at any limit. Use the async method (`ainvoke`) or `await asyncio.to_thread(llm.invoke, question)`; with an async client, a limit of 4 gives 3.1 s.
+
+</details>
+
+<details>
+<summary>3. Eight coroutines under gather each add 1 to a shared spent total around an awaited model call, and spent ends at 1. What went wrong?</summary>
+
+Each coroutine read `spent` into `v`, awaited the model call, then wrote `v + cost`. All eight read 0 before any of them wrote, so every write was `0 + 1`. Do the update after the `await` in one line (`spent += cost`), or hold an `asyncio.Lock` around the read and the write.
+
+</details>
+
 ---
 *Previous: [1.4 Databases from Python: SQLite, MySQL, PostgreSQL](../04_databases_from_python_sqlite_mysql_postgresql/README.md). Next: [M01 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

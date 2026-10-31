@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -432,6 +437,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>For the Larkspur page, a summary of &ldquo;Refunds and cancellations&rdquo; is a sharp key for <em>What is your refund policy?</em>. For <em>How long do I have to get a full refund on an annual plan?</em> it depends on what the summariser kept. If the summary mentions the 30-day refund on annual plans, the question matches and the payload brings the 100 GB condition back with it. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match. Check a summary key on questions about details as well as questions about topics.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does a plain index struggle to use one text for both matching and answering?</summary>
+<p>The two jobs pull in opposite directions. Matching works best on short, focused text, because one vector has to stand for the whole entry; answering works best on complete text, because the model can only use what it reads. Multi-representation indexing gives each job its own text: a search key that is embedded and a payload that is returned.</p>
+</details>
+<details>
+<summary>2. In notebook 01a, what do a similarity search on the vector store and a call to the retriever return for the question What is LangSmith?</summary>
+<p><code>vectorstore.similarity_search</code> returns a summary, because the Chroma collection holds only summary embeddings. <code>retriever.invoke</code> returns the full post that summary points to: the <code>MultiVectorRetriever</code> reads the <code>doc_id</code> in the summary&rsquo;s metadata and fetches the document from the <code>InMemoryByteStore</code>.</p>
+</details>
+<details>
+<summary>3. A summary key matches the question about the refund policy but misses the one about a full refund on an annual plan. What went wrong?</summary>
+<p>The summariser left the detail out. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match, even though the payload holds the answer. Check a summary key on questions about details as well as questions about topics.</p>
+</details>
 <h2 id="docstore">Docstore</h2>
 <p class="lesson-of">Lesson 16.2: Parent-document retrieval, in memory and on Postgres. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/notebooks/02a_parent_document_retrieval.ipynb" target="_blank" rel="noopener"><code>02a_parent_document_retrieval.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/optional/02b_parent_document_retriever_postgres.ipynb" target="_blank" rel="noopener"><code>02b_parent_document_retriever_postgres.ipynb</code></a> (optional)</p>
 <p>Parent-document retrieval splits along size instead of meaning. Small <strong>child</strong> chunks are the search keys; the larger <strong>parent</strong> each child was cut from is the payload. The vector store holds the children. The <strong>docstore</strong> holds the parents, keyed by id, and each child carries its parent&rsquo;s id in its metadata (<code>doc_id</code> by default).</p>
@@ -518,6 +536,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>A parent no larger than its child is plain chunking.</strong> At 400 / 400 each parent yields one child identical to itself, and the two columns match.</li>
 </ul>
 <p>Across the 217 settings where parents are larger than children, the children alone contain the whole answer in 394 of the 651 question and setting pairs; their parents contain it in 613. Size the child near the length of the evidence your questions need (the refund sentence is 141 characters) and the parent near a section, then check on the golden set that no parent boundary cuts an answer.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. At query time, how does the parent-document retriever turn matching children into the text the model reads?</summary>
+<p>It runs a similarity search over the children, collects their parent ids in rank order without repeats, fetches those parents with <code>docstore.mget</code>, and drops any id the docstore does not return. Children from one parent therefore return it once: at 200 / 800 both outage matches come from the same parent, and the model reads it once.</p>
+</details>
+<details>
+<summary>2. At child size 150 and parent size 600, what does the model get for the refund question from the children alone, and what from their parents?</summary>
+<p>The best child ends at &ldquo;…as long as the account has used less&rdquo;, so sent alone it gives the 30-day rule without the 100 GB condition. Its parent holds the whole sentence. In the lab table the children answer 0 of 3 questions whole and the parents 3 of 3, at 53 against 206 tokens on average.</p>
+</details>
+<details>
+<summary>3. After a restart, the retriever returns nothing for questions it answered before, and raises no error. What happened?</summary>
+<p>The docstore was an <code>InMemoryStore</code>, which disappears when the process stops, while the vector store persisted the children. <code>invoke</code> drops parent ids the docstore does not return, so every hit vanishes silently. Persist both halves, as notebook 02b does with <code>PGVector</code> and a Postgres docstore, after checking its <code>mget</code> order, error handling and ids.</p>
+</details>
 <h2 id="top-down-search">Top-down search</h2>
 <p class="lesson-of">Lesson 16.3: Hierarchical indices: summary tier and detail tier. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/notebooks/03a_hierarchical_indices.ipynb" target="_blank" rel="noopener"><code>03a_hierarchical_indices.ipynb</code></a></p>
 <p>A hierarchical index has two tiers. The <strong>summary tier</strong> has one entry per page or section, and the <strong>detail tier</strong> has the ordinary chunks. Both carry the page number. A question first picks the best pages from the summary tier, then searches the detail tier only inside those pages.</p>
@@ -655,6 +686,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>The result size is a product.</strong> <code>k_summaries × k_chunks</code> is the number of chunks the model can receive, so changing either one changes the prompt budget.</li>
 </ul>
 <p>For the Larkspur handbook, each section (&ldquo;Refunds and cancellations&rdquo;, &ldquo;Outages and service credits&rdquo;, &ldquo;Data export and retention&rdquo;) would be one summary. <em>Do I get service credits automatically after an outage?</em> would pick the outage summary first and then compare only that section&rsquo;s chunks, so a refund chunk about &ldquo;Credits from SLA breaches&rdquo; cannot crowd it out.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. For the question about service credits after an outage, why can a refund chunk about credits from SLA breaches not crowd out the answer?</summary>
+<p>The question first picks the best section summaries, so the outage summary wins as a whole. The detail search then runs only inside the chosen pages, and chunks compete only with their neighbours. A chunk with matching words on an unrelated page never enters the result.</p>
+</details>
+<details>
+<summary>2. With 3 summaries and 5 chunks per summary, how many chunks can reach the model, and what happens if you raise the chunk count to 10?</summary>
+<p>Up to 15 chunks, because the result size is <code>k_summaries × k_chunks</code>. Raising <code>k_chunks</code> to 10 allows up to 30, so changing either number changes the prompt budget.</p>
+</details>
+<details>
+<summary>3. A chunk that would score well against the question never appears in the results. Which tier do you check first, and what should you log?</summary>
+<p>The summary tier. If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.</p>
+</details>
 <h2 id="hype">HyPE</h2>
 <p class="lesson-of">Lesson 16.4: Question-side indexing: HyPE and document augmentation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/notebooks/04a_hypothetical_prompt_embeddings.ipynb" target="_blank" rel="noopener"><code>04a_hypothetical_prompt_embeddings.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/optional/04b_document_augmentation.ipynb" target="_blank" rel="noopener"><code>04b_document_augmentation.ipynb</code></a> (optional)</p>
 <p>A question and the passage that answers it are written differently. <em>How long do I have to get a full refund on an annual plan?</em> is short and asks; the handbook sentence is long and states. Their embeddings sit apart even when the passage is the right one. <strong>HyPE</strong> (Hypothetical Prompt Embeddings) moves the work to index time: an LLM writes the questions each chunk answers, those questions are embedded as the chunk&rsquo;s search keys, and the chunk stays the payload. Retrieval becomes question-to-question matching.</p>
@@ -714,6 +758,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>The retriever returns the top 1 entry. Whether it is a fragment or a question, the notebook answers from <code>metadata["text"]</code>, the document of up to 4,000 words around it.</li>
 </ul>
 <p>So 04b is the payload pattern from 16.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects questions the LLM did not anticipate, and it pays for that with a larger index and a 4,000-word document as context for every answer.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What gap does HyPE close, and how does its cost differ from HyDE's?</summary>
+<p>A question and the passage that answers it are written differently, so their embeddings sit apart. HyPE has an LLM write the questions each chunk answers at index time and embeds those as the chunk&rsquo;s keys, so retrieval becomes question-to-question matching with no LLM call at query time. HyDE writes a hypothetical answer at query time, one LLM call on every request.</p>
+</details>
+<details>
+<summary>2. Notebook 04a retrieves the top 3 entries and then removes repeats with a set. Why are there repeats?</summary>
+<p>The FAISS store holds one entry per generated question, each carrying the full chunk text, so one chunk sits in the index once per question. Three question vectors from the same chunk return that chunk three times.</p>
+</details>
+<details>
+<summary>3. Users ask in ways the generated questions never anticipate. Which variant protects you, and what does it cost?</summary>
+<p>Document augmentation (04b), which keeps the original fragments searchable beside the generated questions in one index. A question the LLM did not foresee can still match a fragment. It pays with a larger index and a document of up to 4,000 words as context for every answer.</p>
+</details>
 <h2 id="contextual-chunk-headers">Contextual chunk headers</h2>
 <p class="lesson-of">Lesson 16.5: Context-aware chunks: contextual headers and contextual retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/notebooks/05a_contextual_chunk_headers.ipynb" target="_blank" rel="noopener"><code>05a_contextual_chunk_headers.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m16_advanced_indexing/notebooks/05b_contextual_retrieval_rag_system.ipynb" target="_blank" rel="noopener"><code>05b_contextual_retrieval_rag_system.ipynb</code></a></p>
 <p>Chunks lose their surroundings. A Larkspur chunk that reads &ldquo;The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident.&rdquo; never says which credits, and the section heading that would tell you, &ldquo;Outages and service credits&rdquo;, ended up in a different chunk. At child size 150 in the M16 lab, that heading becomes a 27-character child of its own and outscores the body text for the outage question, because it holds the question&rsquo;s words and nothing else.</p>
@@ -776,6 +833,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Chunk 86 of the Nike report scores about 0.1 against Nike climate change impact without a header and 0.92 with one. Why?</summary>
+<p>The chunk is about the effects of climate change but never says &ldquo;Nike&rdquo;. The header prepends <code>Document Title: ...</code> to the chunk text, so the company name is part of what gets embedded and reranked.</p>
+</details>
+<details>
+<summary>2. The Larkspur chunk about claiming credits within 30 days never says which credits. What header would you add, and where does it come from?</summary>
+<p>The document title and the section path, &ldquo;Outages and service credits&rdquo;. M13&rsquo;s <code>MarkdownHeaderTextSplitter</code> already puts the section path in metadata, and M12 keeps titles there, but metadata is not embedded until you copy it into the text. Use the same header-plus-chunk text in the reranker and show it to the LLM with each result.</p>
+</details>
+<details>
+<summary>3. Headers are not enough on your golden set, so you consider contextual retrieval. What does it cost, and what limits it?</summary>
+<p>One LLM call per chunk, each with the whole document in the prompt; Anthropic relies on prompt caching to bring this to $1.02 per million document tokens under its stated assumptions. The document must fit the model&rsquo;s context window, which is why notebook 05b contextualises only two of its twelve sample PDFs.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_parent_document_retrieval_in_memory_and_on_postgres/interactive/search-small-return-large-lab.html"><strong>Search small, return large</strong></a>: open the file in a browser. Start at <strong>150 and 600</strong> and read the table at the bottom: children alone find 0 of 3 answers, their parents find 3 of 3. Then pick the outage question and click <strong>150 and 400</strong> to watch the parent boundary cut the answer, and <strong>400 and the whole page</strong> to see every question cost 546 tokens.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -832,7 +902,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Treat the docstore as production storage: persistent, keyed by stable ids, updated and deleted together with the vector index.</li>
 <li>Keys written by an LLM (summaries, questions, context) are paid for at index time and can omit facts. Measure them against the plain index before you pay for them on every document.</li>
 </ul></article>
-    <nav class="toc" aria-label="M16 sections"><details open><summary>In M16</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-key-vs-payload">Search key vs payload</a></li><li><a href="#docstore">Docstore</a></li><li><a href="#choosing-child-and-parent-sizes">Choosing child and parent sizes</a></li><li><a href="#top-down-search">Top-down search</a></li><li><a href="#hype">HyPE</a></li><li><a href="#document-augmentation">Document augmentation</a></li><li><a href="#contextual-chunk-headers">Contextual chunk headers</a></li><li><a href="#contextual-retrieval">Contextual retrieval</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M16 sections"><details open><summary>In M16</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-key-vs-payload">Search key vs payload</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#docstore">Docstore</a></li><li><a href="#choosing-child-and-parent-sizes">Choosing child and parent sizes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-down-search">Top-down search</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hype">HyPE</a></li><li><a href="#document-augmentation">Document augmentation</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#contextual-chunk-headers">Contextual chunk headers</a></li><li><a href="#contextual-retrieval">Contextual retrieval</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

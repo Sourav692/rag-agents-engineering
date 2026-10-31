@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -424,6 +429,19 @@ th:last-child, td:last-child { padding-right: 0; }
     S2 --&gt; CAP
 </pre></figure>
 <p>Run a size-based splitter after the structural one, because one long section can still exceed your limit. Use the header metadata in two places. Filter on it at query time (&ldquo;only the Refunds section&rdquo;), and prepend it to the chunk text so the embedding knows which section a sentence came from; M16 calls that a contextual chunk header.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. At chunk size 300, an overlap of 100 leaves the refund answer cut, but an overlap of 150 keeps it whole. Why?</summary>
+<p>Overlap only rescues a piece that fits inside it. At 300/100 the part of the answer left in chunk 2 is longer than 100 characters, so it is still cut. At 300/150 it fits, and chunk 3 holds the whole answer, at the cost of storing 26% more text (1.26× the source).</p>
+</details>
+<details>
+<summary>2. You split the refund section at chunk size 1200 with no overlap. Does the answer survive, and what does it cost?</summary>
+<p>The answer survives, because the whole section becomes one chunk, but it is only 13% of that chunk. The other 87% is about monthly plans, refund timing and credits, and the chunk&rsquo;s embedding averages all of it while the model reads all of it. Bigger chunks keep facts whole and dilute them.</p>
+</details>
+<details>
+<summary>3. Your handbook is Markdown, and after splitting on headers one section is still longer than your limit. What do you do, and how do you use the header metadata?</summary>
+<p>Run a size-based splitter such as <code>RecursiveCharacterTextSplitter</code> after the structural one, so the long section is capped. Use the header metadata twice: filter on it at query time (&ldquo;only the Refunds section&rdquo;), and prepend it to the chunk text so the embedding knows which section a sentence came from. M16 calls that a contextual chunk header.</p>
+</details>
 <h2 id="breakpoint-threshold">Breakpoint threshold</h2>
 <p class="lesson-of">Lesson 13.2: Semantic chunking: breakpoints on embedding distance. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/notebooks/02a_semantic_chunking.ipynb" target="_blank" rel="noopener"><code>02a_semantic_chunking.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/optional/02b_semantic_chunking_walkthrough.ipynb" target="_blank" rel="noopener"><code>02b_semantic_chunking_walkthrough.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/optional/02c_semantic_chunking_rag_techniques.ipynb" target="_blank" rel="noopener"><code>02c_semantic_chunking_rag_techniques.ipynb</code></a> (optional)</p>
 <p>Semantic chunking cuts on meaning instead of length:</p>
@@ -480,6 +498,19 @@ th:last-child, td:last-child { padding-right: 0; }
     T -- yes --&gt; CUT[Start a new chunk]
     T -- no --&gt; KEEP[Same chunk]
 </pre></figure>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A topic drifts slowly across five sentences. Why does semantic chunking never cut there?</summary>
+<p>The distance compares sentence i with sentence i + 1 only, so a gradual drift never produces one large distance to clear the threshold. The <code>gradient</code> threshold helps somewhat. Read the chunks before you trust the boundaries.</p>
+</details>
+<details>
+<summary>2. The 13-sentence refund section has three real topic changes, yet the default percentile threshold cuts only once. Why, and what changes that?</summary>
+<p>A 13-sentence section has 12 distances, and only the largest clears their 95th percentile. Lowering the amount to 75 cuts at all three topic changes. Every threshold type is computed from the document&rsquo;s own distances, so a value tuned on one corpus does not transfer to another.</p>
+</details>
+<details>
+<summary>3. The standard deviation threshold returns a short document as one chunk. Is that a bug, and what should you add after the chunker?</summary>
+<p>Not necessarily: on a short text no distance is 3 standard deviations above the mean, and one chunk is correct for a document about one thing. But it leaves chunk size unbounded. Cap chunk size afterwards, because semantic chunks can grow past the embedding model&rsquo;s limit.</p>
+</details>
 <h2 id="propositions">Propositions</h2>
 <p class="lesson-of">Lesson 13.3: Proposition chunking with LLM quality checks. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/notebooks/03a_proposition_chunking.ipynb" target="_blank" rel="noopener"><code>03a_proposition_chunking.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/optional/03b_proposition_chunking_rag_techniques.ipynb" target="_blank" rel="noopener"><code>03b_proposition_chunking_rag_techniques.ipynb</code></a> (optional)</p>
 <p>A proposition is one fact written so it stands alone. It has to be:</p>
@@ -503,6 +534,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>Grade every proposition against its source chunk before indexing it. A splitter can only cut text, while an LLM can merge two facts, drop a qualifier (&ldquo;less than 100 GB&rdquo; disappears) or state something the source only implied. The mandatory notebook&rsquo;s grader returns three yes-or-no checks through structured output (supported by the source with nothing added, self-contained, atomic) plus a short issue note, and keeps only propositions that pass all three. The optional <code>03b</code> notebook scores accuracy, clarity, completeness and conciseness from 1 to 10 and drops anything under 7 on any of them. In the notebook the grader is the same model as the generator, so it shares its blind spots and can pass a proposition it should reject. Treat it as a filter for obvious damage; independent verification needs a different model or a human. Keep the source chunk id in metadata so you can show the original text at answer time.</p>
 <p>Cost decides where propositions are worth it: one LLM call per source chunk to generate, about one more to grade, and usually several times as many vectors. Use them for dense, high-value text (policies, specs, medical or legal facts) where a missed qualifier is expensive, not for a whole document lake.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What two properties make a proposition, and why does each matter once it is retrieved alone?</summary>
+<p>It is atomic, holding one claim, and self-contained, with no unresolved references. &ldquo;It takes 5 to 10 business days&rdquo; means nothing when retrieved alone, while &ldquo;A Larkspur Cloud refund takes 5 to 10 business days to appear&rdquo; does. Because each proposition names its own subject and condition, a question can match one and the retriever can return a related one beside it.</p>
+</details>
+<details>
+<summary>2. A generated proposition reads: Annual plans can be refunded within 30 days and refunds take 5 to 10 business days. Which grader check fails, and what happens to it?</summary>
+<p>The atomic check fails, because the sentence makes two claims. The mandatory notebook&rsquo;s grader keeps only propositions that pass all three checks (supported by the source, self-contained, atomic), so this one is dropped or regenerated.</p>
+</details>
+<details>
+<summary>3. Your team plans to turn its whole document lake into propositions, graded by the same model that writes them. What two concerns do you raise?</summary>
+<p>Cost: one LLM call per source chunk to generate, about one more to grade, and usually several times as many vectors, so keep propositions for dense, high-value text such as policies and specs. Grading: a grader that is the same model shares the generator&rsquo;s blind spots and can pass a proposition it should reject. Treat it as a filter for obvious damage, and use a different model or a human for independent verification.</p>
+</details>
 <h2 id="choosing-chunk-size">Choosing chunk size</h2>
 <p class="lesson-of">Lesson 13.4: Choosing chunk size empirically: retrieval quality, faithfulness, latency. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/notebooks/04a_choosing_chunk_size.ipynb" target="_blank" rel="noopener"><code>04a_choosing_chunk_size.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p05_ingestion_and_indexing/m13_chunking/optional/04b_choose_chunk_size_llamaindex.ipynb" target="_blank" rel="noopener"><code>04b_choose_chunk_size_llamaindex.ipynb</code></a> (optional)</p>
 <p>No chunk size is right in general. It depends on how dense the facts are, how specific the questions are, the embedding model, the document&rsquo;s structure, and <code>k</code> with the token budget, since <code>chunk_size × k</code> has to fit the prompt. The notebook replaces the habit of copying 1000/200 or 512/50 with a procedure:</p>
@@ -566,6 +610,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the chunk-size sweep score each setting with a margin as well as hit at k?</summary>
+<p><code>hit@k</code> saturates at 1.0, and after that it cannot tell settings apart. The margin, how much closer the best correct chunk is to the question than the best wrong one, keeps separating them.</p>
+</details>
+<details>
+<summary>2. Three sizes land within 3% of the best margin, and the winner changes when you re-score them on random halves of the labelled set. Which size do you pick?</summary>
+<p>The cheapest of the three. Taking the plateau rather than the peak already points there, and a winner that changes between halves means the sizes are indistinguishable at this sample size. Cost is what separates them: tokens per query are <code>chunk_size × k</code>, paid on every request.</p>
+</details>
+<details>
+<summary>3. You must chunk long prose reports that shift topic often and carry no markup. Which strategy fits, and what do you watch for?</summary>
+<p>Semantic chunking, which puts boundaries where the embedding distance jumps. It costs one embedding per sentence at index time. Watch its relative threshold and its unbounded chunk size.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_splitter_fundamentals_character_recursive_token_and_structure_aware/interactive/chunk-size-overlap-lab.html"><strong>Chunk size and overlap</strong></a>: open the file in a browser. Click <strong>300 and 0</strong> to see the refund answer cut after &ldquo;used less than&rdquo;, then <strong>300 and 150</strong> to watch overlap carry it whole into chunk 3, and <strong>1200 and 0</strong> to see the answer shrink to 13% of its chunk.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -622,7 +679,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Semantic thresholds come from each document&rsquo;s own distances and do not transfer between corpora; propositions need a grading pass; structural boundaries come first when the document has them.</li>
 <li>Choose chunk size by sweeping it on your golden set against the M11 baseline. If no size wins on both precision and completeness, index small and return large (M16).</li>
 </ul></article>
-    <nav class="toc" aria-label="M13 sections"><details open><summary>In M13</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chunk-size-and-overlap">Chunk size and overlap</a></li><li><a href="#structure-aware-splitting">Structure-aware splitting</a></li><li><a href="#breakpoint-threshold">Breakpoint threshold</a></li><li><a href="#propositions">Propositions</a></li><li><a href="#choosing-chunk-size">Choosing chunk size</a></li><li><a href="#choosing-a-strategy">Choosing a strategy</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M13 sections"><details open><summary>In M13</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chunk-size-and-overlap">Chunk size and overlap</a></li><li><a href="#structure-aware-splitting">Structure-aware splitting</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#breakpoint-threshold">Breakpoint threshold</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#propositions">Propositions</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-chunk-size">Choosing chunk size</a></li><li><a href="#choosing-a-strategy">Choosing a strategy</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -68,5 +68,28 @@ Pages cost more than chunks in three places:
 
 Use page images where layout carries the meaning or there is no text layer: scans, slides, forms, dense tables. Text-heavy documents with a few charts are cheaper to serve with captions ([lesson 21.2](../02_caption_then_index_with_a_vision_llm/README.md)).
 
+## Check yourself
+
+<details>
+<summary>1. How does MaxSim score a page, and what does it keep that one vector per page would lose?</summary>
+
+Each query token finds the page vector it matches best, and the page score is the sum of those best matches. One vector per page would pool every signal before the question is known; late interaction keeps one vector per token or patch and compares them only at the end. Pages are still encoded ahead of time, unlike a cross-encoder.
+
+</details>
+
+<details>
+<summary>2. For the availability question, the token month scores 0.65 on page 1 and 0.61 on page 2. Which tokens separate the pages, and what are the final scores?</summary>
+
+`availability` and `target`: each scores 0.75 or 0.65 on page 1 and nothing better than 0.28 elsewhere. The MaxSim scores are 15.95 for page 1, 9.74 for page 2 and 6.82 for page 3. The 10 appended `<end_of_utterance>` tokens count in the sum like any other.
+
+</details>
+
+<details>
+<summary>3. Your corpus is text-heavy reports with a few charts. Should you index page images with ColPali?</summary>
+
+Probably not; captions are cheaper there. Pages cost more in storage (1,139 vectors of 128 dimensions, about 583 KB per page in float32), in generation (each hit sends a whole page image, so `k` stays small) and in granularity (a citation can point only to the page). Use page images where layout carries the meaning or there is no text layer: scans, slides, forms, dense tables.
+
+</details>
+
 ---
 *Previous: [21.2 Caption-then-index with a vision LLM](../02_caption_then_index_with_a_vision_llm/README.md). Next: [M21 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

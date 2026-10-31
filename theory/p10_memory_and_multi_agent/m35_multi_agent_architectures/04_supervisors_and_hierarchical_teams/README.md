@@ -62,5 +62,28 @@ Test each team on its own before you assemble the hierarchy; a team that misbeha
 
 Larkspur's three specialists do not need a hierarchy. Put billing and data in an accounts team with its own lead and operations in a platform team, and the outage request costs 7 model calls, 5 of them routing, against 5 for a flat supervisor. A hierarchy starts to pay when the flat supervisor's prompt has to describe so many specialists that its routing accuracy drops; measure that before adding the layer.
 
+## Check yourself
+
+<details>
+<summary>1. Why does route_to_agent check specialist_calls before it reads the supervisor's decision?</summary>
+
+So the cap holds whatever the model chooses: once `specialist_calls` reaches `MAX_SPECIALIST_CALLS = 6`, the run goes to `finalize`. `recursion_limit = 25` is only a backstop and ends a run with an error; the counter ends it with a result. The `operator.add` reducer sums each specialist's `specialist_calls: 1`, so the count never depends on message text.
+
+</details>
+
+<details>
+<summary>2. For Larkspur's outage request (operations, then billing), how many model calls does a flat supervisor make, and how many does a two-team hierarchy make?</summary>
+
+The flat supervisor makes 5, 3 of them routing. Splitting into an accounts team and a platform team raises it to 7, 5 of them routing. Larkspur's three specialists do not need the hierarchy; it pays only when the flat supervisor's routing accuracy drops with too many specialists.
+
+</details>
+
+<details>
+<summary>3. A developer adds a turn counter with an adding reducer to TeamState, and the CEO's count comes out too high. What went wrong?</summary>
+
+A team hands its whole final state back to the parent, so a counter in the shared contract is added a second time on the way up. Keep counters at their own level, as `ceo_turns` in `CEOState` and `content_turns` in `ContentState`, outside `TeamState`.
+
+</details>
+
 ---
 *Previous: [35.3 Supervisor workflow with human review](../03_supervisor_workflow_with_human_review/README.md). Next: [35.5 Handoffs and swarms](../05_handoffs_and_swarms/README.md).*

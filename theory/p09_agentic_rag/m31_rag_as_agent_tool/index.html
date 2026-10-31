@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -448,6 +453,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>What it returns:</strong> handbook passages as plain text, so the model knows what it will get back and that it must quote it.</li>
 </ul>
 <p>Every description is sent with every call, so each added word costs tokens on every turn of every conversation. Treat the descriptions as a retrieval setting: keep a routing golden set of questions with the tool each one should use, score each change against it and against held-out questions, and add the misses you find in production traces.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does letting the model decide when to retrieve gain over a fixed classifier, and what does it give up?</summary>
+<p>It handles small talk with no retrieval, rewrites a follow-up into a better query, and searches again when the first chunks miss. It gives up a decision you control in code: a model that answers a refund question without calling <code>handbook_search</code> answers from its training data, with nothing to cite.</p>
+</details>
+<details>
+<summary>2. With the specific descriptions, the question about Hetzner's price for a 4 GB server goes to the handbook tool. Why, and what fixes it?</summary>
+<p>&ldquo;server&rdquo; appears only in the handbook description, and neither description says which tool owns other providers&rsquo; prices, so the router guessed. State where each tool stops: Larkspur&rsquo;s own prices and policies belong to <code>handbook_search</code>, other providers&rsquo; prices to <code>web_search</code>.</p>
+</details>
+<details>
+<summary>3. The tuned descriptions route 19 of 20 golden questions because they copy words from those questions. What else must you check before trusting them?</summary>
+<p>The held-out questions, where they reach 4 of 5 and still give the Node.js question no tool, and the cost: 133 tokens on every model call against 84. Keep a routing golden set and held-out questions, score each description change against both, and add misses from production traces.</p>
+</details>
 <h2 id="managed-rag">Managed RAG</h2>
 <p class="lesson-of">Lesson 31.2: Managed RAG platforms: Contextual AI. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m31_rag_as_agent_tool/optional/02a_agentic_rag_contextual_ai.ipynb" target="_blank" rel="noopener"><code>02a_agentic_rag_contextual_ai.ipynb</code></a> (optional)</p>
 <p>Lesson 31.1 assembles retrieval from parts you run yourself: an embedding model, a Chroma collection, a retriever and a prompt. A managed RAG platform runs those parts as a service. You upload documents to a datastore, create an agent over it, and send questions to one endpoint. The notebook does this with Contextual AI&rsquo;s Python SDK (<code>from contextual import ContextualAI</code>) over four PDFs, two of them quarterly revenue slides.</p>
@@ -525,6 +543,19 @@ def handbook_search(query: str) -&gt; str:
 <li><strong>Your documents leave your infrastructure.</strong> Check data residency, access control on each datastore, and how a deleted document leaves the index.</li>
 <li><strong>You measure it the same way.</strong> Run the M11 golden set through the platform agent and compare the row with your own pipeline&rsquo;s. A managed platform is one more change to test against the baseline.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What do you trade when you replace your own retrieval pipeline with a managed RAG platform?</summary>
+<p>You run fewer parts, since parsing, chunking, reranking and grounded generation come configured. You control fewer settings, such as chunk size, the embedding model and <code>k</code>, and your documents leave your infrastructure, so check residency, access control and deletion. You measure it the same way, by running the M11 golden set through it.</p>
+</details>
+<details>
+<summary>2. After a Larkspur policy change, the index holds an old and a new version of the same rule. How would the instruction-following reranker handle it?</summary>
+<p>Pass each passage&rsquo;s date and source in <code>metadata</code> and an instruction such as &ldquo;Prefer the current handbook over archived handbook versions and community forum posts&rdquo;. The reranker then orders passages by relevance and by that instruction, so the current rule ranks above the archived one.</p>
+</details>
+<details>
+<summary>3. Which behaviour of the grounded language model should a support agent test first?</summary>
+<p>The refusal path. A question the handbook does not answer should get &ldquo;I don&rsquo;t have that information&rdquo;, not a plausible policy. The notebook tests it by asking a quantum-computing question against renewable-energy passages.</p>
+</details>
 <h2 id="chat-ui">Chat UI</h2>
 <p class="lesson-of">Lesson 31.3: Exercise: LlamaIndex Wikipedia agent with Chainlit. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m31_rag_as_agent_tool/optional/03a_llamaindex_wikipedia_agent/README.md" target="_blank" rel="noopener"><code>03a_llamaindex_wikipedia_agent</code></a> (optional)</p>
 <p>The exercise builds the 31.1 pattern in LlamaIndex and puts it behind a chat window. A ReAct agent gets one tool, a <code>QueryEngineTool</code> over a vector index of Wikipedia pages, and Chainlit serves the conversation. The two scaffolds, <code>chat_agent.py.txt</code> and <code>index_wikipages.py.txt</code>, have <code># REPLACE THIS WITH YOUR CODE</code> gaps to fill; copy each to its <code>.py</code> name first and install the <code>llamaindex</code> dependency group.</p>
@@ -579,6 +610,19 @@ def handbook_search(query: str) -&gt; str:
 <li><strong>Users can see the tool calls.</strong> Chainlit shows the agent&rsquo;s intermediate steps in the chat. The scaffold&rsquo;s <code>config.toml</code> was generated by Chainlit 0.7.0 and turns this on with <code>hide_cot = false</code>. Chainlit 2.x, which this course installs, reads its settings from <code>.chainlit/config.toml</code> and uses <code>cot = "full"</code>, <code>"tool_call"</code> or <code>"hidden"</code> instead, with <code>"full"</code> as the default. For Larkspur&rsquo;s support chat, a visible step per <code>handbook_search</code> call lets a support lead check the answer against what was retrieved.</li>
 </ul>
 <p>The same three events host the Larkspur agent from lesson 31.1: build the agent per session in <code>on_chat_start</code>, run it in <code>on_message</code>, and stream its tool calls as steps.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does keeping the index and agent in module globals break the Chainlit app as soon as two people use it?</summary>
+<p>Chainlit serves every connected user from one Python process, so the second user to save settings replaces the first user&rsquo;s index and agent. Store them per session with <code>cl.user_session.set("agent", agent)</code> and read them back with <code>cl.user_session.get("agent")</code>.</p>
+</details>
+<details>
+<summary>2. A user indexes the Wikipedia pages on London, Barcelona and Paris. What tool description should that session's agent get?</summary>
+<p>One built from the user&rsquo;s settings, such as &ldquo;Wikipedia articles on London, Barcelona and Paris&rdquo;, passed through <code>ToolMetadata</code> on the <code>QueryEngineTool</code>. A fixed description such as &ldquo;Wikipedia pages&rdquo; tells the agent nothing about what this session&rsquo;s index holds.</p>
+</details>
+<details>
+<summary>3. You keep the scaffold's setting that shows the agent's intermediate steps, but under the Chainlit version the course installs nothing changes. Why?</summary>
+<p>The scaffold&rsquo;s <code>config.toml</code> was generated by Chainlit 0.7.0 and uses <code>hide_cot = false</code>. Chainlit 2.x reads <code>.chainlit/config.toml</code> and uses <code>cot = "full"</code>, <code>"tool_call"</code> or <code>"hidden"</code> instead, with <code>"full"</code> as the default.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_rag_as_a_tool_inside_a_langgraph_agent/interactive/tool-routing-lab.html"><strong>Tool descriptions and routing</strong></a>: open the file in a browser. Start on <strong>Names only</strong> and see all sixteen handbook and web questions get no tool. Switch to <strong>Specific</strong> and find the one question sent to the wrong tool, then add the word &ldquo;refund&rdquo; to the <code>handbook_search</code> description and watch <em>How long does a refund take?</em> move and the score reach 16 of 20. Finish on <strong>Tuned</strong> and compare its golden-set score with its held-out score.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -635,7 +679,7 @@ def handbook_search(query: str) -&gt; str:
 <li>Tune descriptions against a routing golden set and score them on held-out questions too, as you would any retrieval setting.</li>
 <li>A managed platform or a chat UI changes what sits behind or in front of the tool, not the loop. Keep the tool&rsquo;s name, description and arguments stable across both.</li>
 </ul></article>
-    <nav class="toc" aria-label="M31 sections"><details open><summary>In M31</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-decided-retrieval">Agent-decided retrieval</a></li><li><a href="#tool-descriptions">Tool descriptions</a></li><li><a href="#managed-rag">Managed RAG</a></li><li><a href="#chat-ui">Chat UI</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M31 sections"><details open><summary>In M31</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-decided-retrieval">Agent-decided retrieval</a></li><li><a href="#tool-descriptions">Tool descriptions</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#managed-rag">Managed RAG</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chat-ui">Chat UI</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

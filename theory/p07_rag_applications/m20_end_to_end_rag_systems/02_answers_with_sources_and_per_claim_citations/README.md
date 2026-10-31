@@ -92,5 +92,28 @@ On the refund chunk, the verbatim quote above passes, the same quote broken acro
 
 One bug to fix when you reuse the notebook: `cite_response_chain` passes `itemgetter('context')` straight into the prompt, so the model reads the Python repr of a list of Documents (`[Document(metadata={...}, page_content='...')]`). Run it through `format_docs_with_metadata`, as the answer chain does, so both calls see the same text.
 
+## Check yourself
+
+<details>
+<summary>1. Why does notebook 02a build its chain with RunnablePassthrough.assign instead of formatting the documents away?</summary>
+
+The output then holds `context` (the five Documents), `question` and `response`. The retriever runs once, so the chunks the user sees are the chunks the model read. That gives source attribution at the answer level: a list of sources the reader can check.
+
+</details>
+
+<details>
+<summary>2. The model cites the refund chunk with the quote Annual plans are fully refundable for 30 days. Does the quote check accept it, and what do you do?</summary>
+
+No. The check normalises whitespace and looks for the quote inside the chunk text, and this paraphrase is not there; a verbatim quote, even broken across lines, would pass. Drop or flag the citation, and track the failure rate as a production metric.
+
+</details>
+
+<details>
+<summary>3. Your product must tie each sentence of the answer to its supporting quote. Is the QuotedCitations schema enough?</summary>
+
+No. It is a flat list per answer, and nothing ties a citation to the sentence it supports. Add a `claim: str` field holding the answer sentence, or have the answer call emit numbered markers that the citations reference. The citations also come after the answer, so they show it can be justified, not that the model used them.
+
+</details>
+
 ---
 *Previous: [20.1 Environment setup and a complete RAG system](../01_environment_setup_and_a_complete_rag_system/README.md). Next: [20.3 Explainable retrieval](../03_explainable_retrieval/README.md).*

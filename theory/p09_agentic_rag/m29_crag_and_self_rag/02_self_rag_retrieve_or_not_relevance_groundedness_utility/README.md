@@ -52,5 +52,28 @@ Two details in 02a decide what the check catches.
 
 The paper's three support levels are worth keeping when you build this yourself. 02b ranks candidate answers by "fully supported" first and utility second (`max(responses, key=lambda x: (x[1] == 'fully supported', x[2]))`), which a yes or no grade cannot do.
 
+## Check yourself
+
+<details>
+<summary>1. How do the notebooks' reflection tokens differ from the ones in the Self-RAG paper?</summary>
+
+In the paper one trained model emits the tokens from its vocabulary, in the same decoding pass as the answer. Neither notebook trains a model: each judgment is a separate LLM call with a structured-output schema. So "reflection token" here means one more call that returns a label.
+
+</details>
+
+<details>
+<summary>2. On the starter-plan price question at k equal to 5, no chunk is ever relevant. How many LLM calls does Self-RAG make, and where do they go?</summary>
+
+Twenty: 1 retrieve decision, 15 relevance grades over three passes, 2 rewrites, 1 generation and 1 utility grade. The groundedness check makes no call, because with no documents it returns `"yes"` without running. The export question stops after one pass in 9 calls.
+
+</details>
+
+<details>
+<summary>3. With a groundedness grader that always says no, the graph regenerates until LangGraph raises a recursion error, despite its iteration cap. Why?</summary>
+
+`route_after_groundedness` writes `state["iteration"]` inside the routing function, and LangGraph keeps only what nodes return, so the counter never moves. With `recursion_limit = 200` that was 98 regenerations and 200 LLM calls. Count in a node instead: have `generate` return the new `iteration`, or add a small `regenerate` node.
+
+</details>
+
 ---
 *Previous: [29.1 Corrective RAG in LangGraph with web-search fallback](../01_corrective_rag_in_langgraph_with_web_search_fallback/README.md). Next: [29.3 Trade-offs: when correction is worth the extra calls](../03_trade_offs_when_correction_is_worth_the_extra_calls/README.md).*

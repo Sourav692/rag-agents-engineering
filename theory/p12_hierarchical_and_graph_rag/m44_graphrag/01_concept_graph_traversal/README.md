@@ -30,5 +30,28 @@ An LLM saying “complete” is a stopping heuristic. For the cancellation quest
 
 For each query, log seed IDs, selected edges, retrieved source spans, context size and stopping reason. Compare against flat retrieval on the same golden questions. A longer traversal can increase work while leaving the answer's supporting evidence unchanged.
 
+## Check yourself
+
+<details>
+<summary>1. Two chunks have cosine similarity 0.85 and share 2 concepts, with 4 in the smaller concept set. What weight does their edge get, and what does that weight mean?</summary>
+
+The edge exists because 0.85 is above the `0.8` threshold, and its weight is 0.7 × 0.85 + 0.3 × 0.5 = 0.745. The weight combines two signals the notebook author chose; it is not a calibrated probability that either chunk proves the other. Treat the edge as a retrieval lead and read both passages.
+
+</details>
+
+<details>
+<summary>2. The traversal sets max_context_length=4000. Does that stop the context from growing past 4000?</summary>
+
+No. The traversal never checks that attribute, so it supplies no protection. Count the accumulated context with the answer model's tokenizer and stop before an explicit budget, and cap visited nodes and completeness-check calls separately.
+
+</details>
+
+<details>
+<summary>3. For the Larkspur cancellation question, the model's completeness check says the context is complete. How do you confirm that?</summary>
+
+An LLM saying "complete" is only a stopping heuristic. Check that the context holds the cancellation condition, the available export mechanism and the applicable retention condition. If the graph has no path to one of those passages, report the missing evidence; more context cannot create a relation absent from the index.
+
+</details>
+
 ---
 *Previous: [M44 overview](../README.md). Next: [44.2 Local GraphRAG with source attribution](../02_local_graphrag_with_source_attribution/README.md).*

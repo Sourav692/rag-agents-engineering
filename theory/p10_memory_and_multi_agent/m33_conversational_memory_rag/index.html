@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -426,6 +431,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>These classes live in <code>langchain_classic</code> now. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A customer gives their plan in one call and asks for it in the next. Why can a stateless chain not answer, and what fixes it?</summary>
+<p>A chat model call depends only on the messages sent in that call, so the second call receives the question and nothing else. A message history fixes it: append each <code>HumanMessage</code> and <code>AIMessage</code> to an ordered list and send the whole list on every turn, so the earlier turn travels with the new question.</p>
+</details>
+<details>
+<summary>2. A history that keeps everything runs a six-turn chat. How many messages does turn 6 send, and how many over all six turns?</summary>
+<p>Turn N sends 2N − 1 messages, so turn 6 sends 11, and the six turns send 1 + 3 + 5 + 7 + 9 + 11 = 36 messages. Six independent calls would send 6. Token cost and latency grow with the conversation, which is why lessons 33.3 and 33.6 bound the history.</p>
+</details>
+<details>
+<summary>3. A legacy chain using ConversationBufferMemory runs without errors, but every turn behaves as if the conversation just started. What is the likely bug?</summary>
+<p>The save step is missing from the load, invoke and save loop. The classic memory classes load the history before each call and save the exchange after it; skip the save and the next turn loads nothing. New code avoids the manual loop with the patterns in lessons 33.2 to 33.6.</p>
+</details>
 <h2 id="one-history-per-session">One history per session</h2>
 <p class="lesson-of">Lesson 33.2: RunnableWithMessageHistory, multi-user sessions and persistence. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/02a_runnable_with_message_history.ipynb" target="_blank" rel="noopener"><code>02a_runnable_with_message_history.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/02b_multi_user_sessions_and_persistence.ipynb" target="_blank" rel="noopener"><code>02b_multi_user_sessions_and_persistence.ipynb</code></a></p>
 <p><code>RunnableWithMessageHistory</code> does the load and save of lesson 33.1 around any runnable. You give it the chain and a factory, <code>get_session_history(session_id)</code>, that returns the history for one conversation. Every call then carries the id in its config:</p>
@@ -473,6 +491,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The notebook proves the database does the remembering. Run 1 stores a user&rsquo;s preferences through one chain and deletes the chain object; four rows sit in the <code>message_store</code> table. Run 2 builds a brand-new chain with no Python-side state, and it still answers <em>What&rsquo;s my name?</em> from those rows. Pass the database URL by keyword, <code>SQLChatMessageHistory(session_id=..., connection="sqlite:///x.db")</code>: the second positional argument is <code>table_name</code>, so the positional form creates no connection and fails only when invoked.</p>
 <p>SQLite is fine for one process. For a service with concurrent writers, use the same interface on Postgres or Redis. These classes come from <code>langchain-community</code>, and <code>RunnableWithMessageHistory</code> is deprecated in <code>langchain-core</code>; lesson 33.6 does the same job with a LangGraph checkpointer, which is where new code should go.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Two customers send interleaved turns to the same chain wrapped in RunnableWithMessageHistory. What keeps their conversations apart?</summary>
+<p>The <code>session_id</code> in each call&rsquo;s config. The wrapper passes it to <code>get_session_history(session_id)</code>, which returns that conversation&rsquo;s history, loads it before the call and saves the new messages after it. A new <code>session_id</code> starts empty, so each customer&rsquo;s summary sees only their own turns.</p>
+</details>
+<details>
+<summary>2. A notebook prototype keeps histories in a dict of InMemoryChatMessageHistory. It must now serve a web app and survive restarts. What do you change?</summary>
+<p>Only the factory: return <code>SQLChatMessageHistory</code> keyed by <code>session_id</code>, and the chain and wrapper stay the same. The in-memory store loses everything on restart. For a service with concurrent writers, use the same interface on Postgres or Redis rather than SQLite.</p>
+</details>
+<details>
+<summary>3. SQLChatMessageHistory(session_id, "sqlite:///x.db") builds without complaint but fails on the first invoke. What went wrong?</summary>
+<p>The second positional argument is <code>table_name</code>, not the connection, so this form creates no database connection and fails only when invoked. Pass the URL by keyword: <code>SQLChatMessageHistory(session_id=..., connection="sqlite:///x.db")</code>.</p>
+</details>
 <h2 id="summary-memory">Summary memory</h2>
 <p class="lesson-of">Lesson 33.3: Trimming, windowing and summary memory. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/03a_trimming_windowing_and_summary.ipynb" target="_blank" rel="noopener"><code>03a_trimming_windowing_and_summary.ipynb</code></a></p>
 <p>A history that keeps everything grows on every turn (lesson 33.1). The cheap ways to bound it, a window or a token trim, drop the oldest messages, and the oldest messages are often the ones that set the context: the customer&rsquo;s plan, their region, the account the ticket is about. <strong>Summary memory</strong> compresses those messages instead of dropping them. The prompt carries a short running summary of the older turns, written by a second LLM call, plus the most recent messages word for word.</p>
@@ -588,6 +619,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Wrap a trimming chain in <code>RunnableWithMessageHistory</code> and the store keeps the full history while the model sees the trimmed part. That split between what is stored and what is sent is the question lesson 33.6 asks of a LangGraph thread.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. On turn 5 of the Larkspur billing ticket, the customer asks for the plan they gave in turn 1. Why can summary memory answer when a two-exchange window cannot?</summary>
+<p>A window drops the oldest messages, so it holds only turns 3 and 4 and the plan is gone. Summary memory folds old exchanges into a running summary instead of dropping them, and turn 1&rsquo;s plan survives there. The model sees the summary, the last four messages and the question.</p>
+</details>
+<details>
+<summary>2. The notebook's eleven-message chat counts 80 tokens. With a 45-token trim_messages budget, what does the model keep, and can it say which ice cream Bob likes?</summary>
+<p>It keeps five messages (36 tokens): the system message and the last two exchanges. Bob&rsquo;s name and his vanilla ice cream fall outside the budget, so it cannot answer. Those counts depend on the token counter; another counter gives other cuts.</p>
+</details>
+<details>
+<summary>3. A team adds summary memory to a support bot whose chats rarely pass three turns, hoping to cut cost. Is that a good choice?</summary>
+<p>No. Each fold is an extra LLM call, so on a short chat summary memory is no cheaper than keeping everything, and it is lossy: exact wording does not survive and a summariser can drop a fact you needed. Keep everything while the chat fits the budget.</p>
+</details>
 <h2 id="history-aware-retriever">History-aware retriever</h2>
 <p class="lesson-of">Lesson 33.4: Conversational RAG with history-aware retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/04a_conversational_rag_with_history.ipynb" target="_blank" rel="noopener"><code>04a_conversational_rag_with_history.ipynb</code></a></p>
 <p>Lessons 33.1 to 33.3 gave the history to the model. In RAG the retriever reads the question too, and it reads only the literal text. <em>How long do I have?</em> contains one useful term, &ldquo;long&rdquo;, and no Larkspur handbook chunk contains it: every chunk scores zero. The model would receive the history, so it knows the customer means their data after cancelling, but the chunks it receives were chosen for a question with no subject. The notebook shows the same failure on Lilian Weng&rsquo;s agents post: after <em>What is Self-Reflection?</em>, the follow-up <em>How do we achieve it?</em> retrieves chunks about &ldquo;it&rdquo;.</p>
@@ -643,6 +687,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <figure class="lab-embed"><iframe src="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html" title="Follow-ups and the retriever, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Follow-ups and the retriever. <a href="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html">Open full screen</a></figcaption></figure>
 <p>The lab is the module&rsquo;s lab brief in miniature. On your own corpus, write the multi-turn conversations, label the evidence for each turn, and report hit rate on turns 2 and 3 separately from turn 1, with and without the rewrite. A single average over all turns hides the follow-ups, because first questions are usually standalone.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The model receives the chat history, yet the follow-up How long do I have? retrieves nothing useful. Why, and what does a history-aware retriever add?</summary>
+<p>The retriever reads only the literal question, and its one useful term, &ldquo;long&rdquo;, appears in no handbook chunk, so every chunk scores zero. A history-aware retriever first has an LLM rewrite the latest message as a standalone question from the history, and the retriever searches for that. On turn 1, with an empty history, it skips the rewrite.</p>
+</details>
+<details>
+<summary>2. In the lab at k = 1, appending earlier questions hits on 5 of 6 turn-2 messages but only 1 of 6 on turn 3. Why the collapse?</summary>
+<p>Turn 2 usually continues turn 1&rsquo;s topic, so the extra words help. Turn 3 often changes topic, and two earlier questions outweigh one new one, so the old topic takes the only slot in 5 of 6 chats. At <code>k = 2</code> appending catches up to 0.92, but only by spending a slot on the old topic every time.</p>
+</details>
+<details>
+<summary>3. With the rewrite, How long until the money is back? still misses its evidence. Would a better rewrite prompt fix it?</summary>
+<p>No. The evidence chunk says &ldquo;Refunds&rdquo; and &ldquo;business days&rdquo;, and no phrasing of the question uses those words. A rewrite restores the subject, not the handbook&rsquo;s vocabulary; that is a representation problem, which embeddings (M14) address.</p>
+</details>
 <h2 id="checkpointer--thread_id">Checkpointer / thread_id</h2>
 <p class="lesson-of">Lesson 33.6: LangGraph threads, checkpoints and memory optimisations. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/06a_memory_and_conversational_agent.ipynb" target="_blank" rel="noopener"><code>06a_memory_and_conversational_agent.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/06b_memory_optimizations.ipynb" target="_blank" rel="noopener"><code>06b_memory_optimizations.ipynb</code></a></p>
 <p>A LangGraph graph keeps the conversation in its state, typically a <code>messages</code> channel with the <code>add_messages</code> reducer, so each node returns only its new messages and the reducer appends them. Compile the graph with a <strong>checkpointer</strong> and LangGraph saves a snapshot of that state, a <strong>checkpoint</strong>, after every step. The <strong><code>thread_id</code></strong> in the config names the sequence of checkpoints a run reads and extends:</p>
@@ -769,6 +826,19 @@ graph.invoke({&quot;messages&quot;: &quot;How long do I have?&quot;},
     C -- no --&gt; SW["Sliding window"]
 </pre></figure>
 <p>For agents built with <code>create_agent</code>, LangChain 1.x ships the summary strategy as <code>SummarizationMiddleware</code>. M34 adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The sliding-window and trim-on-read graphs both send the model the last three messages. What differs between them, and when does it matter?</summary>
+<p>The sliding window deletes: a <code>truncate</code> node returns <code>RemoveMessage</code> ids and the <code>add_messages</code> reducer removes them from checkpointed state. Trim on read hides: it trims a copy for the model, and the thread still holds all 12 messages. Pick trim on read when you need the full thread for audit or replay.</p>
+</details>
+<details>
+<summary>2. How many checkpoints does a one-node chat graph write per turn, and why more than one?</summary>
+<p>Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn, so the notebook&rsquo;s tool-calling agent writes about 5. <code>get_state_history(config)</code> walks them newest first for replay, forking and debugging.</p>
+</details>
+<details>
+<summary>3. A summary graph runs its folds, yet each turn starts with an empty summary. What is the likely cause?</summary>
+<p>The app passes <code>{"summary": ""}</code> on every turn. The <code>summary</code> channel has no reducer, so any value written to it replaces the old one and wipes the memory being built. Pass the empty summary only on the first turn.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html"><strong>Follow-ups and the retriever</strong></a>: open the file in a browser. Start on <em>The latest message</em> at <code>k = 1</code> and open the <em>Exports</em> chat: turns 2 and 3 both miss. Switch to <em>Earlier questions + latest</em> and watch turn 2 recover while turn 3 stays stuck on the export chunk. Then pick <em>A rewritten question</em> and compare the three rows of the table, and try <code>k = 2</code> to see appending catch up by spending a second slot.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -825,7 +895,7 @@ graph.invoke({&quot;messages&quot;: &quot;How long do I have?&quot;},
 <li>Rewrite follow-ups into standalone questions before retrieval, and measure hit rate on turns 2 and 3, not only on first questions.</li>
 <li>Bound long threads by hiding or summarising old turns rather than deleting them, and test that an early fact still reaches the model late in the thread.</li>
 </ul></article>
-    <nav class="toc" aria-label="M33 sections"><details open><summary>In M33</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#message-history">Message history</a></li><li><a href="#the-classic-memory-classes">The classic memory classes</a></li><li><a href="#one-history-per-session">One history per session</a></li><li><a href="#where-the-history-lives">Where the history lives</a></li><li><a href="#summary-memory">Summary memory</a></li><li><a href="#trim-window-or-summarise">Trim, window or summarise</a></li><li><a href="#history-aware-retriever">History-aware retriever</a></li><li><a href="#rewrite-append-or-neither">Rewrite, append or neither</a></li><li><a href="#checkpointer--thread_id">Checkpointer / thread_id</a></li><li><a href="#delete-or-hide">Delete or hide</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M33 sections"><details open><summary>In M33</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#message-history">Message history</a></li><li><a href="#the-classic-memory-classes">The classic memory classes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-history-per-session">One history per session</a></li><li><a href="#where-the-history-lives">Where the history lives</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#summary-memory">Summary memory</a></li><li><a href="#trim-window-or-summarise">Trim, window or summarise</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#history-aware-retriever">History-aware retriever</a></li><li><a href="#rewrite-append-or-neither">Rewrite, append or neither</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#checkpointer--thread_id">Checkpointer / thread_id</a></li><li><a href="#delete-or-hide">Delete or hide</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

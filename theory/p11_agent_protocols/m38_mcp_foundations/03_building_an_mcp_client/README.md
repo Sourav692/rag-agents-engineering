@@ -42,5 +42,28 @@ Three details in that trace matter when you debug:
 
 The client also translates for the model. Notebook 03a's live code runs on OpenAI and wraps each MCP definition as `{"type": "function", "function": {"name": ..., "description": ..., "parameters": tool.inputSchema}}`; the Anthropic version kept in comments uses `input_schema: tool.inputSchema`. Both read the same `inputSchema`, so one server serves either model. On the way back the Anthropic version passes `result.content` as the `tool_result`, and the OpenAI version passes `result.content[0].text` as the `tool` message.
 
+## Check yourself
+
+<details>
+<summary>1. A host uses three MCP servers. How many clients does it hold, and does the model ever talk to a server directly?</summary>
+
+Three clients, each holding one connection to one server. The model never talks to a server: it sees definitions and asks for calls, and the host decides which client sends them.
+
+</details>
+
+<details>
+<summary>2. In the recorded Larkspur session, the notifications/initialized message gets no reply. How do replies pair with requests, and why is this message different?</summary>
+
+Requests and replies pair by `id`: the client numbers its requests 0, 1, 2 and the server echoes the id. `notifications/initialized` is a notification, so it carries no id and nothing answers it; it tells the server the session is open.
+
+</details>
+
+<details>
+<summary>3. The server's tool list changes while a client is connected, and the client keeps offering the old list. What in the handshake explains this?</summary>
+
+The server declared its capabilities with `listChanged: false` in the `initialize` result, so this client will not be told when the list changes. The handshake fixes what the session can do. The client has to call `tools/list` again to see the change.
+
+</details>
+
 ---
 *Previous: [38.2 Building an MCP server](../02_building_an_mcp_server/README.md). Next: [38.4 Connecting to reference servers](../04_connecting_to_reference_servers/README.md).*

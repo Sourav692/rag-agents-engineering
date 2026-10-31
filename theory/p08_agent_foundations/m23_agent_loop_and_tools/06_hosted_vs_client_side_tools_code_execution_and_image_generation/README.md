@@ -55,5 +55,28 @@ For Larkspur's support agent the split follows the data:
 
 Hosted tools exist only on OpenAI's Responses API; Chat Completions offers function tools only. `06a` calls `client.responses.create` on the raw OpenAI client, because LangChain does not surface hosted-tool configuration. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.
 
+## Check yourself
+
+<details>
+<summary>1. What do you give up when you move a tool from client-side to hosted?</summary>
+
+The seam between the model asking and the model seeing the result, which is where policy lives: allow-lists, tenant scoping, PII redaction and spend caps. You also lose the chance to see arguments before execution, refuse a call, or stub the tool in a deterministic test, and a failure can only be handled by re-running the whole request.
+
+</details>
+
+<details>
+<summary>2. Larkspur's support agent needs the customer's server status and an answer about a third-party service. Which should run client-side, and which suits a hosted tool?</summary>
+
+`get_server_status` stays client-side: it reads the customer's account, needs tenant scoping and logging, and must be stubbed in tests. A hosted `web_search` fits the third-party question, which the handbook cannot answer and where there is nothing to enforce between the call and the result.
+
+</details>
+
+<details>
+<summary>3. The hosted search took one round trip and 3.16 s, the client-side path two and 1.86 s. Is hosted the way to cut latency?</summary>
+
+Not on this evidence. One round trip is not automatically faster: in that run the hosted path was the slower one. One run also proves little about latency, so measure on your own traffic. And going hosted removes the seam where your code could log, refuse or redact the call.
+
+</details>
+
 ---
 *Previous: [23.5 Tool errors and evaluating tool calls](../05_tool_errors_and_evaluating_tool_calls/README.md). Next: [M23 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

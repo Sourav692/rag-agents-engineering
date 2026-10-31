@@ -30,5 +30,28 @@ flowchart TD
 
 For the Larkspur support graph the question arrives from a web widget, so the state schema itself is a Pydantic model: `question: str`, with `route` and `answer` given defaults. The check comes from the state schema. In LangGraph 1.2.18 a Pydantic `input_schema` on a `TypedDict` state lets `{"question": 123}` through to the first node, which fails with `TypeError`; with a Pydantic state the same input stops at `invoke` before any node runs. Lesson [9.5](../05_input_output_schemas_and_configuration/README.md) then narrows what the caller sends and receives. Validation costs a parse on every `invoke`, which is small next to one model call.
 
+## Check yourself
+
+<details>
+<summary>1. A graph with a TypedDict state receives a name of 123, and its node fails with a TypeError. Why did the schema not stop it?</summary>
+
+`TypedDict` annotations are hints for you and your editor; LangGraph checks no types, so the run starts and the node fails when it adds a string to the int. With a Pydantic `BaseModel` state, the same input raises `ValidationError` at `graph.invoke` and no node runs.
+
+</details>
+
+<details>
+<summary>2. The Larkspur question arrives from a web widget. Why make the state schema itself Pydantic instead of adding a Pydantic input schema to a TypedDict state?</summary>
+
+In LangGraph 1.2.18 the Pydantic `input_schema` on a `TypedDict` state lets `{"question": 123}` through to the first node, which fails with `TypeError`. The check comes from the state schema: with a Pydantic state the same input stops at `invoke` before any node runs.
+
+</details>
+
+<details>
+<summary>3. A node in a Pydantic-state graph returns 5 for a str field, and the run finishes cleanly. How should Larkspur protect its structured answer?</summary>
+
+Validate it in the node. Pydantic checks what comes in at `invoke`, not what nodes write, so the final state simply holds `5`. A node whose output matters builds its answer as a Pydantic model before returning it.
+
+</details>
+
 ---
 *Previous: [9.2 Conditional edges and LLM nodes](../02_conditional_edges_and_llm_nodes/README.md). Next: [9.4 Nodes, runtime context and Command](../04_nodes_runtime_context_and_command/README.md).*

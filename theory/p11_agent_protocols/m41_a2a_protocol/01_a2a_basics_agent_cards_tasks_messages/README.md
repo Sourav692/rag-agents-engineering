@@ -71,5 +71,28 @@ The echo agent answers with a Message: `"kind": "message"`, `"role": "agent"`, a
 
 The server side of the notebook is three objects: an `AgentExecutor` with the agent logic, a `DefaultRequestHandler` that implements the JSON-RPC methods on top of it with an `InMemoryTaskStore`, and an `A2AStarletteApplication` that serves the card and the endpoint. The client side is `A2ACardResolver` and `A2AClient`. In 0.3.26, constructing `A2AClient` emits a `DeprecationWarning` that points to `ClientFactory`; the notebooks' calls still work.
 
+## Check yourself
+
+<details>
+<summary>1. A client knows only an A2A agent's base URL. What does it fetch first, and what does it learn from it?</summary>
+
+The Agent Card, which `A2ACardResolver` in 0.3.26 fetches from `/.well-known/agent-card.json`. The card tells it where to post requests (`url`), which skills the agent has, whether it can stream (`capabilities`), and which content types it accepts and returns.
+
+</details>
+
+<details>
+<summary>2. The echo agent answers message/send with a Message. What happens if the client calls tasks/get with the taskId from that reply?</summary>
+
+It gets error -32001, Task not found. The executor copied the `contextId` and `taskId` from the request context into its reply but never created a task, so nothing was stored. A Message is the whole answer; there is nothing to poll.
+
+</details>
+
+<details>
+<summary>3. You rename the Larkspur handbook agent's skill id from handbook_qa to billing_qa. What else must change on the card, and why?</summary>
+
+Bump `version`. The card is a contract: a calling agent's model knows the agent only through what the card says, and changing `streaming`, a skill id or the URL breaks callers that read the old card.
+
+</details>
+
 ---
 *Previous: [M41 overview](../README.md). Next: [41.2 A LangGraph agent over A2A](../02_a_langgraph_agent_over_a2a/README.md).*

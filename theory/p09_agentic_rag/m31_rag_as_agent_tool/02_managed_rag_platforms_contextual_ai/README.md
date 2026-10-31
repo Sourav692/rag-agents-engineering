@@ -50,5 +50,28 @@ What you trade:
 - **Your documents leave your infrastructure.** Check data residency, access control on each datastore, and how a deleted document leaves the index.
 - **You measure it the same way.** Run the M11 golden set through the platform agent and compare the row with your own pipeline's. A managed platform is one more change to test against the baseline.
 
+## Check yourself
+
+<details>
+<summary>1. What do you trade when you replace your own retrieval pipeline with a managed RAG platform?</summary>
+
+You run fewer parts, since parsing, chunking, reranking and grounded generation come configured. You control fewer settings, such as chunk size, the embedding model and `k`, and your documents leave your infrastructure, so check residency, access control and deletion. You measure it the same way, by running the M11 golden set through it.
+
+</details>
+
+<details>
+<summary>2. After a Larkspur policy change, the index holds an old and a new version of the same rule. How would the instruction-following reranker handle it?</summary>
+
+Pass each passage's date and source in `metadata` and an instruction such as "Prefer the current handbook over archived handbook versions and community forum posts". The reranker then orders passages by relevance and by that instruction, so the current rule ranks above the archived one.
+
+</details>
+
+<details>
+<summary>3. Which behaviour of the grounded language model should a support agent test first?</summary>
+
+The refusal path. A question the handbook does not answer should get "I don't have that information", not a plausible policy. The notebook tests it by asking a quantum-computing question against renewable-energy passages.
+
+</details>
+
 ---
 *Previous: [31.1 RAG as a tool inside a LangGraph agent](../01_rag_as_a_tool_inside_a_langgraph_agent/README.md). Next: [31.3 Exercise: LlamaIndex Wikipedia agent with Chainlit](../03_exercise_llamaindex_wikipedia_agent_with_chainlit/README.md).*

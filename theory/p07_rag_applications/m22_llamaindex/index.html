@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -459,6 +464,19 @@ Company: Rasmussen Group
 …
 </code></pre>
 <p>It skips splitting, embeds each row, and asks <em>which company does sheryl Baxter work for?</em> with <code>similarity_top_k=2</code>. The answer is in row 1 (Rasmussen Group), and the row&rsquo;s own text names her, so one retrieved row is enough. A question about many rows (&ldquo;how many customers are in Chile?&rdquo;) gets the same two rows, and no prompt can count the other 98. Row-per-Document RAG answers lookups; counts, sums and filters belong to a query over the table, which M20 covers.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. You port a LangChain notebook's chunk size of 200 to SentenceSplitter unchanged. Why are the chunks different?</summary>
+<p><code>SentenceSplitter</code> counts tokens, not characters, so 200 tokens is several times longer than 200 characters. It also subtracts the node&rsquo;s metadata string from <code>chunk_size</code> before splitting: on the PDF, <code>page_label</code> and <code>file_path</code> come to 38 tokens, so a 200-token chunk holds at most 162 tokens of text.</p>
+</details>
+<details>
+<summary>2. After the 01a ingestion pipeline runs with a FAISS store, how many vectors does FAISS hold, and which index does the notebook query?</summary>
+<p>None. The pipeline has no embedding transformation, and <code>IngestionPipeline</code> only adds nodes that already have an embedding to its vector store. <code>VectorStoreIndex(nodes)</code> then embeds the nodes again into the default in-memory store, and that is the index queried. Put <code>Settings.embed_model</code> in the pipeline and pass the store through <code>StorageContext</code> to end with 123 vectors in FAISS.</p>
+</details>
+<details>
+<summary>3. The CSV variant answers which company Sheryl Baxter works for, but gets the number of customers in Chile wrong. Why?</summary>
+<p>With <code>similarity_top_k=2</code> the engine retrieves two rows, and no prompt can count the other 98. A lookup works because one row names her. Counts, sums and filters belong to a query over the table, which M20 covers.</p>
+</details>
 <h2 id="queryfusionretriever">QueryFusionRetriever</h2>
 <p class="lesson-of">Lesson 22.2: Fusion retrieval with QueryFusionRetriever. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m22_llamaindex/notebooks/02a_fusion_retrieval_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>02a_fusion_retrieval_with_llamaindex.ipynb</code></a></p>
 <p><code>QueryFusionRetriever</code> is LlamaIndex&rsquo;s <code>EnsembleRetriever</code>: it runs several retrievers and merges their lists. <code>02a</code> gives it a vector retriever and a <code>BM25Retriever</code>, both at <code>similarity_top_k=2</code>:</p>
@@ -585,6 +603,19 @@ Company: Rasmussen Group
 </tbody>
 </table></div>
 <p>The order is the same; the scale runs the other way. On unit-length vectors the squared distance is 2 minus twice the cosine (2 - 2 × 0.6922 = 0.6156). Feed the L2 list to <code>relative_score</code> and the nearest sentence scales to 0 while the farthest gets the full weight. Use <code>IndexFlatIP</code> on normalised vectors when FAISS feeds a fusion retriever, and print each retriever&rsquo;s raw scores once before trusting the fused list.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. With its default settings and two retrievers, how much work does QueryFusionRetriever do per question?</summary>
+<p><code>num_queries</code> defaults to 4, so it keeps your question, asks <code>Settings.llm</code> for 3 more and runs every query on every retriever: 8 retrievals and one LLM call. <code>02a</code> sets <code>num_queries=1</code> to turn query generation off. The default <code>similarity_top_k</code> of 2 then cuts the fused list.</p>
+</details>
+<details>
+<summary>2. Under distance-based scoring with two hits per list, the prorated rule ends third. Why, and what weight change brings it into the top two?</summary>
+<p>With two scores per list, mean ± 3 std always maps the better one to 2/3 and the worse to 1/3, whatever the gap. The weights then decide: 0.6 × 1/3 = 0.2 for the vector runner-up beats 0.4 × 1/3 = 0.1333 for the BM25 runner-up, the prorated rule. Flip the weights to 0.4 and 0.6, and the prorated rule takes second place at 0.2.</p>
+</details>
+<details>
+<summary>3. You feed a FAISS IndexFlatL2 retriever into relative score fusion, and the nearest sentence gets the lowest fused score. What went wrong?</summary>
+<p><code>IndexFlatL2</code> returns squared L2 distances, where lower is better, and every fusion mode assumes higher is better. Min-max scaling then maps the nearest sentence to 0 and gives the farthest the full weight. Use <code>IndexFlatIP</code> on normalised vectors, and print each retriever&rsquo;s raw scores once before trusting the fused list.</p>
+</details>
 <h2 id="postprocessors">Postprocessors</h2>
 <p class="lesson-of">Lesson 22.3: Reranking with node postprocessors. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m22_llamaindex/notebooks/03a_reranking_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>03a_reranking_with_llamaindex.ipynb</code></a></p>
 <p>A node postprocessor takes the retrieved list of <code>NodeWithScore</code> and the question, and returns a list. It can reorder the nodes, drop some, replace their scores or rewrite their text. A query engine runs its <code>node_postprocessors</code> in list order, after the retriever and before the synthesizer; outside an engine, <code>postprocess_nodes(nodes, QueryBundle(question))</code> runs one by hand, as <code>03a</code> does for its comparison.</p>
@@ -664,6 +695,19 @@ Company: Rasmussen Group
 <p>The cell that sets up the example also carries a port bug. It builds <code>Document(page_content=sentence)</code>, LangChain&rsquo;s keyword. LlamaIndex accepts the unknown keyword and creates a Document whose text is empty. <code>compare_rag_techniques</code> rebuilds the list with <code>Document(text=sentence)</code>, so the comparison still works, but the first list is five empty Documents, and nothing warns.</p>
 <h3>Order in the list</h3>
 <p>Postprocessors see whatever the one before them produced. With lesson 22.4&rsquo;s <code>MetadataReplacementPostProcessor</code> in the same list, putting the reranker first means it scores the single sentence that was embedded; putting it second means it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide which text the reranker should judge, and write the list in that order.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Where does a node postprocessor run, and what may it do to the retrieved list?</summary>
+<p>It runs after the retriever and before the synthesizer, in the order of the <code>node_postprocessors</code> list. It can reorder the nodes, drop some, replace their scores or rewrite their text. <code>03a</code> uses the slot for two-stage retrieval: retrieve 10, rerank, keep <code>top_n=5</code>.</p>
+</details>
+<details>
+<summary>2. On the 45-day refund question, the cross-encoder gives the prorated rule a score of -2.1011. Would a filter that drops nodes below 0 be safe?</summary>
+<p>No: it would drop the sentence that answers the question. <code>ms-marco-MiniLM-L-6-v2</code> returns a logit, not a probability, so its scores only rank. Calibrate any cut-off on the golden set.</p>
+</details>
+<details>
+<summary>3. A query engine runs both a reranker and the sentence-window replacement. Should the reranker come before or after the replacement?</summary>
+<p>It depends on which text you want judged. First in the list, the reranker scores the single sentence that was embedded; second, it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide, then write the list in that order.</p>
+</details>
 <h2 id="sentence-window">Sentence window</h2>
 <p class="lesson-of">Lesson 22.4: Sentence-window retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m22_llamaindex/notebooks/04a_context_enrichment_window_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>04a_context_enrichment_window_with_llamaindex.ipynb</code></a></p>
 <p>Small chunks match a question precisely and large chunks answer it completely (M13). A sentence window does both: it embeds single sentences and, once one is retrieved, sends the model the sentences around it. LlamaIndex builds it from two pieces, a node parser at indexing time and a postprocessor at query time.</p>
@@ -792,6 +836,19 @@ Company: Rasmussen Group
 </ul>
 <p>The window is stored, not computed at query time. Each node holds its window and a copy of its sentence in metadata: on the handbook that is 5,249 characters of metadata at <code>window_size=1</code>, 9,313 at 3 and 12,342 at 5, against 1,380 characters of sentence text. At the notebook&rsquo;s default the metadata is 6.75 times the text, held in the docstore or the vector store&rsquo;s payload for every node.</p>
 <p><a href="../../p06_retrieval_quality/m19_reranking_post_retrieval/index.html">M19&rsquo;s enrichment windows</a> do the same job with character chunks and a neighbour lookup at query time. LlamaIndex moves the work to indexing time and the unit to the sentence, and <code>04a</code> compares it against a <code>SentenceSplitter()</code> index at its 1,024-token default, both at <code>similarity_top_k=1</code>. Both of <code>04a</code>&rsquo;s pipelines are handed the same FAISS store, which stays empty for the reason in <a href="#nodes">22.1</a>; each <code>VectorStoreIndex</code> builds its own in-memory store.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can changing the window size never fix a retrieval miss?</summary>
+<p>The window is excluded from the embedding, so the vector is the sentence alone and every sentence scores the same at every window size. The window only changes what the model reads after retrieval, when <code>MetadataReplacementPostProcessor</code> swaps the node&rsquo;s text for its <code>window</code> metadata.</p>
+</details>
+<details>
+<summary>2. For the question about exporting data after cancelling, at top-k of 1, what window size do you need, and why does a larger one change nothing?</summary>
+<p>A window of 2, because the &ldquo;Settings, then Data&rdquo; sentence sits two places back from the retrieved one; that window holds both facts in 272 characters. The exports section is its own Document with four sentences, and a window never crosses a Document boundary, so every window from 2 up sends the same 272 characters.</p>
+</details>
+<details>
+<summary>3. At top-k of 2 and window size 3, the refund-timing question sends the model 1,241 characters. What is wasted, and what do you do?</summary>
+<p>The two retrieved sentences are two places apart, so their windows share 5 sentences, and 1,241 characters cover only 9 distinct sentences. Merge overlapping windows before synthesis whenever <code>k</code> is above 1.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_sentence_window_retrieval/interactive/sentence-window-lab.html"><strong>Sentence window lab</strong></a>: open the file in a browser. Pick <em>Can I get a refund on an annual plan after 45 days?</em> with <code>window_size</code> at 0: the model gets the 30-day rule and no answer. Move it to 1 and the prorated rule arrives in 284 characters. Then pick the export question, where the window stops growing at 2 because the exports Document has only four sentences, and set <code>similarity_top_k</code> to 2 on the refund-timing question to see neighbouring windows send the same sentences twice.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -848,7 +905,7 @@ Company: Rasmussen Group
 <li>Put reranking, filtering and window replacement in <code>node_postprocessors</code>, in the order you want them applied.</li>
 <li>Retrieve small, send big: a sentence window keeps the retrieval scores of a sentence and gives the model the paragraph around it. Size the window per question type and watch overlap when <code>k</code> is above 1.</li>
 </ul></article>
-    <nav class="toc" aria-label="M22 sections"><details open><summary>In M22</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#nodes">Nodes</a></li><li><a href="#queryengine">QueryEngine</a></li><li><a href="#queryfusionretriever">QueryFusionRetriever</a></li><li><a href="#score-direction">Score direction</a></li><li><a href="#postprocessors">Postprocessors</a></li><li><a href="#sentence-window">Sentence window</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M22 sections"><details open><summary>In M22</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#nodes">Nodes</a></li><li><a href="#queryengine">QueryEngine</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#queryfusionretriever">QueryFusionRetriever</a></li><li><a href="#score-direction">Score direction</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#postprocessors">Postprocessors</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sentence-window">Sentence window</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

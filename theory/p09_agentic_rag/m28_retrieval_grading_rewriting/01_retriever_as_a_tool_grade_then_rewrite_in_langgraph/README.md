@@ -59,5 +59,28 @@ The prompt sets the bar. `01a` grades a document relevant if it "contains keywor
 
 The grader reads text because a similarity score cannot do its job. A retriever returns `k` chunks for every query, whatever they score. In the lab, *Do you offer a student discount?* shares no word with the handbook and still retrieves `billing` and `cancel` at 0.000. Its rewrite *Student discount pricing for plans* retrieves `support` at 0.503 and `billing` at 0.461, both above the 0.227 that `refund-window` scores for the refund question, and neither mentions a discount. No score threshold separates those cases; reading the chunk does.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the rewrite node send the new question back to the agent instead of straight to the retriever?</summary>
+
+The model reads the rewritten question as the last message and decides again whether to call the tool, and with what query. Nothing on this path counts the trips, so the loop ends only when the grader says yes, which lesson 28.3 fixes with bounded retries.
+
+</details>
+
+<details>
+<summary>2. The refund-duration question retrieves the refund-window chunk first. Does a grader that accepts related text pass it, and what follows?</summary>
+
+Yes: the chunk is about refunds, but it only says an annual plan can get a full refund within 30 days, not how long a refund takes. The model then answers from a chunk without the answer. A grader that asks "does this answer the question?" fails it and sends the query to rewrite, which finds `refund-timing` at 0.720.
+
+</details>
+
+<details>
+<summary>3. The first notebook's grader sends a clearly relevant retrieval to rewrite, and the model's verdict was Yes with a capital letter. Why?</summary>
+
+`binary_score` is a plain `str` and the router compares it exactly with `"yes"`, so `"Yes"` fails. Normalise before comparing, as `03a` does with `.strip().upper()`, or type the field as a `Literal` so Pydantic rejects any other value.
+
+</details>
+
 ---
 *Previous: [M28 overview](../README.md). Next: [28.3 Guardrails, query optimisation and a retry loop](../03_guardrails_query_optimisation_and_a_retry_loop/README.md).*

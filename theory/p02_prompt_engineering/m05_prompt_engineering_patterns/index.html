@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -415,6 +420,19 @@ Answer:
     Note over C: history grows every turn, stored per session_id
 </pre></figure>
 <p>That history is also why the cost of a flipped interaction grows with every turn. The notebook stores the conversation in <code>store["unused"]</code>, the history for the session id it passes, so that is where to read the messages back.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What do the few-shot examples teach the news classifier that its instruction leaves open, and what do they cost?</summary>
+<p>They teach the label set and its spelling, the output shape (the bare label, then stop) and where the boundaries between classes are. They cost tokens on every call: the few-shot prompt sends 321 tokens against the zero-shot prompt&rsquo;s 31. In a RAG grader that runs once per retrieved chunk, that cost multiplies again by <code>k</code>.</p>
+</details>
+<details>
+<summary>2. The Larkspur grading prompt has one yes example and one no example on an unrelated topic. Which two examples should you add?</summary>
+<p>A nearby passage that does not answer, labelled no: the <code>billing</code> chunk for <em>How long does a refund take?</em>. And a passage that answers in other words, labelled yes: the one saying refunds take 5 to 10 business days to appear on your statement. The current no example shares no topic with the question, so it only teaches an easy boundary; keep yes and no balanced and measure the grader against your own labels.</p>
+</details>
+<details>
+<summary>3. A flipped-interaction assistant gets more expensive with every question it asks. Why?</summary>
+<p>It is the only one of these patterns with state. Each turn sends the whole conversation history back to the model, stored per <code>session_id</code> by <code>RunnableWithMessageHistory</code>, so the prompt grows with every turn and so does the cost.</p>
+</details>
 <h2 id="chain-of-thought">Chain-of-thought</h2>
 <p class="lesson-of">Lesson 5.2: Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m05_prompt_engineering_patterns/notebooks/02a_advanced_prompt_engineering_patterns.ipynb" target="_blank" rel="noopener"><code>02a_advanced_prompt_engineering_patterns.ipynb</code></a></p>
 <p>A chain-of-thought (CoT) prompt asks the model to write its reasoning before the answer. The answer is then conditioned on the steps, and the steps are on the page for you to check. Notebook 02a uses one question for every variant: from a game summary, <em>How many yards was the shortest valid field goal?</em> The summary has a 35-yard field goal and a 31-yard one that was blocked, so the right answer is 35, and a model that skips the word &ldquo;blocked&rdquo; says 31.</p>
@@ -568,6 +586,19 @@ Final Answer: the final answer to the original input question
 <li><strong>The loop needs a stop.</strong> <code>AgentExecutor</code> ends the run when the model replies without a tool call, or after <code>max_iterations</code> (15 by default).</li>
 </ul>
 <p>The notebook first asks <em>Tell me about LangGraph in detail including who made it and key features</em> with no tool, and its own comment expects the model to decline or make up an answer; the agent then answers the same question from the pages <code>search_web</code> fetched. For Larkspur the tool is a handbook search, and <em>Can I export my data after I cancel my plan?</em> takes one round: the search returns the <code>export</code> and <code>retention</code> chunks, and the answer is to export from Settings, then Data, within 30 days of cancelling. The proration question from the section above takes two tools, the handbook and the customer&rsquo;s billing record. M23 and M24 build this loop in LangGraph.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the least-to-most example in notebook 02a make the field goal test harder to pass?</summary>
+<p>In few-shot chain-of-thought the model copies the reasoning of the examples, not only their format. That example lists a 28-yard kick as valid although its own text says it was blocked; its answer survives only because that kick was not the longest. It teaches the exact mistake the test checks for: counting the blocked 31-yard kick and answering 31 instead of 35.</p>
+</details>
+<details>
+<summary>2. A yes/no grader path is right 40% of the time. What does a 15-path majority vote score, and how would four distinct wrong answers change that?</summary>
+<p>0.213, worse than a single path&rsquo;s 0.400: the one wrong answer is more common than the right one, and the vote amplifies it. With four equally likely wrong answers the same 40% path wins the vote 78% of the time (0.780), because no single wrong answer gathers enough votes. These figures assume independent paths, the best case; paths from one model share blind spots and gain less.</p>
+</details>
+<details>
+<summary>3. A ReAct agent built with create_tool_calling_agent replies with text that says Action: search_web, but no search runs. Why?</summary>
+<p>The action is a structured <code>tool_calls</code> entry, not text, and nothing parses an <code>Action:</code> line. <code>AgentExecutor</code> takes a reply with no <code>tool_calls</code> as the final answer, even if its text says <code>Action:</code>, and ends the run there.</p>
+</details>
 <h2 id="one-prompt-set-across-four-apis">One prompt set across four APIs</h2>
 <p class="lesson-of">Lesson 5.3: The same tasks across models. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m05_prompt_engineering_patterns/notebooks/03a_openai_gpt_4o_mini.ipynb" target="_blank" rel="noopener"><code>03a_openai_gpt_4o_mini.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m05_prompt_engineering_patterns/optional/03b_google_gemini_1_5_flash.ipynb" target="_blank" rel="noopener"><code>03b_google_gemini_1_5_flash.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m05_prompt_engineering_patterns/optional/03c_meta_llama_3_2_90b_groq.ipynb" target="_blank" rel="noopener"><code>03c_meta_llama_3_2_90b_groq.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m05_prompt_engineering_patterns/optional/03d_meta_llama_3_2_1b_huggingface.ipynb" target="_blank" rel="noopener"><code>03d_meta_llama_3_2_1b_huggingface.ipynb</code></a> (optional)</p>
 <p>The four notebooks run the same ten tasks: zero-shot and few-shot classification, Python and SQL generation, information extraction from a clinical note, closed-domain and open-domain question answering, summarisation, turning a fact sheet into an FAQ, and translation. Each notebook defines one function, <code>get_completion(prompt, model)</code>, and every task calls it. Only that function changes between notebooks:</p>
@@ -626,6 +657,19 @@ Question: {question}
 Answer:
 </code></pre>
 <p>Run it on each candidate model with the same golden questions and passages, and score each answer for whether it is supported by the passages. A model that answers <em>What happens if my server goes down?</em> from general knowledge when the passages hold only the reboot instructions fails this prompt, however fluent the answer is.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why is printing each model's reply not enough to compare the four models on the ten tasks?</summary>
+<p>Reading replies by eye gives an impression, not a comparison. Each task needs its own check: exact match for the sentiment label, a line count for the five-line summary, valid JSON for a template, a labelled list of symptoms for the clinical note. Scoring against your own labels is the M05 lab brief on a small scale.</p>
+</details>
+<details>
+<summary>2. The Larkspur answer prompt gets only the reboot passages for What happens if my server goes down? A model answers fluently from general knowledge. Does it pass?</summary>
+<p>No. The prompt tells the model to answer only from the handbook passages and to reply &ldquo;The handbook does not cover this.&rdquo; when they do not contain the answer. Each answer is scored for whether the passages support it, however fluent it is.</p>
+</details>
+<details>
+<summary>3. Notebook 03c now fails on its first call although nobody changed its code. What is the likely cause, and what practice keeps the fix small?</summary>
+<p>The model id was retired: Groq shut down <code>llama-3.2-90b-vision-preview</code> on 14 April 2025 and names <code>meta-llama/llama-4-scout-17b-16e-instruct</code> as the replacement. Keep the model id in one place, inside the <code>get_completion</code> wrapper, so the fix is a one-line change.</p>
+</details>
 <h2 id="from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</h2>
 <p class="lesson-of">Lesson 5.4: Applied prompting on business tasks. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p02_prompt_engineering/m05_prompt_engineering_patterns/notebooks/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb" target="_blank" rel="noopener"><code>04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb</code></a></p>
 <p>Notebook 04a sends each of five business tasks to <code>gpt-4o</code> and to Llama 3.2 90B on Groq, both at temperature 0. The prompts combine the patterns from lessons 5.1 and 5.2, and each task adds one technique that a production prompt needs:</p>
@@ -647,6 +691,19 @@ Answer:
     RT --&gt; M
 </pre></figure>
 <p>If the retry also fails, the ticket goes to a person, not to the customer. For Larkspur, the same contract triages support tickets: <code>orig_lang</code>, a <code>category</code> from a fixed list (billing, refunds, exports, outages, server sizing), an English translation for the support team, and a draft reply in the customer&rsquo;s language that the answer step fills from the handbook. Fix the category list in the prompt, as the few-shot classifier in lesson 5.1 fixes its labels, so the reply can be routed by code.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why do the notebook's prompts wrap each input in triple backticks, and what does that not guarantee?</summary>
+<p>Delimiters let the model tell the instruction from the text it works on, such as a review or an IT ticket. That makes an instruction hidden inside the input easier to ignore, but it does not guarantee the model ignores it.</p>
+</details>
+<details>
+<summary>2. You adapt the IT support JSON contract to triage Larkspur tickets. What fields does it need, and what makes the reply routable by code?</summary>
+<p><code>orig_lang</code>, a <code>category</code>, an English translation for the support team, and a draft reply in the customer&rsquo;s language that the answer step fills from the handbook. The category must come from a fixed list in the prompt (billing, refunds, exports, outages, server sizing), as the few-shot classifier fixes its labels, so code can route on it.</p>
+</details>
+<details>
+<summary>3. A ticket's reply comes back as something that is not valid JSON with all six fields. What should the production pipeline do?</summary>
+<p>Parse and validate every reply, then retry once with the error. If the retry also fails, the ticket goes to a person, not to the customer. The notebook only displays the reply as Markdown, so a broken reply would pass unnoticed.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html"><strong>Self-consistency: when a vote helps</strong></a>: open the file in a browser. Set one wrong answer (a yes/no grade) and a one-path accuracy of 0.60, then slide N from 1 to 15 and watch the vote creep from 0.600 to 0.787 while the calls climb to 16. Drop the accuracy to 0.40 and the same vote falls to 0.213. Then pick four wrong answers at 0.40 and the vote rises instead, to 0.780 at N = 15.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -703,7 +760,7 @@ Answer:
 <li>Vote only on short answers that can be compared, and only when one sample is right more often than any single wrong answer.</li>
 <li>Freeze a labelled prompt set before you change the model, the prompt or the sampling, and judge every change against it.</li>
 </ul></article>
-    <nav class="toc" aria-label="M05 sections"><details open><summary>In M05</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#few-shot">Few-shot</a></li><li><a href="#five-more-patterns">Five more patterns</a></li><li><a href="#chain-of-thought">Chain-of-thought</a></li><li><a href="#self-consistency">Self-consistency</a></li><li><a href="#react-format">ReAct format</a></li><li><a href="#one-prompt-set-across-four-apis">One prompt set across four APIs</a></li><li><a href="#from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M05 sections"><details open><summary>In M05</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#few-shot">Few-shot</a></li><li><a href="#five-more-patterns">Five more patterns</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-thought">Chain-of-thought</a></li><li><a href="#self-consistency">Self-consistency</a></li><li><a href="#react-format">ReAct format</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-prompt-set-across-four-apis">One prompt set across four APIs</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

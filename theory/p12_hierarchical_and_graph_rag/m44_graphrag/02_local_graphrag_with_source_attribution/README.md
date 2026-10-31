@@ -33,5 +33,28 @@ The notebook falls back to empty extraction results if Ollama is unavailable. An
 
 When using several seeds, verify distance budgets per seed. A single shared visited set can let an earlier seed suppress a shorter path from a later seed. Store the best depth or run a true multi-source breadth-first traversal when the required semantics are “within this many hops of any seed”. Retain source access filters during traversal and again when constructing context.
 
+## Check yourself
+
+<details>
+<summary>1. A graph path runs from Cancellation to Export to Snapshot. Why record both that path and the exact passage behind each claim?</summary>
+
+The path explains how retrieval reached the snapshot document; it does not support the policy claim. A traversable relation can be stale, wrongly extracted or cut off from the conditions in the original text. The source passage is what lets a reviewer check the claim, or reject the relation.
+
+</details>
+
+<details>
+<summary>2. Each citation the notebook produces carries confidence 0.9. What does that number tell you about the answer?</summary>
+
+Nothing measured: it is a fixed example constant, and the `claim` field holds a reference label rather than the answer's claim. The code finds `[N]` markers and maps valid IDs back to source records, but it never checks that the cited sentence supports the claim. Add a claim-to-span review before treating an answer as verified.
+
+</details>
+
+<details>
+<summary>3. Ollama was unavailable during ingestion and the graph came out empty. Can you conclude that the documents contain no relationships?</summary>
+
+No. The notebook falls back to empty extraction results when Ollama is unavailable, so an empty graph from that branch says nothing about the documents. Report model availability and extraction failures separately from a legitimate zero-result retrieval.
+
+</details>
+
 ---
 *Previous: [44.1 Concept-graph traversal](../01_concept_graph_traversal/README.md). Next: [44.3 Microsoft GraphRAG: communities, global vs local search](../03_microsoft_graphrag_communities_global_vs_local_search/README.md).*

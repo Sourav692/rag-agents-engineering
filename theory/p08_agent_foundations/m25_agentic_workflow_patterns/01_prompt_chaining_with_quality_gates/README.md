@@ -58,5 +58,28 @@ The optional notebooks move the gate around. In LCEL (`01c`) the gate is a `Runn
 
 For Larkspur, the gate belongs right after extraction: does the ticket name a plan and a purchase date? Without them the refund-window chunk cannot be applied, and the right next step is to ask the customer, which a terminal node with a reason makes easy.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the quality gate sit right after extraction instead of checking the finished email?</summary>
+
+Failing at step 1 costs one cheap check, while failing at the end costs a draft and a polish written from nothing. The gate stops unusable key points before any later step spends calls on them, and the chain ends with a reason a caller can show or log.
+
+</details>
+
+<details>
+<summary>2. The topic about the meaning of life is rejected by the gate three times. How many LLM calls does the run make, and where does it end?</summary>
+
+Six: three extractions and three judge calls. At `MAX_VALIDATION_RETRIES = 3` the router takes the `fail` edge to `fail_validation`, which writes why the chain stopped. No draft or polish call runs.
+
+</details>
+
+<details>
+<summary>3. You set the extractor to temperature 0, and the gate rejects the same key points three times in a row. Why did regenerating not help?</summary>
+
+Regeneration helps only because the extractor runs at temperature 0.7. At temperature 0 it returns the same key points on every attempt, so each retry gets the same rejection. Keep the extractor at 0.7 and the judge at 0, so the verdict is stable and the retry can differ.
+
+</details>
+
 ---
 *Previous: [M25 overview](../README.md). Next: [25.2 Routing by handler and by model tier](../02_routing_by_handler_and_by_model_tier/README.md).*

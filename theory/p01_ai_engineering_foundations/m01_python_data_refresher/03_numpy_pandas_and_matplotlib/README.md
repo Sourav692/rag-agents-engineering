@@ -66,5 +66,28 @@ runs.groupby("k")[["recall", "precision"]].mean().round(2)
 
 Missing values deserve a check of their own. `mean()` skips `NaN` by default. If the outage question errors at `k = 2` and its recall is recorded as `NaN`, mean recall@2 becomes 0.75 instead of 0.50, with no warning. Compare `count()` (2) with `size()` (3) per group, and record failures in a status column instead of a missing number.
 
+## Check yourself
+
+<details>
+<summary>1. Why does dividing E by np.linalg.norm(E, axis=1) without keepdims run silently on a 3 by 3 matrix but fail on a (12, 384) one?</summary>
+
+Without `keepdims=True` the norms are a flat `(n,)` array, and broadcasting lines shapes up from the last axis, so each column is divided by a different row's length. On the square toy matrix the shapes happen to match: it runs and gives 0.989, 0.852 and 0.180, which puts `refund-window` first. On `(12, 384)` a `(12,)` array cannot line up with 384 columns, so it raises `ValueError`. With `keepdims=True` the norms have shape `(12, 1)` and give one length per row.
+
+</details>
+
+<details>
+<summary>2. You plan to store a million 1,536-dimension vectors. How much memory do they need as float32, and what happens if you build the array from Python floats?</summary>
+
+6,144,000,000 bytes (6.1 GB) as `float32`. An array built from Python floats defaults to `float64`, which doubles that. Convert it with `astype`, since most vector libraries, FAISS among them, expect `float32`.
+
+</details>
+
+<details>
+<summary>3. Mean recall@2 over the three golden questions reads 0.75, but the baseline says 0.50. What do you check first?</summary>
+
+Compare `count()` with `size()` per group. `mean()` skips `NaN`, so if the outage question errored at `k = 2` and its recall was stored as `NaN`, the mean covers only two questions and becomes 0.75 with no warning. Record failures in a status column instead of a missing number.
+
+</details>
+
 ---
 *Previous: [M01 overview](../README.md). Next: [1.4 Databases from Python: SQLite, MySQL, PostgreSQL](../04_databases_from_python_sqlite_mysql_postgresql/README.md).*

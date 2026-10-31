@@ -48,5 +48,28 @@ Every specialist turn sits between two controller turns, so a run with `k` speci
 
 Use a blackboard when the next step depends on what earlier steps found: diagnosis, triage, research with verification. When the order is known before the run starts, a pipeline or a fan-out ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md)) is cheaper and easier to test.
 
+## Check yourself
+
+<details>
+<summary>1. A request asks for a technical or a financial analysis depending on the news sentiment. Why does the fixed pipeline never follow it, while the blackboard can?</summary>
+
+The pipeline's edges cannot skip a node, so `news → technical → financial → writer` runs both analyses on every request. The blackboard controller reads the news analyst's post and then picks one branch. It can still choose wrong, because it is an LLM, so the notebook computes the check from `steps` on every run.
+
+</details>
+
+<details>
+<summary>2. In the Larkspur outage escalation, the incident analyst posts that availability stayed above the 99.95% SLA. Which specialists should run next?</summary>
+
+The controller should call the status analyst, not the credits analyst, and then the writer drafts a reply that points to the status page and the root-cause report. A fixed pipeline would pay for both analysts on every escalation.
+
+</details>
+
+<details>
+<summary>3. A blackboard controller keeps picking specialists and never returns FINISH. What in the notebooks stops the run, and why is that better than relying on recursion_limit?</summary>
+
+A cap in code: once `MAX_SPECIALIST_CALLS = 6` specialists have run, the controller returns `FINISH` without calling the model, so the run ends with a reply. `recursion_limit = 20` is only the backstop, and it ends the run with an error rather than a clean stop.
+
+</details>
+
 ---
 *Previous: [M36 overview](../README.md). Next: [36.2 Debate](../02_debate/README.md).*

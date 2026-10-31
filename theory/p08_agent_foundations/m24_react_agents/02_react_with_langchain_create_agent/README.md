@@ -61,5 +61,28 @@ Fix 5 is the least effective: it buys more attempts at a retrieval problem. With
 
 `ModelCallLimitMiddleware` counts model calls per run (`run_limit`) and per thread across runs (`thread_limit`). It checks before each model call; at the limit, `exit_behavior="end"` jumps to the end with an `AIMessage` such as `Model call limits exceeded: run limit (3/3)`, and `"error"` raises `ModelCallLimitExceededError`. In the [M24.1 lab](../01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) the golden questions need 2, 3 and 4 calls; at `run_limit=2` only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the weather-and-arithmetic request finish in two model calls, while fetching a stock price and emailing it needs a separate turn per tool?</summary>
+
+Independent calls share a turn: the model returned three tool calls in one `AIMessage`, and the `tools` node ran all three before the model's second and last call. The email body needs the price, so `get_stock_price` must return its observation before the model can ask for `send_email`.
+
+</details>
+
+<details>
+<summary>2. Your golden questions need 2, 3 and 4 model calls. What happens at a run limit of 2, and how should you set the cap?</summary>
+
+Only the export question is answered, even though the refund run already holds both evidence chunks when it stops. Set `run_limit` from the call counts your golden set needs, with headroom, and alert when runs hit it.
+
+</details>
+
+<details>
+<summary>3. The restaurant FAQ agent rewords its search until the call cap ends the run, and the user never gets the opening hours. Why is raising the cap the weakest fix?</summary>
+
+The fault is in retrieval: the index stored the questions without their answers, so every search returns answerless questions. A higher cap only buys more attempts at the same problem. Fixing the data, retrieving more, formatting the results and describing what the tool returns got the answer in one search under the same cap.
+
+</details>
+
 ---
 *Previous: [24.1 The ReAct loop in LangGraph; tool calling vs ReAct](../01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md). Next: [24.3 Models, messages and structured output in LangChain 1.x](../03_models_messages_and_structured_output_in_langchain_1_x/README.md).*

@@ -43,5 +43,28 @@ The filter difference shows up as missing results. In a check run for this page,
 
 The notebooks' guidance: start with Chroma for anything you might keep, choose FAISS for a static corpus you search often, and move to a hosted store (lesson 15.3) when you need concurrent writers or more than one machine.
 
+## Check yourself
+
+<details>
+<summary>1. Why can an approximate nearest-neighbour index miss the right chunk without anyone noticing?</summary>
+
+An ANN index visits only a small part of the collection and gives up the guarantee of the true top k. A miss raises no error: the index returns the next-best chunk with a normal-looking score, so a recall drop shows up as worse answers. Measure recall@k against an exact search on your own queries, and raise `ef_search` until the misses stop mattering for the golden set.
+
+</details>
+
+<details>
+<summary>2. A FAISS store holds 25 chunks tagged no near the query and 3 tagged yes further away. A search filtered to yes with k of 3 returns nothing. Why?</summary>
+
+The FAISS wrapper filters in Python after ranking, on the `fetch_k=20` nearest candidates, and none of the 3 matching chunks was among them. With `fetch_k=28` it returns all 3. Chroma filters inside the store before ranking, so it returns every match up to `k`.
+
+</details>
+
+<details>
+<summary>3. Your index needs several writers at once across more than one machine. Is Chroma or FAISS the right choice?</summary>
+
+Neither. Both run inside your Python process with no server, so the notebooks' guidance is to move to a hosted store (lesson 15.3) when you need concurrent writers or more than one machine. On one machine, choose Chroma for anything you might keep and update, and FAISS for a static corpus you search often.
+
+</details>
+
 ---
 *Previous: [15.1 Index operations: create, query, update, delete, persist](../01_index_operations_create_query_update_delete_persist/README.md). Next: [15.3 Managed stores: Astra DB and Pinecone](../03_managed_stores_astra_db_and_pinecone/README.md).*

@@ -30,5 +30,28 @@ At `k=2`, no retrieved candidate has both required paths. At `k=3`, one qualifie
 
 Move the candidate budget before changing the schema. Once all eligible records are found, extra candidates add validation work without adding an eligible answer on this fixture. Compare that curve with the exact Cypher match over the full graph. A graph-first query can be preferable when the required constraints are precise and indexed; vector-first retrieval helps when the starting description is approximate.
 
+## Check yourself
+
+<details>
+<summary>1. Why keep vector candidate selection and graph relationship checks as separate stages?</summary>
+
+Vector search finds text that resembles the question, while graph matching checks explicit relationships. A Larkspur plan can rank highly for "export in the EU" and still lack the EU availability edge. Keeping both stages visible shows which records were excluded and why.
+
+</details>
+
+<details>
+<summary>2. In the graph filter lab, how many candidates survive the graph checks at k = 2, 3 and 5, and what does raising k past that buy?</summary>
+
+None at `k=2`, one at `k=3`, and both eligible records at `k=5`. Once every eligible record is found, extra candidates add validation work without adding an answer on this fixture. Raising `k` cannot fix a missing relationship or an unresolved entity.
+
+</details>
+
+<details>
+<summary>3. You copy the notebook's db.index.vector.queryNodes call to a new Neo4j deployment. What should you check first?</summary>
+
+The database version: current Neo4j documentation prefers `SEARCH` on recent releases and marks the procedure deprecated from 2026.04. Check `SHOW VECTOR INDEXES` and wait for `ONLINE` before searching, and make sure query and stored vectors use the same model and dimensionality.
+
+</details>
+
 ---
 *Previous: [43.3 Natural-language graph QA (text-to-Cypher)](../03_natural_language_graph_qa_text_to_cypher/README.md). Next: [43.5 LLM entity and relationship extraction](../05_llm_entity_and_relationship_extraction/README.md).*

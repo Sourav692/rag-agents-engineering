@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -416,6 +421,19 @@ hallucination_grader.invoke({&quot;documents&quot;: format_docs(docs_to_use), &q
 </code></pre>
 <p>A segment that is found gives character offsets to highlight in the interface. A segment that is not found falls back to citing the whole chunk, and goes in a log, because a rising miss rate means the highlighting prompt or model has drifted. The four parallel lists have a trap of their own: <code>zip</code> stops at the shortest list, so a response with three ids and two segments silently loses a row. Compare the lengths before zipping.</p>
 <p>Highlights serve the reader, who can check the answer against the handbook in one glance, and they serve the team. Logged segments show which chunks answers actually use, and a chunk that is retrieved often and never highlighted is a candidate for the grader to drop or for retrieval to stop returning.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The relevance grader drops off-topic chunks before generation. Why can it not raise recall?</summary>
+<p>It can only drop chunks that retrieval returned. On the refund question it should drop <code>reboot</code>, which ranked second only because both texts contain &ldquo;does&rdquo;, but it cannot add <code>refund-timing</code>, which was never retrieved. Grading removes noise and leaves recall where retrieval put it.</p>
+</details>
+<details>
+<summary>2. Only the refund-window chunk survives grading, and the answer states how many days a refund takes. What should the hallucination grader return, and what prevents such answers?</summary>
+<p><code>no</code>: that chunk states the 30-day window and nothing about how long a refund takes, so any number of days is unsupported. The notebook&rsquo;s prompt, &ldquo;Answer the question based upon your knowledge&rdquo;, invites it. A prompt that says to answer only from the documents, and to say when they do not cover the question, stops most of these answers before they are written.</p>
+</details>
+<details>
+<summary>3. A highlighted segment parses correctly but is not found in the chunk it cites. What should the app do?</summary>
+<p>The parser checks only the JSON shape, so the model may have paraphrased or merged sentences. When <code>text.find(segment)</code> returns -1, fall back to citing the whole chunk and log the miss, because a rising miss rate means the highlighting prompt or model has drifted. Also compare the list lengths before <code>zip</code>, which silently drops rows.</p>
+</details>
 <h2 id="the-feedback-re-ranker">The feedback re-ranker</h2>
 <p class="lesson-of">Lesson 32.2: Retrieval with a user-feedback loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/notebooks/02a_retrieval_with_feedback_loop.ipynb" target="_blank" rel="noopener"><code>02a_retrieval_with_feedback_loop.ipynb</code></a></p>
 <p><code>02a</code> builds a <code>RetrievalQA</code> chain with <code>gpt-4o</code> over <em>Understanding_Climate_Change.pdf</em> and stores one feedback record per answer as a line of JSON:</p>
@@ -607,6 +625,19 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 <li><strong>Past answers become retrievable facts.</strong> When Larkspur changes a policy, the stored answers still quote the old one and compete with the corrected handbook. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.</li>
 <li><strong>It rebuilds the whole index.</strong> Every run re-embeds the full corpus plus the feedback text; incremental upserts (M15) avoid that.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can the feedback re-ranker never fix the refund and outage questions in the lab?</summary>
+<p>It only reorders the 4 candidates the retriever returns. <code>refund-timing</code>, <code>sla</code> and <code>incidents</code> score 0 for those questions, so they are never candidates and never receive a rating. The two questions account for 40 of the 41 wrong answers.</p>
+</details>
+<details>
+<summary>2. For the question about using a server after cancelling, how do thumbs on the answer and clicks on each source treat the sizing chunk?</summary>
+<p><code>sizing</code> is not evidence but sits in every good answer next to <code>cancel</code>. Rated through the answer it rides along to 1.667; rated per source it falls to 0.333. Either way the lab&rsquo;s totals stay at mean recall@2 0.70 and 41 wrong answers, because neither signal reaches a chunk the retriever does not return.</p>
+</details>
+<details>
+<summary>3. You plan to fold highly rated answers back into the index every week. What happens when Larkspur changes a policy, and how do you guard against it?</summary>
+<p>The stored answers still quote the old policy and compete with the corrected handbook as retrievable facts. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.</p>
+</details>
 <h2 id="diversity-aware-selection">Diversity-aware selection</h2>
 <p class="lesson-of">Lesson 32.3: Dartboard RAG: relevance and diversity together. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/optional/03a_dartboard_rag.ipynb" target="_blank" rel="noopener"><code>03a_dartboard_rag.ipynb</code></a> (optional)</p>
 <p>When a knowledge base holds the same passage several times, top-k retrieval fills every slot with copies of the best match. <code>03a</code> makes that happen on purpose: it loads <em>Understanding_Climate_Change.pdf</em> with <code>documents = documents * 5</code>, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for <em>What is the main cause of climate change?</em> are repetitions of one chunk.</p>
@@ -671,6 +702,19 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 <p>Plain top-3 has recall 0.50 on this question at every pool size. Dartboard reaches 1.00 once the pool holds <code>retention</code>, from an oversampling factor of 2. At the default of 3 its third pick is still a copy of <code>export</code>, because a pool of 9 drawn from five copies of each chunk holds only two distinct chunks. A selector can only choose among the candidates it is given: make the pool larger than the number of copies, or remove the copies at indexing time.</p>
 <p>Dartboard and MMR (<a href="../../p06_retrieval_quality/m17_retrievers_hybrid_search/index.html#mmr-λ">M17.4</a>) solve the same problem the same greedy way and differ in the score. MMR subtracts a redundancy penalty with a linear λ; Dartboard adds log probabilities, so <code>SIGMA</code> sets how quickly closeness stops counting, and the two weights shift the balance between relevance and coverage. The notebook&rsquo;s notes point out that the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores.</p>
 <p>Two details to know when running <code>03a</code>. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls <code>get_context_with_dartboard(test_query, k=3)</code>, while the function&rsquo;s parameter is <code>num_results</code>; Python raises a <code>TypeError</code>, and <code>num_results=3</code> is the fix.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does a second copy of a chunk already in the set add nothing to the dartboard score?</summary>
+<p>A set scores by how close its nearest member lies to where the darts land. The copy lies exactly where the first one does, so it brings no landing place any closer. A chunk that covers ground nearby adds the most.</p>
+</details>
+<details>
+<summary>2. With the Larkspur chunks stored five times and the default oversampling factor of 3, what does dartboard return for the export question, and why?</summary>
+<p><code>export</code>, <code>retention</code>, <code>export</code>. Recall reaches 1.00 against 0.50 for plain top-3, but the pool of 9 drawn from five copies of each chunk holds only two distinct chunks, so the third pick is a copy. At a factor of 4 the pool holds three and the picks become <code>export</code>, <code>retention</code>, <code>cancel</code>.</p>
+</details>
+<details>
+<summary>3. Your retriever scores with a cross-encoder rather than embeddings. Can you still use dartboard selection, and how does it differ from MMR?</summary>
+<p>Yes: the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores. Both pick greedily; MMR subtracts a redundancy penalty with a linear λ, while dartboard adds log probabilities, with <code>SIGMA</code> setting how quickly closeness stops counting.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html"><strong>The feedback flywheel</strong></a>: open the file in a browser. Pick <em>Is there a credit if my server plan has an outage?</em> and move the slider from 3 to 4 events: one thumbs-down drops <code>sizing</code> and <code>reboot</code> to 0.333 and the evidence chunk <code>sla</code> moves into the answer. Then slide to 100 and pick <em>How long does a refund take?</em>: 20 wrong answers, and no rating reaches <code>refund-timing</code>. Last, pick <em>Can I still use my server after I cancel the plan?</em> and switch between the two signals to watch <code>sizing</code> go from 1.667 to 0.333.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -727,7 +771,7 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 <li>Feedback re-ranking moves only chunks that were shown. Read its result per question, and send questions it cannot fix to retrieval work.</li>
 <li>Remove duplicate chunks at indexing time, then use a diversity-aware selector with a candidate pool larger than the number of copies.</li>
 </ul></article>
-    <nav class="toc" aria-label="M32 sections"><details open><summary>In M32</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#relevance-grading">Relevance grading</a></li><li><a href="#hallucination-detection">Hallucination detection</a></li><li><a href="#source-highlighting">Source highlighting</a></li><li><a href="#the-feedback-re-ranker">The feedback re-ranker</a></li><li><a href="#implicit-vs-explicit-feedback">Implicit vs explicit feedback</a></li><li><a href="#folding-good-answers-into-the-index">Folding good answers into the index</a></li><li><a href="#diversity-aware-selection">Diversity-aware selection</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M32 sections"><details open><summary>In M32</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#relevance-grading">Relevance grading</a></li><li><a href="#hallucination-detection">Hallucination detection</a></li><li><a href="#source-highlighting">Source highlighting</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-feedback-re-ranker">The feedback re-ranker</a></li><li><a href="#implicit-vs-explicit-feedback">Implicit vs explicit feedback</a></li><li><a href="#folding-good-answers-into-the-index">Folding good answers into the index</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#diversity-aware-selection">Diversity-aware selection</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -59,5 +59,28 @@ For MySQL and PostgreSQL, notebook 04b passes `pd.read_sql` a SQLAlchemy engine 
 
 SQL returns as a retriever in M27, where an agent writes the query itself from the customer's question (text-to-SQL), and as a memory store on SQLite in M34.
 
+## Check yourself
+
+<details>
+<summary>1. A customer's plan arrives as the string starter' OR '1'='1. Why does the f-string query return every plan while the parameterised one returns nothing?</summary>
+
+The `?` placeholder makes the driver send the value as data, separately from the SQL text, so the query looks for a plan with that literal name and returns `[]`. The f-string puts the value inside the SQL, so `OR '1'='1'` becomes part of the condition and matches every row: `[(4,), (24,)]`.
+
+</details>
+
+<details>
+<summary>2. Inside one with con: block you insert a pro plan and then a duplicate starter plan. How many rows does plans hold afterwards, and is the connection open?</summary>
+
+Two rows, and the connection is still open. The duplicate raises `IntegrityError`, so `with con:` rolls back the whole block, including the `pro` insert. The `with` block commits or rolls back but does not close the connection; call `close()` yourself.
+
+</details>
+
+<details>
+<summary>3. The PostgreSQL notebook puts the host, user and password in a cell. What should the Larkspur support assistant's own code do instead?</summary>
+
+Read the credentials from environment variables, such as `os.environ["PGPASSWORD"]` or a `.env` file loaded at start-up. Give the application a database user that can only run the statements it needs: an assistant that answers from the `plans` table needs `SELECT` on that table and nothing else.
+
+</details>
+
 ---
 *Previous: [1.3 NumPy, pandas and Matplotlib](../03_numpy_pandas_and_matplotlib/README.md). Next: [1.6 Concurrency: threads, processes, the GIL and asyncio (22 runnable scripts)](../06_concurrency_threads_processes_the_gil_and_asyncio_22_runnable_scripts/README.md).*

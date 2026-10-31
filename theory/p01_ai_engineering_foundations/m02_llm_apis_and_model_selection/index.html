@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -389,6 +394,19 @@ response.choices[0].message.content
 <li><strong>The Gemini package is retired.</strong> The installed <code>google-generativeai</code> 0.8.6 describes itself as deprecated and legacy, with all support ended on November 30, 2025; its successor is <code>google-genai</code>, which this repository also installs. The notebook&rsquo;s Gemini cells still show the shape of a second SDK, which is their point here.</li>
 </ul>
 <p>LangChain (M07) is the general version of <code>get_completion</code>: one chat-model interface over many providers, so a RAG chain does not change when the generator does.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does each turn of a long chat conversation cost more than the turn before it?</summary>
+<p>The call is stateless: the API remembers nothing between calls. A follow-up works only if you send the earlier turns again in <code>messages</code>, so every turn pays for all the turns before it in <code>prompt_tokens</code>.</p>
+</details>
+<details>
+<summary>2. You call the notebook's get_completion with the model name gpt-4o-mini. What comes back, and what should a wrapper you own do instead?</summary>
+<p>The string <code>"LLM not configured! ..."</code>, printed where the model&rsquo;s reply should be. The function branches only on exactly <code>"gpt-4o"</code> or <code>"gemini-2.5-pro"</code> and returns that sentence for anything else. Your own wrapper should raise on a model it does not know.</p>
+</details>
+<details>
+<summary>3. You are starting a new Gemini integration. Should you copy the notebook's google-generativeai calls?</summary>
+<p>No. The installed <code>google-generativeai</code> 0.8.6 describes itself as deprecated and legacy, with support ended on November 30, 2025; its successor is <code>google-genai</code>, which the repository also installs. The notebook&rsquo;s Gemini cells are there to show the shape of a second SDK, and one interface over both providers (<code>get_completion</code> here, LangChain in M07) keeps the rest of the code unchanged when you switch.</p>
+</details>
 <h2 id="inference-endpoints">Inference endpoints</h2>
 <p class="lesson-of">Lesson 2.2: Open-source LLMs via Hugging Face Inference and locally. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/notebooks/02a_open_source_llms_via_hugging_face_inference_api.ipynb" target="_blank" rel="noopener"><code>02a_open_source_llms_via_hugging_face_inference_api.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/optional/02b_open_source_llms_locally.ipynb" target="_blank" rel="noopener"><code>02b_open_source_llms_locally.ipynb</code></a> (optional)</p>
 <p>An inference endpoint is a server that holds a model&rsquo;s weights and answers calls to it. For an open model you choose who runs that server. The notebooks show two of the three options:</p>
@@ -443,6 +461,19 @@ response.choices[0].message.content
 <li><strong>What comes back.</strong> <code>model.generate</code> returns the prompt&rsquo;s token ids followed by the new ones, so <code>tokenizer.decode(outputs[0])</code> prints the template and the question before the answer. The <code>pipeline("text-generation", ...)</code> call with <code>return_full_text=False</code> returns only the new text.</li>
 </ul>
 <p>The notebook&rsquo;s markdown calls the model &ldquo;Google Gemma 2B IT&rdquo; while the code loads RecurrentGemma, a recurrent variant that the notebook says needs less memory than Gemma on long sequences. The model id in the code is the one that runs.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why should a production client pass provider explicitly when it calls an open model through Hugging Face Inference?</summary>
+<p>The model id names the weights, not the server. With no <code>provider</code> argument, <code>huggingface_hub</code> 1.16.1 uses server-side auto routing and Hugging Face picks a provider that hosts the model, and latency and price can differ by provider. Passing <code>provider=</code> and recording it with each answer tells you what you actually called.</p>
+</details>
+<details>
+<summary>2. You create InferenceClient() with no token to test an unauthenticated call, after the notebook set HF_TOKEN. Is the call unauthenticated?</summary>
+<p>No. With <code>token=None</code> the library falls back to <code>HF_TOKEN</code> from the environment, so the client sends the bearer token anyway; <code>build_hf_headers(token=None)</code> shows it. Pass <code>token=False</code> to send no token at all.</p>
+</details>
+<details>
+<summary>3. Running RecurrentGemma locally, decoding the first output of model.generate prints the chat template and the question before the answer. Is something wrong?</summary>
+<p>No. <code>model.generate</code> returns the prompt&rsquo;s token ids followed by the new ones, so decoding the whole output prints both. The <code>pipeline("text-generation", ...)</code> call with <code>return_full_text=False</code> returns only the new text.</p>
+</details>
 <h2 id="reasoning-models">Reasoning models</h2>
 <p class="lesson-of">Lesson 2.3: Reasoning vs non-reasoning models. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/notebooks/03a_Reasoning_vs_NonReasoning.ipynb" target="_blank" rel="noopener"><code>03a_Reasoning_vs_NonReasoning.ipynb</code></a></p>
 <p>&ldquo;Think step by step&rdquo; is a prompt: you ask an ordinary model to write its working into the answer, and you can read every word. A reasoning model is trained to work before it answers. It produces reasoning tokens internally, decides how many to spend, and returns only the conclusion. The notebook sums up the difference in three rows:</p>
@@ -530,6 +561,19 @@ visible = completion_tokens - reasoning_tokens
 <li><strong>Benchmark both kinds.</strong> Run your own hard case and your own easy case through both models. A benchmark of hard cases alone recommends the reasoning model for everything, including the lookups that make up most of the traffic.</li>
 </ul>
 <p>Sending each question to the right model at run time is routing by model tier, built in <a href="../../p08_agent_foundations/m25_agentic_workflow_patterns/index.html#routing-by-model-tier">M25 lesson 25.2</a>.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can a reasoning model's bill be much larger than its visible reply suggests?</summary>
+<p>Reasoning tokens sit inside <code>completion_tokens</code> and bill at the output rate, but you never receive them; <code>usage.completion_tokens_details.reasoning_tokens</code> reports how many there were. In the page&rsquo;s <code>o4-mini</code> call, 700 reasoning tokens make 98% of a $0.003135 bill, while the prompt and the three-token reply alone would cost $0.000055. Log <code>usage</code> per request instead of estimating from the reply.</p>
+</details>
+<details>
+<summary>2. Which Larkspur question suits a reasoning model: how long a refund takes, or whether a refund is possible after 45 days?</summary>
+<p>The 45-day question. It combines the 30-day window, the plan type and the proration rule, and a wrong amount turns into a support ticket: Task A&rsquo;s shape. The refund time is one sentence of the <code>refund-timing</code> chunk, Task B&rsquo;s shape, where a reasoning model only adds latency and cost.</p>
+</details>
+<details>
+<summary>3. You raise the effort on a reasoning model and reasoning_tokens stays at 0 on every call. What does that tell you?</summary>
+<p>The parameter never reached the model. Only the fast model should report 0 reasoning tokens; a reasoning model that reports 0, or a count that stays flat as effort rises, means any conclusion about effort comes from a test that never ran. Fix the request before you compare settings.</p>
+</details>
 <h2 id="cost-vs-accuracy">Cost vs accuracy</h2>
 <p class="lesson-of">Lesson 2.4: Reasoning-effort levers and cost. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/notebooks/04a_Reasoning_Effort_Levers.ipynb" target="_blank" rel="noopener"><code>04a_Reasoning_Effort_Levers.ipynb</code></a></p>
 <p><code>reasoning_effort</code> changes one thing: how many reasoning tokens the model is willing to spend before it commits to an answer. The model, the prompt and the output format stay the same. More reasoning tokens mean more latency and more cost at the output rate, and a better answer only when the task had something to deliberate about. The notebook sweeps <code>o4-mini</code> at <code>low</code>, <code>medium</code> and <code>high</code>; the installed <code>openai</code> 2.54.0 also types <code>none</code>, <code>minimal</code>, <code>xhigh</code> and <code>max</code>, and the notebook says to trim the list to what your model accepts.</p>
@@ -669,6 +713,19 @@ visible = completion_tokens - reasoning_tokens
     Q3 -- no --&gt; F4["Genuinely hard:&lt;br/&gt;now raise effort"]
 </pre></figure>
 <p>Only the last box is an effort problem. For the Larkspur assistant, <em>How much was my last refund?</em> is the first box: the amount lives in the billing system, so the fix is a tool call to the account API (M23), and <em>Can I get a refund after 45 days?</em> is the last box, where effort is worth sweeping.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How does the notebook price each step up the effort dial, and when does a step count as pure cost?</summary>
+<p>Each step&rsquo;s price is the cost of that level minus the cost of the level below, divided by the accuracy gain times 100: dollars per extra percentage point. A step with no accuracy gain reads <code>no gain</code>, and every step after it is pure cost. The knee is the last step whose price per point you would pay.</p>
+</details>
+<details>
+<summary>2. Using the lab's table, which setting do you pick if one extra accuracy point is worth $1 per 10,000 answers?</summary>
+<p><code>o4-mini</code> at low. The step from <code>gpt-4o-mini</code> to low costs $0.68 per point, which is under $1; the step to medium costs $1.19 per point, which is over it. High adds no gain and costs $48.40 more per 10,000 answers than medium.</p>
+</details>
+<details>
+<summary>3. Across low, medium and high, accuracy stays flat while reasoning tokens climb. What does that signal for a question such as last Tuesday's EU refund total?</summary>
+<p>Effort is the wrong lever: the fact is missing, so every level reaches <code>INSUFFICIENT DATA</code> and the higher ones pay more to get there. Fix it with retrieval, a tool call or a database, such as a tool call to the account API (M23) for a customer&rsquo;s last refund. Raise effort only for a task that is genuinely hard.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_reasoning_effort_levers_and_cost/interactive/effort-knee-lab.html"><strong>Where effort stops paying</strong></a>: open the file in a browser. Start on <em>Step, then plateau</em> and drag the threshold from $2.0 down to $1.0: the knee drops from medium to low, because the step from low to medium costs $1.19 per accuracy point per 10,000 answers. Then pick <em>Wrong lever</em> and raise the reasoning tokens at high: the bill climbs and the accuracy column does not move.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -725,7 +782,7 @@ visible = completion_tokens - reasoning_tokens
 <li>Use a reasoning model where a wrong intermediate step is expensive, and a fast model or plain code where the answer is already in the input.</li>
 <li>Choose an effort level with dollars per extra accuracy point on a mixed set, and fix missing facts, vague prompts and wrong labels before you turn the dial.</li>
 </ul></article>
-    <nav class="toc" aria-label="M02 sections"><details open><summary>In M02</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chat-completions">Chat completions</a></li><li><a href="#two-sdks-two-shapes">Two SDKs, two shapes</a></li><li><a href="#inference-endpoints">Inference endpoints</a></li><li><a href="#running-a-model-locally">Running a model locally</a></li><li><a href="#reasoning-models">Reasoning models</a></li><li><a href="#the-invisible-bill">The invisible bill</a></li><li><a href="#when-reasoning-pays">When reasoning pays</a></li><li><a href="#cost-vs-accuracy">Cost vs accuracy</a></li><li><a href="#when-effort-is-the-wrong-lever">When effort is the wrong lever</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M02 sections"><details open><summary>In M02</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chat-completions">Chat completions</a></li><li><a href="#two-sdks-two-shapes">Two SDKs, two shapes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#inference-endpoints">Inference endpoints</a></li><li><a href="#running-a-model-locally">Running a model locally</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reasoning-models">Reasoning models</a></li><li><a href="#the-invisible-bill">The invisible bill</a></li><li><a href="#when-reasoning-pays">When reasoning pays</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-vs-accuracy">Cost vs accuracy</a></li><li><a href="#when-effort-is-the-wrong-lever">When effort is the wrong lever</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

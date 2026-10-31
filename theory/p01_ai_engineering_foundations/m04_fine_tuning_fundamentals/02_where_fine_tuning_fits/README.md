@@ -34,5 +34,28 @@ A Larkspur example in the second form:
 {"question": "### Question:\nCan I export my data after I cancel my plan?\n\n### Answer:", "answer": "Yes, for 30 days. After that the data is permanently deleted, so export it from Settings, then Data, first."}
 ```
 
+## Check yourself
+
+<details>
+<summary>1. Pre-training and fine-tuning both train the model to predict each next token. What makes their results differ?</summary>
+
+The data. Pre-training uses a huge, unlabelled corpus of raw web text such as C4, and gives the model language, facts and patterns of text. Fine-tuning uses a small, curated, labelled set (1,400 question and answer rows in `lamini_docs.jsonl`) and teaches a format, a task, a tone and when to decline.
+
+</details>
+
+<details>
+<summary>2. You will train the Larkspur examples with AutoTrain, and at evaluation time you want to score only the answer. Which of the two formats does each step need?</summary>
+
+AutoTrain takes a `text_column`, so training needs the text-only form: one `text` field with `### Question:` and `### Answer:` inside it. Scoring only the answer needs the question-and-answer form, with the prompt and the answer in separate fields. The notebook formats the same rows both ways and writes both to JSON Lines.
+
+</details>
+
+<details>
+<summary>3. A teammate proposes pre-training a model on the Larkspur handbook to teach it the house style. Why does the comparison point to fine-tuning instead?</summary>
+
+Pre-training needs web-scale raw text and is run by model labs once per model; it teaches language and general knowledge. Fine-tuning needs hundreds to thousands of curated pairs, you run it whenever the behaviour needs to change, and a tone or format is what it teaches.
+
+</details>
+
 ---
 *Previous: [4.1 Why fine-tune](../01_why_fine_tune/README.md). Next: [4.3 Instruction tuning](../03_instruction_tuning/README.md).*

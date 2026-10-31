@@ -83,5 +83,28 @@ Each `optimize_query` call rewrites the previous rewrite, since it reads `enhanc
 
 A rewrite helps only if it moves toward the documents' words. In the lab, the outage question's first rewrite, *What happens when my server is unavailable?*, swaps one everyday phrase for another. TF-IDF matches exact tokens, so it retrieves `reboot` at 0.416 and `sizing` at 0.389 again, the same as the original. The second rewrite uses the handbook's vocabulary, "outage" and "availability", and retrieves `sla` at 0.470 and `incidents` at 0.253. M18 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.
 
+## Check yourself
+
+<details>
+<summary>1. Why does the topic check run before retrieval instead of leaving off-topic questions to the document grader?</summary>
+
+The grader cannot tell "off topic" from "not in the handbook": both look like a retrieval where nothing passes, both spend the retry budget and both end in the same no-results reply. In the lab the weather question costs 1 call with the check and 8 without.
+
+</details>
+
+<details>
+<summary>2. With two rewrites allowed and two chunks per retrieval, how many LLM calls does a question the handbook cannot answer cost?</summary>
+
+Nine: 1 for the topic check, 6 grader calls (2 per retrieval over 3 retrievals) and 2 rewrites, with no answer call. In general it is `1 + 2(m + 1) + m` for a bound of `m`, because unanswerable questions always pay the full bound.
+
+</details>
+
+<details>
+<summary>3. Raising the bound from two rewrites to three costs three more calls on the golden set. What does it buy?</summary>
+
+Nothing: the answered count stays at 3. The extra retrieval and calls all go to the student-discount question, which the handbook cannot answer at any bound. Set the bound where the golden set's answered count stops rising, and keep `recursion_limit` as a backstop.
+
+</details>
+
 ---
 *Previous: [28.1 Retriever as a tool; grade then rewrite in LangGraph](../01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md). Next: [M28 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

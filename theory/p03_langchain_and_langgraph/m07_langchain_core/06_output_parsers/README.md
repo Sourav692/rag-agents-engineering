@@ -60,5 +60,28 @@ Format instructions only help if they reach the model. The prompt needs a `{form
 
 The optional notebook [`07f_output_parsers_demo.ipynb`](../../../../course/p03_langchain_and_langgraph/m07_langchain_core/optional/07f_output_parsers_demo.ipynb) shows the silent version of this mistake. Its `PydanticOutputParser` example calls `.partial(format_instructions=...)` on a template with no `{format_instructions}` slot. LangChain ignores the value without an error, so the model never sees the schema, and the chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.
 
+## Check yourself
+
+<details>
+<summary>1. In the lab, moving from the JSON parser to the Pydantic parser with Literal ids leaves the usable count at three. What does the stricter parser change?</summary>
+
+It moves bad replies from the returned column to the raised column. The three good replies pass every parser that reads fields; a stricter schema produces no extra good answers, but a raised error is one a retry or a fallback can catch, while an unusable dict goes downstream unnoticed.
+
+</details>
+
+<details>
+<summary>2. A reply cites handbook-p4, an id that is not among the three passages. Which of the lab's parsers stop it?</summary>
+
+Only `PydanticOutputParser` with `Literal` ids. `JsonOutputParser` returns it as an ordinary dict, and with `list[str]` the invented id is still a string, so it passes. The schema has to state the rule, or the ids have to be checked against the retrieved set right after parsing.
+
+</details>
+
+<details>
+<summary>3. A chain with the Pydantic parser works on some questions and fails on others. Its template has no format instructions slot. What went wrong?</summary>
+
+The `.partial(format_instructions=...)` call was ignored without an error, so the model never saw the schema. The chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.
+
+</details>
+
 ---
 *Previous: [7.5 Prompt templates and few-shot composition](../05_prompt_templates_and_few_shot_composition/README.md). Next: [7.7 LangChain 1.x recap course, ending in a structured-output Q&A bot](../07_langchain_1_x_recap_course_ending_in_a_structured_output_q_a_bot/README.md).*

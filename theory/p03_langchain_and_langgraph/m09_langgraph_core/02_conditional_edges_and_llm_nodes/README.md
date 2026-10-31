@@ -61,5 +61,28 @@ Notebook 01a works around this by passing `turn1_state["messages"] + [message2]`
 - **`stream_mode="values"`:** the full state after each step, useful for watching a list grow, as in the M09 lab.
 - **`stream_mode="updates"`:** only what each node returned, keyed by node name, such as `{"chatbot": {"messages": [...]}}`. It is smaller, and it names the node that made each change.
 
+## Check yourself
+
+<details>
+<summary>1. Notebook 02b's chatbot answers a first question, then gets "What did we discuss so far?" in a second invoke and cannot say. Why?</summary>
+
+The graph keeps no memory between calls. Each `invoke` starts from the input you pass, so the second question reaches the model on its own and the first is gone. Notebook 01a works around it by passing the first run's messages plus the new one; M10 replaces that with a checkpointer that saves state per thread.
+
+</details>
+
+<details>
+<summary>2. The Larkspur router gets "Can I export my data after I cancel my plan?" Which node answers it, and why?</summary>
+
+The billing node, from the `cancel` page. The router checks the billing words first, and `cancel` and `plan` match before the technical rule sees `export` and `data`. Rule order decides the close calls, even when the question is really about data.
+
+</details>
+
+<details>
+<summary>3. You leave the destination list out of the conditional edge, and a run whose router returns an unknown name ends with no error and no answer. What happened?</summary>
+
+LangGraph 1.2.18 logged "wrote to unknown channel branch:to:humid, ignoring it" and ended the run, and the drawn graph shows no branches. With the destination list passed, the same route fails loudly with `KeyError: 'humid'`. Pass the list, and add a fallback route such as `human` so a router gap becomes a handoff.
+
+</details>
+
 ---
 *Previous: [9.1 State, graphs and reducers](../01_state_graphs_and_reducers/README.md). Next: [9.3 State schemas and validation](../03_state_schemas_and_validation/README.md).*

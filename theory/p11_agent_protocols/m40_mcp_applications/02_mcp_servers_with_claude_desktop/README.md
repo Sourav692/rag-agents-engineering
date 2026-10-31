@@ -49,5 +49,28 @@ The 06 server breaks this rule. Its `main()` prints a banner before `mcp.run(tra
 
 The Python client is forgiving; another host may not be. Send logs to stderr (`print(..., file=sys.stderr)` or the `logging` module, whose default handler writes there), and keep stdout for the protocol.
 
+## Check yourself
+
+<details>
+<summary>1. How does the Claude Desktop config reach the remote EC2 server, and what does its --allow-http flag risk?</summary>
+
+Through `npx mcp-remote http://<EC2 address>:8000/mcp --allow-http`, a local stdio process that forwards to the remote URL. mcp-remote 0.15.2's README says `--allow-http` should only be used in secure private networks where traffic cannot be intercepted; here it points at a public address.
+
+</details>
+
+<details>
+<summary>2. The 40.4 server writes to a jobs folder relative to its working directory. Why does its Claude Desktop entry pass uv an absolute directory?</summary>
+
+`uv --directory` sets the working directory, so `Path(".") / "jobs"` resolves inside the project; without it, the folder lands wherever the host starts the process. Every course entry ships with an `/ABSOLUTE/PATH/TO/…` placeholder you must replace.
+
+</details>
+
+<details>
+<summary>3. The 06 server prints a banner to stdout, yet a short test session shows no parse errors. Is the server safe to ship?</summary>
+
+No. Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and never reached the client: the bug was there and did not show. Unbuffered, every stray line reached the client, which logged `Failed to parse JSONRPC message from server`. Send logs to stderr and keep stdout for the protocol, because another host may be less forgiving.
+
+</details>
+
 ---
 *Previous: [40.1 Your first MCP server and a local agent](../01_your_first_mcp_server_and_a_local_agent/README.md). Next: [40.3 MCP servers for data analysis](../03_mcp_servers_for_data_analysis/README.md).*

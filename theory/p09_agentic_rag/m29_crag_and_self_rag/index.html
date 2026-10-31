@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -448,6 +453,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Refinement costs one more LLM call per document it rewrites, and an LLM that rewrites evidence can also change it. Keep the original chunk id beside each bullet so the answer can still cite the source.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the LangGraph CRAG notebook fall back to web search more often as k grows, even with a perfect grader?</summary>
+<p>Its rule is a fraction: generate only when more than half of the retrieved chunks are graded relevant. Every golden question has two evidence chunks, and 2 of <code>k</code> is more than half only when <code>k</code> is 3 or less. At <code>k = 5</code> the export question keeps both evidence chunks and still falls back, spending 7 calls plus a web search instead of 4.</p>
+</details>
+<details>
+<summary>2. On the outage question, retrieval returns the reboot, sizing and export chunks, and the grader rightly rejects all three. What does CRAG do next, and what should it have done?</summary>
+<p>It searches the web for a private handbook&rsquo;s outage policy, which the web cannot see. The answer was in the corpus all along, under the words &ldquo;outage&rdquo; and &ldquo;availability&rdquo;. A rewrite and retry against the index (M18, M28) would have found it, so for a private handbook, retry inside the index and then refuse.</p>
+</details>
+<details>
+<summary>3. You add knowledge refinement that rewrites each retrieved document into bullet points. What does it cost, and how do you keep answers citable?</summary>
+<p>It costs one more LLM call per document it rewrites, and an LLM that rewrites evidence can also change it. Keep the original chunk id beside each bullet so the answer can still cite its source.</p>
+</details>
 <h2 id="reflection-tokens">Reflection tokens</h2>
 <p class="lesson-of">Lesson 29.2: Self-RAG: retrieve-or-not, relevance, groundedness, utility. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/notebooks/02a_self_rag_langgraph.ipynb" target="_blank" rel="noopener"><code>02a_self_rag_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/optional/02b_self_rag_rag_techniques.ipynb" target="_blank" rel="noopener"><code>02b_self_rag_rag_techniques.ipynb</code></a> (optional)</p>
 <p>Self-RAG (Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, <a href="https://arxiv.org/abs/2310.11511" target="_blank" rel="noopener">arXiv:2310.11511</a>) trains one model to emit special tokens that judge its own pipeline. The paper calls them reflection tokens, and there are four kinds:</p>
@@ -569,6 +587,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>With no documents it passes without running.</strong> If <code>documents</code> is empty, <code>grade_groundedness</code> returns <code>"yes"</code> and makes no call. That is exactly the out-of-corpus case: on the starter-plan question, Self-RAG exhausts its rewrites, generates with no context, and the check waves the answer through. The only guard left is the generation prompt&rsquo;s line &ldquo;If the context does not contain enough information to answer confidently, say so plainly&rdquo;. Notebook 02b is weaker still. When no chunk is relevant it generates with the context &ldquo;No relevant context found.&rdquo; and a prompt that asks only to &ldquo;generate a response&rdquo;, so the model answers from memory; its own low-relevance test asks a climate-change corpus <em>how did harry beat quirrell?</em></p>
 <p><strong>The cap does not bound the regenerate loop.</strong> <code>route_after_groundedness</code> writes <code>state["iteration"] = iteration + 1</code> inside the routing function. LangGraph keeps only what nodes return, so that write is lost and the counter never moves. Run against the notebook&rsquo;s own node and router code with a groundedness grader that always says no, the compiled graph (langgraph 1.2.18) regenerated until LangGraph raised <code>GraphRecursionError</code>: with <code>recursion_limit = 200</code>, that was 98 regenerations and 200 LLM calls. With the default config it ran to the limit that release reports, 10,007 steps. The fix is to count in a node: have <code>generate</code> return the new <code>iteration</code> when it is regenerating, or add a small <code>regenerate</code> node before it.</p>
 <p>The paper&rsquo;s three support levels are worth keeping when you build this yourself. 02b ranks candidate answers by &ldquo;fully supported&rdquo; first and utility second (<code>max(responses, key=lambda x: (x[1] == 'fully supported', x[2]))</code>), which a yes or no grade cannot do.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How do the notebooks' reflection tokens differ from the ones in the Self-RAG paper?</summary>
+<p>In the paper one trained model emits the tokens from its vocabulary, in the same decoding pass as the answer. Neither notebook trains a model: each judgment is a separate LLM call with a structured-output schema. So &ldquo;reflection token&rdquo; here means one more call that returns a label.</p>
+</details>
+<details>
+<summary>2. On the starter-plan price question at k equal to 5, no chunk is ever relevant. How many LLM calls does Self-RAG make, and where do they go?</summary>
+<p>Twenty: 1 retrieve decision, 15 relevance grades over three passes, 2 rewrites, 1 generation and 1 utility grade. The groundedness check makes no call, because with no documents it returns <code>"yes"</code> without running. The export question stops after one pass in 9 calls.</p>
+</details>
+<details>
+<summary>3. With a groundedness grader that always says no, the graph regenerates until LangGraph raises a recursion error, despite its iteration cap. Why?</summary>
+<p><code>route_after_groundedness</code> writes <code>state["iteration"]</code> inside the routing function, and LangGraph keeps only what nodes return, so the counter never moves. With <code>recursion_limit = 200</code> that was 98 regenerations and 200 LLM calls. Count in a node instead: have <code>generate</code> return the new <code>iteration</code>, or add a small <code>regenerate</code> node.</p>
+</details>
 <h2 id="cost-per-question">Cost per question</h2>
 <p class="lesson-of">Lesson 29.3: Trade-offs: when correction is worth the extra calls</p>
 <p>Every check in CRAG and Self-RAG is an LLM call, and every failed check sends the question round again. The calls are easy to count from the notebook graphs:</p>
@@ -683,6 +714,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Retrieval misses are fixed in retrieval.</strong> The outage question fails on wording; one rewrite against the index is cheaper than three Self-RAG passes or a web search.</li>
 <li><strong>Every loop gets a counter and a budget.</strong> <code>max_iterations</code> caps the rewrite loops in 02a; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.</li>
 </ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does correction cost the most on the questions where it helps the least?</summary>
+<p>The two questions the handbook cannot answer are the most expensive for Self-RAG, 14 to 20 calls, and they still end with a generation that has no context to be grounded in. CRAG sends both to the web, which cannot see a private handbook. The checks spend their budget looking for evidence that does not exist.</p>
+</details>
+<details>
+<summary>2. At k equal to 3, all three pipelines answer the export question from both evidence chunks. How many LLM calls does each one pay?</summary>
+<p>The baseline pays 1, CRAG 4 and Self-RAG 7, all for the same context. On an easy question the checks are pure overhead.</p>
+</details>
+<details>
+<summary>3. Self-RAG spends 18 calls on the refund question and never retrieves the refund-timing chunk. Where should the fix go?</summary>
+<p>Upstream, in retrieval. <code>refund-timing</code> shares no term with &ldquo;How long does a refund take?&rdquo;, so it is never retrieved and never graded, and three passes return the same chunks. Fix it with better retrieval (M14, M17) or a rewrite that changes the words (M18), not with more checks.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html"><strong>What correction costs</strong></a>: open the file in a browser. Pick <em>Can I export my data after I cancel my plan?</em> and move <code>k</code> from 3 to 4: CRAG still keeps both evidence chunks, yet it now searches the web, because 2 of 4 is not more than half. Then pick <em>How much does the starter plan cost per month?</em> at <code>k = 5</code> and read the Self-RAG row: three retrieval passes, 20 LLM calls, and a final generation with no context that the groundedness check never examines.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -739,7 +783,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A groundedness check guards only the cases it runs on. Make &ldquo;no documents&rdquo; a refusal, never an automatic pass.</li>
 <li>Count LLM calls per question on your golden set before you ship a correction loop, and bound every loop with a counter that a node, not a router, updates.</li>
 </ul></article>
-    <nav class="toc" aria-label="M29 sections"><details open><summary>In M29</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#retrieval-evaluator">Retrieval evaluator</a></li><li><a href="#knowledge-refinement">Knowledge refinement</a></li><li><a href="#reflection-tokens">Reflection tokens</a></li><li><a href="#groundedness-check">Groundedness check</a></li><li><a href="#cost-per-question">Cost per question</a></li><li><a href="#when-correction-pays">When correction pays</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M29 sections"><details open><summary>In M29</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#retrieval-evaluator">Retrieval evaluator</a></li><li><a href="#knowledge-refinement">Knowledge refinement</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reflection-tokens">Reflection tokens</a></li><li><a href="#groundedness-check">Groundedness check</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-per-question">Cost per question</a></li><li><a href="#when-correction-pays">When correction pays</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

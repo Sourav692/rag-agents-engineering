@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -433,6 +438,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Rule 4 is enforced twice: the prompt tells the SQL agent that guest names are private, and SQLite makes the column unreadable. Only the second survives a model that ignores its prompt.</p>
 <p>The same split applies to the outcome. The agent&rsquo;s reply is not proof that it booked; the <code>reservations</code> table is. Notebook 01b checks for exactly one new row for Dana Lee, and a reply that only says it booked counts as a failure.</p>
 <p>Routing is the one place the lesson keeps a weak design on purpose. The coordinator forwards by writing an agent&rsquo;s name, and <code>mentioned_agent()</code> looks for that name (or the same words with a space) in the reply. Any reply that mentions an agent routes there: <em>I can&rsquo;t involve the reservation assistant until you give me dates</em> forwards to the reservation agent. The fix is a typed router, where the model returns its choice as a structured-output field and there is no reply text to search; notebook 05b routes that way.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The SQL agent's prompt already says guest names are private. Why does notebook 01b also make the guest_name column unreadable in SQLite?</summary>
+<p>Only the database guard survives a model that ignores its prompt. The authorizer returns <code>SQLITE_IGNORE</code> for <code>reservations.guest_name</code>, so the column reads as NULL while <code>SELECT *</code> still works. A refused booking says when the room is taken, never who took it, so rule 4 holds in the refusal too.</p>
+</details>
+<details>
+<summary>2. After a COMPLIANT verdict, the coordinator's reply names the checker again while forwarding Dana Lee's booking. Why does the turn not loop back to the checker?</summary>
+<p><code>checked_since_last_guest_message()</code> walks back through the messages and finds a <code>compliance</code> verdict after the latest guest message. The router then drops <code>compliance_checker</code> from the names it looks for, so the reply routes to the reservation agent.</p>
+</details>
+<details>
+<summary>3. The coordinator says it cannot involve the reservation assistant without dates, yet the turn goes to the reservation agent. Why, and what is the fix?</summary>
+<p><code>mentioned_agent()</code> routes to any agent whose name appears in the reply, even in a refusal. The fix is a typed router: the model returns its choice as a structured-output field, so there is no reply text to search. Notebook 05b routes that way.</p>
+</details>
 <h2 id="system-testing">System testing</h2>
 <p class="lesson-of">Lesson 37.2: Hardening: edge cases, testing and system-wide error handling. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/02a_hotel_edge_cases_and_errors.ipynb" target="_blank" rel="noopener"><code>02a_hotel_edge_cases_and_errors.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/02b_hotel_testing_the_system.ipynb" target="_blank" rel="noopener"><code>02b_hotel_testing_the_system.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/02c_hotel_system_wide_error_handling.ipynb" target="_blank" rel="noopener"><code>02c_hotel_system_wide_error_handling.ipynb</code></a> (optional)</p>
 <p>A multi-agent system fails quietly. The coordinator misreads a request, skips the compliance check, or forwards a booking before it has dates, and the guest still gets a polite reply. Notebook 02b catches these failures at three levels, from cheapest to most realistic:</p>
@@ -598,6 +616,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>A fallback that fails raises a different error type, so the router sends it to a person instead of looping. Transient failures get a cheaper fix first: <code>RetryPolicy(max_attempts=3)</code> re-runs a node that raises. With a node that fails twice, the run waits 0.2 s and then 0.4 s and succeeds on the third attempt; with three failures the exception reaches the caller. A retry smooths over a brief outage and does not replace the error path. Every failure in 02c is injected with a <code>SIMULATE</code> flag, so each recovery path runs on every run and a table computed from the node paths proves which one ran.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can notebook 02b unit-test the router without a model call, and what does the regression table catch that those tests cannot?</summary>
+<p>The router is a pure function of the state, with no model call and no I/O, so seven hand-built states pin down its rules. The unit tests cannot tell whether the model still behaves. The regression table runs 5 guest requests end to end and reads the nodes that ran and the <code>reservations</code> table, never the reply text.</p>
+</details>
+<details>
+<summary>2. In the router test bench lab, a threshold of 75 makes all seven tests pass. Should you set CONFIDENCE_THRESHOLD to 75?</summary>
+<p>No. The known issue passes only because the gate ends its turn before the name check runs, so string routing is as fragile as at 50. And every guest whose booking lacks dates, which the assessor scores 50 to 79, would get an apology instead of a question about the dates.</p>
+</details>
+<details>
+<summary>3. A regression run fails with verdict: expected COMPLIANT, got None. What happened, and is one such failure enough to act on?</summary>
+<p>The coordinator skipped the compliance check, so no verdict was recorded. Model output varies between runs, so a single failure is a lead to investigate, not a conclusion; the number to track is the pass rate over several runs, re-run after every prompt or model change.</p>
+</details>
 <h2 id="memory-merging">Memory merging</h2>
 <p class="lesson-of">Lesson 37.3: Scaling: parallel agents, memory merging, language and sentiment, web search. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03a_hotel_parallel_reservation_agents.ipynb" target="_blank" rel="noopener"><code>03a_hotel_parallel_reservation_agents.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03b_hotel_merging_and_conversation_memory.ipynb" target="_blank" rel="noopener"><code>03b_hotel_merging_and_conversation_memory.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03c_hotel_guest_language_and_sentiment.ipynb" target="_blank" rel="noopener"><code>03c_hotel_guest_language_and_sentiment.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03d_hotel_web_search_integration.ipynb" target="_blank" rel="noopener"><code>03d_hotel_web_search_integration.ipynb</code></a> (optional)</p>
 <p>Once several agents work on one request, their outputs have to come back together: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. Notebooks 03a and 03b do both on a chain with two hotels. Hotel 1 has rooms 101 to 104, Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools.</p>
@@ -709,6 +740,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Web search.</strong> A <code>web_search_assistant</code> with <code>TavilySearch(max_results=3)</code> answers questions about the neighbourhood, which no hotel database holds. It is one more tool loop and one more name the coordinator can route to, and the test checks which node ran for a nearby-places question and for a booking question.</li>
 </ul>
 <p>Each notebook adds its capability to the core from 37.1 on its own; no notebook composes all of them into one graph.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does each parallel hotel branch need its own message key instead of sharing messages?</summary>
+<p>A <code>ToolNode</code> answers the latest tool call in its list, which may be the other branch&rsquo;s. Both hotels have a tool called <code>run_query</code>, so the wrong database can answer silently. Give each branch its own key with <code>ToolNode(..., messages_key=...)</code> and <code>partial(tools_condition, messages_key=...)</code>.</p>
+</details>
+<details>
+<summary>2. For a Deluxe room in two months, Hotel 1 has room 104 free and Hotel 2 has room 108. What should the merged reply say, and how is it checked?</summary>
+<p>It should recommend Hotel 1 first, because <code>PRIORITY = ["hotel1", "hotel2"]</code>, so 104 appears before 108, and offer Hotel 2 as the alternative with numbers, prices and dates exactly as the assistants gave them. Code checks the position of the room numbers in the reply against the ground truth from <code>free_rooms()</code>, not against the model&rsquo;s claim.</p>
+</details>
+<details>
+<summary>3. In the two-hotel graph, the guest gets two replies and the first one misses a hotel. What is wrong with the wiring?</summary>
+<p>Each branch&rsquo;s end goes straight to the merge node, so the merge runs once per branch. Add a sync node at the end of each branch and a join, <code>add_edge(["hotel1_done", "hotel2_done"], "merge_answers")</code>, so the merge waits for both.</p>
+</details>
 <h2 id="planner-supervisor-or-router">Planner, supervisor or router</h2>
 <p class="lesson-of">Lesson 37.5: Research systems: supervisor financial research, summarisation, full research system. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/05c_multi_agent_research_system.ipynb" target="_blank" rel="noopener"><code>05c_multi_agent_research_system.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/05a_supervisor_financial_research.ipynb" target="_blank" rel="noopener"><code>05a_supervisor_financial_research.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/05b_multi_agent_research_summarization.ipynb" target="_blank" rel="noopener"><code>05b_multi_agent_research_summarization.ipynb</code></a> (optional)</p>
 <p>The three research notebooks answer one question differently: who decides which agent works next, and when. That choice sets how many model calls a request costs and what can go wrong.</p>
@@ -890,6 +934,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>The exit is code.</strong> <code>quality_gate</code> is a pure function: approve when the minimum score reaches 0.7 and no section is missing, otherwise go back to the writer, unless <code>iteration</code> has reached <code>MAX_DRAFTS</code>. The reviewer is never asked to be lenient on a later pass.</li>
 </ul>
 <p>The notebook proves the wiring before it spends a token. <code>create_research_system(nodes=...)</code> takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What separates the one-shot planner in 05c from the supervisor in 05a, and what does each give up?</summary>
+<p>The supervisor decides after every worker report, so it can adapt, but it is the hardest to bound and needs <code>MAX_SUPERVISOR_TURNS = 6</code>. The planner decides the list of queries once, up front, and never sees a result: it cannot adapt, but its cost is known before the first search runs.</p>
+</details>
+<details>
+<summary>2. The reviewer scores a first draft 0.9 for completeness, 0.8 for clarity and 0.6 for actionability, with all four sections present. What does quality_gate do?</summary>
+<p>It sends the draft back to the writer. <code>quality_score</code> is the minimum, 0.6, which is below <code>QUALITY_THRESHOLD</code> 0.7. The writer gets its previous draft and the feedback, and <code>MAX_DRAFTS = 2</code> ends the loop after the second reviewed draft whatever the scores say.</p>
+</details>
+<details>
+<summary>3. A web forum post quotes an old Larkspur refund window while the handbook gives the current one. What must the research team preserve so the writer can handle it?</summary>
+<p>The source of every finding. The analyst lists contradictions across all findings before anyone writes, and the writer should cite both sources and say which one is the policy. It can only do that if the findings keep their sources.</p>
+</details>
 <h2 id="deep-agent-harness">Deep-agent harness</h2>
 <p class="lesson-of">Lesson 37.6: Deep agents: orchestrator, sub-agents, skills and long-term memory. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/06a_simple_coding_agent.py" target="_blank" rel="noopener"><code>06a_simple_coding_agent.py</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/06b_long_term_memory_agent.py" target="_blank" rel="noopener"><code>06b_long_term_memory_agent.py</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/06c_skills" target="_blank" rel="noopener"><code>06c_skills</code></a> (optional)</p>
 <p>The hotel system and the research pipeline are graphs you wire node by node. A deep agent starts from the other end: one orchestrator model inside a ready-made <strong>harness</strong> that gives it files, sub-agents, skills, an execution backend and memory, and you configure the harness instead of drawing the graph. Lesson 37.6 uses the <code>deepagents</code> library&rsquo;s <code>create_deep_agent</code>, in two command-line scripts. The tool and backend behaviour below is that of <code>deepagents</code> 0.7.32, the version in this course&rsquo;s lock file.</p>
@@ -990,6 +1047,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The orchestrator&rsquo;s prompt tells it to recall memories at the start of each conversation and to save preferences, facts, decisions, project context and feedback as they come up. Two limits are visible in the code: <code>CURRENT_USER_ID</code> is fixed to <code>default-user</code>, so every user shares one namespace until it comes from authentication, and <code>recall_memories</code> matches a substring of the stored text, so a paraphrase finds nothing. The script&rsquo;s comment names <code>PostgresStore</code> as the production replacement.</p>
 <p>The module&rsquo;s deployed design, in <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md" target="_blank" rel="noopener"><code>deep_agent_overview.md</code></a>, runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. How does a call to the task tool keep the research agent's searches out of the orchestrator's context?</summary>
+<p>The <code>task</code> tool runs the sub-agent with its own messages and tools, and only its final message returns to the orchestrator. The search calls and notes stay in the sub-agent&rsquo;s context; the orchestrator reads only the report.</p>
+</details>
+<details>
+<summary>2. The harness loads eight skills from 06c_skills. What does the orchestrator's system prompt hold for them before any is needed?</summary>
+<p>Only each skill&rsquo;s <code>name</code> and <code>description</code> from the <code>SKILL.md</code> frontmatter, eight short lines in all. When a task matches a description, the model calls <code>read_file</code> for the full instructions. This is progressive disclosure.</p>
+</details>
+<details>
+<summary>3. A teammate sets USE_SANDBOX=true, believing the agent's commands now run in a cloud sandbox. Are they safe?</summary>
+<p>No. Despite the script&rsquo;s comment, the code selects <code>LocalShellBackend</code>, which the library documents as unrestricted shell execution on the host with no isolation. Code execution belongs in a real sandbox backend, with a person approving each command through <code>interrupt_on</code>.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_hardening_edge_cases_testing_and_system_wide_error_handling/interactive/router-test-bench-lab.html"><strong>Router test bench</strong></a>: open the file in a browser. Start at threshold 50: six of the seven router tests pass, and the seventh is the known issue the suite records on purpose. Slide to 75 and all seven pass, because the confidence gate now ends the known-issue turn before the name check runs. Then write your own coordinator reply under <em>Route your own reply</em> and find one that forwards while saying it will not.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -1046,7 +1116,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Fan out with one state key per branch, join before you merge, keep writes out of parallel branches, and summarize old turns into state before the thread outgrows the context.</li>
 <li>A deep agent&rsquo;s safety comes from its harness: the backend decides what code can do, sub-agents keep their own context, and memory needs a real user key.</li>
 </ul></article>
-    <nav class="toc" aria-label="M37 sections"><details open><summary>In M37</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#compliance-agent">Compliance agent</a></li><li><a href="#guards-in-the-tools">Guards in the tools</a></li><li><a href="#system-testing">System testing</a></li><li><a href="#edge-cases-and-error-paths">Edge cases and error paths</a></li><li><a href="#memory-merging">Memory merging</a></li><li><a href="#adding-agents-around-the-core">Adding agents around the core</a></li><li><a href="#planner-supervisor-or-router">Planner, supervisor or router</a></li><li><a href="#a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</a></li><li><a href="#deep-agent-harness">Deep-agent harness</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M37 sections"><details open><summary>In M37</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#compliance-agent">Compliance agent</a></li><li><a href="#guards-in-the-tools">Guards in the tools</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#system-testing">System testing</a></li><li><a href="#edge-cases-and-error-paths">Edge cases and error paths</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#memory-merging">Memory merging</a></li><li><a href="#adding-agents-around-the-core">Adding agents around the core</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#planner-supervisor-or-router">Planner, supervisor or router</a></li><li><a href="#a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deep-agent-harness">Deep-agent harness</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

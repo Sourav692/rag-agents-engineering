@@ -56,5 +56,28 @@ Notebook `05e`'s last cell, `gr.load("distilbert-base-uncased-finetuned-sst-2-en
 
 A demo is a tool for trying a model with people who do not run notebooks, such as the Larkspur support lead. It has no login, rate limit or monitoring unless you add them, so in production the model runs behind a service with those controls, and the demo stays a way to try it.
 
+## Check yourself
+
+<details>
+<summary>1. What does gr.Blocks leave you to do that gr.Interface does for you?</summary>
+
+`gr.Interface` builds a form around one function: input components, a Submit button, the outputs and a Flag button. `gr.Blocks` adds no button and calls nothing by itself: you place the components in rows, columns and tabs, and connect each event to a function, such as `button.click(fn, inputs, outputs)`. In return one page can hold many components and events.
+
+</details>
+
+<details>
+<summary>2. In the Larkspur ticket tagger, the support lead clicks Tag with an empty ticket box. What does the page show, and does the classifier run?</summary>
+
+The page shows "Paste a ticket first." and the classifier does not run. `tag` checks for an empty ticket first, and `raise gr.Error(...)` stops the function there and shows the message. `gr.Warning` would show a notice and let the function finish.
+
+</details>
+
+<details>
+<summary>3. Every click in a colleague's Gradio demo reloads the model weights. Where did they build the pipeline, and where should it go?</summary>
+
+Inside the event function, so each call builds the pipeline again. Build it once outside the function, when the app starts, as `05e` and the ticket tagger do, and only call it inside the function.
+
+</details>
+
 ---
 *Previous: [3.2 Pipelines, tokenization and pretrained models](../02_pipelines_tokenization_and_pretrained_models/README.md). Next: [M03 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

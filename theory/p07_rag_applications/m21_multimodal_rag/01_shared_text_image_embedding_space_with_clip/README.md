@@ -49,5 +49,28 @@ Scores from different modalities are not comparable, so do not rank them togethe
 - **One modality.** Turn figures into text ([lesson 21.2](../02_caption_then_index_with_a_vision_llm/README.md)) or text into images ([lesson 21.3](../03_page_image_retrieval_with_colpali/README.md)), so every score comes from the same comparison.
 - **A text model for text.** Use a text embedding model (M14) for the chunks and keep CLIP for image search only; its 77-token text side is a weak paragraph retriever.
 
+## Check yourself
+
+<details>
+<summary>1. Which two input limits make CLIP a weak retriever for document text and charts?</summary>
+
+Text stops at 77 tokens, and the notebook's 500-character chunks run past that; `truncation=True` drops the tail without a warning. Images become 224 by 224: a 400 by 300 chart loses about a quarter of its width to the centre crop and is read as 7 by 7 patches of 32 pixels, so small labels and printed values rarely survive.
+
+</details>
+
+<details>
+<summary>2. For the availability question, the answer figure is the best image at 0.306, yet the notebook's k of 5 sends no image. Why?</summary>
+
+Every text chunk scores between 0.692 and 0.912 and every image between 0.200 and 0.382, the modality gap. The answer figure ranks 7 of 9, behind all six text chunks. It takes `k = 7` to reach it, and then the model reads six chunks of text to use one picture.
+
+</details>
+
+<details>
+<summary>3. Should you fix the missing figure by raising k, or by something else?</summary>
+
+By something else, because scores from different modalities are not comparable. Search text and images separately and send the top text chunks plus the top image; on the lab pages, the top image is the answer figure for all three questions. The alternatives are to put everything in one modality (captions or page images) or to use a text embedding model for the text.
+
+</details>
+
 ---
 *Previous: [M21 overview](../README.md). Next: [21.2 Caption-then-index with a vision LLM](../02_caption_then_index_with_a_vision_llm/README.md).*

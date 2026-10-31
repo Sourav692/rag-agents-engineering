@@ -62,5 +62,28 @@ A swarm spends routing once per thread. On the outage request, triage hands off 
 
 Over a thread of the outage request and 3 follow-ups the lab counts 6 calls for the swarm, 14 for the supervisor and 22 for the hierarchy. The router (M30) spends 8 and still never asks billing about the credits. The swarm's saving rests on the conversation staying with one specialist. When a follow-up changes topic, the active agent has to recognise that and hand off, and the routing quality now lives in every agent's prompt instead of one supervisor's.
 
+## Check yourself
+
+<details>
+<summary>1. A structured-output classifier sends each Larkspur request to one specialist. Is that a handoff, and what would make it one?</summary>
+
+No, it is still a router. A handoff needs the agent holding the conversation to choose the next agent by calling a tool, and the graph to remember the choice in `active_agent`. The handoff tool returns a `Command` with `graph=Command.PARENT`, so the parent graph runs the named agent next.
+
+</details>
+
+<details>
+<summary>2. In the routing cost lab, how many model calls do the swarm, the supervisor and the hierarchy spend on the outage request plus 3 follow-ups?</summary>
+
+6 for the swarm, 14 for the supervisor and 22 for the hierarchy. The swarm spends 3 calls on the first request and 1 per follow-up, because each follow-up goes straight to the active agent; the supervisor pays 3 per follow-up and the hierarchy 5. The saving holds only while the conversation stays with one specialist.
+
+</details>
+
+<details>
+<summary>3. In a langgraph-swarm build, the billing agent asks the customer again for details they already gave triage. Why?</summary>
+
+The library's handoff tool takes no arguments and its `ToolMessage` says only "Successfully transferred", so it carries no note. Whatever the next agent needs must already be in the conversation. The hand-built tool's `context` argument exists to fix that.
+
+</details>
+
 ---
 *Previous: [35.4 Supervisors and hierarchical teams](../04_supervisors_and_hierarchical_teams/README.md). Next: [M35 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

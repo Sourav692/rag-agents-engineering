@@ -72,5 +72,28 @@ The [interactive lab](interactive/record-manager-lab.html) runs a JavaScript por
 
 For Larkspur's nightly sync, `incremental` keyed on `source` handles policy edits and new files, and a weekly `full` run over the complete folder, guarded by a file-count check, removes files the team deleted. `SQLRecordManager` keeps the keys in the same Postgres as the vectors and reads the time from the database, so every writer stamps keys on one clock; an update raises a time-sync error if that clock reads earlier than the run's start.
 
+## Check yourself
+
+<details>
+<summary>1. You switch to a new embedding model and rerun the sync job. Why does it embed nothing, and how do you rebuild?</summary>
+
+Each chunk's ID is a hash of its text and metadata only, so a model change leaves every hash the same. The run skips every chunk and leaves the old model's vectors in place. Build a new collection with its own record-manager namespace, or run once with `force_update=True`.
+
+</details>
+
+<details>
+<summary>2. The outages file is deleted from the Larkspur folder and the nightly sync runs with incremental cleanup. How many of its chunks are removed?</summary>
+
+None. `incremental` cleans a source only when that source sends at least one chunk in the batch, and a deleted file sends none. Its 2 chunks stay until a `full` run or an explicit `delete()` by ID.
+
+</details>
+
+<details>
+<summary>3. A loader bug returns only the refunds file, and the job runs with full cleanup. What happens, and how do you guard against it?</summary>
+
+`full` treats every key not seen in the run as deleted, so the 8 chunks from the other files are deleted. Run `full` only over the whole corpus, and refuse to run it when the loader returns far fewer files than last time. Larkspur's plan is a nightly `incremental` sync plus a weekly `full` run guarded by a file-count check.
+
+</details>
+
 ---
 *Previous: [15.4 Postgres + pgvector with metadata-filtered search](../04_postgres_pgvector_with_metadata_filtered_search/README.md). Next: [M15 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

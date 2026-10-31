@@ -82,5 +82,28 @@ This adds chunks that are worded the way users ask, which helps future questions
 - **Past answers become retrievable facts.** When Larkspur changes a policy, the stored answers still quote the old one and compete with the corrected handbook. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.
 - **It rebuilds the whole index.** Every run re-embeds the full corpus plus the feedback text; incremental upserts (M15) avoid that.
 
+## Check yourself
+
+<details>
+<summary>1. Why can the feedback re-ranker never fix the refund and outage questions in the lab?</summary>
+
+It only reorders the 4 candidates the retriever returns. `refund-timing`, `sla` and `incidents` score 0 for those questions, so they are never candidates and never receive a rating. The two questions account for 40 of the 41 wrong answers.
+
+</details>
+
+<details>
+<summary>2. For the question about using a server after cancelling, how do thumbs on the answer and clicks on each source treat the sizing chunk?</summary>
+
+`sizing` is not evidence but sits in every good answer next to `cancel`. Rated through the answer it rides along to 1.667; rated per source it falls to 0.333. Either way the lab's totals stay at mean recall@2 0.70 and 41 wrong answers, because neither signal reaches a chunk the retriever does not return.
+
+</details>
+
+<details>
+<summary>3. You plan to fold highly rated answers back into the index every week. What happens when Larkspur changes a policy, and how do you guard against it?</summary>
+
+The stored answers still quote the old policy and compete with the corrected handbook as retrievable facts. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.
+
+</details>
+
 ---
 *Previous: [32.1 Reliable RAG: relevance checks, hallucination checks, source highlighting](../01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md). Next: [32.3 Dartboard RAG: relevance and diversity together](../03_dartboard_rag_relevance_and_diversity_together/README.md).*

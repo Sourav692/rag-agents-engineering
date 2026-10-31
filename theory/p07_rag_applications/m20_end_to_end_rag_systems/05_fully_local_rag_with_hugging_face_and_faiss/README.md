@@ -54,5 +54,28 @@ Two smaller things to change when you reuse the code:
 
 The notebook's fallback evaluation counts expected keywords in each answer ("carbon dioxide", "methane"). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from [M11](../../../p04_rag_foundations/m11_rag_lifecycle/README.md) for decisions.
 
+## Check yourself
+
+<details>
+<summary>1. The 05a notebook embeds and indexes on your machine. Why does the data still leave it?</summary>
+
+The generator is not local: `HuggingFaceEndpoint` calls the Hugging Face Inference API, so every prompt, with the three retrieved chunks inside it, leaves the machine. Replace it with `HuggingFacePipeline`, which loads the weights and generates in your process.
+
+</details>
+
+<details>
+<summary>2. A Larkspur customer's contract forbids tickets and the handbook leaving their network, and your index was built with OpenAI embeddings. What must change besides the generator?</summary>
+
+The embedding model, and with it the whole index. The query must be embedded by the model that embedded the chunks, so switching from OpenAI's 1,536-dimension vectors to bge's 768 means re-embedding the whole corpus, not only new documents. Measure tokens per second on the target machine before you promise a latency.
+
+</details>
+
+<details>
+<summary>3. The sources shown beside an answer sometimes differ from the context the model read. What in the 05a chain allows that?</summary>
+
+`RunnableParallel(answer=rag_chain, sources=retriever)` retrieves twice, once inside `rag_chain` and once for `sources`. On an index that updates between the two calls, the lists can differ. The `RunnablePassthrough.assign` pattern from 20.2 retrieves once.
+
+</details>
+
 ---
 *Previous: [20.4 RAG over structured data: CSV and JSON](../04_rag_over_structured_data_csv_and_json/README.md). Next: [M20 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -51,5 +51,28 @@ For a RAG pipeline the finding has three consequences:
 
 The notebook's own list of when to rerank makes the same point from the other side: when only the top 3 chunks are used, or when the context window is limited and needs the best documents.
 
+## Check yourself
+
+<details>
+<summary>1. Why can no reranker fix an answer whose evidence is not among the 50 first-stage candidates?</summary>
+
+A reranker reorders; it cannot fetch. The top 5 after reranking is a subset of the top 50 before it, so recall@5 after the rerank can never exceed recall@50 before it. If `retention` is missing from the candidates for the export question, the fix belongs in stage 1: hybrid search (M17) or query rewriting (M18).
+
+</details>
+
+<details>
+<summary>2. The outage question's two SLA chunks sit at stage-1 ranks 9 and 11. What is precision@5 without a reranker, and with the bge reranker at k = 20 and k = 10?</summary>
+
+0.20 with no reranker. At `k = 20` the bge reranker lifts the SLA chunks to ranks 3 and 2 and precision@5 rises to 0.60, for about 623 ms of CPU time. At `k = 10` one SLA chunk is outside the candidates, so precision@5 stops at 0.40.
+
+</details>
+
+<details>
+<summary>3. Stage 1 sends 20 chunks for the export question, retention lands at position 11, and the answer ignores it. Why, and what should change?</summary>
+
+Models use passages near the start or end of the context most reliably and the middle least, so position 11 of 20 is where evidence gets lost. Send fewer chunks, in rank order with the best first. If you must send many, put the strongest at the edges, as `LongContextReorder` does.
+
+</details>
+
 ---
 *Previous: [M19 overview](../README.md). Next: [19.2 Cross-encoder reranking in a RAG chain](../02_cross_encoder_reranking_in_a_rag_chain/README.md).*

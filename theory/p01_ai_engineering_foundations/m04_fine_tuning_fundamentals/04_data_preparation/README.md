@@ -49,5 +49,28 @@ Tokenizing does not check the data. Read the rows before you train on them; in `
 
 The refusal rows show how a behaviour gets in: the model declines off-topic questions because 39 training answers do. A Larkspur dataset needs its own share of those rows, written in the house style, or the fine-tuned assistant will answer *What do you think of Mars?* as cheerfully as the base model. Deduplicate before you split, and check that no test question also appears in training.
 
+## Check yourself
+
+<details>
+<summary>1. The Pythia tokenizer appends no end token, and padding reuses the end-of-text id. What do you add to each training text, and what do you set at padded label positions?</summary>
+
+Append `tokenizer.eos_token` to each training text, so every row shows the model where an answer stops. Then set the padded positions in `labels` to -100: padding uses id 0 and `labels` copies `input_ids`, so without that step the loss would train on the padding.
+
+</details>
+
+<details>
+<summary>2. In the lab's Larkspur batch at max_length 48, what does each truncation side remove from the refund example?</summary>
+
+Right truncation cuts 11 answer tokens from the end, so the model trains on an answer that stops mid-sentence. Left truncation keeps the answer but cuts the `### Question:` header and 7 question tokens, so the model trains on an answer to a question it cannot fully see. Neither raises an error.
+
+</details>
+
+<details>
+<summary>3. A fine-tuned Larkspur assistant answers What do you think of Mars? as cheerfully as the base model. What was missing from its training data?</summary>
+
+Refusal rows. In `lamini_docs.jsonl` the model learns to decline off-topic questions because 39 training answers ask to keep the discussion relevant to Lamini. A Larkspur dataset needs its own share of those rows, written in the house style.
+
+</details>
+
 ---
 *Previous: [4.3 Instruction tuning](../03_instruction_tuning/README.md). Next: [4.5 Training](../05_training/README.md).*

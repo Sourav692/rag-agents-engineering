@@ -148,6 +148,11 @@ th:last-child, td:last-child { padding-right: 0; }
 .prose pre.mermaid:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .prose .diagram { margin: var(--space-lg) 0; }
 .prose .diagram img { width: 100%; height: auto; outline: var(--rule-hair) solid var(--color-rule-2); outline-offset: -1px; }
+.prose details { max-width: 60ch; border-top: var(--rule-hair) solid var(--color-rule); padding-top: var(--space-xs); }
+.prose details:last-of-type { border-bottom: var(--rule-hair) solid var(--color-rule); padding-bottom: var(--space-xs); }
+.prose summary { cursor: pointer; font-weight: 500; color: var(--color-ink); padding-block: var(--space-xs); }
+.prose summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prose details > :not(summary) { margin-top: var(--space-xs); }
 .prose table { font-size: 0.9375rem; }
 .prose td code { font-size: 0.86em; color: var(--color-ink); }
 .prose em { font-style: italic; }
@@ -375,6 +380,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The optional notebook rebuilds the core of CrewAI without a framework, on the raw OpenAI SDK. An <code>Agent</code> has a role, a task and an expected output. <code>agent_1 &gt;&gt; agent_2</code> (borrowed from Airflow) records that agent 2 needs agent 1&rsquo;s output, and agent 2 receives that output in its context, labelled with the agent that produced it.</p>
 <p>A <code>Crew</code> collects agents in a <code>with</code> block and runs them in topological order: an agent runs only after everything it depends on. A cycle has no topological order, so the crew raises an error before any model is called. <code>[analyst_a, analyst_b] &gt;&gt; editor</code> is fan-in: the editor waits for both and reads both outputs.</p>
 <p>The last part of the notebook draws the same fan-in crew as a LangGraph <code>StateGraph</code>, with one <code>add_edge</code> per dependency. A crew is a fixed dependency graph. Everything in lesson 35.2 onward adds a node that chooses the next agent at run time.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The specialist team makes roughly four times the monolithic agent's model calls. Why is its latency set by the slowest analyst, not the sum of all three?</summary>
+<p><code>START</code> has an edge to all three analysts, so LangGraph runs them in the same super-step, in parallel. The report writer has an edge from each analyst and starts only when all three have finished. The time is the slowest analyst plus the synthesis call.</p>
+</details>
+<details>
+<summary>2. On one company, the team's report scores a point higher than the monolithic report from the judge. Is that enough to switch to the team?</summary>
+<p>No. One request on one company is one sample, and a gap of a point or two on the judge alone is noise. The notebook also measures both reports in code (word count, headings, whether each requested topic is covered), and the judge scores each report without knowing which approach wrote it.</p>
+</details>
+<details>
+<summary>3. A crew built from the optional notebook declares writer &gt;&gt; reviewer and reviewer &gt;&gt; writer. What happens when you run it?</summary>
+<p>The crew raises an error before any model is called. It runs agents in topological order, and a cycle has no topological order. A crew is a fixed dependency graph; choosing the next agent at run time needs the patterns from lesson 35.2 on.</p>
+</details>
 <h2 id="five-architectures-one-primitive">Five architectures, one primitive</h2>
 <p class="lesson-of">Lesson 35.2: The five multi-agent architectures and agent communication. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/02a_five_multi_agent_architectures.ipynb" target="_blank" rel="noopener"><code>02a_five_multi_agent_architectures.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/optional/02b_agent_communication.ipynb" target="_blank" rel="noopener"><code>02b_agent_communication.ipynb</code></a> (optional)</p>
 <p>Every architecture in the 35.2 notebook is built from one return value. A node returns <code>Command(goto="writer", update={...})</code>: the update is written to state and the graph runs <code>writer</code> next. The node&rsquo;s return annotation, such as <code>Command[Literal["writer", "__end__"]]</code>, lists the nodes it may jump to, and LangGraph draws those as the graph&rsquo;s edges. <code>add_edge</code> fixes a path when the graph is built; <code>Command(goto=...)</code> picks one at run time. Most real systems use both.</p>
@@ -480,6 +498,19 @@ th:last-child, td:last-child { padding-right: 0; }
     K -- no --&gt; X[/Capped/]
 </pre></figure>
 <p>The notebook marks one boundary. This loop is not a blackboard: its order is fixed (draft, critique, draft), and only the exit is decided at run time. A blackboard has a controller that picks which of several specialists acts next from what is on the shared board; M36 builds one.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does a node return to choose the next agent at run time, and how does LangGraph know which edges to draw for it?</summary>
+<p>It returns <code>Command(goto="writer", update={...})</code>: the update goes into state and the named node runs next. The return annotation, such as <code>Command[Literal["writer", "__end__"]]</code>, lists the nodes it may jump to, and LangGraph draws those as edges. <code>add_edge</code> fixes a path at build time; <code>Command(goto=...)</code> picks one at run time.</p>
+</details>
+<details>
+<summary>2. Larkspur's support assistant may need one specialist or two, so the order is not known in advance. Which question then decides between a swarm and a supervisor?</summary>
+<p>Whether an agent should pass the conversation on, which comes down to whether conversations stay with one specialist across turns. If yes, use handoffs and a swarm (35.5). If no, and peers need not negotiate and one supervisor can handle the specialists, use a supervisor (35.4).</p>
+</details>
+<details>
+<summary>3. A yes-or-no critic sometimes approves drafts that miss a criterion. How does the notebook's critic design prevent that, and what ends the loop?</summary>
+<p>The critic never gives the verdict. For each of three criteria it quotes the sentence from the draft that meets it, or writes <code>none</code>; code checks that each quote is really in the draft and computes the verdict. <code>MAX_ITERATIONS = 3</code> ends the loop whether or not the critic approves.</p>
+</details>
 <h2 id="human-review-in-a-supervisor-loop">Human review in a supervisor loop</h2>
 <p class="lesson-of">Lesson 35.3: Supervisor workflow with human review. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/optional/03a_supervisor_workflow_with_human_review.ipynb" target="_blank" rel="noopener"><code>03a_supervisor_workflow_with_human_review.ipynb</code></a> (optional)</p>
 <p>The 35.3 notebook turns a short transfer rumour into a publishable news article. An article passes when it is about football transfers, names the player&rsquo;s current club and market value, and runs to at least 100 words. A supervisor, the &ldquo;news chef&rdquo;, grades the article and routes it to the specialist that can fix the first failing check. A human reads the result before it is published.</p>
@@ -504,6 +535,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>The workflow then becomes one node of an outer graph, followed by a node that publishes. Compiling the outer graph with a checkpointer and <code>interrupt_after=["newsagent_node"]</code> pauses every run after the article is written. The reviewer reads the state, changes it with <code>update_state</code> if needed, and resumes with <code>invoke(None, ...)</code>. In the notebook the edited article, not the model&rsquo;s, reaches the publishing call.</p>
 <p>That interrupt is static: fixed at compile time, it pauses every run at the named node. A dynamic <code>interrupt(payload)</code> inside a node pauses only when the node decides to, and the run resumes with <code>Command(resume=...)</code>. Larkspur needs the dynamic kind. A refund the billing agent proposes inside the 30-day window can go straight to the customer; one outside the window pauses for a person. The check that decides to pause compares dates in code, for the same reason the word count does.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does the news chef use a model to judge topic, club and market value, but leave the 100-word check to code?</summary>
+<p>Topic, club and market value need judgement, so a model answers them with structured output. The word count is exact, so code computes it and the model is never asked. A check that code can do exactly should never depend on a model&rsquo;s answer.</p>
+</details>
+<details>
+<summary>2. An article names the player's current club but has no market value and only 80 words. Which specialists run, and in what order?</summary>
+<p>The news chef routes to the first failing check, in the order market value, club, length, so <code>market_value_researcher</code> runs first. Control returns to the chef, which grades again; the club passes, so <code>word_count_rewriter</code> runs next. <code>MAX_PASSES = 5</code> caps the loop if a check keeps failing.</p>
+</details>
+<details>
+<summary>3. Larkspur wants a person to review only refunds proposed outside the 30-day window. Should it use a static interrupt_after or a dynamic interrupt?</summary>
+<p>A dynamic <code>interrupt(payload)</code> inside the node. A static <code>interrupt_after</code> is fixed at compile time and pauses every run, while the dynamic one pauses only when the node decides to, and the run resumes with <code>Command(resume=...)</code>. The check that decides to pause compares the dates in code.</p>
+</details>
 <h2 id="supervisor">Supervisor</h2>
 <p class="lesson-of">Lesson 35.4: Supervisors and hierarchical teams. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/04a_supervisor_pattern.ipynb" target="_blank" rel="noopener"><code>04a_supervisor_pattern.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/04b_hierarchical_agents.ipynb" target="_blank" rel="noopener"><code>04b_hierarchical_agents.ipynb</code></a></p>
 <p>A supervisor is a node that reads the work so far and picks the next specialist, or decides the task is done. Every specialist reports back to it. In the 35.4 notebook the supervisor is a model with structured output: <code>RouteDecision</code> holds <code>next</code>, a closed <code>Literal["researcher", "writer", "critic", "FINISH"]</code>, and a one-line <code>reasoning</code>. A typed choice cannot name a node that does not exist, and the graph never parses prose to find out where to go.</p>
@@ -552,6 +596,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>Test each team on its own before you assemble the hierarchy; a team that misbehaves is much harder to diagnose once it is one node inside a larger graph. The cost is visibility and steps: the parent sees what a team appended, not why, and in lesson 35.2 the two-level run needs <code>recursion_limit</code> raised from 25 to 50.</p>
 <p>Larkspur&rsquo;s three specialists do not need a hierarchy. Put billing and data in an accounts team with its own lead and operations in a platform team, and the outage request costs 7 model calls, 5 of them routing, against 5 for a flat supervisor. A hierarchy starts to pay when the flat supervisor&rsquo;s prompt has to describe so many specialists that its routing accuracy drops; measure that before adding the layer.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why does route_to_agent check specialist_calls before it reads the supervisor's decision?</summary>
+<p>So the cap holds whatever the model chooses: once <code>specialist_calls</code> reaches <code>MAX_SPECIALIST_CALLS = 6</code>, the run goes to <code>finalize</code>. <code>recursion_limit = 25</code> is only a backstop and ends a run with an error; the counter ends it with a result. The <code>operator.add</code> reducer sums each specialist&rsquo;s <code>specialist_calls: 1</code>, so the count never depends on message text.</p>
+</details>
+<details>
+<summary>2. For Larkspur's outage request (operations, then billing), how many model calls does a flat supervisor make, and how many does a two-team hierarchy make?</summary>
+<p>The flat supervisor makes 5, 3 of them routing. Splitting into an accounts team and a platform team raises it to 7, 5 of them routing. Larkspur&rsquo;s three specialists do not need the hierarchy; it pays only when the flat supervisor&rsquo;s routing accuracy drops with too many specialists.</p>
+</details>
+<details>
+<summary>3. A developer adds a turn counter with an adding reducer to TeamState, and the CEO's count comes out too high. What went wrong?</summary>
+<p>A team hands its whole final state back to the parent, so a counter in the shared contract is added a second time on the way up. Keep counters at their own level, as <code>ceo_turns</code> in <code>CEOState</code> and <code>content_turns</code> in <code>ContentState</code>, outside <code>TeamState</code>.</p>
+</details>
 <h2 id="handoffs">Handoffs</h2>
 <p class="lesson-of">Lesson 35.5: Handoffs and swarms. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/05a_agent_handoffs.ipynb" target="_blank" rel="noopener"><code>05a_agent_handoffs.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/05b_multi_agent_swarm.ipynb" target="_blank" rel="noopener"><code>05b_multi_agent_swarm.ipynb</code></a></p>
 <p>A router and a handoff both move a request between agents. They differ in who holds control afterwards.</p>
@@ -668,6 +725,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A swarm spends routing once per thread. On the outage request, triage hands off to operations, operations answers its part and hands off to billing: 3 model calls, one of them routing, against 5 for a supervisor. After that, each follow-up goes straight to the active agent for 1 call, where the supervisor pays 3 and a hierarchy 5. The <a href="05_handoffs_and_swarms/interactive/routing-cost-lab.html">routing cost lab</a> runs the same three Larkspur requests through all four architectures, with the follow-up turns on a slider.</p>
 <figure class="lab-embed"><iframe src="05_handoffs_and_swarms/interactive/routing-cost-lab.html" title="Who routes, and what it costs, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Who routes, and what it costs. <a href="05_handoffs_and_swarms/interactive/routing-cost-lab.html">Open full screen</a></figcaption></figure>
 <p>Over a thread of the outage request and 3 follow-ups the lab counts 6 calls for the swarm, 14 for the supervisor and 22 for the hierarchy. The router (M30) spends 8 and still never asks billing about the credits. The swarm&rsquo;s saving rests on the conversation staying with one specialist. When a follow-up changes topic, the active agent has to recognise that and hand off, and the routing quality now lives in every agent&rsquo;s prompt instead of one supervisor&rsquo;s.</p>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. A structured-output classifier sends each Larkspur request to one specialist. Is that a handoff, and what would make it one?</summary>
+<p>No, it is still a router. A handoff needs the agent holding the conversation to choose the next agent by calling a tool, and the graph to remember the choice in <code>active_agent</code>. The handoff tool returns a <code>Command</code> with <code>graph=Command.PARENT</code>, so the parent graph runs the named agent next.</p>
+</details>
+<details>
+<summary>2. In the routing cost lab, how many model calls do the swarm, the supervisor and the hierarchy spend on the outage request plus 3 follow-ups?</summary>
+<p>6 for the swarm, 14 for the supervisor and 22 for the hierarchy. The swarm spends 3 calls on the first request and 1 per follow-up, because each follow-up goes straight to the active agent; the supervisor pays 3 per follow-up and the hierarchy 5. The saving holds only while the conversation stays with one specialist.</p>
+</details>
+<details>
+<summary>3. In a langgraph-swarm build, the billing agent asks the customer again for details they already gave triage. Why?</summary>
+<p>The library&rsquo;s handoff tool takes no arguments and its <code>ToolMessage</code> says only &ldquo;Successfully transferred&rdquo;, so it carries no note. Whatever the next agent needs must already be in the conversation. The hand-built tool&rsquo;s <code>context</code> argument exists to fix that.</p>
+</details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="05_handoffs_and_swarms/interactive/routing-cost-lab.html"><strong>Who routes, and what it costs</strong></a>: open the file in a browser. Pick the outage request and step through the four architectures: the router (M30) is cheapest at 2 calls and never asks billing about the credits. Then pick Supervisor and Swarm in turn and move the follow-up slider to 3: the supervisor reaches 14 calls, the swarm 6, because every follow-up goes straight to the active agent.</p>
 <h2 id="how-it-connects">How it connects</h2>
@@ -724,7 +794,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A supervisor pays a routing call per specialist plus one to finish; a swarm pays one routing call per thread and then follows <code>active_agent</code>. Pick by whether conversations stay with one specialist and whether you need one decision log.</li>
 <li>Pass <code>recursion_limit</code> on every run and add a counter cap to any graph that can cycle; test both with a stub or scripted model.</li>
 </ul></article>
-    <nav class="toc" aria-label="M35 sections"><details open><summary>In M35</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#when-one-agent-becomes-a-team">When one agent becomes a team</a></li><li><a href="#a-crew-is-a-dependency-graph">A crew is a dependency graph</a></li><li><a href="#five-architectures-one-primitive">Five architectures, one primitive</a></li><li><a href="#agent-communication">Agent communication</a></li><li><a href="#human-review-in-a-supervisor-loop">Human review in a supervisor loop</a></li><li><a href="#supervisor">Supervisor</a></li><li><a href="#hierarchical-teams">Hierarchical teams</a></li><li><a href="#handoffs">Handoffs</a></li><li><a href="#swarm">Swarm</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M35 sections"><details open><summary>In M35</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#when-one-agent-becomes-a-team">When one agent becomes a team</a></li><li><a href="#a-crew-is-a-dependency-graph">A crew is a dependency graph</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#five-architectures-one-primitive">Five architectures, one primitive</a></li><li><a href="#agent-communication">Agent communication</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#human-review-in-a-supervisor-loop">Human review in a supervisor loop</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#supervisor">Supervisor</a></li><li><a href="#hierarchical-teams">Hierarchical teams</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#handoffs">Handoffs</a></li><li><a href="#swarm">Swarm</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

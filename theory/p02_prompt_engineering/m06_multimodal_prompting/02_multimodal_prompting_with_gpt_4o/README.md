@@ -83,5 +83,28 @@ Gemini takes the video file itself and samples it at 1 frame per second by defau
 
 `process_video` has two sharp edges. `int(fps * seconds_per_frame)` truncates: at 29.97 fps and 3 s the step is 89 frames, so frames come every 2.97 s. And when `seconds_per_frame` is below one frame's duration the step is 0 and the `while` loop never ends; a stubbed run of the notebook's own function at 0.02 s and 30 fps confirms it. `max(1, round(fps * seconds_per_frame))` stops the hang and brings the 29.97 fps gap back to 3.003 s. The import `from moviepy.editor import VideoFileClip` needs moviepy 1.x, since moviepy 2 removed `moviepy.editor`; this repo pins `moviepy<2` for that reason.
 
+## Check yourself
+
+<details>
+<summary>1. When should an image part use a base64 data URL rather than a public https URL?</summary>
+
+Use a data URL for private files, such as a Larkspur customer's console screenshot: the request carries the bytes, about a third larger after base64. A public URL keeps the request small, but OpenAI fetches the image itself, so it works only for images anyone can reach.
+
+</details>
+
+<details>
+<summary>2. What does a 1920 by 1080 screenshot cost gpt-4o at detail high, and at detail low?</summary>
+
+1,105 tokens at high: it fits within 2048 by 2048, its shortest side is scaled to 768 (giving 1365 by 768), and six 512-pixel tiles cost 85 + 6 × 170. At low it costs the base 85 tokens, 13 times less.
+
+</details>
+
+<details>
+<summary>3. At the notebook's default 2-second gap, the lab's frames never show the Export ready toast. Why, and which gap guarantees it?</summary>
+
+The toast lasts 1.2 s, shorter than the gap, so it can fall between two frames. Only a gap shorter than the shortest event guarantees a frame on it: 1 s in the lab, at 90 frames and 7,650 tokens at low detail. The 2.5 s gap catches it by luck and would miss it if the toast came 1.2 s later.
+
+</details>
+
 ---
 *Previous: [6.1 Multimodal prompting with Gemini](../01_multimodal_prompting_with_gemini/README.md). Next: [6.3 Exercise: financial report analysis](../03_exercise_financial_report_analysis/README.md).*

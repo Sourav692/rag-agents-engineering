@@ -68,5 +68,28 @@ In the lab, the refunds section (1,111 characters) goes to stuff, and the refund
 
 The two branches return the same type, a summary string, so callers never see which strategy ran. Log it anyway: when the share of map-reduce runs rises, documents have grown, and cost and latency will follow.
 
+## Check yourself
+
+<details>
+<summary>1. Why is stuff the best summarisation strategy whenever the text fits in one call?</summary>
+
+It is the cheapest and the least lossy. It joins the documents into one prompt and calls the model once, so nothing is summarised twice. Map-reduce and refine exist only because a long text does not fit, which is why the router sends short inputs to stuff.
+
+</details>
+
+<details>
+<summary>2. The Larkspur handbook splits into 10 chunks at chunk size 400. How many model calls and rounds does map-reduce need at a max concurrency of 4, and how does refine compare?</summary>
+
+Map-reduce makes 11 calls in 4 rounds: 10 map calls, 4 at a time over 3 rounds, then 1 reduce. Refine makes 10 calls in 10 rounds, because each call needs the previous summary. At `max_concurrency=1` map-reduce would take N + 1 rounds, one more than refine.
+
+</details>
+
+<details>
+<summary>3. Your length router sends anything over 1,500 characters to map-reduce. In production, what should replace that limit, and what should you log?</summary>
+
+A token budget: count tokens with the model's tokenizer and set the limit to the context window minus the prompt template and the room the answer needs. Log which strategy ran, because a rising share of map-reduce runs means documents have grown, and cost and latency will follow.
+
+</details>
+
 ---
 *Previous: [8.4 Legacy chains and migration to LCEL](../04_legacy_chains_and_migration_to_lcel/README.md). Next: [M08 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

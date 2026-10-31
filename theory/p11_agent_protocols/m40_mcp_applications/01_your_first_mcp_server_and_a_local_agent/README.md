@@ -51,5 +51,28 @@ The friendly message never reaches the model. The host gets an exception from it
 - **Raise instead of returning.** `raise ToolError("Division by zero")` comes back as a result with `isError: true` and the text `Division by zero`. Without the check, `1 / 0` raises `ZeroDivisionError`, which also comes back with `isError: true`, as `Error calling tool 'divide': division by zero`.
 - **Annotate what you return.** `-> float | str` makes the string valid, and moves the job of telling numbers from error messages to every client.
 
+## Check yourself
+
+<details>
+<summary>1. What does use_server_manager=True change about what the model sees, and what does it trade?</summary>
+
+The model no longer sees the servers' tools directly. It gets five management tools (`list_mcp_servers`, `connect_to_mcp_server`, `get_active_mcp_server`, `search_mcp_tools`, `disconnect_from_mcp_server`) and must connect to a server before it can call `multiply`. That keeps the prompt small when many servers are configured, at the price of extra model turns.
+
+</details>
+
+<details>
+<summary>2. The advanced query asks for New York's weather, its 3-day forecast and 12 times 342. Why do both clients raise max_steps from its default of 5 to 30?</summary>
+
+`max_steps` caps the agent loop. The query needs at least three tool calls (weather, forecast, multiply), and with the server manager on the model also spends turns connecting to servers, so a low cap ends the run before the answer.
+
+</details>
+
+<details>
+<summary>3. Calling divide with b equal to 0 gives the host a RuntimeError about invalid structured content instead of a tool result. Why, and how do you fix it?</summary>
+
+`divide` is annotated `-> float` but returns the string `"Error: Division by zero"`, and the mcp 1.30.0 client checks structured results against the output schema, so it raises. Use `raise ToolError("Division by zero")`, which comes back with `isError: true`, or annotate `-> float | str`, which moves the job of telling numbers from errors to every client.
+
+</details>
+
 ---
 *Previous: [M40 overview](../README.md). Next: [40.2 MCP servers with Claude Desktop](../02_mcp_servers_with_claude_desktop/README.md).*

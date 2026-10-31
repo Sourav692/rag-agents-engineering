@@ -46,5 +46,28 @@ Before `RunnableWithMessageHistory` and LangGraph checkpointers, LangChain packa
 
 These classes live in `langchain_classic` now. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.
 
+## Check yourself
+
+<details>
+<summary>1. A customer gives their plan in one call and asks for it in the next. Why can a stateless chain not answer, and what fixes it?</summary>
+
+A chat model call depends only on the messages sent in that call, so the second call receives the question and nothing else. A message history fixes it: append each `HumanMessage` and `AIMessage` to an ordered list and send the whole list on every turn, so the earlier turn travels with the new question.
+
+</details>
+
+<details>
+<summary>2. A history that keeps everything runs a six-turn chat. How many messages does turn 6 send, and how many over all six turns?</summary>
+
+Turn N sends 2N − 1 messages, so turn 6 sends 11, and the six turns send 1 + 3 + 5 + 7 + 9 + 11 = 36 messages. Six independent calls would send 6. Token cost and latency grow with the conversation, which is why lessons 33.3 and 33.6 bound the history.
+
+</details>
+
+<details>
+<summary>3. A legacy chain using ConversationBufferMemory runs without errors, but every turn behaves as if the conversation just started. What is the likely bug?</summary>
+
+The save step is missing from the load, invoke and save loop. The classic memory classes load the history before each call and save the exchange after it; skip the save and the next turn loads nothing. New code avoids the manual loop with the patterns in lessons 33.2 to 33.6.
+
+</details>
+
 ---
 *Previous: [M33 overview](../README.md). Next: [33.2 RunnableWithMessageHistory, multi-user sessions and persistence](../02_runnablewithmessagehistory_multi_user_sessions_and_persistence/README.md).*

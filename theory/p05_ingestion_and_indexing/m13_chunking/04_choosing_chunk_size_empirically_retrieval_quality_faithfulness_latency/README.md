@@ -29,5 +29,28 @@ If small chunks win on precision and large ones win on completeness, stop lookin
 | Semantic | Embedding distance | One embedding per sentence | Long prose with topic shifts, no markup | Relative threshold; unbounded chunk size |
 | Propositions | An LLM | 1 or 2 LLM calls per chunk | Dense, high-stakes facts | Invented or dropped details without grading |
 
+## Check yourself
+
+<details>
+<summary>1. Why does the chunk-size sweep score each setting with a margin as well as hit at k?</summary>
+
+`hit@k` saturates at 1.0, and after that it cannot tell settings apart. The margin, how much closer the best correct chunk is to the question than the best wrong one, keeps separating them.
+
+</details>
+
+<details>
+<summary>2. Three sizes land within 3% of the best margin, and the winner changes when you re-score them on random halves of the labelled set. Which size do you pick?</summary>
+
+The cheapest of the three. Taking the plateau rather than the peak already points there, and a winner that changes between halves means the sizes are indistinguishable at this sample size. Cost is what separates them: tokens per query are `chunk_size × k`, paid on every request.
+
+</details>
+
+<details>
+<summary>3. You must chunk long prose reports that shift topic often and carry no markup. Which strategy fits, and what do you watch for?</summary>
+
+Semantic chunking, which puts boundaries where the embedding distance jumps. It costs one embedding per sentence at index time. Watch its relative threshold and its unbounded chunk size.
+
+</details>
+
 ---
 *Previous: [13.3 Proposition chunking with LLM quality checks](../03_proposition_chunking_with_llm_quality_checks/README.md). Next: [M13 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

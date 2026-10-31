@@ -64,5 +64,28 @@ flowchart LR
 
 Run a size-based splitter after the structural one, because one long section can still exceed your limit. Use the header metadata in two places. Filter on it at query time ("only the Refunds section"), and prepend it to the chunk text so the embedding knows which section a sentence came from; M16 calls that a contextual chunk header.
 
+## Check yourself
+
+<details>
+<summary>1. At chunk size 300, an overlap of 100 leaves the refund answer cut, but an overlap of 150 keeps it whole. Why?</summary>
+
+Overlap only rescues a piece that fits inside it. At 300/100 the part of the answer left in chunk 2 is longer than 100 characters, so it is still cut. At 300/150 it fits, and chunk 3 holds the whole answer, at the cost of storing 26% more text (1.26× the source).
+
+</details>
+
+<details>
+<summary>2. You split the refund section at chunk size 1200 with no overlap. Does the answer survive, and what does it cost?</summary>
+
+The answer survives, because the whole section becomes one chunk, but it is only 13% of that chunk. The other 87% is about monthly plans, refund timing and credits, and the chunk's embedding averages all of it while the model reads all of it. Bigger chunks keep facts whole and dilute them.
+
+</details>
+
+<details>
+<summary>3. Your handbook is Markdown, and after splitting on headers one section is still longer than your limit. What do you do, and how do you use the header metadata?</summary>
+
+Run a size-based splitter such as `RecursiveCharacterTextSplitter` after the structural one, so the long section is capped. Use the header metadata twice: filter on it at query time ("only the Refunds section"), and prepend it to the chunk text so the embedding knows which section a sentence came from. M16 calls that a contextual chunk header.
+
+</details>
+
 ---
 *Previous: [M13 overview](../README.md). Next: [13.2 Semantic chunking: breakpoints on embedding distance](../02_semantic_chunking_breakpoints_on_embedding_distance/README.md).*

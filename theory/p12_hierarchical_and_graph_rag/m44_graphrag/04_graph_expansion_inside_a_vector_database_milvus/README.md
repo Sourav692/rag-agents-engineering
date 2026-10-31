@@ -34,5 +34,28 @@ Bound expansion degree, candidate relation count and source-passage count before
 
 Treat identity mapping as part of retrieval correctness. Different casing, aliases and repeated names can split one entity or merge different entities. The notebook's IDs come from string lists; an operational index needs stable IDs and explicit updates to both vectors and adjacency mappings. A fresh vector record with stale adjacency can retrieve the right entity and still traverse the wrong policy graph.
 
+## Check yourself
+
+<details>
+<summary>1. With B the entity-by-relation incidence matrix, what do B Bᵀ and Bᵀ B connect, and what do their powers not tell you?</summary>
+
+`B Bᵀ` connects entities that share a relation, and `Bᵀ B` connects relations that share an entity. Their powers count walks, so they expand the seed sets, but they do not certify that a relation supports the question. An undirected incidence matrix also loses a predicate's direction.
+
+</details>
+
+<details>
+<summary>2. In the expansion lab with Cancellation as the seed, how many candidate relations and source passages do degrees 1 and 2 reach?</summary>
+
+Degree 1 reaches 4 relations across 3 distinct passages, adding export-to-snapshot and billing-to-refund. Degree 2 reaches 6 relations across 4 passages, and degree 3 all 8 across 5. The billing branch is reachable but can be irrelevant to an export question, so rerank relations against the question before fetching passages.
+
+</details>
+
+<details>
+<summary>3. Vector search returns the right entity, yet the expansion follows relations from the wrong policy. What should you suspect?</summary>
+
+Stale adjacency: a fresh vector record with an out-of-date adjacency mapping retrieves the right entity and still traverses the wrong policy graph. The notebook builds its IDs from string lists; an operational index needs stable IDs and explicit updates to both the vectors and the adjacency mappings.
+
+</details>
+
 ---
 *Previous: [44.3 Microsoft GraphRAG: communities, global vs local search](../03_microsoft_graphrag_communities_global_vs_local_search/README.md). Next: [M44 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

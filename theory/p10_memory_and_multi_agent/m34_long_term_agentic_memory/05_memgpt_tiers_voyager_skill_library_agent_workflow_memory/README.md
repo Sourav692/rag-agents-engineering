@@ -81,5 +81,28 @@ flowchart TD
 
 Both notebooks retrieve with a model call over a short list, which works at their size. With hundreds of skills or workflows, embed the descriptions and retrieve by similarity, as lesson 34.4 does for facts.
 
+## Check yourself
+
+<details>
+<summary>1. In MemGPT-style tiered memory, what has to happen for a message evicted from the window to reach the prompt again?</summary>
+
+The agent has to call `archival_memory_search` with words that match it, and the message returns only among the top 3 results. Core memory is always in the prompt; the archive appears only through a search the model decides to make. So recall depends on the agent asking, and on the search itself.
+
+</details>
+
+<details>
+<summary>2. At a window of 6, Dana's turn-2 traffic message is archived by turn 6. Which lab query ranks it first, and why do some queries miss it?</summary>
+
+`outbound traffic` finds it at rank 1, because it shares two words. `how much traffic?` misses because the keyword overlap keeps punctuation, so `traffic?` is not `traffic`, and the search returns "How do I reboot a server?" on `how`; `data usage this month` shares no word with it at all. A window of 9 would keep the message in view, at about 156 tokens per call against 117.
+
+</details>
+
+<details>
+<summary>3. A Voyager-style agent generates a palindrome check that always returns True. What should keep it out of the skill library?</summary>
+
+Test cases that can fail. The notebook runs every new skill, and every reuse, against tests before it counts, and this candidate is rejected on Task 4's first `False` case. Only what passes is stored.
+
+</details>
+
 ---
 *Previous: [34.4 Episodic + semantic stack and multi-hop graph memory](../04_episodic_semantic_stack_and_multi_hop_graph_memory/README.md). Next: [M34 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -45,5 +45,28 @@ quadrantChart
     any k outage: [0.05, 0.05]
 ```
 
+## Check yourself
+
+<details>
+<summary>1. Why does no value of k let TF-IDF retrieve the refund-timing chunk for How long does a refund take?</summary>
+
+It is a representation problem. The chunk says "Refunds" and the question says "refund", and TF-IDF matches exact tokens, so the chunk scores 0. Recall stays at 0.50 at every `k`, while a bigger `k` only adds noise.
+
+</details>
+
+<details>
+<summary>2. For the export question, what are recall and precision at k = 2 and at k = 12, and which k do you pick?</summary>
+
+At `k = 2` recall and precision are both 1.00, for about 60 tokens of context. At `k = 12` recall is still 1.00 but precision falls to 0.17 and the context grows almost sixfold, to about 348 tokens. Pick `k = 2`: past it every extra chunk is noise.
+
+</details>
+
+<details>
+<summary>3. When should a pipeline retrieve generously with a large k, and when tightly?</summary>
+
+Retrieve generously when a reranker (M19) will trim the list afterwards. Retrieve tightly when the chunks go straight to the model, because every extra chunk adds latency and text the model can misread, and models use information in the middle of a long context less reliably than at its start and end.
+
+</details>
+
 ---
 *Previous: [11.1 The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context](../01_the_knowledge_problem_hallucination_freshness_context_window_growth_rag_vs_fine_tuning_vs_long_context/README.md). Next: [11.3 Semantic retrieval with embedding similarity](../03_semantic_retrieval_with_embedding_similarity/README.md).*

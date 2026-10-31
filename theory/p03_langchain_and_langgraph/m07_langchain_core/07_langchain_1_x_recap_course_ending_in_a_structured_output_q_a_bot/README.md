@@ -34,5 +34,28 @@ Notebook 07a builds `SmartQABot` on this: a `ChatPromptTemplate` with a system p
 
 For the lab brief, the same shape answers Larkspur's refund question: `CitedAnswer` from lesson 7.6 as the schema, the three passages and the question in the human message, and a fallback that says the handbook could not be checked instead of guessing.
 
+## Check yourself
+
+<details>
+<summary>1. How does with_structured_output differ from the Pydantic output parser in where the schema goes, and what does that buy?</summary>
+
+It sends the schema to the provider's API with the request instead of writing it into the prompt as format instructions (748 characters for the lesson 7.6 schema). Providers that support structured output constrain the reply to it, so prose around the JSON, fences and trailing notes are not produced.
+
+</details>
+
+<details>
+<summary>2. You bind CitedAnswer with citations typed as a list of strings to the model. Can it still return a made-up passage id?</summary>
+
+Yes. A schema bound to the model still passes any value the schema allows, and any string is allowed. The lesson 7.6 rule holds for both approaches: put the rule into the schema, with `Literal` for passage ids and fixed labels.
+
+</details>
+
+<details>
+<summary>3. SmartQABot's ask_batch sends three questions and the middle one fails. What does the caller get, and how do you fix it?</summary>
+
+An exception and no results, because `batch` raises the first exception by default and loses every result. `batch(..., return_exceptions=True)` returns the two good results with the exception in place of the middle one, which a fallback like the one in `ask()` can then replace.
+
+</details>
+
 ---
 *Previous: [7.6 Output parsers](../06_output_parsers/README.md). Next: [M07 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

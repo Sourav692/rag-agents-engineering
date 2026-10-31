@@ -39,5 +39,28 @@ flowchart LR
 
 The notebook's markdown calls the model "Google Gemma 2B IT" while the code loads RecurrentGemma, a recurrent variant that the notebook says needs less memory than Gemma on long sequences. The model id in the code is the one that runs.
 
+## Check yourself
+
+<details>
+<summary>1. Why should a production client pass provider explicitly when it calls an open model through Hugging Face Inference?</summary>
+
+The model id names the weights, not the server. With no `provider` argument, `huggingface_hub` 1.16.1 uses server-side auto routing and Hugging Face picks a provider that hosts the model, and latency and price can differ by provider. Passing `provider=` and recording it with each answer tells you what you actually called.
+
+</details>
+
+<details>
+<summary>2. You create InferenceClient() with no token to test an unauthenticated call, after the notebook set HF_TOKEN. Is the call unauthenticated?</summary>
+
+No. With `token=None` the library falls back to `HF_TOKEN` from the environment, so the client sends the bearer token anyway; `build_hf_headers(token=None)` shows it. Pass `token=False` to send no token at all.
+
+</details>
+
+<details>
+<summary>3. Running RecurrentGemma locally, decoding the first output of model.generate prints the chat template and the question before the answer. Is something wrong?</summary>
+
+No. `model.generate` returns the prompt's token ids followed by the new ones, so decoding the whole output prints both. The `pipeline("text-generation", ...)` call with `return_full_text=False` returns only the new text.
+
+</details>
+
 ---
 *Previous: [2.1 Calling commercial LLM APIs: OpenAI and Gemini](../01_calling_commercial_llm_apis_openai_and_gemini/README.md). Next: [2.3 Reasoning vs non-reasoning models](../03_reasoning_vs_non_reasoning_models/README.md).*

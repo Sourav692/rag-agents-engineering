@@ -53,5 +53,28 @@ Its other defaults are worth reading too: 4 gradient-accumulation steps, warmup 
 
 The notebook’s other two cells sketch Lamini’s `BasicModelRunner` and `trl`’s `SFTTrainer`, but use names the notebook never defines (`base_model`, `peft_config`, `training_arguments`, among others), so they do not run as written.
 
+## Check yourself
+
+<details>
+<summary>1. Why does LoRA with 4-bit loading bring a 7B fine-tune within reach of one GPU?</summary>
+
+LoRA freezes every original weight matrix and trains small `A` and `B` matrices beside it, so at rank 16 on every linear layer only 39,976,960 parameters (0.59%) train, and gradients and optimizer state exist only for those. 4-bit loading stores the frozen weights in about 3.4 GB instead of 13.5 GB in 16-bit floats. Together this is QLoRA.
+
+</details>
+
+<details>
+<summary>2. How many trainable parameters does rank-16 LoRA add to a 4096 by 4096 query projection, and what share of the layer is that?</summary>
+
+`r × (d_in + d_out)` = 16 × (4,096 + 4,096) = 131,072 trainable parameters, beside 16,777,216 frozen ones: 0.78%.
+
+</details>
+
+<details>
+<summary>3. You run the notebook's autotrain llm command on autotrain-advanced 0.8.36 and it stops with an error. Why, and what else would you change?</summary>
+
+Its flag names are from an older AutoTrain, and the CLI parses arguments strictly. Use `--peft`, `--quantization int4`, `--lr`, `--batch-size`, `--epochs`, and `--username` with `--push-to-hub`. Also drop the learning rate of `0.4`, which is more than 13,000 times the default `3e-5`; keep the default unless a measured run says otherwise.
+
+</details>
+
 ---
 *Previous: [4.6 Evaluation](../06_evaluation/README.md). Next: [M04 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

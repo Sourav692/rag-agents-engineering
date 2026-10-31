@@ -50,5 +50,28 @@ The return annotation looks like a check, and notebook 04c calls it compile-time
 
 Choose a conditional edge when routing is a pure read of state: the router is testable alone, and the graph lists every destination at build time. Choose `Command` when the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. The same object carries `resume` for a paused run in [M10](../../m10_langgraph_runtime/README.md) and `graph=Command.PARENT` for handoffs between agents in [M35](../../../p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md).
 
+## Check yourself
+
+<details>
+<summary>1. When should a node return a Command instead of leaving the route to a conditional edge?</summary>
+
+When the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. When routing is a pure read of state, a conditional edge is better: the router is testable alone and the graph lists every destination at build time.
+
+</details>
+
+<details>
+<summary>2. Notebook 04c's check_temp_node also gets a static edge to success, and a reading of 95 arrives. What happens?</summary>
+
+The run fails. A reading above 90 makes the node `goto` `warn_user`, and `goto` adds to static edges, so `warn_user` and `success` run in the same step. Both write `final_action_performed`, and LangGraph raises `InvalidUpdateError: Can receive only one value per step`.
+
+</details>
+
+<details>
+<summary>3. A node reads user_agent from runtime context and fails with an AttributeError on NoneType. What went wrong?</summary>
+
+The graph was invoked with no `context`. In LangGraph 1.2.18 a missing context fails when the node reads it, not when the graph starts. Pass it with `invoke(..., context={...})`, and include `user_agent`, which has no default; `context={}` raises `TypeError` for it.
+
+</details>
+
 ---
 *Previous: [9.3 State schemas and validation](../03_state_schemas_and_validation/README.md). Next: [9.5 Input/output schemas and configuration](../05_input_output_schemas_and_configuration/README.md).*

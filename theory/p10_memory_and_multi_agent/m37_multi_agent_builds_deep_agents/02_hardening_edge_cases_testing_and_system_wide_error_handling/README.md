@@ -73,5 +73,28 @@ Notebook 02c handles failures that do not fix themselves. A failing node catches
 
 A fallback that fails raises a different error type, so the router sends it to a person instead of looping. Transient failures get a cheaper fix first: `RetryPolicy(max_attempts=3)` re-runs a node that raises. With a node that fails twice, the run waits 0.2 s and then 0.4 s and succeeds on the third attempt; with three failures the exception reaches the caller. A retry smooths over a brief outage and does not replace the error path. Every failure in 02c is injected with a `SIMULATE` flag, so each recovery path runs on every run and a table computed from the node paths proves which one ran.
 
+## Check yourself
+
+<details>
+<summary>1. Why can notebook 02b unit-test the router without a model call, and what does the regression table catch that those tests cannot?</summary>
+
+The router is a pure function of the state, with no model call and no I/O, so seven hand-built states pin down its rules. The unit tests cannot tell whether the model still behaves. The regression table runs 5 guest requests end to end and reads the nodes that ran and the `reservations` table, never the reply text.
+
+</details>
+
+<details>
+<summary>2. In the router test bench lab, a threshold of 75 makes all seven tests pass. Should you set CONFIDENCE_THRESHOLD to 75?</summary>
+
+No. The known issue passes only because the gate ends its turn before the name check runs, so string routing is as fragile as at 50. And every guest whose booking lacks dates, which the assessor scores 50 to 79, would get an apology instead of a question about the dates.
+
+</details>
+
+<details>
+<summary>3. A regression run fails with verdict: expected COMPLIANT, got None. What happened, and is one such failure enough to act on?</summary>
+
+The coordinator skipped the compliance check, so no verdict was recorded. Model output varies between runs, so a single failure is a lead to investigate, not a conclusion; the number to track is the pass rate over several runs, re-run after every prompt or model change.
+
+</details>
+
 ---
 *Previous: [37.1 Hotel system: environment, coordinator, reservation agent, compliance](../01_hotel_system_environment_coordinator_reservation_agent_compliance/README.md). Next: [37.3 Scaling: parallel agents, memory merging, language and sentiment, web search](../03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md).*

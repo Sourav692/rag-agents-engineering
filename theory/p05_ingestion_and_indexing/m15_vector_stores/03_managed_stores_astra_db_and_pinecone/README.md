@@ -36,5 +36,28 @@ The managed stores take the same LangChain calls as Chroma: `add_documents`, `si
 
 Lesson 15.1's notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index, so the embedding model goes with you, and the IDs you derived in lesson 15.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 15.4), has no API key to manage, no network hop and no bill per query.
 
+## Check yourself
+
+<details>
+<summary>1. Why is one Pinecone namespace per customer a stronger boundary than a metadata filter on the customer id?</summary>
+
+Pinecone reads and writes always target one namespace, so a query in one namespace cannot return another namespace's records. A metadata filter is something a caller can leave out. For Larkspur, this also means re-indexing the handbook never touches customer data.
+
+</details>
+
+<details>
+<summary>2. The Pinecone notebook asks text-embedding-3-small for 1,024 dimensions. Why, and what happens if you later want 1,536?</summary>
+
+The index was created with `dimension=1024` and `metric="cosine"`, and the embedding output must match it. An index's dimension cannot change, so the embedding model and its output size are part of the index's identity. Moving to 1,536 means a new index and a re-index into it.
+
+</details>
+
+<details>
+<summary>3. Your Larkspur index runs fine on Chroma with one writer. When should you move it to a managed store?</summary>
+
+When you need concurrent writers, horizontal scale or managed availability, and not before. Until then an embedded store, or pgvector in a Postgres you already run, has no API key to manage, no network hop and no bill per query. The move is a re-index, and the stable IDs from lesson 15.1 keep the second load idempotent.
+
+</details>
+
 ---
 *Previous: [15.2 Embedded stores: Chroma and FAISS](../02_embedded_stores_chroma_and_faiss/README.md). Next: [15.4 Postgres + pgvector with metadata-filtered search](../04_postgres_pgvector_with_metadata_filtered_search/README.md).*
