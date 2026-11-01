@@ -61,6 +61,12 @@ Fix 5 is the least effective: it buys more attempts at a retrieval problem. With
 
 `ModelCallLimitMiddleware` counts model calls per run (`run_limit`) and per thread across runs (`thread_limit`). It checks before each model call; at the limit, `exit_behavior="end"` jumps to the end with an `AIMessage` such as `Model call limits exceeded: run limit (3/3)`, and `"error"` raises `ModelCallLimitExceededError`. In the [M24.1 lab](../01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) the golden questions need 2, 3 and 4 calls; at `run_limit=2` only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.
 
+## Key Takeaways
+
+- `create_agent` builds the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and `thread_id` memory work as usual. Pass `system_prompt=`; the old `prompt=` argument raises `TypeError`.
+- `ModelCallLimitMiddleware` replaces `max_iterations` and checks before every model call. A cap set below what real questions need stops runs that already hold the evidence.
+- When an agent loops without an answer, fix what it retrieves first: the data, `k`, the result format and the tool description. Raising the call cap only buys more attempts at the same problem.
+
 ## Check yourself
 
 <details>

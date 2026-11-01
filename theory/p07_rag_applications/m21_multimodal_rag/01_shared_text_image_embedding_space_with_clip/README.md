@@ -49,6 +49,12 @@ Scores from different modalities are not comparable, so do not rank them togethe
 - **One modality.** Turn figures into text ([lesson 21.2](../02_caption_then_index_with_a_vision_llm/README.md)) or text into images ([lesson 21.3](../03_page_image_retrieval_with_colpali/README.md)), so every score comes from the same comparison.
 - **A text model for text.** Use a text embedding model (M14) for the chunks and keep CLIP for image search only; its 77-token text side is a weak paragraph retriever.
 
+## Key Takeaways
+
+- CLIP puts text and images in one 512-dimension space, but its text side stops at 77 tokens and its image side crops to 224 by 224, so long chunks and small chart labels are lost.
+- Text and image scores sit in separate bands (0.692 to 0.912 against 0.200 to 0.382 on the lab pages). In one shared ranking the right figure falls behind every text chunk.
+- Do not rank modalities together. Use separate quotas for text and images, convert everything to one modality, or embed text with a text model.
+
 ## Check yourself
 
 <details>

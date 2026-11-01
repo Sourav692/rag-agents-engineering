@@ -69,6 +69,12 @@ What the File API inputs cost, from the Gemini API documentation (checked Octobe
 
 Gemini accepts PDFs up to 50 MB or 1,000 pages. A request that sends files inline is capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it. Video goes in the same way, and Gemini samples it into frames itself; lesson 6.2 shows what that sampling decides.
 
+## Key Takeaways
+
+- An image prompt is a list of images followed by the question. Say what the images hold, ask the model to use all of them, and give it a way to say a value is not printed.
+- Upload PDFs, audio and video once through the File API and reuse the handle across prompts. Upload anything over the 20 MB inline limit.
+- Media cost tokens: 258 per small image or PDF page and 32 per second of audio. Fix the output shape in the prompt and forbid anything that is not in the file.
+
 ## Check yourself
 
 <details>

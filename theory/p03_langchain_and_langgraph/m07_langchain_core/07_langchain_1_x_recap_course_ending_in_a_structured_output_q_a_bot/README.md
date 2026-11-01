@@ -34,6 +34,12 @@ Notebook 07a builds `SmartQABot` on this: a `ChatPromptTemplate` with a system p
 
 For the lab brief, the same shape answers Larkspur's refund question: `CitedAnswer` from lesson 7.6 as the schema, the three passages and the question in the human message, and a fallback that says the handbook could not be checked instead of guessing.
 
+## Key Takeaways
+
+- Prefer `with_structured_output` on models that support it. It sends the schema to the provider instead of the prompt, and the provider constrains the reply to it.
+- Neither approach stops values the schema allows, so type fixed labels and ids as `Literal`.
+- Return a fallback object of the same type when a call fails, trace every call, and pass `return_exceptions=True` to `batch` so one failure does not lose the other results.
+
 ## Check yourself
 
 <details>

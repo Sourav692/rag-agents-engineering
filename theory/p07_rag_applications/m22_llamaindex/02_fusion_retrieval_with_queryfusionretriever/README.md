@@ -73,6 +73,12 @@ The same three handbook sentences, retrieved for the 45-day question through two
 
 The order is the same; the scale runs the other way. On unit-length vectors the squared distance is 2 minus twice the cosine (2 - 2 × 0.6922 = 0.6156). Feed the L2 list to `relative_score` and the nearest sentence scales to 0 while the farthest gets the full weight. Use `IndexFlatIP` on normalised vectors when FAISS feeds a fusion retriever, and print each retriever's raw scores once before trusting the fused list.
 
+## Key Takeaways
+
+- Check the defaults before porting: `num_queries=4` adds an LLM call and multiplies retrievals, `similarity_top_k=2` cuts the fused list, and the default `simple` mode compares raw scores across retrievers.
+- With two hits per list, the score modes flatten the gap and the weights decide the order. `reciprocal_rerank` ignores `retriever_weights` and counts ranks from 0.
+- Every fusion mode assumes higher is better. Use inner product on normalised vectors rather than L2 distance, and print each retriever's raw scores once.
+
 ## Check yourself
 
 <details>

@@ -24,6 +24,12 @@ The notebook's last example builds a corpus of five chunks to show why reranking
 
 For Larkspur's support assistant the choice comes down to traffic and stakes. A cross-encoder runs locally with no per-call fee and no parsing step to fail, so it is the default second stage. An LLM reranker earns its cost on low-volume, high-stakes questions where it can follow an instruction a cross-encoder cannot, such as "prefer the current policy over the archived one". A middle path is to let the cross-encoder cut 50 to 10 and the LLM order the last 10. Whichever you pick, compare them on golden-set precision@5 and p95 latency together.
 
+## Key Takeaways
+
+- A listwise LLM reranker sends every candidate in one prompt; a pointwise one rates each chunk in its own call; a cross-encoder scores all pairs in one batched `predict` on your own hardware.
+- Each has its own failure. Listwise parsing can silently drop documents, pointwise scores on a 10-point scale tie and add latency per call, and cross-encoders truncate long chunks.
+- Default to a cross-encoder. Use an LLM reranker for low-volume, high-stakes questions that need an instruction, and judge both on precision@5 and p95 latency together.
+
 ## Check yourself
 
 <details>

@@ -95,6 +95,12 @@ The notebook's tool, `search_web`, takes the top five DuckDuckGo results, fetche
 
 The notebook first asks *Tell me about LangGraph in detail including who made it and key features* with no tool, and its own comment expects the model to decline or make up an answer; the agent then answers the same question from the pages `search_web` fetched. For Larkspur the tool is a handbook search, and *Can I export my data after I cancel my plan?* takes one round: the search returns the `export` and `retention` chunks, and the answer is to export from Settings, then Data, within 30 days of cancelling. The proration question from the section above takes two tools, the handbook and the customer's billing record. M23 and M24 build this loop in LangGraph.
 
+## Key Takeaways
+
+- Chain-of-thought puts the reasoning on the page before the answer. In few-shot form the model copies the examples' reasoning, so check every step of every example, not only the final answers.
+- Self-consistency votes over several paths and amplifies the most common answer. It pays when errors scatter, as numeric answers do, and makes a weak yes/no grader worse.
+- In a tool-calling agent the action is a structured tool call, and a reply with none ends the run. Use ReAct when a subproblem needs a lookup that reasoning alone cannot supply.
+
 ## Check yourself
 
 <details>

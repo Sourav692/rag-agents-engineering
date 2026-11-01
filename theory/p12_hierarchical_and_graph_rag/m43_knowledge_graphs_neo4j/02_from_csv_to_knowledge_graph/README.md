@@ -37,6 +37,12 @@ Cast numeric and date fields explicitly when the query needs their types. `DictR
 
 Check imported entity keys, relationship counts and a few known paths against the input. Re-run a small fixture with the same rows and then with an edited description. The entity count should stay fixed while the description changes. Keep a source document identifier and version on extracted assertions so that deleting an obsolete handbook edition does not leave unsupported plan capabilities behind.
 
+## Key Takeaways
+
+- `MERGE` matches the whole property pattern. Merge on a stable key backed by a uniqueness constraint, then update descriptive properties with `SET`.
+- Validate keys before writing, cast numbers and dates explicitly, and match both endpoints before merging a relationship. Quarantine or report rows that fail.
+- Re-run a fixture with an edited description and check the entity count stays fixed. Store a source identifier and version on every extracted assertion.
+
 ## Check yourself
 
 <details>

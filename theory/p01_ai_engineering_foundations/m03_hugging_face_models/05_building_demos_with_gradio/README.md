@@ -56,6 +56,12 @@ Notebook `05e`'s last cell, `gr.load("distilbert-base-uncased-finetuned-sst-2-en
 
 A demo is a tool for trying a model with people who do not run notebooks, such as the Larkspur support lead. It has no login, rate limit or monitoring unless you add them, so in production the model runs behind a service with those controls, and the demo stays a way to try it.
 
+## Key Takeaways
+
+- Use `gr.Interface` for a quick form around one function, and `gr.Blocks` when you need your own layout and many events, each wired to a function with calls such as `button.click(fn, inputs, outputs)`.
+- Load the model once when the app starts, raise `gr.Error` to stop with a message, and pass `theme=` and `css=` to `launch()` in Gradio 6.
+- A demo has no login, rate limit or monitoring. Use it to let people try a model, and serve production traffic from a service with those controls.
+
 ## Check yourself
 
 <details>

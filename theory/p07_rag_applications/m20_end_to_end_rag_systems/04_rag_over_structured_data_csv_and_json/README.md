@@ -82,6 +82,12 @@ The notebook builds each branch in its simplest form:
 - **Self-query.** `llm.with_structured_output(ListingQuery)` turns *Which properties cost less than $400,000?* into a semantic part and, when extraction works, `max_price=400000`, which becomes a Chroma filter `{"price": {"$lte": 400000}}`. (`$lte` lets a listing at exactly $400,000 through; "less than" is `$lt`.) The full version is [M18](../../../p06_retrieval_quality/m18_query_transformation/README.md)'s self-querying lesson.
 - **Query generation.** The model writes one line of pandas over the schema and the notebook `eval`s it. That executes model-written code with full interpreter access, and a data field can carry a prompt injection. In production, generate SQL against a read-only connection with a timeout, or run a sandboxed executor.
 
+## Key Takeaways
+
+- Embed fields whose values carry meaning and put identifiers, numbers and dates in metadata, cast to their real types. Embedding every column dilutes the vector.
+- Retrieval reads a sample of `k` rows. Aggregation, numeric comparison, exact lookup and ranking need every row, a filter or an id, and retrieval fails on them quietly with a fluent answer.
+- Route by the kind of question: a query engine for aggregates, get-by-id for lookups, self-query filters for ranges, semantic search for the rest. Never `eval` model-written code without a sandbox.
+
 ## Check yourself
 
 <details>

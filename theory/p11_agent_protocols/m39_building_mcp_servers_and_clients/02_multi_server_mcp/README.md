@@ -48,6 +48,12 @@ The hand-built client in project 02 wraps each server in its own `try`, prints `
 
 Failures during a call are a separate case. A tool that raises comes back as `isError: true`, and the adapter returns it to the model as a `ToolMessage` with `status="error"` so the agent can try something else. A dead process or a dropped connection is not a tool error: the adapter raises, and the agent run stops unless your code catches it.
 
+## Key Takeaways
+
+- `MultiServerMCPClient` gives the model one flat tool list, so names must be unique across servers. Use `tool_name_prefix=True` when they might clash.
+- The model routes by name and description alone. Write descriptions that say what each tool searches, and connect only the servers the agent needs.
+- `get_tools()` fails whole if one server fails. Load each server on its own, record which ones failed, and decide whether to start degraded or refuse.
+
 ## Check yourself
 
 <details>

@@ -57,6 +57,12 @@ That is why the notebook calls its result “finetuned slightly” and then load
 
 For a real Larkspur run, size it in examples: decide how many epochs the data supports, derive the number of updates, set warmup to a fraction of them, and put `eval_steps` well inside the run so the held-out loss is tracked while it trains.
 
+## Key Takeaways
+
+- `Trainer` runs the loop and `TrainingArguments` holds every setting. Gradient accumulation gives the update of a larger batch while holding only one micro-batch in memory.
+- A step is one optimizer update, not one example. Work out examples seen, share of an epoch and the learning rate per step before you judge a run.
+- Size a real run in examples: choose the epochs, derive the updates, set warmup as a fraction of them, and put `eval_steps` inside the run. Read the raw loss, since a smoothed one barely moves on short runs.
+
 ## Check yourself
 
 <details>

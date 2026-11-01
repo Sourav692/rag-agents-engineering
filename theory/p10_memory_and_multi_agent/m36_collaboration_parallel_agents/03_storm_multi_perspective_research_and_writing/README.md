@@ -50,6 +50,12 @@ The notebook attaches a callback that counts every chat-model call, structured-o
 
 Latency is a different number from cost. The interviews are independent of each other, but the notebook runs them in a Python `for` loop, so their waits add up. Dispatching one branch per persona with `Send` ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md#map-reduce--async)'s map-reduce) puts them in one superstep: the same calls, with the interview stage taking about as long as its slowest interview. The section drafts are independent in the same way.
 
+## Key Takeaways
+
+- STORM researches before it writes. `P` personas each run a `T`-turn interview, their extracted facts merge into one outline, and each section is drafted from what the research found.
+- Quality rests on distinct personas and an outline that merges the research threads. One section per persona is a concatenation, and an expert with no retrieval is only as reliable as the model's memory.
+- Cost is fixed before the run at `1 + P × (2T + 1) + 1 + S + 1` calls, 22 to 24 in the notebook. Dispatch the interviews with `Send` so the stage takes about as long as the slowest interview.
+
 ## Check yourself
 
 <details>

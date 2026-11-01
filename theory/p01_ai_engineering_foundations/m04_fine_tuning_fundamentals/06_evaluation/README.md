@@ -41,6 +41,12 @@ The module lab asks for one comparison: the M11 RAG baseline and a small fine-tu
 
 Then change one handbook fact, say the refund window, and run both again without retraining. RAG picks up the change after a re-index; the fine-tuned model answers with the old window until it is trained again. For Larkspur that points to both: fine-tune for the style and the refusals, retrieve the facts, and evaluate the combination against the same baseline.
 
+## Key Takeaways
+
+- Pick the metric by what a correct answer looks like: exact match for one right string, a judge or similarity for a rubric, people for the rest. Most fine-tunes need more than one.
+- Check that generation limits leave room for the target, and read failures by hand. Repetition from missing end tokens shows in the first prediction, long before any score.
+- Run a general benchmark on the base and fine-tuned models to catch lost ability, and compare against the RAG baseline on the same questions, including after a fact changes.
+
 ## Check yourself
 
 <details>

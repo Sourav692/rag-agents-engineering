@@ -41,6 +41,12 @@ Adding an ANN index to pgvector moves it towards post-filtering. The [pgvector R
 
 The symptom of post-filtering is a query that asks for `k = 5` and gets 2. Log `len(results)` beside `k` on every filtered query; raising `k` hides the problem without fixing it.
 
+## Key Takeaways
+
+- PGVector turns a metadata filter into a `WHERE` clause on JSONB metadata. Filters match exactly, so normalise values at ingestion, and write `$and` so filters stay portable.
+- A filter is not access control, because a caller can omit it. Enforce it in the service, or use a namespace or collection per tenant.
+- Pre-filtering returns up to `k` matches; post-filtering, including pgvector with an ANN index, can return fewer. Log `len(results)` beside `k` on every filtered query.
+
 ## Check yourself
 
 <details>

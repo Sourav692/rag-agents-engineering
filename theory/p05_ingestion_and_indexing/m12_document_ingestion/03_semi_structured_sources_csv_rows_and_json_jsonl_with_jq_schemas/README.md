@@ -47,6 +47,12 @@ One more from the notebook: passing `csv_args={"fieldnames": [...]}` to rename c
 
 `JSONLoader` splits the same decision across two arguments. `content_key` names the field that becomes `page_content`, and `metadata_func(record, metadata)` copies the fields you want to filter on. The notebook copies `sender_name` and `timestamp_ms`, so a query can ask for one person's messages in a time range. The loader adds `source` as an absolute path and `seq_num` counting from 1, while `CSVLoader` writes `source` as you passed it and counts `row` from 0. Lesson 12.5 maps these differences onto one schema.
 
+## Key Takeaways
+
+- For CSV and JSON, decide which record becomes one Document: `CSVLoader` gives one per row, and `jq_schema` sets the record for `JSONLoader`. Count empty Documents after every load.
+- Decide per field whether it goes in the embedded text, the metadata or both. A column listed only in `metadata_columns` disappears from the text.
+- Loader metadata values arrive as strings and `source_column` overwrites the file path. Cast numbers and keep the file path in its own field.
+
 ## Check yourself
 
 <details>

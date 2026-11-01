@@ -44,6 +44,12 @@ Answer:
 
 Run it on each candidate model with the same golden questions and passages, and score each answer for whether it is supported by the passages. A model that answers *What happens if my server goes down?* from general knowledge when the passages hold only the reboot instructions fails this prompt, however fluent the answer is.
 
+## Key Takeaways
+
+- Keep the prompt set fixed and swap models behind one wrapper, so the model id lives in one place and a retired id is a one-line fix.
+- Score each task with its own check, such as exact match, line count or valid JSON, instead of reading replies by eye.
+- For a RAG answer step, tell the model to answer only from the passages and to say when they do not cover the question. Score answers for support by the passages, not fluency.
+
 ## Check yourself
 
 <details>

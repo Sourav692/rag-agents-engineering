@@ -83,6 +83,12 @@ Each `optimize_query` call rewrites the previous rewrite, since it reads `enhanc
 
 A rewrite helps only if it moves toward the documents' words. In the lab, the outage question's first rewrite, *What happens when my server is unavailable?*, swaps one everyday phrase for another. TF-IDF matches exact tokens, so it retrieves `reboot` at 0.416 and `sizing` at 0.389 again, the same as the original. The second rewrite uses the handbook's vocabulary, "outage" and "availability", and retrieves `sla` at 0.470 and `incidents` at 0.253. M18 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.
 
+## Key Takeaways
+
+- A topic check before retrieval costs one call per question and stops off-topic traffic from spending the retry budget. Track the off-topic rate, because a false rejection never reaches retrieval or its logs.
+- Bound rewrites with a per-question counter in the state and keep `recursion_limit` as a backstop. Without a counter, the default limit let a stub graph make 10,007 LLM calls.
+- Enhancement makes a follow-up standalone; optimisation looks for words that retrieve better. A rewrite helps only when it moves toward the documents' vocabulary, and rewriting a rewrite can drift from the question.
+
 ## Check yourself
 
 <details>

@@ -40,6 +40,12 @@ What the deployment needs before anyone else uses it:
 - **Keep destructive tools off the shared server,** or require a human approval step in the host before they run ([M27](../../../p08_agent_foundations/m27_human_approval_applied_agents/README.md)).
 - **Re-ingest after changing the embedding model.** Topics saved by the local server hold `nomic-embed-text` vectors; the EC2 server embeds queries with `text-embedding-3-small`, a different vector space, so copied databases cannot be searched.
 
+## Key Takeaways
+
+- `host="0.0.0.0"` with no `auth` provider exposes every tool to whatever the security group lets through. Authenticate, add TLS and bind narrowly before sharing the server.
+- Tool arguments come from a model that reads untrusted pages. Validate any argument that becomes a path against a slug pattern and check it resolves under the root.
+- Keep destructive tools off a shared server or put human approval in front of them, and re-ingest whenever the embedding model changes.
+
 ## Check yourself
 
 <details>

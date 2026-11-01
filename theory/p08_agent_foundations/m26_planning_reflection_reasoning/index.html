@@ -468,6 +468,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The cap needs the same arithmetic. Six lookups with one wrong result need 7 executed steps. At the notebook&rsquo;s <code>max_iterations = 6</code>, the lab&rsquo;s run stops with one lookup unanswered after 9 LLM calls; at 7 it completes in 10. ReAct has its own ceiling: notebook 01a runs it with <code>recursion_limit = 20</code> graph steps, and each search costs two (an agent turn and the tool). Six lookups with four wrong results need 10 searches and 21 steps, so LangGraph raises <code>GraphRecursionError</code> and the user gets no answer.</p>
 <figure class="lab-embed"><iframe src="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html" title="Plan or react: the call budget, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Plan or react: the call budget. <a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html">Open full screen</a></figcaption></figure>
 <p>The lab&rsquo;s models are scripted, so its numbers are exact for these prompts and chunks but not for a live model: a real ReAct agent may stop early, as in notebook 01a, and a real replanner may need more than one rewrite. Its numbers match the notebooks&rsquo; own node and router code run under LangGraph with the same scripted models on all 1,764 settings.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Use a plan when the steps are knowable from the question and ReAct when each step depends on the last result. ReAct can promise a search in text and stop; a plan writes every lookup down.</li>
+<li>A fixed plan never checks a result, so a wrong search lands in the answer. Replanning evaluates each step and rewrites the remaining steps from the failure reason instead of retrying unchanged.</li>
+<li>Size caps from the call arithmetic: N + 2 + 2f calls for N lookups and f wrong results. The evaluator decides quality, since too lenient lets wrong data through and too strict replans good results.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the plan-and-execute agent make two LLM calls whatever the length of its plan?</summary>
@@ -597,6 +603,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The revised answer adds the traffic condition to the first claim and changes 90 days to 30 in the third. Each verification question is self-contained (&ldquo;a Larkspur annual plan&rdquo;, not &ldquo;the plan&rdquo;), so retrieval for it works without the draft, and each correction traces to one question and one chunk. To measure it on a golden set, count claims per answer that no retrieved chunk supports, before and after, and count the correct claims the reviser removed as a separate number. A drop in the first with a rise in the second is the Hayes failure at scale.</p>
 <p>The optional notebook 04b runs the same draft, critique and revise loop against a written constitution: each named rule gets its own structured verdict (<code>rule</code>, <code>passes</code>, <code>critique</code>), only the failing rules go back to the reviser, and <code>MAX_ITERATIONS</code> bounds the loop. The notebook labels it a teaching pattern, not a safety system.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Chain-of-verification drafts, plans one question per claim, answers each in a fresh call without the draft, then revises. Tie each question to the property the user asked about, or it checks claims nobody doubted.</li>
+<li>It raises precision, not recall, costs 1 + 1 + N + 1 calls for N claims and is bounded by what the verifier knows. In a RAG system, answer each verification question from retrieved chunks.</li>
+<li>The reviser can remove correct claims and call it a fix. Score in code, and track unsupported claims and correct claims removed as two separate numbers.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does chain-of-verification answer each verification question in a call that cannot see the draft?</summary>
@@ -668,6 +680,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>An unvisited child scores infinity, so every child is tried once. Notebook 06c sets <code>c = 1.4</code>, <code>K_CANDIDATES = 4</code>, <code>MAX_ITERATIONS = 10</code> and rewards of 1, 0.33 and 0 for <code>sure</code>, <code>likely</code> and <code>impossible</code>. A node whose children all died gets one more expansion (<code>MAX_EXPANSIONS = 2</code>) with the latest reflections in its prompt, then is pruned for good. Each dead end becomes a one-sentence lesson that later proposals read, which is Reflexion (lesson 26.3) used inside a search.</p>
 <p>On these eight puzzles LATS did not win: the notebook reports it solved 2 to 4 of 8, the ToT beam about 4, and LATS spent more LLM calls. Its solved runs finished in two or three iterations, because it stops at the first success. LATS was designed for problems with a larger branching factor and a better value model.</p>
 <p>For a Larkspur support assistant most questions have one good path, and lessons 26.1 and 26.4 are the tools to reach for. Reach for these patterns when one path is not reliable enough and something can score a partial answer: a code check, a test suite, or a judge you have measured. Without that evaluator, more branches only multiply the calls.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Self-consistency votes over N sampled answers and needs short, comparable answers. It washes out scattered errors but locks in systematic ones, so high agreement signals confidence, not correctness.</li>
+<li>Tree of thoughts proposes several moves per state, scores them and keeps the best <code>BEAM</code> per level. Enforce the rules in code and let code judge whatever it can decide exactly.</li>
+<li>LATS picks one leaf at a time by UCB1 and learns from dead ends, yet on the Game of 24 it did not win. Use these searches only when something reliable can score a partial answer.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When does a majority vote over sampled answers fail to fix a wrong answer?</summary>
@@ -737,7 +755,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Any loop that can grow needs a cap, set from planned steps plus allowed retries, and a fallback that says what is missing.</li>
 <li>Verify claims in calls that cannot see the draft, and spend tree search only where an evaluator can tell a good partial answer from a bad one.</li>
 </ul></article>
-    <nav class="toc" aria-label="M26 sections"><details open><summary>In M26</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#plan-and-execute">Plan-and-execute</a></li><li><a href="#replanning">Replanning</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-verification">Chain-of-verification</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tree-of-thoughts--lats">Tree of thoughts / LATS</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M26 sections"><details open><summary>In M26</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#plan-and-execute">Plan-and-execute</a></li><li><a href="#replanning">Replanning</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-verification">Chain-of-verification</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tree-of-thoughts--lats">Tree of thoughts / LATS</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

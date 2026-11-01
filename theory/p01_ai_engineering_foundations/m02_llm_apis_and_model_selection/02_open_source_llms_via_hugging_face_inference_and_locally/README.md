@@ -39,6 +39,12 @@ flowchart LR
 
 The notebook's markdown calls the model "Google Gemma 2B IT" while the code loads RecurrentGemma, a recurrent variant that the notebook says needs less memory than Gemma on long sequences. The model id in the code is the one that runs.
 
+## Key Takeaways
+
+- For an open model you choose who runs the weights: a routed provider through Hugging Face Inference or your own GPU. The client mirrors the OpenAI call, so moving code means changing the client and the model id.
+- The model id names the weights, not the server. Pass `provider=` explicitly, record it with each answer, and price open models from `usage` or GPU hours.
+- Running locally means doing the hosted steps yourself: apply the model's chat template, cap the reply with `max_new_tokens`, and strip the prompt ids that `generate` returns before the answer.
+
 ## Check yourself
 
 <details>

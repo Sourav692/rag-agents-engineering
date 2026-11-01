@@ -57,6 +57,12 @@ The loop has two exits. The `<response>` tag is the model's own decision to stop
 
 For Larkspur's support agent the loop is identical with different tools. *How long does a refund take?* becomes a thought ("I need the refund policy"), a call to `search_handbook`, an observation holding the retrieved chunks, and a response that quotes them. The M23 lab runs that question through LangGraph's version of this loop, including a first call that fails.
 
+## Key Takeaways
+
+- The model never runs a tool. It writes a call as text, your code parses and runs it, and the result goes back as an observation.
+- ReAct loops thought, tool call and observation, and keeps every observation in the history, so later calls can depend on earlier results.
+- Give the loop two exits: the model's own `<response>` and a `max_rounds` cap you own. Without the cap, a model that keeps asking for tools runs and bills forever.
+
 ## Check yourself
 
 <details>

@@ -418,6 +418,12 @@ top = np.argsort(-scores)[:2]            # [1, 0]: refund-timing, then refund-wi
 </table></div>
 <p><code>runs.pivot_table(index="question", columns="k", values="recall")</code> turns the same table into one row per question, which shows where the mean comes from: the export question reaches 1.0 at <code>k = 2</code>, the refund question stays at 0.5 and the outage question at 0.0. <code>runs.groupby("k")["recall"].mean().plot(marker="o")</code> draws the curve through Matplotlib, which the optional notebook covers.</p>
 <p>Missing values deserve a check of their own. <code>mean()</code> skips <code>NaN</code> by default. If the outage question errors at <code>k = 2</code> and its recall is recorded as <code>NaN</code>, mean recall@2 becomes 0.75 instead of 0.50, with no warning. Compare <code>count()</code> (2) with <code>size()</code> (3) per group, and record failures in a status column instead of a missing number.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Retrieval is normalise, dot product, sort. Divide by row norms with <code>keepdims=True</code>, because square test data hides the broadcasting bug that a <code>(12, 384)</code> matrix exposes.</li>
+<li>Check <code>.shape</code>, <code>.ndim</code> and <code>.dtype</code> before you trust a result. Store vectors as <code>float32</code>, and use <code>np.argpartition</code> for top-k on millions of rows.</li>
+<li>Run <code>df.info()</code> first, merge on an id rather than row order, and compare <code>count()</code> with <code>size()</code> per group, since <code>mean()</code> skips <code>NaN</code> without a warning.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does dividing E by np.linalg.norm(E, axis=1) without keepdims run silently on a 3 by 3 matrix but fail on a (12, 384) one?</summary>
@@ -497,6 +503,12 @@ con.execute(&quot;SELECT support_hours FROM plans WHERE name = ?&quot;, (plan,))
 <p>For MySQL and PostgreSQL, notebook 04b passes <code>pd.read_sql</code> a SQLAlchemy engine built from a connection URL (<code>mysql+mysqlconnector://user:password@host/database</code>), which manages the connections for you.</p>
 <p><strong>Credentials come from the environment.</strong> The MySQL and PostgreSQL notebooks put the server host, user and password in a cell so the demo runs as is. In your own code read them from environment variables (<code>os.environ["PGPASSWORD"]</code>, or a <code>.env</code> file loaded at start-up), and give the application a database user that can only run the statements it needs. A support assistant that answers from the <code>plans</code> table needs <code>SELECT</code> on that table and nothing else.</p>
 <p>SQL returns as a retriever in M27, where an agent writes the query itself from the customer&rsquo;s question (text-to-SQL), and as a memory store on SQLite in M34.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Use a table lookup when the answer is one exact value. SQLite, MySQL and PostgreSQL share the DB-API steps; only the driver, connection arguments and placeholder change.</li>
+<li>Pass values as the second argument to <code>execute</code>, never through an f-string or the <code>%</code> operator, so the driver sends them as data and they cannot rewrite the query.</li>
+<li>Writes count only after <code>commit()</code>, and <code>with con:</code> rolls back the whole block on an error without closing the connection. Keep credentials in the environment and grant only the statements the application needs.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A customer's plan arrives as the string starter' OR '1'='1. Why does the f-string query return every plan while the parameterised one returns nothing?</summary>
@@ -669,6 +681,12 @@ async def ask(cost):
     A -- held by --&gt; T1
 </pre></figure>
 <p>Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or use <code>lock.acquire(timeout=5)</code> so a thread fails with a visible error instead of hanging.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Run independent model calls with <code>gather</code> and cap them with a <code>Semaphore</code>. The slowest call sets the floor, so pick the limit from the provider&rsquo;s rate limit, then measure.</li>
+<li>A sync call inside <code>async def</code> holds the event loop and turns any limit into a for loop. Use <code>ainvoke</code> or <code>asyncio.to_thread</code>, and use processes for pure-Python CPU work, since the GIL runs one thread at a time.</li>
+<li>A race needs a read, a switch and a stale write-back; in asyncio one <code>await</code> between them is enough. Lock the read-modify-write, and acquire locks in one fixed order to avoid deadlock.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Two threads each count to 100 million in pure Python. Why can they not use two cores, and what can?</summary>
@@ -738,7 +756,7 @@ async def ask(cost):
 <li>Every value that reaches SQL from outside goes in as a parameter, and every credential comes from the environment.</li>
 <li>Use asyncio for many slow network calls, cap them with a semaphore, and make sure every call inside <code>async def</code> is awaited.</li>
 </ul></article>
-    <nav class="toc" aria-label="M01 sections"><details open><summary>In M01</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#numpy-arrays">NumPy arrays</a></li><li><a href="#pandas-dataframes">pandas DataFrames</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sql-from-python">SQL from Python</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#asyncio">asyncio</a></li><li><a href="#threads-processes-and-the-gil">Threads, processes and the GIL</a></li><li><a href="#races-and-deadlocks">Races and deadlocks</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M01 sections"><details open><summary>In M01</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#numpy-arrays">NumPy arrays</a></li><li><a href="#pandas-dataframes">pandas DataFrames</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sql-from-python">SQL from Python</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#asyncio">asyncio</a></li><li><a href="#threads-processes-and-the-gil">Threads, processes and the GIL</a></li><li><a href="#races-and-deadlocks">Races and deadlocks</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

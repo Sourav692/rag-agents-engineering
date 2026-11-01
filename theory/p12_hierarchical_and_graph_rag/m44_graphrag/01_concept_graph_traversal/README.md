@@ -30,6 +30,12 @@ An LLM saying “complete” is a stopping heuristic. For the cancellation quest
 
 For each query, log seed IDs, selected edges, retrieved source spans, context size and stopping reason. Compare against flat retrieval on the same golden questions. A longer traversal can increase work while leaving the answer's supporting evidence unchanged.
 
+## Key Takeaways
+
+- A chunk graph links chunks whose cosine similarity passes a threshold and weights edges by similarity and shared concepts. The weight is a retrieval lead, not a calibrated probability.
+- A variable named as a budget protects nothing until code checks it. Count context with the answer model's tokenizer and cap visited nodes and completeness checks separately.
+- Treat the model's "complete" verdict as a heuristic. Check the required evidence is present, and log seeds, edges, context size and stopping reason against flat retrieval.
+
 ## Check yourself
 
 <details>

@@ -35,6 +35,12 @@ Rules for analysis sessions over MCP:
 - **Recompute the headline numbers** before a deck leaves the room. Here that took one pandas cell and found two wrong figures and one wrong verdict.
 - **Check the paging limit against the data.** `EXCEL_MCP_PAGING_CELLS_LIMIT` is 4000 cells per read; this sheet is 612 cells, so one read covered it. A larger sheet arrives in pages, and a model that stops after the first page analyses part of the data.
 
+## Key Takeaways
+
+- MCP servers move cells and slides; the model does the arithmetic. Its wrong figures look the same as its right ones.
+- Make the tool compute, with spreadsheet formulas or a code or SQL tool, so every figure has a derivation you can inspect.
+- Recompute the headline numbers before a report ships, and check the server's paging limit against the data size so the model reads every page.
+
 ## Check yourself
 
 <details>

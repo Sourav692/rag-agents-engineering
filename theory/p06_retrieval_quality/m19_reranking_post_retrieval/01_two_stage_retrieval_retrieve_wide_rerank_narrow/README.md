@@ -51,6 +51,12 @@ For a RAG pipeline the finding has three consequences:
 
 The notebook's own list of when to rerank makes the same point from the other side: when only the top 3 chunks are used, or when the context window is limited and needs the best documents.
 
+## Key Takeaways
+
+- Give each stage one metric: recall at the candidate depth for retrieval, precision at the cut for reranking. A reranker reorders and cannot fetch, so missing evidence is a first-stage fix.
+- Pick the candidate depth where first-stage recall flattens on the golden set. Deeper lists only add rerank latency.
+- Models read the middle of a long context least reliably. Send fewer chunks, best first, and put the strongest at the edges if you must send many.
+
 ## Check yourself
 
 <details>

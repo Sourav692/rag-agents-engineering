@@ -55,6 +55,12 @@ Use the snapshot's own `config` when you fork. The [06a notebook](../../../../co
 
 A replayed node runs its code again. If `execute` sends a refund, replay sends another one; [lesson 10.6](../06_state_management_in_practice/README.md#resume-and-side-effects) shows how to make that harmless.
 
+## Key Takeaways
+
+- A checkpointer saves the whole state after every step, filed under the `thread_id`. Same id shares one history; different ids never see each other.
+- Use `InMemorySaver` for tests, `SqliteSaver` for one process, `PostgresSaver` for several workers. The graph code stays the same, so workers can stay stateless.
+- Replay re-runs nodes from an old checkpoint and a fork adds a new branch beside the original. Fork from the snapshot's own `config`, and remember replayed side effects happen again.
+
 ## Check yourself
 
 <details>

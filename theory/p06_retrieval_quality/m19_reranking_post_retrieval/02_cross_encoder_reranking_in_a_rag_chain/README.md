@@ -45,6 +45,12 @@ Three details in that code matter in production:
 
 Cross-encoder scores rank the candidates for one question. Nothing guarantees that a score means the same thing across questions or across models. The 19.6 notebook notes that Cohere's reranker returns values "very close to 0 or 1" and spreads them with a beta transform before using them. Before you set a fixed score threshold, check its distribution on your golden set.
 
+## Key Takeaways
+
+- A bi-encoder embeds chunks once at index time and scales to the whole index; a cross-encoder reads question and chunk together, judges relevance better, and needs one forward pass per candidate.
+- In LangChain a reranker is a document compressor inside `ContextualCompressionRetriever`. Raise the base retriever's `k` so the reranker has a real list to choose from.
+- Load the reranker model once at start-up and cut to the top few. Cross-encoder scores rank one question's candidates and are not calibrated across questions or models.
+
 ## Check yourself
 
 <details>

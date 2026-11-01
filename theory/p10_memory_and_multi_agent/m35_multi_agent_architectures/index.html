@@ -380,6 +380,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The optional notebook rebuilds the core of CrewAI without a framework, on the raw OpenAI SDK. An <code>Agent</code> has a role, a task and an expected output. <code>agent_1 &gt;&gt; agent_2</code> (borrowed from Airflow) records that agent 2 needs agent 1&rsquo;s output, and agent 2 receives that output in its context, labelled with the agent that produced it.</p>
 <p>A <code>Crew</code> collects agents in a <code>with</code> block and runs them in topological order: an agent runs only after everything it depends on. A cycle has no topological order, so the crew raises an error before any model is called. <code>[analyst_a, analyst_b] &gt;&gt; editor</code> is fan-in: the editor waits for both and reads both outputs.</p>
 <p>The last part of the notebook draws the same fan-in crew as a LangGraph <code>StateGraph</code>, with one <code>add_edge</code> per dependency. A crew is a fixed dependency graph. Everything in lesson 35.2 onward adds a node that chooses the next agent at run time.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A specialist team gives each agent one domain and a few tools, at roughly four times the model calls of one ReAct loop. Running the specialists in parallel keeps latency near the slowest one.</li>
+<li>Compare a team with a single agent using code checks and a judge that does not know which approach wrote each report. A gap of a point or two on the judge from one request is noise.</li>
+<li>A crew is a fixed dependency graph run in topological order, so a cycle fails before any model is called. Choosing the next agent at run time is what the later architectures add.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The specialist team makes roughly four times the monolithic agent's model calls. Why is its latency set by the slowest analyst, not the sum of all three?</summary>
@@ -498,6 +504,12 @@ th:last-child, td:last-child { padding-right: 0; }
     K -- no --&gt; X[/Capped/]
 </pre></figure>
 <p>The notebook marks one boundary. This loop is not a blackboard: its order is fixed (draft, critique, draft), and only the exit is decided at run time. A blackboard has a controller that picks which of several specialists acts next from what is on the shared board; M36 builds one.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Build every architecture from one primitive, a node returning <code>Command(goto=..., update=...)</code>. <code>add_edge</code> fixes a path at build time, <code>Command</code> picks one at run time, and most systems use both.</li>
+<li>Pick the architecture by who should decide what runs next. Use a custom workflow when the order is known, handoffs when the conversation should move with an agent, and a supervisor when routing must be auditable.</li>
+<li>Always pass <code>recursion_limit</code>, since the default is 10,007 super-steps. In a generator and critic loop, have the critic quote evidence per criterion, compute the verdict in code and cap the iterations.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does a node return to choose the next agent at run time, and how does LangGraph know which edges to draw for it?</summary>
@@ -535,6 +547,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>The workflow then becomes one node of an outer graph, followed by a node that publishes. Compiling the outer graph with a checkpointer and <code>interrupt_after=["newsagent_node"]</code> pauses every run after the article is written. The reviewer reads the state, changes it with <code>update_state</code> if needed, and resumes with <code>invoke(None, ...)</code>. In the notebook the edited article, not the model&rsquo;s, reaches the publishing call.</p>
 <p>That interrupt is static: fixed at compile time, it pauses every run at the named node. A dynamic <code>interrupt(payload)</code> inside a node pauses only when the node decides to, and the run resumes with <code>Command(resume=...)</code>. Larkspur needs the dynamic kind. A refund the billing agent proposes inside the 30-day window can go straight to the customer; one outside the window pauses for a person. The check that decides to pause compares dates in code, for the same reason the word count does.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Grade in code whatever code can check exactly, such as word count, and use a model with structured output only for checks that need judgement. Route to the first failing check and cap the passes.</li>
+<li>Write the published output in one place, set only on a full pass, so the text that ships is always the version that passed.</li>
+<li>A static <code>interrupt_after</code> pauses every run at a node; a dynamic <code>interrupt(payload)</code> pauses only when the node decides. Use the dynamic kind for a refund outside the 30-day window, and compare the dates in code.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the news chef use a model to judge topic, club and market value, but leave the 100-word check to code?</summary>
@@ -596,6 +614,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>Test each team on its own before you assemble the hierarchy; a team that misbehaves is much harder to diagnose once it is one node inside a larger graph. The cost is visibility and steps: the parent sees what a team appended, not why, and in lesson 35.2 the two-level run needs <code>recursion_limit</code> raised from 25 to 50.</p>
 <p>Larkspur&rsquo;s three specialists do not need a hierarchy. Put billing and data in an accounts team with its own lead and operations in a platform team, and the outage request costs 7 model calls, 5 of them routing, against 5 for a flat supervisor. A hierarchy starts to pay when the flat supervisor&rsquo;s prompt has to describe so many specialists that its routing accuracy drops; measure that before adding the layer.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Give the supervisor a closed <code>Literal</code> of next nodes and keep its decisions out of <code>messages</code>. A pure routing function reads a specialist-call counter first, so the cap ends a run with a result, not an error.</li>
+<li>A supervisor pays one routing call before each specialist and one to finish, 5 calls for the outage request against 3 for a swarm. In return, every decision sits in one log with its reason.</li>
+<li>Compose hierarchies through one shared state contract, keep counters out of it and cap every level. Add a layer only after measuring that a flat supervisor&rsquo;s routing accuracy has dropped.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does route_to_agent check specialist_calls before it reads the supervisor's decision?</summary>
@@ -725,6 +749,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A swarm spends routing once per thread. On the outage request, triage hands off to operations, operations answers its part and hands off to billing: 3 model calls, one of them routing, against 5 for a supervisor. After that, each follow-up goes straight to the active agent for 1 call, where the supervisor pays 3 and a hierarchy 5. The <a href="05_handoffs_and_swarms/interactive/routing-cost-lab.html">routing cost lab</a> runs the same three Larkspur requests through all four architectures, with the follow-up turns on a slider.</p>
 <figure class="lab-embed"><iframe src="05_handoffs_and_swarms/interactive/routing-cost-lab.html" title="Who routes, and what it costs, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Who routes, and what it costs. <a href="05_handoffs_and_swarms/interactive/routing-cost-lab.html">Open full screen</a></figcaption></figure>
 <p>Over a thread of the outage request and 3 follow-ups the lab counts 6 calls for the swarm, 14 for the supervisor and 22 for the hierarchy. The router (M30) spends 8 and still never asks billing about the credits. The swarm&rsquo;s saving rests on the conversation staying with one specialist. When a follow-up changes topic, the active agent has to recognise that and hand off, and the routing quality now lives in every agent&rsquo;s prompt instead of one supervisor&rsquo;s.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A handoff tool returns <code>Command(goto=..., graph=Command.PARENT)</code> and sets <code>active_agent</code>. With a checkpointer, the next user message goes straight to the agent holding the conversation, with no router in between.</li>
+<li>Nothing in a swarm forces a stop, so two agents can bounce a request until <code>recursion_limit</code> raises. Pass a note with each handoff, because the library tool carries none.</li>
+<li>A swarm spends routing once per thread, 6 calls for the outage request and 3 follow-ups against 14 for a supervisor. The saving holds only while follow-ups stay on one specialist&rsquo;s topic.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A structured-output classifier sends each Larkspur request to one specialist. Is that a handoff, and what would make it one?</summary>
@@ -794,7 +824,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A supervisor pays a routing call per specialist plus one to finish; a swarm pays one routing call per thread and then follows <code>active_agent</code>. Pick by whether conversations stay with one specialist and whether you need one decision log.</li>
 <li>Pass <code>recursion_limit</code> on every run and add a counter cap to any graph that can cycle; test both with a stub or scripted model.</li>
 </ul></article>
-    <nav class="toc" aria-label="M35 sections"><details open><summary>In M35</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#when-one-agent-becomes-a-team">When one agent becomes a team</a></li><li><a href="#a-crew-is-a-dependency-graph">A crew is a dependency graph</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#five-architectures-one-primitive">Five architectures, one primitive</a></li><li><a href="#agent-communication">Agent communication</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#human-review-in-a-supervisor-loop">Human review in a supervisor loop</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#supervisor">Supervisor</a></li><li><a href="#hierarchical-teams">Hierarchical teams</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#handoffs">Handoffs</a></li><li><a href="#swarm">Swarm</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M35 sections"><details open><summary>In M35</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#when-one-agent-becomes-a-team">When one agent becomes a team</a></li><li><a href="#a-crew-is-a-dependency-graph">A crew is a dependency graph</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#five-architectures-one-primitive">Five architectures, one primitive</a></li><li><a href="#agent-communication">Agent communication</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#human-review-in-a-supervisor-loop">Human review in a supervisor loop</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#supervisor">Supervisor</a></li><li><a href="#hierarchical-teams">Hierarchical teams</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#handoffs">Handoffs</a></li><li><a href="#swarm">Swarm</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

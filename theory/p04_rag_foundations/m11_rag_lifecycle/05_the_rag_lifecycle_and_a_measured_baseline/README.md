@@ -63,6 +63,12 @@ The lifecycle notebook ends with the map from symptom to module:
 | Retrieved chunk holds half the fact | Chunk boundary | M13 chunking |
 | Answer contradicts the retrieved chunk | Generation | M20 per-claim citations, M29 Self-RAG |
 
+## Key Takeaways
+
+- RAG runs in two phases: indexing (load, split, embed, store) and query (retrieve, augment, generate). Each step has one job and one typical failure.
+- Debug a wrong answer by printing the retrieved chunks first. If the evidence is missing, no prompt change can help.
+- Freeze a golden set of 20 to 50 questions, record a baseline row, and keep a change only when it helps its target questions without breaking others.
+
 ## Check yourself
 
 <details>

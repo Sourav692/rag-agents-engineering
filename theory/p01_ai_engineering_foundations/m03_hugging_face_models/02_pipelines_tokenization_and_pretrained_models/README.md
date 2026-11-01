@@ -72,6 +72,12 @@ How the next token is picked is the decoding strategy, set by `generate()`'s arg
 
 Two details catch people out. `max_new_tokens=20` counts only generated tokens, while `max_length=40` counts the prompt too and leaves room for 36 new tokens after the 4-token prompt. And GPT-2 has no padding token; `02c` passes `pad_token_id=tokenizer.eos_token_id` to silence the warning `generate()` gives about it. The code comment in `02b`'s first tokenizer cell, `tensor([[1026, 373, 257, 3223, 290, 6388, 88]])`, is the encoding of *It was a dark and stormy*, not of the sentence in that cell.
 
+## Key Takeaways
+
+- A pipeline is tokenise, forward pass, post-process, and each step can fail on its own. Pass `model=` and `revision=` yourself, because the task default and the task list change between releases.
+- Count tokens with the model's own tokenizer, since rare words and codes shift the ratio. Text past the limit is dropped without an error, so measure chunk sizes in the embedding model's tokens.
+- `generate()` picks one next token at a time from the last row of logits. Greedy is deterministic but repeats; beam search and sampling with `temperature`, `top_k` and `top_p` change that.
+
 ## Check yourself
 
 <details>

@@ -39,6 +39,12 @@ To see what the cache holds, `scan_cache_dir()` in `01a` returns an `HFCacheInfo
 
 Datasets use the same Hub and their own cache. Notebook `01b` calls `load_dataset('rotten_tomatoes', cache_dir='rotten_tomatoes_data')`; the relative `cache_dir` writes a data folder next to the notebook instead of into the shared cache. The dataset has three splits (8,530 training, 1,066 validation and 1,066 test reviews), and the notebook divides its correct predictions by a hard-coded 1066. Write `len(test_df)` instead, so the accuracy stays right if the split changes. The Hub now lists the dataset as `cornell-movie-review-data/rotten_tomatoes`; if the short name stops resolving, use the full id.
 
+## Key Takeaways
+
+- Hub repos are git repositories, and a branch such as `main` moves when the owner pushes. Pin `revision=` to a commit hash to load the same weights in every environment.
+- The cache stores each file once as a content-hashed blob and links snapshots to it, so a new commit downloads only what changed. Clear old revisions with `hf cache prune`.
+- Relocate the cache with `HF_HOME` or `HF_HUB_CACHE` and set `HF_HUB_OFFLINE=1` on servers that must never call the Hub. Compute accuracy from `len(test_df)`, never a hard-coded count.
+
 ## Check yourself
 
 <details>

@@ -40,6 +40,12 @@ Hybrid in the store and `EnsembleRetriever` in the application do the same job i
 
 `06b` describes the reranker as about 15% better in quality for 1 to 1.5 seconds of extra latency. The notebook states these figures without measuring them; measure your own on the golden set before you pay that latency. [M19](../../m19_reranking_post_retrieval/README.md) covers rerankers and the retrieve-wide, rerank-narrow design.
 
+## Key Takeaways
+
+- Each pattern fixes one failure at its own cost. Multi-query fixes wording, compression trims noisy chunks at one LLM call each, an ensemble catches exact terms, and parent documents restore missing context.
+- Patterns nest because each is a retriever, but LLM calls add up across the stack. Count them before you combine.
+- Hybrid search in the store fuses on the server in one round trip; an application-side ensemble is easier to inspect. Measure any reranker's gain and latency on your golden set before enabling it.
+
 ## Check yourself
 
 <details>

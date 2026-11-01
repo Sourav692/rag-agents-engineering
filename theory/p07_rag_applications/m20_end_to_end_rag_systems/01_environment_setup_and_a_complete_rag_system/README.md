@@ -47,6 +47,12 @@ The instruction does not guarantee compliance. A model can still blend in outsid
 
 The optional `01c` notebook builds the same pipeline on FAISS from one PDF, `Understanding_Climate_Change.pdf`, with 1,000-character chunks, 200 overlap and `k=2`, and reconstructs the index matrix to show its shape: one row per chunk, 1,536 columns.
 
+## Key Takeaways
+
+- Grounding needs three things in the prompt: evidence retrieved for this question, an instruction to use only that evidence, and permission to say "I don't know".
+- The instruction does not guarantee compliance. Put questions with no answer in the golden set and count the refusals.
+- A chain that formats only `page_content` and returns only the answer cannot be checked. Keep the chunks and their metadata if anyone needs to verify a sentence.
+
 ## Check yourself
 
 <details>

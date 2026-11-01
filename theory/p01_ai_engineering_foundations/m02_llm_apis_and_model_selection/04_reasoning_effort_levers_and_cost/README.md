@@ -63,6 +63,12 @@ flowchart TD
 
 Only the last box is an effort problem. For the Larkspur assistant, *How much was my last refund?* is the first box: the amount lives in the billing system, so the fix is a tool call to the account API (M23), and *Can I get a refund after 45 days?* is the last box, where effort is worth sweeping.
 
+## Key Takeaways
+
+- `reasoning_effort` changes only how many reasoning tokens the model spends. Sweep it, price each step in dollars per extra accuracy point, and stop at the last step you would pay for.
+- Expect a step then a plateau. Six problems make a coarse ruler, so use 20 or more real questions and audit the grader before trusting the knee.
+- Flat accuracy with climbing reasoning tokens means effort is the wrong lever. Fix missing facts with retrieval or a tool, ambiguity with a clearer prompt, and mechanical tasks with a cheaper model or code.
+
 ## Check yourself
 
 <details>

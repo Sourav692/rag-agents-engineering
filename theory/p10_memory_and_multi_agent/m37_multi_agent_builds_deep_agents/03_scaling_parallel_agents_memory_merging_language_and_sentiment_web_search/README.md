@@ -63,6 +63,12 @@ Notebooks 03c and 03d add capabilities without changing the coordinator, the che
 
 Each notebook adds its capability to the core from 37.1 on its own; no notebook composes all of them into one graph.
 
+## Key Takeaways
+
+- Parallel branches need a reducer on any key they share, a separate message key per tool loop and a join that waits for every branch. Without the join, the merge runs once per branch.
+- Keep branches read-only when they run the same request at once, and merge their answers by a fixed priority. Check the merged reply against ground truth from the database, not the model's claim.
+- Summarising into state deletes old turns and keeps a running summary, at one model call when the thread passes its limit. Facts the summary leaves out are gone for good, where trimming only hides them.
+
 ## Check yourself
 
 <details>

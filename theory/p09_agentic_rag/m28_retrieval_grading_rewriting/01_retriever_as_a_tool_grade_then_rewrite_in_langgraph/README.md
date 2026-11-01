@@ -59,6 +59,12 @@ The prompt sets the bar. `01a` grades a document relevant if it "contains keywor
 
 The grader reads text because a similarity score cannot do its job. A retriever returns `k` chunks for every query, whatever they score. In the lab, *Do you offer a student discount?* shares no word with the handbook and still retrieves `billing` and `cancel` at 0.000. Its rewrite *Student discount pricing for plans* retrieves `support` at 0.503 and `billing` at 0.461, both above the 0.227 that `refund-window` scores for the refund question, and neither mentions a discount. No score threshold separates those cases; reading the chunk does.
 
+## Key Takeaways
+
+- Wrap the retriever as a tool whose name and description tell the model when to call it. A conditional edge after retrieval then sends the run to `generate` or `rewrite` on the grader's verdict.
+- Make the grader a node that writes its verdict to state, with a small router that reads it, so every decision is visible. Type the verdict as a `Literal` rather than comparing free strings.
+- Ask the grader whether a chunk answers the question, not whether it is related. A similarity score cannot do this, because the retriever returns `k` chunks for every query whatever they score.
+
 ## Check yourself
 
 <details>

@@ -47,6 +47,12 @@ Three rules keep training and inference in step:
 - **Mark where the answer starts and where it ends.** A header such as `### Answer:` tells the model to start answering; an end token (`<|endoftext|>` for Pythia) tells it, and your decoder, that the answer is over.
 - **Check the tokenized row, not the string.** Decode a few prepared rows before training; [the lab in lesson 4.4](../04_data_preparation/README.md#data-preparation) shows what to look for.
 
+## Key Takeaways
+
+- Instruction tuning trains on request and response pairs. A prompt template turns each row into training text, with a variant for rows that have no `input`.
+- A model learns the exact surface form of its training text, so the inference prompt must match it. Changing the training format or the serving prompt alone breaks the match.
+- Write one formatting function that the data script and the serving code both import, mark where the answer starts and ends, and decode a few tokenised rows before training.
+
 ## Check yourself
 
 <details>

@@ -82,6 +82,12 @@ A vector retriever returns the `k` chunks most similar to the question, and the 
 
 The module's [lab brief](../../../../course/p08_agent_foundations/m27_human_approval_applied_agents/lab/README.md) measures this split: the same 20 questions over a product catalogue, answered by CSV RAG from M20 and by the text-to-SQL agent, with the winner recorded per question type.
 
+## Key Takeaways
+
+- Score text-to-SQL against reference SQL you wrote. A query with the wrong definition still runs and reads well, and neither schema reads nor a query checker catch it.
+- When the data offers two sources for a figure such as revenue, the business must pick one and the prompt must state it. Then check the generated SQL in code for the authoritative table.
+- Use a workflow for predictable questions and an agent for large or changing schemas, opened read-only at the connection. Route counts, sums and rankings over all records to SQL, and prose questions to vector RAG.
+
 ## Check yourself
 
 <details>

@@ -56,6 +56,12 @@ FastMCP also infers an output schema from the return type. For the Larkspur `sea
 
 Test a server before writing a client. The MCP Inspector launches it the way a client would, `npx @modelcontextprotocol/inspector uv run research_server.py`, and lets you list and call tools by hand. If a tool works in the Inspector and fails in the chatbot, look in the client first.
 
+## Key Takeaways
+
+- `FastMCP` builds each tool definition from the function: the name, the whole docstring as description, types and `required` from the hints, and defaults from Python.
+- Docstring `Args:` lines never become property descriptions. Put parameter help and limits in the type with `Annotated[..., Field(...)]` so they appear in the schema.
+- Test a new server in the MCP Inspector before writing a client. If a tool passes there and fails in the chatbot, the fault is in the client.
+
 ## Check yourself
 
 <details>

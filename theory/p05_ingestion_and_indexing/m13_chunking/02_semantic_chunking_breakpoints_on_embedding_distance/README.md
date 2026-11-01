@@ -42,6 +42,12 @@ flowchart LR
     T -- no --> KEEP[Same chunk]
 ```
 
+## Key Takeaways
+
+- Semantic chunking embeds each sentence with its neighbours and cuts where the distance between consecutive sentences clears a threshold.
+- Every threshold type is relative to the document's own distances, so tune it per corpus. `percentile` always cuts somewhere; `standard_deviation` may return one chunk.
+- Only local change triggers a cut, so slow drift is missed. Read the chunks, cap their size afterwards, and budget an extra embedding pass over every sentence.
+
 ## Check yourself
 
 <details>

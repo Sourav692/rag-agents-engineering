@@ -34,6 +34,12 @@ The yes or no form is a relevance grader. [M28](../../../p09_agentic_rag/m28_ret
 
 Two notes on running the notebook today. `retrieve_and_explain` calls `self.retriever.get_relevant_documents(query)`, which langchain-core 1.7 no longer has, so it raises `AttributeError`; use `self.retriever.invoke(query)`. And the demo indexes three sentences with `k=5`; FAISS returns all three, so each query gets three explanations, including two for texts about photosynthesis and global warming when the question is why the sky is blue.
 
+## Key Takeaways
+
+- An explainable retriever adds one LLM call per chunk. Batch the calls, or explain only the chunks the answer cites.
+- A prompt that asks why a chunk is relevant gets a reason even for a ranking error. The paragraph explains the text, not the cosine ranking, so debug retrieval with scores and ranks.
+- Ask a yes or no relevance question with a verbatim quote and the retriever's score instead. That turns the explainer into a relevance grader.
+
 ## Check yourself
 
 <details>

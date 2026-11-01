@@ -44,6 +44,12 @@ The paper generates several hypothetical answers and averages their embeddings, 
 
 The Larkspur handbook is the private case. No model was trained on Larkspur's refund window or its outage credits, so a hypothetical answer to *What happens if my server goes down?* is written from what the model knows about hosting providers in general. That text is likely to use outage vocabulary, which helps here, and it can also name terms the handbook never uses, which pull the vector toward nothing. The 05a notebook ends with the test that settles it: retrieve with and without HyDE on the same questions and count the overlap, rather than assume a gain.
 
+## Key Takeaways
+
+- HyDE embeds an LLM-written answer instead of the question, because an answer-shaped text lands nearer the real passage. The invented answer is only a search key and is discarded.
+- Embed with the same model that built the index. `HypotheticalDocumentEmbedder` keeps indexing plain and applies the LLM only in `embed_query()`.
+- HyDE helps short or vague questions and can hurt on a private corpus, where the LLM invents jargon the documents never use. Compare retrieval with and without it before turning it on.
+
 ## Check yourself
 
 <details>

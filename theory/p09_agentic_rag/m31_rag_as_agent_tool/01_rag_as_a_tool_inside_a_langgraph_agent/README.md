@@ -82,6 +82,12 @@ A model reads meaning, so word forms such as "refund" and "refunds" matter far l
 
 Every description is sent with every call, so each added word costs tokens on every turn of every conversation. Treat the descriptions as a retrieval setting: keep a routing golden set of questions with the tool each one should use, score each change against it and against held-out questions, and add the misses you find in production traces.
 
+## Key Takeaways
+
+- Retrieval as a tool lets the model skip it for small talk, rewrite the query and search again. The cost is a decision outside your code, and a model that answers from memory has nothing to cite.
+- `create_retriever_tool` drops chunk metadata, so the model sees text without sources. Add the source with a `document_prompt`, or keep the Documents with `response_format="content_and_artifact"`.
+- Write each tool description to say what it searches, its topics in users' words, where it stops and what it returns. Test changes on a routing golden set and held-out questions.
+
 ## Check yourself
 
 <details>

@@ -44,6 +44,12 @@ flowchart TD
 
 For Larkspur the split is: `search_handbook` is a tool, because the model needs it mid-answer with a query it writes; the sections are resources, for a support console that lets an engineer attach a section; and `answer_with_citations` is a prompt the engineer starts on purpose.
 
+## Key Takeaways
+
+- Choose the kind by who decides to use it. The model picks tools mid-answer; the user picks resources (read-only data by URI) and prompts (server-owned message templates).
+- A static resource URI names one thing and a template such as `papers://{topic}` names a family. `list_resources()` does not return templates, so list them separately.
+- Routing tools, prompts and resource URIs through one dict lets a name on one server overwrite a route on another.
+
 ## Check yourself
 
 <details>

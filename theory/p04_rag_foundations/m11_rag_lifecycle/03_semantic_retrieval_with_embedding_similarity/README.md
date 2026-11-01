@@ -58,6 +58,12 @@ Embeddings measure how close two texts are in topic, which is not the same as wh
 
 The scores are not probabilities either. The best outage match scores 0.394, while the best export match scores 0.817. A fixed cut-off such as "drop chunks below 0.5" would send the outage question to the model with no context at all. Set any threshold per corpus and model from the golden set, and re-check it whenever the model changes.
 
+## Key Takeaways
+
+- Embeddings score chunks by the cosine between vectors, so paraphrases and word forms match. Embed questions and chunks with the same model; changing it means re-embedding the corpus.
+- Embeddings win on paraphrase and TF-IDF wins on rare exact words such as product names or error codes. Topic closeness is not the same as containing the answer.
+- Cosine scores are not probabilities and vary by question. Set any threshold per corpus and model from the golden set.
+
 ## Check yourself
 
 <details>

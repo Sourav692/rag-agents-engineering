@@ -44,6 +44,12 @@ sequenceDiagram
 
 Lazy loading keeps memory flat for a million-record source, and the first vectors reach the index while the loader is still reading. A failure part-way through only loses the current batch, as long as you record a checkpoint (the last id or `updated_at` written).
 
+## Key Takeaways
+
+- `load()` holds the whole corpus in memory as a list, while `lazy_load()` yields one Document at a time so splitting and upserting run in batches alongside reading.
+- Implement `lazy_load()` in a custom `BaseLoader`; `load()` comes free from it.
+- Record a checkpoint, such as the last id or `updated_at` written, so a crash loses only the current batch and the next run can resume from there.
+
 ## Check yourself
 
 <details>

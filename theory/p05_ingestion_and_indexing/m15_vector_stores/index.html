@@ -418,6 +418,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Wrong embedding model.</strong> The store opens and searches return results, but the query vector and the stored vectors come from different models, so the ranking means nothing.</li>
 </ul>
 <p>The notebook turns both into startup errors with an <code>open_store()</code> check: refuse an empty collection, and compare the stored vector&rsquo;s dimension with the live model&rsquo;s. The dimension check misses a model swap with equal dimensions (<code>text-embedding-3-large</code> truncated to 1,536 against <code>text-embedding-3-small</code>), so also store the model name in the collection&rsquo;s metadata and assert it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>No store edits a vector in place; an update deletes and re-inserts under the same ID. Derive IDs from the document, such as <code>source::page::chunk_index</code> or a content hash, never from the run.</li>
+<li>Score meaning depends on the backend: Chroma and FAISS return distances, Pinecone cosine similarity. Set thresholds from known queries on the store you ship.</li>
+<li>Reopening a store with a wrong collection name or embedding model fails silently. Refuse empty collections at startup and assert the stored dimension and model name.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does an ingestion pipeline that mints a fresh UUID on every run make retrieval worse over time?</summary>
@@ -524,6 +530,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The filter difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged <code>t="no"</code> that sat close to the query and 3 tagged <code>t="yes"</code> further away. <code>similarity_search(q, k=3, filter={"t": "yes"})</code> returned 0 results, because none of the 3 was among the 20 nearest candidates; with <code>fetch_k=28</code> it returned all 3. Chroma, asked for <code>k=5</code> with a filter only 2 entries match, returned those 2.</p>
 <p>The notebooks&rsquo; guidance: start with Chroma for anything you might keep, choose FAISS for a static corpus you search often, and move to a hosted store (lesson 15.3) when you need concurrent writers or more than one machine.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>ANN indexes such as HNSW and IVF trade the guaranteed top <code>k</code> for speed, and a miss raises no error. Measure recall@k against exact search and raise <code>ef_search</code> until misses stop mattering.</li>
+<li>Chroma filters inside the store before ranking; the FAISS wrapper filters after ranking <code>fetch_k=20</code> candidates, so a selective filter can return nothing.</li>
+<li>Start with Chroma for anything you will update, use FAISS for a static read-heavy corpus, and move to a hosted store for concurrent writers or several machines.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can an approximate nearest-neighbour index miss the right chunk without anyone noticing?</summary>
@@ -590,6 +602,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="when-a-managed-store-earns-its-cost">When a managed store earns its cost</h2>
 <p>The managed stores take the same LangChain calls as Chroma: <code>add_documents</code>, <code>similarity_search(query, k, filter=...)</code>, <code>as_retriever(...)</code>. The Pinecone notebook filters with <code>{"source": "tweet"}</code> and runs a retriever with <code>search_type="similarity_score_threshold"</code> and <code>score_threshold=0.4</code>, a threshold that only means something on that index&rsquo;s cosine scale. Switching stores changes the setup and the bill; the calls stay the same.</p>
 <p>Lesson 15.1&rsquo;s notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index, so the embedding model goes with you, and the IDs you derived in lesson 15.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 15.4), has no API key to manage, no network hop and no bill per query.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A Pinecone index fixes its dimension and metric at creation, so the embedding model and output size are part of its identity. Changing either means a new index.</li>
+<li>A namespace per customer is a stronger boundary than a metadata filter, because a query cannot reach another namespace. Keep one record-manager namespace per collection.</li>
+<li>Move to a managed store for concurrent writers, horizontal scale or managed availability, and not before. The LangChain calls stay the same; the move is a re-index.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why is one Pinecone namespace per customer a stronger boundary than a metadata filter on the customer id?</summary>
@@ -648,6 +666,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Post-filtering</strong> ranks first, then drops what fails the filter. LangChain&rsquo;s FAISS wrapper does this on <code>fetch_k=20</code> candidates (lesson 15.2), so a selective filter can return fewer than <code>k</code> results or none.</p>
 <p>Adding an ANN index to pgvector moves it towards post-filtering. The <a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">pgvector README</a> says: &ldquo;With approximate indexes, filtering is applied <em>after</em> the index is scanned.&rdquo; Its example: if a condition matches 10% of rows, an HNSW scan with the default <code>hnsw.ef_search</code> of 40 leaves &ldquo;only 4 rows&rdquo; on average. From version 0.8.0, iterative index scans (<code>SET hnsw.iterative_scan = strict_order</code> or <code>relaxed_order</code>) keep scanning until enough rows pass the filter.</p>
 <p>The symptom of post-filtering is a query that asks for <code>k = 5</code> and gets 2. Log <code>len(results)</code> beside <code>k</code> on every filtered query; raising <code>k</code> hides the problem without fixing it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>PGVector turns a metadata filter into a <code>WHERE</code> clause on JSONB metadata. Filters match exactly, so normalise values at ingestion, and write <code>$and</code> so filters stay portable.</li>
+<li>A filter is not access control, because a caller can omit it. Enforce it in the service, or use a namespace or collection per tenant.</li>
+<li>Pre-filtering returns up to <code>k</code> matches; post-filtering, including pgvector with an ANN index, can return fewer. Log <code>len(results)</code> beside <code>k</code> on every filtered query.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why is a metadata filter on the tenant not enough for access control?</summary>
@@ -780,6 +804,12 @@ index(docs, record_manager, vectorstore, cleanup=&quot;incremental&quot;, source
 <li><strong><code>scoped_full</code> matches <code>incremental</code> at this size.</strong> The difference appears when one source&rsquo;s chunks span several batches: <code>incremental</code> cleans after each batch and does redundant work, while <code>scoped_full</code> collects the sources it saw and cleans once at the end.</li>
 </ul>
 <p>For Larkspur&rsquo;s nightly sync, <code>incremental</code> keyed on <code>source</code> handles policy edits and new files, and a weekly <code>full</code> run over the complete folder, guarded by a file-count check, removes files the team deleted. <code>SQLRecordManager</code> keeps the keys in the same Postgres as the vectors and reads the time from the database, so every writer stamps keys on one clock; an update raises a time-sync error if that clock reads earlier than the run&rsquo;s start.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>The Indexing API hashes each chunk&rsquo;s text and metadata into its ID, so unchanged chunks are skipped and an edit is one add plus one delete. A model change alters no hash and needs a rebuild.</li>
+<li><code>incremental</code> cleanup handles edits but never removes a deleted file. Only <code>full</code> does, and it also wipes everything the loader failed to return.</li>
+<li>Run <code>incremental</code> nightly keyed on <code>source</code>, and <code>full</code> only over the whole corpus behind a file-count guard.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. You switch to a new embedding model and rerun the sync job. Why does it embed nothing, and how do you rebuild?</summary>
@@ -849,7 +879,7 @@ index(docs, record_manager, vectorstore, cleanup=&quot;incremental&quot;, source
 <li>Filter before the search when the filter is selective; after-search filtering silently returns fewer than <code>k</code>.</li>
 <li>Sync with the Indexing API and <code>cleanup="incremental"</code> keyed on <code>source</code>. Use <code>full</code> only when the loader returns the whole corpus, and never on a batch that might be empty.</li>
 </ul></article>
-    <nav class="toc" aria-label="M15 sections"><details open><summary>In M15</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stable-ids-and-the-missing-update">Stable IDs and the missing update</a></li><li><a href="#what-a-score-means">What a score means</a></li><li><a href="#persisting-and-reopening">Persisting and reopening</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#ann-search">ANN search</a></li><li><a href="#chroma-or-faiss">Chroma or FAISS</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#collections-and-namespaces">Collections and namespaces</a></li><li><a href="#when-a-managed-store-earns-its-cost">When a managed store earns its cost</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#metadata-filters">Metadata filters</a></li><li><a href="#filtering-before-or-after-the-search">Filtering before or after the search</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#idempotent-re-indexing">Idempotent re-indexing</a></li><li><a href="#choosing-a-cleanup-mode">Choosing a cleanup mode</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M15 sections"><details open><summary>In M15</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stable-ids-and-the-missing-update">Stable IDs and the missing update</a></li><li><a href="#what-a-score-means">What a score means</a></li><li><a href="#persisting-and-reopening">Persisting and reopening</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#ann-search">ANN search</a></li><li><a href="#chroma-or-faiss">Chroma or FAISS</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#collections-and-namespaces">Collections and namespaces</a></li><li><a href="#when-a-managed-store-earns-its-cost">When a managed store earns its cost</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#metadata-filters">Metadata filters</a></li><li><a href="#filtering-before-or-after-the-search">Filtering before or after the search</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#idempotent-re-indexing">Idempotent re-indexing</a></li><li><a href="#choosing-a-cleanup-mode">Choosing a cleanup mode</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

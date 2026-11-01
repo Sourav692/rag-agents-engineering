@@ -42,6 +42,12 @@ rag_chain.invoke("How long does a refund take?")
 
 The question string goes to both dict values. The retriever turns it into Documents and `format_docs` joins them into one string; the passthrough keeps the question as it is. The prompt receives `{"context": ..., "question": ...}`, which is exactly the pair of variables it declares.
 
+## Key Takeaways
+
+- The `|` operator calls `__or__`, which returns a flattened `RunnableSequence` that feeds each step's output to the next and adds batch, streaming, async and tracing.
+- A plain dict in a pipe becomes a `RunnableParallel`: every value runs on the same input, and lambdas are wrapped for you. Pipes nest inside dicts and dicts inside pipes.
+- Use `.assign()` to add a key while keeping the rest, so the question travels forward as later steps add context, answer and sources.
+
 ## Check yourself
 
 <details>

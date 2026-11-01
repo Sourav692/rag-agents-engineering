@@ -42,6 +42,12 @@ Write the caption prompt for the questions the figure must answer:
 
 A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption's metadata (`name`), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML ([M12, lesson 12.4](../../../p05_ingestion_and_indexing/m12_document_ingestion/04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md)) keeps rows and columns that a caption has to describe in prose.
 
+## Key Takeaways
+
+- Captioning pays the vision cost once per image at index time. Captions then compete with text chunks on one scale, and hybrid search, reranking and filters all still apply.
+- A caption that names the chart is found but cannot answer. Prompt for every printed value with its label and unit, the axes and reference lines, the figure's place, and an escape for unreadable parts.
+- A caption is model output trusted on every query. Keep the image reference in metadata and send the original image to a vision model at answer time.
+
 ## Check yourself
 
 <details>

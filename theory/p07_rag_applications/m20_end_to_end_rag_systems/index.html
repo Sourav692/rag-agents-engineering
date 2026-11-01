@@ -406,6 +406,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <h3>A setup trap from the notebook</h3>
 <p><code>openai_embed_model.embed_documents("Hello, world!")</code> returns 13 vectors. <code>embed_documents</code> expects a list of strings, and a Python string is iterable, so each of the 13 characters is embedded on its own. Use <code>embed_query(text)</code> for one string, or <code>embed_documents([text])</code>; either gives one 1,536-dimension vector. The same mistake inside an indexing loop embeds characters and stores garbage without an error.</p>
 <p>The optional <code>01c</code> notebook builds the same pipeline on FAISS from one PDF, <code>Understanding_Climate_Change.pdf</code>, with 1,000-character chunks, 200 overlap and <code>k=2</code>, and reconstructs the index matrix to show its shape: one row per chunk, 1,536 columns.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Grounding needs three things in the prompt: evidence retrieved for this question, an instruction to use only that evidence, and permission to say &ldquo;I don&rsquo;t know&rdquo;.</li>
+<li>The instruction does not guarantee compliance. Put questions with no answer in the golden set and count the refusals.</li>
+<li>A chain that formats only <code>page_content</code> and returns only the answer cannot be checked. Keep the chunks and their metadata if anyone needs to verify a sentence.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What three things in the 01b prompt keep an answer grounded?</summary>
@@ -513,6 +519,12 @@ def quote_found(citation, chunks_by_id):
 </code></pre>
 <p>On the refund chunk, the verbatim quote above passes, the same quote broken across lines passes, and the paraphrase &ldquo;Annual plans are fully refundable for 30 days.&rdquo; fails. Drop or flag the citations that fail, and track the failure rate as a production metric: a rising rate means the prompt, the model or the chunk text changed.</p>
 <p>One bug to fix when you reuse the notebook: <code>cite_response_chain</code> passes <code>itemgetter('context')</code> straight into the prompt, so the model reads the Python repr of a list of Documents (<code>[Document(metadata={...}, page_content='...')]</code>). Run it through <code>format_docs_with_metadata</code>, as the answer chain does, so both calls see the same text.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>RunnablePassthrough.assign</code> keeps the retrieved Documents in the output, so the retriever runs once and the sources shown are the chunks the model read.</li>
+<li>A citation schema with <code>id</code>, <code>page</code> and verbatim <code>quotes</code> makes citations checkable. It is still a flat list per answer, so add a <code>claim</code> field for true per-claim citations.</li>
+<li>The model can paraphrase a quote or cite an id that was never retrieved. Verify every quote against its chunk in code, drop failures, and track the failure rate.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does notebook 02a build its chain with RunnablePassthrough.assign instead of formatting the documents away?</summary>
@@ -564,6 +576,12 @@ def quote_found(citation, chunks_by_id):
 </table></div>
 <p>The yes or no form is a relevance grader. <a href="../../p09_agentic_rag/m28_retrieval_grading_rewriting/index.html">M28</a> uses it to filter chunks and rewrite the query, and <a href="../../p09_agentic_rag/m32_reliability_feedback/index.html#relevance-grading">M32.1</a> adds a hallucination check and source highlighting on top.</p>
 <p>Two notes on running the notebook today. <code>retrieve_and_explain</code> calls <code>self.retriever.get_relevant_documents(query)</code>, which langchain-core 1.7 no longer has, so it raises <code>AttributeError</code>; use <code>self.retriever.invoke(query)</code>. And the demo indexes three sentences with <code>k=5</code>; FAISS returns all three, so each query gets three explanations, including two for texts about photosynthesis and global warming when the question is why the sky is blue.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>An explainable retriever adds one LLM call per chunk. Batch the calls, or explain only the chunks the answer cites.</li>
+<li>A prompt that asks why a chunk is relevant gets a reason even for a ranking error. The paragraph explains the text, not the cosine ranking, so debug retrieval with scores and ranks.</li>
+<li>Ask a yes or no relevance question with a verbatim quote and the retriever&rsquo;s score instead. That turns the explainer into a relevance grader.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How many model calls does one search make with the explainable retriever at k of 5, and how can you reduce the cost?</summary>
@@ -681,6 +699,12 @@ def quote_found(citation, chunks_by_id):
 <li><strong>Self-query.</strong> <code>llm.with_structured_output(ListingQuery)</code> turns <em>Which properties cost less than $400,000?</em> into a semantic part and, when extraction works, <code>max_price=400000</code>, which becomes a Chroma filter <code>{"price": {"$lte": 400000}}</code>. (<code>$lte</code> lets a listing at exactly $400,000 through; &ldquo;less than&rdquo; is <code>$lt</code>.) The full version is <a href="../../p06_retrieval_quality/m18_query_transformation/index.html">M18</a>&rsquo;s self-querying lesson.</li>
 <li><strong>Query generation.</strong> The model writes one line of pandas over the schema and the notebook <code>eval</code>s it. That executes model-written code with full interpreter access, and a data field can carry a prompt injection. In production, generate SQL against a read-only connection with a timeout, or run a sandboxed executor.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Embed fields whose values carry meaning and put identifiers, numbers and dates in metadata, cast to their real types. Embedding every column dilutes the vector.</li>
+<li>Retrieval reads a sample of <code>k</code> rows. Aggregation, numeric comparison, exact lookup and ranking need every row, a filter or an id, and retrieval fails on them quietly with a fluent answer.</li>
+<li>Route by the kind of question: a query engine for aggregates, get-by-id for lookups, self-query filters for ranges, semantic search for the rest. Never <code>eval</code> model-written code without a sandbox.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the 04a rule embed only a server's description and keep its name, vCPUs, memory and price in metadata?</summary>
@@ -789,6 +813,12 @@ def quote_found(citation, chunks_by_id):
 <li><strong><code>ask</code> keeps the text after the last <code>Answer:</code></strong>, to strip a prompt echoed back with the completion. The installed <code>HuggingFaceEndpoint</code> already defaults to <code>return_full_text=False</code>, so the split guards against nothing today and cuts any answer that itself contains &ldquo;Answer:&rdquo;. Drop it, or keep <code>return_full_text=False</code> explicit if you move to <code>HuggingFacePipeline</code>.</li>
 </ul>
 <p>The notebook&rsquo;s fallback evaluation counts expected keywords in each answer (&ldquo;carbon dioxide&rdquo;, &ldquo;methane&rdquo;). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from <a href="../../p04_rag_foundations/m11_rag_lifecycle/index.html">M11</a> for decisions.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Check &ldquo;local&rdquo; per component. One remote call sends the data out: <code>HuggingFaceEndpoint</code> ships every prompt, chunks included, to the Inference API, while <code>HuggingFacePipeline</code> generates in your process.</li>
+<li>Changing embedding models means re-embedding the whole corpus. Measure tokens per second on the target hardware before promising a latency.</li>
+<li>Load only FAISS index files your own pipeline wrote, because the docstore is a pickle. Retrieve once and reuse the result so the sources shown match the context.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The 05a notebook embeds and indexes on your machine. Why does the data still leave it?</summary>
@@ -858,7 +888,7 @@ def quote_found(citation, chunks_by_id):
 <li>Route a question by what it needs. If it needs every row, a filter or one known record, send it to a query, a filter or a get by id, not to top-k retrieval.</li>
 <li>Call a pipeline local only after checking each component, the generator above all.</li>
 </ul></article>
-    <nav class="toc" aria-label="M20 sections"><details open><summary>In M20</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#grounded-generation">Grounded generation</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#returning-the-sources">Returning the sources</a></li><li><a href="#citation-schema">Citation schema</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#explaining-a-retrieved-chunk">Explaining a retrieved chunk</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#record-representation">Record representation</a></li><li><a href="#retrieval-reads-a-sample">Retrieval reads a sample</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#local-inference">Local inference</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M20 sections"><details open><summary>In M20</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#grounded-generation">Grounded generation</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#returning-the-sources">Returning the sources</a></li><li><a href="#citation-schema">Citation schema</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#explaining-a-retrieved-chunk">Explaining a retrieved chunk</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#record-representation">Record representation</a></li><li><a href="#retrieval-reads-a-sample">Retrieval reads a sample</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#local-inference">Local inference</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

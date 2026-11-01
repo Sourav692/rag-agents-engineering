@@ -71,6 +71,12 @@ flowchart TD
 
 For agents built with `create_agent`, LangChain 1.x ships the summary strategy as `SummarizationMiddleware`. M34 adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.
 
+## Key Takeaways
+
+- Compile the graph with a checkpointer and take the `thread_id` from trusted server config. A checkpoint is written after every step, three per turn for a one-node chat graph, for replay and debugging.
+- A sliding window deletes old messages from state through `RemoveMessage` and `add_messages`; trim on read hides them from the model and keeps the full thread. Use trim on read when audit or replay needs every message.
+- Keep everything while the thread fits the budget, and summarise older turns once it does not. A persisted thread stays on disk until you delete it, so treat it as customer data with retention rules.
+
 ## Check yourself
 
 <details>

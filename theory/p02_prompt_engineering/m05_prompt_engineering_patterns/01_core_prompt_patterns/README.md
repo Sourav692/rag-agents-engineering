@@ -68,6 +68,12 @@ sequenceDiagram
 
 That history is also why the cost of a flipped interaction grows with every turn. The notebook stores the conversation in `store["unused"]`, the history for the session id it passes, so that is where to read the messages back.
 
+## Key Takeaways
+
+- Few-shot examples teach the label set, the output shape and the class boundaries. They are paid for on every call, so the classifier's three examples cost ten times the zero-shot tokens.
+- Choose examples near the boundary, keep the labels balanced, cover every label, and measure the prompt against your own labelled pairs.
+- Persona, flipped interaction, directional stimulus, template and meta language each constrain the reply in a different way. Validate templated output before code uses it, and expect a stateful conversation to cost more each turn.
+
 ## Check yourself
 
 <details>

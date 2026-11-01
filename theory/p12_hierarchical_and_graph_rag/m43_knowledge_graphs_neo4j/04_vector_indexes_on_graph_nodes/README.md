@@ -30,6 +30,12 @@ At `k=2`, no retrieved candidate has both required paths. At `k=3`, one qualifie
 
 Move the candidate budget before changing the schema. Once all eligible records are found, extra candidates add validation work without adding an eligible answer on this fixture. Compare that curve with the exact Cypher match over the full graph. A graph-first query can be preferable when the required constraints are precise and indexed; vector-first retrieval helps when the starting description is approximate.
 
+## Key Takeaways
+
+- Vector search finds text that resembles the question; graph checks confirm explicit relationships. Keep the two stages separate so excluded candidates have a visible cause.
+- Query and stored vectors must share a model and dimensionality. Check the database version for current search syntax and wait for the index to be `ONLINE`.
+- Raising `k` gives the graph more candidates to check but cannot fix a missing edge or unresolved entity. Use graph-first queries when constraints are precise and indexed.
+
 ## Check yourself
 
 <details>

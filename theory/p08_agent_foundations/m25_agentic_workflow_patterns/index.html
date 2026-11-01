@@ -446,6 +446,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The second run spent three judge calls to avoid writing and polishing an email with no purpose, and it ended with a reason a caller can show or log.</p>
 <p>The optional notebooks move the gate around. In LCEL (<code>01c</code>) the gate is a <code>RunnableLambda</code> that passes the payload through or raises <code>KeyPointsRejected</code>; <code>.with_retry(stop_after_attempt=3)</code> re-runs extraction and gate together, which plays the part of the <code>regenerate</code> edge, and <code>.with_fallbacks(...)</code> plays <code>fail_validation</code>. With structured output (<code>01b</code>) every step returns a validated Pydantic object, so a schema check runs at every hop for free. A schema guarantees fields and types, though, and says nothing about whether the content is usable; that still needs a gate like the judge here.</p>
 <p>For Larkspur, the gate belongs right after extraction: does the ticket name a plan and a purchase date? Without them the refund-window chunk cannot be applied, and the right next step is to ask the customer, which a terminal node with a reason makes easy.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>In a workflow your code fixes the path and the model makes one kind of decision; in an agent the model picks every step. Use a workflow for any task you can draw before it runs.</li>
+<li>Gate early steps with an LLM judge that returns a structured verdict, since keyword rules leak. Keep the routing in a pure function so you can test it without an LLM call.</li>
+<li>Bound retries with a counter and end at a terminal node that records why the chain stopped. A schema guarantees fields and types, not usable content, so structured output still needs a gate.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the quality gate sit right after extraction instead of checking the finished email?</summary>
@@ -533,6 +539,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The two errors are not symmetric. Easy sent to reasoning wastes money: bounded, and visible on a bill. Hard sent to cheap returns a confident wrong answer: invisible until someone acts on it. So bias the triage prompt toward <code>hard</code> on borderline cases and accept the overspend as insurance. The same asymmetry fixes the fallback direction. &ldquo;Try cheap, detect a bad answer, retry on reasoning&rdquo; needs a reliable wrong-answer detector, and if you had one you would not need the router. Escalate on uncertainty before answering.</p>
 <p>On Larkspur, <em>Can I get a refund after 45 days?</em> is the case to watch: it looks like a lookup and needs proration arithmetic. Put questions like it in the labelled set the router is measured on.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A router makes one small decision, a label from a fixed set, and dispatches in plain code. Each request costs two calls however many handlers exist, so test the routing decision itself.</li>
+<li>Routing by model tier pays reasoning prices only on hard traffic. In the notebook the routed strategy reached 86% accuracy with 1 of 7 reasoning calls, against 71% all cheap and 100% all reasoning.</li>
+<li>Hard work sent to the cheap tier returns confident wrong answers, while easy work sent up only costs money. Lean the triage prompt toward <code>hard</code> on borderline cases and accept the overspend.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the content router classify with a structured output limited to a fixed set of labels instead of free text?</summary>
@@ -694,6 +706,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The threshold trades false alarms against misses. Raising it to 3 blocks less often: fewer false alarms, more misses. Lowering it to 1 blocks on any single flag. On the unsafe snippet the validation reviewer flagged the SQL injection too, outside its own concern, so the votes are not fully independent; count on that when you set the threshold.</p>
 <p>For Larkspur, voting fits a check before a reply goes out: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. Three narrow reviewers and a threshold are easier to tune than one judge asked about everything.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A fan-out costs the step before, plus the slowest branch, plus the merge. Give any state key that parallel branches share a reducer, or one of the writes is lost.</li>
+<li>Rate limits force a concurrency cap, and then submission order matters. A slow branch that waits for a free slot delays the whole request, so start it first.</li>
+<li>Sectioning splits one task to cut latency; voting repeats one check to raise confidence. Set the vote threshold knowing it trades false alarms against misses and that reviewers are not fully independent.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does a fan-out's wall time follow its slowest branch rather than the sum of its branches?</summary>
@@ -836,6 +854,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>This is the shape of query decomposition (M18) and of the module lab: the orchestrator splits a Larkspur question into sub-questions, each worker retrieves and answers one, and the synthesizer writes the reply. <em>Can I export my data after I cancel my plan?</em> splits into &ldquo;how do I export?&rdquo; and &ldquo;what happens to my data after I cancel?&rdquo;, whose evidence is the <code>export</code> and <code>retention</code> chunks of the M11 golden set. <em>How long does a refund take?</em> should get a plan of one item. Bound the plan in code as well as in the prompt: a maximum number of <code>Send</code>s, a direct path for one-item plans, and a decision about what an empty plan returns.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>In orchestrator-worker an LLM decides at run time how many subtasks there are, and a conditional edge returns one <code>Send</code> per plan item. Merge the workers&rsquo; results with a reducer such as <code>operator.add</code>.</li>
+<li>Make the plan drive execution by giving each worker only its own section and using that section&rsquo;s description in its prompt. Fixed workers that ignore the plan waste the orchestrator call.</li>
+<li>Planner prompts tend to pad. One that suggested 2 to 5+ sections returned five for every topic. Ask for one section per distinct question, and cap the number of <code>Send</code>s in code.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Both orchestrator-worker and parallelization run several LLM calls at once and merge them. What separates them?</summary>
@@ -934,6 +958,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Choosing between the two LangChain loops comes down to what you need around the loop. The Python <code>for</code> loop is easy to read and returns a dict you shaped, but traces each pass as separate chain runs and has no streaming, checkpointing or interrupts. The middleware loop is one agent run with every pass nested, keeps the full message history as its state, and inherits tools, streaming and persistence from the agent runtime. Two details matter there: <code>can_jump_to=["model"]</code> on the decorator is what creates the conditional edge, and the critique reaches the next draft as an appended <code>HumanMessage</code>. When the loop needs checkpoints, interrupts or a human in it, that is the point to move to LangGraph.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Evaluator-optimizer feeds a critique into the next draft until the grade passes. Use it only when the criteria are clear and feedback measurably improves the next attempt.</li>
+<li>Grade with one boolean per criterion, check length in code and compute <code>approved</code> from the checks. A single holistic grade with <code>gpt-4o-mini</code> almost never converged.</li>
+<li>Cap every loop and count a run that hits the cap as a failure. LCEL cannot express the cycle, so use a Python loop or middleware, and move to LangGraph when you need checkpoints or interrupts.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why did replacing one holistic grade with one boolean per criterion make the joke loop converge?</summary>
@@ -1003,7 +1033,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Measure a router against both of its baselines, and bias it toward the error that costs money rather than the one that costs correctness.</li>
 <li>Every loop has a cap in code, and hitting the cap is a metric. A fan-out costs its slowest branch, so time branches one by one before tuning any of them.</li>
 </ul></article>
-    <nav class="toc" aria-label="M25 sections"><details open><summary>In M25</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#workflow-vs-agent">Workflow vs agent</a></li><li><a href="#quality-gates">Quality gates</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-by-handler">Routing by handler</a></li><li><a href="#routing-by-model-tier">Routing by model tier</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#fan-out--fan-in">Fan-out / fan-in</a></li><li><a href="#sectioning-and-voting">Sectioning and voting</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dynamic-fan-out-with-send">Dynamic fan-out with Send</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bounded-loops">Bounded loops</a></li><li><a href="#where-lcel-stops">Where LCEL stops</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M25 sections"><details open><summary>In M25</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#workflow-vs-agent">Workflow vs agent</a></li><li><a href="#quality-gates">Quality gates</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-by-handler">Routing by handler</a></li><li><a href="#routing-by-model-tier">Routing by model tier</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#fan-out--fan-in">Fan-out / fan-in</a></li><li><a href="#sectioning-and-voting">Sectioning and voting</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dynamic-fan-out-with-send">Dynamic fan-out with Send</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bounded-loops">Bounded loops</a></li><li><a href="#where-lcel-stops">Where LCEL stops</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

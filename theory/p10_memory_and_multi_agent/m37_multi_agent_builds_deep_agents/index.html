@@ -438,6 +438,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Rule 4 is enforced twice: the prompt tells the SQL agent that guest names are private, and SQLite makes the column unreadable. Only the second survives a model that ignores its prompt.</p>
 <p>The same split applies to the outcome. The agent&rsquo;s reply is not proof that it booked; the <code>reservations</code> table is. Notebook 01b checks for exactly one new row for Dana Lee, and a reply that only says it booked counts as a failure.</p>
 <p>Routing is the one place the lesson keeps a weak design on purpose. The coordinator forwards by writing an agent&rsquo;s name, and <code>mentioned_agent()</code> looks for that name (or the same words with a space) in the reply. Any reply that mentions an agent routes there: <em>I can&rsquo;t involve the reservation assistant until you give me dates</em> forwards to the reservation agent. The fix is a typed router, where the model returns its choice as a structured-output field and there is no reply text to search; notebook 05b routes that way.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A compliance agent only decides whether a request breaks a rule; the coordinator answers, forwards or refuses. Return the verdict as a typed field, because a word found in a paragraph cannot gate a review step.</li>
+<li>Put guards where the model cannot talk past them, such as a read-only connection, an authorizer that blocks <code>ATTACH</code> and hides guest names, and one parameterised write tool. A prompt rule alone does not hold.</li>
+<li>Check outcomes in the database, not in the reply, and replace string routing with a typed router. Any reply that mentions an agent&rsquo;s name routes there, even a refusal.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The SQL agent's prompt already says guest names are private. Why does notebook 01b also make the guest_name column unreadable in SQLite?</summary>
@@ -616,6 +622,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>A fallback that fails raises a different error type, so the router sends it to a person instead of looping. Transient failures get a cheaper fix first: <code>RetryPolicy(max_attempts=3)</code> re-runs a node that raises. With a node that fails twice, the run waits 0.2 s and then 0.4 s and succeeds on the third attempt; with three failures the exception reaches the caller. A retry smooths over a brief outage and does not replace the error path. Every failure in 02c is injected with a <code>SIMULATE</code> flag, so each recovery path runs on every run and a table computed from the node paths proves which one ran.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Test at three levels: unit tests on the pure router with no model calls, a confidence gate that stops unclear turns, and an end-to-end regression table read from the nodes that ran and the database.</li>
+<li>A threshold that turns every test green can still be wrong. At 75 all seven router tests pass, yet every booking that lacks dates gets an apology instead of a question about the dates.</li>
+<li>Record failures in an <code>error</code> field in state and let a pure router pick the recovery, with a failed fallback raising a different error so it reaches a person. Keep <code>RetryPolicy</code> for brief outages.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can notebook 02b unit-test the router without a model call, and what does the regression table catch that those tests cannot?</summary>
@@ -740,6 +752,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Web search.</strong> A <code>web_search_assistant</code> with <code>TavilySearch(max_results=3)</code> answers questions about the neighbourhood, which no hotel database holds. It is one more tool loop and one more name the coordinator can route to, and the test checks which node ran for a nearby-places question and for a booking question.</li>
 </ul>
 <p>Each notebook adds its capability to the core from 37.1 on its own; no notebook composes all of them into one graph.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Parallel branches need a reducer on any key they share, a separate message key per tool loop and a join that waits for every branch. Without the join, the merge runs once per branch.</li>
+<li>Keep branches read-only when they run the same request at once, and merge their answers by a fixed priority. Check the merged reply against ground truth from the database, not the model&rsquo;s claim.</li>
+<li>Summarising into state deletes old turns and keeps a running summary, at one model call when the thread passes its limit. Facts the summary leaves out are gone for good, where trimming only hides them.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does each parallel hotel branch need its own message key instead of sharing messages?</summary>
@@ -934,6 +952,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>The exit is code.</strong> <code>quality_gate</code> is a pure function: approve when the minimum score reaches 0.7 and no section is missing, otherwise go back to the writer, unless <code>iteration</code> has reached <code>MAX_DRAFTS</code>. The reviewer is never asked to be lenient on a later pass.</li>
 </ul>
 <p>The notebook proves the wiring before it spends a token. <code>create_research_system(nodes=...)</code> takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A supervisor sees results and can adapt but is hardest to bound. A typed router picks one specialist per question, and a one-shot planner fixes its queries up front, so its cost is known before the first search.</li>
+<li>Tie every finding to its source and mark whether the URL is one the search returned. When a forum post and the handbook disagree, the writer can then cite both and say which is the policy.</li>
+<li>End a quality loop in code. Score each draft by its weakest criterion, check the required sections in code, and stop at <code>MAX_DRAFTS = 2</code> whatever the reviewer says; prove the wiring with stub nodes first.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What separates the one-shot planner in 05c from the supervisor in 05a, and what does each give up?</summary>
@@ -1047,6 +1071,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The orchestrator&rsquo;s prompt tells it to recall memories at the start of each conversation and to save preferences, facts, decisions, project context and feedback as they come up. Two limits are visible in the code: <code>CURRENT_USER_ID</code> is fixed to <code>default-user</code>, so every user shares one namespace until it comes from authentication, and <code>recall_memories</code> matches a substring of the stored text, so a paraphrase finds nothing. The script&rsquo;s comment names <code>PostgresStore</code> as the production replacement.</p>
 <p>The module&rsquo;s deployed design, in <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md" target="_blank" rel="noopener"><code>deep_agent_overview.md</code></a>, runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A deep agent is one orchestrator configured with file tools, sub-agents through <code>task</code>, skills and a backend, instead of a graph wired node by node. Only a sub-agent&rsquo;s final message returns, so the orchestrator&rsquo;s context stays small.</li>
+<li>Skills put only their <code>name</code> and <code>description</code> in the prompt and are read in full when a task matches. Eight skills cost eight short lines until one is needed.</li>
+<li>Check what the backend really allows. <code>FilesystemBackend(virtual_mode=True)</code> blocks traversal without isolating anything, and <code>LocalShellBackend</code> runs unrestricted shell on the host, so use a real sandbox with <code>interrupt_on</code> approval.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does a call to the task tool keep the research agent's searches out of the orchestrator's context?</summary>
@@ -1116,7 +1146,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Fan out with one state key per branch, join before you merge, keep writes out of parallel branches, and summarize old turns into state before the thread outgrows the context.</li>
 <li>A deep agent&rsquo;s safety comes from its harness: the backend decides what code can do, sub-agents keep their own context, and memory needs a real user key.</li>
 </ul></article>
-    <nav class="toc" aria-label="M37 sections"><details open><summary>In M37</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#compliance-agent">Compliance agent</a></li><li><a href="#guards-in-the-tools">Guards in the tools</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#system-testing">System testing</a></li><li><a href="#edge-cases-and-error-paths">Edge cases and error paths</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#memory-merging">Memory merging</a></li><li><a href="#adding-agents-around-the-core">Adding agents around the core</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#planner-supervisor-or-router">Planner, supervisor or router</a></li><li><a href="#a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deep-agent-harness">Deep-agent harness</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M37 sections"><details open><summary>In M37</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#compliance-agent">Compliance agent</a></li><li><a href="#guards-in-the-tools">Guards in the tools</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#system-testing">System testing</a></li><li><a href="#edge-cases-and-error-paths">Edge cases and error paths</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#memory-merging">Memory merging</a></li><li><a href="#adding-agents-around-the-core">Adding agents around the core</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#planner-supervisor-or-router">Planner, supervisor or router</a></li><li><a href="#a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deep-agent-harness">Deep-agent harness</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

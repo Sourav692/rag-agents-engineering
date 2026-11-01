@@ -58,6 +58,12 @@ Every merge beats the question as asked. Fusion and the union retrieve the same 
 - **Parse variants with a schema.** Splitting the LLM's reply on newlines turns headers, numbering and blank lines into queries. In RAG-Fusion each junk query produces a ranked list that votes in the fusion. Both notebooks bind a Pydantic model with `with_structured_output()` to get a guaranteed `list[str]`.
 - **Cost.** One LLM call for the variants, then one retrieval per variant, run in parallel with `retriever.map()`. RRF itself is a dictionary and a sort.
 
+## Key Takeaways
+
+- RAG-Fusion retrieves for five phrasings and fuses the lists with Reciprocal Rank Fusion, which rewards chunks that many variants find. It uses ranks because scores from different queries are not comparable.
+- Agreement on a distractor counts too, and fusion only reorders what the variants retrieved. The order decides what survives the cut, so tune `k` and the number of chunks sent on your own golden set.
+- Merge `Document` objects keyed by `page_content`, never bare ids, and parse variants with a structured-output schema so junk lines do not become voting queries.
+
 ## Check yourself
 
 <details>

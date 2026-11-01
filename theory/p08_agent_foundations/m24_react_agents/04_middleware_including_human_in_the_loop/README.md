@@ -55,6 +55,12 @@ The pause is a real suspension: the state is checkpointed under the `thread_id` 
 
 One pitfall breaks real deployments. When the middleware interrupts, the `AIMessage` with the tool call is already saved on the thread. Invoking that thread again with a new user message instead of `Command(resume=...)` leaves the call unanswered, and the provider rejects the next request: *An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'* (OpenAI, error 400). Resume a parked thread, or start a new one.
 
+## Key Takeaways
+
+- Middleware hooks run before, after or around model and tool calls, in the order you list them. A custom hook takes `(self, state, runtime)` and returns a state update instead of mutating `state`.
+- Trigger summarisation on tokens or a fraction of the context window rather than a message count. Summarisation and human approval both need a checkpointer, because they rewrite or suspend the run.
+- Gate tools that write and let reads run. Resume a paused thread with `Command(resume=...)`; a new user message on it leaves the tool call unanswered, and the provider rejects the next request.
+
 ## Check yourself
 
 <details>

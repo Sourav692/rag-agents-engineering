@@ -403,6 +403,12 @@ app.invoke(request, cfg)
 </ul>
 <p>Use the snapshot&rsquo;s own <code>config</code> when you fork. The <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p03_langchain_and_langgraph/m10_langgraph_runtime/notebooks/06a_LangGraph_State_Management.ipynb" target="_blank" rel="noopener">06a notebook</a> notes that a hand-built config without <code>checkpoint_ns</code> breaks <code>update_state</code>.</p>
 <p>A replayed node runs its code again. If <code>execute</code> sends a refund, replay sends another one; <a href="#resume-and-side-effects">lesson 10.6</a> shows how to make that harmless.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A checkpointer saves the whole state after every step, filed under the <code>thread_id</code>. Same id shares one history; different ids never see each other.</li>
+<li>Use <code>InMemorySaver</code> for tests, <code>SqliteSaver</code> for one process, <code>PostgresSaver</code> for several workers. The graph code stays the same, so workers can stay stateless.</li>
+<li>Replay re-runs nodes from an old checkpoint and a fork adds a new branch beside the original. Fork from the snapshot&rsquo;s own <code>config</code>, and remember replayed side effects happen again.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does one compiled graph with a checkpointer serve every Larkspur customer at once without mixing their conversations?</summary>
@@ -455,6 +461,12 @@ app.invoke(request, cfg)
 <li><strong>Review a tool call.</strong> <code>interrupt()</code> inside a sensitive tool, or a wrapper such as the notebook&rsquo;s <code>add_human_in_the_loop</code>, lets a person accept, edit or answer instead of running it. <code>HumanInTheLoopMiddleware</code> in <a href="../../p08_agent_foundations/m24_react_agents/index.html">M24</a> packages the same idea for <code>create_agent</code>.</li>
 </ul>
 <p>Whichever shape you use, approve on an exact value and treat anything else as no. <a href="../../p08_agent_foundations/m27_human_approval_applied_agents/index.html">M27</a> builds that fail-closed gate, with a fingerprint that catches edits made after the review. What can happen twice around the gate is the subject of the lab in <a href="#resume-and-side-effects">lesson 10.6</a>.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>interrupt()</code> saves the state and parks the thread; <code>Command(resume=value)</code> continues it from any process. It needs a checkpointer, or the resume call fails.</li>
+<li>On resume the node runs again from its first line. Keep notifications, counters and model calls out of the code above <code>interrupt()</code>.</li>
+<li>The resume value is whatever the caller passes. Validate it, approve only on an exact value, and treat anything else as no.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does anything written above the interrupt call in human_gate happen twice for one approval?</summary>
@@ -496,6 +508,12 @@ app.invoke(request, cfg)
 <li><strong>Streaming.</strong> <code>stream(..., subgraphs=True)</code> yields <code>(namespace, chunk)</code> pairs, where the namespace names the subgraph node (<code>("approval:&lt;task id&gt;",)</code>) and the parent&rsquo;s own events have the empty namespace <code>()</code>.</li>
 </ul>
 <p>Choose a subgraph when a piece has its own loop or its own state that the parent should not carry, when a team owns it separately, or when several parents reuse it. <a href="../../p10_memory_and_multi_agent/m35_multi_agent_architectures/index.html">M35</a> to M37 build multi-agent systems out of exactly these pieces. For a straight sequence of steps on the same state, plain nodes are simpler.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Add a compiled subgraph directly when it shares keys with the parent, and wrap it in a node that maps keys when it does not. Only keys the parent declares come back out.</li>
+<li>Checkpoints, interrupts and streaming reach inside subgraphs. A resume re-runs only the interrupted child node, but a wrapper also runs again from its first line.</li>
+<li>Use a subgraph for a piece with its own loop or state, a separate owner, or several parents. For a straight sequence on one state, plain nodes are simpler.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When can you add a compiled subgraph directly as a node, and when do you need a wrapper node?</summary>
@@ -574,6 +592,12 @@ app.invoke(request, cfg)
 <ul>
 <li><strong><code>streaming=True</code> on the model</strong> makes the provider send tokens as they are generated, which <code>messages</code> mode then passes through.</li>
 <li><strong>Checkpoints work the same.</strong> The async graph is compiled with <code>MemorySaver</code>, and a second <code>ainvoke</code> on the same thread sees the first turn.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Choose the stream mode for the screen: <code>updates</code> for progress labels and pauses, <code>messages</code> for a typing effect, <code>values</code> for whole-state clients, <code>checkpoints</code> or <code>debug</code> for audits.</li>
+<li><code>messages</code> mode streams tokens from every model call in every node. Filter on <code>metadata["langgraph_node"]</code> before you render.</li>
+<li>Async nodes free the event loop while waiting on models and tools, so one process serves many conversations. Streaming is a separate choice; a chat endpoint usually wants both.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -689,6 +713,12 @@ app.invoke(request, cfg)
 <li><strong><code>recursion_limit</code> is the backstop.</strong> It counts steps, not loops. The installed LangGraph&rsquo;s default is 10,007 (set by <code>LANGGRAPH_DEFAULT_RECURSION_LIMIT</code>), far too high to save an LLM budget. Pass it per run: the same loop with no counter and <code>{"recursion_limit": 10}</code> stops after 10 steps (five generates, five validations) with <code>GraphRecursionError</code>.</li>
 </ul>
 <p>A loop on the Larkspur desk, such as &ldquo;rewrite the customer reply until the tone checker passes&rdquo;, gets the same treatment: a counter in the rewriting node, a cap in the router, an explicit <code>recursion_limit</code>, and a fallback path when the cap is hit. <a href="../../p09_agentic_rag/m29_crag_and_self_rag/index.html">M29</a>&rsquo;s grade-and-rewrite loops are built this way.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A <code>RetryPolicy</code> re-runs a failing node inside one call, with exponential backoff capped by <code>max_interval</code>. Name the exceptions in <code>retry_on</code> so a bug fails on the first attempt.</li>
+<li>Every retry repeats the node&rsquo;s side effects, so an external write that already succeeded can happen twice.</li>
+<li>Bound every cycle: count in the node, check success then the cap in the router, and pass an explicit <code>recursion_limit</code>. The default of 10,007 steps will not protect an LLM budget.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why should a RetryPolicy name its exceptions in retry_on instead of relying on the default?</summary>
@@ -779,6 +809,12 @@ app.invoke(request, cfg)
 <li><strong>Make external writes idempotent.</strong> A 503 before the provider refunds is harmless to retry. A lost response after it refunds is not: with guards off the customer is refunded twice. With guards on, the call carries the key <code>refund:refund-99</code>, the provider recognises the second request and returns the stored result. The notebook&rsquo;s <code>EXECUTION_LEDGER</code> does the same check in process.</li>
 </ul>
 <p>Put together, these are the notebook&rsquo;s closing rules: workers stay stateless, state lives in the checkpointer, the <code>events</code> field is the audit log, the workflow is an explicit graph with the human gate as a waiting state, and every side effect can run twice without harm.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Give any field that parallel nodes write a reducer, or the step fails with <code>InvalidUpdateError</code>. An <code>operator.add</code> list makes a durable audit trail that nothing overwrites.</li>
+<li>Nodes run again after an interrupt, a crash or a retry. The checkpointer protects the state, never what a node already did outside the graph.</li>
+<li>Move side effects off the resumed path into their own node, and send external writes with an idempotency key such as <code>refund:refund-99</code>.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Two reviewers fan out from the start node and both return risk, and the run stops. Why, and what fixes it?</summary>
@@ -848,7 +884,7 @@ app.invoke(request, cfg)
 <li>Pick the stream mode for the screen: <code>updates</code> for progress, <code>messages</code> filtered by node for typing, <code>values</code> when the client renders whole state.</li>
 <li>Bound every loop twice: a counter that a node increments and the router reads, and an explicit <code>recursion_limit</code> as the backstop.</li>
 </ul></article>
-    <nav class="toc" aria-label="M10 sections"><details open><summary>In M10</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#checkpointer">Checkpointer</a></li><li><a href="#history-replay-and-forks">History, replay and forks</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interrupt">interrupt()</a></li><li><a href="#approval-patterns">Approval patterns</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#subgraphs">Subgraphs</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#streaming-modes">Streaming modes</a></li><li><a href="#async-nodes">Async nodes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#retry-policies">Retry policies</a></li><li><a href="#bounded-cycles">Bounded cycles</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reducers-and-parallel-writes">Reducers and parallel writes</a></li><li><a href="#resume-and-side-effects">Resume and side effects</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M10 sections"><details open><summary>In M10</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#checkpointer">Checkpointer</a></li><li><a href="#history-replay-and-forks">History, replay and forks</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interrupt">interrupt()</a></li><li><a href="#approval-patterns">Approval patterns</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#subgraphs">Subgraphs</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#streaming-modes">Streaming modes</a></li><li><a href="#async-nodes">Async nodes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#retry-policies">Retry policies</a></li><li><a href="#bounded-cycles">Bounded cycles</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reducers-and-parallel-writes">Reducers and parallel writes</a></li><li><a href="#resume-and-side-effects">Resume and side effects</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

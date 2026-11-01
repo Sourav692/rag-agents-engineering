@@ -117,6 +117,12 @@ flowchart LR
 
 Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or use `lock.acquire(timeout=5)` so a thread fails with a visible error instead of hanging.
 
+## Key Takeaways
+
+- Run independent model calls with `gather` and cap them with a `Semaphore`. The slowest call sets the floor, so pick the limit from the provider's rate limit, then measure.
+- A sync call inside `async def` holds the event loop and turns any limit into a for loop. Use `ainvoke` or `asyncio.to_thread`, and use processes for pure-Python CPU work, since the GIL runs one thread at a time.
+- A race needs a read, a switch and a stale write-back; in asyncio one `await` between them is enough. Lock the read-modify-write, and acquire locks in one fixed order to avoid deadlock.
+
 ## Check yourself
 
 <details>

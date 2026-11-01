@@ -33,6 +33,12 @@ The notebook falls back to empty extraction results if Ollama is unavailable. An
 
 When using several seeds, verify distance budgets per seed. A single shared visited set can let an earlier seed suppress a shorter path from a later seed. Store the best depth or run a true multi-source breadth-first traversal when the required semantics are “within this many hops of any seed”. Retain source access filters during traversal and again when constructing context.
 
+## Key Takeaways
+
+- Keep two records per claim: the graph route that found the evidence, and the exact passage that supports the claim. A traversable relation can be stale or wrongly extracted.
+- Resolving `[N]` markers to sources proves provenance storage, not entailment. A fixed confidence value is a constant; add a claim-to-span review before calling an answer verified.
+- Report extraction failures separately from legitimate empty results, and keep multiple source spans and relation types when one node or edge would overwrite them.
+
 ## Check yourself
 
 <details>

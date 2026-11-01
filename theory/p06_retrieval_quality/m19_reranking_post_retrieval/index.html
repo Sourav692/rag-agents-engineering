@@ -437,6 +437,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>If you must send many, put the strongest at the edges.</strong> LangChain&rsquo;s <code>LongContextReorder</code> document transformer places the highest-ranked documents at the start and the end and the weakest in the middle. The M19 notebooks do not use it; reranking and a small cut usually make it unnecessary.</li>
 </ul>
 <p>The notebook&rsquo;s own list of when to rerank makes the same point from the other side: when only the top 3 chunks are used, or when the context window is limited and needs the best documents.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Give each stage one metric: recall at the candidate depth for retrieval, precision at the cut for reranking. A reranker reorders and cannot fetch, so missing evidence is a first-stage fix.</li>
+<li>Pick the candidate depth where first-stage recall flattens on the golden set. Deeper lists only add rerank latency.</li>
+<li>Models read the middle of a long context least reliably. Send fewer chunks, best first, and put the strongest at the edges if you must send many.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can no reranker fix an answer whose evidence is not among the 50 first-stage candidates?</summary>
@@ -519,6 +525,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><code>02b</code>&rsquo;s chain version returns all 10 reranked chunks, so it reorders without narrowing. Slice the sorted list to the top few, as its earlier cell does with <code>[0:2]</code>.</li>
 </ul>
 <p>Cross-encoder scores rank the candidates for one question. Nothing guarantees that a score means the same thing across questions or across models. The 19.6 notebook notes that Cohere&rsquo;s reranker returns values &ldquo;very close to 0 or 1&rdquo; and spreads them with a beta transform before using them. Before you set a fixed score threshold, check its distribution on your golden set.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A bi-encoder embeds chunks once at index time and scales to the whole index; a cross-encoder reads question and chunk together, judges relevance better, and needs one forward pass per candidate.</li>
+<li>In LangChain a reranker is a document compressor inside <code>ContextualCompressionRetriever</code>. Raise the base retriever&rsquo;s <code>k</code> so the reranker has a real list to choose from.</li>
+<li>Load the reranker model once at start-up and cut to the top few. Cross-encoder scores rank one question&rsquo;s candidates and are not calibrated across questions or models.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. For the export question, why can a cross-encoder separate the retention chunk from the cancel chunk when a bi-encoder may not?</summary>
@@ -585,6 +597,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>The notebook&rsquo;s last example builds a corpus of five chunks to show why reranking helps. Three are short sentences that repeat the question&rsquo;s words without naming the city (&ldquo;The capital of France is great.&rdquo;), and two are longer passages about visiting Paris. <code>compare_rag_techniques</code> prints the top 2 by plain similarity next to the top 2 from the LLM reranker. The notebook does not save its outputs, so run it to see which chunks each method picks.</p>
 <p>For Larkspur&rsquo;s support assistant the choice comes down to traffic and stakes. A cross-encoder runs locally with no per-call fee and no parsing step to fail, so it is the default second stage. An LLM reranker earns its cost on low-volume, high-stakes questions where it can follow an instruction a cross-encoder cannot, such as &ldquo;prefer the current policy over the archived one&rdquo;. A middle path is to let the cross-encoder cut 50 to 10 and the LLM order the last 10. Whichever you pick, compare them on golden-set precision@5 and p95 latency together.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A listwise LLM reranker sends every candidate in one prompt; a pointwise one rates each chunk in its own call; a cross-encoder scores all pairs in one batched <code>predict</code> on your own hardware.</li>
+<li>Each has its own failure. Listwise parsing can silently drop documents, pointwise scores on a 10-point scale tie and add latency per call, and cross-encoders truncate long chunks.</li>
+<li>Default to a cross-encoder. Use an LLM reranker for low-volume, high-stakes questions that need an instruction, and judge both on precision@5 and p95 latency together.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How do the listwise and pointwise LLM rerankers differ in calls per question and in what the model sees?</summary>
@@ -654,6 +672,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Whichever compressor fills the slot, its output is what the prompt receives. The retriever and the chain stay the same.</p>
 <p>Compression has the same risk as M13&rsquo;s propositions: an LLM sits between the source and the prompt. On the Larkspur <code>refund-window</code> chunk, an extractor that keeps &ldquo;An annual plan can get a full refund within 30 days of purchase&rdquo; and drops &ldquo;if the account used less than 100 GB of outbound traffic&rdquo; produces a confident wrong answer. Check compressed context for faithfulness on the golden set, and keep each chunk&rsquo;s id so the citation points at the full source text.</p>
 <p>Filtering has a simpler failure. The optional <code>02b</code> notebook&rsquo;s <code>evaluate_documents</code> asks <code>gpt-4o-mini</code> whether each chunk suits the question and keeps it only if the reply equals the string <code>"True"</code> exactly. A reply of <code>"True."</code> drops the chunk. Ask for structured output, as 19.3&rsquo;s pointwise reranker does, instead of matching text.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Every step after retrieval saves or spends one context budget. Plan them together: widening each hit means keeping fewer hits, and compressing each chunk lets you keep more.</li>
+<li><code>LLMChainExtractor</code> copies out only the relevant parts of each chunk at one LLM call per chunk, and drops chunks with nothing relevant.</li>
+<li>An extractor can drop the condition that limits a rule and produce a confident wrong answer. Check compressed context for faithfulness and keep each chunk&rsquo;s id for citations.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why do the saving and spending steps after retrieval have to be planned together?</summary>
@@ -708,6 +732,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Fetching a neighbour scans the whole store.</strong> <code>get_chunk_by_index</code> runs <code>similarity_search("", k=vectorstore.index.ntotal)</code> and loops over every chunk to find one index; the notebook calls it a simplified version. Keep chunk text in a key-value store keyed by document id and chunk index, which 19.6&rsquo;s method requires anyway.</li>
 <li><strong>Every chunk carries the whole document.</strong> The splitter stores the full text in each chunk&rsquo;s metadata under <code>text</code>, so the index holds one copy of the document per chunk.</li>
 <li><strong>Indexes restart per document.</strong> With more than one document, the key must include the document id, or a window can join the end of one file to the start of another. Two hits next to each other also produce overlapping windows; merge them, which is the problem 19.6 solves in general.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Index small chunks for precise retrieval, then send each hit with its neighbours so the model sees a complete passage, such as a rule cut across a chunk boundary.</li>
+<li>A three-chunk window covers <code>2 × (chunk_size - chunk_overlap) + chunk_size</code> characters. More overlap means each neighbour adds less, and the growth comes out of the context budget.</li>
+<li>Join with the same overlap used to split, key chunks by document id and chunk index, and merge windows from adjacent hits.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -775,6 +805,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>These are the authors&rsquo; numbers, not a measurement in this course. The notebook reports the context length as roughly equal in both configurations, so the gain does not come from sending more text.</p>
 <p>RSE spends the context budget (19.4) in a bounded way: at the notebook&rsquo;s settings, at most 30 chunks of 800 characters, 24,000 characters in all. For the Larkspur handbook the sections are short, so set <code>max_length</code> to a section&rsquo;s chunk count and the overall cap to what the generation prompt can hold.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Relevant chunks cluster within their documents. RSE subtracts a penalty from each chunk&rsquo;s reranker value and sends the contiguous runs with the highest sums, including low-scored chunks between relevant ones.</li>
+<li>Chunk with no overlap so joined neighbours rebuild the original text exactly. RSE then acts like top-k on factoid questions and like a large chunk on broad ones.</li>
+<li>The KITE gains (average 4.72 to 6.73) are the authors&rsquo; numbers, not a course measurement. Cap segment length and total chunks to fit your prompt.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does relevant segment extraction decide how much context to send, where an enrichment window adds a fixed amount?</summary>
@@ -849,7 +885,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Send the model a few chunks, best first. Position in a long prompt changes how reliably the model uses a fact.</li>
 <li>Spend the context budget where the evidence is: compress noisy chunks, expand chunks whose answer crosses a boundary, and count both against the same token limit.</li>
 </ul></article>
-    <nav class="toc" aria-label="M19 sections"><details open><summary>In M19</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#recall50--precision5">Recall@50 → precision@5</a></li><li><a href="#lost-in-the-middle">Lost in the middle</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bi-encoder-vs-cross-encoder">Bi-encoder vs cross-encoder</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#llm-reranker-or-cross-encoder">LLM reranker or cross-encoder</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#context-budget">Context budget</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#enrichment-windows">Enrichment windows</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#relevant-segment-extraction">Relevant segment extraction</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M19 sections"><details open><summary>In M19</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#recall50--precision5">Recall@50 → precision@5</a></li><li><a href="#lost-in-the-middle">Lost in the middle</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bi-encoder-vs-cross-encoder">Bi-encoder vs cross-encoder</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#llm-reranker-or-cross-encoder">LLM reranker or cross-encoder</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#context-budget">Context budget</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#enrichment-windows">Enrichment windows</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#relevant-segment-extraction">Relevant segment extraction</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

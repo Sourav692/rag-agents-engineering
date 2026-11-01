@@ -28,6 +28,12 @@ The notebook's helpers are written for a demo, and four of their shortcuts break
 - **Every chunk carries the whole document.** The splitter stores the full text in each chunk's metadata under `text`, so the index holds one copy of the document per chunk.
 - **Indexes restart per document.** With more than one document, the key must include the document id, or a window can join the end of one file to the start of another. Two hits next to each other also produce overlapping windows; merge them, which is the problem 19.6 solves in general.
 
+## Key Takeaways
+
+- Index small chunks for precise retrieval, then send each hit with its neighbours so the model sees a complete passage, such as a rule cut across a chunk boundary.
+- A three-chunk window covers `2 × (chunk_size - chunk_overlap) + chunk_size` characters. More overlap means each neighbour adds less, and the growth comes out of the context budget.
+- Join with the same overlap used to split, key chunks by document id and chunk index, and merge windows from adjacent hits.
+
 ## Check yourself
 
 <details>

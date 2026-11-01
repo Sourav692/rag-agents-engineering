@@ -72,6 +72,12 @@ The [interactive lab](interactive/record-manager-lab.html) runs a JavaScript por
 
 For Larkspur's nightly sync, `incremental` keyed on `source` handles policy edits and new files, and a weekly `full` run over the complete folder, guarded by a file-count check, removes files the team deleted. `SQLRecordManager` keeps the keys in the same Postgres as the vectors and reads the time from the database, so every writer stamps keys on one clock; an update raises a time-sync error if that clock reads earlier than the run's start.
 
+## Key Takeaways
+
+- The Indexing API hashes each chunk's text and metadata into its ID, so unchanged chunks are skipped and an edit is one add plus one delete. A model change alters no hash and needs a rebuild.
+- `incremental` cleanup handles edits but never removes a deleted file. Only `full` does, and it also wipes everything the loader failed to return.
+- Run `incremental` nightly keyed on `source`, and `full` only over the whole corpus behind a file-count guard.
+
 ## Check yourself
 
 <details>

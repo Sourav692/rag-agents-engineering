@@ -47,6 +47,12 @@ retriever = vectorstore.as_retriever(
 
 MMR measures similarity, not correctness or freshness. If the index holds this year's and last year's refund policy, MMR treats them as near-copies and keeps whichever it picks first. Filter on `version` or `date` metadata before MMR ([17.5](../05_multi_faceted_filtering/README.md)). Tune λ and `fetch_k` on golden questions that need two or more distinct chunks, and check that single-fact questions do not lose their second-best supporting chunk.
 
+## Key Takeaways
+
+- MMR picks chunks one at a time, scoring each candidate on relevance to the query minus its similarity to chunks already picked, so one fact repeated three times stops filling the context.
+- `lambda_mult` sets the balance: 1.0 is plain similarity search and 0.0 ignores relevance after the first pick. `fetch_k` (default 20) sets the pool MMR chooses from.
+- MMR sees similarity, not freshness. Filter out old policy versions on metadata first, and tune on golden questions that need two or more distinct chunks.
+
 ## Check yourself
 
 <details>

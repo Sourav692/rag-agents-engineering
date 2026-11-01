@@ -64,6 +64,12 @@ flowchart LR
 
 Run a size-based splitter after the structural one, because one long section can still exceed your limit. Use the header metadata in two places. Filter on it at query time ("only the Refunds section"), and prepend it to the chunk text so the embedding knows which section a sentence came from; M16 calls that a contextual chunk header.
 
+## Key Takeaways
+
+- A chunk smaller than the fact can never hold it, and overlap rescues only a piece that fits inside it. A boundary cut hands the model a confident half-answer.
+- Bigger chunks keep facts whole but dilute them: at 1200 characters the refund answer is 13% of its chunk. Merge tiny trailing chunks, and count tokens when a model limit applies.
+- Split on the document's own structure first, then cap long sections with a size-based splitter. Use header metadata for filtering and as a prefix in the chunk text.
+
 ## Check yourself
 
 <details>

@@ -34,6 +34,12 @@ A Larkspur example in the second form:
 {"question": "### Question:\nCan I export my data after I cancel my plan?\n\n### Answer:", "answer": "Yes, for 30 days. After that the data is permanently deleted, so export it from Settings, then Data, first."}
 ```
 
+## Key Takeaways
+
+- Pre-training and fine-tuning use the same next-token objective. Only the data differs: web-scale raw text for language and knowledge, a few hundred to a few thousand labelled pairs for a format, task or tone.
+- Model labs pre-train once per model. You fine-tune whenever the behaviour needs to change.
+- Store examples as JSON Lines, either as one `text` field for trainers that take a `text_column` or as separate prompt and answer fields so you can score only the answer.
+
 ## Check yourself
 
 <details>

@@ -48,6 +48,12 @@ The [interactive lab](interactive/server-config-lab.html) runs the notebook's me
 
 A reference server's definitions are text the model reads, written by someone else. The fetch server's description says: “Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access.” Read what a server tells your model before you connect it, and pin its version (`@modelcontextprotocol/server-filesystem@2.1.0`, `mcp-server-fetch@2026.10.28`) so an update cannot change that text unseen.
 
+## Key Takeaways
+
+- Every connected tool definition is sent on every call. Three reference servers already cost about 2,527 tokens before the question, so connect only what the assistant needs.
+- Tool names must be unique across servers, because the routing dict lets a later server silently take over a name.
+- Read what a third-party server tells your model before connecting it, and pin its version so an update cannot change that text unseen.
+
 ## Check yourself
 
 <details>

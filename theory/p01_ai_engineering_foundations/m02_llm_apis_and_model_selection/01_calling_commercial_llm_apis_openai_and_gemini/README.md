@@ -48,6 +48,12 @@ The notebook hides the difference behind one function, `get_completion(prompt, m
 
 LangChain (M07) is the general version of `get_completion`: one chat-model interface over many providers, so a RAG chain does not change when the generator does.
 
+## Key Takeaways
+
+- A chat completion is one stateless HTTP call: a model, a list of role and content messages, and a reply with `usage`. Every turn resends the history, so long conversations cost more each turn.
+- Bill from `prompt_tokens` and `completion_tokens`, keep the API key in the environment, and set a low `temperature` when you need repeatable answers.
+- Hide provider SDKs behind one function so switching model is a one-argument change, and make that function raise on a model it does not know instead of returning a placeholder string.
+
 ## Check yourself
 
 <details>

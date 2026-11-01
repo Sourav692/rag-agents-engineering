@@ -42,6 +42,12 @@ Three details in that trace matter when you debug:
 
 The client also translates for the model. Notebook 03a's live code runs on OpenAI and wraps each MCP definition as `{"type": "function", "function": {"name": ..., "description": ..., "parameters": tool.inputSchema}}`; the Anthropic version kept in comments uses `input_schema: tool.inputSchema`. Both read the same `inputSchema`, so one server serves either model. On the way back the Anthropic version passes `result.content` as the `tool_result`, and the OpenAI version passes `result.content[0].text` as the `tool` message.
 
+## Key Takeaways
+
+- The host holds one client per server, and the model never reaches a server directly. It reads definitions and asks for calls; the host routes them.
+- Over `stdio` the client owns the server's life: `stdio_client` starts the subprocess and leaving the `async with` block stops it.
+- The `initialize` handshake fixes what the session can do. With `listChanged: false`, list tools again to see changes, and set your own server version so clients can tell releases apart.
+
 ## Check yourself
 
 <details>

@@ -64,6 +64,12 @@ Templates compose with `+`. Adding two `PromptTemplate` objects concatenates the
 
 A template is data, so it can be versioned like code. In 1.x, `dumps` and `loads` from `langchain_core.load` save and restore it as JSON. `loads` takes `allowed_objects=[PromptTemplate]`: deserialising rebuilds objects from the file's contents, so you name the classes you trust. The older `.save()` still runs and warns that it was deprecated in `langchain-core` 1.2.21 and will be removed in 2.0.0.
 
+## Key Takeaways
+
+- Use `ChatPromptTemplate.from_messages` whenever there is a system prompt or history. Fill fixed slots once with `.partial()` and pass history through a `MessagesPlaceholder`.
+- Double literal JSON braces in templates, and print `input_variables` and the formatted messages once before the first call, since a typo or an unused partial fails silently.
+- Keep few-shot examples as data in a few-shot template, compose templates with `+`, and save them with `dumps` and `loads`, naming the classes you trust.
+
 ## Check yourself
 
 <details>

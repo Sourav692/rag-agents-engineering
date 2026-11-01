@@ -58,6 +58,12 @@ The optional notebooks move the gate around. In LCEL (`01c`) the gate is a `Runn
 
 For Larkspur, the gate belongs right after extraction: does the ticket name a plan and a purchase date? Without them the refund-window chunk cannot be applied, and the right next step is to ask the customer, which a terminal node with a reason makes easy.
 
+## Key Takeaways
+
+- In a workflow your code fixes the path and the model makes one kind of decision; in an agent the model picks every step. Use a workflow for any task you can draw before it runs.
+- Gate early steps with an LLM judge that returns a structured verdict, since keyword rules leak. Keep the routing in a pure function so you can test it without an LLM call.
+- Bound retries with a counter and end at a terminal node that records why the chain stopped. A schema guarantees fields and types, not usable content, so structured output still needs a gate.
+
 ## Check yourself
 
 <details>

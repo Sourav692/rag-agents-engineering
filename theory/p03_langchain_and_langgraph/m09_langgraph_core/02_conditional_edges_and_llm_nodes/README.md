@@ -61,6 +61,12 @@ Notebook 01a works around this by passing `turn1_state["messages"] + [message2]`
 - **`stream_mode="values"`:** the full state after each step, useful for watching a list grow, as in the M09 lab.
 - **`stream_mode="updates"`:** only what each node returned, keyed by node name, such as `{"chatbot": {"messages": [...]}}`. It is smaller, and it names the node that made each change.
 
+## Key Takeaways
+
+- Always pass the destination list to `add_conditional_edges`. With it an unknown route fails loudly; without it the run ends silently and the drawing shows no branches.
+- A router only reads state, and checks its rules in order. Write anything the route needs from a node, and add a fallback route such as `human` for questions no rule matches.
+- A graph keeps no memory between `invoke` calls. Use `stream_mode="updates"` to see which node changed what, and a checkpointer for conversation history.
+
 ## Check yourself
 
 <details>

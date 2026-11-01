@@ -58,6 +58,12 @@ The lesson 9 project ships a `Dockerfile`: `python:3.11-slim`, `uv pip install -
 
 Before anyone outside can reach the server, it needs what a stdio server never did: authentication, because anyone who can reach the URL can call the tools; TLS; and logs of which client called what. The 1.30.0 `FastMCP` constructor takes `auth` settings and a `token_verifier` for the first. Notebook 06a's optional section deploys to Render, and its resources link Cloudflare's guide to remote MCP servers.
 
+## Key Takeaways
+
+- Moving from `stdio` to a remote server changes only the transport line. A remote server must already be running when the client connects by URL.
+- Streamable HTTP uses one `/mcp` endpoint. Stateful mode tracks clients with `mcp-session-id` and needs sticky routing across replicas; stateless mode answers from any replica but keeps nothing between calls.
+- Set `host="0.0.0.0"` in a container, keep server files on storage that outlives it, and add authentication, TLS and call logs before exposing the URL.
+
 ## Check yourself
 
 <details>

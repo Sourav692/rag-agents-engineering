@@ -49,6 +49,12 @@ The two errors are not symmetric. Easy sent to reasoning wastes money: bounded, 
 
 On Larkspur, *Can I get a refund after 45 days?* is the case to watch: it looks like a lookup and needs proration arithmetic. Put questions like it in the labelled set the router is measured on.
 
+## Key Takeaways
+
+- A router makes one small decision, a label from a fixed set, and dispatches in plain code. Each request costs two calls however many handlers exist, so test the routing decision itself.
+- Routing by model tier pays reasoning prices only on hard traffic. In the notebook the routed strategy reached 86% accuracy with 1 of 7 reasoning calls, against 71% all cheap and 100% all reasoning.
+- Hard work sent to the cheap tier returns confident wrong answers, while easy work sent up only costs money. Lean the triage prompt toward `hard` on borderline cases and accept the overspend.
+
 ## Check yourself
 
 <details>

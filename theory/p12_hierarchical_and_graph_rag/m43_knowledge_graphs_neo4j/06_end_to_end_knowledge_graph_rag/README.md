@@ -27,6 +27,12 @@ Test a local entity question, a relationship join, a paraphrase whose entity nam
 
 The notebook also rewrites conversational follow-ups before retrieval. Record the rewritten question, since a wrong resolved pronoun can send both retrieval branches to the wrong entity. Keep the original user question available when judging the final answer.
 
+## Key Takeaways
+
+- Knowledge-graph RAG combines hybrid keyword and vector search over text with an entity neighbourhood fetched from the graph, then concatenates both into the context.
+- Entity and row limits are caps, not relevance guarantees. Log which identity matched and which rows were cut, since a highly connected entity can fill the budget.
+- Carry passage identifiers and text with each graph assertion so every claim can be cited, and record the rewritten question for follow-ups.
+
 ## Check yourself
 
 <details>

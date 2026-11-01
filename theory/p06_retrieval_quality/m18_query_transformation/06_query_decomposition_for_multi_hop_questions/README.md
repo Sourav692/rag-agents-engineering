@@ -40,6 +40,12 @@ The first version of the notebook asked for prose and split it on newlines. The 
 
 M11's symptom table sends "half an answer; one fact found, another missed" to decomposition. *Can I export my data after I cancel my plan?* reads like two needs, how to export and what happens to data after cancelling. The M11 lab already retrieves both evidence chunks for it at `k = 2`, because one chunk says "Export your data" and the other "After a plan is cancelled". Decomposing it would cost four extra LLM calls and add nothing. Decompose the questions whose parts the single query misses, found on the golden set, and route the rest past it (lesson 18.7).
 
+## Key Takeaways
+
+- One vector for a compound question lands between its needs and close to neither. Decomposition gives each sub-question its own retrieval and answer, then synthesises from the question and answer pairs.
+- Three sub-questions cost five LLM calls and three retrievals. Run them in parallel to recover wall-clock time, and remember that a bad sub-answer reaches the synthesis unchecked.
+- Get the sub-question list from a structured-output schema, and decompose only the questions whose parts a single query misses on the golden set.
+
 ## Check yourself
 
 <details>

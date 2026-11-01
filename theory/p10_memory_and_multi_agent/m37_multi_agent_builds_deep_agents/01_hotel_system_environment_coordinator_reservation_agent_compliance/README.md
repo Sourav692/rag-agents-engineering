@@ -56,6 +56,12 @@ The same split applies to the outcome. The agent's reply is not proof that it bo
 
 Routing is the one place the lesson keeps a weak design on purpose. The coordinator forwards by writing an agent's name, and `mentioned_agent()` looks for that name (or the same words with a space) in the reply. Any reply that mentions an agent routes there: *I can't involve the reservation assistant until you give me dates* forwards to the reservation agent. The fix is a typed router, where the model returns its choice as a structured-output field and there is no reply text to search; notebook 05b routes that way.
 
+## Key Takeaways
+
+- A compliance agent only decides whether a request breaks a rule; the coordinator answers, forwards or refuses. Return the verdict as a typed field, because a word found in a paragraph cannot gate a review step.
+- Put guards where the model cannot talk past them, such as a read-only connection, an authorizer that blocks `ATTACH` and hides guest names, and one parameterised write tool. A prompt rule alone does not hold.
+- Check outcomes in the database, not in the reply, and replace string routing with a typed router. Any reply that mentions an agent's name routes there, even a refusal.
+
 ## Check yourself
 
 <details>

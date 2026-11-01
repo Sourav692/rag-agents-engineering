@@ -36,6 +36,12 @@ The short paths that `langchain` keeps are aliases. `langchain.messages.HumanMes
 
 Memory is the one place where the moved class is not the recommended answer. `ConversationBufferMemory` still imports from `langchain_classic.memory`, but the 1.x replacement is a LangGraph checkpointer with a `thread_id` (M10, M33).
 
+## Key Takeaways
+
+- Version 1.0 split LangChain by pace of change. Prompts, messages, parsers and `Runnable` live in `langchain-core`, each provider in its own package, and retired chains and the hub in the frozen `langchain-classic`.
+- Read the exception class. `ModuleNotFoundError` means the module moved, `ImportError` means the package no longer exports the name, and a missing `langchain_classic` means it is not installed.
+- Not every old class should simply move. Replace conversation memory with a LangGraph checkpointer and a `thread_id`, and rewrite retired chains in LCEL.
+
 ## Check yourself
 
 <details>

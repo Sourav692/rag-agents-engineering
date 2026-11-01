@@ -437,6 +437,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>For the Larkspur page, a summary of &ldquo;Refunds and cancellations&rdquo; is a sharp key for <em>What is your refund policy?</em>. For <em>How long do I have to get a full refund on an annual plan?</em> it depends on what the summariser kept. If the summary mentions the 30-day refund on annual plans, the question matches and the payload brings the 100 GB condition back with it. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match. Check a summary key on questions about details as well as questions about topics.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Matching works best on short, focused text and answering on complete text. Multi-representation indexing embeds a search key and returns a separate payload, linked by a <code>doc_id</code>.</li>
+<li>Every advanced indexing technique is a choice of key and payload, with its own index-time cost.</li>
+<li>A summary key can only match what the summariser kept. Test it on questions about details as well as topics.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does a plain index struggle to use one text for both matching and answering?</summary>
@@ -536,6 +542,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>A parent no larger than its child is plain chunking.</strong> At 400 / 400 each parent yields one child identical to itself, and the two columns match.</li>
 </ul>
 <p>Across the 217 settings where parents are larger than children, the children alone contain the whole answer in 394 of the 651 question and setting pairs; their parents contain it in 613. Size the child near the length of the evidence your questions need (the refund sentence is 141 characters) and the parent near a section, then check on the golden set that no parent boundary cuts an answer.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Parent-document retrieval searches small children and returns their larger parents from a docstore. Persist the docstore with the vectors, or a restart silently returns nothing.</li>
+<li>Before copying a custom docstore, check that <code>mget</code> keeps key order, surfaces errors and uses stable ids, so ingestion does not duplicate every chunk.</li>
+<li>Size the child near the length of the evidence and the parent near a section. Parents cost tokens on every question, and a parent boundary can still cut an answer.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. At query time, how does the parent-document retriever turn matching children into the text the model reads?</summary>
@@ -686,6 +698,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>The result size is a product.</strong> <code>k_summaries × k_chunks</code> is the number of chunks the model can receive, so changing either one changes the prompt budget.</li>
 </ul>
 <p>For the Larkspur handbook, each section (&ldquo;Refunds and cancellations&rdquo;, &ldquo;Outages and service credits&rdquo;, &ldquo;Data export and retention&rdquo;) would be one summary. <em>Do I get service credits automatically after an outage?</em> would pick the outage summary first and then compare only that section&rsquo;s chunks, so a refund chunk about &ldquo;Credits from SLA breaches&rdquo; cannot crowd it out.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A hierarchical index picks the best pages from a summary tier, then searches chunks only inside them. Chunks compete with their neighbours, not with look-alikes on unrelated pages.</li>
+<li>The summary tier caps recall: a page it misses is never searched. Log which pages it chose so a miss can be traced.</li>
+<li>Summaries cost one LLM call per page and go stale when pages change. The model receives up to <code>k_summaries × k_chunks</code> chunks, so both numbers set the prompt budget.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. For the question about service credits after an outage, why can a refund chunk about credits from SLA breaches not crowd out the answer?</summary>
@@ -758,6 +776,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>The retriever returns the top 1 entry. Whether it is a fragment or a question, the notebook answers from <code>metadata["text"]</code>, the document of up to 4,000 words around it.</li>
 </ul>
 <p>So 04b is the payload pattern from 16.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects questions the LLM did not anticipate, and it pays for that with a larger index and a 4,000-word document as context for every answer.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>HyPE embeds LLM-written questions as each chunk&rsquo;s keys, so retrieval matches question to question with no query-time LLM call. Remove repeats, since one chunk appears once per question.</li>
+<li>Measure HyPE on your own golden set rather than trusting published best cases. Review generated questions per document type and regenerate them when a chunk changes.</li>
+<li>Document augmentation keeps original fragments searchable beside generated questions, which covers questions the LLM did not anticipate, at the cost of a larger index.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What gap does HyPE close, and how does its cost differ from HyDE's?</summary>
@@ -833,6 +857,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Chunks lose their subject. A contextual chunk header prepends the document title, and optionally a summary and section path, to the text before embedding.</li>
+<li>Use the same header-plus-chunk text in the reranker that you embedded, and show the header to the LLM with each result.</li>
+<li>Contextual retrieval writes context for each chunk with the whole document in view. It costs one LLM call per chunk and needs the document to fit the context window, so start with headers.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Chunk 86 of the Nike report scores about 0.1 against Nike climate change impact without a header and 0.92 with one. Why?</summary>
@@ -902,7 +932,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Treat the docstore as production storage: persistent, keyed by stable ids, updated and deleted together with the vector index.</li>
 <li>Keys written by an LLM (summaries, questions, context) are paid for at index time and can omit facts. Measure them against the plain index before you pay for them on every document.</li>
 </ul></article>
-    <nav class="toc" aria-label="M16 sections"><details open><summary>In M16</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-key-vs-payload">Search key vs payload</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#docstore">Docstore</a></li><li><a href="#choosing-child-and-parent-sizes">Choosing child and parent sizes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-down-search">Top-down search</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hype">HyPE</a></li><li><a href="#document-augmentation">Document augmentation</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#contextual-chunk-headers">Contextual chunk headers</a></li><li><a href="#contextual-retrieval">Contextual retrieval</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M16 sections"><details open><summary>In M16</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-key-vs-payload">Search key vs payload</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#docstore">Docstore</a></li><li><a href="#choosing-child-and-parent-sizes">Choosing child and parent sizes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-down-search">Top-down search</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hype">HyPE</a></li><li><a href="#document-augmentation">Document augmentation</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#contextual-chunk-headers">Contextual chunk headers</a></li><li><a href="#contextual-retrieval">Contextual retrieval</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

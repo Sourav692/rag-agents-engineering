@@ -52,6 +52,12 @@ The cellular-automata notebook has no controller at all. Every cell of a warehou
 
 This is the far end of the control range in this module: no controller, only a local rule applied everywhere in synchronous ticks. It solves a global problem without a planner, at the cost of many cheap updates, and the notebook trusts the result only after the breadth-first check.
 
+## Key Takeaways
+
+- A router picks a specialist and a meta-controller picks a whole architecture, each once per request; a blackboard controller decides after every contribution. All three are one structured-output call over a fixed set.
+- A misrouted request still gets an answer, and nothing downstream notices. Keep a table of requests with their intended routes and compare it in code on every prompt or model change.
+- An ensemble runs independent agents in one superstep with a reducer on their shared key. Set the majority vote beside the aggregator's verdict, and flag a departure from the majority that gives no reason.
+
 ## Check yourself
 
 <details>

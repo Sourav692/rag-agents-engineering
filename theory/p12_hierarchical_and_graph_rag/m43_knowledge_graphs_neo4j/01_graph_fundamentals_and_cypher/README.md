@@ -33,6 +33,12 @@ The notebook uses `GraphDatabase.driver`, sessions, `session.execute_write` and 
 
 For diagnosis, inspect the returned paths and their source facts before asking a model to phrase the result. A fluent answer cannot supply a relationship the query failed to match.
 
+## Key Takeaways
+
+- A property graph stores entities as nodes, typed directed relationships and properties on both. Choose labels, identity keys and edge directions before asking any question.
+- A graph answers only the relationships you stored or can derive. An absent edge may mean extraction missed it, not that the claim is false.
+- In Cypher, reuse one variable when one entity must satisfy several patterns, and pass values as parameters. `DISTINCT` hides repeated rows but does not fix duplicate entities.
+
 ## Check yourself
 
 <details>

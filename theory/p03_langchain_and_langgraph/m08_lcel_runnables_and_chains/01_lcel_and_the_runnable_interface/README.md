@@ -36,6 +36,12 @@ Most pipe errors are a type mismatch at one of these arrows: a function that exp
 
 For the Larkspur assistant this means one test harness covers every part. The same three lines that check the refund prompt (`invoke`, print, assert) check the retriever, the parser and the finished chain.
 
+## Key Takeaways
+
+- Every Runnable takes one input through the same methods: `invoke`, `batch`, `stream` and their async forms. Pass several values as a dict, which prompt templates and `RunnableParallel` already use.
+- `RunnablePassthrough`, `RunnableLambda` and `RunnableParallel` cover most glue code. A `RunnableLambda` around a generator streams each `yield`.
+- The data changes type at every step of a pipe. When a chain fails, invoke each step alone and print what it returns.
+
 ## Check yourself
 
 <details>

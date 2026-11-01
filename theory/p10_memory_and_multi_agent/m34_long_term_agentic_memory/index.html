@@ -438,6 +438,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The notebook&rsquo;s first graph uses a deliberately naive write rule (save whatever follows the word &ldquo;remember&rdquo;) to keep the focus on the store. Lesson 34.2 replaces it with tools and write rules per layer.</p>
 <h3>Swapping the backend</h3>
 <p><code>InMemoryStore</code> disappears with the process. <code>PostgresStore</code> implements the same interface, so the graph is recompiled with a different <code>store=</code> and no node changes. <code>PostgresStore.from_conn_string(...)</code> is a context manager that closes its connection when the <code>with</code> block ends, and <code>setup()</code> creates the tables on first use. The notebook probes for a local Postgres first and skips that part when none is running.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A checkpointer remembers one thread; a store holds items under a namespace tuple across threads. Only the store brings a fact back when the same customer opens a new chat.</li>
+<li>The namespace is the only access boundary in the store. Build it from ids the server puts in the run&rsquo;s context, keep them out of tool schemas, and never key long-term memory by <code>thread_id</code>.</li>
+<li>Choose the namespace by scope: <code>user_id</code> for facts and episodes, <code>session_id</code> for one visit, <code>agent_id</code> for procedures. Swapping <code>InMemoryStore</code> for <code>PostgresStore</code> changes only the <code>store=</code> argument.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Dana gives the Larkspur assistant her plan in one chat and opens a new chat the next day. Why can the checkpointer not recall it, and what can?</summary>
@@ -569,6 +575,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>The notebook&rsquo;s Part 4 shows the trap: it writes an item with a 3-second TTL, waits 4 seconds, and <code>get()</code> still returns it. Only after <code>sweep_ttl()</code> does the item disappear and the agent fall back to its default. On SQLite, run a sweeper (<code>sweep_interval_minutes</code> or <code>start_ttl_sweeper()</code>), or check <code>updated_at</code> yourself where even one stale read matters. A session item nobody sweeps quietly becomes long-term memory.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Semantic, episodic and procedural memory share one store and differ in key, write rule and read pattern. Upsert facts under stable keys, append episodes under fresh UUIDs and prune them, and version procedures.</li>
+<li>Gate procedural writes, because a procedure changes what the agent does. Pause with <code>interrupt()</code> before any write, resume only through <code>Command(resume=...)</code>, and bind the proposal tool on the staff channel only.</li>
+<li>A <code>TTLConfig</code> expiry counts minutes, not seconds. <code>SqliteStore</code> ignores <code>omit_expired</code>, so run <code>sweep_ttl()</code> or a sweeper, or unswept session items quietly become long-term memory.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does semantic memory reuse one stable key per fact while episodic memory gives every event a fresh UUID?</summary>
@@ -653,6 +665,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>The production path changes the backend, not the agent. <code>PostgresSaver</code> and <code>PostgresStore</code> replace the two SQLite primitives, and nodes and tools are untouched because they only see <code>runtime.store</code> and the compiled checkpointer. The move buys concurrent writers without <code>database is locked</code>, a working <code>omit_expired=True</code>, and <code>search(..., query=...)</code> over a pgvector index for recall by meaning. The notebook prints the snippet but does not run it, because it needs a Postgres server.</p>
 <p>The same layers can be two hand-written SQL tables: <code>PRIMARY KEY (user_id, key)</code> with <code>INSERT OR REPLACE</code> is the semantic upsert, and a fresh id per row is the episodic append. Tables give you joins and constraints; the store gives you namespaces, TTLs, embedding search and the Postgres swap. Read <code>SqliteStore</code>&rsquo;s own <code>store</code> table only through <code>get</code> and <code>search</code>, since its schema may change between versions.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Give each memory layer exactly one writer: the checkpointer for the thread, the app for the session, the model for facts, a graph node for episodes and a human for procedures.</li>
+<li>In six test runs gpt-4o-mini never called the save tool unprompted, so write episodes in a node after each answer and let code decide whether the turn was a real task.</li>
+<li>Preloading every layer works while memory is small, but each item is paid for on every call. Pass <code>limit=</code> to <code>search</code>, cap each layer, and retrieve once a layer outgrows the prompt.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the capstone record episodes in a graph node instead of relying on the model to call a save_episode tool?</summary>
@@ -701,6 +719,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>The reader asks the model for one start entity, traverses up to <code>max_hops</code>, and answers only from the triples it reached. From Project Helios, three hops reach the team, then Priya Chandran, then Marcus Webb, and the answer names him. With <code>max_hops=1</code> the traversal stops at the team, and the reader has to say the facts are insufficient. The printed path is the evidence: you can see which edges produced the answer.</p>
 <p>The optional Part 5 loads the same triples into Neo4j and lets the model write Cypher against the schema, run read-only. M43 builds on that.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Index the store on a text field and <code>search(namespace, query=..., limit=k)</code> recalls memories by meaning, so an old but relevant episode can surface where a newest-N preload cannot.</li>
+<li>Extract facts from the user&rsquo;s message only, write the subject <code>user</code> in code and key on the normalised fact. The model&rsquo;s suggestions never return as user statements, and a restated fact overwrites the old one.</li>
+<li>Similarity cannot chase a relation from fact to fact; graph memory traverses <code>(subject, relation, object)</code> edges for multi-hop questions. Keep the relation vocabulary small and index edges in both directions.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the update node extract semantic facts from the user's message only, and never from the assistant's reply?</summary>
@@ -961,6 +985,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Both notebooks retrieve with a model call over a short list, which works at their size. With hundreds of skills or workflows, embed the descriptions and retrieve by similarity, as lesson 34.4 does for facts.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>MemGPT keeps core memory and a short message window in the prompt and moves everything else to an archive the agent searches with tools. The window is a budget paid on every call.</li>
+<li>Archived facts come back only if the agent searches, with words that match. At a window of 6, Dana&rsquo;s 80 GB message ranked first for <code>outbound traffic</code> and was missed for <code>data usage this month</code>.</li>
+<li>Voyager and Agent Workflow Memory store what worked, as code or tool-call templates. Check the library first, store only what passed tests that can fail, and treat generated code as untrusted.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. In MemGPT-style tiered memory, what has to happen for a message evicted from the window to reach the prompt again?</summary>
@@ -1030,7 +1060,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Write in code what the model forgets to write, and let code make the final yes or no on what counts as a task or a fact.</li>
 <li>Preload while memory is small; once it outgrows the prompt, recall by similarity or traversal, and measure that recall on cross-thread questions.</li>
 </ul></article>
-    <nav class="toc" aria-label="M34 sections"><details open><summary>In M34</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#store-namespaces">Store namespaces</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#semantic--episodic--procedural-memory">Semantic / episodic / procedural memory</a></li><li><a href="#session-memory-with-a-ttl">Session memory with a TTL</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#who-writes-each-layer">Who writes each layer</a></li><li><a href="#the-preload-budget">The preload budget</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#recall-by-similarity">Recall by similarity</a></li><li><a href="#graph-memory-for-multi-hop-questions">Graph memory for multi-hop questions</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tiered-memory">Tiered memory</a></li><li><a href="#skill-library">Skill library</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M34 sections"><details open><summary>In M34</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#store-namespaces">Store namespaces</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#semantic--episodic--procedural-memory">Semantic / episodic / procedural memory</a></li><li><a href="#session-memory-with-a-ttl">Session memory with a TTL</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#who-writes-each-layer">Who writes each layer</a></li><li><a href="#the-preload-budget">The preload budget</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#recall-by-similarity">Recall by similarity</a></li><li><a href="#graph-memory-for-multi-hop-questions">Graph memory for multi-hop questions</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tiered-memory">Tiered memory</a></li><li><a href="#skill-library">Skill library</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -60,6 +60,12 @@ Format instructions only help if they reach the model. The prompt needs a `{form
 
 The optional notebook [`07f_output_parsers_demo.ipynb`](../../../../course/p03_langchain_and_langgraph/m07_langchain_core/optional/07f_output_parsers_demo.ipynb) shows the silent version of this mistake. Its `PydanticOutputParser` example calls `.partial(format_instructions=...)` on a template with no `{format_instructions}` slot. LangChain ignores the value without an error, so the model never sees the schema, and the chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.
 
+## Key Takeaways
+
+- A parser adds format instructions to the prompt and turns the reply into a value or raises. `JsonOutputParser` repairs truncated JSON, so it returns broken replies as ordinary dicts.
+- A stricter schema does not make more good answers. It turns bad ones into errors a retry can catch, so state every rule in the schema, such as `Literal` passage ids, or check ids against the retrieved set.
+- Format instructions help only if they reach the model. Give the prompt a `{format_instructions}` slot and print the formatted prompt once to confirm the schema is there.
+
 ## Check yourself
 
 <details>

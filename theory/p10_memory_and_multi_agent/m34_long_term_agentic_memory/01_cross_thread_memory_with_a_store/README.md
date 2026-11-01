@@ -60,6 +60,12 @@ The notebook's first graph uses a deliberately naive write rule (save whatever f
 
 `InMemoryStore` disappears with the process. `PostgresStore` implements the same interface, so the graph is recompiled with a different `store=` and no node changes. `PostgresStore.from_conn_string(...)` is a context manager that closes its connection when the `with` block ends, and `setup()` creates the tables on first use. The notebook probes for a local Postgres first and skips that part when none is running.
 
+## Key Takeaways
+
+- A checkpointer remembers one thread; a store holds items under a namespace tuple across threads. Only the store brings a fact back when the same customer opens a new chat.
+- The namespace is the only access boundary in the store. Build it from ids the server puts in the run's context, keep them out of tool schemas, and never key long-term memory by `thread_id`.
+- Choose the namespace by scope: `user_id` for facts and episodes, `session_id` for one visit, `agent_id` for procedures. Swapping `InMemoryStore` for `PostgresStore` changes only the `store=` argument.
+
 ## Check yourself
 
 <details>

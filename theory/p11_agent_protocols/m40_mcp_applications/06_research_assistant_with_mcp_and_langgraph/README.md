@@ -61,6 +61,12 @@ Each pattern has a reason to exist:
 
 Message counts are not latency, and the lab does not time anything, because start-up cost depends on the machine and the server. Measure your own: log one line on the server's stderr at start-up and count the lines per conversation.
 
+## Key Takeaways
+
+- MCP changes only where the tools come from. The LangGraph tool loop stays the same, with the graph thinking and the servers acting.
+- Conversation memory lives in the client's checkpointer and ends with the process; research saved by the server persists on disk for every host that connects.
+- Hold one session for a conversation. A session per tool call needs no lifecycle code but restarts the server on every call, so measure start-ups with one stderr line.
+
 ## Check yourself
 
 <details>

@@ -51,6 +51,12 @@ The friendly message never reaches the model. The host gets an exception from it
 - **Raise instead of returning.** `raise ToolError("Division by zero")` comes back as a result with `isError: true` and the text `Division by zero`. Without the check, `1 / 0` raises `ZeroDivisionError`, which also comes back with `isError: true`, as `Error calling tool 'divide': division by zero`.
 - **Annotate what you return.** `-> float | str` makes the string valid, and moves the job of telling numbers from error messages to every client.
 
+## Key Takeaways
+
+- A host reaches a server either by command, starting it as a stdio subprocess, or by URL, where you start the server first.
+- Raise `max_steps` above the default of 5 when a query needs several tool calls. `use_server_manager=True` keeps the prompt small but costs extra model turns.
+- The return annotation is a contract the client enforces. Raise `ToolError` for failures instead of returning a string from a tool typed `-> float`.
+
 ## Check yourself
 
 <details>

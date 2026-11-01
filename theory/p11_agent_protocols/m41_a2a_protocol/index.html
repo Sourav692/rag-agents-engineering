@@ -408,6 +408,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </code></pre>
 <p>The echo agent answers with a Message: <code>"kind": "message"</code>, <code>"role": "agent"</code>, and the text in <code>parts</code>. The request context hands the executor a <code>contextId</code>, which groups related turns, and a <code>taskId</code>, and the executor copies both into its reply. It never created a task, though, so nothing was stored. In the lab, <code>tasks/get</code> on that id returns error -32001, Task not found. A Message is the whole answer; there is nothing to poll.</p>
 <p>The server side of the notebook is three objects: an <code>AgentExecutor</code> with the agent logic, a <code>DefaultRequestHandler</code> that implements the JSON-RPC methods on top of it with an <code>InMemoryTaskStore</code>, and an <code>A2AStarletteApplication</code> that serves the card and the endpoint. The client side is <code>A2ACardResolver</code> and <code>A2AClient</code>. In 0.3.26, constructing <code>A2AClient</code> emits a <code>DeprecationWarning</code> that points to <code>ClientFactory</code>; the notebooks&rsquo; calls still work.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A client that knows only a base URL fetches the Agent Card first. It learns the endpoint, the skills, streaming support and accepted content types from it.</li>
+<li>Treat the card as a contract. Skill descriptions are all a calling model knows, so bump <code>version</code> when a skill id, <code>streaming</code> or the URL changes.</li>
+<li>A reply that is a Message is the whole answer and stores nothing to poll. A request is a JSON-RPC <code>message/send</code> with a role, a <code>messageId</code> and parts.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A client knows only an A2A agent's base URL. What does it fetch first, and what does it learn from it?</summary>
@@ -491,6 +497,12 @@ th:last-child, td:last-child { padding-right: 0; }
     U --&gt; T[("InMemoryTaskStore")]
 </pre></figure>
 <p>The notebook builds the graph with <code>langgraph.prebuilt.create_react_agent</code>. The installed langgraph 1.2.18 marks it deprecated in favour of <code>langchain.agents.create_agent</code> (<a href="../../p08_agent_foundations/m24_react_agents/index.html">M24</a>); it still runs, and the executor would wrap either one the same way.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Reply with a Message for a one-shot answer and a Task for work that takes time, can fail or needs another turn. Only a Task can be polled.</li>
+<li>Terminal states accept no further updates or messages. Continue a task only from <code>input-required</code> or <code>auth-required</code>; otherwise start a new task in the same <code>contextId</code>.</li>
+<li>The server only calls <code>AgentExecutor.execute()</code>. Keep blocking graph calls off the event loop, and on failure set <code>failed</code> and return instead of re-raising raw exception text.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When should an A2A executor reply with a Task rather than a Message?</summary>
@@ -595,6 +607,12 @@ if result.kind == &quot;task&quot; and result.status.state != &quot;completed&qu
 return &quot;\n&quot;.join(p.root.text for p in message.parts if p.root.kind == &quot;text&quot;)
 </code></pre>
 <p>An agent that publishes its output as artifacts (<code>TaskUpdater.add_artifact</code>) puts it in <code>result.artifacts</code> instead; read those the same way.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Agents built in different frameworks interoperate when they share the card shape, <code>message/send</code>, the Message and Task objects and the card path. The orchestrator imports none of their code.</li>
+<li>Keep only URLs in the registry and read capabilities from each card at run time. Pick agents by skill, and treat the registry as a trust list.</li>
+<li>Read replies carefully: check for an error first, branch on the reply&rsquo;s kind, and set <code>context_id</code> to keep hops in one conversation. Never forward <code>str(result)</code> as content.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What must the research and writer agents agree on for one orchestrator to call both, and what may differ?</summary>
@@ -660,6 +678,12 @@ return &quot;\n&quot;.join(p.root.text for p in message.parts if p.root.kind == 
 </ul>
 <p>Two smaller points: <code>pyproject.toml</code> lists <code>a2a-python</code> where <code>requirements.txt</code> lists <code>a2a-sdk&gt;=0.3.0</code>, and the web search server logs the first ten characters of <code>SERPAPI_KEY</code> at startup, so its log is not safe to share.</p>
 <p>A smoke test that sends one golden question through the host and checks that the reply contains handbook text, not <code>Error communicating</code>, catches the first failure on the first run.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Use MCP to connect an agent to tools and data, returning one result its own model reasons over. Use A2A to delegate to another agent with its own model, tools and state.</li>
+<li>Keyword routing is fast and predictable but misroutes questions that share words with another domain. Weigh that before skipping the model&rsquo;s routing decision.</li>
+<li>Connectors that turn failures into strings pass errors on as answers. Run one golden question end to end and check for real content before trusting the system.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. In the capstone, when does the host use MCP and when does it use A2A?</summary>
@@ -729,7 +753,7 @@ return &quot;\n&quot;.join(p.root.text for p in message.parts if p.root.kind == 
 <li>Keep the A2A code in one <code>AgentExecutor</code> and keep the agent behind it framework-specific. That boundary is what lets you swap LangGraph for anything else.</li>
 <li>Use MCP for tools and data, A2A for agents. A system needs both once one agent&rsquo;s answer depends on another team&rsquo;s agent.</li>
 </ul></article>
-    <nav class="toc" aria-label="M41 sections"><details open><summary>In M41</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-card">Agent Card</a></li><li><a href="#from-discovery-to-reply">From discovery to reply</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tasks-amp-messages">Tasks &amp; messages</a></li><li><a href="#the-executor-seam">The executor seam</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cross-framework-interop">Cross-framework interop</a></li><li><a href="#reading-the-reply">Reading the reply</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp--a2a">MCP + A2A</a></li><li><a href="#what-the-capstone-needs-to-run">What the capstone needs to run</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M41 sections"><details open><summary>In M41</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-card">Agent Card</a></li><li><a href="#from-discovery-to-reply">From discovery to reply</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tasks-amp-messages">Tasks &amp; messages</a></li><li><a href="#the-executor-seam">The executor seam</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cross-framework-interop">Cross-framework interop</a></li><li><a href="#reading-the-reply">Reading the reply</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp--a2a">MCP + A2A</a></li><li><a href="#what-the-capstone-needs-to-run">What the capstone needs to run</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

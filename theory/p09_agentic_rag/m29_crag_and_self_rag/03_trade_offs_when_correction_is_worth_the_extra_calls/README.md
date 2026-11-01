@@ -55,6 +55,12 @@ For the Larkspur assistant that means:
 - **Retrieval misses are fixed in retrieval.** The outage question fails on wording; one rewrite against the index is cheaper than three Self-RAG passes or a web search.
 - **Every loop gets a counter and a budget.** `max_iterations` caps the rewrite loops in 02a; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.
 
+## Key Takeaways
+
+- Count the calls before adding correction. On the lab's golden set at `k = 3`, the mean was 1 call for the baseline, 4.6 for CRAG and 13.4 for Self-RAG.
+- No check repairs a chunk that retrieval never returns, and questions the corpus cannot answer cost the most. Fix wording misses upstream, with better retrieval or a rewrite against the index.
+- Add correction where a wrong answer costs more than the extra latency, such as refund questions. Keep the web fallback off for a private corpus, and give every loop a counter and a per-request call budget.
+
 ## Check yourself
 
 <details>

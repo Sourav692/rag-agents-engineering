@@ -42,6 +42,12 @@ Two guards account for every difference:
 
 Put together, these are the notebook's closing rules: workers stay stateless, state lives in the checkpointer, the `events` field is the audit log, the workflow is an explicit graph with the human gate as a waiting state, and every side effect can run twice without harm.
 
+## Key Takeaways
+
+- Give any field that parallel nodes write a reducer, or the step fails with `InvalidUpdateError`. An `operator.add` list makes a durable audit trail that nothing overwrites.
+- Nodes run again after an interrupt, a crash or a retry. The checkpointer protects the state, never what a node already did outside the graph.
+- Move side effects off the resumed path into their own node, and send external writes with an idempotency key such as `refund:refund-99`.
+
 ## Check yourself
 
 <details>

@@ -27,6 +27,12 @@ flowchart LR
 
 If the retry also fails, the ticket goes to a person, not to the customer. For Larkspur, the same contract triages support tickets: `orig_lang`, a `category` from a fixed list (billing, refunds, exports, outages, server sizing), an English translation for the support team, and a draft reply in the customer's language that the answer step fills from the handbook. Fix the category list in the prompt, as the few-shot classifier in lesson 5.1 fixes its labels, so the reply can be routed by code.
 
+## Key Takeaways
+
+- One prompt can carry several instructions, including conditional ones, and return fields that agree because the model wrote them together. Wrap the input in delimiters to separate it from the instructions.
+- Refine a prompt in steps: fix the structure first, then the length and focus. Change only the persona and audience line to reuse one source for several readers.
+- Give structured output a contract with a fixed category list, parse and validate every reply, retry once with the error, and send a second failure to a person.
+
 ## Check yourself
 
 <details>

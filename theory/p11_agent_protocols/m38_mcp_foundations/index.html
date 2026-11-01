@@ -357,6 +357,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p>The split pays off as soon as a second chatbot, an IDE or an agent framework wants the same tools: each of them speaks MCP to the same server instead of copying three pieces per tool. For Larkspur Cloud, the M11 retriever becomes one server, <code>larkspur-handbook</code>, and every assistant the support team builds connects to it.</p>
 <p>The optional notebook 01b runs the same chatbot on OpenAI. Only the wrapper changes: each schema sits inside <code>{"type": "function", "function": {...}}</code> with <code>parameters</code> in place of <code>input_schema</code>, and the arguments arrive as a JSON string the code parses with <code>json.loads</code>. The tools and the loop are the same, which is why the server in lesson 38.2 can serve either provider.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Without MCP, every tool needs three hand-written pieces in the chatbot: the function, its schema in <code>tools</code>, and a name-to-function mapping.</li>
+<li>MCP keeps the model loop unchanged and moves the tools to a server. The client fetches schemas with <code>session.list_tools()</code> and runs them with <code>session.call_tool()</code>.</li>
+<li>Put a tool behind one server when a second chatbot, an IDE or an agent framework needs it, so each one connects instead of copying the code.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The model replies with a tool_use block. What must the 01a chatbot do before it calls the model again, and when does the loop stop?</summary>
@@ -436,6 +442,12 @@ if __name__ == &quot;__main__&quot;:
 <p>Compare it with the schema notebook 01a wrote by hand. That one gave each parameter a description (“The topic to search for”) and a one-line tool description. The generated pair is 989 characters of compact JSON against 611 for the hand-written pair, and the model reads the parameter help only as free text inside the description. When a parameter needs help or limits, put them in the type: with <code>Annotated[int, Field(description="Number of chunks to return", ge=1, le=12)]</code>, SDK 1.30.0 adds <code>description</code>, <code>minimum</code> and <code>maximum</code> to that property.</p>
 <p>FastMCP also infers an output schema from the return type. For the Larkspur <code>search_handbook</code> tool, which returns <code>str</code>, the definition carries <code>"outputSchema": {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "search_handbookOutput", "type": "object"}</code>, and every call returns the text twice: once in <code>content</code> and once in <code>structuredContent</code>. The notebook&rsquo;s chatbot passes only <code>result.content</code> to the model, so the copy costs bytes on the wire and nothing in the prompt.</p>
 <p>Test a server before writing a client. The MCP Inspector launches it the way a client would, <code>npx @modelcontextprotocol/inspector uv run research_server.py</code>, and lets you list and call tools by hand. If a tool works in the Inspector and fails in the chatbot, look in the client first.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>FastMCP</code> builds each tool definition from the function: the name, the whole docstring as description, types and <code>required</code> from the hints, and defaults from Python.</li>
+<li>Docstring <code>Args:</code> lines never become property descriptions. Put parameter help and limits in the type with <code>Annotated[..., Field(...)]</code> so they appear in the schema.</li>
+<li>Test a new server in the MCP Inspector before writing a client. If a tool passes there and fails in the chatbot, the fault is in the client.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Where does FastMCP take each part of a tool definition from, and where do the docstring's parameter descriptions end up?</summary>
@@ -526,6 +538,12 @@ async with stdio_client(server_params) as (read, write):      # starts the serve
 <li><strong><code>serverInfo.version</code> was <code>1.30.0</code></strong>, the SDK version, because the server did not set one. Pass a version of your own if clients should be able to tell your releases apart.</li>
 </ul>
 <p>The client also translates for the model. Notebook 03a&rsquo;s live code runs on OpenAI and wraps each MCP definition as <code>{"type": "function", "function": {"name": ..., "description": ..., "parameters": tool.inputSchema}}</code>; the Anthropic version kept in comments uses <code>input_schema: tool.inputSchema</code>. Both read the same <code>inputSchema</code>, so one server serves either model. On the way back the Anthropic version passes <code>result.content</code> as the <code>tool_result</code>, and the OpenAI version passes <code>result.content[0].text</code> as the <code>tool</code> message.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>The host holds one client per server, and the model never reaches a server directly. It reads definitions and asks for calls; the host routes them.</li>
+<li>Over <code>stdio</code> the client owns the server&rsquo;s life: <code>stdio_client</code> starts the subprocess and leaving the <code>async with</code> block stops it.</li>
+<li>The <code>initialize</code> handshake fixes what the session can do. With <code>listChanged: false</code>, list tools again to see changes, and set your own server version so clients can tell releases apart.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A host uses three MCP servers. How many clients does it hold, and does the model ever talk to a server directly?</summary>
@@ -594,6 +612,12 @@ async with stdio_client(server_params) as (read, write):      # starts the serve
 <p>The <a href="04_connecting_to_reference_servers/interactive/server-config-lab.html">interactive lab</a> runs the notebook&rsquo;s merge on the recorded tool lists. Switch servers on and off, and watch the definitions per call, the characters, and which server each tool name reaches.</p>
 <figure class="lab-embed"><iframe src="04_connecting_to_reference_servers/interactive/server-config-lab.html" title="Server config lab, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Server config lab. <a href="04_connecting_to_reference_servers/interactive/server-config-lab.html">Open full screen</a></figcaption></figure>
 <p>A reference server&rsquo;s definitions are text the model reads, written by someone else. The fetch server&rsquo;s description says: “Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access.” Read what a server tells your model before you connect it, and pin its version (<code>@modelcontextprotocol/server-filesystem@2.1.0</code>, <code>mcp-server-fetch@2026.10.28</code>) so an update cannot change that text unseen.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Every connected tool definition is sent on every call. Three reference servers already cost about 2,527 tokens before the question, so connect only what the assistant needs.</li>
+<li>Tool names must be unique across servers, because the routing dict lets a later server silently take over a name.</li>
+<li>Read what a third-party server tells your model before connecting it, and pin its version so an update cannot change that text unseen.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The 04a chatbot fills two structures as it connects to each server. What does each one do?</summary>
@@ -676,6 +700,12 @@ async with stdio_client(server_params) as (read, write):      # starts the serve
 <li><strong>One dict routes all three kinds.</strong> <code>self.sessions</code> maps tool names, prompt names and resource URIs to sessions, so a prompt named like another server&rsquo;s tool overwrites the route, the same collision the lab in <a href="#">lesson 38.4</a> shows for tools.</li>
 </ul>
 <p>For Larkspur the split is: <code>search_handbook</code> is a tool, because the model needs it mid-answer with a query it writes; the sections are resources, for a support console that lets an engineer attach a section; and <code>answer_with_citations</code> is a prompt the engineer starts on purpose.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Choose the kind by who decides to use it. The model picks tools mid-answer; the user picks resources (read-only data by URI) and prompts (server-owned message templates).</li>
+<li>A static resource URI names one thing and a template such as <code>papers://{topic}</code> names a family. <code>list_resources()</code> does not return templates, so list them separately.</li>
+<li>Routing tools, prompts and resource URIs through one dict lets a name on one server overwrite a route on another.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What decides whether a server feature should be a tool, a resource or a prompt?</summary>
@@ -779,6 +809,12 @@ mcp.run(transport=&quot;sse&quot;)               # or &quot;streamable-http&quot
 <p><strong>The bind address depends on the SDK version.</strong> The project&rsquo;s own <code>uv.lock</code> pins mcp 1.8.0, whose FastMCP default host is <code>0.0.0.0</code>, reachable through the container&rsquo;s mapped port. The course environment&rsquo;s 1.30.0 defaults to <code>127.0.0.1</code>, which only the container itself can reach. Set <code>host="0.0.0.0"</code> in the constructor and the server behaves the same under both.</p>
 <p><strong>The server&rsquo;s files live where it runs.</strong> The research server keeps papers in a <code>papers/</code> folder beside it. In notebook 06a&rsquo;s hosted server that folder is empty, so the resources list no topics. On a fresh copy, recorded with 1.30.0, <code>papers://folders</code> returns “No topics found.” and <code>extract_info</code> fails with <code>[Errno 2] No such file or directory: 'papers'</code>, because it lists the folder without checking that it exists. A remote server needs storage that outlives the container, and tools that handle an empty start.</p>
 <p>Before anyone outside can reach the server, it needs what a stdio server never did: authentication, because anyone who can reach the URL can call the tools; TLS; and logs of which client called what. The 1.30.0 <code>FastMCP</code> constructor takes <code>auth</code> settings and a <code>token_verifier</code> for the first. Notebook 06a&rsquo;s optional section deploys to Render, and its resources link Cloudflare&rsquo;s guide to remote MCP servers.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Moving from <code>stdio</code> to a remote server changes only the transport line. A remote server must already be running when the client connects by URL.</li>
+<li>Streamable HTTP uses one <code>/mcp</code> endpoint. Stateful mode tracks clients with <code>mcp-session-id</code> and needs sticky routing across replicas; stateless mode answers from any replica but keeps nothing between calls.</li>
+<li>Set <code>host="0.0.0.0"</code> in a container, keep server files on storage that outlives it, and add authentication, TLS and call logs before exposing the URL.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does a stateful Streamable HTTP server behind several replicas need sticky routing, while a stateless one does not?</summary>
@@ -848,7 +884,7 @@ mcp.run(transport=&quot;sse&quot;)               # or &quot;streamable-http&quot
 <li>Count what each server costs on every request, and give every tool a name that is unique across all connected servers.</li>
 <li>Choose the transport by where the server runs: stdio for a local subprocess, Streamable HTTP at <code>/mcp</code> for a shared service, with the bind address, session header and auth checked before deploy.</li>
 </ul></article>
-    <nav class="toc" aria-label="M38 sections"><details open><summary>In M38</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#what-moves-out-of-the-chatbot">What moves out of the chatbot</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#from-a-function-to-a-tool-definition">From a function to a tool definition</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp-server--client">MCP server / client</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reference-servers">Reference servers</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tools-resources-prompts">Tools, resources, prompts</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#remote-transport">Remote transport</a></li><li><a href="#deploying-a-remote-server">Deploying a remote server</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M38 sections"><details open><summary>In M38</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#what-moves-out-of-the-chatbot">What moves out of the chatbot</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#from-a-function-to-a-tool-definition">From a function to a tool definition</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp-server--client">MCP server / client</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reference-servers">Reference servers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tools-resources-prompts">Tools, resources, prompts</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#remote-transport">Remote transport</a></li><li><a href="#deploying-a-remote-server">Deploying a remote server</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

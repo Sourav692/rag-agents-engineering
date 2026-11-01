@@ -65,6 +65,12 @@ Counting the LLM calls per path from the graph, before any retry:
 
 A question the router sends to the vector store and the grader then rejects is the most expensive path. If many questions take it, the router's topic list is wrong or the index is missing content, and both are cheaper to fix than to grade around.
 
+## Key Takeaways
+
+- A source router picks the vector store or the web before retrieving. Its prompt's topic list is all it knows of the index, so update the prompt whenever you index a new topic.
+- The document grader falls back to the web when half or fewer chunks pass. Many store-then-web runs mean the topic list or the index is wrong, which is cheaper to fix than to grade around.
+- Bound the regeneration loop with a counter in the graph state, because each round costs two LLM calls and nothing else stops it before the recursion limit. A `yes` from this hallucination grader means unsupported.
+
 ## Check yourself
 
 <details>

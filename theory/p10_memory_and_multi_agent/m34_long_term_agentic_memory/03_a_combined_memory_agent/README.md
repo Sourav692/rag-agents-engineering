@@ -44,6 +44,12 @@ The production path changes the backend, not the agent. `PostgresSaver` and `Pos
 
 The same layers can be two hand-written SQL tables: `PRIMARY KEY (user_id, key)` with `INSERT OR REPLACE` is the semantic upsert, and a fresh id per row is the episodic append. Tables give you joins and constraints; the store gives you namespaces, TTLs, embedding search and the Postgres swap. Read `SqliteStore`'s own `store` table only through `get` and `search`, since its schema may change between versions.
 
+## Key Takeaways
+
+- Give each memory layer exactly one writer: the checkpointer for the thread, the app for the session, the model for facts, a graph node for episodes and a human for procedures.
+- In six test runs gpt-4o-mini never called the save tool unprompted, so write episodes in a node after each answer and let code decide whether the turn was a real task.
+- Preloading every layer works while memory is small, but each item is paid for on every call. Pass `limit=` to `search`, cap each layer, and retrieve once a layer outgrows the prompt.
+
 ## Check yourself
 
 <details>

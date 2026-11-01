@@ -53,6 +53,12 @@ Its other defaults are worth reading too: 4 gradient-accumulation steps, warmup 
 
 The notebook’s other two cells sketch Lamini’s `BasicModelRunner` and `trl`’s `SFTTrainer`, but use names the notebook never defines (`base_model`, `peft_config`, `training_arguments`, among others), so they do not run as written.
 
+## Key Takeaways
+
+- LoRA freezes the original weights and trains small low-rank matrices beside them, adding `r × (d_in + d_out)` parameters per layer. At rank 16 on every linear layer of Llama 2 7B, 0.59% of the model trains.
+- 4-bit loading cuts the frozen weights from 13.5 GB to about 3.4 GB. Combined with LoRA it is QLoRA, and the saved adapter is about 80 MB.
+- Check CLI flag names against the installed AutoTrain version, and keep its default learning rate of `3e-5` unless a measured run says otherwise.
+
 ## Check yourself
 
 <details>

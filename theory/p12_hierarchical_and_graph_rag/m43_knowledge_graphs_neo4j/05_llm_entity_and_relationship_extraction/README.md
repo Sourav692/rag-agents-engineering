@@ -27,6 +27,12 @@ Its line-based chunker uses a word threshold and can overshoot it when one line 
 
 A directed graph with one edge per ordered node pair can also overwrite distinct relationship labels between the same entities. Use a representation that preserves each assertion when the domain allows several predicates, versions or sources for a pair. Evaluate entity resolution errors separately from relation extraction errors, then check the paths used by your question set. A graph that looks plausible in a visualisation can still answer the wrong question.
 
+## Key Takeaways
+
+- LLM extraction produces candidate facts. Check each tuple against its passage, validate endpoint and relationship types, and store accepted assertions with source identifier and version.
+- Preserve conditions such as "after approval". Flattening them into an unconditional edge changes the policy.
+- Resolve aliases by identifier and context, not string matching, and use a representation that keeps several predicates between the same pair. Treat malformed output as a failed extraction.
+
 ## Check yourself
 
 <details>

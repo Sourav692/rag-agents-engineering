@@ -39,6 +39,12 @@ Not every model supports structured output. `llm.profile` (LangChain 1.1) report
 
 The two optional notebooks cover the parts underneath. `init_chat_model` builds a model for any provider behind one interface, with streaming and batching. Messages are the unit of context: `SystemMessage`, `HumanMessage`, `AIMessage` and `ToolMessage`, and the list you pass is all the model sees. An `AIMessage` that asks for a tool usually has `content=""` and carries the call in `.tool_calls`, so print both when you debug a run.
 
+## Key Takeaways
+
+- Ask for a schema when code consumes the output. `with_structured_output()` makes a model return a schema instance, and `response_format=` adds `structured_response` to an agent's result next to `messages`.
+- Use Pydantic when data crosses a trust boundary, because it validates types and `TypedDict` does not. Inside a `TypedDict`, `= Field(...)` is silently dropped.
+- Field descriptions are prompt text, and optional fields with a `None` default stop invented values. `include_raw=True` keeps token usage and turns a parse failure into a value you can branch on.
+
 ## Check yourself
 
 <details>

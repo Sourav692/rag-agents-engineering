@@ -440,6 +440,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Value types are restricted.</strong> Chroma 1.5, the version this course installs, accepts <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>None</code> and non-empty lists of a single one of those types. A nested dict, an empty list or a mixed list such as <code>[1, "x"]</code> fails the write. Flatten before you index.</li>
 <li><strong>Filters match exactly.</strong> <code>{"department": "Engineering"}</code> does not match <code>"engineering"</code>. Normalise values when you load.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A loader fetches the source and a parser turns bytes into text. When the extracted text is wrong, swap the parser.</li>
+<li>Design the metadata schema before ingestion: provenance, filtering, access control and quality fields. Every forgotten field costs a full re-ingest.</li>
+<li>Metadata is not embedded, accepts only flat value types, and filters match exactly. Put fields that should affect similarity into the text, flatten values and normalise case.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A teammate says the PDF loader is bad because the extracted text comes out wrong. Do you change the loader or the parser?</summary>
@@ -505,6 +511,12 @@ metadata:     {'source': 'plans.csv', 'row': 1}
 </ul>
 <p>One more from the notebook: passing <code>csv_args={"fieldnames": [...]}</code> to rename columns on a file that already has a header row turns that header into a Document. The notebook&rsquo;s five-row <code>data.csv</code> loads as six Documents, and the first one reads <code>Property ID: Property_ID</code>, <code>Address: Address</code>. Rename the columns in the file instead, or drop that first Document.</p>
 <p><code>JSONLoader</code> splits the same decision across two arguments. <code>content_key</code> names the field that becomes <code>page_content</code>, and <code>metadata_func(record, metadata)</code> copies the fields you want to filter on. The notebook copies <code>sender_name</code> and <code>timestamp_ms</code>, so a query can ask for one person&rsquo;s messages in a time range. The loader adds <code>source</code> as an absolute path and <code>seq_num</code> counting from 1, while <code>CSVLoader</code> writes <code>source</code> as you passed it and counts <code>row</code> from 0. Lesson 12.5 maps these differences onto one schema.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>For CSV and JSON, decide which record becomes one Document: <code>CSVLoader</code> gives one per row, and <code>jq_schema</code> sets the record for <code>JSONLoader</code>. Count empty Documents after every load.</li>
+<li>Decide per field whether it goes in the embedded text, the metadata or both. A column listed only in <code>metadata_columns</code> disappears from the text.</li>
+<li>Loader metadata values arrive as strings and <code>source_column</code> overwrites the file path. Cast numbers and keep the file path in its own field.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does the jq schema passed to JSONLoader decide, and why does it matter for retrieval?</summary>
@@ -581,6 +593,12 @@ metadata:     {'source': 'plans.csv', 'row': 1}
 <figure class="lab-embed"><iframe src="04_pdf_and_word_parser_comparison_and_element_level_parsing/interactive/pdf-parsers-lab.html" title="One PDF page, three parsers, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: One PDF page, three parsers. <a href="04_pdf_and_word_parser_comparison_and_element_level_parsing/interactive/pdf-parsers-lab.html">Open full screen</a></figcaption></figure>
 <p>Element-level parsing costs time and dependencies, so use it where layout carries meaning: reports, manuals, forms, anything with tables. Plain prose PDFs do fine with PyPDF or PyMuPDF.</p>
 <p>Word and Markdown files have the same switch. In this lesson&rsquo;s Word notebook, <code>UnstructuredWordDocumentLoader</code> returns the file as one Document by default; with <code>mode="elements"</code> and <code>chunking_strategy="by_title"</code> it returns pieces of at most 3,000 characters and starts a new one at every heading. Lesson 12.2 does the same for Markdown with <code>UnstructuredMarkdownLoader</code>: <code>mode="single"</code> gives one Document, <code>mode="elements"</code> one per heading, paragraph or list item, each with a <code>category</code>.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Element-level parsing returns one Document per layout element with a <code>category</code>, so headers and footers can be dropped and each piece knows its section.</li>
+<li>Drop repeated boilerplate before embedding, and keep each table as one chunk in HTML or Markdown form so values keep their column names.</li>
+<li>Granularity is fixed at load time. Use element-level parsing for reports, manuals, forms and tables; plain prose PDFs do fine with PyPDF or PyMuPDF.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does leaving the handbook's page header in every chunk hurt retrieval?</summary>
@@ -677,6 +695,12 @@ metadata:     {'source': 'plans.csv', 'row': 1}
 </ul>
 <p><strong>YouTube transcripts.</strong> By default <code>YoutubeLoader</code> returns one Document per video with the video id as <code>source</code>. With <code>transcript_format=TranscriptFormat.CHUNKS</code> it returns one Document per <code>chunk_size_seconds</code> window (120 by default; the notebook uses 10 and 15), and each <code>source</code> becomes the video URL with <code>&amp;t=&lt;seconds&gt;s</code>, so a citation opens the video at that moment. <code>add_video_info=True</code> adds title and author but needs another network call, which is where the notebook&rsquo;s SSL errors come from.</p>
 <p><strong>arXiv papers.</strong> <code>ArxivLoader</code> downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost, so a citation can name the paper but not the page. <code>Published</code> holds the date of the latest version, not the first submission. <code>load_max_docs</code> defaults to 100, and <code>get_summaries_as_docs()</code> returns only the abstracts, which is often enough for a &ldquo;find me papers about X&rdquo; index and far cheaper to embed.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Route each file type in a mixed folder to its own loader. With <code>silent_errors=True</code>, compare the file count with the distinct <code>source</code> values to catch skipped files.</li>
+<li>Every loader writes different metadata keys and counting rules. Map them onto one schema right after loading, and drop unset fields instead of storing <code>None</code>.</li>
+<li>Remote sources fail quietly. Pass an extractor for web pages, set <code>check_response_status=True</code>, and flag pages whose text is much shorter than their HTML.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why map every loader's metadata onto one schema right after loading, before splitting?</summary>
@@ -775,6 +799,12 @@ class TicketLoader(BaseLoader):
   </ol>
 </figure>
 <p>Lazy loading keeps memory flat for a million-record source, and the first vectors reach the index while the loader is still reading. A failure part-way through only loses the current batch, as long as you record a checkpoint (the last id or <code>updated_at</code> written).</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>load()</code> holds the whole corpus in memory as a list, while <code>lazy_load()</code> yields one Document at a time so splitting and upserting run in batches alongside reading.</li>
+<li>Implement <code>lazy_load()</code> in a custom <code>BaseLoader</code>; <code>load()</code> comes free from it.</li>
+<li>Record a checkpoint, such as the last id or <code>updated_at</code> written, so a crash loses only the current batch and the next run can resume from there.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. With lazy loading, why do the first vectors reach the index before the loader has finished reading the source?</summary>
@@ -844,7 +874,7 @@ class TicketLoader(BaseLoader):
 <li>Write the metadata schema down before the first ingest, including access control, and normalise values at load time.</li>
 <li>Stream with <code>lazy_load</code>, batch the downstream work, and validate counts after every run.</li>
 </ul></article>
-    <nav class="toc" aria-label="M12 sections"><details open><summary>In M12</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#loader-vs-parser">Loader vs parser</a></li><li><a href="#metadata-schema">Metadata schema</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-record-one-document">One record, one Document</a></li><li><a href="#content-fields-and-metadata-fields">Content fields and metadata fields</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#element-level-parsing">Element-level parsing</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-a-mixed-folder">Routing a mixed folder</a></li><li><a href="#web-pages-transcripts-and-papers">Web pages, transcripts and papers</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#lazy-loading">Lazy loading</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M12 sections"><details open><summary>In M12</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#loader-vs-parser">Loader vs parser</a></li><li><a href="#metadata-schema">Metadata schema</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-record-one-document">One record, one Document</a></li><li><a href="#content-fields-and-metadata-fields">Content fields and metadata fields</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#element-level-parsing">Element-level parsing</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-a-mixed-folder">Routing a mixed folder</a></li><li><a href="#web-pages-transcripts-and-papers">Web pages, transcripts and papers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#lazy-loading">Lazy loading</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

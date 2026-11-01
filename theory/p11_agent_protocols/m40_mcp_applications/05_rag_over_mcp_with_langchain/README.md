@@ -51,6 +51,12 @@ Two fixes, both checked with langchain-chroma 1.1.0:
 - **Create the collection with the metric you mean.** `Chroma(..., collection_metadata={"hnsw:space": "cosine"})` makes the distance `1 - cosine`, and `1 - distance` is then the cosine (last column).
 - **Return what you computed, and say what it is.** Send `distance` and the metric name, and leave thresholds to the server, where one person owns them.
 
+## Key Takeaways
+
+- Serving retrieval over MCP puts chunking, embeddings, the metric and the result shape on the server, shared by every host. The host's model still chooses queries, chunk counts and destructive calls.
+- Check units and ids. `CHUNK_SIZE = 4096` counts characters, and position-based chunk ids leave stale chunks behind when a shorter version is re-ingested.
+- Chroma's default distance is squared L2, so `1 - distance` is not cosine. Create the collection with `hnsw:space` cosine, or return the distance and its metric.
+
 ## Check yourself
 
 <details>
