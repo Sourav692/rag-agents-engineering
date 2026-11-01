@@ -118,8 +118,8 @@ The plan used to create this repo. All eight steps are done.
 
 1. **Done.** The final sync ran from clean checkouts of each source repo's `main` (uncommitted work, such as a local module 12 in repo 08, was left out) and is the "Sync from source repos" commit.
 2. **Done.** The "never edit a generated file" rule is gone; `migrate.py` is kept as history and refuses to write.
-3. **Not done (optional).** Consolidate duplicated companion files (e.g. the `helper_functions.py` copies, in two variants from 05 and 09) into a package under `src/` and update the imports.
-4. **Done.** The nine source repos are archived on GitHub, each with a README pointing here. Not done: their `docs/learning-path.md` entries in the other series repos.
+3. **Done.** The RAG Techniques helpers live once, in `src/rag_techniques/` (`helper_functions.py`, `evalute_rag.py`). The 24 copies of each beside the notebooks are one-line shims that re-export them, so `from helper_functions import *` and `from evaluation.evalute_rag import *` work unchanged. Fix helpers in `src/rag_techniques/`, never in a shim.
+4. **Done.** The nine source repos are archived on GitHub, each with a README pointing here, and `docs/learning-path.md` in repos 07 and 11–14 marks them archived with a link here.
 5. **Kept.** `docs/source/` stays as per-repo provenance, with `docs/content-inventory.csv`.
 
 ## Dependency notes

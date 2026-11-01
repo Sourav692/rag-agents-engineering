@@ -268,7 +268,7 @@ STEPS = [
 ]
 CHANGED = [
     "Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.",
-    "Shared code was not merged into a course_helpers package: companion files are copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. Consolidating them is optional step 3 of the Option A switch, not yet done.",
+    "Companion files were copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. After the switch to Option A, the 24 copies each of helper_functions.py and evalute_rag.py became one-line shims over src/rag_techniques/.",
     "Paths are rewritten to the new depth rather than routed through a data_dir() helper, for the same reason.",
     "Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use notebooks/05_training and similar).",
     "MCP sub-projects keep their source names under projects/, because repo 10 notebooks write into ../projects/<name>/.",
@@ -330,7 +330,7 @@ def combined_repo():
     support = [
         ("capstones/", ", ".join(c["title"] for c in CUR["capstones"])),
         ("theory/", "Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs"),
-        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync) and rag_paths.py (from 05, rewritten to course/ paths)"),
+        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, rewritten to course/ paths)"),
         ("data/", "Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)"),
         ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, "
                   "content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md"),
@@ -349,7 +349,7 @@ def combined_repo():
         ("Two copies of every notebook", "Option A: this repo is canonical. The last \"Sync from source repos\" commit names the final source SHAs, and the nine source repos are archived with a pointer here."),
         ("Paths and imports move", "migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged."),
         ("Mixed licences", "NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/."),
-        ("Visibility", "The course repo is private."),
+        ("Visibility", "The course repo is public; the source repos it was built from are archived."),
         ("Provenance", f"docs/content-inventory.csv maps every one of the {n_inv} copied files to its source repo and path."),
         ("Dependency clashes", "pandas pinned >=2.2 for llama-index; colpali, finance and the protocol SDKs isolated as conflicting groups."),
         ("Drift in reference docs", "Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale."),
@@ -391,7 +391,7 @@ def combined_repo():
 
     # Markdown
     L = ["# Combined Course Repo", "", GEN_NOTE.format(extra=""),
-         f"The {n_src} *AI Engineering Demystified* source repos ({keys}) combined into one private course repository, "
+         f"The {n_src} *AI Engineering Demystified* source repos ({keys}) combined into one public course repository, "
          f"`Sourav692/{COURSE_REPO}`, organised by the RAG & Agents Engineering curriculum.", "",
          f"**Status: built and in use.** {status}. Operating model: **Option A**, this repo canonical.", "",
          "## Decision", "",
@@ -422,7 +422,7 @@ def combined_repo():
     css = (ROOT / "scripts/site/style.css").read_text()
     H = ['<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">',
          "<title>Combined Course Repo</title>", FONTS, f"<style>{css}{REPO_CSS_EXTRA}</style></head><body><div class='wrap'>",
-         f"<header class='hero'><p class='eyebrow'>As built · {n_src} source repos → <a href='{COURSE_URL}' target='_blank' rel='noopener'>Sourav692/{COURSE_REPO}</a> (private)</p><h1>Combined Course Repo</h1>",
+         f"<header class='hero'><p class='eyebrow'>As built · {n_src} source repos → <a href='{COURSE_URL}' target='_blank' rel='noopener'>Sourav692/{COURSE_REPO}</a> (public)</p><h1>Combined Course Repo</h1>",
          f"<p class='lede'>The {n_src} AI Engineering Demystified repos ({E(keys)}) combined into one course repository, organised by the "
          "RAG &amp; Agents Engineering curriculum, and maintained here since the source repos were archived.</p></header>",
          "<section class='kpis'>" + "".join(f"<div class='stat'><b>{v}</b><span>{E(k)}</span></div>" for v, k in [
