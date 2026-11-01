@@ -48,7 +48,7 @@ The answer is the only part you read, and it is the smallest part you pay for. A
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur moves its answer generator from `gpt-4o-mini` to `o4-mini`. The monthly bill triples, yet the answers in the transcripts are the same length as before. Where did the money go, and how do you show it?
 

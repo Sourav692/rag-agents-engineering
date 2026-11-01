@@ -49,7 +49,7 @@ Every route then feeds the embedder (M14) and ends with the same check. Read a s
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Your support assistant tells a customer "Annual plans are refundable within 30 days" and the customer gets a refund denied: they had used 300 GB of traffic. The retrieved chunk is correct as far as it goes. What happened, and what do you change?
 

@@ -51,7 +51,7 @@ Loading is lossy. A PDF parser drops layout, an HTML loader drops visual hierarc
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. A customer uploads 4,000 product manuals as PDFs: two-column layouts, spec tables, scanned appendices. You have a week to make them searchable. How do you choose a parsing approach?
 

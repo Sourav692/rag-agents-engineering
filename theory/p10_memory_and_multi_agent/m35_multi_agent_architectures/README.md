@@ -56,7 +56,7 @@ Both graphs answer the outage request with the same two specialists. The supervi
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support swarm sometimes takes a minute to fail. The trace shows billing and operations handing the same customer back and forth until LangGraph raises `GraphRecursionError`. What do you look at, and what do you change?
 

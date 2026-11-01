@@ -48,7 +48,7 @@ Both routes must return evidence that the answer can cite. The graph supplies ca
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's cancellation answer reaches an export node but misses the retention condition. Where do you look first?
 

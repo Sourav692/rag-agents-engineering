@@ -49,7 +49,7 @@ One history feeds two consumers. The rewrite step reads it so the retriever sear
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. After a refactor, Larkspur's assistant answers first questions well, but follow-ups like "How long do I have?" now cite billing chunks. Nothing in the retriever changed. How do you find the cause?
 

@@ -50,7 +50,7 @@ The router decides what retrieval is allowed to see. Each knowledge base then re
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support assistant started answering "Apologies, I was not able to answer your question" to customers who ask how long their data is kept after they cancel. The retention chunk is in the general knowledge base. How do you find the fault?
 

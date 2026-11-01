@@ -56,7 +56,7 @@ The caller sees two things: a card and a stream of task events. Everything to th
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support desk agent calls the handbook agent over A2A, then passes the reply to a writer agent. Customers start getting answers that quote `context_id=` and `TaskStatus(`. Nothing errored. Where do you look?
 

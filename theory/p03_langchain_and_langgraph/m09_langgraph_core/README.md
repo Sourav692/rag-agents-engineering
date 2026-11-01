@@ -51,7 +51,7 @@ Every node gets the whole state and returns only the keys it changes. Between no
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. After a refactor of Larkspur's support graph, token cost per conversation doubles and the model starts repeating the customer's question back. No test fails. What do you look for?
 

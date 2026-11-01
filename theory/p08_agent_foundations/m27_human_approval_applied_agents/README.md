@@ -51,7 +51,7 @@ The graph stops at Review and waits, for seconds or for hours, while the checkpo
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's status agent published "a root-cause report within 48 hours". The reviewer approved a preview that said 72 hours, and the audit log shows the approve. How did this happen, and what do you change?
 

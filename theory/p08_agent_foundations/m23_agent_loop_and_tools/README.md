@@ -50,7 +50,7 @@ The model never runs anything. It writes a request; your code decides whether to
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support agent returns a 500 whenever a customer mistypes a server name ("Is web-9 up?"). The logs show `ValueError: Unknown server 'web-9'`. The tool works for valid names. What is wrong, and what do you change?
 

@@ -60,7 +60,7 @@ The client and the server agree on a protocol version and capabilities once, the
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support bot connects to a filesystem server rooted at the project folder. Someone adds a second filesystem server rooted at `./handbook`. Now the bot says files it read yesterday “do not exist”. How do you find the cause?
 

@@ -48,7 +48,7 @@ Three of the four steps between the question and the answer are prompts, and eac
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's relevance grader labels the `refund-timing` chunk "no" for "How long does a refund take?", so the assistant answers "I don't know". The grader is a few-shot prompt. How do you debug it?
 

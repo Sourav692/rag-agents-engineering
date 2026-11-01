@@ -53,7 +53,7 @@ Lesson 39.3 is a platform variant: the same FastMCP server with a stock-price to
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's assistant moved from held sessions to `MultiServerMCPClient.get_tools()` to simplify the code. Since then the `handbook` server's in-memory embedding cache never hits, and p95 latency has doubled. What happened?
 

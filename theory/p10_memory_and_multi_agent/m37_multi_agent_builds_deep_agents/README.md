@@ -54,7 +54,7 @@ One node talks to the guest, specialists do the work, and plain functions betwee
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support desk is built like the hotel system: a coordinator, a compliance checker over account-privacy rules, and a billing agent. A customer asked for the billing email of another company's account and got it. The trace shows the compliance checker never ran. How do you find out why, and how do you stop it happening again?
 

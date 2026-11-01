@@ -51,7 +51,7 @@ Every self-correcting design in Part IX is this loop with more branches. The gra
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. A week after the Larkspur handbook moved to a new document system, the support assistant's LLM bill doubled while traffic stayed flat. Traces show most questions now making three retrievals. What happened, and what do you check first?
 

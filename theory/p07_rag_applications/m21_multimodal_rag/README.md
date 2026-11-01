@@ -50,7 +50,7 @@ The ranks are for *Which month missed the 99.95% availability target?* in the la
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur moves its quarterly service report into the handbook as a PDF. Customers ask which month missed the availability target, and the assistant says the handbook does not say. The text pipeline has not changed. What happened, and how do you confirm it?
 

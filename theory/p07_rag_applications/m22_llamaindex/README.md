@@ -52,7 +52,7 @@ The diagram is M11's lifecycle with LlamaIndex names on the boxes, plus a stage 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. You port Larkspur's hybrid retriever to LlamaIndex: a FAISS `IndexFlatL2` vector store and BM25, fused with `QueryFusionRetriever(mode="relative_score")`. The fused top result is now the least relevant handbook passage. What happened?
 

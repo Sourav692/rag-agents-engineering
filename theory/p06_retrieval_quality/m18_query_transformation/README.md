@@ -52,7 +52,7 @@ Everything in M18 happens before the first vector search or after the last one. 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. You ship RAG-Fusion for Larkspur's support assistant. A customer asks "What happens if my server goes down?" and gets reboot instructions instead of the SLA credit policy. Recall on the golden set went up. What happened?
 

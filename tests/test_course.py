@@ -149,7 +149,13 @@ def test_site_curriculum_export_is_complete_and_stable():
     assert all(set(m["lessons"]) <= homed for m in data["RAG_MODULES"])
     assert all(m["commonMistakes"] for m in data["RAG_MODULES"])
     notebook_only = sum(len(m.get("notebookOnly", [])) for m in data["RAG_MODULES"])
-    assert notebook_only == sum(len(m["lessons"]) for m in modules) - len(pages)
+    # A notebook-only lesson whose notebooks all name a vendor platform stays off the site.
+    hidden = sum(all(export_site_curriculum.SITE_HIDDEN.search(it["file"]) for it in les["items"])
+                 for m in modules for n, les in enumerate(m["lessons"], 1)
+                 if not (ROOT / theory_dir(m) / lesson_folder(n, les["title"]) / "README.md").exists())
+    assert notebook_only == sum(len(m["lessons"]) for m in modules) - len(pages) - hidden
+    assert not export_site_curriculum.SITE_HIDDEN.search(json.dumps([m.get("notebookOnly", []) for m in data["RAG_MODULES"]]))
+    assert not any(export_site_curriculum.SITE_HIDDEN.search(les["title"] + les["slug"]) for les in data["RAG_LESSONS"])
 
 
 def test_theory_pages_mirror_the_course_layout():

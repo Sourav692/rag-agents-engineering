@@ -50,7 +50,7 @@ The prompt template and the parser are where your code meets the model's text. T
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's refund answers start failing: about one request in fifty raises `OutputParserException` after a model upgrade. The previous model never did. Where do you look first?
 

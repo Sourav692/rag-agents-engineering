@@ -47,7 +47,7 @@ Retrieval sits inside the loop, so the model decides whether it runs, how often,
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur adds a `web_search` tool to the support agent. A week later a customer asks "Can I get a refund on my annual plan?" and the agent quotes another provider's refund policy. How do you find out what happened?
 

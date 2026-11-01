@@ -54,7 +54,7 @@ Real systems nest these. CRAG (M29) is an evaluator-optimizer around retrieval, 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's reply drafter is an evaluator-optimizer loop. After an evaluator model upgrade, p95 latency triples and cost per ticket doubles, but no request fails. What happened, and what do you change?
 
