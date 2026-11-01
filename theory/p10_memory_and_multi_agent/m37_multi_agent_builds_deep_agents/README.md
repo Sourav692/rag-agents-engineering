@@ -41,6 +41,7 @@ One node talks to the guest, specialists do the work, and plain functions betwee
 | 37.4 | Developer vs tester agents | *planned* |
 | 37.5 | Research systems: supervisor financial research, summarisation, full research system | [Planner, supervisor or router](05_research_systems_supervisor_financial_research_summarisation_full_research_system/README.md#planner-supervisor-or-router)<br>[A quality loop with a cap in code](05_research_systems_supervisor_financial_research_summarisation_full_research_system/README.md#a-quality-loop-with-a-cap-in-code) |
 | 37.6 | Deep agents: orchestrator, sub-agents, skills and long-term memory | [Deep-agent harness](06_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md#deep-agent-harness) |
+| 37.7 | Five practical agent patterns, side by side | *planned* |
 
 ## Interactive lab
 

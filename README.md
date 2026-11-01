@@ -1,6 +1,6 @@
 # RAG & Agents Engineering
 
-From Python and your first LLM call to agentic, memory-backed, multi-agent, protocol-connected and graph-based RAG: **13 parts, 45 modules, 377 notebooks**, ordered as one course. About 214 hours over 26 weeks.
+From Python and your first LLM call to agentic, memory-backed, multi-agent, protocol-connected and graph-based RAG: **13 parts, 45 modules, 382 notebooks**, ordered as one course. About 214 hours over 26 weeks.
 
 - **Syllabus:** [CURRICULUM.md](CURRICULUM.md), or open [docs/site/index.html](docs/site/index.html) in a browser for the interactive version (course map, filters, progress tracking).
 - **Course folders:** [course/](course/README.md), one folder per Part and module.
