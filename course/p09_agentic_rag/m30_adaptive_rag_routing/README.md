@@ -1,6 +1,6 @@
 # M30 — Adaptive RAG & Query Routing
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part IX · Agentic & Self-Correcting RAG** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 3 mandatory, 2 optional
 

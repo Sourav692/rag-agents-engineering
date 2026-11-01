@@ -1,7 +1,10 @@
-"""Regenerate course/, src/, data/ and docs/source/ from the four source repositories.
+"""Regenerate course/, src/, data/ and docs/source/ from the source repositories.
 
-The source repos are canonical (option B in CLAUDE.md). Never edit generated files here:
-fix the notebook in its source repo, pull it, and re-run this script.
+RETIRED on 1 Nov 2026 (Option A in CLAUDE.md): this repository is now canonical and the
+source repos are archived. The script is kept as a record of how the course was built.
+It refuses to write, because a rebuild would delete every edit made here since the final
+sync; `--check` still runs. To run it anyway (for example to compare against an archived
+source), pass --force.
 
     uv run python scripts/migrate.py --sources ..          # rebuild
     uv run python scripts/migrate.py --sources .. --check  # validate only, write nothing
@@ -177,7 +180,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--sources", type=Path, default=ROOT.parent, help="folder holding the four source repo clones")
     ap.add_argument("--check", action="store_true", help="validate only; write nothing")
+    ap.add_argument("--force", action="store_true", help="rebuild even though the script is retired (Option A)")
     args = ap.parse_args()
+    if not args.check and not args.force:
+        print("migrate.py is retired (Option A): this repo is canonical, and a rebuild would delete the edits "
+              "made here since the final sync. Use --check, or --force if you really mean it.", file=sys.stderr)
+        return 2
 
     cur = load()
     its = items(cur)

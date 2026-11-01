@@ -4,27 +4,27 @@
 
 The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09, 10) combined into one private course repository, `Sourav692/rag-agents-engineering`, organised by the RAG & Agents Engineering curriculum.
 
-**Status: built and in use.** 13 parts · 45 modules · 377 notebooks (211 mandatory, 166 optional) · about 214 h. Operating model: **Option B**, source repos canonical.
+**Status: built and in use.** 13 parts · 45 modules · 377 notebooks (211 mandatory, 166 optional) · about 214 h. Operating model: **Option A**, this repo canonical.
 
 ## Decision
 
-**Built, and generated from the source repos with a migration script rather than copied by hand.** The source repos stay canonical: fix a notebook there, then re-sync. The course repo is never edited directly.
+**Built from the source repos with a migration script, then made canonical (Option A, 1 Nov 2026).** Notebooks, helpers and data are edited here; the source repos are archived.
 
 ### What the combined repo gives
 
 - **One learning path.** 13 parts and 45 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Agentic RAG Architectures: Choosing a Design (M45).
 - **Tiers visible on disk.** notebooks/ holds the 211 mandatory notebooks; optional/, exercises/ and projects/ hold the other 166.
 - **One environment.** One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts.
-- **Every notebook placed once.** All 377 notebooks from the 9 source repos sit in exactly one lesson; migrate.py --check and the tests enforce it.
+- **Every notebook placed once.** All 377 notebooks from the 9 source repos sit in exactly one lesson; the tests enforce it.
 - **Course-only content.** Module labs, 4 capstones, an interactive syllabus and a provenance CSV that the topic repos never had.
 
 ### How the risks were handled
 
-- **Two copies of every notebook.** Option B: the source repos stay canonical and the course is regenerated, never edited. Each sync is one "Sync from source repos" commit naming the source SHAs.
+- **Two copies of every notebook.** Option A: this repo is canonical. The last "Sync from source repos" commit names the final source SHAs, and the nine source repos are archived with a pointer here.
 - **Paths and imports move.** migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged.
 - **Mixed licences.** NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/.
 - **Visibility.** The course repo is private.
-- **Provenance.** docs/content-inventory.csv maps every one of the 1022 copied files to its source repo and path.
+- **Provenance.** docs/content-inventory.csv maps every one of the 990 copied files to its source repo and path.
 - **Dependency clashes.** pandas pinned >=2.2 for llama-index; colpali, finance and the protocol SDKs isolated as conflicting groups.
 - **Drift in reference docs.** Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale.
 
@@ -33,7 +33,7 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 ```text
 rag-agents-engineering/
 ├── README.md                  # Landing page: parts table, quick start, dependency groups
-├── CLAUDE.md                  # Operating rules (Option B), sync workflow, migration plan, the source repos' future
+├── CLAUDE.md                  # Operating rules (Option A: this repo is canonical), migration history
 ├── CURRICULUM.md              # Full syllabus, generated from curriculum.yaml
 ├── curriculum.yaml            # Single source of truth: parts, modules, lessons, every source file with tier and destination
 ├── pyproject.toml / uv.lock   # One environment; optional dependency groups with declared uv conflicts
@@ -101,10 +101,10 @@ rag-agents-engineering/
 │       └── m45_architecture_synthesis/  # 1 mandatory · 0 optional
 ├── capstones/                 # Enterprise Knowledge Assistant, Customer-Support Routing Copilot, Multi-Agent Research Analyst, Research GraphRAG Explorer
 ├── theory/                    # Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs
-├── src/                       # helpers/ (identical in 05, 08, 09 and 10, checked on every sync) and rag_paths.py (from 05, rewritten to course/ paths)
+├── src/                       # helpers/ (identical in 05, 08, 09 and 10 at the final sync) and rag_paths.py (from 05, rewritten to course/ paths)
 ├── data/                      # Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)
 ├── docs/                      # site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md
-├── scripts/                   # migrate.py (copy, rename, rewrite paths), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets
+├── scripts/                   # migrate.py (retired: the one-time copy from the source repos, kept as history), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets
 ├── tests/                     # 16 offline checks: manifest, tiers vs folders, module order, notebook JSON, stale paths, links, rag_paths, scripts compile and more
 └── .github/workflows/         # ci.yml: runs the tests and fails if generated files are out of date with curriculum.yaml
 ```
@@ -196,19 +196,19 @@ m38_mcp_foundations/
 5. **Done.** Merge the source repos' pyproject.toml dependency sets and .env.example files; run uv lock.
 6. **Done.** Port the checks: manifest, notebook JSON validity, stale paths, link check; CI on every push.
 7. **Done.** Generate READMEs, CURRICULUM.md, NOTICE.md, the interactive syllabus and these reference docs from curriculum.yaml.
-8. **Decided.** Decide the source repos' future: Option B (source repos stay canonical). Option A stays documented in CLAUDE.md.
+8. **Done.** Decide the source repos' future: Option A since 1 Nov 2026. After a final sync, this repo is canonical and the nine source repos are archived with a pointer here.
 
 ### What changed from the original proposal
 
 - Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.
-- Shared code was not merged into a course_helpers package: companion files are copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. Consolidating is step 3 of the Option A switch.
+- Shared code was not merged into a course_helpers package: companion files are copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. Consolidating them is optional step 3 of the Option A switch, not yet done.
 - Paths are rewritten to the new depth rather than routed through a data_dir() helper, for the same reason.
 - Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use notebooks/05_training and similar).
 - MCP sub-projects keep their source names under projects/, because repo 10 notebooks write into ../projects/<name>/.
 
-## Sync workflow (Option B)
+## Final sync (history)
 
-Clone the source repos next to the course repo, pull their `main`, then:
+Until 1 Nov 2026 the course was regenerated from the source repos with:
 
 ```bash
 uv run python scripts/migrate.py --sources .. --check   # every source notebook placed exactly once
@@ -217,13 +217,13 @@ uv run python scripts/build_curriculum.py               # regenerate CURRICULUM.
 uv run pytest -q                                        # offline checks
 ```
 
-Commit the result as one "Sync from source repos" commit naming the source commit SHAs, and merge it through a PR (CI must pass).
+`migrate.py` now refuses to run: it would delete every edit made here since.
 
 ## The source repos' future
 
 | Option | How it works | Best when |
 |---|---|---|
-| **A. Course repo becomes canonical** | Sync once more, archive the 9 source repos with a pointer README, edit notebooks in the course repo from then on | You teach from the course and stop maintaining the topic repos |
-| **B. Source repos stay canonical** *(current)* | Re-run `migrate.py` on each release; never edit notebooks in the course repo | The 14-repo series stays the main product and the course is a curated view |
+| **A. Course repo becomes canonical** *(current, 1 Nov 2026)* | Sync once more, archive the 9 source repos with a pointer README, edit notebooks in the course repo from then on | You teach from the course and stop maintaining the topic repos |
+| **B. Source repos stay canonical** *(until 1 Nov 2026)* | Re-run `migrate.py` on each release; never edit notebooks in the course repo | The 14-repo series stays the main product and the course is a curated view |
 
-Switching to A later is a checklist in [CLAUDE.md](../CLAUDE.md).
+The switch followed the checklist in [CLAUDE.md](../CLAUDE.md).

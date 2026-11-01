@@ -2,7 +2,7 @@
 
     uv run python scripts/build_curriculum.py
 
-Run it after scripts/migrate.py, or after editing curriculum.yaml by hand.
+Run it after editing curriculum.yaml, course READMEs' sources or theory pages.
 """
 import html
 import json
@@ -554,7 +554,7 @@ def build_html():
 
 # ---------- folder READMEs ----------
 GEN_NOTE = ("> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. "
-            "Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).\n")
+            "Notebooks are maintained in this repository (see `CLAUDE.md`).\n")
 PART_BY_ID = {p["id"]: p for p in PARTS}
 
 

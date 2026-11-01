@@ -1,6 +1,6 @@
 # M39 — Building MCP Servers & Clients
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part XI · Agent Protocols: MCP & A2A** · **Level:** Advanced · **Time:** ~4 h · **Notebooks:** 7 mandatory, 3 optional
 

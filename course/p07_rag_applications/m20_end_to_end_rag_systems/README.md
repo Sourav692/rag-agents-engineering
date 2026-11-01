@@ -1,6 +1,6 @@
 # M20 — End-to-End RAG Systems
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part VII · Building Complete RAG Applications** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 8 mandatory, 3 optional
 

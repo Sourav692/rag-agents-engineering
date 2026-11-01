@@ -91,4 +91,4 @@ These are engineering extras, not architectures:
 
 ## Housekeeping
 
-- `docs/patterns/all-agentic-architectures-overview.md` in repo 06 (archived here under `docs/source/06/patterns/`) is a copy of an older upstream README. It lists only the first 17 architectures (#1–#17), although #18–#35 are all taught. Updating it in repo 06 and re-syncing would make the coverage visible.
+- `docs/patterns/all-agentic-architectures-overview.md` in repo 06 (archived here under `docs/source/06/patterns/`) is a copy of an older upstream README. It lists only the first 17 architectures (#1–#17), although #18–#35 are all taught. Repo 06 is archived, so that copy stays as provenance; this page is the current list.
