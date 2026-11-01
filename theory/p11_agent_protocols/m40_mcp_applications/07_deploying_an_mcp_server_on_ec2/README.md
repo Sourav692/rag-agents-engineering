@@ -10,7 +10,7 @@ The 08 server is the 40.6 research server made to run on an Amazon Linux EC2 ins
 - `OpenAIEmbeddings(model="text-embedding-3-small")` replaces Ollama's `nomic-embed-text`, since the instance runs no Ollama; `load_dotenv()` supplies the API key.
 - `mcp.run(transport="http", host="0.0.0.0")` replaces stdio.
 
-`anaconda_setup.md` covers the machine: SSH in as `ec2-user`, install Anaconda, `pip install uv`. On the client side, Claude Desktop reaches the server through the `mcp-remote` bridge from [40.2](../02_mcp_servers_with_claude_desktop/README.md#claude-desktop).
+[The project's setup notes](../../../../course/p11_agent_protocols/m40_mcp_applications/projects/08_deploy_mcp_server_on_ec2/anaconda_setup.md) cover the machine: SSH in as `ec2-user`, install Anaconda, `pip install uv`. On the client side, Claude Desktop reaches the server through the `mcp-remote` bridge from [40.2](../02_mcp_servers_with_claude_desktop/README.md#claude-desktop).
 
 ```mermaid
 flowchart LR
