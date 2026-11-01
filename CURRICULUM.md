@@ -411,7 +411,7 @@ flowchart LR
 
 ## Part IV — RAG Foundations
 
-**Week 6 · Foundation** — Why retrieval exists, the four stages of a pipeline, and a baseline you will measure every later change against.
+**Week 6 · Foundation** — Why retrieval exists, the RAG lifecycle from indexing to generation, and a baseline you will measure every later change against.
 
 ### Module 11 — Why RAG & the RAG Lifecycle
 

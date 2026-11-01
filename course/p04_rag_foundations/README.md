@@ -4,7 +4,7 @@
 
 **Week 6 · Foundation**
 
-Why retrieval exists, the four stages of a pipeline, and a baseline you will measure every later change against.
+Why retrieval exists, the RAG lifecycle from indexing to generation, and a baseline you will measure every later change against.
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|
