@@ -268,7 +268,7 @@ STEPS = [
 ]
 CHANGED = [
     "Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.",
-    "Shared code was not merged into a course_helpers package: companion files are copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. Consolidating them is optional step 3 of the Option A switch, not yet done.",
+    "Companion files were copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. After the switch to Option A, the 24 copies each of helper_functions.py and evalute_rag.py became one-line shims over src/rag_techniques/.",
     "Paths are rewritten to the new depth rather than routed through a data_dir() helper, for the same reason.",
     "Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use notebooks/05_training and similar).",
     "MCP sub-projects keep their source names under projects/, because repo 10 notebooks write into ../projects/<name>/.",
@@ -330,7 +330,7 @@ def combined_repo():
     support = [
         ("capstones/", ", ".join(c["title"] for c in CUR["capstones"])),
         ("theory/", "Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs"),
-        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync) and rag_paths.py (from 05, rewritten to course/ paths)"),
+        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, rewritten to course/ paths)"),
         ("data/", "Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)"),
         ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, "
                   "content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md"),
