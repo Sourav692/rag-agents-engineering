@@ -8,7 +8,7 @@ Writes RAG_TRACKS, RAG_MODULES and RAG_LESSONS, typed for the site's curriculum.
   docs/fde-site-mistakes.yaml (each module's common mistakes, drawn from its Check yourself),
 - theory/ (which lessons have a page, labs, reading length, the first interview question).
 
-Each part is one track with one section; each module's lessons are its Overview, its lesson
+Each part is one track with one section; each module's lessons are its overview, its lesson
 pages in order and its Interview questions, with `source` set to the copy that
 site/scripts/rag-theory-import.mjs vendors. Lessons without a page are `notebookOnly` items.
 The field-by-field mapping is UX-03 in the integration plan. Same input, same bytes.
@@ -77,6 +77,22 @@ def british(text: str) -> str:
     return "".join(p if i % 2 else prose(p) for i, p in enumerate(re.split(r"(`[^`]*`)", text)))
 
 
+# How a word in a notebook file name is spelled on the site, where its case matters.
+CASED = {w: w.upper() for w in ("a2a", "ai", "api", "aws", "crag", "ec2", "gpt", "hf", "json", "llm", "mcp", "pdf",
+                                "rag", "sql", "sse", "ui", "url")}
+CASED |= {"apis": "APIs", "llms": "LLMs", "python": "Python", "flask": "Flask", "groq": "Groq", "openai": "OpenAI",
+          "langchain": "LangChain", "langgraph": "LangGraph", "llamaindex": "LlamaIndex", "hyde": "HyDE", "pandas": "pandas"}
+
+
+def file_title(name: str) -> str:
+    """A readable title for a notebook or project file: `02a_creating_an_mcp_server.ipynb` is
+    "Creating an MCP server", so the site never shows a bare file name."""
+    stem = re.sub(r"^\d+[a-z]?_", "", Path(name).stem)
+    words_ = [CASED.get(w.lower(), w) for w in re.split(r"[_\-\s]+", stem) if w]
+    title = " ".join(words_)
+    return british(title[:1].upper() + title[1:])
+
+
 def words(text: str) -> int:
     return len(re.sub(r"```.*?```", " ", text, flags=re.S).split())
 
@@ -92,7 +108,8 @@ def module_entry(m: dict, code: str, track: dict, ids: dict, mistakes: list[str]
     tdir = ROOT / theory_dir(m)
     readme = (tdir / "README.md").read_text()
     vendored = f"{VENDORED}/{theory_dir(m).split('/', 1)[1]}"
-    lessons = [{"slug": ids["overview"], "title": "Overview", "source": f"{vendored}/00_overview.md"}]
+    title = british(m["title"])
+    lessons = [{"slug": ids["overview"], "title": f"{title}: overview", "source": f"{vendored}/00_overview.md"}]
     notebook_only = []
     minutes, labs = words(readme) / WPM, 0
     for n, les in enumerate(m["lessons"], 1):
@@ -106,23 +123,22 @@ def module_entry(m: dict, code: str, track: dict, ids: dict, mistakes: list[str]
                             "source": f"{vendored}/{folder}.md"})
         else:
             notebook_only.append({"title": british(les["title"]), "notebooks": [
-                {"title": it["file"], "href": f"{GH}{module_dir(m)}/{it['folder']}/{it['file']}",
+                {"title": file_title(it["file"]), "href": f"{GH}{module_dir(m)}/{it['folder']}/{it['file']}",
                  "optional": it["tier"] != "mandatory"}
                 for it in les["items"]]})
-    lessons.append({"slug": ids["interview"], "title": "Interview questions",
+    lessons.append({"slug": ids["interview"], "title": f"{title}: interview questions",
                     "source": f"{vendored}/99_interview_questions.md"})
     notebook_hours = max(0.0, round((m["hours"] * 60 - minutes) / 30) / 2)
-    scope = f"Course module M{m['num']:02d}."
-    if notebook_hours:
-        scope += f" Plus about {notebook_hours:g} h of notebook work on GitHub."
+    # The site numbers modules itself, so the course's M-number stays out of the copy.
+    scope = f"About {notebook_hours:g} h of notebook work on GitHub, beyond these pages" if notebook_hours else ""
     module = {
-        "slug": ids["slug"], "code": code, "title": british(m["title"]),
+        "slug": ids["slug"], "code": code, "title": title,
         "track": track["slug"], "section": track["section"],
         "status": "ready", **({"practiceMinutes": LAB_MINUTES} if labs else {}),
         "objective": british(m["objectives"][0]), "scope": scope, "prerequisites": [], "deliverable": british(m["lab"]),
         "assessment": "Answer the five Interview questions without notes" + (", then run the lab." if labs else "."),
         "interviewProbe": first_question(readme), "commonMistakes": [british(x) for x in mistakes],
-        "lessons": [les["slug"] for les in lessons], "seeAlso": [],
+        "lessons": [les["slug"] for les in lessons], "seeAlso": ids.get("seeAlso", []),
         **({"notebookOnly": notebook_only} if notebook_only else {}),
     }
     home = [{**les, "home": ids["slug"], "kind": "sync", "publish": "own"} for les in lessons]
@@ -144,7 +160,9 @@ def export() -> str:
             modules.append(module)
             lessons += home
         tracks.append({
-            "slug": t["slug"], "code": t["code"], "title": british(p["title"]), "objective": british(p["summary"]),
+            # The site's track page ends the objective with its own full stop.
+            "slug": t["slug"], "code": t["code"], "title": british(p["title"]),
+            "objective": british(p["summary"]).rstrip("."),
             "forWhom": c["forWhom"],
             "prerequisites": [prerequisite], "required": "no" if p["id"] in OPTIONAL_PARTS else "yes",
             "exitCompetencies": c["exitCompetencies"],
