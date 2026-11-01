@@ -4,7 +4,7 @@
 
 The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09, 10) combined into one public course repository, `Sourav692/rag-agents-engineering`, organised by the RAG & Agents Engineering curriculum.
 
-**Status: built and in use.** 13 parts · 45 modules · 377 notebooks (211 mandatory, 166 optional) · about 214 h. Operating model: **Option A**, this repo canonical.
+**Status: built and in use.** 13 parts · 45 modules · 382 notebooks (211 mandatory, 171 optional) · about 214 h. Operating model: **Option A**, this repo canonical.
 
 ## Decision
 
@@ -13,9 +13,9 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 ### What the combined repo gives
 
 - **One learning path.** 13 parts and 45 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Agentic RAG Architectures: Choosing a Design (M45).
-- **Tiers visible on disk.** notebooks/ holds the 211 mandatory notebooks; optional/, exercises/ and projects/ hold the other 166.
+- **Tiers visible on disk.** notebooks/ holds the 211 mandatory notebooks; optional/, exercises/ and projects/ hold the other 171.
 - **One environment.** One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts.
-- **Every notebook placed once.** All 377 notebooks from the 9 source repos sit in exactly one lesson; the tests enforce it.
+- **Every notebook placed once.** All 382 notebooks from the 9 source repos sit in exactly one lesson; the tests enforce it.
 - **Course-only content.** Module labs, 4 capstones, an interactive syllabus and a provenance CSV that the topic repos never had.
 
 ### How the risks were handled
@@ -24,7 +24,7 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 - **Paths and imports move.** migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged.
 - **Mixed licences.** NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/.
 - **Visibility.** The course repo is public; the source repos it was built from are archived.
-- **Provenance.** docs/content-inventory.csv maps every one of the 990 copied files to its source repo and path.
+- **Provenance.** docs/content-inventory.csv maps every one of the 995 copied files to its source repo and path.
 - **Dependency clashes.** pandas pinned >=2.2 for llama-index; colpali, finance and the protocol SDKs isolated as conflicting groups.
 - **Drift in reference docs.** Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale.
 
@@ -87,7 +87,7 @@ rag-agents-engineering/
 │   │   ├── m34_long_term_agentic_memory/  # 6 mandatory · 5 optional
 │   │   ├── m35_multi_agent_architectures/  # 6 mandatory · 3 optional
 │   │   ├── m36_collaboration_parallel_agents/  # 4 mandatory · 5 optional
-│   │   └── m37_multi_agent_builds_deep_agents/  # 6 mandatory · 8 optional
+│   │   └── m37_multi_agent_builds_deep_agents/  # 6 mandatory · 13 optional
 │   ├── p11_agent_protocols/  # Part XI · Weeks 21–22
 │   │   ├── m38_mcp_foundations/  # 6 mandatory · 1 optional
 │   │   ├── m39_building_mcp_servers_and_clients/  # 0 mandatory · 0 optional

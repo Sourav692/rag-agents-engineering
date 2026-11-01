@@ -12,4 +12,4 @@ Conversation and long-term memory as retrieval over the agent's own history, the
 | [M34 Long-Term & Agentic Memory](m34_long_term_agentic_memory/README.md) | Advanced | ~5 h | 6 | 5 |
 | [M35 Multi-Agent Architectures](m35_multi_agent_architectures/README.md) | Advanced | ~5 h | 6 | 3 |
 | [M36 Collaboration, Control & Parallel Agents](m36_collaboration_parallel_agents/README.md) | Expert | ~4 h | 4 | 5 |
-| [M37 Multi-Agent Applied Builds & Deep Agents](m37_multi_agent_builds_deep_agents/README.md) | Expert | ~6 h | 7 | 10 |
+| [M37 Multi-Agent Applied Builds & Deep Agents](m37_multi_agent_builds_deep_agents/README.md) | Expert | ~6 h | 7 | 15 |

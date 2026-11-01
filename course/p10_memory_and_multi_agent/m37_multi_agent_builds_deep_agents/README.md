@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part X · Memory & Multi-Agent RAG** · **Level:** Expert · **Time:** ~6 h · **Notebooks:** 7 mandatory, 10 optional
+**Part X · Memory & Multi-Agent RAG** · **Level:** Expert · **Time:** ~6 h · **Notebooks:** 7 mandatory, 15 optional
 
 ## Why it matters
 
@@ -33,6 +33,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | 37.4 | Developer vs tester agents *(optional lesson)* | — | [`04a_developer_vs_tester_agents.ipynb`](optional/04a_developer_vs_tester_agents.ipynb) *(extension)* |
 | 37.5 | Research systems: supervisor financial research, summarisation, full research system ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/05_research_systems_supervisor_financial_research_summarisation_full_research_system/README.md)) | [`05c_multi_agent_research_system.ipynb`](notebooks/05c_multi_agent_research_system.ipynb) | [`05a_supervisor_financial_research.ipynb`](optional/05a_supervisor_financial_research.ipynb) *(extension)*<br>[`05b_multi_agent_research_summarization.ipynb`](optional/05b_multi_agent_research_summarization.ipynb) *(extension)* |
 | 37.6 | Deep agents: orchestrator, sub-agents, skills and long-term memory ([theory](../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/06_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md)) | [`06a_simple_coding_agent.py`](notebooks/06a_simple_coding_agent.py) | [`06b_long_term_memory_agent.py`](optional/06b_long_term_memory_agent.py) *(extension)*<br>[`06c_skills`](optional/06c_skills) *(extension)* |
+| 37.7 | Five practical agent patterns, side by side *(optional lesson)* | — | [`07a_sequential_and_conditional_workflows.ipynb`](optional/07a_sequential_and_conditional_workflows.ipynb) *(extension)*<br>[`07b_supervisor_agents_as_tools.ipynb`](optional/07b_supervisor_agents_as_tools.ipynb) *(extension)*<br>[`07c_parallel_fan_out_fan_in.ipynb`](optional/07c_parallel_fan_out_fan_in.ipynb) *(extension)*<br>[`07d_generator_critic_loop.ipynb`](optional/07d_generator_critic_loop.ipynb) *(extension)*<br>[`07e_handoffs_with_swarm.ipynb`](optional/07e_handoffs_with_swarm.ipynb) *(extension)* |
 
 ## Hands-on lab
 
@@ -72,3 +73,8 @@ Research team: build a supervisor with a RAG researcher, a web researcher and a 
 | `notebooks/06a_simple_coding_agent.py` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/11_deep_agents_and_harness_engineering/notebooks/simple_coding_agent.py` |
 | `optional/06b_long_term_memory_agent.py` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/11_deep_agents_and_harness_engineering/notebooks/long_term_memory_agent.py` |
 | `optional/06c_skills` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/11_deep_agents_and_harness_engineering/notebooks/skills` |
+| `optional/07a_sequential_and_conditional_workflows.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/12_five_practical_agent_patterns/notebooks/01_sequential_and_conditional_workflows.ipynb` |
+| `optional/07b_supervisor_agents_as_tools.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/12_five_practical_agent_patterns/notebooks/02_supervisor_agents_as_tools.ipynb` |
+| `optional/07c_parallel_fan_out_fan_in.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/12_five_practical_agent_patterns/notebooks/03_parallel_fan_out_fan_in.ipynb` |
+| `optional/07d_generator_critic_loop.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/12_five_practical_agent_patterns/notebooks/04_generator_critic_loop.ipynb` |
+| `optional/07e_handoffs_with_swarm.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/12_five_practical_agent_patterns/notebooks/05_handoffs_with_swarm.ipynb` |

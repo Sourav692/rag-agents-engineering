@@ -4,7 +4,7 @@ Guidance for Claude (and people) working in this repository.
 
 ## What this repo is
 
-The **RAG & Agents Engineering** course: 13 parts, 45 modules and 377 notebooks, laid out in syllabus order. It was **built** from nine source repositories, which are now archived:
+The **RAG & Agents Engineering** course: 13 parts, 45 modules and 382 notebooks, laid out in syllabus order. It was **built** from nine source repositories, which are now archived:
 
 | Key | Source repo (archived) | Topic |
 |---|---|---|

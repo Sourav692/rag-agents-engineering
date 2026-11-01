@@ -12,7 +12,7 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 | [`ai-engineering-demystified-04-langgraph-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-04-langgraph-fundamentals) | LangGraph fundamentals | 19 |
 | [`ai-engineering-demystified-05-retrieval-rag`](https://github.com/Sourav692/ai-engineering-demystified-05-retrieval-rag) | Retrieval & RAG | 102 |
 | [`ai-engineering-demystified-06-agent-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals) | Agent fundamentals | 64 |
-| [`ai-engineering-demystified-08-advanced-agent-systems`](https://github.com/Sourav692/ai-engineering-demystified-08-advanced-agent-systems) | Advanced agent systems | 53 |
+| [`ai-engineering-demystified-08-advanced-agent-systems`](https://github.com/Sourav692/ai-engineering-demystified-08-advanced-agent-systems) | Advanced agent systems | 58 |
 | [`ai-engineering-demystified-09-advanced-rag`](https://github.com/Sourav692/ai-engineering-demystified-09-advanced-rag) | Advanced RAG | 32 |
 | [`ai-engineering-demystified-10-agent-protocols`](https://github.com/Sourav692/ai-engineering-demystified-10-agent-protocols) | Agent protocols | 10 |
 
@@ -20,7 +20,7 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 
 | Parts | Modules | Lessons | Notebooks mapped | Mandatory | Optional | Suggested effort | Pace |
 |---|---|---|---|---|---|---|---|
-| 13 | 45 + capstone | 226 | 377 | 211 | 166 | ~214 hours | 26 weeks at ~8 h/week |
+| 13 | 45 + capstone | 227 | 382 | 211 | 171 | ~214 hours | 26 weeks at ~8 h/week |
 
 ## Who this course is for
 
@@ -63,7 +63,7 @@ By the end of the course you can:
 
 ## Mandatory vs optional notebooks
 
-You do not need every notebook. **211 of 377 notebooks are mandatory**; the other 166 are optional.
+You do not need every notebook. **211 of 382 notebooks are mandatory**; the other 171 are optional.
 
 **Rule:** each lesson keeps the one notebook (two, when they teach two distinct ideas) that you need for the lesson objective and the module lab. Everything else is optional for one of three reasons:
 
@@ -71,7 +71,7 @@ You do not need every notebook. **211 of 377 notebooks are mandatory**; the othe
 |---|---|---|
 | **Alternate** | Same idea taught again from another source course, or the same pattern in another API (e.g. LCEL instead of LangGraph) | 52 |
 | **Platform-specific** | Needs a particular vendor or extra infrastructure: Databricks, Astra DB, Postgres, Milvus, Contextual AI, ColPali GPU stack | 13 |
-| **Extension** | Extra applied example, reference material or a niche variant; useful practice, not needed for the lab | 101 |
+| **Extension** | Extra applied example, reference material or a niche variant; useful practice, not needed for the lab | 106 |
 
 If a lesson has no mandatory notebook, the whole lesson is optional.
 
@@ -1164,7 +1164,7 @@ flowchart LR
 
 ### Module 37 — Multi-Agent Applied Builds & Deep Agents
 
-**Level:** Expert · **Time:** ~6 h · **Notebooks:** 7 mandatory, 10 optional · **Source:** `08/10_multi_agent_applied_builds`, `08/11_deep_agents_and_harness_engineering`
+**Level:** Expert · **Time:** ~6 h · **Notebooks:** 7 mandatory, 15 optional · **Source:** `08/10_multi_agent_applied_builds`, `08/11_deep_agents_and_harness_engineering`
 
 **Why it matters.** The applied builds show what production multi-agent systems need beyond the happy path: compliance checks, edge cases, testing, error handling and memory merging.
 
@@ -1185,6 +1185,7 @@ flowchart LR
 | 37.4 | Developer vs tester agents *(optional lesson)* | — | [`04a_developer_vs_tester_agents`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/04a_developer_vs_tester_agents.ipynb) *(extension)* |
 | 37.5 | Research systems: supervisor financial research, summarisation, full research system | [`05c_multi_agent_research_system`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/05c_multi_agent_research_system.ipynb) | [`05a_supervisor_financial_research`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/05a_supervisor_financial_research.ipynb) *(extension)*<br>[`05b_multi_agent_research_summarization`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/05b_multi_agent_research_summarization.ipynb) *(extension)* |
 | 37.6 | Deep agents: orchestrator, sub-agents, skills and long-term memory | [`06a_simple_coding_agent`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/06a_simple_coding_agent.py) | [`06b_long_term_memory_agent`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/06b_long_term_memory_agent.py) *(extension)*<br>[`06c_skills`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/06c_skills) *(extension)* |
+| 37.7 | Five practical agent patterns, side by side *(optional lesson)* | — | [`07a_sequential_and_conditional_workflows`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/07a_sequential_and_conditional_workflows.ipynb) *(extension)*<br>[`07b_supervisor_agents_as_tools`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/07b_supervisor_agents_as_tools.ipynb) *(extension)*<br>[`07c_parallel_fan_out_fan_in`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/07c_parallel_fan_out_fan_in.ipynb) *(extension)*<br>[`07d_generator_critic_loop`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/07d_generator_critic_loop.ipynb) *(extension)*<br>[`07e_handoffs_with_swarm`](course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/07e_handoffs_with_swarm.ipynb) *(extension)* |
 
 **Hands-on lab.** Research team: build a supervisor with a RAG researcher, a web researcher and a writer that cites sources, then test it on edge cases (no results, conflicting sources, tool failure).
 
@@ -1586,6 +1587,7 @@ Every notebook in the source repositories, by source module, and the course modu
 | 08 | `09_async_and_parallel_multi_agent` | 2 | 2 | M36 |
 | 08 | `10_multi_agent_applied_builds` | 14 | 6 | M37 |
 | 08 | `11_deep_agents_and_harness_engineering` | 0 | 0 | M37 |
+| 08 | `12_five_practical_agent_patterns` | 5 | 0 | M37 |
 | 09 | `01_retrieval_grading_and_query_rewriting` | 3 | 2 | M28 |
 | 09 | `02_corrective_rag` | 2 | 1 | M29 |
 | 09 | `03_self_rag` | 2 | 1 | M29 |
