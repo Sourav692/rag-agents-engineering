@@ -130,11 +130,14 @@ def module_entry(m: dict, code: str, track: dict, ids: dict, mistakes: list[str]
                     "source": f"{vendored}/99_interview_questions.md"})
     notebook_hours = max(0.0, round((m["hours"] * 60 - minutes) / 30) / 2)
     # The site numbers modules itself, so the course's M-number stays out of the copy.
-    scope = f"About {notebook_hours:g} h of notebook work on GitHub, beyond these pages" if notebook_hours else ""
+    scope = f"Practice time includes about {notebook_hours:g} h of notebook work on GitHub" if notebook_hours else ""
+    # Practice is the labs plus the notebook work, as the site counts worksheets and builds,
+    # so reading plus practice comes back to the course's own estimate for the module.
+    practice = LAB_MINUTES * labs + round(notebook_hours * 60)
     module = {
         "slug": ids["slug"], "code": code, "title": title,
         "track": track["slug"], "section": track["section"],
-        "status": "ready", **({"practiceMinutes": LAB_MINUTES} if labs else {}),
+        "status": "ready", **({"practiceMinutes": practice} if practice else {}),
         "objective": british(m["objectives"][0]), "scope": scope, "prerequisites": [], "deliverable": british(m["lab"]),
         "assessment": "Answer the five Interview questions without notes" + (", then run the lab." if labs else "."),
         "interviewProbe": first_question(readme), "commonMistakes": [british(x) for x in mistakes],
