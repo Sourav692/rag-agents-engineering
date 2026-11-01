@@ -1,6 +1,6 @@
 # M24 — ReAct Agents & LangChain create_agent
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part VIII · Agent Foundations for RAG** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 7 optional
 

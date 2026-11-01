@@ -1,6 +1,6 @@
 # M18 — Query Transformation & Routing
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part VI · Retrieval Quality Engineering** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 9 mandatory, 6 optional
 

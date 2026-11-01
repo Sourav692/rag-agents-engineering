@@ -264,11 +264,11 @@ STEPS = [
     ("Done", "Merge the source repos' pyproject.toml dependency sets and .env.example files; run uv lock."),
     ("Done", "Port the checks: manifest, notebook JSON validity, stale paths, link check; CI on every push."),
     ("Done", "Generate READMEs, CURRICULUM.md, NOTICE.md, the interactive syllabus and these reference docs from curriculum.yaml."),
-    ("Decided", "Decide the source repos' future: Option B (source repos stay canonical). Option A stays documented in CLAUDE.md."),
+    ("Done", "Decide the source repos' future: Option A since 1 Nov 2026. After a final sync, this repo is canonical and the nine source repos are archived with a pointer here."),
 ]
 CHANGED = [
     "Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.",
-    "Shared code was not merged into a course_helpers package: companion files are copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. Consolidating is step 3 of the Option A switch.",
+    "Shared code was not merged into a course_helpers package: companion files are copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. Consolidating them is optional step 3 of the Option A switch, not yet done.",
     "Paths are rewritten to the new depth rather than routed through a data_dir() helper, for the same reason.",
     "Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use notebooks/05_training and similar).",
     "MCP sub-projects keep their source names under projects/, because repo 10 notebooks write into ../projects/<name>/.",
@@ -319,7 +319,7 @@ def combined_repo():
 
     top = [
         ("README.md", "Landing page: parts table, quick start, dependency groups"),
-        ("CLAUDE.md", "Operating rules (Option B), sync workflow, migration plan, the source repos' future"),
+        ("CLAUDE.md", "Operating rules (Option A: this repo is canonical), migration history"),
         ("CURRICULUM.md", "Full syllabus, generated from curriculum.yaml"),
         ("curriculum.yaml", "Single source of truth: parts, modules, lessons, every source file with tier and destination"),
         ("pyproject.toml / uv.lock", "One environment; optional dependency groups with declared uv conflicts"),
@@ -330,11 +330,11 @@ def combined_repo():
     support = [
         ("capstones/", ", ".join(c["title"] for c in CUR["capstones"])),
         ("theory/", "Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs"),
-        ("src/", "helpers/ (identical in 05, 08, 09 and 10, checked on every sync) and rag_paths.py (from 05, rewritten to course/ paths)"),
+        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync) and rag_paths.py (from 05, rewritten to course/ paths)"),
         ("data/", "Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)"),
         ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, "
                   "content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md"),
-        ("scripts/", "migrate.py (copy, rename, rewrite paths), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets"),
+        ("scripts/", "migrate.py (retired: the one-time copy from the source repos, kept as history), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets"),
         ("tests/", f"{n_tests} offline checks: manifest, tiers vs folders, module order, notebook JSON, stale paths, links, rag_paths, scripts compile and more"),
         (".github/workflows/", "ci.yml: runs the tests and fails if generated files are out of date with curriculum.yaml"),
     ]
@@ -342,11 +342,11 @@ def combined_repo():
         ("One learning path", f"{n_parts} parts and {n_mods} modules in syllabus order, from {MODULES[0]['title']} ({first}) to {MODULES[-1]['title']} ({last})."),
         ("Tiers visible on disk", f"notebooks/ holds the {n_man} mandatory notebooks; optional/, exercises/ and projects/ hold the other {n_opt}."),
         ("One environment", "One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts."),
-        ("Every notebook placed once", f"All {n_nb} notebooks from the {n_src} source repos sit in exactly one lesson; migrate.py --check and the tests enforce it."),
+        ("Every notebook placed once", f"All {n_nb} notebooks from the {n_src} source repos sit in exactly one lesson; the tests enforce it."),
         ("Course-only content", f"Module labs, {len(CUR['capstones'])} capstones, an interactive syllabus and a provenance CSV that the topic repos never had."),
     ]
     handled = [
-        ("Two copies of every notebook", "Option B: the source repos stay canonical and the course is regenerated, never edited. Each sync is one \"Sync from source repos\" commit naming the source SHAs."),
+        ("Two copies of every notebook", "Option A: this repo is canonical. The last \"Sync from source repos\" commit names the final source SHAs, and the nine source repos are archived with a pointer here."),
         ("Paths and imports move", "migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged."),
         ("Mixed licences", "NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/."),
         ("Visibility", "The course repo is private."),
@@ -393,10 +393,10 @@ def combined_repo():
     L = ["# Combined Course Repo", "", GEN_NOTE.format(extra=""),
          f"The {n_src} *AI Engineering Demystified* source repos ({keys}) combined into one private course repository, "
          f"`Sourav692/{COURSE_REPO}`, organised by the RAG & Agents Engineering curriculum.", "",
-         f"**Status: built and in use.** {status}. Operating model: **Option B**, source repos canonical.", "",
+         f"**Status: built and in use.** {status}. Operating model: **Option A**, this repo canonical.", "",
          "## Decision", "",
-         "**Built, and generated from the source repos with a migration script rather than copied by hand.** The source repos stay "
-         "canonical: fix a notebook there, then re-sync. The course repo is never edited directly.", "",
+         "**Built from the source repos with a migration script, then made canonical (Option A, 1 Nov 2026).** Notebooks, helpers "
+         "and data are edited here; the source repos are archived.", "",
          "### What the combined repo gives", ""]
     L += [f"- **{a}.** {b}" for a, b in outcomes]
     L += ["", "### How the risks were handled", ""] + [f"- **{a}.** {b}" for a, b in handled]
@@ -409,13 +409,13 @@ def combined_repo():
     L += [f"| `{g}` | {c} | {needed_by(k, x)} |" for g, c, k, x in GROUPS]
     L += ["", "## Migration plan", ""] + [f"{i}. **{s}.** {t}" for i, (s, t) in enumerate(STEPS, 1)]
     L += ["", "### What changed from the original proposal", ""] + [f"- {c}" for c in CHANGED]
-    L += ["", "## Sync workflow (Option B)", "", "Clone the source repos next to the course repo, pull their `main`, then:", "", "```bash"] + SYNC + ["```", "",
-          "Commit the result as one \"Sync from source repos\" commit naming the source commit SHAs, and merge it through a PR (CI must pass).", "",
+    L += ["", "## Final sync (history)", "", "Until 1 Nov 2026 the course was regenerated from the source repos with:", "", "```bash"] + SYNC + ["```", "",
+          "`migrate.py` now refuses to run: it would delete every edit made here since.", "",
           "## The source repos' future", "",
           "| Option | How it works | Best when |", "|---|---|---|",
-          f"| **A. Course repo becomes canonical** | Sync once more, archive the {n_src} source repos with a pointer README, edit notebooks in the course repo from then on | You teach from the course and stop maintaining the topic repos |",
-          "| **B. Source repos stay canonical** *(current)* | Re-run `migrate.py` on each release; never edit notebooks in the course repo | The 14-repo series stays the main product and the course is a curated view |",
-          "", "Switching to A later is a checklist in [CLAUDE.md](../CLAUDE.md)."]
+          f"| **A. Course repo becomes canonical** *(current, 1 Nov 2026)* | Sync once more, archive the {n_src} source repos with a pointer README, edit notebooks in the course repo from then on | You teach from the course and stop maintaining the topic repos |",
+          "| **B. Source repos stay canonical** *(until 1 Nov 2026)* | Re-run `migrate.py` on each release; never edit notebooks in the course repo | The 14-repo series stays the main product and the course is a curated view |",
+          "", "The switch followed the checklist in [CLAUDE.md](../CLAUDE.md)."]
     write("docs/combined-repo.md", "\n".join(L))
 
     # HTML
@@ -424,12 +424,12 @@ def combined_repo():
          "<title>Combined Course Repo</title>", FONTS, f"<style>{css}{REPO_CSS_EXTRA}</style></head><body><div class='wrap'>",
          f"<header class='hero'><p class='eyebrow'>As built · {n_src} source repos → <a href='{COURSE_URL}' target='_blank' rel='noopener'>Sourav692/{COURSE_REPO}</a> (private)</p><h1>Combined Course Repo</h1>",
          f"<p class='lede'>The {n_src} AI Engineering Demystified repos ({E(keys)}) combined into one course repository, organised by the "
-         "RAG &amp; Agents Engineering curriculum and regenerated from the source repos on every release.</p></header>",
+         "RAG &amp; Agents Engineering curriculum, and maintained here since the source repos were archived.</p></header>",
          "<section class='kpis'>" + "".join(f"<div class='stat'><b>{v}</b><span>{E(k)}</span></div>" for v, k in [
              (n_parts, "parts"), (n_mods, "modules"), (n_nb, "notebooks"), (n_man, "mandatory"), (n_opt, "optional"),
              (f"~{hours} h", CUR["parts"][-1]["weeks"].split("–")[-1] + " weeks"), (n_src, "source repos")]) + "</section>",
-         "<section class='verdict2'><p><strong>Built, and generated from the source repos with a migration script rather than copied by hand.</strong> "
-         "Operating model: <strong>Option B</strong>. The source repos stay canonical; fix a notebook there and re-sync. The course repo is never edited directly.</p></section>",
+         "<section class='verdict2'><p><strong>Built from the source repos with a migration script, then made canonical.</strong> "
+         "Operating model: <strong>Option A</strong> (since 1 Nov 2026). Notebooks, helpers and data are edited here; the source repos are archived.</p></section>",
          "<section class='pc'><div class='card'><h3>What the combined repo gives</h3><ul>" + "".join(f"<li><strong>{E(a)}.</strong> {E(b)}</li>" for a, b in outcomes) + "</ul></div>"
          "<div class='card'><h3>How the risks were handled</h3><ul>" + "".join(f"<li><strong>{E(a)}.</strong> {E(b)}</li>" for a, b in handled) + "</ul></div></section>",
          "<section><div class='sec-head'><h2>Repository layout</h2><p>Open a Part and a module to see every file at its course path. Hover a file to see where it comes from.</p></div>"
@@ -466,14 +466,14 @@ def combined_repo():
              + "".join(f"<li><strong>{E(a)}:</strong> {code(b)}</li>" for a, b in conventions) + "</ul></section>")
     H.append("<section><div class='sec-head'><h2>Dependency groups</h2></div><div class='tbl'><table><thead><tr><th>Group</th><th>Contents</th><th>Needed by</th></tr></thead><tbody>"
              + "".join(f"<tr><td><code>{E(g)}</code></td><td>{E(c)}</td><td>{E(needed_by(k, x))}</td></tr>" for g, c, k, x in GROUPS) + "</tbody></table></div></section>")
-    H.append("<section><div class='sec-head'><h2>Migration plan</h2><p>Steps 1–7 are done; step 8 is decided.</p></div><ol class='steps'>"
+    H.append("<section><div class='sec-head'><h2>Migration plan</h2><p>All eight steps are done.</p></div><ol class='steps'>"
              + "".join(f"<li><span class='badge {'b-done' if s == 'Done' else 'b-dec'}'>{s}</span>{E(t)}</li>" for s, t in STEPS) + "</ol>"
              "<h3>What changed from the original proposal</h3><ul class='steps'>" + "".join(f"<li>{E(c)}</li>" for c in CHANGED) + "</ul></section>")
-    H.append("<section><div class='sec-head'><h2>Sync workflow (Option B)</h2><p>Clone the source repos next to the course repo, pull their main, then run:</p></div>"
-             f"<pre class='code'>{E(chr(10).join(SYNC))}</pre><p style='margin:0'>Commit the result as one “Sync from source repos” commit naming the source commit SHAs, and merge it through a PR (CI must pass).</p></section>")
-    H.append("<section><div class='sec-head'><h2>The source repos’ future</h2><p>Switching to A later is a checklist in the course repo’s CLAUDE.md.</p></div><div class='tbl'><table><thead><tr><th>Option</th><th>How it works</th><th>Best when</th></tr></thead><tbody>"
-             f"<tr><td><strong>A. Course repo becomes canonical</strong></td><td>Sync once more, archive the {n_src} source repos with a pointer README, edit notebooks in the course repo from then on</td><td>You teach from the course and stop maintaining the topic repos</td></tr>"
-             "<tr><td><strong>B. Source repos stay canonical</strong> <span class='badge b-done'>current</span></td><td>Re-run migrate.py on each release; never edit notebooks in the course repo</td><td>The 14-repo series stays the main product and the course is a curated view</td></tr></tbody></table></div></section>")
+    H.append("<section><div class='sec-head'><h2>Final sync (history)</h2><p>Until 1 Nov 2026 the course was regenerated from the source repos with:</p></div>"
+             f"<pre class='code'>{E(chr(10).join(SYNC))}</pre><p style='margin:0'><code>migrate.py</code> now refuses to run: it would delete every edit made here since.</p></section>")
+    H.append("<section><div class='sec-head'><h2>The source repos’ future</h2><p>The switch followed the checklist in the course repo’s CLAUDE.md.</p></div><div class='tbl'><table><thead><tr><th>Option</th><th>How it works</th><th>Best when</th></tr></thead><tbody>"
+             f"<tr><td><strong>A. Course repo becomes canonical</strong> <span class='badge b-done'>current</span></td><td>Sync once more, archive the {n_src} source repos with a pointer README, edit notebooks in the course repo from then on</td><td>You teach from the course and stop maintaining the topic repos</td></tr>"
+             "<tr><td><strong>B. Source repos stay canonical</strong> (until 1 Nov 2026)</td><td>Re-run migrate.py on each release; never edit notebooks in the course repo</td><td>The 14-repo series stays the main product and the course is a curated view</td></tr></tbody></table></div></section>")
     H.append("</div><script>document.getElementById('exp').onclick=()=>document.querySelectorAll('.tree details').forEach(d=>d.open=true);"
              "document.getElementById('col').onclick=()=>document.querySelectorAll('.tree details').forEach(d=>d.open=false);</script></body></html>")
     write("docs/site/combined-repo.html", "\n".join(H))

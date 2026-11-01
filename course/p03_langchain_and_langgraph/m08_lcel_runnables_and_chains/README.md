@@ -1,6 +1,6 @@
 # M08 — LCEL, Runnables & Chains
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part III · LangChain & LangGraph Fundamentals** · **Level:** Foundation · **Time:** ~3 h · **Notebooks:** 7 mandatory, 5 optional
 

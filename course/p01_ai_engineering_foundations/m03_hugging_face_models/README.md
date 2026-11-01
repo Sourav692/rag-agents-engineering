@@ -1,6 +1,6 @@
 # M03 — Hugging Face Models & Gradio Demos
 
-> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are copied from the source repositories by `scripts/migrate.py`; fix them there (see `CLAUDE.md`).
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
 **Part I · AI Engineering Foundations** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 5 mandatory, 16 optional
 

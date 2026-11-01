@@ -79,7 +79,7 @@ course/
 
 ## Maintaining this repo
 
-Notebooks are fixed in their source repos and synced here with `scripts/migrate.py`; the READMEs and syllabus are rendered from `curriculum.yaml` with `scripts/build_curriculum.py`. The full workflow, the migration plan and the options for the source repos' future are in [CLAUDE.md](CLAUDE.md). `uv run pytest -q` runs the offline checks.
+This repo is canonical: notebooks, helpers and data are edited here. It was built from nine *AI Engineering Demystified* repos, now archived. The READMEs and syllabus are rendered from `curriculum.yaml` with `scripts/build_curriculum.py`. The operating rules and the migration history are in [CLAUDE.md](CLAUDE.md). `uv run pytest -q` runs the offline checks.
 
 ## Licence
 
