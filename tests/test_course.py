@@ -204,6 +204,24 @@ def test_lesson_pages_end_with_check_yourself():
     assert not bad, f"{len(bad)} lesson page(s): {bad[:5]}"
 
 
+def test_lesson_pages_have_key_takeaways():
+    """Every lesson page has `## Key Takeaways`, three or four bullets, right before Check yourself."""
+    bad = []
+    for m in CUR["modules"]:
+        for n, les in enumerate(m["lessons"], 1):
+            page = ROOT / theory_dir(m) / lesson_folder(n, les["title"]) / "README.md"
+            if not page.exists():
+                continue
+            md = page.read_text(encoding="utf-8")
+            heads = re.findall(r"^## (.+?)\s*$", md, re.M)
+            body = md.split("\n## Key Takeaways\n", 1)[-1].split("\n## ", 1)[0]
+            if heads[-2:] != ["Key Takeaways", "Check yourself"]:
+                bad.append(f"{page.relative_to(ROOT)}: ## Key Takeaways must come right before ## Check yourself")
+            elif not 3 <= len(re.findall(r"^- \S", body, re.M)) <= 4:
+                bad.append(f"{page.relative_to(ROOT)}: Key Takeaways needs three or four bullets")
+    assert not bad, f"{len(bad)} lesson page(s): {bad[:5]}"
+
+
 def test_theory_module_pages_have_a_current_index_html():
     """Every module page has the index.html that build_theory_html.py renders from it and its lesson pages."""
     import build_theory_html

@@ -39,6 +39,12 @@ On the Larkspur handbook that line is easy to draw. "How long does a refund take
 
 Known weaknesses: both debaters can miss a consideration neither persona was primed to raise, a weak persona makes the debate lopsided, and the judge is a single point of bias unless its prompt keeps it even-handed.
 
+## Key Takeaways
+
+- A debate runs two opposing sides over `N` rounds, each rebutting the other's latest point, then a judge fills a structured verdict. It costs `2N + 1` calls, 7 at three rounds, against 1 for a single call.
+- Require each side to rebut before adding its own points, or the debate becomes two monologues. Ask the judge for the strongest point from each side and a recommendation rather than a winner.
+- Debate questions with real trade-offs, such as build or buy. Send factual questions like the refund time to retrieval, and fix disagreeing chunks in the index with version metadata.
+
 ## Check yourself
 
 <details>

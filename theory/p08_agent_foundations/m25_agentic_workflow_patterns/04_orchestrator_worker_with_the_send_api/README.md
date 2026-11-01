@@ -43,6 +43,12 @@ LCEL can express the fan-out with `.map()` (`04b`), with four gaps against `Send
 
 This is the shape of query decomposition (M18) and of the module lab: the orchestrator splits a Larkspur question into sub-questions, each worker retrieves and answers one, and the synthesizer writes the reply. *Can I export my data after I cancel my plan?* splits into "how do I export?" and "what happens to my data after I cancel?", whose evidence is the `export` and `retention` chunks of the M11 golden set. *How long does a refund take?* should get a plan of one item. Bound the plan in code as well as in the prompt: a maximum number of `Send`s, a direct path for one-item plans, and a decision about what an empty plan returns.
 
+## Key Takeaways
+
+- In orchestrator-worker an LLM decides at run time how many subtasks there are, and a conditional edge returns one `Send` per plan item. Merge the workers' results with a reducer such as `operator.add`.
+- Make the plan drive execution by giving each worker only its own section and using that section's description in its prompt. Fixed workers that ignore the plan waste the orchestrator call.
+- Planner prompts tend to pad. One that suggested 2 to 5+ sections returned five for every topic. Ask for one section per distinct question, and cap the number of `Send`s in code.
+
 ## Check yourself
 
 <details>

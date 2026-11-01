@@ -38,6 +38,12 @@ Two details from the notebook:
 - **`streaming=True` on the model** makes the provider send tokens as they are generated, which `messages` mode then passes through.
 - **Checkpoints work the same.** The async graph is compiled with `MemorySaver`, and a second `ainvoke` on the same thread sees the first turn.
 
+## Key Takeaways
+
+- Choose the stream mode for the screen: `updates` for progress labels and pauses, `messages` for a typing effect, `values` for whole-state clients, `checkpoints` or `debug` for audits.
+- `messages` mode streams tokens from every model call in every node. Filter on `metadata["langgraph_node"]` before you render.
+- Async nodes free the event loop while waiting on models and tools, so one process serves many conversations. Streaming is a separate choice; a chat endpoint usually wants both.
+
 ## Check yourself
 
 <details>

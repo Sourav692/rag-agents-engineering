@@ -41,6 +41,12 @@ Every technique in this module is a choice of key and payload:
 
 For the Larkspur page, a summary of "Refunds and cancellations" is a sharp key for *What is your refund policy?*. For *How long do I have to get a full refund on an annual plan?* it depends on what the summariser kept. If the summary mentions the 30-day refund on annual plans, the question matches and the payload brings the 100 GB condition back with it. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match. Check a summary key on questions about details as well as questions about topics.
 
+## Key Takeaways
+
+- Matching works best on short, focused text and answering on complete text. Multi-representation indexing embeds a search key and returns a separate payload, linked by a `doc_id`.
+- Every advanced indexing technique is a choice of key and payload, with its own index-time cost.
+- A summary key can only match what the summariser kept. Test it on questions about details as well as topics.
+
 ## Check yourself
 
 <details>

@@ -61,6 +61,12 @@ A session is one visit. It is wider than a thread (Dana may open three chats in 
 
 The notebook's Part 4 shows the trap: it writes an item with a 3-second TTL, waits 4 seconds, and `get()` still returns it. Only after `sweep_ttl()` does the item disappear and the agent fall back to its default. On SQLite, run a sweeper (`sweep_interval_minutes` or `start_ttl_sweeper()`), or check `updated_at` yourself where even one stale read matters. A session item nobody sweeps quietly becomes long-term memory.
 
+## Key Takeaways
+
+- Semantic, episodic and procedural memory share one store and differ in key, write rule and read pattern. Upsert facts under stable keys, append episodes under fresh UUIDs and prune them, and version procedures.
+- Gate procedural writes, because a procedure changes what the agent does. Pause with `interrupt()` before any write, resume only through `Command(resume=...)`, and bind the proposal tool on the staff channel only.
+- A `TTLConfig` expiry counts minutes, not seconds. `SqliteStore` ignores `omit_expired`, so run `sweep_ttl()` or a sweeper, or unswept session items quietly become long-term memory.
+
 ## Check yourself
 
 <details>

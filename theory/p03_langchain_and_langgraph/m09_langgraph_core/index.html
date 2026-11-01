@@ -391,6 +391,12 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
 </ul>
 <figure class="lab-embed"><iframe src="01_state_graphs_and_reducers/interactive/reducer-lab.html" title="Reducers and the message list, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Reducers and the message list. <a href="01_state_graphs_and_reducers/interactive/reducer-lab.html">Open full screen</a></figcaption></figure>
 <p>Reducers matter again when nodes run in parallel. If two nodes in the same step write a key that has no reducer, LangGraph 1.2.18 raises <code>InvalidUpdateError: At key 'out': Can receive only one value per step</code>. The fan-out patterns in <a href="../../p08_agent_foundations/m25_agentic_workflow_patterns/index.html">M25</a> give such keys a reducer, usually <code>operator.add</code>.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A graph is state, nodes and edges. Have each node return only the keys it changes, and keep settings and dependencies out of the state.</li>
+<li>A key with no reducer is replaced on every write. Attach one with <code>Annotated[type, function]</code> when a key should accumulate, as <code>messages</code> does with <code>add_messages</code>.</li>
+<li>Match the reducer to what nodes return. <code>operator.add</code> with whole-list returns grows 1, 3, 7 messages, while <code>add_messages</code> stays at 3 because ids replace duplicates.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does a reducer decide, and what happens to a key that has none?</summary>
@@ -447,6 +453,12 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
 <ul>
 <li><strong><code>stream_mode="values"</code>:</strong> the full state after each step, useful for watching a list grow, as in the M09 lab.</li>
 <li><strong><code>stream_mode="updates"</code>:</strong> only what each node returned, keyed by node name, such as <code>{"chatbot": {"messages": [...]}}</code>. It is smaller, and it names the node that made each change.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Always pass the destination list to <code>add_conditional_edges</code>. With it an unknown route fails loudly; without it the run ends silently and the drawing shows no branches.</li>
+<li>A router only reads state, and checks its rules in order. Write anything the route needs from a node, and add a fallback route such as <code>human</code> for questions no rule matches.</li>
+<li>A graph keeps no memory between <code>invoke</code> calls. Use <code>stream_mode="updates"</code> to see which node changed what, and a checkpointer for conversation history.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -514,6 +526,12 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
     D -- no --&gt; T["TypedDict"]
 </pre></figure>
 <p>For the Larkspur support graph the question arrives from a web widget, so the state schema itself is a Pydantic model: <code>question: str</code>, with <code>route</code> and <code>answer</code> given defaults. The check comes from the state schema. In LangGraph 1.2.18 a Pydantic <code>input_schema</code> on a <code>TypedDict</code> state lets <code>{"question": 123}</code> through to the first node, which fails with <code>TypeError</code>; with a Pydantic state the same input stops at <code>invoke</code> before any node runs. Lesson <a href="#">9.5</a> then narrows what the caller sends and receives. Validation costs a parse on every <code>invoke</code>, which is small next to one model call.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>TypedDict</code> and dataclass annotations check no types, so a bad input fails inside a node. A plain <code>dict</code> cannot attach reducers at all.</li>
+<li>Use a Pydantic state schema when input comes from outside. It raises <code>ValidationError</code> at <code>invoke</code> before any node runs, and converts values where it can.</li>
+<li>Pydantic validates input only, never what nodes write, and <code>invoke</code> always returns a plain dict. Validate important node output, such as a structured answer, inside the node.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A graph with a TypedDict state receives a name of 123, and its node fails with a TypeError. Why did the schema not stop it?</summary>
@@ -586,6 +604,12 @@ graph.invoke({&quot;messages&quot;: [HumanMessage(&quot;When will my refund appe
 <li><strong><code>goto</code> adds to static edges.</strong> If the node also has <code>add_edge("check_temp_node", "success")</code>, a hot reading runs <code>warn_user</code> and <code>success</code> in the same step, and both write <code>final_action_performed</code>, so the run fails with <code>InvalidUpdateError: Can receive only one value per step</code>.</li>
 </ul>
 <p>Choose a conditional edge when routing is a pure read of state: the router is testable alone, and the graph lists every destination at build time. Choose <code>Command</code> when the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. The same object carries <code>resume</code> for a paused run in <a href="../m10_langgraph_runtime/index.html">M10</a> and <code>graph=Command.PARENT</code> for handoffs between agents in <a href="../../p10_memory_and_multi_agent/m35_multi_agent_architectures/index.html">M35</a>.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A node gets extra inputs by declaring them: <code>config</code> for per-call settings, <code>runtime</code> for typed context. Missing context fails only when the node reads it.</li>
+<li><code>Command(update=..., goto=...)</code> lets a node write and route in one return. Its <code>Literal</code> annotation only draws the graph, and a <code>goto</code> to an unknown node is silently ignored.</li>
+<li>Use a conditional edge when routing is a pure read of state, and <code>Command</code> when the deciding node must also write. Never combine <code>goto</code> with a static edge that writes the same key.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When should a node return a Command instead of leaving the route to a conditional edge?</summary>
@@ -645,6 +669,12 @@ StateGraph(state_schema=OverallState, input_schema=InputState, output_schema=Out
 </tbody>
 </table></div>
 <p>For Larkspur, the question, route and answer are state; the reply language and the conversation&rsquo;s <code>thread_id</code> go in config; the customer id and the database client go in runtime context (<a href="#">lesson 9.4</a>). Putting a client or a secret in state is the usual mistake: state is returned to the caller, and once <a href="../m10_langgraph_runtime/index.html">M10</a> adds a checkpointer, it is saved after every step. The <code>thread_id</code> in config is what that checkpointer uses to find a conversation&rsquo;s saved state.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Give a graph separate input, private and output schemas so callers send only the question and receive only the answer. Internal keys can then change without breaking callers.</li>
+<li>A <code>TypedDict</code> output schema filters keys but checks no types. Type checks come from a Pydantic state schema and cover input only.</li>
+<li>Put data the graph changes in state, per-call settings such as language and <code>thread_id</code> in config, and clients and identity in runtime context. Never put a client or secret in state.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why split a graph's state into input, private and output schemas when the nodes still read and write every key?</summary>
@@ -714,7 +744,7 @@ StateGraph(state_schema=OverallState, input_schema=InputState, output_schema=Out
 <li>Use <code>Command</code> when a node must write and route together, and test that every <code>goto</code> names a real node.</li>
 <li>Validate input with a Pydantic state schema, narrow what callers send and receive with input and output schemas, and keep settings and dependencies out of state.</li>
 </ul></article>
-    <nav class="toc" aria-label="M09 sections"><details open><summary>In M09</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stategraph">StateGraph</a></li><li><a href="#reducers">Reducers</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#a-chat-model-inside-a-node">A chat model inside a node</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-state-schema">Choosing a state schema</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#node-signatures-and-runtime-context">Node signatures and runtime context</a></li><li><a href="#command">Command</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#input-output-and-private-state">Input, output and private state</a></li><li><a href="#config-context-or-state">Config, context or state</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M09 sections"><details open><summary>In M09</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stategraph">StateGraph</a></li><li><a href="#reducers">Reducers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#a-chat-model-inside-a-node">A chat model inside a node</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-state-schema">Choosing a state schema</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#node-signatures-and-runtime-context">Node signatures and runtime context</a></li><li><a href="#command">Command</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#input-output-and-private-state">Input, output and private state</a></li><li><a href="#config-context-or-state">Config, context or state</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

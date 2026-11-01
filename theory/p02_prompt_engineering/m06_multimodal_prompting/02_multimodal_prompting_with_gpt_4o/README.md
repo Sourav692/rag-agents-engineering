@@ -83,6 +83,12 @@ Gemini takes the video file itself and samples it at 1 frame per second by defau
 
 `process_video` has two sharp edges. `int(fps * seconds_per_frame)` truncates: at 29.97 fps and 3 s the step is 89 frames, so frames come every 2.97 s. And when `seconds_per_frame` is below one frame's duration the step is 0 and the `while` loop never ends; a stubbed run of the notebook's own function at 0.02 s and 30 fps confirms it. `max(1, round(fps * seconds_per_frame))` stops the hang and brings the 29.97 fps gap back to 3.003 s. The import `from moviepy.editor import VideoFileClip` needs moviepy 1.x, since moviepy 2 removed `moviepy.editor`; this repo pins `moviepy<2` for that reason.
 
+## Key Takeaways
+
+- Send private images as base64 data URLs and public ones as `https` URLs. Give extraction prompts a role, a fixed output format and an explicit marker for anything unreadable.
+- `detail` sets the image price: 85 tokens at low, plus 170 per 512-pixel tile at high, so a 1280 by 720 frame costs 13 times more at high.
+- For video, the frame gap sets both cost and coverage. Only a gap shorter than the shortest event guarantees a frame on it, and a transcript covers what the narrator says.
+
 ## Check yourself
 
 <details>

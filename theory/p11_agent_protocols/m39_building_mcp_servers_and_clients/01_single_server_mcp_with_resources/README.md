@@ -40,6 +40,12 @@ A prompt's text goes to the agent as if the user had typed it. A resource goes i
 
 For Larkspur, the same rules give one decision per feature. `search_handbook` raises when the index is missing and returns chunk ids and text otherwise; the refund policy can be a resource a support engineer attaches by hand; and a prompt like M38's `answer_with_citations` is something the engineer starts on purpose.
 
+## Key Takeaways
+
+- Raise when a tool call failed and return data when it worked. A caught error returned as a dict carries `isError: false`, so the model reads it as a real result.
+- FastMCP serialises a returned list as one text block, so the client pastes a single JSON array into the model's message.
+- Type the return value to get an `outputSchema`. A tool typed `-> dict` gives the client no schema and no `structuredContent` to check.
+
 ## Check yourself
 
 <details>

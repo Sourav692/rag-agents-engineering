@@ -367,6 +367,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>A prompt&rsquo;s text goes to the agent as if the user had typed it. A resource goes in wrapped as <code>CONTEXT … TASK: &lt;what you asked&gt;</code>, or with a request to acknowledge it and keep it in memory when you give no task; the <code>MemorySaver</code> checkpointer keeps it for the rest of the thread. Both servers read files and are started by relative path (<code>python weather_server.py</code>, <code>Path("delivery_log.txt")</code>), so the client only works when it is run from the project folder.</p>
 <p>For Larkspur, the same rules give one decision per feature. <code>search_handbook</code> raises when the index is missing and returns chunk ids and text otherwise; the refund policy can be a resource a support engineer attaches by hand; and a prompt like M38&rsquo;s <code>answer_with_citations</code> is something the engineer starts on purpose.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Raise when a tool call failed and return data when it worked. A caught error returned as a dict carries <code>isError: false</code>, so the model reads it as a real result.</li>
+<li>FastMCP serialises a returned list as one text block, so the client pastes a single JSON array into the model&rsquo;s message.</li>
+<li>Type the return value to get an <code>outputSchema</code>. A tool typed <code>-&gt; dict</code> gives the client no schema and no <code>structuredContent</code> to check.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. With no API key set, get_weather returns an error message with isError false. Why, and why is that a problem for the model?</summary>
@@ -415,6 +421,12 @@ all_tools = await client.get_tools()   # one flat list: get_weather, add_task, l
 </ul>
 <p>The hand-built client in project 02 wraps each server in its own <code>try</code>, prints <code>Connection failed for &lt;name&gt;</code>, and starts with the tools it got. Neither is right by default. A Larkspur assistant can answer refund questions with the status server down, so it should start degraded and say which tools are missing; an agent whose every task needs both servers should refuse to start. Load per server, record which ones failed, and put that list in the system prompt and the logs.</p>
 <p>Failures during a call are a separate case. A tool that raises comes back as <code>isError: true</code>, and the adapter returns it to the model as a <code>ToolMessage</code> with <code>status="error"</code> so the agent can try something else. A dead process or a dropped connection is not a tool error: the adapter raises, and the agent run stops unless your code catches it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>MultiServerMCPClient</code> gives the model one flat tool list, so names must be unique across servers. Use <code>tool_name_prefix=True</code> when they might clash.</li>
+<li>The model routes by name and description alone. Write descriptions that say what each tool searches, and connect only the servers the agent needs.</li>
+<li><code>get_tools()</code> fails whole if one server fails. Load each server on its own, record which ones failed, and decide whether to start degraded or refuse.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Two servers behind one MultiServerMCPClient both offer a tool named search. What happens, and how do you prevent it?</summary>
@@ -496,6 +508,12 @@ async with client.session(&quot;handbook&quot;) as session:
 </pre></figure>
 <p>The client stops after that round. If the second reply asks for another tool, the client does not run it and returns only the first part&rsquo;s text. It also sends <code>execution_result.content</code>, a list of MCP content objects, as the function response, where a plain string or dict would be safer. <code>langchain_mcp_client.py</code> in the same project replaces all of it with two calls: <code>load_mcp_tools(session)</code> converts the tools and <code>create_react_agent(llm, tools)</code> runs the loop until the model stops asking for tools. In langgraph 1.2.18 <code>create_react_agent</code> is deprecated in favour of <code>create_agent</code> from <code>langchain.agents</code>, which <a href="../../p08_agent_foundations/m24_react_agents/index.html">M24</a> uses.</p>
 <p>The terminal server these clients drive runs any shell command the model writes, with <code>shell=True</code> and the working directory set to <code>~/Desktop/github/langgraph-ai/mcp/01-build-your-own-server-client/workspace</code>, a path from the author&rsquo;s machine. Point it at a folder of your own before running it, and treat the tool as remote code execution: project 02&rsquo;s copy runs it inside a container, which limits what a bad command can reach.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A client stacks a transport, a <code>ClientSession</code> and the <code>initialize()</code> handshake. The session is the unit of state, and over stdio it is also a process.</li>
+<li>Hold one session per server and reopen it when it drops. A session per call costs 4 messages each time and, over stdio, a fresh process that forgets its memory.</li>
+<li>A hand-written client must convert schemas and loop until the model stops asking for tools. Treat a shell-running tool as remote code execution and contain it.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does a session per tool call cost 4 messages per call, when a held session costs 1 per call after setup?</summary>
@@ -628,6 +646,12 @@ mcp.run(transport=&quot;streamable-http&quot;)
 <li><strong>Streamable HTTP, stateless</strong> for tools that keep no per-client state and must scale out: Larkspur&rsquo;s <code>status</code> search can run as many replicas as it needs, and any of them can answer any request.</li>
 </ul>
 <p>Lesson 39.3&rsquo;s Databricks server ends with <code>mcp.run()</code>. In SDK 1.30.0 <code>run()</code> defaults to <code>transport="stdio"</code>, so as written the server reads its standard input instead of listening for HTTP. A server that a platform reaches by URL needs <code>transport="streamable-http"</code> and must listen on the host and port the platform expects.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>SSE answers every POST with <code>202</code> and sends the result on one long-lived GET stream, so an idle-closing proxy can cut the whole session.</li>
+<li>In Streamable HTTP, <code>transport="streamable-http"</code> picks the transport and <code>stateless_http</code> picks the mode. Stateful sessions expire after 1,800 idle seconds and need routing by <code>mcp-session-id</code> across replicas.</li>
+<li>Use stdio for a local server the client owns, stateful HTTP for per-client state, and stateless HTTP for tools that must scale out.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Over SSE, every POST the client sends gets 202 Accepted. Where does the answer arrive, and what does that mean for the session?</summary>
@@ -697,7 +721,7 @@ mcp.run(transport=&quot;streamable-http&quot;)
 <li>Pick the transport by where the server runs: stdio for a local subprocess, Streamable HTTP for anything shared, and stateless mode when replicas must answer any request.</li>
 <li>Treat an MCP server that runs commands as a remote shell. Narrow tools, authentication and a sandbox come before the first deployment.</li>
 </ul></article>
-    <nav class="toc" aria-label="M39 sections"><details open><summary>In M39</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#what-comes-back-from-a-server">What comes back from a server</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#multi-server">Multi-server</a></li><li><a href="#when-one-server-fails">When one server fails</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#client-sessions">Client sessions</a></li><li><a href="#a-client-written-by-hand">A client written by hand</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sse">SSE</a></li><li><a href="#streamable-http">Streamable HTTP</a></li><li><a href="#choosing-a-transport">Choosing a transport</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M39 sections"><details open><summary>In M39</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#what-comes-back-from-a-server">What comes back from a server</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#multi-server">Multi-server</a></li><li><a href="#when-one-server-fails">When one server fails</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#client-sessions">Client sessions</a></li><li><a href="#a-client-written-by-hand">A client written by hand</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sse">SSE</a></li><li><a href="#streamable-http">Streamable HTTP</a></li><li><a href="#choosing-a-transport">Choosing a transport</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

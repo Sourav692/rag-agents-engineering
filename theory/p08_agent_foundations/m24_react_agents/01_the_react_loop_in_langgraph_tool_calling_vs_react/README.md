@@ -72,6 +72,12 @@ The notebook runs both on the same two stub tools. With `gpt-4o-mini`, the text 
 
 On *What's the weather in Tokyo and calculate 25% of 80?* the native agent asked for both tools in one turn and needed 2 model calls; the text agent, one `Action` per turn, needed 3. LangChain 1.x `create_agent` uses native tool calls, so there is nothing to parse. The ReAct idea, read every observation before choosing the next step, is unchanged.
 
+## Key Takeaways
+
+- A ReAct agent reasons about one step, calls a tool, reads the result and repeats until it replies without a tool call. The `tools → agent` edge is what turns a single-shot graph into that loop.
+- Rewording after each observation recovers vocabulary mismatch, but every call rereads the whole message list. In the lab the outage run read about 451 tokens over four calls, against 9 for one search.
+- Prefer native tool calls to text-based ReAct. They need no regex parsing, allow parallel calls in one turn and avoid format drift such as quoted arguments. Use a fixed workflow when the steps are known.
+
 ## Check yourself
 
 <details>

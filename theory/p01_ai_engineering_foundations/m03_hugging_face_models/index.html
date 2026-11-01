@@ -391,6 +391,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>To see what the cache holds, <code>scan_cache_dir()</code> in <code>01a</code> returns an <code>HFCacheInfo</code> object with every repo, revision and size. The notebook also suggests <code>huggingface-cli scan-cache</code>; in <code>huggingface_hub</code> 1.16.1, the version this course locks, that command prints &ldquo;<code>huggingface-cli</code> is deprecated and no longer works&rdquo;. Use <code>hf cache ls</code> to list repos and sizes, <code>hf cache rm</code> to delete one, and <code>hf cache prune</code> to remove revisions no branch points to.</p>
 <p>Datasets use the same Hub and their own cache. Notebook <code>01b</code> calls <code>load_dataset('rotten_tomatoes', cache_dir='rotten_tomatoes_data')</code>; the relative <code>cache_dir</code> writes a data folder next to the notebook instead of into the shared cache. The dataset has three splits (8,530 training, 1,066 validation and 1,066 test reviews), and the notebook divides its correct predictions by a hard-coded 1066. Write <code>len(test_df)</code> instead, so the accuracy stays right if the split changes. The Hub now lists the dataset as <code>cornell-movie-review-data/rotten_tomatoes</code>; if the short name stops resolving, use the full id.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Hub repos are git repositories, and a branch such as <code>main</code> moves when the owner pushes. Pin <code>revision=</code> to a commit hash to load the same weights in every environment.</li>
+<li>The cache stores each file once as a content-hashed blob and links snapshots to it, so a new commit downloads only what changed. Clear old revisions with <code>hf cache prune</code>.</li>
+<li>Relocate the cache with <code>HF_HOME</code> or <code>HF_HUB_CACHE</code> and set <code>HF_HUB_OFFLINE=1</code> on servers that must never call the Hub. Compute accuracy from <code>len(test_df)</code>, never a hard-coded count.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does loading a model with revision main not guarantee the same weights in every environment?</summary>
@@ -560,6 +566,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Sampling</strong>, <code>do_sample=True</code>: draws from the probabilities. <code>temperature=0.4</code> sharpens them toward the top tokens, <code>top_k=10</code> draws only from the ten most likely, and <code>top_p=0.94</code> from the smallest set whose probabilities add up to 0.94. The notebook sets <code>top_k=0</code> to switch the top-k filter off when it tests temperature and top-p alone.</li>
 </ul>
 <p>Two details catch people out. <code>max_new_tokens=20</code> counts only generated tokens, while <code>max_length=40</code> counts the prompt too and leaves room for 36 new tokens after the 4-token prompt. And GPT-2 has no padding token; <code>02c</code> passes <code>pad_token_id=tokenizer.eos_token_id</code> to silence the warning <code>generate()</code> gives about it. The code comment in <code>02b</code>&rsquo;s first tokenizer cell, <code>tensor([[1026, 373, 257, 3223, 290, 6388, 88]])</code>, is the encoding of <em>It was a dark and stormy</em>, not of the sentence in that cell.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A pipeline is tokenise, forward pass, post-process, and each step can fail on its own. Pass <code>model=</code> and <code>revision=</code> yourself, because the task default and the task list change between releases.</li>
+<li>Count tokens with the model&rsquo;s own tokenizer, since rare words and codes shift the ratio. Text past the limit is dropped without an error, so measure chunk sizes in the embedding model&rsquo;s tokens.</li>
+<li><code>generate()</code> picks one next token at a time from the last row of logits. Greedy is deterministic but repeats; beam search and sampling with <code>temperature</code>, <code>top_k</code> and <code>top_p</code> change that.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why is pipeline with only a task name a risk in production code?</summary>
@@ -619,6 +631,12 @@ demo.launch()
 </ul>
 <p>Notebook <code>05e</code>&rsquo;s last cell, <code>gr.load("distilbert-base-uncased-finetuned-sst-2-english", src=…)</code>, runs the model on Hugging Face&rsquo;s servers instead of locally. In the course copy its <code>src</code> points at a GitHub folder URL, which <code>gr.load</code> does not accept; the source notebook has <code>src="models"</code>, which loads the model by its Hub name.</p>
 <p>A demo is a tool for trying a model with people who do not run notebooks, such as the Larkspur support lead. It has no login, rate limit or monitoring unless you add them, so in production the model runs behind a service with those controls, and the demo stays a way to try it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Use <code>gr.Interface</code> for a quick form around one function, and <code>gr.Blocks</code> when you need your own layout and many events, each wired to a function with calls such as <code>button.click(fn, inputs, outputs)</code>.</li>
+<li>Load the model once when the app starts, raise <code>gr.Error</code> to stop with a message, and pass <code>theme=</code> and <code>css=</code> to <code>launch()</code> in Gradio 6.</li>
+<li>A demo has no login, rate limit or monitoring. Use it to let people try a model, and serve production traffic from a service with those controls.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does gr.Blocks leave you to do that gr.Interface does for you?</summary>
@@ -688,7 +706,7 @@ demo.launch()
 <li>A pipeline is tokenizer, model and post-processing. When its output is wrong, check each of the three before blaming the model.</li>
 <li>Load models once and call them many times, in notebooks, services and Gradio demos alike.</li>
 </ul></article>
-    <nav class="toc" aria-label="M03 sections"><details open><summary>In M03</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#hub-amp-cache">Hub &amp; cache</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipelines">Pipelines</a></li><li><a href="#tokenization">Tokenization</a></li><li><a href="#from-logits-to-text">From logits to text</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#gradio-blocks">Gradio Blocks</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M03 sections"><details open><summary>In M03</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#hub-amp-cache">Hub &amp; cache</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipelines">Pipelines</a></li><li><a href="#tokenization">Tokenization</a></li><li><a href="#from-logits-to-text">From logits to text</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#gradio-blocks">Gradio Blocks</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

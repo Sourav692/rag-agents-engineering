@@ -40,6 +40,12 @@ Dartboard and MMR ([M17.4](../../../p06_retrieval_quality/m17_retrievers_hybrid_
 
 Two details to know when running `03a`. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls `get_context_with_dartboard(test_query, k=3)`, while the function's parameter is `num_results`; Python raises a `TypeError`, and `num_results=3` is the fix.
 
+## Key Takeaways
+
+- Top-k fills every slot with copies of the best match when the corpus holds duplicates. Dartboard selection scores a set by how close its nearest member lies to each landing place, so a copy adds nothing.
+- The selector only chooses among its `num_results * oversampling_factor` candidates. With five copies per chunk the default pool of 9 holds two distinct chunks, so enlarge the pool past the copy count or deduplicate at indexing.
+- Dartboard and MMR both select greedily and differ in the score. MMR subtracts a linear redundancy penalty, while dartboard adds log probabilities and needs only distances, so it works on dense, hybrid or cross-encoder scores.
+
 ## Check yourself
 
 <details>

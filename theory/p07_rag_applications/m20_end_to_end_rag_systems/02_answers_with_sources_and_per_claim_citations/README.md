@@ -92,6 +92,12 @@ On the refund chunk, the verbatim quote above passes, the same quote broken acro
 
 One bug to fix when you reuse the notebook: `cite_response_chain` passes `itemgetter('context')` straight into the prompt, so the model reads the Python repr of a list of Documents (`[Document(metadata={...}, page_content='...')]`). Run it through `format_docs_with_metadata`, as the answer chain does, so both calls see the same text.
 
+## Key Takeaways
+
+- `RunnablePassthrough.assign` keeps the retrieved Documents in the output, so the retriever runs once and the sources shown are the chunks the model read.
+- A citation schema with `id`, `page` and verbatim `quotes` makes citations checkable. It is still a flat list per answer, so add a `claim` field for true per-claim citations.
+- The model can paraphrase a quote or cite an id that was never retrieved. Verify every quote against its chunk in code, drop failures, and track the failure rate.
+
 ## Check yourself
 
 <details>

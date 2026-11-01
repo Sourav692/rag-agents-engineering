@@ -29,6 +29,12 @@ Before LCEL, LangChain packaged each pattern as a class: `LLMChain` for prompt p
 
 The optional notebooks show more legacy classes: 04b builds `LLMChain` and `SimpleSequentialChain`, 04c adds `StructuredOutputParser`, 04d covers `SequentialChain` and the router class `MultiPromptChain` (whose LCEL form is lesson 8.3's `RunnableBranch`), and 04e rewrites `ConversationalRetrievalChain` as a rephrase pipe followed by a retrieval pipe.
 
+## Key Takeaways
+
+- Legacy chain classes still run from `langchain-classic` but are set for removal in 2.0.0. Each has a short LCEL pipe that replaces it, usually with a plain string in and out.
+- Some legacy chains warn only when called, or not at all. Find them by grepping for imports from `langchain_classic`, not by waiting for warnings.
+- Migrate one chain at a time behind the same function: map the output shape, switch to `.invoke()`, and compare old and new answers on a fixed question set before deleting the old class.
+
 ## Check yourself
 
 <details>

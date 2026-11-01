@@ -48,6 +48,12 @@ Every specialist turn sits between two controller turns, so a run with `k` speci
 
 Use a blackboard when the next step depends on what earlier steps found: diagnosis, triage, research with verification. When the order is known before the run starts, a pipeline or a fan-out ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md)) is cheaper and easier to test.
 
+## Key Takeaways
+
+- A blackboard coordinates specialists through one shared store, and only the controller decides order. It can pick one branch from what earlier posts found, where a fixed pipeline runs every branch by construction.
+- Guard the controller in code with a typed `Literal` choice, a specialist-call cap, precondition checks and structured posts. `recursion_limit` is only the backstop, because it ends the run with an error.
+- A run with `k` specialists makes up to `k + 1` controller calls, and its path changes from run to run. When the order is known before the run, a pipeline or fan-out is cheaper and easier to test.
+
 ## Check yourself
 
 <details>

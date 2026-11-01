@@ -42,6 +42,12 @@ The base model does what pre-training taught it: continue the text with somethin
 
 The weights changed and the architecture did not. Everything that separates the two columns came from the training data, which is why the rest of this module is about the data.
 
+## Key Takeaways
+
+- Prompting changes the instructions, RAG changes the evidence and fine-tuning changes the weights. Keep facts that change in the index, and fine-tune for behaviour too long or subtle to describe.
+- Try a clear prompt with examples first. Fine-tune only when you can write a few hundred examples of the behaviour, since you need them to train and to evaluate.
+- A base model continues text and a chat model answers requests, with the same architecture. The difference comes from training data, and a fine-tuned model expects the format it was trained on.
+
 ## Check yourself
 
 <details>

@@ -388,6 +388,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The loop has two exits. The <code>&lt;response&gt;</code> tag is the model&rsquo;s own decision to stop. <code>max_rounds</code> is yours: without it, a model that keeps asking for tools (because the tool keeps returning nothing useful, say) runs and bills forever.</p>
 <p><strong>What the hand-written version cannot guarantee.</strong> Nothing forces the model to write valid JSON, name a real tool or supply every argument; the parser raises <code>ValueError</code> when the tags or the JSON are wrong. The type casting covers four types (<code>int</code>, <code>str</code>, <code>bool</code>, <code>float</code>). Native tool calling (lesson 23.4) moves the schema into the API, so the provider returns structured <code>tool_calls</code> with ids. The loop stays the same.</p>
 <p>For Larkspur&rsquo;s support agent the loop is identical with different tools. <em>How long does a refund take?</em> becomes a thought (&ldquo;I need the refund policy&rdquo;), a call to <code>search_handbook</code>, an observation holding the retrieved chunks, and a response that quotes them. The M23 lab runs that question through LangGraph&rsquo;s version of this loop, including a first call that fails.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>The model never runs a tool. It writes a call as text, your code parses and runs it, and the result goes back as an observation.</li>
+<li>ReAct loops thought, tool call and observation, and keeps every observation in the history, so later calls can depend on earlier results.</li>
+<li>Give the loop two exits: the model&rsquo;s own <code>&lt;response&gt;</code> and a <code>max_rounds</code> cap you own. Without the cap, a model that keeps asking for tools runs and bills forever.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can the ReAct agent chain three dependent tool calls when the one-round tool-use agent cannot?</summary>
@@ -482,6 +488,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The description says what the tool returns and which questions it is for, so the model can tell it apart from <code>get_server_status</code>. The argument description says what a good query looks like. Passing <code>{"query": 3}</code> to this tool fails Pydantic validation (<code>Input should be a valid string</code>); in an agent that error goes back to the model as a message (lesson 23.5).</p>
 <p><strong>Built-in and wrapped tools.</strong> LangChain&rsquo;s built-in tools carry their own schema: <code>WikipediaQueryRun</code> is named <code>wikipedia</code> and takes one string, <code>query</code>. Wrapping one in <code>Tool(name=…, func=…, description=…)</code> gives it your name and description, and changes its argument to the generic <code>tool_input</code>, which is worth checking before you bind it. Whatever the source, print <code>tool.name</code>, <code>tool.description</code> and <code>tool.args</code> (or the <code>convert_to_openai_tool</code> output) before you trust a tool in a loop: that printout is exactly what the model will read.</p>
 <p>The from-scratch signatures in lesson 23.1 wrote Python type names (<code>"type": "int"</code>) into a prompt. The native schema uses JSON Schema types (<code>string</code>, <code>number</code>) and travels in the API request, so the provider can return structured calls against it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>The model reads only the schema: <code>name</code>, <code>description</code> and <code>parameters</code>, never the function body. A vague description gives wrong or missing calls however good the code is.</li>
+<li>Type every argument. An untyped tool accepts anything (<code>multiply</code> turns 2 and <code>"abc"</code> into <code>abcabc</code>), while a Pydantic <code>args_schema</code> rejects bad input before the function runs.</li>
+<li>Print <code>tool.name</code>, <code>tool.description</code> and <code>tool.args</code> before you bind a tool, especially a wrapped built-in, because that printout is exactly what the model sees.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The model never sees a tool's function body. Which three parts of the schema does it read, and what does each one decide?</summary>
@@ -560,6 +572,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>The solid edges are <code>04b</code>&rsquo;s graph. <em>Explain AI in 2 bullets</em> ends at the first <code>END</code> with a direct answer. <em>What is the latest news on OpenAI product releases</em> calls <code>search_web</code>, and the run ends on the raw Tavily JSON in a <code>ToolMessage</code>: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.</p>
 <p>That graph is an augmented LLM. One more edge makes it an agent: <code>tools</code> back to the model instead of to <code>END</code> (the dashed line). Lesson 23.5&rsquo;s <code>create_tool_agent</code> adds it with <code>graph.add_edge("tools", "agent")</code>, and the graph becomes the loop in the module&rsquo;s mental model.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A bound model returns an <code>AIMessage</code> with <code>tool_calls</code> and runs nothing. Independent calls arrive together in one reply, saving a round trip.</li>
+<li>Answer every call with one <code>ToolMessage</code> carrying its <code>tool_call_id</code>. The id pairs results with requests, and OpenAI rejects a history with an unanswered call.</li>
+<li>A graph that goes from tools to <code>END</code> is an augmented LLM. One edge from tools back to the model turns it into an agent loop.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does every ToolMessage carry the id of the tool call it answers?</summary>
@@ -692,6 +710,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>A single trace scored 5 out of 5 proves little.</strong> The scores mean something across a fixed golden set, compared before and after one change, as with the <a href="../../p04_rag_foundations/m11_rag_lifecycle/index.html#baseline-first-optimisation">baseline in M11</a>.</li>
 </ul>
 <p>Add trace-level counts to the per-call scores: rounds per run, error <code>ToolMessage</code>s per tool, and crashed runs. They are cheap to log and catch the failures the lab shows, where the answer never arrives.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Send tool failures to the model as messages, not exceptions. The default <code>handle_tool_errors</code> catches bad arguments but re-raises exceptions inside the tool, so set it to <code>True</code> as a safety net.</li>
+<li>Write error messages the model can act on, saying what was wrong and what would work. Happy-path tests never show the difference between settings.</li>
+<li>Score tool selection, tool input and synthesis separately. The first two come straight from the trace; judge synthesis with a different model, across a fixed golden set.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does it matter whether a tool failure reaches the model as a message or escapes as an exception?</summary>
@@ -797,6 +821,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Hosted code execution fits arithmetic on numbers the customer pasted into the chat. <code>06b</code>&rsquo;s point holds: a model that runs three lines of Python computes, while one that answers directly samples plausible digits.</li>
 </ul>
 <p>Hosted tools exist only on OpenAI&rsquo;s Responses API; Chat Completions offers function tools only. <code>06a</code> calls <code>client.responses.create</code> on the raw OpenAI client, because LangChain does not surface hosted-tool configuration. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A hosted tool runs on the provider&rsquo;s side and returns the result folded into the reply. You lose the seam where your code can log, refuse, redact or cache a call.</li>
+<li>Hosted tools vary in visibility: web search shows roughly the query, code interpreter shows the code and output, image generation shows its revised prompt. None can be stubbed in a test.</li>
+<li>Keep tools that touch customer data or need tenant scoping client-side. Use hosted tools for public lookups and arithmetic on data the user supplied.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What do you give up when you move a tool from client-side to hosted?</summary>
@@ -866,7 +896,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Every tool failure must come back as a <code>ToolMessage</code> the model can read. Set <code>handle_tool_errors</code> deliberately and test it with a tool that raises.</li>
 <li>Run tools that touch customer data in your own process, where you can log, refuse and stub them. Hosted tools fit commodity capabilities with nothing to enforce.</li>
 </ul></article>
-    <nav class="toc" aria-label="M23 sections"><details open><summary>In M23</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-loop">Agent loop</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tool-schema">Tool schema</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#native-tool-calls-and-the-message-trace">Native tool calls and the message trace</a></li><li><a href="#the-augmented-llm">The augmented LLM</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#where-tool-errors-go">Where tool errors go</a></li><li><a href="#tool-call-evaluation">Tool-call evaluation</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hosted-vs-client-side-tools">Hosted vs client-side tools</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M23 sections"><details open><summary>In M23</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-loop">Agent loop</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tool-schema">Tool schema</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#native-tool-calls-and-the-message-trace">Native tool calls and the message trace</a></li><li><a href="#the-augmented-llm">The augmented LLM</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#where-tool-errors-go">Where tool errors go</a></li><li><a href="#tool-call-evaluation">Tool-call evaluation</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hosted-vs-client-side-tools">Hosted vs client-side tools</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

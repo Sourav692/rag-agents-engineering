@@ -429,6 +429,12 @@ th:last-child, td:last-child { padding-right: 0; }
     S2 --&gt; CAP
 </pre></figure>
 <p>Run a size-based splitter after the structural one, because one long section can still exceed your limit. Use the header metadata in two places. Filter on it at query time (&ldquo;only the Refunds section&rdquo;), and prepend it to the chunk text so the embedding knows which section a sentence came from; M16 calls that a contextual chunk header.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A chunk smaller than the fact can never hold it, and overlap rescues only a piece that fits inside it. A boundary cut hands the model a confident half-answer.</li>
+<li>Bigger chunks keep facts whole but dilute them: at 1200 characters the refund answer is 13% of its chunk. Merge tiny trailing chunks, and count tokens when a model limit applies.</li>
+<li>Split on the document&rsquo;s own structure first, then cap long sections with a size-based splitter. Use header metadata for filtering and as a prefix in the chunk text.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. At chunk size 300, an overlap of 100 leaves the refund answer cut, but an overlap of 150 keeps it whole. Why?</summary>
@@ -498,6 +504,12 @@ th:last-child, td:last-child { padding-right: 0; }
     T -- yes --&gt; CUT[Start a new chunk]
     T -- no --&gt; KEEP[Same chunk]
 </pre></figure>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Semantic chunking embeds each sentence with its neighbours and cuts where the distance between consecutive sentences clears a threshold.</li>
+<li>Every threshold type is relative to the document&rsquo;s own distances, so tune it per corpus. <code>percentile</code> always cuts somewhere; <code>standard_deviation</code> may return one chunk.</li>
+<li>Only local change triggers a cut, so slow drift is missed. Read the chunks, cap their size afterwards, and budget an extra embedding pass over every sentence.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. A topic drifts slowly across five sentences. Why does semantic chunking never cut there?</summary>
@@ -534,6 +546,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p>Grade every proposition against its source chunk before indexing it. A splitter can only cut text, while an LLM can merge two facts, drop a qualifier (&ldquo;less than 100 GB&rdquo; disappears) or state something the source only implied. The mandatory notebook&rsquo;s grader returns three yes-or-no checks through structured output (supported by the source with nothing added, self-contained, atomic) plus a short issue note, and keeps only propositions that pass all three. The optional <code>03b</code> notebook scores accuracy, clarity, completeness and conciseness from 1 to 10 and drops anything under 7 on any of them. In the notebook the grader is the same model as the generator, so it shares its blind spots and can pass a proposition it should reject. Treat it as a filter for obvious damage; independent verification needs a different model or a human. Keep the source chunk id in metadata so you can show the original text at answer time.</p>
 <p>Cost decides where propositions are worth it: one LLM call per source chunk to generate, about one more to grade, and usually several times as many vectors. Use them for dense, high-value text (policies, specs, medical or legal facts) where a missed qualifier is expensive, not for a whole document lake.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A proposition is one atomic, self-contained fact that names its own subject and condition, so it still makes sense when retrieved alone.</li>
+<li>Grade every generated proposition against its source before indexing, because an LLM can merge facts or drop a qualifier. Keep the source chunk id in metadata.</li>
+<li>A grader that is the same model shares its blind spots. With one or two LLM calls per chunk and several times the vectors, keep propositions for dense, high-value text.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What two properties make a proposition, and why does each matter once it is retrieved alone?</summary>
@@ -610,6 +628,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Choose chunk size by sweeping it on a labelled set with everything else fixed. Score <code>hit@k</code> and the margin, and put index tokens and <code>chunk_size × k</code> per query in the same table.</li>
+<li>Take the plateau, not the peak: keep sizes within 3% of the best margin and pick the cheapest. Tune overlap afterwards at 10 to 20% of the size.</li>
+<li>A flat curve means chunk size is not the bottleneck. When small chunks win precision and large ones completeness, index small and return the parent.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the chunk-size sweep score each setting with a margin as well as hit at k?</summary>
@@ -679,7 +703,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Semantic thresholds come from each document&rsquo;s own distances and do not transfer between corpora; propositions need a grading pass; structural boundaries come first when the document has them.</li>
 <li>Choose chunk size by sweeping it on your golden set against the M11 baseline. If no size wins on both precision and completeness, index small and return large (M16).</li>
 </ul></article>
-    <nav class="toc" aria-label="M13 sections"><details open><summary>In M13</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chunk-size-and-overlap">Chunk size and overlap</a></li><li><a href="#structure-aware-splitting">Structure-aware splitting</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#breakpoint-threshold">Breakpoint threshold</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#propositions">Propositions</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-chunk-size">Choosing chunk size</a></li><li><a href="#choosing-a-strategy">Choosing a strategy</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M13 sections"><details open><summary>In M13</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chunk-size-and-overlap">Chunk size and overlap</a></li><li><a href="#structure-aware-splitting">Structure-aware splitting</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#breakpoint-threshold">Breakpoint threshold</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#propositions">Propositions</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-chunk-size">Choosing chunk size</a></li><li><a href="#choosing-a-strategy">Choosing a strategy</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

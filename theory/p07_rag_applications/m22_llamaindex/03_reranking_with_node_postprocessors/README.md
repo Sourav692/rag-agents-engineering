@@ -51,6 +51,12 @@ The cell that sets up the example also carries a port bug. It builds `Document(p
 
 Postprocessors see whatever the one before them produced. With lesson 22.4's `MetadataReplacementPostProcessor` in the same list, putting the reranker first means it scores the single sentence that was embedded; putting it second means it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide which text the reranker should judge, and write the list in that order.
 
+## Key Takeaways
+
+- Node postprocessors run in list order between the retriever and the synthesizer, and can reorder, drop, rescore or rewrite nodes. Retrieve wide and let a reranker keep `top_n`.
+- `LLMRerank` can silently return fewer than `top_n` nodes with tied integer scores. `SentenceTransformerRerank` defaults to a different model and `top_n=2`, so always pass both arguments.
+- Cross-encoder scores are logits that only rank; the answering sentence can score below zero. Calibrate any cut-off on the golden set.
+
 ## Check yourself
 
 <details>

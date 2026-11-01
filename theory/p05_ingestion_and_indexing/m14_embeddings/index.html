@@ -448,6 +448,12 @@ euclidean(q, d) = ‖q − d‖               the straight-line gap; lower is cl
 </ol>
 <p>The defence is cheap: write the model name and dimensions into the index metadata when you build it, and have the query service compare them with its own configuration before it serves a request.</p>
 <p>The other notebook topics, <code>embed_query</code> against <code>embed_documents</code> and caching, are on the <a href="#">lesson 14.4 page</a>; dimensions and the <code>dimensions</code> parameter are on the <a href="#">lesson 14.2 page</a>.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Print the norm of one vector from any new model. With unit-length vectors, cosine, dot product and Euclidean distance rank chunks identically; otherwise use cosine or normalise first.</li>
+<li>Cosine scores are not probabilities, and embeddings capture topic more than truth. Negation, numeric comparison and exact identifiers are weak spots.</li>
+<li>Embed chunks and questions with the same model and <code>dimensions</code>. A mismatch raises no error; record both in the index metadata and check them before serving.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why do cosine, dot product and Euclidean distance rank chunks identically when every vector has length 1?</summary>
@@ -549,6 +555,12 @@ OpenAIEmbeddings(model=&quot;text-embedding-3-large&quot;, dimensions=1536)   # 
 <li><strong>margin</strong>, the correct document&rsquo;s similarity minus the best wrong document&rsquo;s. It keeps shrinking as dimensions fall, and a shrinking margin is where recall will break on a large corpus with near-duplicates, such as Larkspur&rsquo;s <code>refund-window</code> and <code>refund-timing</code> chunks.</li>
 </ul>
 <p>The notebook&rsquo;s most useful row is <code>3-large</code> truncated to 1536: a stronger model at the same index cost as <code>3-small</code>. Run the same comparison on the M11 golden set before you pick a size, and treat the choice as permanent, because changing dimensions means re-embedding every chunk and querying with the new setting.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Embedding the corpus is a small one-off bill; dimensions are paid on every query in memory and compute. One million 1536-dimension vectors take about 6.1 GB as 32-bit floats.</li>
+<li>The <code>text-embedding-3</code> models can be shortened with <code>dimensions</code>. <code>3-large</code> at 1536 gives a stronger model at the same index cost as <code>3-small</code>.</li>
+<li>Judge a dimension cut by the margin, not only recall@1, which saturates on easy sets. Treat the choice as permanent, because changing it means re-embedding every chunk.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Embedding the corpus is a small one-off bill. Why do the dimensions keep costing you for as long as the index exists?</summary>
@@ -691,6 +703,12 @@ OpenAIEmbeddings(model=&quot;text-embedding-3-large&quot;, dimensions=1536)   # 
 </tbody>
 </table></div>
 <p>The smallest model tied for best relevance, and the ranking reversed on the second metric. Read the second column with care: the notebook&rsquo;s <code>rag_app</code> returns the retrieved text itself as the response, so groundedness here grades retrieved text, not an LLM&rsquo;s answer. Eight documents and 15 queries cannot settle a model choice; they show the method. Run it on the full golden set, and decide which metric your product needs before you look at the results.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Poor domain fit raises no error; it shows up as the wrong chunk ranked first. Use leaderboards for a shortlist and your own golden set, with hard negatives, for the decision.</li>
+<li><code>HuggingFaceEmbeddings</code> does not normalise by default. Pass <code>normalize_embeddings=True</code> or score with cosine, and keep <code>embed_query</code> and <code>embed_documents</code> separate for asymmetric models.</li>
+<li>Hosted models cost per token and send data off your network; self-hosted ones cost hardware and operations. Decide which metric matters before you compare results.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does a poor domain fit show up, given that it raises no error?</summary>
@@ -814,6 +832,12 @@ cached = CacheBackedEmbeddings.from_bytes_store(
 <h2 id="batching">Batching</h2>
 <p><code>embed_documents(texts)</code> sends many texts in one request; <code>embed_query(text)</code> sends one. Looping <code>embed_query</code> over a corpus pays one network round trip per chunk, and on a real corpus that is the difference between minutes and hours. Use <code>embed_documents</code> for the index and <code>embed_query</code> for questions.</p>
 <p>Notebook 14.1 runs both paths on the same six texts and compares the vectors. They are semantically identical (cosine about 1.0) but not bit-identical, because a batched request and a single request take different paths through the server. The difference is numerical noise, so never use exact equality to decide whether two vectors came from the same text; that is the cache&rsquo;s job. For an asymmetric model the two methods differ on purpose, which is one more reason to keep the two calls separate (lesson 14.3).</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>CacheBackedEmbeddings</code> keys each vector on namespace plus a hash of the text, so re-indexing after an edit pays only for the changed chunks. Old entries stay until you clear them.</li>
+<li>Put the model name and <code>dimensions</code> in the cache namespace. The default empty namespace silently returns the old model&rsquo;s vectors after a model swap.</li>
+<li>Embed the corpus with batched <code>embed_documents</code>, not a loop of <code>embed_query</code>. The two paths differ by numerical noise, so never compare vectors for exact equality.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why should an indexing job call embed documents on a batch instead of looping embed query, and why not compare the two outputs for exact equality?</summary>
@@ -883,7 +907,7 @@ cached = CacheBackedEmbeddings.from_bytes_store(
 <li>Wrap the embedder in <code>CacheBackedEmbeddings</code> with a namespace that names the model and its dimensions, so re-runs and small edits cost almost nothing.</li>
 <li>Choose a model on your own documents and questions, use the same model on both sides, and record it in the index metadata so a mismatch fails loudly.</li>
 </ul></article>
-    <nav class="toc" aria-label="M14 sections"><details open><summary>In M14</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#cosine-similarity">Cosine similarity</a></li><li><a href="#the-same-model-on-both-sides">The same model on both sides</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#vector-dimensionality">Vector dimensionality</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#domain-fit">Domain fit</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-cache">Embedding cache</a></li><li><a href="#batching">Batching</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M14 sections"><details open><summary>In M14</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#cosine-similarity">Cosine similarity</a></li><li><a href="#the-same-model-on-both-sides">The same model on both sides</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#vector-dimensionality">Vector dimensionality</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#domain-fit">Domain fit</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-cache">Embedding cache</a></li><li><a href="#batching">Batching</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

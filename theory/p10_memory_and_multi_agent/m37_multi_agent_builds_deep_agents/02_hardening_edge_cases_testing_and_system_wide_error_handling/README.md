@@ -73,6 +73,12 @@ Notebook 02c handles failures that do not fix themselves. A failing node catches
 
 A fallback that fails raises a different error type, so the router sends it to a person instead of looping. Transient failures get a cheaper fix first: `RetryPolicy(max_attempts=3)` re-runs a node that raises. With a node that fails twice, the run waits 0.2 s and then 0.4 s and succeeds on the third attempt; with three failures the exception reaches the caller. A retry smooths over a brief outage and does not replace the error path. Every failure in 02c is injected with a `SIMULATE` flag, so each recovery path runs on every run and a table computed from the node paths proves which one ran.
 
+## Key Takeaways
+
+- Test at three levels: unit tests on the pure router with no model calls, a confidence gate that stops unclear turns, and an end-to-end regression table read from the nodes that ran and the database.
+- A threshold that turns every test green can still be wrong. At 75 all seven router tests pass, yet every booking that lacks dates gets an apology instead of a question about the dates.
+- Record failures in an `error` field in state and let a pure router pick the recovery, with a failed fallback raising a different error so it reaches a person. Keep `RetryPolicy` for brief outages.
+
 ## Check yourself
 
 <details>

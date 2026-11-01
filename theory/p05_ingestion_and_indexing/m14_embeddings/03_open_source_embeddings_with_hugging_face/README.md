@@ -57,6 +57,12 @@ Score more than one thing. The optional lesson 14.5 notebook, [`05a_compare_embe
 
 The smallest model tied for best relevance, and the ranking reversed on the second metric. Read the second column with care: the notebook's `rag_app` returns the retrieved text itself as the response, so groundedness here grades retrieved text, not an LLM's answer. Eight documents and 15 queries cannot settle a model choice; they show the method. Run it on the full golden set, and decide which metric your product needs before you look at the results.
 
+## Key Takeaways
+
+- Poor domain fit raises no error; it shows up as the wrong chunk ranked first. Use leaderboards for a shortlist and your own golden set, with hard negatives, for the decision.
+- `HuggingFaceEmbeddings` does not normalise by default. Pass `normalize_embeddings=True` or score with cosine, and keep `embed_query` and `embed_documents` separate for asymmetric models.
+- Hosted models cost per token and send data off your network; self-hosted ones cost hardware and operations. Decide which metric matters before you compare results.
+
 ## Check yourself
 
 <details>

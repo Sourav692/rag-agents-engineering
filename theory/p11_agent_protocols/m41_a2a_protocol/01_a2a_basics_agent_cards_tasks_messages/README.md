@@ -71,6 +71,12 @@ The echo agent answers with a Message: `"kind": "message"`, `"role": "agent"`, a
 
 The server side of the notebook is three objects: an `AgentExecutor` with the agent logic, a `DefaultRequestHandler` that implements the JSON-RPC methods on top of it with an `InMemoryTaskStore`, and an `A2AStarletteApplication` that serves the card and the endpoint. The client side is `A2ACardResolver` and `A2AClient`. In 0.3.26, constructing `A2AClient` emits a `DeprecationWarning` that points to `ClientFactory`; the notebooks' calls still work.
 
+## Key Takeaways
+
+- A client that knows only a base URL fetches the Agent Card first. It learns the endpoint, the skills, streaming support and accepted content types from it.
+- Treat the card as a contract. Skill descriptions are all a calling model knows, so bump `version` when a skill id, `streaming` or the URL changes.
+- A reply that is a Message is the whole answer and stores nothing to poll. A request is a JSON-RPC `message/send` with a role, a `messageId` and parts.
+
 ## Check yourself
 
 <details>

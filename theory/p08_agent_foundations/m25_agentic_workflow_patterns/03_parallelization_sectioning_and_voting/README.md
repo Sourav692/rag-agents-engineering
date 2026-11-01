@@ -66,6 +66,12 @@ The threshold trades false alarms against misses. Raising it to 3 blocks less of
 
 For Larkspur, voting fits a check before a reply goes out: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. Three narrow reviewers and a threshold are easier to tune than one judge asked about everything.
 
+## Key Takeaways
+
+- A fan-out costs the step before, plus the slowest branch, plus the merge. Give any state key that parallel branches share a reducer, or one of the writes is lost.
+- Rate limits force a concurrency cap, and then submission order matters. A slow branch that waits for a free slot delays the whole request, so start it first.
+- Sectioning splits one task to cut latency; voting repeats one check to raise confidence. Set the vote threshold knowing it trades false alarms against misses and that reviewers are not fully independent.
+
 ## Check yourself
 
 <details>

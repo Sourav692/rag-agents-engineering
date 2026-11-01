@@ -56,6 +56,12 @@ The budget also has to hold what the lab's call counts leave out:
 
 The lab brief turns this into a document: a two-page design for your capstone that justifies each component against a simpler alternative. For each component, write the failure on the golden set that it fixes, the simpler alternative you tried first, the measured gain and the calls it adds per question.
 
+## Key Takeaways
+
+- Pick an architecture by asking which failure the golden set shows, cheapest fix first: retrieval, then routing, index shape, an agent loop, and a check last.
+- Fix retrieval misses in retrieval. Dense retrieval found the outage evidence in 1 call, while loops that worked around the miss spent 10 and 14.
+- Set a complexity budget in model calls per question, and count index-time work, tokens re-read per loop and prompts to test against it. Keep a component only for a measured gain nothing cheaper buys.
+
 ## Check yourself
 
 <details>

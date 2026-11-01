@@ -45,6 +45,12 @@ reply = (prompt | llm).invoke({"topic": "AI"})   # an AIMessage
 
 The swap keeps the code running. It does not keep the replies the same: another model formats, refuses and rambles differently. For Larkspur, a provider change is a release like any other, checked against the golden questions from [M11](../../../p04_rag_foundations/m11_rag_lifecycle/README.md) before it ships.
 
+## Key Takeaways
+
+- Every LangChain chat model offers `invoke`, `batch` and `stream` and returns an `AIMessage`, with token counts under the same keys for every provider.
+- Read `.response_metadata` as well as `.content`. A `finish_reason` of `length` means the reply hit the token limit and stopped mid-sentence or mid-JSON.
+- Changing provider changes one class or one `init_chat_model` string, but the replies change too. Treat a provider swap as a release and check it against the golden questions.
+
 ## Check yourself
 
 <details>

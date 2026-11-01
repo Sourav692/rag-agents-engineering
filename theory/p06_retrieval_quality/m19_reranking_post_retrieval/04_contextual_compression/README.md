@@ -32,6 +32,12 @@ Compression has the same risk as M13's propositions: an LLM sits between the sou
 
 Filtering has a simpler failure. The optional `02b` notebook's `evaluate_documents` asks `gpt-4o-mini` whether each chunk suits the question and keeps it only if the reply equals the string `"True"` exactly. A reply of `"True."` drops the chunk. Ask for structured output, as 19.3's pointwise reranker does, instead of matching text.
 
+## Key Takeaways
+
+- Every step after retrieval saves or spends one context budget. Plan them together: widening each hit means keeping fewer hits, and compressing each chunk lets you keep more.
+- `LLMChainExtractor` copies out only the relevant parts of each chunk at one LLM call per chunk, and drops chunks with nothing relevant.
+- An extractor can drop the condition that limits a rule and produce a confident wrong answer. Check compressed context for faithfulness and keep each chunk's id for citations.
+
 ## Check yourself
 
 <details>

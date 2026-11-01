@@ -82,6 +82,12 @@ This adds chunks that are worded the way users ask, which helps future questions
 - **Past answers become retrievable facts.** When Larkspur changes a policy, the stored answers still quote the old one and compete with the corrected handbook. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.
 - **It rebuilds the whole index.** Every run re-embeds the full corpus plus the feedback text; incremental upserts (M15) avoid that.
 
+## Key Takeaways
+
+- The feedback re-ranker multiplies each chunk's score by its average rating over 3, so a chunk stays between 1/3 and 5/3 and ratings alone set the order. It costs one model call per chunk and stored record.
+- Feedback only reorders the candidates retrieval returns. In the lab, mean recall@2 rose from 0.50 to 0.70, but 40 of the 41 wrong answers came from chunks that were never candidates.
+- Combine implicit and explicit feedback. Implicit signals give volume and per-source detail once corrected for position; explicit ratings are fewer but mean what they say, and each thumbs-down is a golden-set candidate.
+
 ## Check yourself
 
 <details>

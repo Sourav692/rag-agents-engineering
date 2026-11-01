@@ -49,6 +49,12 @@ The 06 server breaks this rule. Its `main()` prints a banner before `mcp.run(tra
 
 The Python client is forgiving; another host may not be. Send logs to stderr (`print(..., file=sys.stderr)` or the `logging` module, whose default handler writes there), and keep stdout for the protocol.
 
+## Key Takeaways
+
+- In `claude_desktop_config.json`, use absolute paths with `uv --directory`, give each server only its own secrets in `env`, and pin versions instead of `@latest`.
+- A remote server reaches a stdio host through a bridge such as `mcp-remote`. Keep `--allow-http` to private networks where traffic cannot be intercepted.
+- Over stdio, stdout carries only JSON-RPC. Send logs to stderr, because buffering can hide stray prints in testing that break a stricter host.
+
 ## Check yourself
 
 <details>

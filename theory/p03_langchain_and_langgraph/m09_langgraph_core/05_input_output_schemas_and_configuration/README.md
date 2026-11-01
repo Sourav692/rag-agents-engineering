@@ -39,6 +39,12 @@ Some values a node needs are not data the graph works on. Notebook 05a's `call_m
 
 For Larkspur, the question, route and answer are state; the reply language and the conversation's `thread_id` go in config; the customer id and the database client go in runtime context ([lesson 9.4](../04_nodes_runtime_context_and_command/README.md)). Putting a client or a secret in state is the usual mistake: state is returned to the caller, and once [M10](../../m10_langgraph_runtime/README.md) adds a checkpointer, it is saved after every step. The `thread_id` in config is what that checkpointer uses to find a conversation's saved state.
 
+## Key Takeaways
+
+- Give a graph separate input, private and output schemas so callers send only the question and receive only the answer. Internal keys can then change without breaking callers.
+- A `TypedDict` output schema filters keys but checks no types. Type checks come from a Pydantic state schema and cover input only.
+- Put data the graph changes in state, per-call settings such as language and `thread_id` in config, and clients and identity in runtime context. Never put a client or secret in state.
+
 ## Check yourself
 
 <details>

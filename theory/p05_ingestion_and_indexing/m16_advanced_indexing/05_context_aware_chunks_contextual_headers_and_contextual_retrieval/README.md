@@ -52,6 +52,12 @@ The post says the context is "usually 50-100 tokens" and is prepended "before em
 | Limit | Cannot say where in the document a chunk sits | The document must fit the model's context window |
 | Start here when | Chunks lose their subject (company, product, section) | Headers are not enough on the golden set |
 
+## Key Takeaways
+
+- Chunks lose their subject. A contextual chunk header prepends the document title, and optionally a summary and section path, to the text before embedding.
+- Use the same header-plus-chunk text in the reranker that you embedded, and show the header to the LLM with each result.
+- Contextual retrieval writes context for each chunk with the whole document in view. It costs one LLM call per chunk and needs the document to fit the context window, so start with headers.
+
 ## Check yourself
 
 <details>

@@ -30,6 +30,12 @@ Grade every proposition against its source chunk before indexing it. A splitter 
 
 Cost decides where propositions are worth it: one LLM call per source chunk to generate, about one more to grade, and usually several times as many vectors. Use them for dense, high-value text (policies, specs, medical or legal facts) where a missed qualifier is expensive, not for a whole document lake.
 
+## Key Takeaways
+
+- A proposition is one atomic, self-contained fact that names its own subject and condition, so it still makes sense when retrieved alone.
+- Grade every generated proposition against its source before indexing, because an LLM can merge facts or drop a qualifier. Keep the source chunk id in metadata.
+- A grader that is the same model shares its blind spots. With one or two LLM calls per chunk and several times the vectors, keep propositions for dense, high-value text.
+
 ## Check yourself
 
 <details>

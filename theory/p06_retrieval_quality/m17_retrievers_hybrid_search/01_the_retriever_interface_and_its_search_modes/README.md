@@ -26,6 +26,12 @@ Similarity search always returns `k` chunks. Ask the twelve-sentence store about
 
 The wrappers spend LLM calls to fix different problems. Multi-query adds one LLM call per question and several searches to raise recall when the wording is off. Compression adds one LLM call per retrieved chunk to cut tokens and noise. Ensemble adds no LLM call; it costs one extra search per retriever, and in `01a` it merges a compressed retriever with a plain one over the same store, which shows that ensembles are not only for dense plus sparse. [17.6](../06_retriever_patterns_compared_hybrid_rerank_on_databricks_vector_search/README.md#choosing-a-retriever-pattern) compares them side by side.
 
+## Key Takeaways
+
+- Every retriever exposes `invoke(query)` and returns a list of `Document`s, so wrappers such as multi-query, compression and ensemble stack without the chain noticing.
+- Similarity search always returns `k` chunks, even for questions the index cannot answer. Add a score threshold, and check whether your store reports a distance (lower is closer) or a relevance score (higher is closer).
+- A threshold belongs to one embedding model and one distance function. Write the score into metadata so you can tune it from real distributions.
+
 ## Check yourself
 
 <details>

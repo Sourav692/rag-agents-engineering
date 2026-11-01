@@ -58,6 +58,12 @@ ChatPromptValue(messages=[
 
 A string sent to a chat model becomes one `HumanMessage`, so nothing is lost. A message list sent to a completion model is flattened into `System:` and `Human:` lines of plain text, which the model continues like any other text; the system instruction becomes a hint instead of a role it was trained to follow. That is why every chain in this course uses a chat model, and why a completion model appears only in notebook 04b, for contrast.
 
+## Key Takeaways
+
+- A chat model reads a list of system, human and AI messages and keeps no state. The app resends the history on every call, so bound it, and trim or summarise it as data before sending.
+- LangChain turns any input into a `PromptValue`, so a string sent to a chat model becomes one `HumanMessage` and nothing is lost.
+- Use chat models for chains. A completion model flattens messages into plain text lines, so a system instruction becomes a hint instead of a role.
+
 ## Check yourself
 
 <details>

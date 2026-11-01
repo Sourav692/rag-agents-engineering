@@ -46,6 +46,12 @@ Before `RunnableWithMessageHistory` and LangGraph checkpointers, LangChain packa
 
 These classes live in `langchain_classic` now. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.
 
+## Key Takeaways
+
+- A chat model call sees only the messages sent in that call. Keep an ordered history of `HumanMessage` and `AIMessage` turns and send the whole list each time, with the prompt adding the system message.
+- A history that keeps everything resends everything. Turn N sends 2N − 1 messages, so six turns send 36 against 6 for independent calls, and cost, latency and context use grow with the chat.
+- The classic memory classes load before each call and save after it, and a missing save leaves the next turn with no history. Expect them in older code; new code uses the newer patterns.
+
 ## Check yourself
 
 <details>

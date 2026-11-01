@@ -60,6 +60,12 @@ Four details carry the design:
 
 The notebook proves the wiring before it spends a token. `create_research_system(nodes=...)` takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.
 
+## Key Takeaways
+
+- A supervisor sees results and can adapt but is hardest to bound. A typed router picks one specialist per question, and a one-shot planner fixes its queries up front, so its cost is known before the first search.
+- Tie every finding to its source and mark whether the URL is one the search returned. When a forum post and the handbook disagree, the writer can then cite both and say which is the policy.
+- End a quality loop in code. Score each draft by its weakest criterion, check the required sections in code, and stop at `MAX_DRAFTS = 2` whatever the reviewer says; prove the wiring with stub nodes first.
+
 ## Check yourself
 
 <details>

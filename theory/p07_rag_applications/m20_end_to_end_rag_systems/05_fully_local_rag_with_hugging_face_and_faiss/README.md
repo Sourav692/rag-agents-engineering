@@ -54,6 +54,12 @@ Two smaller things to change when you reuse the code:
 
 The notebook's fallback evaluation counts expected keywords in each answer ("carbon dioxide", "methane"). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from [M11](../../../p04_rag_foundations/m11_rag_lifecycle/README.md) for decisions.
 
+## Key Takeaways
+
+- Check "local" per component. One remote call sends the data out: `HuggingFaceEndpoint` ships every prompt, chunks included, to the Inference API, while `HuggingFacePipeline` generates in your process.
+- Changing embedding models means re-embedding the whole corpus. Measure tokens per second on the target hardware before promising a latency.
+- Load only FAISS index files your own pipeline wrote, because the docstore is a pickle. Retrieve once and reuse the result so the sources shown match the context.
+
 ## Check yourself
 
 <details>

@@ -55,6 +55,12 @@ Design against three hard constraints:
 - **Value types are restricted.** Chroma 1.5, the version this course installs, accepts `str`, `int`, `float`, `bool`, `None` and non-empty lists of a single one of those types. A nested dict, an empty list or a mixed list such as `[1, "x"]` fails the write. Flatten before you index.
 - **Filters match exactly.** `{"department": "Engineering"}` does not match `"engineering"`. Normalise values when you load.
 
+## Key Takeaways
+
+- A loader fetches the source and a parser turns bytes into text. When the extracted text is wrong, swap the parser.
+- Design the metadata schema before ingestion: provenance, filtering, access control and quality fields. Every forgotten field costs a full re-ingest.
+- Metadata is not embedded, accepts only flat value types, and filters match exactly. Put fields that should affect similarity into the text, flatten values and normalise case.
+
 ## Check yourself
 
 <details>

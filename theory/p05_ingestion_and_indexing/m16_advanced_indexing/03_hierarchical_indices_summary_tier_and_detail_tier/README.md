@@ -36,6 +36,12 @@ And what they cost:
 
 For the Larkspur handbook, each section ("Refunds and cancellations", "Outages and service credits", "Data export and retention") would be one summary. *Do I get service credits automatically after an outage?* would pick the outage summary first and then compare only that section's chunks, so a refund chunk about "Credits from SLA breaches" cannot crowd it out.
 
+## Key Takeaways
+
+- A hierarchical index picks the best pages from a summary tier, then searches chunks only inside them. Chunks compete with their neighbours, not with look-alikes on unrelated pages.
+- The summary tier caps recall: a page it misses is never searched. Log which pages it chose so a miss can be traced.
+- Summaries cost one LLM call per page and go stale when pages change. The model receives up to `k_summaries × k_chunks` chunks, so both numbers set the prompt budget.
+
 ## Check yourself
 
 <details>

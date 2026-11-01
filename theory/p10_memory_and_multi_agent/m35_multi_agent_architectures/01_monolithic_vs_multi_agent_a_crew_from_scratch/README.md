@@ -39,6 +39,12 @@ A `Crew` collects agents in a `with` block and runs them in topological order: a
 
 The last part of the notebook draws the same fan-in crew as a LangGraph `StateGraph`, with one `add_edge` per dependency. A crew is a fixed dependency graph. Everything in lesson 35.2 onward adds a node that chooses the next agent at run time.
 
+## Key Takeaways
+
+- A specialist team gives each agent one domain and a few tools, at roughly four times the model calls of one ReAct loop. Running the specialists in parallel keeps latency near the slowest one.
+- Compare a team with a single agent using code checks and a judge that does not know which approach wrote each report. A gap of a point or two on the judge from one request is noise.
+- A crew is a fixed dependency graph run in topological order, so a cycle fails before any model is called. Choosing the next agent at run time is what the later architectures add.
+
 ## Check yourself
 
 <details>

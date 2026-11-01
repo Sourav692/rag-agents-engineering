@@ -68,6 +68,12 @@ In the lab, the refunds section (1,111 characters) goes to stuff, and the refund
 
 The two branches return the same type, a summary string, so callers never see which strategy ran. Log it anyway: when the share of map-reduce runs rises, documents have grown, and cost and latency will follow.
 
+## Key Takeaways
+
+- Stuff makes 1 call, map-reduce N + 1 and refine N. Cost grows with calls and wall time with rounds, and only map-reduce can run its calls in parallel.
+- Chunk size sets the call count, and concurrency is what makes map-reduce fast. Measure at the concurrency cap your rate limit allows.
+- Route by length: stuff whatever fits and map-reduce the rest. Set the limit from a token budget, and log which strategy ran.
+
 ## Check yourself
 
 <details>

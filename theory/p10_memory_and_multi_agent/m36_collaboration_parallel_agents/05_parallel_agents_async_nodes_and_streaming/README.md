@@ -98,6 +98,12 @@ In the lab, with the rewrite inside the agent node, the first sub-answer (`refun
 
 Whole runs can overlap too. `asyncio.gather` over three `ainvoke` calls runs three complete team runs in about the time of one (1.5 s against about 4.5 s), with no change to the graph. In a notebook, `await` directly; `asyncio.run(...)` fails inside a running event loop.
 
+## Key Takeaways
+
+- Parallel agents overlap their waits and run no faster: three one-second waits take about 1 s together against 3 s in sequence. A chain, a single agent or fast local work gains nothing.
+- LangGraph runs fan-out targets in one superstep and waits for all of them before the next. Keep branches the same length, and join with a list edge or `defer=True` so the join runs once with every input.
+- Give any key that several nodes write in one superstep a reducer, or LangGraph raises `InvalidUpdateError`. Use `Send` for fan-outs sized at run time, and `max_concurrency` to stay under rate limits.
+
 ## Check yourself
 
 <details>

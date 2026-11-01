@@ -88,6 +88,12 @@ A segment that is found gives character offsets to highlight in the interface. A
 
 Highlights serve the reader, who can check the answer against the handbook in one glance, and they serve the team. Logged segments show which chunks answers actually use, and a chunk that is retrieved often and never highlighted is a candidate for the grader to drop or for retrieval to stop returning.
 
+## Key Takeaways
+
+- Grade each retrieved chunk for relevance before generation, at one grader call per chunk. Grading drops noise but cannot add a chunk retrieval missed, so branch on the empty case instead of answering anyway.
+- The hallucination grader checks support, not usefulness, and returns one verdict for the whole answer. Measure its agreement with hand labels before trusting it, and route a `no` to a capped retry or an abstention.
+- A parser checks only the shape of highlighted segments. Confirm each one with `text.find(segment)`, cite the whole chunk and log the miss when it is absent, and compare list lengths before `zip`.
+
 ## Check yourself
 
 <details>

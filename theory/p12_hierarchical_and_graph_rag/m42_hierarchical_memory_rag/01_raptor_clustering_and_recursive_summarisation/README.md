@@ -56,6 +56,12 @@ Move the result budget and inspect the ledger. The lab reports positive-score hi
 
 For the notebook lab, freeze the corpus and question set, then compare flat retrieval, recursive summaries and graph retrieval at the same final context budget. Record indexing calls separately from retrieval and generation calls. Test precise facts, cross-section comparisons, changed policies and questions that the corpus cannot answer.
 
+## Key Takeaways
+
+- RAPTOR clusters passages, summarises each cluster and repeats, so the index holds both local wording and broader themes. Store each node's level, sources, versions and children with its text.
+- Collapsed-tree retrieval ranks all levels in one pool, so the mix adapts to the question. Top-down traversal can lose a relevant leaf to an early wrong branch.
+- A summary can omit the exception a customer asks about. Follow it back to source passages before quoting a condition or number.
+
 ## Check yourself
 
 <details>

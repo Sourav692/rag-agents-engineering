@@ -35,6 +35,12 @@ Treat memory as derived data with dependencies. When Larkspur changes retention 
 
 The optional notebook loads a prebuilt FAISS memory store and uses paid model calls. Reading it establishes the implementation shape; it does not establish a measured advantage on the Larkspur questions. Report any comparison only after running both pipelines on the same question set and budget.
 
+## Key Takeaways
+
+- Corpus memory drafts clues that help the retriever find evidence. A clue can contain a wrong detail, so every claim in the answer must rest on a retrieved passage.
+- Each extra clue adds retrieval work and context, and deduplication alone does not enforce a token budget. Inspect clue text beside the original query.
+- Treat memory as derived data. Regenerate entries when their source passages change, and check that summaries and clues never expose restricted documents.
+
 ## Check yourself
 
 <details>

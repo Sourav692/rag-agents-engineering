@@ -27,6 +27,12 @@ Test valid paraphrases, an unknown entity, ambiguous plan names, a question requ
 
 Generated queries need database-enforced read permissions and bounded execution. Use a read-only principal, query timeout and result limits; a prompt instruction alone does not restrict database authority. LangChain's [chain security note](https://reference.langchain.com/python/langchain-community/chains/graph_qa/cypher/GraphCypherQAChain/allow_dangerous_requests) explains that an opt-in flag acknowledges risk rather than enforcing permissions.
 
+## Key Takeaways
+
+- Text-to-Cypher needs the schema to know which labels, relationship types and properties exist. Refresh it after every schema change and re-run the affected questions.
+- Trace the question, Cypher, parameters, rows and answer separately. A reversed direction or wrong property key returns empty results without any syntax error.
+- An empty result means no matching facts under this schema and data, not impossibility. Enforce safety in the database with a read-only principal, timeouts and result limits.
+
 ## Check yourself
 
 <details>

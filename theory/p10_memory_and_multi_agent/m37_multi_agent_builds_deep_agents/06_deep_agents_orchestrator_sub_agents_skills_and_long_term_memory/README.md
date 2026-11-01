@@ -52,6 +52,12 @@ The orchestrator's prompt tells it to recall memories at the start of each conve
 
 The module's deployed design, in [`deep_agent_overview.md`](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md), runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.
 
+## Key Takeaways
+
+- A deep agent is one orchestrator configured with file tools, sub-agents through `task`, skills and a backend, instead of a graph wired node by node. Only a sub-agent's final message returns, so the orchestrator's context stays small.
+- Skills put only their `name` and `description` in the prompt and are read in full when a task matches. Eight skills cost eight short lines until one is needed.
+- Check what the backend really allows. `FilesystemBackend(virtual_mode=True)` blocks traversal without isolating anything, and `LocalShellBackend` runs unrestricted shell on the host, so use a real sandbox with `interrupt_on` approval.
+
 ## Check yourself
 
 <details>

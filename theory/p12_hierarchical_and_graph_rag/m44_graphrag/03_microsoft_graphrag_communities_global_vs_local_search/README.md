@@ -41,6 +41,12 @@ Record each stage separately. Useful fields include model and prompt version, in
 
 Use the module lab brief's shared global and multi-hop question set to compare GraphRAG, RAPTOR and hybrid retrieval. Hold source versions, answer model and evaluation criteria constant. Report indexing and update work alongside retrieval and answer quality. Derive any amortised cost from measured indexing work, measured query work and the actual expected query volume; no break-even figure follows from the architecture alone.
 
+## Key Takeaways
+
+- A community comes from graph connectivity and its report is a generated summary of it. Review edges and membership before trusting a report about a product area.
+- Use local search for questions about specific entities and their conditions, and global search for themes spread across the corpus. Inspect which reports contributed.
+- Graph pipelines add extraction, identity resolution, community detection and report generation to indexing. Record each stage's tokens, calls and time, and derive cost from measurements.
+
 ## Check yourself
 
 <details>

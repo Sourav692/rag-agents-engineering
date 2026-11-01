@@ -41,6 +41,12 @@ The revised answer adds the traffic condition to the first claim and changes 90 
 
 The optional notebook 04b runs the same draft, critique and revise loop against a written constitution: each named rule gets its own structured verdict (`rule`, `passes`, `critique`), only the failing rules go back to the reviser, and `MAX_ITERATIONS` bounds the loop. The notebook labels it a teaching pattern, not a safety system.
 
+## Key Takeaways
+
+- Chain-of-verification drafts, plans one question per claim, answers each in a fresh call without the draft, then revises. Tie each question to the property the user asked about, or it checks claims nobody doubted.
+- It raises precision, not recall, costs 1 + 1 + N + 1 calls for N claims and is bounded by what the verifier knows. In a RAG system, answer each verification question from retrieved chunks.
+- The reviser can remove correct claims and call it a fix. Score in code, and track unsupported claims and correct claims removed as two separate numbers.
+
 ## Check yourself
 
 <details>

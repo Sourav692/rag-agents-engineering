@@ -56,6 +56,12 @@ return "\n".join(p.root.text for p in message.parts if p.root.kind == "text")
 
 An agent that publishes its output as artifacts (`TaskUpdater.add_artifact`) puts it in `result.artifacts` instead; read those the same way.
 
+## Key Takeaways
+
+- Agents built in different frameworks interoperate when they share the card shape, `message/send`, the Message and Task objects and the card path. The orchestrator imports none of their code.
+- Keep only URLs in the registry and read capabilities from each card at run time. Pick agents by skill, and treat the registry as a trust list.
+- Read replies carefully: check for an error first, branch on the reply's kind, and set `context_id` to keep hops in one conversation. Never forward `str(result)` as content.
+
 ## Check yourself
 
 <details>

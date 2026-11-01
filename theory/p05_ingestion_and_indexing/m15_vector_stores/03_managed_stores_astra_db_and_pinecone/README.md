@@ -36,6 +36,12 @@ The managed stores take the same LangChain calls as Chroma: `add_documents`, `si
 
 Lesson 15.1's notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index, so the embedding model goes with you, and the IDs you derived in lesson 15.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 15.4), has no API key to manage, no network hop and no bill per query.
 
+## Key Takeaways
+
+- A Pinecone index fixes its dimension and metric at creation, so the embedding model and output size are part of its identity. Changing either means a new index.
+- A namespace per customer is a stronger boundary than a metadata filter, because a query cannot reach another namespace. Keep one record-manager namespace per collection.
+- Move to a managed store for concurrent writers, horizontal scale or managed availability, and not before. The LangChain calls stay the same; the move is a re-index.
+
 ## Check yourself
 
 <details>

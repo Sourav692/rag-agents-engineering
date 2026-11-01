@@ -50,6 +50,12 @@ The reader asks the model for one start entity, traverses up to `max_hops`, and 
 
 The optional Part 5 loads the same triples into Neo4j and lets the model write Cypher against the schema, run read-only. M43 builds on that.
 
+## Key Takeaways
+
+- Index the store on a text field and `search(namespace, query=..., limit=k)` recalls memories by meaning, so an old but relevant episode can surface where a newest-N preload cannot.
+- Extract facts from the user's message only, write the subject `user` in code and key on the normalised fact. The model's suggestions never return as user statements, and a restated fact overwrites the old one.
+- Similarity cannot chase a relation from fact to fact; graph memory traverses `(subject, relation, object)` edges for multi-hop questions. Keep the relation vocabulary small and index edges in both directions.
+
 ## Check yourself
 
 <details>

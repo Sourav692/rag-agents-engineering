@@ -59,6 +59,12 @@ The description says what the tool returns and which questions it is for, so the
 
 The from-scratch signatures in lesson 23.1 wrote Python type names (`"type": "int"`) into a prompt. The native schema uses JSON Schema types (`string`, `number`) and travels in the API request, so the provider can return structured calls against it.
 
+## Key Takeaways
+
+- The model reads only the schema: `name`, `description` and `parameters`, never the function body. A vague description gives wrong or missing calls however good the code is.
+- Type every argument. An untyped tool accepts anything (`multiply` turns 2 and `"abc"` into `abcabc`), while a Pydantic `args_schema` rejects bad input before the function runs.
+- Print `tool.name`, `tool.description` and `tool.args` before you bind a tool, especially a wrapped built-in, because that printout is exactly what the model sees.
+
 ## Check yourself
 
 <details>

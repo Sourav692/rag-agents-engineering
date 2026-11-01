@@ -49,6 +49,12 @@ The optional notebooks keep the `agent ⇄ tools` graph and change only the tool
 - **Browser agent.** `screenshot_text`, `click`, `type_text` and `navigate` are ordinary tools over a deterministic mock browser. Actions now change state, so the turn cap becomes a safety bound, and success is graded on the environment (the cart's contents), not the agent's words.
 - **Vision-driven computer use.** When the observation is pixels, locating a control is the hard part. In the notebook's runs `gpt-4o-mini` missed 53 of 53 clicks, even with every miss fed back; `gpt-4o` missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
 
+## Key Takeaways
+
+- A planned pipeline fixes its searches up front. Its cost is predictable and it is easy to test, but it cannot react to an empty result or follow a lead.
+- A ReAct researcher picks each search after reading the last result, so it suits open and multi-hop questions at a variable cost that needs a call cap. Many production researchers plan first, then let each step react.
+- Moving the loop to code, browsers or screens changes only the tools. Sandbox the actions, grade success on the environment rather than the agent's words, and prefer selectors to coordinates.
+
 ## Check yourself
 
 <details>

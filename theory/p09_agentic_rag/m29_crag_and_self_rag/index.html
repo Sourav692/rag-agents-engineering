@@ -453,6 +453,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Refinement costs one more LLM call per document it rewrites, and an LLM that rewrites evidence can also change it. Keep the original chunk id beside each bullet so the answer can still cite the source.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>CRAG grades the retrieved chunks before generation and falls back to a rewritten web search when too few pass. It grades chunks, not answers, so a passing set can still miss the evidence.</li>
+<li>A web fallback suits public facts that go stale. For a private handbook, replace it with a retry inside the index and then a refusal, because the web cannot see your documents.</li>
+<li>Knowledge refinement cuts chunks down to the parts that answer the question before generation. An LLM that rewrites evidence can also change it, so carry the source chunk id with every bullet.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the LangGraph CRAG notebook fall back to web search more often as k grows, even with a perfect grader?</summary>
@@ -587,6 +593,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>With no documents it passes without running.</strong> If <code>documents</code> is empty, <code>grade_groundedness</code> returns <code>"yes"</code> and makes no call. That is exactly the out-of-corpus case: on the starter-plan question, Self-RAG exhausts its rewrites, generates with no context, and the check waves the answer through. The only guard left is the generation prompt&rsquo;s line &ldquo;If the context does not contain enough information to answer confidently, say so plainly&rdquo;. Notebook 02b is weaker still. When no chunk is relevant it generates with the context &ldquo;No relevant context found.&rdquo; and a prompt that asks only to &ldquo;generate a response&rdquo;, so the model answers from memory; its own low-relevance test asks a climate-change corpus <em>how did harry beat quirrell?</em></p>
 <p><strong>The cap does not bound the regenerate loop.</strong> <code>route_after_groundedness</code> writes <code>state["iteration"] = iteration + 1</code> inside the routing function. LangGraph keeps only what nodes return, so that write is lost and the counter never moves. Run against the notebook&rsquo;s own node and router code with a groundedness grader that always says no, the compiled graph (langgraph 1.2.18) regenerated until LangGraph raised <code>GraphRecursionError</code>: with <code>recursion_limit = 200</code>, that was 98 regenerations and 200 LLM calls. With the default config it ran to the limit that release reports, 10,007 steps. The fix is to count in a node: have <code>generate</code> return the new <code>iteration</code> when it is regenerating, or add a small <code>regenerate</code> node before it.</p>
 <p>The paper&rsquo;s three support levels are worth keeping when you build this yourself. 02b ranks candidate answers by &ldquo;fully supported&rdquo; first and utility second (<code>max(responses, key=lambda x: (x[1] == 'fully supported', x[2]))</code>), which a yes or no grade cannot do.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Self-RAG judges four things: whether to retrieve, whether each chunk is relevant, whether the answer is supported and whether it is useful. In the notebooks each judgement is one more LLM call that returns a label.</li>
+<li>The loops make cost depend on the question, from 9 calls on the export question to 20 on an out-of-corpus price question at <code>k = 5</code>. With no documents, the groundedness check passes without running.</li>
+<li>Groundedness and utility fail separately, so check both. Update loop counters in a node, because LangGraph discards state written inside a routing function.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How do the notebooks' reflection tokens differ from the ones in the Self-RAG paper?</summary>
@@ -714,6 +726,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Retrieval misses are fixed in retrieval.</strong> The outage question fails on wording; one rewrite against the index is cheaper than three Self-RAG passes or a web search.</li>
 <li><strong>Every loop gets a counter and a budget.</strong> <code>max_iterations</code> caps the rewrite loops in 02a; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Count the calls before adding correction. On the lab&rsquo;s golden set at <code>k = 3</code>, the mean was 1 call for the baseline, 4.6 for CRAG and 13.4 for Self-RAG.</li>
+<li>No check repairs a chunk that retrieval never returns, and questions the corpus cannot answer cost the most. Fix wording misses upstream, with better retrieval or a rewrite against the index.</li>
+<li>Add correction where a wrong answer costs more than the extra latency, such as refund questions. Keep the web fallback off for a private corpus, and give every loop a counter and a per-request call budget.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does correction cost the most on the questions where it helps the least?</summary>
@@ -783,7 +801,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A groundedness check guards only the cases it runs on. Make &ldquo;no documents&rdquo; a refusal, never an automatic pass.</li>
 <li>Count LLM calls per question on your golden set before you ship a correction loop, and bound every loop with a counter that a node, not a router, updates.</li>
 </ul></article>
-    <nav class="toc" aria-label="M29 sections"><details open><summary>In M29</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#retrieval-evaluator">Retrieval evaluator</a></li><li><a href="#knowledge-refinement">Knowledge refinement</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reflection-tokens">Reflection tokens</a></li><li><a href="#groundedness-check">Groundedness check</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-per-question">Cost per question</a></li><li><a href="#when-correction-pays">When correction pays</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M29 sections"><details open><summary>In M29</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#retrieval-evaluator">Retrieval evaluator</a></li><li><a href="#knowledge-refinement">Knowledge refinement</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reflection-tokens">Reflection tokens</a></li><li><a href="#groundedness-check">Groundedness check</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-per-question">Cost per question</a></li><li><a href="#when-correction-pays">When correction pays</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

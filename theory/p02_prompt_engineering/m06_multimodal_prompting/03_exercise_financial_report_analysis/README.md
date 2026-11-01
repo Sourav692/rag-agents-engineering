@@ -36,6 +36,12 @@ Two more rules keep the answers honest:
 
 Sent to `gpt-4o` at `detail="high"`, each of the two images costs 765 tokens: 2 by 2 tiles of 512 pixels, after `Figure.png` is scaled to 768 by 950. The same method reads a Larkspur pricing page: extract each plan's printed figures first, then answer from the extracted list.
 
+## Key Takeaways
+
+- Ask specific questions whose values are printed on the page, not for a summary, so each answer can be graded line by line.
+- Extract each value with its label, unit and period before interpreting, and check totals in code. On the balance sheet, liabilities plus equity must equal total assets.
+- Have the model read printed labels instead of measuring bars, and accept "not on the page" as an answer rather than a guess.
+
 ## Check yourself
 
 <details>

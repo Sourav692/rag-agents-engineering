@@ -62,6 +62,12 @@ Test each team on its own before you assemble the hierarchy; a team that misbeha
 
 Larkspur's three specialists do not need a hierarchy. Put billing and data in an accounts team with its own lead and operations in a platform team, and the outage request costs 7 model calls, 5 of them routing, against 5 for a flat supervisor. A hierarchy starts to pay when the flat supervisor's prompt has to describe so many specialists that its routing accuracy drops; measure that before adding the layer.
 
+## Key Takeaways
+
+- Give the supervisor a closed `Literal` of next nodes and keep its decisions out of `messages`. A pure routing function reads a specialist-call counter first, so the cap ends a run with a result, not an error.
+- A supervisor pays one routing call before each specialist and one to finish, 5 calls for the outage request against 3 for a swarm. In return, every decision sits in one log with its reason.
+- Compose hierarchies through one shared state contract, keep counters out of it and cap every level. Add a layer only after measuring that a flat supervisor's routing accuracy has dropped.
+
 ## Check yourself
 
 <details>

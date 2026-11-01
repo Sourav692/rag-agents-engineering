@@ -78,6 +78,12 @@ The cap needs the same arithmetic. Six lookups with one wrong result need 7 exec
 
 The lab's models are scripted, so its numbers are exact for these prompts and chunks but not for a live model: a real ReAct agent may stop early, as in notebook 01a, and a real replanner may need more than one rewrite. Its numbers match the notebooks' own node and router code run under LangGraph with the same scripted models on all 1,764 settings.
 
+## Key Takeaways
+
+- Use a plan when the steps are knowable from the question and ReAct when each step depends on the last result. ReAct can promise a search in text and stop; a plan writes every lookup down.
+- A fixed plan never checks a result, so a wrong search lands in the answer. Replanning evaluates each step and rewrites the remaining steps from the failure reason instead of retrying unchanged.
+- Size caps from the call arithmetic: N + 2 + 2f calls for N lookups and f wrong results. The evaluator decides quality, since too lenient lets wrong data through and too strict replans good results.
+
 ## Check yourself
 
 <details>

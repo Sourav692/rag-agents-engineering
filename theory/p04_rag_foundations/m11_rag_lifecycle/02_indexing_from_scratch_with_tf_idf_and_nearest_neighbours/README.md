@@ -45,6 +45,12 @@ quadrantChart
     any k outage: [0.05, 0.05]
 ```
 
+## Key Takeaways
+
+- Measure retrieval against labelled evidence with recall@k and precision@k. The `k` chunks returned are all the model ever sees.
+- A larger `k` fixes only ranking problems. When a chunk scores zero through word-form or vocabulary mismatch, change the representation instead.
+- Extra chunks cost tokens and latency, and models use the middle of a long context less reliably. Retrieve generously only when a reranker trims the list afterwards.
+
 ## Check yourself
 
 <details>

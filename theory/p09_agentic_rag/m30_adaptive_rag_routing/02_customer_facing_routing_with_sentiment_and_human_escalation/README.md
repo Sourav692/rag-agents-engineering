@@ -52,6 +52,12 @@ Sentiment is a proxy for "a person should handle this". It misses a calm custome
 
 Other triggers belong beside sentiment: a router that fell back to searching every knowledge base, an answer the hallucination grader rejected (lesson 30.3), or the same customer asking the same question twice.
 
+## Key Takeaways
+
+- Check sentiment before topic so an angry or distressed customer reaches a person, not the knowledge base. Give each kind of escalation its own target, such as support for unhappy customers and on-call for live outages.
+- Pass the query, both labels and anything retrieved with the handoff. Wait for the person with `interrupt()` and a checkpointer, not a polling loop that holds a worker open.
+- Sentiment is only a proxy for needing a person. Count missed and needless escalations on labelled tickets, and add triggers such as a fallback search, a rejected answer or a repeated question.
+
 ## Check yourself
 
 <details>

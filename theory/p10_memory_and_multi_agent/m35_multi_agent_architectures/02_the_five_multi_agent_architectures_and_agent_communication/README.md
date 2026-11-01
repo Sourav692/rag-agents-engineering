@@ -61,6 +61,12 @@ flowchart LR
 
 The notebook marks one boundary. This loop is not a blackboard: its order is fixed (draft, critique, draft), and only the exit is decided at run time. A blackboard has a controller that picks which of several specialists acts next from what is on the shared board; M36 builds one.
 
+## Key Takeaways
+
+- Build every architecture from one primitive, a node returning `Command(goto=..., update=...)`. `add_edge` fixes a path at build time, `Command` picks one at run time, and most systems use both.
+- Pick the architecture by who should decide what runs next. Use a custom workflow when the order is known, handoffs when the conversation should move with an agent, and a supervisor when routing must be auditable.
+- Always pass `recursion_limit`, since the default is 10,007 super-steps. In a generator and critic loop, have the critic quote evidence per criterion, compute the verdict in code and cap the iterations.
+
 ## Check yourself
 
 <details>

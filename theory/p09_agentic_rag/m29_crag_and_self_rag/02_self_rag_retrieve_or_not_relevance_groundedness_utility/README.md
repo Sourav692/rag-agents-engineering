@@ -52,6 +52,12 @@ Two details in 02a decide what the check catches.
 
 The paper's three support levels are worth keeping when you build this yourself. 02b ranks candidate answers by "fully supported" first and utility second (`max(responses, key=lambda x: (x[1] == 'fully supported', x[2]))`), which a yes or no grade cannot do.
 
+## Key Takeaways
+
+- Self-RAG judges four things: whether to retrieve, whether each chunk is relevant, whether the answer is supported and whether it is useful. In the notebooks each judgement is one more LLM call that returns a label.
+- The loops make cost depend on the question, from 9 calls on the export question to 20 on an out-of-corpus price question at `k = 5`. With no documents, the groundedness check passes without running.
+- Groundedness and utility fail separately, so check both. Update loop counters in a node, because LangGraph discards state written inside a routing function.
+
 ## Check yourself
 
 <details>

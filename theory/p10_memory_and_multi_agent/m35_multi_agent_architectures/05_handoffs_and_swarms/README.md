@@ -62,6 +62,12 @@ A swarm spends routing once per thread. On the outage request, triage hands off 
 
 Over a thread of the outage request and 3 follow-ups the lab counts 6 calls for the swarm, 14 for the supervisor and 22 for the hierarchy. The router (M30) spends 8 and still never asks billing about the credits. The swarm's saving rests on the conversation staying with one specialist. When a follow-up changes topic, the active agent has to recognise that and hand off, and the routing quality now lives in every agent's prompt instead of one supervisor's.
 
+## Key Takeaways
+
+- A handoff tool returns `Command(goto=..., graph=Command.PARENT)` and sets `active_agent`. With a checkpointer, the next user message goes straight to the agent holding the conversation, with no router in between.
+- Nothing in a swarm forces a stop, so two agents can bounce a request until `recursion_limit` raises. Pass a note with each handoff, because the library tool carries none.
+- A swarm spends routing once per thread, 6 calls for the outage request and 3 follow-ups against 14 for a supervisor. The saving holds only while follow-ups stay on one specialist's topic.
+
 ## Check yourself
 
 <details>

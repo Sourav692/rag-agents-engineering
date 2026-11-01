@@ -35,6 +35,12 @@ These are the authors' numbers, not a measurement in this course. The notebook r
 
 RSE spends the context budget (19.4) in a bounded way: at the notebook's settings, at most 30 chunks of 800 characters, 24,000 characters in all. For the Larkspur handbook the sections are short, so set `max_length` to a section's chunk count and the overall cap to what the generation prompt can hold.
 
+## Key Takeaways
+
+- Relevant chunks cluster within their documents. RSE subtracts a penalty from each chunk's reranker value and sends the contiguous runs with the highest sums, including low-scored chunks between relevant ones.
+- Chunk with no overlap so joined neighbours rebuild the original text exactly. RSE then acts like top-k on factoid questions and like a large chunk on broad ones.
+- The KITE gains (average 4.72 to 6.73) are the authors' numbers, not a course measurement. Cap segment length and total chunks to fit your prompt.
+
 ## Check yourself
 
 <details>

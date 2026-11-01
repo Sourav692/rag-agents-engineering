@@ -71,6 +71,12 @@ bm25 = BM25Retriever.from_documents(chunks, preprocess_func=tokens, k=5)
 
 On the same corpus this lifts the second sentence to 1.947, because `application` now matches. `ORD-88213?` becomes `ord-88213`, so an ID typed at the end of a question still matches the chunk that contains it. `LLMs` still misses `LLM`; matching word forms needs a stemmer, the same gap that kept the `refund-timing` chunk ("Refunds") away from "refund" in the M11 lab. Tune `k1` and `b` through `bm25_params` only after the tokeniser is right; the tokens decide what can match at all.
 
+## Key Takeaways
+
+- Dense retrieval matches meaning and misses rare exact strings such as order IDs; BM25 matches exact tokens and misses paraphrase. Combine them when your questions include both kinds.
+- BM25 is TF-IDF with saturation and length normalisation: each extra occurrence of a word adds less, and long chunks are scaled down.
+- Fix the tokeniser before tuning `k1` and `b`. The default `text.split()` keeps case and punctuation, so `application.` never matches `application`.
+
 ## Check yourself
 
 <details>

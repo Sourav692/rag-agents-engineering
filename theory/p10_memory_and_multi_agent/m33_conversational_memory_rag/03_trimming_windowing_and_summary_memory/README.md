@@ -40,6 +40,12 @@ A window does the same job in storage. The notebook's `WindowedChatHistory` keep
 
 Wrap a trimming chain in `RunnableWithMessageHistory` and the store keeps the full history while the model sees the trimmed part. That split between what is stored and what is sent is the question lesson 33.6 asks of a LangGraph thread.
 
+## Key Takeaways
+
+- Windows and token trims drop the oldest messages, which often set the context, such as the customer's plan. Summary memory folds old exchanges into a running summary and keeps the last few messages word for word.
+- Each fold is an extra LLM call and keeps names and decisions but not exact wording. On a short chat, summary memory costs as much as keeping everything.
+- `trim_messages` cuts only the prompt and leaves the stored history complete, while a window of `k` exchanges keeps only the last `2k` messages in storage. Neither keeps early facts.
+
 ## Check yourself
 
 <details>

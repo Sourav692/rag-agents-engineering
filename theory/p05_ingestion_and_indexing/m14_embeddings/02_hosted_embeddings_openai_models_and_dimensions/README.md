@@ -49,6 +49,12 @@ Shorter vectors are worse; the question is how much worse on your data for what 
 
 The notebook's most useful row is `3-large` truncated to 1536: a stronger model at the same index cost as `3-small`. Run the same comparison on the M11 golden set before you pick a size, and treat the choice as permanent, because changing dimensions means re-embedding every chunk and querying with the new setting.
 
+## Key Takeaways
+
+- Embedding the corpus is a small one-off bill; dimensions are paid on every query in memory and compute. One million 1536-dimension vectors take about 6.1 GB as 32-bit floats.
+- The `text-embedding-3` models can be shortened with `dimensions`. `3-large` at 1536 gives a stronger model at the same index cost as `3-small`.
+- Judge a dimension cut by the margin, not only recall@1, which saturates on easy sets. Treat the choice as permanent, because changing it means re-embedding every chunk.
+
 ## Check yourself
 
 <details>

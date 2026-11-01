@@ -50,6 +50,12 @@ Every earlier pattern is a directed acyclic flow, so each maps onto an LCEL oper
 
 Choosing between the two LangChain loops comes down to what you need around the loop. The Python `for` loop is easy to read and returns a dict you shaped, but traces each pass as separate chain runs and has no streaming, checkpointing or interrupts. The middleware loop is one agent run with every pass nested, keeps the full message history as its state, and inherits tools, streaming and persistence from the agent runtime. Two details matter there: `can_jump_to=["model"]` on the decorator is what creates the conditional edge, and the critique reaches the next draft as an appended `HumanMessage`. When the loop needs checkpoints, interrupts or a human in it, that is the point to move to LangGraph.
 
+## Key Takeaways
+
+- Evaluator-optimizer feeds a critique into the next draft until the grade passes. Use it only when the criteria are clear and feedback measurably improves the next attempt.
+- Grade with one boolean per criterion, check length in code and compute `approved` from the checks. A single holistic grade with `gpt-4o-mini` almost never converged.
+- Cap every loop and count a run that hits the cap as a failure. LCEL cannot express the cycle, so use a Python loop or middleware, and move to LangGraph when you need checkpoints or interrupts.
+
 ## Check yourself
 
 <details>

@@ -61,6 +61,12 @@ db = Chroma.from_texts(texts, embedding=embeddings_model,
 
 With cosine space, `similarity_search_with_score` returns `1 - cosine` (0.606 for `reboot`) and the relevance score is the cosine itself (0.394). The ranking does not change, and the same 0.2 threshold now returns `reboot`, `incidents` and `sla`. The metric is fixed when the collection is created; changing it means building a new collection (M15).
 
+## Key Takeaways
+
+- A LangChain vector store keeps the embedding object and embeds the question for you, so both sides always use the same model.
+- Set `k` explicitly, pass `ids=` so a re-run overwrites instead of duplicating, and set `persist_directory` if the index must survive a restart.
+- Chroma ranks by squared L2 distance by default, which breaks relevance-score thresholds. Create the collection with `"hnsw:space": "cosine"` if you plan to filter on scores.
+
 ## Check yourself
 
 <details>

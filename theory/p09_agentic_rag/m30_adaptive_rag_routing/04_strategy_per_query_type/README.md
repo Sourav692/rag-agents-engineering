@@ -33,6 +33,12 @@ The demo corpus is one sentence about the Earth. Every search returns that one c
 
 The Adaptive-RAG paper behind lesson 30.3 routes on a different axis, question complexity: no retrieval, one step or several. The two combine. A complexity router decides how many rounds of retrieval to run; a type router decides what each round looks for.
 
+## Key Takeaways
+
+- A type router sends each question to a retrieval method over the same index. Factual questions get precision, analytical ones coverage, opinions spread and contextual questions the user's situation.
+- Cost follows the method. Scoring chunks one call at a time takes up to 11 LLM calls per question, while planning the searches and selecting once takes 4.
+- Before reusing the notebook, close the label set with a `Literal`, pass the user's context through and share one index. Prove the routing helps by comparing each strategy with plain top-k on a golden set.
+
 ## Check yourself
 
 <details>

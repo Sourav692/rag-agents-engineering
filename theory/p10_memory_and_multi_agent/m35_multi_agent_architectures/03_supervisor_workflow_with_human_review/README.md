@@ -31,6 +31,12 @@ The workflow then becomes one node of an outer graph, followed by a node that pu
 
 That interrupt is static: fixed at compile time, it pauses every run at the named node. A dynamic `interrupt(payload)` inside a node pauses only when the node decides to, and the run resumes with `Command(resume=...)`. Larkspur needs the dynamic kind. A refund the billing agent proposes inside the 30-day window can go straight to the customer; one outside the window pauses for a person. The check that decides to pause compares dates in code, for the same reason the word count does.
 
+## Key Takeaways
+
+- Grade in code whatever code can check exactly, such as word count, and use a model with structured output only for checks that need judgement. Route to the first failing check and cap the passes.
+- Write the published output in one place, set only on a full pass, so the text that ships is always the version that passed.
+- A static `interrupt_after` pauses every run at a node; a dynamic `interrupt(payload)` pauses only when the node decides. Use the dynamic kind for a refund outside the 30-day window, and compare the dates in code.
+
 ## Check yourself
 
 <details>

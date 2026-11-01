@@ -39,6 +39,12 @@ Two smaller points: `pyproject.toml` lists `a2a-python` where `requirements.txt`
 
 A smoke test that sends one golden question through the host and checks that the reply contains handbook text, not `Error communicating`, catches the first failure on the first run.
 
+## Key Takeaways
+
+- Use MCP to connect an agent to tools and data, returning one result its own model reasons over. Use A2A to delegate to another agent with its own model, tools and state.
+- Keyword routing is fast and predictable but misroutes questions that share words with another domain. Weigh that before skipping the model's routing decision.
+- Connectors that turn failures into strings pass errors on as answers. Run one golden question end to end and check for real content before trusting the system.
+
 ## Check yourself
 
 <details>

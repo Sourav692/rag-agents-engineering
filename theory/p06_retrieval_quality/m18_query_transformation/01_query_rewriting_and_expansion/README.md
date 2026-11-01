@@ -63,6 +63,12 @@ flowchart TD
 
 Plain retrieval is a valid exit. The M11 lab's export question already retrieves both its evidence chunks at `k = 2`, and every transformation on it adds cost with nothing to gain. A router (lesson 18.7) can make this choice per question instead of applying one technique to all traffic.
 
+## Key Takeaways
+
+- A question rarely looks like its answer. It differs in vocabulary (the user's words are not the handbook's) and in shape (short and interrogative against long and declarative).
+- Expansion sends an LLM-enriched query to the retriever and the original question to the answer prompt. It costs one LLM call per retrieval, and too many added terms dilute the query.
+- Match the transformation to the gap: decompose multi-need questions, filter on facts, step back from narrow premises, use variants or HyDE for short or oddly worded ones. Plain retrieval is a valid choice.
+
 ## Check yourself
 
 <details>

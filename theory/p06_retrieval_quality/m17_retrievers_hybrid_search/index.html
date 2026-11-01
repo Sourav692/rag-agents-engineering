@@ -388,6 +388,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p><code>01a</code>&rsquo;s custom retriever does the conversion itself inside a <code>@chain</code> function, writes the rounded score into <code>doc.metadata["score"]</code>, and keeps chunks above a threshold (<code>0.51</code> for <em>what is the financial capital of India?</em>). Storing the score in metadata pays off later: you can log it, show it, and tune the threshold from real distributions. A threshold belongs to one embedding model and one distance function; carry it to another model and it means something else.</p>
 <p>The wrappers spend LLM calls to fix different problems. Multi-query adds one LLM call per question and several searches to raise recall when the wording is off. Compression adds one LLM call per retrieved chunk to cut tokens and noise. Ensemble adds no LLM call; it costs one extra search per retriever, and in <code>01a</code> it merges a compressed retriever with a plain one over the same store, which shows that ensembles are not only for dense plus sparse. <a href="#choosing-a-retriever-pattern">17.6</a> compares them side by side.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Every retriever exposes <code>invoke(query)</code> and returns a list of <code>Document</code>s, so wrappers such as multi-query, compression and ensemble stack without the chain noticing.</li>
+<li>Similarity search always returns <code>k</code> chunks, even for questions the index cannot answer. Add a score threshold, and check whether your store reports a distance (lower is closer) or a relevance score (higher is closer).</li>
+<li>A threshold belongs to one embedding model and one distance function. Write the score into metadata so you can tune it from real distributions.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can a chain not tell a plain vector search from a hybrid, compressed, multi-query retriever?</summary>
@@ -503,6 +509,12 @@ def tokens(text):
 bm25 = BM25Retriever.from_documents(chunks, preprocess_func=tokens, k=5)
 </code></pre>
 <p>On the same corpus this lifts the second sentence to 1.947, because <code>application</code> now matches. <code>ORD-88213?</code> becomes <code>ord-88213</code>, so an ID typed at the end of a question still matches the chunk that contains it. <code>LLMs</code> still misses <code>LLM</code>; matching word forms needs a stemmer, the same gap that kept the <code>refund-timing</code> chunk (&ldquo;Refunds&rdquo;) away from &ldquo;refund&rdquo; in the M11 lab. Tune <code>k1</code> and <code>b</code> through <code>bm25_params</code> only after the tokeniser is right; the tokens decide what can match at all.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Dense retrieval matches meaning and misses rare exact strings such as order IDs; BM25 matches exact tokens and misses paraphrase. Combine them when your questions include both kinds.</li>
+<li>BM25 is TF-IDF with saturation and length normalisation: each extra occurrence of a word adds less, and long chunks are scaled down.</li>
+<li>Fix the tokeniser before tuning <code>k1</code> and <code>b</code>. The default <code>text.split()</code> keeps case and punctuation, so <code>application.</code> never matches <code>application</code>.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does BM25 find the Larkspur chunk that quotes ORD-88213 when a dense retriever misses it?</summary>
@@ -598,6 +610,12 @@ w_i       = the weights list; equal weights if you pass none
 </tbody>
 </table></div>
 <p>RAG-Fusion in <a href="../m18_query_transformation/index.html">M18</a> uses the same formula to merge the result lists of several rewritten queries instead of several retrievers.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Weighted score fusion min-max normalises each list per query, so the best chunk always scores 1.0 and one outlier shifts what <code>alpha</code> means. Pair scores by chunk, never by list position.</li>
+<li>Reciprocal Rank Fusion uses only ranks, with <code>c = 60</code> in <code>EnsembleRetriever</code>. Chunks that both retrievers return beat a chunk only one retriever ranks first.</li>
+<li>Uneven weights can bury a keyword-only hit. Check how deep each retriever hands over before tuning <code>c</code>, because fusion cannot rescue a chunk that made neither list.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can min-max weighted fusion produce confident-looking scores for a question the corpus cannot answer?</summary>
@@ -711,6 +729,12 @@ repeat until k are picked
 </code></pre>
 <p><code>04a</code> splits <code>langchain_rag_dataset.txt</code> into 300-character chunks with 50 of overlap, embeds them with <code>all-MiniLM-L6-v2</code> (384 dimensions) in FAISS, and asks <em>How does LangChain support agents and memory?</em>, a question with two parts, agents and memory, that may sit in different chunks. Small overlapping chunks suit MMR: neighbouring chunks share up to 50 characters, so plain top-k can return two windows onto the same passage.</p>
 <p>MMR measures similarity, not correctness or freshness. If the index holds this year&rsquo;s and last year&rsquo;s refund policy, MMR treats them as near-copies and keeps whichever it picks first. Filter on <code>version</code> or <code>date</code> metadata before MMR (<a href="#">17.5</a>). Tune λ and <code>fetch_k</code> on golden questions that need two or more distinct chunks, and check that single-fact questions do not lose their second-best supporting chunk.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>MMR picks chunks one at a time, scoring each candidate on relevance to the query minus its similarity to chunks already picked, so one fact repeated three times stops filling the context.</li>
+<li><code>lambda_mult</code> sets the balance: 1.0 is plain similarity search and 0.0 ignores relevance after the first pick. <code>fetch_k</code> (default 20) sets the pool MMR chooses from.</li>
+<li>MMR sees similarity, not freshness. Filter out old policy versions on metadata first, and tune on golden questions that need two or more distinct chunks.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does MMR return at lambda_mult 1.0, and why is its first pick the same at every value of lambda?</summary>
@@ -774,6 +798,12 @@ repeat until k are picked
 <p>The four filters only remove. They run on the 10 chunks the similarity search returned, so if a Chilean customer ranked 11th, no filter brings it back, and a strict combination can leave nothing. When a filter is known before the search, push it into the store: Chroma&rsquo;s <code>similarity_search(query, k=10, filter={"country": "Chile"})</code> ranks only the matching chunks, and every one of the 10 slots goes to a chunk that matches the filter. Keep post-filters for conditions the store cannot express, such as the diversity check.</p>
 <p>The settings are specific to this setup. A relevance threshold of 0.35 belongs to <code>all-MiniLM-L6-v2</code> on this corpus. The substring test for <code>chile</code> would also accept a longer word that contains it. The diversity filter is a hard cut at one similarity, where MMR (<a href="#">17.4</a>) trades redundancy against relevance with λ.</p>
 <p>For the Larkspur handbook, the useful facets come from metadata written at ingestion: the handbook section, which M13&rsquo;s header splitter writes, and the <code>version</code> and <code>date</code> fields of the <a href="../../p05_ingestion_and_indexing/m12_document_ingestion/index.html#metadata-schema">M12 metadata schema</a>. A question about refunds on annual plans can filter to the Refunds section and the current version before ranking, which removes last year&rsquo;s policy without asking MMR or the reranker to notice it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Ranking orders chunks; filtering decides which are allowed. Run cheap exact checks (metadata, score, keywords) before the diversity check that needs an embedding call per chunk.</li>
+<li>Post-filters only remove from what the search returned. When a filter is known up front, pass it to the store so every slot goes to a matching chunk.</li>
+<li>Thresholds and keyword tests are specific to one model and corpus. Write facets such as section, <code>version</code> and <code>date</code> at ingestion so you can filter on them later.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the multi-faceted filter run the metadata, score and keyword checks before the diversity check?</summary>
@@ -861,6 +891,12 @@ repeat until k are picked
 </table></div>
 <p>Hybrid in the store and <code>EnsembleRetriever</code> in the application do the same job in different places. The store keeps the keyword side next to the vectors and fuses on the server in one round trip. <code>BM25Retriever</code> holds its index in application memory and is built from the full document list with <code>from_documents</code>, so a changed corpus means rebuilding it. The ensemble is easier to inspect and tune; the store version is easier to run at scale.</p>
 <p><code>06b</code> describes the reranker as about 15% better in quality for 1 to 1.5 seconds of extra latency. The notebook states these figures without measuring them; measure your own on the golden set before you pay that latency. <a href="../m19_reranking_post_retrieval/index.html">M19</a> covers rerankers and the retrieve-wide, rerank-narrow design.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Each pattern fixes one failure at its own cost. Multi-query fixes wording, compression trims noisy chunks at one LLM call each, an ensemble catches exact terms, and parent documents restore missing context.</li>
+<li>Patterns nest because each is a retriever, but LLM calls add up across the stack. Count them before you combine.</li>
+<li>Hybrid search in the store fuses on the server in one round trip; an application-side ensemble is easier to inspect. Measure any reranker&rsquo;s gain and latency on your golden set before enabling it.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. In the nested pipeline, why do multi-query and compression pull in opposite directions, and what do they cost in LLM calls?</summary>
@@ -935,7 +971,7 @@ repeat until k are picked
 <li>Fusion and MMR reorder a candidate pool and cannot add to it. Retrieve wider than you return.</li>
 <li>Set λ, score thresholds and fusion weights by measuring them on your golden set, and measure again when the embedding model changes.</li>
 </ul></article>
-    <nav class="toc" aria-label="M17 sections"><details open><summary>In M17</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-modes">Search modes</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dense-vs-sparse">Dense vs sparse</a></li><li><a href="#bm25">BM25</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#weighted-score-fusion">Weighted score fusion</a></li><li><a href="#reciprocal-rank-fusion">Reciprocal Rank Fusion</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mmr-λ">MMR λ</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#four-filters-in-sequence">Four filters in sequence</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-retriever-pattern">Choosing a retriever pattern</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M17 sections"><details open><summary>In M17</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-modes">Search modes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dense-vs-sparse">Dense vs sparse</a></li><li><a href="#bm25">BM25</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#weighted-score-fusion">Weighted score fusion</a></li><li><a href="#reciprocal-rank-fusion">Reciprocal Rank Fusion</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mmr-λ">MMR λ</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#four-filters-in-sequence">Four filters in sequence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-retriever-pattern">Choosing a retriever pattern</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

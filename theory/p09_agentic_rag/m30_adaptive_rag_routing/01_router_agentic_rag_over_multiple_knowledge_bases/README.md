@@ -70,6 +70,12 @@ The three misroutes fail for different reasons:
 
 A floor removes the misroutes that have no signal, cheaply. Confident misroutes need a better classifier (embeddings, an LLM, or several example tickets per route) and a labelled routing set to find them, since the router's own score cannot.
 
+## Key Takeaways
+
+- Close the router's label set with a `Literal` in the schema so code never meets a value it cannot handle. The prompt's one-line label definitions are the router's whole specification.
+- Map each label to its exact metadata value and pass the filter per call, not onto a shared retriever. A misroute leaves no trace, because the wrong knowledge base simply returns weaker chunks or none.
+- A confidence floor with an all-KB fallback catches tickets that match nothing, in the lab for 0.11 extra searches per ticket. Confident misroutes need a better classifier and a labelled routing set.
+
 ## Check yourself
 
 <details>

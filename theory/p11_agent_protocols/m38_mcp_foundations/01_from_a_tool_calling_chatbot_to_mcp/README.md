@@ -35,6 +35,12 @@ The split pays off as soon as a second chatbot, an IDE or an agent framework wan
 
 The optional notebook 01b runs the same chatbot on OpenAI. Only the wrapper changes: each schema sits inside `{"type": "function", "function": {...}}` with `parameters` in place of `input_schema`, and the arguments arrive as a JSON string the code parses with `json.loads`. The tools and the loop are the same, which is why the server in lesson 38.2 can serve either provider.
 
+## Key Takeaways
+
+- Without MCP, every tool needs three hand-written pieces in the chatbot: the function, its schema in `tools`, and a name-to-function mapping.
+- MCP keeps the model loop unchanged and moves the tools to a server. The client fetches schemas with `session.list_tools()` and runs them with `session.call_tool()`.
+- Put a tool behind one server when a second chatbot, an IDE or an agent framework needs it, so each one connects instead of copying the code.
+
 ## Check yourself
 
 <details>

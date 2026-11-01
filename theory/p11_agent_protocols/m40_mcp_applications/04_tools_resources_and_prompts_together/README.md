@@ -33,6 +33,12 @@ Two design points the server gets wrong for anything beyond one user:
 - **Hidden coupling between tools.** `save_job` only works after `search_jobs`, because it reads the single file `fetched_jobs_temp.json`. Two users of a shared server overwrite each other's search, and `save_job` saves a job from someone else's results or reports the id as not found.
 - **Paths relative to the working directory.** `BASE_DIR = Path(".")` puts `jobs/` and `resume/` wherever the server process starts. The Claude Desktop entry passes `uv --directory`, which sets it ([40.2](../02_mcp_servers_with_claude_desktop/README.md#claude-desktop)); anchor paths on `Path(__file__).parent` instead, as the 06 and 07 servers do.
 
+## Key Takeaways
+
+- Tools are model-controlled and may have side effects; resources are application-controlled and only read; prompts are user-controlled and return instructions.
+- Many hosts load tools only. The application must fetch resources and prompts itself, or a prompt that expects attached data has nothing to read.
+- Avoid hidden coupling through shared temp files and paths relative to the working directory. Anchor paths on `Path(__file__).parent` and keep per-user state apart.
+
 ## Check yourself
 
 <details>

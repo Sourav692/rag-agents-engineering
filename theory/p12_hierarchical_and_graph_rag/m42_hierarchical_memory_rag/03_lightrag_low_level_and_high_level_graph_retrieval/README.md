@@ -34,6 +34,12 @@ For Larkspur, preserve separate product identifiers, relation direction where it
 
 To evaluate the two routes, run entity-only, relation-only and combined retrieval on the same precise and cross-section questions. Inspect answer support, source coverage and context size. Record extraction failures and indexing cost separately; a graph with plausible labels can still omit the relationship the question needs.
 
+## Key Takeaways
+
+- LightRAG runs two routes: low-level search over entity profiles and their direct edges, and high-level search over relation profiles and their endpoints. Both feed one budgeted context.
+- Seed counts do not bound the final context, because a high-degree entity can add many edges. Join a source passage to every selected assertion.
+- Merged profiles keep old wording after a source is removed. Recompute them when a policy is withdrawn, and keep separate identifiers for products that share a name.
+
 ## Check yourself
 
 <details>

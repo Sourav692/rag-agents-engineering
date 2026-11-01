@@ -56,6 +56,12 @@ A Larkspur support assistant could route on the handbook's own sections. The exa
 
 *Do I get a refund if an outage lasts a day?* belongs to billing and reliability at once. Expect its two scores to sit close, the margin check to fail, and the classifier to decide, or send it to both routes. Self-querying (lesson 18.8) is the related move inside one source: instead of choosing a destination it turns part of the question into a metadata filter, such as a plan type or a date.
 
+## Key Takeaways
+
+- Logical routing asks an LLM to choose; semantic routing picks the route whose example questions are closest by embedding, about 100 times cheaper per query in the notebook's comparison.
+- A `Literal` output field guarantees a valid route name, not a sensible one. Add an explicit `other` route and a regression set of questions with expected routes.
+- Gate semantic routes on a minimum top score and a minimum margin over the runner-up, and send failures to the LLM classifier. Tune both thresholds on logged traffic.
+
 ## Check yourself
 
 <details>

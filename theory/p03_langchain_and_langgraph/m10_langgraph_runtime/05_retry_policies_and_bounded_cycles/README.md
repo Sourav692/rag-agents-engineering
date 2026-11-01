@@ -48,6 +48,12 @@ The notebook's guard has three parts:
 
 A loop on the Larkspur desk, such as "rewrite the customer reply until the tone checker passes", gets the same treatment: a counter in the rewriting node, a cap in the router, an explicit `recursion_limit`, and a fallback path when the cap is hit. [M29](../../../p09_agentic_rag/m29_crag_and_self_rag/README.md)'s grade-and-rewrite loops are built this way.
 
+## Key Takeaways
+
+- A `RetryPolicy` re-runs a failing node inside one call, with exponential backoff capped by `max_interval`. Name the exceptions in `retry_on` so a bug fails on the first attempt.
+- Every retry repeats the node's side effects, so an external write that already succeeded can happen twice.
+- Bound every cycle: count in the node, check success then the cap in the router, and pass an explicit `recursion_limit`. The default of 10,007 steps will not protect an LLM budget.
+
 ## Check yourself
 
 <details>

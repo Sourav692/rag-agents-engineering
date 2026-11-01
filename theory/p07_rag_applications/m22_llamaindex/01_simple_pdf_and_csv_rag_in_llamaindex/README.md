@@ -87,6 +87,12 @@ Company: Rasmussen Group
 
 It skips splitting, embeds each row, and asks *which company does sheryl Baxter work for?* with `similarity_top_k=2`. The answer is in row 1 (Rasmussen Group), and the row's own text names her, so one retrieved row is enough. A question about many rows ("how many customers are in Chile?") gets the same two rows, and no prompt can count the other 98. Row-per-Document RAG answers lookups; counts, sums and filters belong to a query over the table, which M20 covers.
 
+## Key Takeaways
+
+- A Document is what a reader loads; a Node is what the index stores, with an id, metadata and neighbour links. Splitting never crosses a Document boundary.
+- `SentenceSplitter` counts tokens, not characters, and subtracts embedded metadata from `chunk_size`. Exclude fields such as file paths from the embedding when they should only be stored.
+- A query engine retrieves, postprocesses and synthesises; log `source_nodes` on every query. Put the embedding model in the ingestion pipeline, or the vector store you passed stays empty.
+
 ## Check yourself
 
 <details>

@@ -50,6 +50,12 @@ What you trade:
 - **Your documents leave your infrastructure.** Check data residency, access control on each datastore, and how a deleted document leaves the index.
 - **You measure it the same way.** Run the M11 golden set through the platform agent and compare the row with your own pipeline's. A managed platform is one more change to test against the baseline.
 
+## Key Takeaways
+
+- A managed RAG platform runs parsing, chunking, reranking and grounded generation as a service behind one endpoint. Wrap its agent query in a tool, and your own agent still decides when to search.
+- You run fewer parts but control fewer settings, and your documents leave your infrastructure. Check data residency, access control on each datastore and how a deleted document leaves the index.
+- Run your golden set through the platform agent and compare it with your own pipeline. Include questions the handbook cannot answer, which should get a refusal rather than a plausible policy.
+
 ## Check yourself
 
 <details>

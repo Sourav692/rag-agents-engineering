@@ -33,6 +33,12 @@ Element-level parsing costs time and dependencies, so use it where layout carrie
 
 Word and Markdown files have the same switch. In this lesson's Word notebook, `UnstructuredWordDocumentLoader` returns the file as one Document by default; with `mode="elements"` and `chunking_strategy="by_title"` it returns pieces of at most 3,000 characters and starts a new one at every heading. Lesson 12.2 does the same for Markdown with `UnstructuredMarkdownLoader`: `mode="single"` gives one Document, `mode="elements"` one per heading, paragraph or list item, each with a `category`.
 
+## Key Takeaways
+
+- Element-level parsing returns one Document per layout element with a `category`, so headers and footers can be dropped and each piece knows its section.
+- Drop repeated boilerplate before embedding, and keep each table as one chunk in HTML or Markdown form so values keep their column names.
+- Granularity is fixed at load time. Use element-level parsing for reports, manuals, forms and tables; plain prose PDFs do fine with PyPDF or PyMuPDF.
+
 ## Check yourself
 
 <details>

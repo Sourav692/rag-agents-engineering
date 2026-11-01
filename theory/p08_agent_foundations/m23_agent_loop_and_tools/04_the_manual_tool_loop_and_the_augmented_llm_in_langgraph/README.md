@@ -53,6 +53,12 @@ The solid edges are `04b`'s graph. *Explain AI in 2 bullets* ends at the first `
 
 That graph is an augmented LLM. One more edge makes it an agent: `tools` back to the model instead of to `END` (the dashed line). Lesson 23.5's `create_tool_agent` adds it with `graph.add_edge("tools", "agent")`, and the graph becomes the loop in the module's mental model.
 
+## Key Takeaways
+
+- A bound model returns an `AIMessage` with `tool_calls` and runs nothing. Independent calls arrive together in one reply, saving a round trip.
+- Answer every call with one `ToolMessage` carrying its `tool_call_id`. The id pairs results with requests, and OpenAI rejects a history with an unanswered call.
+- A graph that goes from tools to `END` is an augmented LLM. One edge from tools back to the model turns it into an agent loop.
+
 ## Check yourself
 
 <details>

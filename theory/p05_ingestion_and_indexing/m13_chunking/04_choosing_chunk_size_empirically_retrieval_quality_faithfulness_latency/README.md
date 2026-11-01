@@ -29,6 +29,12 @@ If small chunks win on precision and large ones win on completeness, stop lookin
 | Semantic | Embedding distance | One embedding per sentence | Long prose with topic shifts, no markup | Relative threshold; unbounded chunk size |
 | Propositions | An LLM | 1 or 2 LLM calls per chunk | Dense, high-stakes facts | Invented or dropped details without grading |
 
+## Key Takeaways
+
+- Choose chunk size by sweeping it on a labelled set with everything else fixed. Score `hit@k` and the margin, and put index tokens and `chunk_size × k` per query in the same table.
+- Take the plateau, not the peak: keep sizes within 3% of the best margin and pick the cheapest. Tune overlap afterwards at 10 to 20% of the size.
+- A flat curve means chunk size is not the bottleneck. When small chunks win precision and large ones completeness, index small and return the parent.
+
 ## Check yourself
 
 <details>

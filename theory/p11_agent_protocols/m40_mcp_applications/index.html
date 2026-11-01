@@ -327,6 +327,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li><strong>Raise instead of returning.</strong> <code>raise ToolError("Division by zero")</code> comes back as a result with <code>isError: true</code> and the text <code>Division by zero</code>. Without the check, <code>1 / 0</code> raises <code>ZeroDivisionError</code>, which also comes back with <code>isError: true</code>, as <code>Error calling tool 'divide': division by zero</code>.</li>
 <li><strong>Annotate what you return.</strong> <code>-&gt; float | str</code> makes the string valid, and moves the job of telling numbers from error messages to every client.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A host reaches a server either by command, starting it as a stdio subprocess, or by URL, where you start the server first.</li>
+<li>Raise <code>max_steps</code> above the default of 5 when a query needs several tool calls. <code>use_server_manager=True</code> keeps the prompt small but costs extra model turns.</li>
+<li>The return annotation is a contract the client enforces. Raise <code>ToolError</code> for failures instead of returning a string from a tool typed <code>-&gt; float</code>.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does use_server_manager=True change about what the model sees, and what does it trade?</summary>
@@ -401,6 +407,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li><strong>Default buffering:</strong> Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and nothing reached the client during the short session. The bug was there and did not show.</li>
 </ul>
 <p>The Python client is forgiving; another host may not be. Send logs to stderr (<code>print(..., file=sys.stderr)</code> or the <code>logging</code> module, whose default handler writes there), and keep stdout for the protocol.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>In <code>claude_desktop_config.json</code>, use absolute paths with <code>uv --directory</code>, give each server only its own secrets in <code>env</code>, and pin versions instead of <code>@latest</code>.</li>
+<li>A remote server reaches a stdio host through a bridge such as <code>mcp-remote</code>. Keep <code>--allow-http</code> to private networks where traffic cannot be intercepted.</li>
+<li>Over stdio, stdout carries only JSON-RPC. Send logs to stderr, because buffering can hide stray prints in testing that break a stricter host.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does the Claude Desktop config reach the remote EC2 server, and what does its --allow-http flag risk?</summary>
@@ -477,6 +489,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li><strong>Recompute the headline numbers</strong> before a deck leaves the room. Here that took one pandas cell and found two wrong figures and one wrong verdict.</li>
 <li><strong>Check the paging limit against the data.</strong> <code>EXCEL_MCP_PAGING_CELLS_LIMIT</code> is 4000 cells per read; this sheet is 612 cells, so one read covered it. A larger sheet arrives in pages, and a model that stops after the first page analyses part of the data.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>MCP servers move cells and slides; the model does the arithmetic. Its wrong figures look the same as its right ones.</li>
+<li>Make the tool compute, with spreadsheet formulas or a code or SQL tool, so every figure has a derivation you can inspect.</li>
+<li>Recompute the headline numbers before a report ships, and check the server&rsquo;s paging limit against the data size so the model reads every page.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. In this Claude analysis run, which part does the arithmetic, and why does that make the deck hard to trust?</summary>
@@ -538,6 +556,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <ul>
 <li><strong>Hidden coupling between tools.</strong> <code>save_job</code> only works after <code>search_jobs</code>, because it reads the single file <code>fetched_jobs_temp.json</code>. Two users of a shared server overwrite each other&rsquo;s search, and <code>save_job</code> saves a job from someone else&rsquo;s results or reports the id as not found.</li>
 <li><strong>Paths relative to the working directory.</strong> <code>BASE_DIR = Path(".")</code> puts <code>jobs/</code> and <code>resume/</code> wherever the server process starts. The Claude Desktop entry passes <code>uv --directory</code>, which sets it (<a href="#claude-desktop">40.2</a>); anchor paths on <code>Path(__file__).parent</code> instead, as the 06 and 07 servers do.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Tools are model-controlled and may have side effects; resources are application-controlled and only read; prompts are user-controlled and return instructions.</li>
+<li>Many hosts load tools only. The application must fetch resources and prompts itself, or a prompt that expects attached data has nothing to read.</li>
+<li>Avoid hidden coupling through shared temp files and paths relative to the working directory. Anchor paths on <code>Path(__file__).parent</code> and keep per-user state apart.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -679,6 +703,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li><strong>Create the collection with the metric you mean.</strong> <code>Chroma(..., collection_metadata={"hnsw:space": "cosine"})</code> makes the distance <code>1 - cosine</code>, and <code>1 - distance</code> is then the cosine (last column).</li>
 <li><strong>Return what you computed, and say what it is.</strong> Send <code>distance</code> and the metric name, and leave thresholds to the server, where one person owns them.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Serving retrieval over MCP puts chunking, embeddings, the metric and the result shape on the server, shared by every host. The host&rsquo;s model still chooses queries, chunk counts and destructive calls.</li>
+<li>Check units and ids. <code>CHUNK_SIZE = 4096</code> counts characters, and position-based chunk ids leave stale chunks behind when a shorter version is re-ingested.</li>
+<li>Chroma&rsquo;s default distance is squared L2, so <code>1 - distance</code> is not cosine. Create the collection with <code>hnsw:space</code> cosine, or return the distance and its metric.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When retrieval is served over MCP, which decisions move to the server and which stay with the host?</summary>
@@ -818,6 +848,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li><strong>Session per tool call</strong> needs no lifecycle code, which is why <code>get_tools()</code> is the quickstart, and it is the costliest. The lab counts messages; on a real server each start also pays for the work done at import time. The research server builds its Ollama embeddings client at every start, and <code>npx -y firecrawl-mcp</code> starts Node for every crawl.</li>
 </ul>
 <p>Message counts are not latency, and the lab does not time anything, because start-up cost depends on the machine and the server. Measure your own: log one line on the server&rsquo;s stderr at start-up and count the lines per conversation.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>MCP changes only where the tools come from. The LangGraph tool loop stays the same, with the graph thinking and the servers acting.</li>
+<li>Conversation memory lives in the client&rsquo;s checkpointer and ends with the process; research saved by the server persists on disk for every host that connects.</li>
+<li>Hold one session for a conversation. A session per tool call needs no lifecycle code but restarts the server on every call, so measure start-ups with one stderr line.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The research assistant has two memories. Where does each live, and how long does it last?</summary>
@@ -878,6 +914,12 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li><strong>Bind narrowly.</strong> Keep <code>127.0.0.1</code> behind a reverse proxy, or restrict the security group to known addresses.</li>
 <li><strong>Keep destructive tools off the shared server,</strong> or require a human approval step in the host before they run (<a href="../../p08_agent_foundations/m27_human_approval_applied_agents/index.html">M27</a>).</li>
 <li><strong>Re-ingest after changing the embedding model.</strong> Topics saved by the local server hold <code>nomic-embed-text</code> vectors; the EC2 server embeds queries with <code>text-embedding-3-small</code>, a different vector space, so copied databases cannot be searched.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>host="0.0.0.0"</code> with no <code>auth</code> provider exposes every tool to whatever the security group lets through. Authenticate, add TLS and bind narrowly before sharing the server.</li>
+<li>Tool arguments come from a model that reads untrusted pages. Validate any argument that becomes a path against a slug pattern and check it resolves under the root.</li>
+<li>Keep destructive tools off a shared server or put human approval in front of them, and re-ingest whenever the embedding model changes.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -948,7 +990,7 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <li>Treat tool names, argument schemas and result fields as a public interface: a return value that breaks its own output schema, or a score on an undocumented scale, breaks every client at once.</li>
 <li>A deployed MCP server is an API with an LLM choosing the arguments. Bind it narrowly, authenticate it, and validate every argument that touches the filesystem.</li>
 </ul></article>
-    <nav class="toc" aria-label="M40 sections"><details open><summary>In M40</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-local-agent-over-mcp">A local agent over MCP</a></li><li><a href="#return-types-are-part-of-the-contract">Return types are part of the contract</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#claude-desktop">Claude Desktop</a></li><li><a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#checking-the-agentrsquos-numbers">Checking the agent’s numbers</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-server-three-controllers">One server, three controllers</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#rag-over-mcp">RAG over MCP</a></li><li><a href="#distance-is-not-similarity">Distance is not similarity</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp--langgraph">MCP + LangGraph</a></li><li><a href="#how-long-a-session-lives">How long a session lives</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deployment">Deployment</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M40 sections"><details open><summary>In M40</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-local-agent-over-mcp">A local agent over MCP</a></li><li><a href="#return-types-are-part-of-the-contract">Return types are part of the contract</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#claude-desktop">Claude Desktop</a></li><li><a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#checking-the-agentrsquos-numbers">Checking the agent’s numbers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-server-three-controllers">One server, three controllers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#rag-over-mcp">RAG over MCP</a></li><li><a href="#distance-is-not-similarity">Distance is not similarity</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp--langgraph">MCP + LangGraph</a></li><li><a href="#how-long-a-session-lives">How long a session lives</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deployment">Deployment</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

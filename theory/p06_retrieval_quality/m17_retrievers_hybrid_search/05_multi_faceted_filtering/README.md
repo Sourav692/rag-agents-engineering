@@ -30,6 +30,12 @@ The settings are specific to this setup. A relevance threshold of 0.35 belongs t
 
 For the Larkspur handbook, the useful facets come from metadata written at ingestion: the handbook section, which M13's header splitter writes, and the `version` and `date` fields of the [M12 metadata schema](../../../p05_ingestion_and_indexing/m12_document_ingestion/01_the_document_abstraction_and_metadata_design/README.md#metadata-schema). A question about refunds on annual plans can filter to the Refunds section and the current version before ranking, which removes last year's policy without asking MMR or the reranker to notice it.
 
+## Key Takeaways
+
+- Ranking orders chunks; filtering decides which are allowed. Run cheap exact checks (metadata, score, keywords) before the diversity check that needs an embedding call per chunk.
+- Post-filters only remove from what the search returned. When a filter is known up front, pass it to the store so every slot goes to a matching chunk.
+- Thresholds and keyword tests are specific to one model and corpus. Write facets such as section, `version` and `date` at ingestion so you can filter on them later.
+
 ## Check yourself
 
 <details>

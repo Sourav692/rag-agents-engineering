@@ -31,6 +31,12 @@ On the Larkspur handbook the same shape triages the support queue. One structure
 
 These apps are workflows in the sense of lesson 27.4: the same steps every time, cheap, easy to test. Choose an agent only when the next step depends on what the model finds.
 
+## Key Takeaways
+
+- In a workflow app the model fills typed fields and code does everything that has a right answer. Ask for closed types, such as a `Literal` sentiment, so code can branch on them without another LLM call.
+- Check every output with code that cannot be talked round, such as confirming each number appears in the source. Render the final document from a template so nothing is reworded after the checks.
+- Measure a design choice on the same inputs before picking it. Send actions such as issuing a refund through an approval gate, and choose an agent only when the next step depends on what the model finds.
+
 ## Check yourself
 
 <details>

@@ -79,6 +79,12 @@ Project 04's client mixes transports behind one agent. `config/servers.json` lis
 
 Lesson 39.3's Databricks server ends with `mcp.run()`. In SDK 1.30.0 `run()` defaults to `transport="stdio"`, so as written the server reads its standard input instead of listening for HTTP. A server that a platform reaches by URL needs `transport="streamable-http"` and must listen on the host and port the platform expects.
 
+## Key Takeaways
+
+- SSE answers every POST with `202` and sends the result on one long-lived GET stream, so an idle-closing proxy can cut the whole session.
+- In Streamable HTTP, `transport="streamable-http"` picks the transport and `stateless_http` picks the mode. Stateful sessions expire after 1,800 idle seconds and need routing by `mcp-session-id` across replicas.
+- Use stdio for a local server the client owns, stateful HTTP for per-client state, and stateless HTTP for tools that must scale out.
+
 ## Check yourself
 
 <details>

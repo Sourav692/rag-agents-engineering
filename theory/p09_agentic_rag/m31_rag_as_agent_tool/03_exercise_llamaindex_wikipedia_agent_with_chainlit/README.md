@@ -42,6 +42,12 @@ Four things the UI changes about the agent:
 
 The same three events host the Larkspur agent from lesson 31.1: build the agent per session in `on_chat_start`, run it in `on_message`, and stream its tool calls as steps.
 
+## Key Takeaways
+
+- Chainlit calls one function per event. Build the index and agent when settings are saved, run the agent on each message, and confirm in the chat once indexing finishes.
+- Keep the index and agent per session with `cl.user_session`, not in module globals, because one Python process serves every connected user.
+- Build the tool description from each session's settings so the agent knows what its index holds. Show tool calls as steps, set with `cot` in Chainlit 2.x, so a reviewer can check answers against retrieval.
+
 ## Check yourself
 
 <details>

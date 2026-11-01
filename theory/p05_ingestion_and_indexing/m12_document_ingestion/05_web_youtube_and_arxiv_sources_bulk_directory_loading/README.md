@@ -55,6 +55,12 @@ Remote sources fail more quietly than files, because the loader returns whatever
 
 **arXiv papers.** `ArxivLoader` downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost, so a citation can name the paper but not the page. `Published` holds the date of the latest version, not the first submission. `load_max_docs` defaults to 100, and `get_summaries_as_docs()` returns only the abstracts, which is often enough for a "find me papers about X" index and far cheaper to embed.
 
+## Key Takeaways
+
+- Route each file type in a mixed folder to its own loader. With `silent_errors=True`, compare the file count with the distinct `source` values to catch skipped files.
+- Every loader writes different metadata keys and counting rules. Map them onto one schema right after loading, and drop unset fields instead of storing `None`.
+- Remote sources fail quietly. Pass an extractor for web pages, set `check_response_status=True`, and flag pages whose text is much shorter than their HTML.
+
 ## Check yourself
 
 <details>

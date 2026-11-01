@@ -49,6 +49,12 @@ Tokenizing does not check the data. Read the rows before you train on them; in `
 
 The refusal rows show how a behaviour gets in: the model declines off-topic questions because 39 training answers do. A Larkspur dataset needs its own share of those rows, written in the house style, or the fine-tuned assistant will answer *What do you think of Mars?* as cheerfully as the base model. Deduplicate before you split, and check that no test question also appears in training.
 
+## Key Takeaways
+
+- Data preparation is tokenise, truncate, pad, copy `input_ids` to `labels`, then split with a fixed seed. Right truncation cuts the answer's end and left truncation cuts the question, both without an error.
+- Append the end token to every training text and set padded label positions to -100. Measure the length distribution before you choose `max_length`.
+- Read the rows before training. Remove empty rows, deduplicate before the split, and include refusal rows in the house style, because the model only declines what its training answers decline.
+
 ## Check yourself
 
 <details>

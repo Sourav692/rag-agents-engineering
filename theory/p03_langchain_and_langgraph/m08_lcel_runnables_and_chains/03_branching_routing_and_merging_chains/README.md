@@ -47,6 +47,12 @@ For the Larkspur support desk the same shape triages tickets: a classifier label
 
 The notebook ends with moderation: piping a chain into the legacy `OpenAIModerationChain` from `langchain_classic` screens its output before it reaches the caller. Any Runnable can take that last position, which is how output checks and guardrails attach to a pipe.
 
+## Key Takeaways
+
+- Link steps with `.assign()` to keep every intermediate result, and use `.map()` to run several inputs side by side while each input's steps stay in order.
+- Fan out with `RunnableParallel` and merge with one more chain. Wall time is the slowest branch plus the merge.
+- `RunnableBranch` runs the first true condition, so order decides ties. Make the default hand off to a person and count it, since a rising default rate signals classifier drift.
+
 ## Check yourself
 
 <details>

@@ -53,6 +53,12 @@ The child size decides what can be matched. The parent size decides what the mod
 
 Across the 217 settings where parents are larger than children, the children alone contain the whole answer in 394 of the 651 question and setting pairs; their parents contain it in 613. Size the child near the length of the evidence your questions need (the refund sentence is 141 characters) and the parent near a section, then check on the golden set that no parent boundary cuts an answer.
 
+## Key Takeaways
+
+- Parent-document retrieval searches small children and returns their larger parents from a docstore. Persist the docstore with the vectors, or a restart silently returns nothing.
+- Before copying a custom docstore, check that `mget` keeps key order, surfaces errors and uses stable ids, so ingestion does not duplicate every chunk.
+- Size the child near the length of the evidence and the parent near a section. Parents cost tokens on every question, and a parent boundary can still cut an answer.
+
 ## Check yourself
 
 <details>

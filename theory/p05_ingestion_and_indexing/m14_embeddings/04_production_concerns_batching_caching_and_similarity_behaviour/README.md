@@ -50,6 +50,12 @@ Only documents are cached by default (`query_embedding_cache=False`), which suit
 
 Notebook 14.1 runs both paths on the same six texts and compares the vectors. They are semantically identical (cosine about 1.0) but not bit-identical, because a batched request and a single request take different paths through the server. The difference is numerical noise, so never use exact equality to decide whether two vectors came from the same text; that is the cache's job. For an asymmetric model the two methods differ on purpose, which is one more reason to keep the two calls separate (lesson 14.3).
 
+## Key Takeaways
+
+- `CacheBackedEmbeddings` keys each vector on namespace plus a hash of the text, so re-indexing after an edit pays only for the changed chunks. Old entries stay until you clear them.
+- Put the model name and `dimensions` in the cache namespace. The default empty namespace silently returns the old model's vectors after a model swap.
+- Embed the corpus with batched `embed_documents`, not a loop of `embed_query`. The two paths differ by numerical noise, so never compare vectors for exact equality.
+
 ## Check yourself
 
 <details>

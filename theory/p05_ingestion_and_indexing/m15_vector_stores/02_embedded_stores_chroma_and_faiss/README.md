@@ -43,6 +43,12 @@ The filter difference shows up as missing results. In a check run for this page,
 
 The notebooks' guidance: start with Chroma for anything you might keep, choose FAISS for a static corpus you search often, and move to a hosted store (lesson 15.3) when you need concurrent writers or more than one machine.
 
+## Key Takeaways
+
+- ANN indexes such as HNSW and IVF trade the guaranteed top `k` for speed, and a miss raises no error. Measure recall@k against exact search and raise `ef_search` until misses stop mattering.
+- Chroma filters inside the store before ranking; the FAISS wrapper filters after ranking `fetch_k=20` candidates, so a selective filter can return nothing.
+- Start with Chroma for anything you will update, use FAISS for a static read-heavy corpus, and move to a hosted store for concurrent writers or several machines.
+
 ## Check yourself
 
 <details>

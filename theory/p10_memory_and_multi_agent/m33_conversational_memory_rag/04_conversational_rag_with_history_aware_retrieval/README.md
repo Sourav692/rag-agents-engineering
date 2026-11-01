@@ -38,6 +38,12 @@ The [interactive lab](interactive/follow-up-retrieval-lab.html) runs six three-t
 
 The lab is the module's lab brief in miniature. On your own corpus, write the multi-turn conversations, label the evidence for each turn, and report hit rate on turns 2 and 3 separately from turn 1, with and without the rewrite. A single average over all turns hides the follow-ups, because first questions are usually standalone.
 
+## Key Takeaways
+
+- A retriever reads only the literal question, so a follow-up such as *How long do I have?* can score zero against every chunk even when the model holds the history.
+- A history-aware retriever has an LLM rewrite each follow-up as a standalone question and skips the rewrite on turn 1. Each rewrite adds a call and can drop a constraint or carry an old topic forward.
+- In the lab, rewriting raised the `k = 1` hit rate from 0.50 to 0.83, while appending earlier questions helped turn 2 and broke turn 3. Report follow-up turns separately from turn 1, which is usually standalone.
+
 ## Check yourself
 
 <details>

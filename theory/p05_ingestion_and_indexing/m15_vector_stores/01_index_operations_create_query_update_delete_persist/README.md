@@ -52,6 +52,12 @@ Reopening a store fails silently in two ways:
 
 The notebook turns both into startup errors with an `open_store()` check: refuse an empty collection, and compare the stored vector's dimension with the live model's. The dimension check misses a model swap with equal dimensions (`text-embedding-3-large` truncated to 1,536 against `text-embedding-3-small`), so also store the model name in the collection's metadata and assert it.
 
+## Key Takeaways
+
+- No store edits a vector in place; an update deletes and re-inserts under the same ID. Derive IDs from the document, such as `source::page::chunk_index` or a content hash, never from the run.
+- Score meaning depends on the backend: Chroma and FAISS return distances, Pinecone cosine similarity. Set thresholds from known queries on the store you ship.
+- Reopening a store with a wrong collection name or embedding model fails silently. Refuse empty collections at startup and assert the stored dimension and model name.
+
 ## Check yourself
 
 <details>

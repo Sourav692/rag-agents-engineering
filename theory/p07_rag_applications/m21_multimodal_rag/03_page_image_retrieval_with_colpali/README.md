@@ -68,6 +68,12 @@ Pages cost more than chunks in three places:
 
 Use page images where layout carries the meaning or there is no text layer: scans, slides, forms, dense tables. Text-heavy documents with a few charts are cheaper to serve with captions ([lesson 21.2](../02_caption_then_index_with_a_vision_llm/README.md)).
 
+## Key Takeaways
+
+- Late interaction keeps one vector per query token and per page patch, and scores a page as the sum of each token's best match. Pages are still encoded ahead of time.
+- ColPali retrieves whole page images and sends them to a vision model, so charts, table grids and scans arrive as printed, with nothing extracted or captioned.
+- Pages cost more in storage (about 583 KB per page in float32), in generation and in citation granularity. Use them for scans, slides, forms and dense tables; caption text-heavy documents instead.
+
 ## Check yourself
 
 <details>

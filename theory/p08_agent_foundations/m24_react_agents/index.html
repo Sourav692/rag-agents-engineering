@@ -431,6 +431,12 @@ AIMessage      another tool call, or the answer
 </table></div>
 <p>The notebook runs both on the same two stub tools. With <code>gpt-4o-mini</code>, the text agent often wrote <code>Action Input: 'Tokyo'</code> with the quotes, the tool looked up the city <code>'Tokyo'</code> and found nothing, and the calculator received <code>'0.25 * 80'</code> as a quoted string. The model knew which tool it wanted; the transport failed. Text-driven tools need input cleaning, and <code>handle_parsing_errors=True</code> turns a format break into an observation the model can react to.</p>
 <p>On <em>What&rsquo;s the weather in Tokyo and calculate 25% of 80?</em> the native agent asked for both tools in one turn and needed 2 model calls; the text agent, one <code>Action</code> per turn, needed 3. LangChain 1.x <code>create_agent</code> uses native tool calls, so there is nothing to parse. The ReAct idea, read every observation before choosing the next step, is unchanged.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A ReAct agent reasons about one step, calls a tool, reads the result and repeats until it replies without a tool call. The <code>tools → agent</code> edge is what turns a single-shot graph into that loop.</li>
+<li>Rewording after each observation recovers vocabulary mismatch, but every call rereads the whole message list. In the lab the outage run read about 451 tokens over four calls, against 9 for one search.</li>
+<li>Prefer native tool calls to text-based ReAct. They need no regex parsing, allow parallel calls in one turn and avoid format drift such as quoted arguments. Use a fixed workflow when the steps are known.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does adding one edge from the tools node back to the agent turn a single-shot graph into a ReAct agent?</summary>
@@ -533,6 +539,12 @@ model -&gt; __end__    (conditional: no tool call)
 </table></div>
 <p>Fix 5 is the least effective: it buys more attempts at a retrieval problem. With fixes 1 to 4 the same question took one search and one answer, under the same cap.</p>
 <p><code>ModelCallLimitMiddleware</code> counts model calls per run (<code>run_limit</code>) and per thread across runs (<code>thread_limit</code>). It checks before each model call; at the limit, <code>exit_behavior="end"</code> jumps to the end with an <code>AIMessage</code> such as <code>Model call limits exceeded: run limit (3/3)</code>, and <code>"error"</code> raises <code>ModelCallLimitExceededError</code>. In the <a href="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html">M24.1 lab</a> the golden questions need 2, 3 and 4 calls; at <code>run_limit=2</code> only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><code>create_agent</code> builds the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and <code>thread_id</code> memory work as usual. Pass <code>system_prompt=</code>; the old <code>prompt=</code> argument raises <code>TypeError</code>.</li>
+<li><code>ModelCallLimitMiddleware</code> replaces <code>max_iterations</code> and checks before every model call. A cap set below what real questions need stops runs that already hold the evidence.</li>
+<li>When an agent loops without an answer, fix what it retrieves first: the data, <code>k</code>, the result format and the tool description. Raising the call cap only buys more attempts at the same problem.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the weather-and-arithmetic request finish in two model calls, while fetching a stock price and emailing it needs a separate turn per tool?</summary>
@@ -600,6 +612,12 @@ model -&gt; __end__    (conditional: no tool call)
 </ul>
 <p>Not every model supports structured output. <code>llm.profile</code> (LangChain 1.1) reports capabilities from the open <code>models.dev</code> data; for <code>gpt-4o-mini</code> it lists <code>structured_output: true</code>, <code>tool_calling: true</code> and <code>max_input_tokens: 128000</code>. Branch on it rather than guessing.</p>
 <p>The two optional notebooks cover the parts underneath. <code>init_chat_model</code> builds a model for any provider behind one interface, with streaming and batching. Messages are the unit of context: <code>SystemMessage</code>, <code>HumanMessage</code>, <code>AIMessage</code> and <code>ToolMessage</code>, and the list you pass is all the model sees. An <code>AIMessage</code> that asks for a tool usually has <code>content=""</code> and carries the call in <code>.tool_calls</code>, so print both when you debug a run.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Ask for a schema when code consumes the output. <code>with_structured_output()</code> makes a model return a schema instance, and <code>response_format=</code> adds <code>structured_response</code> to an agent&rsquo;s result next to <code>messages</code>.</li>
+<li>Use Pydantic when data crosses a trust boundary, because it validates types and <code>TypedDict</code> does not. Inside a <code>TypedDict</code>, <code>= Field(...)</code> is silently dropped.</li>
+<li>Field descriptions are prompt text, and optional fields with a <code>None</code> default stop invented values. <code>include_raw=True</code> keeps token usage and turns a parse failure into a value you can branch on.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When should a structured-output schema be a Pydantic model rather than a TypedDict?</summary>
@@ -678,6 +696,12 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 <li><strong>Reject.</strong> The tool never runs. The model receives a <code>ToolMessage</code> saying the user rejected the call and not to retry unless asked, and it explains to the user that it could not send.</li>
 </ul>
 <p>One pitfall breaks real deployments. When the middleware interrupts, the <code>AIMessage</code> with the tool call is already saved on the thread. Invoking that thread again with a new user message instead of <code>Command(resume=...)</code> leaves the call unanswered, and the provider rejects the next request: <em>An assistant message with &lsquo;tool_calls&rsquo; must be followed by tool messages responding to each &lsquo;tool_call_id&rsquo;</em> (OpenAI, error 400). Resume a parked thread, or start a new one.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Middleware hooks run before, after or around model and tool calls, in the order you list them. A custom hook takes <code>(self, state, runtime)</code> and returns a state update instead of mutating <code>state</code>.</li>
+<li>Trigger summarisation on tokens or a fraction of the context window rather than a message count. Summarisation and human approval both need a checkpointer, because they rewrite or suspend the run.</li>
+<li>Gate tools that write and let reads run. Resume a paused thread with <code>Command(resume=...)</code>; a new user message on it leaves the tool call unanswered, and the provider rejects the next request.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why should human approval gate tools that write, such as sending email, but not tools that only read?</summary>
@@ -778,6 +802,12 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 <li><strong>Browser agent.</strong> <code>screenshot_text</code>, <code>click</code>, <code>type_text</code> and <code>navigate</code> are ordinary tools over a deterministic mock browser. Actions now change state, so the turn cap becomes a safety bound, and success is graded on the environment (the cart&rsquo;s contents), not the agent&rsquo;s words.</li>
 <li><strong>Vision-driven computer use.</strong> When the observation is pixels, locating a control is the hard part. In the notebook&rsquo;s runs <code>gpt-4o-mini</code> missed 53 of 53 clicks, even with every miss fed back; <code>gpt-4o</code> missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.</li>
 </ul>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A planned pipeline fixes its searches up front. Its cost is predictable and it is easy to test, but it cannot react to an empty result or follow a lead.</li>
+<li>A ReAct researcher picks each search after reading the last result, so it suits open and multi-hop questions at a variable cost that needs a call cap. Many production researchers plan first, then let each step react.</li>
+<li>Moving the loop to code, browsers or screens changes only the tools. Sandbox the actions, grade success on the environment rather than the agent&rsquo;s words, and prefer selectors to coordinates.</li>
+</ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can the planned research pipeline not follow a lead that one of its searches turns up?</summary>
@@ -847,7 +877,7 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 <li>Give every loop a call cap sized from your golden set, and gate every irreversible tool with human approval.</li>
 <li>When code consumes the answer, ask for a schema, validate it with Pydantic, and make fields optional when the source may not contain them.</li>
 </ul></article>
-    <nav class="toc" aria-label="M24 sections"><details open><summary>In M24</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#reasonactobserve">Reason–act–observe</a></li><li><a href="#native-tool-calls-vs-text-based-react">Native tool calls vs text-based ReAct</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#create_agent">create_agent</a></li><li><a href="#call-limits-and-runaway-loops">Call limits and runaway loops</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#structured-output">Structured output</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#middleware">Middleware</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#planned-pipeline-vs-react-loop">Planned pipeline vs ReAct loop</a></li><li><a href="#the-same-loop-in-other-environments">The same loop in other environments</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M24 sections"><details open><summary>In M24</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#reasonactobserve">Reason–act–observe</a></li><li><a href="#native-tool-calls-vs-text-based-react">Native tool calls vs text-based ReAct</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#create_agent">create_agent</a></li><li><a href="#call-limits-and-runaway-loops">Call limits and runaway loops</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#structured-output">Structured output</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#middleware">Middleware</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#planned-pipeline-vs-react-loop">Planned pipeline vs ReAct loop</a></li><li><a href="#the-same-loop-in-other-environments">The same loop in other environments</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -43,6 +43,12 @@ The window is stored, not computed at query time. Each node holds its window and
 
 [M19's enrichment windows](../../../p06_retrieval_quality/m19_reranking_post_retrieval/05_context_enrichment_windows/README.md) do the same job with character chunks and a neighbour lookup at query time. LlamaIndex moves the work to indexing time and the unit to the sentence, and `04a` compares it against a `SentenceSplitter()` index at its 1,024-token default, both at `similarity_top_k=1`. Both of `04a`'s pipelines are handed the same FAISS store, which stays empty for the reason in [22.1](../01_simple_pdf_and_csv_rag_in_llamaindex/README.md#nodes); each `VectorStoreIndex` builds its own in-memory store.
 
+## Key Takeaways
+
+- A sentence window embeds single sentences and swaps in the surrounding sentences after retrieval. The window changes what the model reads, never what is retrieved.
+- Each question needs a different window, and a Document boundary caps how far a window reaches. Merge overlapping windows when `similarity_top_k` is above 1.
+- Windows are stored in metadata on every node. At the default `window_size` of 3, the handbook's metadata is 6.75 times its sentence text.
+
 ## Check yourself
 
 <details>

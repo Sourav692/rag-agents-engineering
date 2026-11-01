@@ -30,6 +30,12 @@ flowchart TD
 
 For the Larkspur support graph the question arrives from a web widget, so the state schema itself is a Pydantic model: `question: str`, with `route` and `answer` given defaults. The check comes from the state schema. In LangGraph 1.2.18 a Pydantic `input_schema` on a `TypedDict` state lets `{"question": 123}` through to the first node, which fails with `TypeError`; with a Pydantic state the same input stops at `invoke` before any node runs. Lesson [9.5](../05_input_output_schemas_and_configuration/README.md) then narrows what the caller sends and receives. Validation costs a parse on every `invoke`, which is small next to one model call.
 
+## Key Takeaways
+
+- `TypedDict` and dataclass annotations check no types, so a bad input fails inside a node. A plain `dict` cannot attach reducers at all.
+- Use a Pydantic state schema when input comes from outside. It raises `ValidationError` at `invoke` before any node runs, and converts values where it can.
+- Pydantic validates input only, never what nodes write, and `invoke` always returns a plain dict. Validate important node output, such as a structured answer, inside the node.
+
 ## Check yourself
 
 <details>

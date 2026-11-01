@@ -37,6 +37,12 @@ The three ways to give a model new knowledge solve different problems:
 
 Fine-tuning and RAG combine well: fine-tune for tone and format, retrieve for facts. M04 covers when fine-tuning is worth it.
 
+## Key Takeaways
+
+- Knowledge in the weights goes stale, misses private data, cannot cite a source and stays fluent when wrong. RAG answers from passages retrieved from an index you control.
+- Choose RAG for facts that change, private data and citations; fine-tuning for style, format and vocabulary; long context for small corpora that fit the window.
+- Combine the approaches when you need both: fine-tune for tone and format, retrieve for facts.
+
 ## Check yourself
 
 <details>

@@ -54,6 +54,12 @@ Synthesis needs judgement. The notebook's judge reads the trace of *Calculate 15
 
 Add trace-level counts to the per-call scores: rounds per run, error `ToolMessage`s per tool, and crashed runs. They are cheap to log and catch the failures the lab shows, where the answer never arrives.
 
+## Key Takeaways
+
+- Send tool failures to the model as messages, not exceptions. The default `handle_tool_errors` catches bad arguments but re-raises exceptions inside the tool, so set it to `True` as a safety net.
+- Write error messages the model can act on, saying what was wrong and what would work. Happy-path tests never show the difference between settings.
+- Score tool selection, tool input and synthesis separately. The first two come straight from the trace; judge synthesis with a different model, across a fixed golden set.
+
 ## Check yourself
 
 <details>

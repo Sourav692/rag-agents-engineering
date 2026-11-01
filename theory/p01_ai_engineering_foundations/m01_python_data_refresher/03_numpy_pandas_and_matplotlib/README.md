@@ -66,6 +66,12 @@ runs.groupby("k")[["recall", "precision"]].mean().round(2)
 
 Missing values deserve a check of their own. `mean()` skips `NaN` by default. If the outage question errors at `k = 2` and its recall is recorded as `NaN`, mean recall@2 becomes 0.75 instead of 0.50, with no warning. Compare `count()` (2) with `size()` (3) per group, and record failures in a status column instead of a missing number.
 
+## Key Takeaways
+
+- Retrieval is normalise, dot product, sort. Divide by row norms with `keepdims=True`, because square test data hides the broadcasting bug that a `(12, 384)` matrix exposes.
+- Check `.shape`, `.ndim` and `.dtype` before you trust a result. Store vectors as `float32`, and use `np.argpartition` for top-k on millions of rows.
+- Run `df.info()` first, merge on an id rather than row order, and compare `count()` with `size()` per group, since `mean()` skips `NaN` without a warning.
+
 ## Check yourself
 
 <details>

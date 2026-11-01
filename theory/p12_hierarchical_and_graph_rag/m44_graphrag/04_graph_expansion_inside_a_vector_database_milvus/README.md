@@ -34,6 +34,12 @@ Bound expansion degree, candidate relation count and source-passage count before
 
 Treat identity mapping as part of retrieval correctness. Different casing, aliases and repeated names can split one entity or merge different entities. The notebook's IDs come from string lists; an operational index needs stable IDs and explicit updates to both vectors and adjacency mappings. A fresh vector record with stale adjacency can retrieve the right entity and still traverse the wrong policy graph.
 
+## Key Takeaways
+
+- Vector search picks seed entities and relations; powers of the incidence matrix expand them. Products count walks and do not show that a relation answers the question.
+- Each expansion degree adds candidate relations and source passages. Rerank relations against the question and bound degree, relation count and passages before an expensive reranker runs.
+- Use stable IDs and update vectors and adjacency mappings together. A fresh vector with stale adjacency can find the right entity and traverse the wrong policy.
+
 ## Check yourself
 
 <details>
