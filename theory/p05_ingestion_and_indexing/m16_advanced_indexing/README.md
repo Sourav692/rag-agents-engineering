@@ -51,7 +51,7 @@ At index time the document is written twice: once as payloads into the docstore 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. You switched the Larkspur support bot to parent-document retrieval with no parent splitter. Hit rate went up, but cost per answer tripled and outage answers now quote refund rules. What happened, and what do you change?
 

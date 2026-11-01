@@ -50,7 +50,7 @@ The patterns differ in who decides what runs next and when that decision is made
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support assistant now answers each part of a compound question in a parallel branch. Since the change, some replies to "refund, export and outage credits" questions say nothing about credits, and the trace shows two synthesizer outputs for one request. What happened, and how do you fix it?
 

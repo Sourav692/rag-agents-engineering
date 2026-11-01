@@ -48,7 +48,7 @@ Whatever the provider, the request is a list of parts and the model reads every 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur summarises recorded export walkthroughs with GPT-4o, sampling a frame every 3 seconds. A customer's summary says the export "may not have finished", but the recording shows an "Export ready" toast. What went wrong, and how do you fix it?
 

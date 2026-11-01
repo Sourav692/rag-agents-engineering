@@ -51,7 +51,7 @@ Every turn reads memory before the model runs and writes it after. The ids decid
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. A Larkspur customer reports that the assistant greeted him as Dana and mentioned her annual business plan. How do you find out how one customer's memory reached another?
 

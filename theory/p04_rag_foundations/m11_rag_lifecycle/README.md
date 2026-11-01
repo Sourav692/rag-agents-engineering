@@ -53,7 +53,7 @@ The index is the only thing the two phases share. A bad chunk written at indexin
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support assistant answers billing questions from the handbook. The policy team changes the refund window on Monday. A teammate proposes fine-tuning the model on the new handbook. What do you recommend, and what has to happen on Monday?
 

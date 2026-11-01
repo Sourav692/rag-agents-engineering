@@ -48,7 +48,7 @@ Every architecture in the course is plain RAG plus components: better retrieval,
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support assistant moved from plain RAG to Self-RAG. Latency is several times higher, and “What happens if my server goes down?” still gets a wrong answer. What happened, and what do you change?
 

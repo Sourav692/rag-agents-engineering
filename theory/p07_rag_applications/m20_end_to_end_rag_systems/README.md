@@ -52,7 +52,7 @@ Each box adds something a reader can verify. The router keeps questions that nee
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. A Larkspur customer forwards a support answer about annual-plan refunds. Its citation quotes "Annual plans are fully refundable for 30 days" and points to page 0 of the handbook. Neither the sentence nor a page 0 exists. What happened, and what do you change?
 

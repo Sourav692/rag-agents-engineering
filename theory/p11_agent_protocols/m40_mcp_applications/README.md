@@ -57,7 +57,7 @@ The server holds the retriever and the index; everything to its left belongs to 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's LangGraph support assistant loads the handbook server with `MultiServerMCPClient.get_tools()`. Latency per answer grows with the number of retrieval calls, and the server's startup log line appears once per call. What is happening, and what do you change?
 

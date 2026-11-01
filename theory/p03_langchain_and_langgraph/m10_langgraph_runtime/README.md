@@ -52,7 +52,7 @@ The checkpointer writes after every step. At the gate, the first `invoke` return
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Finance reports that refund-99 was paid out twice, and the billing team says it got two approval requests for it. The approval itself was given once. How do you investigate?
 

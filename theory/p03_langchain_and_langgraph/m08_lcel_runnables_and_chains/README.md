@@ -46,7 +46,7 @@ This is the RAG chain from notebook 04a, and every box in it is a Runnable. The 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's nightly job runs `triage_chain.batch()` over 2,000 support tickets. Last night it died at ticket 1,412 with a rate-limit error and wrote nothing. What do you change?
 

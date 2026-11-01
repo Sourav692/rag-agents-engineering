@@ -51,7 +51,7 @@ The store is the system of record for what retrieval can return, so every change
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur cut the annual refund window from 30 days to 14 and the nightly sync ran. A week later the assistant still tells some customers "30 days". The new chunk is in the index. What happened, and how do you fix it?
 

@@ -50,7 +50,7 @@ There are two places to catch a bad answer. CRAG checks the context before gener
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support assistant runs CRAG with a web fallback. A customer asks what happens when their server goes down, and the assistant quotes another provider's availability guarantee. The handbook has the right answer. What went wrong, and what do you change?
 

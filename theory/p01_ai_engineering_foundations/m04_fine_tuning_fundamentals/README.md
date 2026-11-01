@@ -52,7 +52,7 @@ When evaluation shows a problem, the fix is usually in the examples or in how th
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur fine-tuned a small model on 2,000 support transcripts. In testing it answers the refund question correctly, then keeps going: it repeats the policy sentence until the response hits its token limit. What do you check?
 

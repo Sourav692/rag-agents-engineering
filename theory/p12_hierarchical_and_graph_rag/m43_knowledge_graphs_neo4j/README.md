@@ -49,7 +49,7 @@ Extraction turns prose into candidate facts. Stable identities let those facts c
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's EU export plan disappears after a handbook update, although its passage still exists. How do you locate the failure?
 

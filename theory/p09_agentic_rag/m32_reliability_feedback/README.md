@@ -50,7 +50,7 @@ The checks in the top row act on one answer and can only remove: a grader drops 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. A Larkspur customer asks how long a refund takes. The assistant answers with a number of business days that differs from the handbook, and the hallucination grader marked the answer grounded. How do you work out what failed?
 

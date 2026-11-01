@@ -53,7 +53,7 @@ A chunk becomes a vector once, at index time, and the cache makes sure it stays 
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's support assistant was fine on Friday. On Monday every answer is vague, and the logged top-1 similarity for golden questions has fallen from its usual range to near zero. Nobody touched the prompt. What do you check first?
 

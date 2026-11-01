@@ -52,7 +52,7 @@ Only the first call touches the network; every later call reads the cache, and a
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur indexes each handbook page as one chunk with `all-MiniLM-L6-v2`. Support says "How fast does support answer a ticket?" never finds the FAQ page, though the answer is on it. What do you check?
 

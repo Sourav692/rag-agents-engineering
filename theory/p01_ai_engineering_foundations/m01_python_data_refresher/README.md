@@ -54,7 +54,7 @@ Each tool holds the data in the shape the next step needs. pandas keeps labelled
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
-*Production questions in the style of OpenAI, Anthropic and Google interviews for applied AI roles.*
+*Production questions of the kind asked in applied AI engineering interviews.*
 
 ### 1. Larkspur's nightly evaluation sends 200 golden questions to the model. A teammate rewrote it with `asyncio.gather` to make it faster, and it takes exactly as long as before. What do you look for?
 
