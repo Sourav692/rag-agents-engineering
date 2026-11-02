@@ -30,6 +30,41 @@ Four parts of the request and response matter on every call:
 
 The notebook reads the key with `getpass` and sets `openai.api_key`, the SDK's module-level client. Lessons 2.3 and 2.4 create `OpenAI()` instead, which reads `OPENAI_API_KEY` from the environment loaded from `.env`. Either way the key stays out of the code and out of the notebook's saved state.
 
+## The Responses API
+
+The notebook uses Chat Completions, which OpenAI still supports. For new projects, OpenAI's migration guide recommends its newer Responses API. The same call in the Responses API, which the installed `openai` 2.54.0 supports:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()  # reads OPENAI_API_KEY
+response = client.responses.create(
+    model=MODEL,  # a current model ID from the provider's models page, pinned
+    instructions="Answer only from the handbook excerpts.",
+    input=prompt,
+    temperature=0.1,
+)
+response.output_text
+```
+
+| | Chat Completions | Responses |
+|---|---|---|
+| Send | `messages`, a list of role and content | `input`, a string or a list of items; standing instructions go in `instructions` |
+| Read the reply | `response.choices[0].message.content` | `response.output_text`, the text items of `output` joined |
+| Cap the reply | `max_tokens` | `max_output_tokens` |
+| Usage | `prompt_tokens`, `completion_tokens` | `input_tokens`, `output_tokens`, with hidden reasoning in `output_tokens_details.reasoning_tokens` |
+| Conversation state | You resend every turn | Resend every turn, or pass `previous_response_id` and OpenAI keeps the history |
+| Stored by OpenAI | By default only on new accounts | By default; `store=False` turns it off |
+
+Four differences change what you build:
+
+- **`previous_response_id` still bills the history.** The earlier turns reach the model and are billed as input tokens, so a long conversation costs what it did under Chat Completions.
+- **Instructions do not carry over.** A call that uses `previous_response_id` must send `instructions` again; the previous response's instructions are dropped.
+- **Storage is a data-handling choice.** Responses are stored by default. For customer data under a retention policy, set `store=False` and resend the history yourself.
+- **Hosted tools need it.** Web search, code execution and image generation run only on the Responses API; [M23's hosted tools page](../../../p08_agent_foundations/m23_agent_loop_and_tools/06_hosted_vs_client_side_tools_code_execution_and_image_generation/README.md) compares them with client-side tools.
+
+The model names in this module's notebooks (`gpt-4o`, `gpt-4o-mini`, `o4-mini`) were current when the notebooks were written, and the numbers on these pages were measured with them. OpenAI has released newer families since: in November 2026 its migration guide's examples use `gpt-6-astra`. For new code, take the ID from the provider's models page and prefer a dated snapshot to an alias, so the model behind your answers changes only when your code does.
+
 ## Two SDKs, two shapes
 
 The notebook calls Gemini through Google's `google-generativeai` package, and the two SDKs disagree on almost every part of the call:
@@ -51,7 +86,7 @@ LangChain (M07) is the general version of `get_completion`: one chat-model inter
 ## Key Takeaways
 
 - A chat completion is one stateless HTTP call: a model, a list of role and content messages, and a reply with `usage`. Every turn resends the history, so long conversations cost more each turn.
-- Bill from `prompt_tokens` and `completion_tokens`, keep the API key in the environment, and set a low `temperature` when you need repeatable answers.
+- Bill from `prompt_tokens` and `completion_tokens` (`input_tokens` and `output_tokens` in the Responses API, which OpenAI recommends for new code), keep the API key in the environment, and set a low `temperature` when you need repeatable answers.
 - Hide provider SDKs behind one function so switching model is a one-argument change, and make that function raise on a model it does not know instead of returning a placeholder string.
 
 ## Check yourself

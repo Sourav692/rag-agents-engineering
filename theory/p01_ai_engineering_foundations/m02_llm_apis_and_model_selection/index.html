@@ -355,6 +355,68 @@ response.choices[0].message.content
 <li><strong><code>usage</code>.</strong> <code>prompt_tokens</code> and <code>completion_tokens</code> are what the provider bills. In the installed <code>openai</code> 2.54.0, <code>usage.completion_tokens_details.reasoning_tokens</code> reports how many of the completion tokens were hidden reasoning. Lesson 2.3 is about that field.</li>
 </ul>
 <p>The notebook reads the key with <code>getpass</code> and sets <code>openai.api_key</code>, the SDK&rsquo;s module-level client. Lessons 2.3 and 2.4 create <code>OpenAI()</code> instead, which reads <code>OPENAI_API_KEY</code> from the environment loaded from <code>.env</code>. Either way the key stays out of the code and out of the notebook&rsquo;s saved state.</p>
+<h2 id="the-responses-api">The Responses API</h2>
+<p>The notebook uses Chat Completions, which OpenAI still supports. For new projects, OpenAI&rsquo;s migration guide recommends its newer Responses API. The same call in the Responses API, which the installed <code>openai</code> 2.54.0 supports:</p>
+<pre class="sheet code"><code class="language-python">from openai import OpenAI
+
+client = OpenAI()  # reads OPENAI_API_KEY
+response = client.responses.create(
+    model=MODEL,  # a current model ID from the provider's models page, pinned
+    instructions=&quot;Answer only from the handbook excerpts.&quot;,
+    input=prompt,
+    temperature=0.1,
+)
+response.output_text
+</code></pre>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>Chat Completions</th>
+<th>Responses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Send</td>
+<td><code>messages</code>, a list of role and content</td>
+<td><code>input</code>, a string or a list of items; standing instructions go in <code>instructions</code></td>
+</tr>
+<tr>
+<td>Read the reply</td>
+<td><code>response.choices[0].message.content</code></td>
+<td><code>response.output_text</code>, the text items of <code>output</code> joined</td>
+</tr>
+<tr>
+<td>Cap the reply</td>
+<td><code>max_tokens</code></td>
+<td><code>max_output_tokens</code></td>
+</tr>
+<tr>
+<td>Usage</td>
+<td><code>prompt_tokens</code>, <code>completion_tokens</code></td>
+<td><code>input_tokens</code>, <code>output_tokens</code>, with hidden reasoning in <code>output_tokens_details.reasoning_tokens</code></td>
+</tr>
+<tr>
+<td>Conversation state</td>
+<td>You resend every turn</td>
+<td>Resend every turn, or pass <code>previous_response_id</code> and OpenAI keeps the history</td>
+</tr>
+<tr>
+<td>Stored by OpenAI</td>
+<td>By default only on new accounts</td>
+<td>By default; <code>store=False</code> turns it off</td>
+</tr>
+</tbody>
+</table></div>
+<p>Four differences change what you build:</p>
+<ul>
+<li><strong><code>previous_response_id</code> still bills the history.</strong> The earlier turns reach the model and are billed as input tokens, so a long conversation costs what it did under Chat Completions.</li>
+<li><strong>Instructions do not carry over.</strong> A call that uses <code>previous_response_id</code> must send <code>instructions</code> again; the previous response&rsquo;s instructions are dropped.</li>
+<li><strong>Storage is a data-handling choice.</strong> Responses are stored by default. For customer data under a retention policy, set <code>store=False</code> and resend the history yourself.</li>
+<li><strong>Hosted tools need it.</strong> Web search, code execution and image generation run only on the Responses API; <a href="../../p08_agent_foundations/m23_agent_loop_and_tools/index.html">M23&rsquo;s hosted tools page</a> compares them with client-side tools.</li>
+</ul>
+<p>The model names in this module&rsquo;s notebooks (<code>gpt-4o</code>, <code>gpt-4o-mini</code>, <code>o4-mini</code>) were current when the notebooks were written, and the numbers on these pages were measured with them. OpenAI has released newer families since: in November 2026 its migration guide&rsquo;s examples use <code>gpt-6-astra</code>. For new code, take the ID from the provider&rsquo;s models page and prefer a dated snapshot to an alias, so the model behind your answers changes only when your code does.</p>
 <h2 id="two-sdks-two-shapes">Two SDKs, two shapes</h2>
 <p>The notebook calls Gemini through Google&rsquo;s <code>google-generativeai</code> package, and the two SDKs disagree on almost every part of the call:</p>
 <div class="sheet scroll"><table>
@@ -397,7 +459,7 @@ response.choices[0].message.content
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A chat completion is one stateless HTTP call: a model, a list of role and content messages, and a reply with <code>usage</code>. Every turn resends the history, so long conversations cost more each turn.</li>
-<li>Bill from <code>prompt_tokens</code> and <code>completion_tokens</code>, keep the API key in the environment, and set a low <code>temperature</code> when you need repeatable answers.</li>
+<li>Bill from <code>prompt_tokens</code> and <code>completion_tokens</code> (<code>input_tokens</code> and <code>output_tokens</code> in the Responses API, which OpenAI recommends for new code), keep the API key in the environment, and set a low <code>temperature</code> when you need repeatable answers.</li>
 <li>Hide provider SDKs behind one function so switching model is a one-argument change, and make that function raise on a model it does not know instead of returning a placeholder string.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -806,7 +868,7 @@ visible = completion_tokens - reasoning_tokens
 <li>Use a reasoning model where a wrong intermediate step is expensive, and a fast model or plain code where the answer is already in the input.</li>
 <li>Choose an effort level with dollars per extra accuracy point on a mixed set, and fix missing facts, vague prompts and wrong labels before you turn the dial.</li>
 </ul></article>
-    <nav class="toc" aria-label="M02 sections"><details open><summary>In M02</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chat-completions">Chat completions</a></li><li><a href="#two-sdks-two-shapes">Two SDKs, two shapes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#inference-endpoints">Inference endpoints</a></li><li><a href="#running-a-model-locally">Running a model locally</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reasoning-models">Reasoning models</a></li><li><a href="#the-invisible-bill">The invisible bill</a></li><li><a href="#when-reasoning-pays">When reasoning pays</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-vs-accuracy">Cost vs accuracy</a></li><li><a href="#when-effort-is-the-wrong-lever">When effort is the wrong lever</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M02 sections"><details open><summary>In M02</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chat-completions">Chat completions</a></li><li><a href="#the-responses-api">The Responses API</a></li><li><a href="#two-sdks-two-shapes">Two SDKs, two shapes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#inference-endpoints">Inference endpoints</a></li><li><a href="#running-a-model-locally">Running a model locally</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reasoning-models">Reasoning models</a></li><li><a href="#the-invisible-bill">The invisible bill</a></li><li><a href="#when-reasoning-pays">When reasoning pays</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-vs-accuracy">Cost vs accuracy</a></li><li><a href="#when-effort-is-the-wrong-lever">When effort is the wrong lever</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
