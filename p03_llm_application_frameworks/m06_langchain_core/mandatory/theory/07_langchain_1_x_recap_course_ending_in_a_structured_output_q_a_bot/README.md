@@ -1,0 +1,67 @@
+# M07.7 Theory: LangChain 1.x recap course, ending in a structured-output Q&A bot
+
+*[M06 theory](../README.md) · Lesson 6.7 · Notebooks: [`07a_smart_bot_section1.ipynb`](../../notebook/07a_smart_bot_section1.ipynb), [`07f_output_parsers_demo.ipynb`](../../../optional/notebook/07f_output_parsers_demo.ipynb) (optional), [`07g_output_parsers_final.ipynb`](../../../optional/notebook/07g_output_parsers_final.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+
+## Structured output
+
+`llm.with_structured_output(Schema)` returns a new runnable that outputs an instance of the schema. Unlike a parser, it sends the schema to the provider with the request instead of writing it into the prompt, and providers that support structured output constrain the reply to it. Notebook 07g's advice is to prefer it over `PydanticOutputParser` for any model that supports it.
+
+| | `PydanticOutputParser` | `with_structured_output` |
+|---|---|---|
+| Where the schema goes | into the prompt, as format instructions (748 characters for the lesson 6.6 schema) | to the provider's API |
+| Which models | any model that follows instructions | models with structured-output or tool-calling support |
+| Prose around the JSON, fences, trailing notes | repaired or raised by the parser | not produced when the provider constrains the reply |
+| Values the schema allows but your app does not | pass | pass |
+
+The last row is the same for both. A schema bound to the model still lets through a made-up passage id if `citations` is `list[str]`, so the lesson 6.6 rule holds: put every rule you can into the schema, with `Literal` for ids and fixed labels.
+
+```mermaid
+flowchart TD
+    Q1{"Provider supports<br/>structured output?"} -- yes --> W["with_structured_output"]
+    Q1 -- no --> Q2{"Need typed,<br/>validated fields?"}
+    Q2 -- yes --> P["PydanticOutputParser"]
+    Q2 -- no --> Q3{"Need fields<br/>at all?"}
+    Q3 -- yes --> J["JsonOutputParser"]
+    Q3 -- no --> S["StrOutputParser"]
+```
+
+Notebook 07a builds `SmartQABot` on this: a `ChatPromptTemplate` with a system prompt and a `{question}` slot, piped into `ChatOpenAI(...).with_structured_output(QAResponse)`. `QAResponse` has five fields: `answer`, `confidence`, `reasoning`, `follow_up_questions` and `sources_needed`. Two of its choices are worth copying, and two are worth fixing before Larkspur uses the pattern:
+
+- **Copy: a fallback object.** `ask()` catches any exception and returns a valid `QAResponse` with `confidence="low"` and the error in `reasoning`, so the caller always gets the same type back.
+- **Copy: tracing.** `@traceable` sends every call to LangSmith when `LANGSMITH_API_KEY` is set, so a bad answer can be traced to its exact prompt and reply.
+- **Fix: `confidence` is a `str`.** Its description asks for high, medium or low, but nothing enforces it; `Literal["high", "medium", "low"]` would.
+- **Fix: `ask_batch()` has no fallback.** It calls `chain.batch(inputs)`, and by default `batch` raises the first exception and loses every result. Checked with a three-input batch whose middle input fails: plain `batch` raises, `batch(..., return_exceptions=True)` returns the two results with the exception in place of the middle one.
+
+For the lab brief, the same shape answers Larkspur's refund question: `CitedAnswer` from lesson 6.6 as the schema, the three passages and the question in the human message, and a fallback that says the handbook could not be checked instead of guessing.
+
+## Key Takeaways
+
+- Prefer `with_structured_output` on models that support it. It sends the schema to the provider instead of the prompt, and the provider constrains the reply to it.
+- Neither approach stops values the schema allows, so type fixed labels and ids as `Literal`.
+- Return a fallback object of the same type when a call fails, trace every call, and pass `return_exceptions=True` to `batch` so one failure does not lose the other results.
+
+## Check yourself
+
+<details>
+<summary>1. How does with_structured_output differ from the Pydantic output parser in where the schema goes, and what does that buy?</summary>
+
+It sends the schema to the provider's API with the request instead of writing it into the prompt as format instructions (748 characters for the lesson 6.6 schema). Providers that support structured output constrain the reply to it, so prose around the JSON, fences and trailing notes are not produced.
+
+</details>
+
+<details>
+<summary>2. You bind CitedAnswer with citations typed as a list of strings to the model. Can it still return a made-up passage id?</summary>
+
+Yes. A schema bound to the model still passes any value the schema allows, and any string is allowed. The lesson 6.6 rule holds for both approaches: put the rule into the schema, with `Literal` for passage ids and fixed labels.
+
+</details>
+
+<details>
+<summary>3. SmartQABot's ask_batch sends three questions and the middle one fails. What does the caller get, and how do you fix it?</summary>
+
+An exception and no results, because `batch` raises the first exception by default and loses every result. `batch(..., return_exceptions=True)` returns the two good results with the exception in place of the middle one, which a fallback like the one in `ask()` can then replace.
+
+</details>
+
+---
+*Previous: [6.6 Output parsers](../06_output_parsers/README.md). Next: [M06 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
