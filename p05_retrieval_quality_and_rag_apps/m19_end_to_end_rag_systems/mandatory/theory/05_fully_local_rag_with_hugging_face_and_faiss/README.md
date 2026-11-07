@@ -79,7 +79,7 @@ The embedding model, and with it the whole index. The query must be embedded by 
 <details>
 <summary>3. The sources shown beside an answer sometimes differ from the context the model read. What in the 05a chain allows that?</summary>
 
-`RunnableParallel(answer=rag_chain, sources=retriever)` retrieves twice, once inside `rag_chain` and once for `sources`. On an index that updates between the two calls, the lists can differ. The `RunnablePassthrough.assign` pattern from 20.2 retrieves once.
+`RunnableParallel(answer=rag_chain, sources=retriever)` retrieves twice, once inside `rag_chain` and once for `sources`. On an index that updates between the two calls, the lists can differ. The `RunnablePassthrough.assign` pattern from 19.2 retrieves once.
 
 </details>
 

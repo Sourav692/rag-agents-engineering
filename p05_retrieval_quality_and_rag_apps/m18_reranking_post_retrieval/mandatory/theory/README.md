@@ -59,7 +59,7 @@ Each stage has its own metric and its own failure. Stage 1 fails when the eviden
 ## How it connects
 
 - **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) defines recall@k and precision@k and the baseline every change is measured against. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) sets the chunk size that compression and enrichment windows work around. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) covers the embedding models that stage 1 runs as bi-encoders. [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) builds the hybrid first stage, and [M17](../../../m17_query_transformation/mandatory/theory/README.md) rewrites the question before it reaches it.
-- **Next:** M19 assembles the full pipeline with sources and citations on top of these stages. M28 and M29 add an LLM grader that judges each retrieved chunk, the same pointwise judgement as the LLM reranker in 19.3, with a yes or no instead of a score.
+- **Next:** M19 assembles the full pipeline with sources and citations on top of these stages. M28 and M29 add an LLM grader that judges each retrieved chunk, the same pointwise judgement as the LLM reranker in 18.3, with a yes or no instead of a score.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

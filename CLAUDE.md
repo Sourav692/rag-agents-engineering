@@ -141,8 +141,6 @@ What `migrate.py` did to every file it copied into the v1 `course/` tree (`cours
 ## Known issues inherited from the source repos
 
 - Some notebooks create working folders such as `../vector_stores/` at run time; they are not part of the repo.
-- M26 `03a_simple_coding_agent.py` loads skills from `skills/` beside itself, but they sit in `optional/notebook/03c_skills/`; the fix changes the backend root and needs a run to check.
-
 ## Checks
 
 - `uv run pytest -q`: offline, no API keys needed.

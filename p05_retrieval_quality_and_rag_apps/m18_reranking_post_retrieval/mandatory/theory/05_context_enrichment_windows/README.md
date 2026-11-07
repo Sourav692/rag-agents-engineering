@@ -24,9 +24,9 @@ On the Larkspur handbook the window repairs M12's boundary cut. M12's 300-charac
 The notebook's helpers are written for a demo, and four of their shortcuts break in production:
 
 - **The join needs the split's overlap.** `retrieve_with_context_overlap` takes `chunk_overlap` as its own argument. If it differs from the overlap used to split, the joins repeat or delete text. The AI-history call relies on the default of 20 matching its split.
-- **Fetching a neighbour scans the whole store.** `get_chunk_by_index` runs `similarity_search("", k=vectorstore.index.ntotal)` and loops over every chunk to find one index; the notebook calls it a simplified version. Keep chunk text in a key-value store keyed by document id and chunk index, which 19.6's method requires anyway.
+- **Fetching a neighbour scans the whole store.** `get_chunk_by_index` runs `similarity_search("", k=vectorstore.index.ntotal)` and loops over every chunk to find one index; the notebook calls it a simplified version. Keep chunk text in a key-value store keyed by document id and chunk index, which 18.6's method requires anyway.
 - **Every chunk carries the whole document.** The splitter stores the full text in each chunk's metadata under `text`, so the index holds one copy of the document per chunk.
-- **Indexes restart per document.** With more than one document, the key must include the document id, or a window can join the end of one file to the start of another. Two hits next to each other also produce overlapping windows; merge them, which is the problem 19.6 solves in general.
+- **Indexes restart per document.** With more than one document, the key must include the document id, or a window can join the end of one file to the start of another. Two hits next to each other also produce overlapping windows; merge them, which is the problem 18.6 solves in general.
 
 ## Key Takeaways
 

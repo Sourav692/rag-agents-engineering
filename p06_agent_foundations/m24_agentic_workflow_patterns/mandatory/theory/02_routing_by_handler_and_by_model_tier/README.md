@@ -10,7 +10,7 @@ A Larkspur refund request belongs in billing, but a refund calculation may also 
 
 A router classifies the input once and sends it down exactly one specialist path. The model makes one small decision, a label from a fixed set, and everything after it is ordinary Python dispatch.
 
-The content router has the same two-part shape as the 25.1 gate:
+The content router has the same two-part shape as the 24.1 gate:
 
 - **A constrained classifier.** `with_structured_output(ContentRoute)`, where `content_type` is `Literal["story", "poem", "joke"]`. The model cannot return a label the graph has no edge for, which a free-text answer like "I think they want a poem" could.
 - **A pure condition function.** `determine_next_step` maps the stored label to a node name with `.get(..., "generate_story")`, so even an unexpected label lands somewhere.

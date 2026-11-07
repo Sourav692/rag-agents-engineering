@@ -43,7 +43,7 @@ Optional notebook 04b adds generated questions to the index as extra documents b
 - Fragments (`type: ORIGINAL`) and questions (`type: AUGMENTED`) go into one FAISS store, and every entry carries its whole parent document in `metadata["text"]`.
 - The retriever returns the top 1 entry. Whether it is a fragment or a question, the notebook answers from `metadata["text"]`, the document of up to 4,000 words around it.
 
-So 04b is the payload pattern from 16.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects questions the LLM did not anticipate, and it pays for that with a larger index and a 4,000-word document as context for every answer.
+So 04b is the payload pattern from 15.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects questions the LLM did not anticipate, and it pays for that with a larger index and a 4,000-word document as context for every answer.
 
 ## Key Takeaways
 

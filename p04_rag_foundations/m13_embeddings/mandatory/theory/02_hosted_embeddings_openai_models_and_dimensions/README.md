@@ -23,7 +23,7 @@ Embedding the corpus is a one-off bill and small. The dimensions are paid again 
 | 1536 (`3-small`) | 6,144 | 6.1 GB |
 | 3072 (`3-large`) | 12,288 | 12.3 GB |
 
-Notebook 14.1 puts it as a rule: a 3072-dimension index is twice the size of a 1536-dimension one and costs roughly twice as much per search. Some vector stores can compress vectors into fewer bytes per number, which lowers these figures at some cost in accuracy.
+Notebook 13.1 puts it as a rule: a 3072-dimension index is twice the size of a 1536-dimension one and costs roughly twice as much per search. Some vector stores can compress vectors into fewer bytes per number, which lowers these figures at some cost in accuracy.
 
 ### Shortening a vector with `dimensions`
 
@@ -42,7 +42,7 @@ flowchart LR
     C --> V[("Index sized like 3-small")]
 ```
 
-Shorter vectors are worse; the question is how much worse on your data for what you save. Notebook 14.1 measures it on six labelled queries at 1536, 512, 256, 128, 64 and 32 dimensions and reports two numbers per setting:
+Shorter vectors are worse; the question is how much worse on your data for what you save. Notebook 13.1 measures it on six labelled queries at 1536, 512, 256, 128, 64 and 32 dimensions and reports two numbers per setting:
 
 - **recall@1**, which saturates on an easy set: six well-separated documents score perfectly at almost any size, and then the metric says nothing more.
 - **margin**, the correct document's similarity minus the best wrong document's. It keeps shrinking as dimensions fall, and a shrinking margin is where recall will break on a large corpus with near-duplicates, such as Larkspur's `refund-window` and `refund-timing` chunks.

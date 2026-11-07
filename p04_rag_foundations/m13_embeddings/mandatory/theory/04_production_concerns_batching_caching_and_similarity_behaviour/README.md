@@ -42,13 +42,13 @@ The key is the namespace followed by a hash of the text, so a cache entry matche
 - **Old entries stay.** Run 3 leaves the pre-edit vector in the store. A file store grows until you clear it, so give it a home you can delete or expire.
 - **The namespace is part of correctness.** `from_bytes_store` defaults to an empty namespace. Run 5 swaps the model and gets the old model's vectors back with no error, an index mixing two vector spaces, which is the mismatch from [lesson 13.1](../01_embedding_fundamentals_similarity_metrics_and_model_selection/README.md#the-same-model-on-both-sides). Put the model name and its `dimensions` setting in the namespace.
 
-Only documents are cached by default (`query_embedding_cache=False`), which suits most traffic, since few queries repeat word for word. `LocalFileStore` writes one file per vector; for a cache shared between workers, any other `ByteStore`, such as Redis, works the same way. Notebook 14.4 uses a `TemporaryDirectory`, so its cache is discarded when the cell ends.
+Only documents are cached by default (`query_embedding_cache=False`), which suits most traffic, since few queries repeat word for word. `LocalFileStore` writes one file per vector; for a cache shared between workers, any other `ByteStore`, such as Redis, works the same way. Notebook 13.4 uses a `TemporaryDirectory`, so its cache is discarded when the cell ends.
 
 ## Batching
 
 `embed_documents(texts)` sends many texts in one request; `embed_query(text)` sends one. Looping `embed_query` over a corpus pays one network round trip per chunk, and on a real corpus that is the difference between minutes and hours. Use `embed_documents` for the index and `embed_query` for questions.
 
-Notebook 14.1 runs both paths on the same six texts and compares the vectors. They are semantically identical (cosine about 1.0) but not bit-identical, because a batched request and a single request take different paths through the server. The difference is numerical noise, so never use exact equality to decide whether two vectors came from the same text; that is the cache's job. For an asymmetric model the two methods differ on purpose, which is one more reason to keep the two calls separate (lesson 13.3).
+Notebook 13.1 runs both paths on the same six texts and compares the vectors. They are semantically identical (cosine about 1.0) but not bit-identical, because a batched request and a single request take different paths through the server. The difference is numerical noise, so never use exact equality to decide whether two vectors came from the same text; that is the cache's job. For an asymmetric model the two methods differ on purpose, which is one more reason to keep the two calls separate (lesson 13.3).
 
 ## Key Takeaways
 

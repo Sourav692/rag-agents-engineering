@@ -45,7 +45,7 @@ The model never runs anything. It writes a request; your code decides whether to
 
 ## How it connects
 
-- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) built the handbook index that `search_handbook` wraps. M08 and M09 taught the LangGraph state, reducers and conditional edges the 23.4 and 23.5 graphs use. M19 is the end-to-end retriever the module lab asks you to wrap as a tool.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) built the handbook index that `search_handbook` wraps. M08 and M09 taught the LangGraph state, reducers and conditional edges the 22.4 and 22.5 graphs use. M19 is the end-to-end retriever the module lab asks you to wrap as a tool.
 - **Next:** [M23](../../../m23_react_agents/mandatory/theory/README.md) packages this loop as a ReAct agent with LangChain's `create_agent`, and M24 to M27 add workflow patterns, planning and human approval around it. M28 to M31 put the retriever inside the loop (agentic RAG), and M38 to M40 reach tools over MCP, a server you run that the model calls through a protocol.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

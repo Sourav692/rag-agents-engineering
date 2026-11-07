@@ -36,7 +36,7 @@ The lesson 24.1 graph shows how little the model controls. `get_graph()` prints 
 
 ### Step 1: Place the gate before drafting
 
-Prompt chaining splits one task into a fixed sequence of focused calls, each reading the previous step's output. The 25.1 chain turns a topic into an email: extract three key points, draft, polish. A **quality gate** sits between steps and decides whether the intermediate result may go on. Failing at step 1 costs one cheap check. Failing at the end costs a draft and a polish written from nothing.
+Prompt chaining splits one task into a fixed sequence of focused calls, each reading the previous step's output. The 24.1 chain turns a topic into an email: extract three key points, draft, polish. A **quality gate** sits between steps and decides whether the intermediate result may go on. Failing at step 1 costs one cheap check. Failing at the end costs a draft and a polish written from nothing.
 
 ```mermaid
 flowchart LR

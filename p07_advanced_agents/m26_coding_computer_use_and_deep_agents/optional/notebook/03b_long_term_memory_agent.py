@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 
 from deepagents import create_deep_agent
-from deepagents.backends import FilesystemBackend, LocalShellBackend
+from deepagents.backends import CompositeBackend, FilesystemBackend, LocalShellBackend
 from langgraph.checkpoint.memory import MemorySaver
 from databricks_langchain import ChatDatabricks
 from langchain_core.messages import BaseMessage
@@ -22,7 +22,8 @@ USE_SANDBOX = os.environ.get("USE_SANDBOX", "false").lower() == "true"
 # Setup directories
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECTS_DIR = os.path.join(BASE_DIR, "projects")
-SKILLS_DIR = os.path.join(BASE_DIR, "skills")
+# The skills live in 03c_skills/ beside this script.
+SKILLS_DIR = os.path.join(BASE_DIR, "03c_skills")
 
 os.makedirs(PROJECTS_DIR, exist_ok=True)
 
@@ -406,8 +407,14 @@ subagents = [
 def _create_backend():
     """Create the appropriate backend based on USE_SANDBOX env var."""
     if USE_SANDBOX:
-        return LocalShellBackend(root_dir=PROJECTS_DIR)
-    return FilesystemBackend(root_dir=BASE_DIR, virtual_mode=True)
+        default = LocalShellBackend(root_dir=PROJECTS_DIR)
+    else:
+        default = FilesystemBackend(root_dir=BASE_DIR, virtual_mode=True)
+    # Route the agent's virtual /skills/ path to SKILLS_DIR.
+    return CompositeBackend(
+        default=default,
+        routes={"/skills/": FilesystemBackend(root_dir=SKILLS_DIR, virtual_mode=True)},
+    )
 
 
 # ============ System prompt with memory awareness ============
