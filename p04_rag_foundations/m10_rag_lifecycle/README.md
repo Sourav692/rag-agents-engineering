@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part IV · RAG Foundations** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 4 mandatory, 0 optional
+**Part IV · RAG Foundations: Ingestion & Indexing** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 4 mandatory, 0 optional
 
 ## Why it matters
 
@@ -43,18 +43,19 @@ Baseline pipeline: build the canonical lifecycle notebook end to end on the cour
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/02a_indexing_from_scratch.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/01_indexing_from_scratch.ipynb` |
-| `notebooks/03a_retrieval_strategies.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/02_retrieval_strategies.ipynb` |
-| `notebooks/04a_langchain_rag_quickstart.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/03_langchain_rag_quickstart.ipynb` |
-| `notebooks/05a_rag_lifecycle_and_baseline.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/04_rag_lifecycle_and_baseline.ipynb` |
+| `mandatory/notebook/02a_indexing_from_scratch.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/01_indexing_from_scratch.ipynb` |
+| `mandatory/notebook/03a_retrieval_strategies.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/02_retrieval_strategies.ipynb` |
+| `mandatory/notebook/04a_langchain_rag_quickstart.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/03_langchain_rag_quickstart.ipynb` |
+| `mandatory/notebook/05a_rag_lifecycle_and_baseline.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/01_introduction_to_rag/notebooks/04_rag_lifecycle_and_baseline.ipynb` |

@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part V · The Ingestion & Indexing Pipeline** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 4 optional
+**Part IV · RAG Foundations: Ingestion & Indexing** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 4 optional
 
 ## Why it matters
 
@@ -43,24 +43,25 @@ Living index: stand up pgvector with Docker, ingest the M11 corpus, then change,
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_vector_stores_and_index_operations.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/01_vector_stores_and_index_operations.ipynb` |
-| `optional/01b_vector_database_operations.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/02_vector_database_operations.ipynb` |
-| `optional/01c_other_vector_stores.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/05_other_vector_stores.ipynb` |
-| `notebooks/02a_chromadb.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/03_chromadb.ipynb` |
-| `notebooks/02b_faiss.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/04_faiss.ipynb` |
-| `optional/02c_vector_stores_in_practice.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/08_vector_stores_in_practice.ipynb` |
-| `optional/03a_astra_db.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/06_astra_db.ipynb` |
-| `notebooks/03b_pinecone.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/07_pinecone.ipynb` |
-| `notebooks/04a_filtered_search_pgvector.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/12_langchain_rag_implementations/notebooks/01_filtered_search_pgvector.ipynb` |
-| `notebooks/05a_indexing_api.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/12_langchain_rag_implementations/notebooks/02_indexing_api.ipynb` |
+| `mandatory/notebook/01a_vector_stores_and_index_operations.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/01_vector_stores_and_index_operations.ipynb` |
+| `optional/notebook/01b_vector_database_operations.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/02_vector_database_operations.ipynb` |
+| `optional/notebook/01c_other_vector_stores.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/05_other_vector_stores.ipynb` |
+| `mandatory/notebook/02a_chromadb.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/03_chromadb.ipynb` |
+| `mandatory/notebook/02b_faiss.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/04_faiss.ipynb` |
+| `optional/notebook/02c_vector_stores_in_practice.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/08_vector_stores_in_practice.ipynb` |
+| `optional/notebook/03a_astra_db.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/06_astra_db.ipynb` |
+| `mandatory/notebook/03b_pinecone.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/05_vector_stores/notebooks/07_pinecone.ipynb` |
+| `mandatory/notebook/04a_filtered_search_pgvector.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/12_langchain_rag_implementations/notebooks/01_filtered_search_pgvector.ipynb` |
+| `mandatory/notebook/05a_indexing_api.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/12_langchain_rag_implementations/notebooks/02_indexing_api.ipynb` |

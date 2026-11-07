@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part IX · Agentic & Self-Correcting RAG** · **Level:** Advanced · **Time:** ~3 h · **Notebooks:** 1 mandatory, 2 optional
+**Part VIII · Agentic RAG** · **Level:** Advanced · **Time:** ~3 h · **Notebooks:** 1 mandatory, 2 optional
 
 ## Why it matters
 
@@ -40,17 +40,18 @@ Two-tool agent: give an agent a private-docs RAG tool and a web-search tool, and
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_rag_as_tool_in_agents.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/05_rag_as_an_agent_tool/notebooks/01_rag_as_tool_in_agents.ipynb` |
-| `optional/02a_agentic_rag_contextual_ai.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/05_rag_as_an_agent_tool/notebooks/02_agentic_rag_contextual_ai.ipynb` |
-| `optional/03a_llamaindex_wikipedia_agent` | `ai-engineering-demystified-09-advanced-rag` | `modules/05_rag_as_an_agent_tool/exercises/llamaindex_wikipedia_agent` |
+| `mandatory/notebook/01a_rag_as_tool_in_agents.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/05_rag_as_an_agent_tool/notebooks/01_rag_as_tool_in_agents.ipynb` |
+| `optional/notebook/02a_agentic_rag_contextual_ai.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/05_rag_as_an_agent_tool/notebooks/02_agentic_rag_contextual_ai.ipynb` |
+| `optional/notebook/03a_llamaindex_wikipedia_agent` | `ai-engineering-demystified-09-advanced-rag` | `modules/05_rag_as_an_agent_tool/exercises/llamaindex_wikipedia_agent` |

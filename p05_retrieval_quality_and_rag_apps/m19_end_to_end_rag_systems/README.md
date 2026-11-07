@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VII · Building Complete RAG Applications** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 8 mandatory, 3 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 8 mandatory, 3 optional
 
 ## Why it matters
 
@@ -44,25 +44,26 @@ Module lab, AI research assistant: package ingestion, retrieval, structured answ
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_setup.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/00_setup.ipynb` |
-| `notebooks/01b_build_a_simple_rag_system.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/01_build_a_simple_rag_system.ipynb` |
-| `optional/01c_simple_rag_pdf.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/05_simple_rag_pdf.ipynb` |
-| `notebooks/02a_rag_system_with_sources.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/03_rag_system_with_sources.ipynb` |
-| `notebooks/02b_rag_system_with_citations.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/04_rag_system_with_citations.ipynb` |
-| `notebooks/03a_explainable_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/07_explainable_retrieval.ipynb` |
-| `notebooks/04a_structured_data_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/08_structured_data_rag.ipynb` |
-| `optional/04b_simple_csv_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/09_simple_csv_rag.ipynb` |
-| `optional/04c_json_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/10_json_rag.ipynb` |
-| `notebooks/05a_local_rag_huggingface_faiss.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/06_local_rag_huggingface_faiss.ipynb` |
-| `notebooks/lab_ai_research_assistant.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/11_ai_research_assistant.ipynb` |
+| `mandatory/notebook/01a_setup.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/00_setup.ipynb` |
+| `mandatory/notebook/01b_build_a_simple_rag_system.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/01_build_a_simple_rag_system.ipynb` |
+| `optional/notebook/01c_simple_rag_pdf.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/05_simple_rag_pdf.ipynb` |
+| `mandatory/notebook/02a_rag_system_with_sources.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/03_rag_system_with_sources.ipynb` |
+| `mandatory/notebook/02b_rag_system_with_citations.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/04_rag_system_with_citations.ipynb` |
+| `mandatory/notebook/03a_explainable_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/07_explainable_retrieval.ipynb` |
+| `mandatory/notebook/04a_structured_data_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/08_structured_data_rag.ipynb` |
+| `optional/notebook/04b_simple_csv_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/09_simple_csv_rag.ipynb` |
+| `optional/notebook/04c_json_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/10_json_rag.ipynb` |
+| `mandatory/notebook/05a_local_rag_huggingface_faiss.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/06_local_rag_huggingface_faiss.ipynb` |
+| `mandatory/notebook/lab_ai_research_assistant.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/11_ai_research_assistant.ipynb` |

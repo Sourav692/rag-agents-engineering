@@ -42,19 +42,20 @@ Generator choice: answer 20 questions with a fast model, a reasoning model at tw
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_using_chatgpt_or_google_gemini.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/04_llm_provider_apis/notebooks/01_using_chatgpt_or_google_gemini.ipynb` |
-| `notebooks/02a_open_source_llms_via_hugging_face_inference_api.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/04_llm_provider_apis/notebooks/02_open_source_llms_via_hugging_face_inference_api.ipynb` |
-| `optional/02b_open_source_llms_locally.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/04_llm_provider_apis/notebooks/03_open_source_llms_locally.ipynb` |
-| `notebooks/03a_Reasoning_vs_NonReasoning.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/05_model_landscape_and_selection/notebooks/01_Reasoning_vs_NonReasoning.ipynb` |
-| `notebooks/04a_Reasoning_Effort_Levers.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/05_model_landscape_and_selection/notebooks/02_Reasoning_Effort_Levers.ipynb` |
+| `mandatory/notebook/01a_using_chatgpt_or_google_gemini.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/04_llm_provider_apis/notebooks/01_using_chatgpt_or_google_gemini.ipynb` |
+| `mandatory/notebook/02a_open_source_llms_via_hugging_face_inference_api.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/04_llm_provider_apis/notebooks/02_open_source_llms_via_hugging_face_inference_api.ipynb` |
+| `optional/notebook/02b_open_source_llms_locally.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/04_llm_provider_apis/notebooks/03_open_source_llms_locally.ipynb` |
+| `mandatory/notebook/03a_Reasoning_vs_NonReasoning.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/05_model_landscape_and_selection/notebooks/01_Reasoning_vs_NonReasoning.ipynb` |
+| `mandatory/notebook/04a_Reasoning_Effort_Levers.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/05_model_landscape_and_selection/notebooks/02_Reasoning_Effort_Levers.ipynb` |

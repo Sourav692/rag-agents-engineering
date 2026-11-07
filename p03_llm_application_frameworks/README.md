@@ -1,10 +1,10 @@
-# Part III — LangChain & LangGraph Fundamentals
+# Part III — LLM Application Frameworks: LangChain & LangGraph
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Weeks 4–5 · Foundation**
+**Weeks 2–4 · Foundation**
 
-LangChain models, prompts, parsers and LCEL, then LangGraph state, routing, persistence, interrupts and streaming.
+LangChain models, prompts, parsers and LCEL; LangGraph state, routing, persistence, interrupts and streaming.
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|

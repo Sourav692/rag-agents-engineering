@@ -1,10 +1,10 @@
-# Part IX — Agentic & Self-Correcting RAG
+# Part VIII — Agentic RAG
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Weeks 16–17 · Advanced**
+**Weeks 16–18 · Advanced**
 
-Retrieval that makes decisions: grade, rewrite, fall back to the web, reflect, route, and act as an agent tool.
+Retrieval inside a control loop: grading and rewriting, CRAG and Self-RAG, adaptive routing, RAG as a tool, and feedback loops.
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|

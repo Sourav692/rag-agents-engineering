@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VI · Retrieval Quality Engineering** · **Level:** Core · **Time:** ~4 h · **Notebooks:** 5 mandatory, 2 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~4 h · **Notebooks:** 5 mandatory, 2 optional
 
 ## Why it matters
 
@@ -44,21 +44,22 @@ Precision stack: add a cross-encoder reranker over a top-50 hybrid retrieval and
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_two_stage_reranking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/02_two_stage_reranking.ipynb` |
-| `notebooks/02a_cross_encoder_reranking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/01_cross_encoder_reranking.ipynb` |
-| `optional/02b_reranking_cross_encoder_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/03_reranking_cross_encoder_walkthrough.ipynb` |
-| `notebooks/03a_reranking_methods.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/04_reranking_methods.ipynb` |
-| `notebooks/04a_contextual_compression.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/05_contextual_compression.ipynb` |
-| `notebooks/05a_context_enrichment_window.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/06_context_enrichment_window.ipynb` |
-| `optional/06a_relevant_segment_extraction.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/07_relevant_segment_extraction.ipynb` |
+| `mandatory/notebook/01a_two_stage_reranking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/02_two_stage_reranking.ipynb` |
+| `mandatory/notebook/02a_cross_encoder_reranking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/01_cross_encoder_reranking.ipynb` |
+| `optional/notebook/02b_reranking_cross_encoder_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/03_reranking_cross_encoder_walkthrough.ipynb` |
+| `mandatory/notebook/03a_reranking_methods.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/04_reranking_methods.ipynb` |
+| `mandatory/notebook/04a_contextual_compression.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/05_contextual_compression.ipynb` |
+| `mandatory/notebook/05a_context_enrichment_window.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/06_context_enrichment_window.ipynb` |
+| `optional/notebook/06a_relevant_segment_extraction.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/09_post_retrieval_and_reranking/notebooks/07_relevant_segment_extraction.ipynb` |

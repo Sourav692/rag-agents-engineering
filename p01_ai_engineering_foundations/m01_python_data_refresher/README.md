@@ -45,29 +45,30 @@ Data warm-up: load a CSV into pandas and into SQLite, answer five questions both
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `optional/01a_implementing_variables_in_python.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/01_implementing_variables_in_python.ipynb` |
-| `optional/01b_implementation_of_operators_in_python.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/02_implementation_of_operators_in_python.ipynb` |
-| `optional/01c_implementing_conditional_statements.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/03_implementing_conditional_statements.ipynb` |
-| `optional/01d_looping_constructs.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/04_looping_constructs.ipynb` |
-| `optional/01e_implementing_functions_in_python.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/05_implementing_functions_in_python.ipynb` |
-| `optional/02a_python_best_practices.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/06_python_best_practices.ipynb` |
-| `notebooks/03a_numpy_basics.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/01_numpy_basics.ipynb` |
-| `notebooks/03b_pandas_basics_for_data_analysis.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/02_pandas_basics_for_data_analysis.ipynb` |
-| `optional/03c_matplotlib_basics.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/03_matplotlib_basics.ipynb` |
-| `notebooks/04a_sqlite_operations.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/04_sqlite_operations.ipynb` |
-| `optional/04b_mysql_connection.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/05_mysql_connection.ipynb` |
-| `optional/04c_postgresdb_connection.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/06_postgresdb_connection.ipynb` |
-| `optional/05a_creating_and_accessing_apis_with_flask.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/07_creating_and_accessing_apis_with_flask.ipynb` |
-| `optional/05b_stock_market_api_endpoints.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/08_stock_market_api_endpoints.ipynb` |
-| `optional/06a_concurrency_scripts` | `ai-engineering-demystified-01-foundations` | `modules/03_concurrency_and_asyncio/notebooks` |
+| `optional/notebook/01a_implementing_variables_in_python.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/01_implementing_variables_in_python.ipynb` |
+| `optional/notebook/01b_implementation_of_operators_in_python.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/02_implementation_of_operators_in_python.ipynb` |
+| `optional/notebook/01c_implementing_conditional_statements.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/03_implementing_conditional_statements.ipynb` |
+| `optional/notebook/01d_looping_constructs.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/04_looping_constructs.ipynb` |
+| `optional/notebook/01e_implementing_functions_in_python.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/05_implementing_functions_in_python.ipynb` |
+| `optional/notebook/02a_python_best_practices.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/01_python_for_ai_engineering/notebooks/06_python_best_practices.ipynb` |
+| `mandatory/notebook/03a_numpy_basics.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/01_numpy_basics.ipynb` |
+| `mandatory/notebook/03b_pandas_basics_for_data_analysis.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/02_pandas_basics_for_data_analysis.ipynb` |
+| `optional/notebook/03c_matplotlib_basics.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/03_matplotlib_basics.ipynb` |
+| `mandatory/notebook/04a_sqlite_operations.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/04_sqlite_operations.ipynb` |
+| `optional/notebook/04b_mysql_connection.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/05_mysql_connection.ipynb` |
+| `optional/notebook/04c_postgresdb_connection.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/06_postgresdb_connection.ipynb` |
+| `optional/notebook/05a_creating_and_accessing_apis_with_flask.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/07_creating_and_accessing_apis_with_flask.ipynb` |
+| `optional/notebook/05b_stock_market_api_endpoints.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/02_files_data_and_apis/notebooks/08_stock_market_api_endpoints.ipynb` |
+| `optional/notebook/06a_concurrency_scripts` | `ai-engineering-demystified-01-foundations` | `modules/03_concurrency_and_asyncio/notebooks` |

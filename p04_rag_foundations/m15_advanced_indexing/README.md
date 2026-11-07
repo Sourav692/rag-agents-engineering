@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part V · The Ingestion & Indexing Pipeline** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 2 optional
+**Part IV · RAG Foundations: Ingestion & Indexing** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 2 optional
 
 ## Why it matters
 
@@ -44,22 +44,23 @@ Index redesign: apply parent-document retrieval and contextual chunk headers to 
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_multi_representation_indexing.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/01_multi_representation_indexing.ipynb` |
-| `notebooks/02a_parent_document_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/02_parent_document_retrieval.ipynb` |
-| `optional/02b_parent_document_retriever_postgres.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/03_parent_document_retriever_postgres.ipynb` |
-| `notebooks/03a_hierarchical_indices.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/04_hierarchical_indices.ipynb` |
-| `notebooks/04a_hypothetical_prompt_embeddings.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/05_hypothetical_prompt_embeddings.ipynb` |
-| `optional/04b_document_augmentation.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/06_document_augmentation.ipynb` |
-| `notebooks/05a_contextual_chunk_headers.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/07_contextual_chunk_headers.ipynb` |
-| `notebooks/05b_contextual_retrieval_rag_system.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/02_contextual_retrieval_rag_system.ipynb` |
+| `mandatory/notebook/01a_multi_representation_indexing.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/01_multi_representation_indexing.ipynb` |
+| `mandatory/notebook/02a_parent_document_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/02_parent_document_retrieval.ipynb` |
+| `optional/notebook/02b_parent_document_retriever_postgres.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/03_parent_document_retriever_postgres.ipynb` |
+| `mandatory/notebook/03a_hierarchical_indices.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/04_hierarchical_indices.ipynb` |
+| `mandatory/notebook/04a_hypothetical_prompt_embeddings.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/05_hypothetical_prompt_embeddings.ipynb` |
+| `optional/notebook/04b_document_augmentation.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/06_document_augmentation.ipynb` |
+| `mandatory/notebook/05a_contextual_chunk_headers.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/06_indexing_strategies/notebooks/07_contextual_chunk_headers.ipynb` |
+| `mandatory/notebook/05b_contextual_retrieval_rag_system.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/10_building_rag_systems/notebooks/02_contextual_retrieval_rag_system.ipynb` |

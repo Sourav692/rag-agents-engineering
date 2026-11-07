@@ -2,9 +2,9 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Weeks 21–22 · Advanced**
+**Weeks 21–23 · Advanced**
 
-Expose retrieval and agents as standard services: MCP servers and clients for tools and resources, A2A for agent-to-agent calls.
+Expose tools, data and whole agents as services with the Model Context Protocol and Agent-to-Agent.
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|

@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part X · Memory & Multi-Agent RAG** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 6 mandatory, 5 optional
+**Part IX · The Memory Layer** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 6 mandatory, 5 optional
 
 ## Why it matters
 
@@ -42,25 +42,26 @@ Personal RAG: give your assistant semantic memory of user preferences and show t
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_cross_thread_memory_store.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/01_cross_thread_memory_store.ipynb` |
-| `optional/02a_session_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/02_session_memory_sqlite.ipynb` |
-| `notebooks/02b_long_term_semantic_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/03_long_term_semantic_memory_sqlite.ipynb` |
-| `notebooks/02c_long_term_episodic_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/04_long_term_episodic_memory_sqlite.ipynb` |
-| `optional/02d_long_term_procedural_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/05_long_term_procedural_memory_sqlite.ipynb` |
-| `notebooks/03a_combined_memory_agent_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/06_combined_memory_agent_sqlite.ipynb` |
-| `notebooks/04a_episodic_with_semantic_memory.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/01_episodic_with_semantic_memory.ipynb` |
-| `optional/04b_graph_memory_multi_hop.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/02_graph_memory_multi_hop.ipynb` |
-| `notebooks/05a_memgpt_tiered_memory.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/03_memgpt_tiered_memory.ipynb` |
-| `optional/05b_voyager_skill_library.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/04_voyager_skill_library.ipynb` |
-| `optional/05c_agent_workflow_memory.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/05_agent_workflow_memory.ipynb` |
+| `mandatory/notebook/01a_cross_thread_memory_store.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/01_cross_thread_memory_store.ipynb` |
+| `optional/notebook/02a_session_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/02_session_memory_sqlite.ipynb` |
+| `mandatory/notebook/02b_long_term_semantic_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/03_long_term_semantic_memory_sqlite.ipynb` |
+| `mandatory/notebook/02c_long_term_episodic_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/04_long_term_episodic_memory_sqlite.ipynb` |
+| `optional/notebook/02d_long_term_procedural_memory_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/05_long_term_procedural_memory_sqlite.ipynb` |
+| `mandatory/notebook/03a_combined_memory_agent_sqlite.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/03_long_term_and_persistent_memory/notebooks/06_combined_memory_agent_sqlite.ipynb` |
+| `mandatory/notebook/04a_episodic_with_semantic_memory.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/01_episodic_with_semantic_memory.ipynb` |
+| `optional/notebook/04b_graph_memory_multi_hop.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/02_graph_memory_multi_hop.ipynb` |
+| `mandatory/notebook/05a_memgpt_tiered_memory.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/03_memgpt_tiered_memory.ipynb` |
+| `optional/notebook/05b_voyager_skill_library.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/04_voyager_skill_library.ipynb` |
+| `optional/notebook/05c_agent_workflow_memory.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/04_agentic_memory_architectures/notebooks/05_agent_workflow_memory.ipynb` |

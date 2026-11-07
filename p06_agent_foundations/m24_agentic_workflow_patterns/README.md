@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VIII · Agent Foundations for RAG** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 8 mandatory, 5 optional
+**Part VI · Agent Foundations** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 8 mandatory, 5 optional
 
 ## Why it matters
 
@@ -45,27 +45,28 @@ Pattern mapping: rebuild query decomposition (M17) as orchestrator–worker and 
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_prompt_chaining_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/05_prompt_chaining/notebooks/01_prompt_chaining_langgraph.ipynb` |
-| `optional/01b_prompt_chaining_structured_output.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/05_prompt_chaining/notebooks/02_prompt_chaining_structured_output.ipynb` |
-| `optional/01c_prompt_chaining_lcel.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/05_prompt_chaining/notebooks/03_prompt_chaining_lcel.ipynb` |
-| `notebooks/02a_routing_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/06_routing/notebooks/01_routing_langgraph.ipynb` |
-| `notebooks/02b_routing_by_model_tier.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/06_routing/notebooks/02_routing_by_model_tier.ipynb` |
-| `optional/02c_routing_lcel_runnable_branch.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/06_routing/notebooks/03_routing_lcel_runnable_branch.ipynb` |
-| `notebooks/03a_parallelization_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/07_parallelization/notebooks/01_parallelization_langgraph.ipynb` |
-| `notebooks/03b_parallelization_sectioning_and_voting.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/07_parallelization/notebooks/02_parallelization_sectioning_and_voting.ipynb` |
-| `optional/03c_parallelization_lcel.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/07_parallelization/notebooks/03_parallelization_lcel.ipynb` |
-| `notebooks/04a_orchestrator_worker_send_api.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/08_orchestrator_worker/notebooks/01_orchestrator_worker_send_api.ipynb` |
-| `optional/04b_orchestrator_worker_lcel_map.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/08_orchestrator_worker/notebooks/02_orchestrator_worker_lcel_map.ipynb` |
-| `notebooks/05a_evaluator_optimizer_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/09_evaluator_optimizer/notebooks/01_evaluator_optimizer_langgraph.ipynb` |
-| `notebooks/05b_evaluator_optimizer_lcel.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/09_evaluator_optimizer/notebooks/02_evaluator_optimizer_lcel.ipynb` |
+| `mandatory/notebook/01a_prompt_chaining_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/05_prompt_chaining/notebooks/01_prompt_chaining_langgraph.ipynb` |
+| `optional/notebook/01b_prompt_chaining_structured_output.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/05_prompt_chaining/notebooks/02_prompt_chaining_structured_output.ipynb` |
+| `optional/notebook/01c_prompt_chaining_lcel.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/05_prompt_chaining/notebooks/03_prompt_chaining_lcel.ipynb` |
+| `mandatory/notebook/02a_routing_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/06_routing/notebooks/01_routing_langgraph.ipynb` |
+| `mandatory/notebook/02b_routing_by_model_tier.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/06_routing/notebooks/02_routing_by_model_tier.ipynb` |
+| `optional/notebook/02c_routing_lcel_runnable_branch.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/06_routing/notebooks/03_routing_lcel_runnable_branch.ipynb` |
+| `mandatory/notebook/03a_parallelization_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/07_parallelization/notebooks/01_parallelization_langgraph.ipynb` |
+| `mandatory/notebook/03b_parallelization_sectioning_and_voting.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/07_parallelization/notebooks/02_parallelization_sectioning_and_voting.ipynb` |
+| `optional/notebook/03c_parallelization_lcel.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/07_parallelization/notebooks/03_parallelization_lcel.ipynb` |
+| `mandatory/notebook/04a_orchestrator_worker_send_api.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/08_orchestrator_worker/notebooks/01_orchestrator_worker_send_api.ipynb` |
+| `optional/notebook/04b_orchestrator_worker_lcel_map.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/08_orchestrator_worker/notebooks/02_orchestrator_worker_lcel_map.ipynb` |
+| `mandatory/notebook/05a_evaluator_optimizer_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/09_evaluator_optimizer/notebooks/01_evaluator_optimizer_langgraph.ipynb` |
+| `mandatory/notebook/05b_evaluator_optimizer_lcel.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/09_evaluator_optimizer/notebooks/02_evaluator_optimizer_lcel.ipynb` |

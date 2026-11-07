@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VII · Building Complete RAG Applications** · **Level:** Core · **Time:** ~3 h · **Notebooks:** 2 mandatory, 1 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~3 h · **Notebooks:** 2 mandatory, 1 optional
 
 ## Why it matters
 
@@ -40,17 +40,18 @@ Chart-aware RAG: index a report that holds key numbers only in figures and show 
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_multimodal_rag_with_clip.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/01_multimodal_rag_with_clip.ipynb` |
-| `notebooks/02a_multimodal_rag_with_captioning.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/02_multimodal_rag_with_captioning.ipynb` |
-| `optional/03a_multimodal_rag_with_colpali.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/03_multimodal_rag_with_colpali.ipynb` |
+| `mandatory/notebook/01a_multimodal_rag_with_clip.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/01_multimodal_rag_with_clip.ipynb` |
+| `mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/02_multimodal_rag_with_captioning.ipynb` |
+| `optional/notebook/03a_multimodal_rag_with_colpali.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/03_multimodal_rag_with_colpali.ipynb` |

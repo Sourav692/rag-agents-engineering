@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VIII · Agent Foundations for RAG** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 7 mandatory, 4 optional
+**Part VI · Agent Foundations** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 7 mandatory, 4 optional
 
 ## Why it matters
 
@@ -36,7 +36,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 ## Hands-on lab
 
-Retriever as a tool, by hand: wrap your Part VII retriever as a tool, run it through your own tool loop with no framework, and log every tool call and error. Details: [lab/README.md](lab/README.md).
+Retriever as a tool, by hand: wrap your Part V retriever as a tool, run it through your own tool loop with no framework, and log every tool call and error. Details: [lab/README.md](lab/README.md).
 
 ## Key concepts
 
@@ -44,25 +44,26 @@ Retriever as a tool, by hand: wrap your Part VII retriever as a tool, run it thr
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `optional/01a_reflection_pattern.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/01_reflection_pattern.ipynb` |
-| `notebooks/01b_tool_use_pattern.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/02_tool_use_pattern.ipynb` |
-| `notebooks/01c_planning_pattern_react.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/03_planning_pattern_react.ipynb` |
-| `optional/02a_real_world_agent_hacker_news_chatbot.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/04_real_world_agent_hacker_news_chatbot.ipynb` |
-| `notebooks/03a_defining_tools.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/01_defining_tools.ipynb` |
-| `notebooks/04a_tool_calling_manual_loop.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/02_tool_calling_manual_loop.ipynb` |
-| `notebooks/04b_augmented_llm_with_tools_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/03_augmented_llm_with_tools_langgraph.ipynb` |
-| `notebooks/05a_tool_loop_errors_and_evaluation.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/04_tool_loop_errors_and_evaluation.ipynb` |
-| `notebooks/06a_hosted_vs_client_side_tools.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/05_hosted_vs_client_side_tools.ipynb` |
-| `optional/06b_hosted_code_execution.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/06_hosted_code_execution.ipynb` |
-| `optional/06c_agentic_image_generation.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/07_agentic_image_generation.ipynb` |
+| `optional/notebook/01a_reflection_pattern.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/01_reflection_pattern.ipynb` |
+| `mandatory/notebook/01b_tool_use_pattern.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/02_tool_use_pattern.ipynb` |
+| `mandatory/notebook/01c_planning_pattern_react.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/03_planning_pattern_react.ipynb` |
+| `optional/notebook/02a_real_world_agent_hacker_news_chatbot.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/04_real_world_agent_hacker_news_chatbot.ipynb` |
+| `mandatory/notebook/03a_defining_tools.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/01_defining_tools.ipynb` |
+| `mandatory/notebook/04a_tool_calling_manual_loop.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/02_tool_calling_manual_loop.ipynb` |
+| `mandatory/notebook/04b_augmented_llm_with_tools_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/03_augmented_llm_with_tools_langgraph.ipynb` |
+| `mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/04_tool_loop_errors_and_evaluation.ipynb` |
+| `mandatory/notebook/06a_hosted_vs_client_side_tools.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/05_hosted_vs_client_side_tools.ipynb` |
+| `optional/notebook/06b_hosted_code_execution.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/06_hosted_code_execution.ipynb` |
+| `optional/notebook/06c_agentic_image_generation.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/07_agentic_image_generation.ipynb` |

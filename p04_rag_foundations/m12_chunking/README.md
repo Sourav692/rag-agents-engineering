@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part V · The Ingestion & Indexing Pipeline** · **Level:** Core · **Time:** ~6 h · **Notebooks:** 4 mandatory, 6 optional
+**Part IV · RAG Foundations: Ingestion & Indexing** · **Level:** Core · **Time:** ~6 h · **Notebooks:** 4 mandatory, 6 optional
 
 ## Why it matters
 
@@ -42,24 +42,25 @@ Chunking bake-off: index the same corpus with recursive, semantic and propositio
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_document_splitting_and_chunking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/01_document_splitting_and_chunking.ipynb` |
-| `optional/01b_document_splitters_and_chunkers.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/02_document_splitters_and_chunkers.ipynb` |
-| `optional/01c_text_splitters_and_chunking_strategies.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/03_text_splitters_and_chunking_strategies.ipynb` |
-| `notebooks/02a_semantic_chunking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/04_semantic_chunking.ipynb` |
-| `optional/02b_semantic_chunking_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/05_semantic_chunking_walkthrough.ipynb` |
-| `optional/02c_semantic_chunking_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/06_semantic_chunking_rag_techniques.ipynb` |
-| `notebooks/03a_proposition_chunking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/07_proposition_chunking.ipynb` |
-| `optional/03b_proposition_chunking_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/08_proposition_chunking_rag_techniques.ipynb` |
-| `notebooks/04a_choosing_chunk_size.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/09_choosing_chunk_size.ipynb` |
-| `optional/04b_choose_chunk_size_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/10_choose_chunk_size_llamaindex.ipynb` |
+| `mandatory/notebook/01a_document_splitting_and_chunking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/01_document_splitting_and_chunking.ipynb` |
+| `optional/notebook/01b_document_splitters_and_chunkers.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/02_document_splitters_and_chunkers.ipynb` |
+| `optional/notebook/01c_text_splitters_and_chunking_strategies.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/03_text_splitters_and_chunking_strategies.ipynb` |
+| `mandatory/notebook/02a_semantic_chunking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/04_semantic_chunking.ipynb` |
+| `optional/notebook/02b_semantic_chunking_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/05_semantic_chunking_walkthrough.ipynb` |
+| `optional/notebook/02c_semantic_chunking_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/06_semantic_chunking_rag_techniques.ipynb` |
+| `mandatory/notebook/03a_proposition_chunking.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/07_proposition_chunking.ipynb` |
+| `optional/notebook/03b_proposition_chunking_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/08_proposition_chunking_rag_techniques.ipynb` |
+| `mandatory/notebook/04a_choosing_chunk_size.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/09_choosing_chunk_size.ipynb` |
+| `optional/notebook/04b_choose_chunk_size_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/03_chunking/notebooks/10_choose_chunk_size_llamaindex.ipynb` |

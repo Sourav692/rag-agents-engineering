@@ -14,12 +14,11 @@ from collections import Counter, defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_docs  # noqa: E402
 import build_theory_html  # noqa: E402
-from curriculum_lib import ROOT, THEORY_DIR, items, lesson_folder, load, module_dir, source_module, theory_dir  # noqa: E402
+from curriculum_lib import ROOT, THEORY_INDEX, items, lesson_pages, load, module_dir, source_module, theory_dir  # noqa: E402
 
 GH = "https://github.com/Sourav692"
 COURSE_REPO = "rag-agents-engineering"
 SITE = ROOT / "scripts/site"
-THEORY = THEORY_DIR  # hand-written theory pages, laid out like course/; only theory/README.md is generated
 
 CUR = load()
 COURSE = CUR["course"]
@@ -60,21 +59,17 @@ def parse_ref(it):
 
 
 def theory_of(m):
-    """The module's theory page, its lesson pages and labs under theory/<part>/<module>/, or None if it has none yet."""
+    """The module's theory page, its lesson pages and labs under <module>/{mandatory,optional}/theory/, or None."""
     d = theory_dir(m)
     if not (ROOT / d / "README.md").exists():
         return None
-    lessons = {}  # lesson number -> its theory page
-    for n, les in enumerate(m["lessons"], 1):
-        page = f"{d}/{lesson_folder(n, les['title'])}/README.md"
-        if (ROOT / page).exists():
-            lessons[n] = page
+    lessons = lesson_pages(m)  # lesson number -> its theory page
     concepts = {}  # key concept -> the page with its `##` heading
     for page in [f"{d}/README.md", *lessons.values()]:
         heads = re.findall(r"^## (.+?)\s*$", (ROOT / page).read_text(), re.M)
         concepts.update({c: page for c in m["concepts"] if c in heads and c not in concepts})
     labs = []
-    for p in sorted((ROOT / d).glob("**/interactive/*.html")):
+    for p in sorted((ROOT / module_dir(m)).glob("*/theory/**/interactive/*.html")):
         title = re.search(r"<title>(.*?)</title>", p.read_text(), re.S)
         labs.append((title.group(1).strip() if title else p.stem, p.relative_to(ROOT).as_posix()))
     return {"readme": f"{d}/README.md", "lessons": lessons, "concepts": concepts, "labs": labs}
@@ -605,12 +600,13 @@ def module_readme(m):
     L += ["\n## Hands-on lab\n", f"{m['lab']} Details: [lab/README.md](lab/README.md).\n",
           "## Key concepts\n", concepts + "\n",
           "## Folder layout\n",
-          "- `notebooks/` — mandatory track, plus the helper files those notebooks import",
-          "- `optional/` — alternate, platform-specific and extension notebooks",
-          "- `exercises/` — exercises and solutions, where the module has them",
-          "- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them",
-          "- `assets/` — images and data used by this module's notebooks",
-          "- `lab/` — the module lab brief\n",
+          "- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import",
+          "- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks",
+          "- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook",
+          "- `optional/theory/`: the pages of lessons whose notebooks are all optional",
+          "- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them",
+          "- `assets/`: images and data used by this module's notebooks, where it has them",
+          "- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`\n",
           "## Where each file comes from\n", "| File | Source repo | Source path |", "|---|---|---|"]
     for _, refs in m["lessons_r"]:
         for it in refs:
@@ -618,13 +614,6 @@ def module_readme(m):
     for it in m["lab_r"]:
         L.append(f"| `{it.folder}/{it.file}` | `{REPOS[it.repo][0]}` | `{it.source_path}` |")
     write(f"{MD_FROM}/README.md", "\n".join(L))
-    write(f"{MD_FROM}/lab/README.md", "\n".join([
-        f"# Lab — M{m['num']:02d} {m['title']}\n", GEN_NOTE, "## Brief\n", m["lab"] + "\n",
-        "## How to report it\n",
-        f"- Use the golden question set and the baseline from the {BASE_M} lab.",
-        "- Report the change against that baseline: retrieval metrics, answer quality, latency and cost where relevant.",
-        "- Put your notebook or script in this folder and record results in a short table.\n",
-        "Back to the module: [README.md](../README.md)"]))
 
 
 def part_readme(p):
@@ -635,23 +624,17 @@ def part_readme(p):
         mc, oc = mod_counts(m)
         L.append(f"| [M{m['num']:02d} {m['title']}]({m['folder']}/README.md) | {LEVELS[m['level']]} | ~{m['hours']} h | {mc} | {oc} |")
     if p["id"] == "capstone":
-        L.append(f"\nThen pick one of the [capstone projects](../../capstones/README.md) (~{CAP_HOURS} h).")
-    write(f"course/{p['folder']}/README.md", "\n".join(L))
-
-
-def course_readme():
-    L = ["# Course\n", GEN_NOTE, "| Part | Title | When | Level | Modules |", "|---|---|---|---|---|"]
-    for p in PARTS:
-        ms = ", ".join(f"[M{m['num']:02d}]({p['folder']}/{m['folder']}/README.md)" for m in mods_by_part[p["id"]])
-        L.append(f"| [{p['num']}]({p['folder']}/README.md) | {p['title']} | {p['weeks']} | {LEVELS[p['level']]} | {ms} |")
-    write("course/README.md", "\n".join(L))
+        L.append(f"\nThen pick one of the [capstone projects](../capstones/README.md) (~{CAP_HOURS} h).")
+    write(f"{p['folder']}/README.md", "\n".join(L))
 
 
 def theory_index():
     L = ["# Theory\n",
          "> The index is generated by `scripts/build_curriculum.py`. The pages are hand-written: edit "
-         "`theory/<part>/<module>/README.md` and its lesson folders (see `CLAUDE.md` → Theory pages).\n",
-         "Laid out like `course/`: one folder per module, one subfolder per lesson. A module page has the overview, "
+         "`<part>/<module>/mandatory/theory/README.md` and the lesson folders beside it and in `optional/theory/` "
+         "(see `CLAUDE.md`, Theory pages).\n",
+         "Each module keeps its theory in its own folder: the module page and the pages of lessons with a mandatory notebook "
+         "in `mandatory/theory/`, the pages of all-optional lessons in `optional/theory/`. A module page has the overview, "
          "interview questions and takeaways; each lesson page explains that lesson's concepts with diagrams. Each module's "
          "`index.html` joins its pages into one page to read in a browser. Some lessons "
          "have interactive labs (single HTML files, open them in a browser).\n",
@@ -660,14 +643,14 @@ def theory_index():
         L.append(f"| **Part {p['num']} · {p['title']}** | | | |")
         for m in mods_by_part[p["id"]]:
             t = theory_of(m)
-            rel = lambda path: os.path.relpath(path, THEORY)  # noqa: E731
+            rel = lambda path: path  # noqa: E731  (THEORY.md sits at the repo root)
             page = (f"[README.md]({rel(t['readme'])})<br>[index.html]({rel(t['readme'].replace('README.md', 'index.html'))})"
                     if t else "*planned*")
             lessons = "<br>".join(f"[{m['num']}.{n} {m['lessons'][n - 1]['title']}]({rel(path)})"
                                   for n, path in t["lessons"].items()) if t else ""
             labs = "<br>".join(f"[{title}]({rel(path)})" for title, path in t["labs"]) if t else ""
             L.append(f"| M{m['num']:02d} {m['title']} | {page} | {lessons or '—'} | {labs or '—'} |")
-    write(f"{THEORY}/README.md", "\n".join(L))
+    write(THEORY_INDEX, "\n".join(L))
 
 
 def capstone_readmes():
@@ -732,18 +715,19 @@ def notice():
           "and the MCP + A2A capstone) is MIT.\n"]
     for title, paths in third:
         L += [f"### {title}\n"] + [f"- [`{p}`]({p})" for p in paths] + [""]
-    L += ["## Course material adapted in repos 01, 02 and 04 (MIT repos, attributed)\n",
-          "- M01–M02: Analytics Vidhya, *Coding Essentials for Agents*",
-          "- M03: Udemy, *Complete Hugging Face Bootcamp* and *Mastering Generative AI with LLMs: A Hugging Face Guide*",
-          "- M04: DeepLearning.AI, *Finetuning Large Language Models* (Sharon Zhou, Lamini)",
-          "- M05–M06: the *Prompt Engineering Demystified* collection (notebooks credited to Dipanjan (DJ)), referencing Analytics Vidhya *Prompt Engineering Essentials*",
-          "- M09–M10: reference course Analytics Vidhya *Building Advanced AI Agents with LangGraph*",
-          "",
-          "Third-party slides, media and datasets remain the property of their authors; each source repo's `data-sources.md` is archived under [docs/source/](docs/source/)."]
     mk = {m["key"]: m for m in MODULES}
 
     def mods(*keys):
         return " and ".join(f"M{mk[a]['num']:02d}–M{mk[b]['num']:02d}" if b else f"M{mk[a]['num']:02d}" for a, b in keys)
+
+    L += ["## Course material adapted in repos 01, 02 and 04 (MIT repos, attributed)\n",
+          f"- {mods(('pydata', 'llmapis'))}: Analytics Vidhya, *Coding Essentials for Agents*",
+          f"- {mods(('hfmodels', None))}: Udemy, *Complete Hugging Face Bootcamp* and *Mastering Generative AI with LLMs: A Hugging Face Guide*",
+          f"- {mods(('finetune', None))}: DeepLearning.AI, *Finetuning Large Language Models* (Sharon Zhou, Lamini)",
+          f"- {mods(('prompting', 'multimodalprompt'))}: the *Prompt Engineering Demystified* collection (notebooks credited to Dipanjan (DJ)), referencing Analytics Vidhya *Prompt Engineering Essentials*",
+          f"- {mods(('lgcore', 'lgruntime'))}: reference course Analytics Vidhya *Building Advanced AI Agents with LangGraph*",
+          "",
+          "Third-party slides, media and datasets remain the property of their authors; each source repo's `data-sources.md` is archived under [docs/source/](docs/source/)."]
 
     L += ["\n## Other adapted material (MIT)\n",
           f"- `agentic_patterns` library by neural-maze, vendored in {mods(('agentloop', None))} (`{module_dir(mk['agentloop'])}/`)",
@@ -762,7 +746,6 @@ if __name__ == "__main__":
     data = {"stages": {k: {"label": STAGES[k], "mods": v} for k, v in stage_mods.items()},
             "titles": {m["num"]: m["title"] for m in MODULES}, "levels": {m["num"]: m["level"] for m in MODULES}}
     write("docs/site/index.html", html_out.replace("/*__DATA__*/", "const DATA = " + json.dumps(data) + ";"))
-    course_readme()
     for p in PARTS:
         part_readme(p)
     for m in MODULES:

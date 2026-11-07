@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part III · LangChain & LangGraph Fundamentals** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 9 mandatory, 13 optional
+**Part III · LLM Application Frameworks: LangChain & LangGraph** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 9 mandatory, 13 optional
 
 ## Why it matters
 
@@ -45,36 +45,37 @@ Structured answers: build a prompt template and parser that turn a question plus
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_LangChain_Introduction.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/01_LangChain_Introduction.ipynb` |
-| `notebooks/01b_Package_Split_and_Imports_LangChain_v1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/08_Package_Split_and_Imports_LangChain_v1.ipynb` |
-| `notebooks/02a_Commercial_LLMs_with_LangChain.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/03_Commercial_LLMs_with_LangChain.ipynb` |
-| `optional/02b_Commercial_LLMs_Natively.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/02_Commercial_LLMs_Natively.ipynb` |
-| `notebooks/03a_Open_Source_LLMs_with_LangChain.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/07_Open_Source_LLMs_with_LangChain.ipynb` |
-| `optional/03b_Open_Source_LLMs_HF_Transformers.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/04_Open_Source_LLMs_HF_Transformers.ipynb` |
-| `optional/03c_Open_Source_LLMs_HF_Inference_Client.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/05_Open_Source_LLMs_HF_Inference_Client.ipynb` |
-| `optional/03d_Open_Source_LLMs_Groq_Cloud.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/06_Open_Source_LLMs_Groq_Cloud.ipynb` |
-| `notebooks/04a_LangChain_Inputs_and_Outputs.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/01_LangChain_Inputs_and_Outputs.ipynb` |
-| `notebooks/04b_LLM_vs_ChatModel.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/02_LLM_vs_ChatModel.ipynb` |
-| `notebooks/05a_Prompt_Templates.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/03_Prompt_Templates.ipynb` |
-| `optional/05b_Few_Shot_Composition_and_Serialization.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/04_Few_Shot_Composition_and_Serialization.ipynb` |
-| `notebooks/06a_Output_Parser.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/05_Output_Parser.ipynb` |
-| `notebooks/07a_smart_bot_section1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/08_smart_bot_section1.ipynb` |
-| `optional/07b_core_concepts.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/01_core_concepts.ipynb` |
-| `optional/07c_working_with_llms.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/02_working_with_llms.ipynb` |
-| `optional/07d_prompt_messages.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/03_prompt_messages.ipynb` |
-| `optional/07e_prompt_templates_all.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/04_prompt_templates_all.ipynb` |
-| `optional/07f_output_parsers_demo.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/05_output_parsers_demo.ipynb` |
-| `optional/07g_output_parsers_final.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/06_output_parsers_final.ipynb` |
-| `optional/07h_chains_v1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/07_chains_v1.ipynb` |
-| `optional/07i_main_connectivity_check.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/00_main_connectivity_check.ipynb` |
+| `mandatory/notebook/01a_LangChain_Introduction.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/01_LangChain_Introduction.ipynb` |
+| `mandatory/notebook/01b_Package_Split_and_Imports_LangChain_v1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/08_Package_Split_and_Imports_LangChain_v1.ipynb` |
+| `mandatory/notebook/02a_Commercial_LLMs_with_LangChain.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/03_Commercial_LLMs_with_LangChain.ipynb` |
+| `optional/notebook/02b_Commercial_LLMs_Natively.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/02_Commercial_LLMs_Natively.ipynb` |
+| `mandatory/notebook/03a_Open_Source_LLMs_with_LangChain.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/07_Open_Source_LLMs_with_LangChain.ipynb` |
+| `optional/notebook/03b_Open_Source_LLMs_HF_Transformers.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/04_Open_Source_LLMs_HF_Transformers.ipynb` |
+| `optional/notebook/03c_Open_Source_LLMs_HF_Inference_Client.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/05_Open_Source_LLMs_HF_Inference_Client.ipynb` |
+| `optional/notebook/03d_Open_Source_LLMs_Groq_Cloud.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/01_getting_started/notebooks/06_Open_Source_LLMs_Groq_Cloud.ipynb` |
+| `mandatory/notebook/04a_LangChain_Inputs_and_Outputs.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/01_LangChain_Inputs_and_Outputs.ipynb` |
+| `mandatory/notebook/04b_LLM_vs_ChatModel.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/02_LLM_vs_ChatModel.ipynb` |
+| `mandatory/notebook/05a_Prompt_Templates.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/03_Prompt_Templates.ipynb` |
+| `optional/notebook/05b_Few_Shot_Composition_and_Serialization.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/04_Few_Shot_Composition_and_Serialization.ipynb` |
+| `mandatory/notebook/06a_Output_Parser.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/02_inputs_outputs_prompts/notebooks/05_Output_Parser.ipynb` |
+| `mandatory/notebook/07a_smart_bot_section1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/08_smart_bot_section1.ipynb` |
+| `optional/notebook/07b_core_concepts.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/01_core_concepts.ipynb` |
+| `optional/notebook/07c_working_with_llms.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/02_working_with_llms.ipynb` |
+| `optional/notebook/07d_prompt_messages.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/03_prompt_messages.ipynb` |
+| `optional/notebook/07e_prompt_templates_all.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/04_prompt_templates_all.ipynb` |
+| `optional/notebook/07f_output_parsers_demo.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/05_output_parsers_demo.ipynb` |
+| `optional/notebook/07g_output_parsers_final.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/06_output_parsers_final.ipynb` |
+| `optional/notebook/07h_chains_v1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/07_chains_v1.ipynb` |
+| `optional/notebook/07i_main_connectivity_check.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/06_langchain_v1_course_recap/notebooks/00_main_connectivity_check.ipynb` |

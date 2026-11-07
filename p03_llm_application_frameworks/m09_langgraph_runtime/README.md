@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part III · LangChain & LangGraph Fundamentals** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 9 mandatory, 0 optional
+**Part III · LLM Application Frameworks: LangChain & LangGraph** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 9 mandatory, 0 optional
 
 ## Why it matters
 
@@ -44,23 +44,24 @@ Approval loop: add a checkpointer and an interrupt before the answer node of you
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_Checkpointing.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/05_checkpointing/notebooks/01_Checkpointing.ipynb` |
-| `notebooks/02a_HITL_Mechanics.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/06_interrupts_and_human_in_the_loop/notebooks/01_HITL_Mechanics.ipynb` |
-| `notebooks/02b_LangGraph_Interrupt_Primitive.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/06_interrupts_and_human_in_the_loop/notebooks/02_LangGraph_Interrupt_Primitive.ipynb` |
-| `notebooks/02c_HITL_Patterns.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/06_interrupts_and_human_in_the_loop/notebooks/03_HITL_Patterns.ipynb` |
-| `notebooks/03a_Subgraphs.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/08_subgraphs/notebooks/01_Subgraphs.ipynb` |
-| `notebooks/04a_Async_and_Streaming.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/09_async_and_streaming/notebooks/01_Async_and_Streaming.ipynb` |
-| `notebooks/05a_Retries.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/10_retry_policies/notebooks/01_Retries.ipynb` |
-| `notebooks/05b_Cycles_and_Loops.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/11_cycles_and_loops/notebooks/01_Cycles_and_Loops.ipynb` |
-| `notebooks/06a_LangGraph_State_Management.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/12_state_management_in_practice/notebooks/01_LangGraph_State_Management.ipynb` |
+| `mandatory/notebook/01a_Checkpointing.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/05_checkpointing/notebooks/01_Checkpointing.ipynb` |
+| `mandatory/notebook/02a_HITL_Mechanics.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/06_interrupts_and_human_in_the_loop/notebooks/01_HITL_Mechanics.ipynb` |
+| `mandatory/notebook/02b_LangGraph_Interrupt_Primitive.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/06_interrupts_and_human_in_the_loop/notebooks/02_LangGraph_Interrupt_Primitive.ipynb` |
+| `mandatory/notebook/02c_HITL_Patterns.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/06_interrupts_and_human_in_the_loop/notebooks/03_HITL_Patterns.ipynb` |
+| `mandatory/notebook/03a_Subgraphs.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/08_subgraphs/notebooks/01_Subgraphs.ipynb` |
+| `mandatory/notebook/04a_Async_and_Streaming.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/09_async_and_streaming/notebooks/01_Async_and_Streaming.ipynb` |
+| `mandatory/notebook/05a_Retries.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/10_retry_policies/notebooks/01_Retries.ipynb` |
+| `mandatory/notebook/05b_Cycles_and_Loops.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/11_cycles_and_loops/notebooks/01_Cycles_and_Loops.ipynb` |
+| `mandatory/notebook/06a_LangGraph_State_Management.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/12_state_management_in_practice/notebooks/01_LangGraph_State_Management.ipynb` |

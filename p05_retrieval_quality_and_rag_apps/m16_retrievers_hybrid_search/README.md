@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VI · Retrieval Quality Engineering** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 2 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 2 optional
 
 ## Why it matters
 
@@ -45,22 +45,23 @@ Hybrid upgrade: add BM25 to the vector retriever, tune the fusion weights on the
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_retrievers.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/01_retrievers.ipynb` |
-| `notebooks/02a_dense_sparse_hybrid_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/02_dense_sparse_hybrid_retrieval.ipynb` |
-| `optional/02b_hybrid_search_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/03_hybrid_search_rag.ipynb` |
-| `notebooks/03a_fusion_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/04_fusion_retrieval.ipynb` |
-| `notebooks/04a_maximal_marginal_relevance.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/05_maximal_marginal_relevance.ipynb` |
-| `notebooks/05a_multi_faceted_filtering.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/06_multi_faceted_filtering.ipynb` |
-| `notebooks/06a_advanced_retriever_patterns.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/07_advanced_retriever_patterns.ipynb` |
-| `optional/06b_hybrid_search_and_reranking_databricks.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/08_hybrid_search_and_reranking_databricks.ipynb` |
+| `mandatory/notebook/01a_retrievers.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/01_retrievers.ipynb` |
+| `mandatory/notebook/02a_dense_sparse_hybrid_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/02_dense_sparse_hybrid_retrieval.ipynb` |
+| `optional/notebook/02b_hybrid_search_rag.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/03_hybrid_search_rag.ipynb` |
+| `mandatory/notebook/03a_fusion_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/04_fusion_retrieval.ipynb` |
+| `mandatory/notebook/04a_maximal_marginal_relevance.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/05_maximal_marginal_relevance.ipynb` |
+| `mandatory/notebook/05a_multi_faceted_filtering.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/06_multi_faceted_filtering.ipynb` |
+| `mandatory/notebook/06a_advanced_retriever_patterns.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/07_advanced_retriever_patterns.ipynb` |
+| `optional/notebook/06b_hybrid_search_and_reranking_databricks.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/07_retrievers_and_hybrid_search/notebooks/08_hybrid_search_and_reranking_databricks.ipynb` |

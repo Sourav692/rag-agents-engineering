@@ -37,7 +37,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 ## Hands-on lab
 
-Retriever over MCP: expose your Part VII retriever as an MCP tool and call it from an MCP client chatbot. Details: [lab/README.md](lab/README.md).
+Retriever over MCP: expose your Part V retriever as an MCP tool and call it from an MCP client chatbot. Details: [lab/README.md](lab/README.md).
 
 ## Key concepts
 
@@ -45,28 +45,29 @@ Retriever over MCP: expose your Part VII retriever as an MCP tool and call it fr
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_chatbot_example.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/01_chatbot_example.ipynb` |
-| `optional/01b_chatbot_example_openai_walkthrough.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/02_chatbot_example_openai_walkthrough.ipynb` |
-| `notebooks/02a_creating_an_mcp_server.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/03_creating_an_mcp_server.ipynb` |
+| `mandatory/notebook/01a_chatbot_example.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/01_chatbot_example.ipynb` |
+| `optional/notebook/01b_chatbot_example_openai_walkthrough.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/02_chatbot_example_openai_walkthrough.ipynb` |
+| `mandatory/notebook/02a_creating_an_mcp_server.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/03_creating_an_mcp_server.ipynb` |
 | `projects/lesson4_research_server` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/lesson4_research_server` |
-| `notebooks/03a_creating_an_mcp_client.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/04_creating_an_mcp_client.ipynb` |
+| `mandatory/notebook/03a_creating_an_mcp_client.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/04_creating_an_mcp_client.ipynb` |
 | `projects/lesson5_mcp_chatbot` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/lesson5_mcp_chatbot` |
-| `notebooks/04a_connecting_to_reference_servers.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/05_connecting_to_reference_servers.ipynb` |
+| `mandatory/notebook/04a_connecting_to_reference_servers.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/05_connecting_to_reference_servers.ipynb` |
 | `projects/lesson6_reference_servers_chatbot` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/lesson6_reference_servers_chatbot` |
-| `notebooks/05a_adding_prompt_and_resource_features.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/06_adding_prompt_and_resource_features.ipynb` |
+| `mandatory/notebook/05a_adding_prompt_and_resource_features.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/06_adding_prompt_and_resource_features.ipynb` |
 | `projects/lesson7_prompts_and_resources` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/lesson7_prompts_and_resources` |
-| `notebooks/06a_creating_and_deploying_remote_servers.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/07_creating_and_deploying_remote_servers.ipynb` |
+| `mandatory/notebook/06a_creating_and_deploying_remote_servers.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/notebooks/07_creating_and_deploying_remote_servers.ipynb` |
 | `projects/lesson9_remote_research_server` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/lesson9_remote_research_server` |
 | `projects/wikipedia_assistant_1_tools` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/wikipedia_assistant_1_tools` |
 | `projects/wikipedia_assistant_2_resources` | `ai-engineering-demystified-10-agent-protocols` | `modules/01_mcp_foundations/projects/wikipedia_assistant_2_resources` |
