@@ -1,0 +1,113 @@
+# M26.3 Theory: Deep agents: orchestrator, sub-agents, skills and long-term memory
+
+*[M26 theory](../README.md) · Lesson 26.3 · Notebooks: [`03a_simple_coding_agent.py`](../../notebook/03a_simple_coding_agent.py), [`03b_long_term_memory_agent.py`](../../../optional/notebook/03b_long_term_memory_agent.py) (optional), [`03c_skills`](../../../optional/notebook/03c_skills) (optional) · [All theory pages](../../../../../theory/README.md)*
+
+## Deep-agent harness
+
+A Larkspur deep agent may delegate research and save preferences through a prebuilt harness. You will inspect which tools and instructions the harness exposes, distinguish path restrictions from execution isolation and trace which memory survives a new conversation.
+
+### Step 1: Inspect the configured harness rather than its name
+
+The planned research pipeline of lesson 26.1 is a graph you wire node by node. A deep agent starts from the other end: one orchestrator model inside a ready-made **harness** that gives it files, sub-agents, skills, an execution backend and memory, and you configure the harness instead of drawing the graph. Lesson 26.3 uses the `deepagents` library's `create_deep_agent`, in two command-line scripts. The tool and backend behaviour below is that of `deepagents` 0.7.32, the version in this course's lock file.
+
+```mermaid
+flowchart TD
+    U[/User request/] --> O["Orchestrator<br/>model + harness"]
+    O --> F["File tools<br/>ls, read_file, write_file,<br/>edit_file, glob, grep"]
+    O --> T["task tool<br/>one sub-agent per call"]
+    O --> K["Skills<br/>names and descriptions<br/>in the prompt"]
+    T --> SA["Sub-agent<br/>own context, own tools"]
+    SA --> RP[/One report back/]
+    F --> B[("Backend<br/>files, maybe a shell")]
+```
+
+The parts, as the scripts configure them:
+
+| Part | What it gives the orchestrator | In 03a and 03b |
+|---|---|---|
+| Built-in tools | File operations (`ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`), `execute` for shell commands, and `task` to call a sub-agent | Added by `create_deep_agent`; `execute` returns an error unless the backend can run commands |
+| Custom tools | Domain actions | 03a: `name_project`, `internet_search` (Tavily) and four Databricks Genie tools for an insurer's customer, distribution, policy and claims data. 03b adds `save_memory`, `recall_memories`, `forget_memory` |
+| Sub-agents | Specialists, each a dict of `name`, `description`, `system_prompt`, `skills` and `tools` | 03a: 7 (`senior-developer`, `code-reviewer`, `research-agent` and four insurer analytics agents). 03b adds `memory-manager` |
+| Skills | Instructions in `SKILL.md` files, loaded from `/skills/` | 8 skills in `03c_skills`, one per sub-agent; each sub-agent's prompt is "Follow the … skill instructions" |
+| Backend | Where files live and whether commands run | `FilesystemBackend(root_dir=..., virtual_mode=True)` by default; `LocalShellBackend` when `USE_SANDBOX=true` |
+| Checkpointer | Memory within one thread | `MemorySaver`, one `thread_id` per task |
+| Model | The orchestrator's model | `databricks-claude-opus-4-6`, temperature 0.1 |
+
+### Step 2: Keep delegated context out of the parent transcript
+
+A call to `task` runs the sub-agent with its own messages and tools, and only its final message returns to the orchestrator. The research agent's search calls (up to 5 results each by default) and its notes stay in its own context; the orchestrator reads its report.
+
+### Step 3: Read instructions only when the task needs them
+
+A `SKILL.md` starts with YAML frontmatter, a `name` and a `description`. The harness puts only those two fields in the system prompt and tells the model to `read_file` the full instructions when a task matches the description. This is progressive disclosure: eight skills cost eight short lines until one is needed. The `memory-manager` skill, for example, sets a workflow (assess, then save, recall or forget), five categories, and a rule to confirm before deleting unless the request is unambiguous.
+
+### Step 4: Inspect the actual execution backend
+
+Two settings in the scripts look safer than they are:
+
+- `FilesystemBackend(virtual_mode=True)` anchors paths under `root_dir` and blocks traversal such as `..`. The library's own docstring says it provides no sandboxing or process isolation.
+- The script's comment says `USE_SANDBOX=true` selects a LangSmith cloud sandbox. The code selects `LocalShellBackend`, which the library documents as unrestricted shell execution on the host, with no isolation.
+
+Code execution belongs in a real sandbox backend, with a person approving each command; `create_deep_agent` takes `interrupt_on` for that. The reference implementation gives the same advice for its Python tool.
+
+### Step 5: Separate thread state from durable memory
+
+The implementation keeps three layers apart:
+
+| Layer | Scope | Store in 03b | Store in the deployed version |
+|---|---|---|---|
+| Conversation | One thread | `MemorySaver` checkpointer, lost on restart | The same |
+| Long-term | Every thread, every session | A JSON file, `long_term_memories.json`, under the key `memories:<user id>` | A Delta table, `agent_memories`, with `user_id`, `content`, `category` and `saved_at` |
+| Artifacts | Project files the developer agent writes | `projects/` beside the script | A Unity Catalog volume |
+
+The orchestrator's prompt tells it to recall memories at the start of each conversation and to save preferences, facts, decisions, project context and feedback as they come up. Two limits are visible in the code: `CURRENT_USER_ID` is fixed to `default-user`, so every user shares one namespace until it comes from authentication, and `recall_memories` matches a substring of the stored text, so a paraphrase finds nothing. The script's comment names `PostgresStore` as the production replacement.
+
+The module's deployed design, in `deep_agent_overview.md`, runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.
+
+### Try it yourself
+
+Compare the USE_SANDBOX comment with the backend class actually selected. Check that LocalShellBackend runs on the host and virtual filesystem mode is not process isolation. Then trace recall under CURRENT_USER_ID=default-user and identify why authentication-derived user scope is needed before serving multiple customers.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Simple coding agent](../../notebook/03a_simple_coding_agent.py).
+- [Long term memory agent](../../../optional/notebook/03b_long_term_memory_agent.py).
+- [Skills](../../../optional/notebook/03c_skills).
+
+### Continue learning
+
+- [`deep_agent_overview.md`](../../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md).
+
+## Key Takeaways
+
+- A deep agent is one orchestrator configured with file tools, sub-agents through `task`, skills and a backend, instead of a graph wired node by node. Only a sub-agent's final message returns, so the orchestrator's context stays small.
+- Skills put only their `name` and `description` in the prompt and are read in full when a task matches. Eight skills cost eight short lines until one is needed.
+- Check what the backend really allows. `FilesystemBackend(virtual_mode=True)` blocks traversal without isolating anything, and `LocalShellBackend` runs unrestricted shell on the host, so use a real sandbox with `interrupt_on` approval.
+
+## Check yourself
+
+<details>
+<summary>1. How does a call to the task tool keep the research agent's searches out of the orchestrator's context?</summary>
+
+The `task` tool runs the sub-agent with its own messages and tools, and only its final message returns to the orchestrator. The search calls and notes stay in the sub-agent's context; the orchestrator reads only the report.
+
+</details>
+
+<details>
+<summary>2. The harness loads eight skills from 03c_skills. What does the orchestrator's system prompt hold for them before any is needed?</summary>
+
+Only each skill's `name` and `description` from the `SKILL.md` frontmatter, eight short lines in all. When a task matches a description, the model calls `read_file` for the full instructions. This is progressive disclosure.
+
+</details>
+
+<details>
+<summary>3. A teammate sets USE_SANDBOX=true, believing the agent's commands now run in a cloud sandbox. Are they safe?</summary>
+
+No. Despite the script's comment, the code selects `LocalShellBackend`, which the library documents as unrestricted shell execution on the host with no isolation. Code execution belongs in a real sandbox backend, with a person approving each command through `interrupt_on`.
+
+</details>
+
+---
+*Previous: [26.1 Applied ReAct: web research, SWE and computer-use agents](../01_applied_react_web_research_swe_and_computer_use_agents/README.md). Next: [M26 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

@@ -18,6 +18,9 @@ DONE_PARTS: set[str] = {
     "p04_rag_foundations",
     "p05_retrieval_quality_and_rag_apps",
     "p06_agent_foundations",
+    "p07_advanced_agents",
+    "p08_agentic_rag",
+    "p09_memory_layer",
 }
 
 ROOT = Path(__file__).resolve().parent.parent
