@@ -1,21 +1,17 @@
-"""Offline checks for the Larkspur corpus and golden set (data/larkspur/)."""
-import json
+"""Offline checks for src/lab_kit.py and the Larkspur corpus and golden set (data/larkspur/)."""
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from lab_kit import baseline, hit_rate, load_handbook, load_jsonl, mrr, normalise, recall_at_k, tfidf_retriever  # noqa: E402
+
 LARKSPUR = ROOT / "data/larkspur"
 TOPK_LAB = ROOT / ("theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours"
                    "/interactive/top-k-retrieval-lab.html")
-
-
-def load_jsonl(path):
-    return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
-
-
-def normalise(text):
-    return " ".join(text.lower().split())
 
 
 GOLD = load_jsonl(LARKSPUR / "golden.jsonl")
@@ -57,3 +53,32 @@ def test_top_k_lab_chunks_are_in_the_handbook():
         assert normalise(c) in HANDBOOK, c
     assert [g["question"] for g in GOLD[:3]] == [
         "How long does a refund take?", "What happens if my server goes down?", "Can I export my data after I cancel my plan?"]
+
+
+GOLDEN = [{"id": "q1", "evidence_spans": ["refunds take 5 days"]},
+          {"id": "q2", "evidence_spans": ["status page"]},
+          {"id": "q3", "evidence_spans": []}]
+RESULTS = {"q1": ["Intro.", "Refunds take 5 days to clear."], "q2": ["Pricing."], "q3": ["x"]}
+
+
+def test_metrics():
+    assert hit_rate(RESULTS, GOLDEN) == 0.5
+    assert recall_at_k(RESULTS, GOLDEN) == 0.5
+    assert mrr(RESULTS, GOLDEN) == 0.25
+
+
+def test_load_handbook():
+    pages = load_handbook(LARKSPUR / "handbook")
+    assert pages[0]["source"] == "01_billing.md" and pages[0]["title"] == "Billing and payments"
+    assert not pages[0]["text"].startswith("#")
+
+
+def test_tfidf_retriever_ranks_and_drops_zero_scores():
+    search = tfidf_retriever(["Refunds take 5 days.", "The status page lists outages.", "Pricing."], k=2)
+    assert search("status page outages") == ["The status page lists outages."]
+
+
+def test_baseline_runs_offline():
+    b = baseline(LARKSPUR)
+    assert b["n"] == 25 and b["k"] == 4
+    assert 0.0 <= b["hit_rate"] <= 1.0

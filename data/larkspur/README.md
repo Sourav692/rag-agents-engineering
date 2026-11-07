@@ -39,6 +39,16 @@ Each handbook file starts with `# <Section title>`.
 
 Evidence is a text span, not a chunk id, so any chunker can be scored: a retrieved chunk is a hit when it contains a span after lower-casing and collapsing whitespace. `src/lab_kit.py` implements the metrics.
 
+## TF-IDF reference, k=4
+
+`baseline()` in `src/lab_kit.py` splits each handbook file with `RecursiveCharacterTextSplitter` (500 characters, 50 overlap, 30 chunks), ranks them with scikit-learn TF-IDF (English stop words) and scores the top 4 on the 25 questions that have evidence. Run on 7 November 2026 with scikit-learn 1.9.1 and langchain-text-splitters 1.1.3, offline, no model calls:
+
+| k | Questions | Hit rate | Recall@k | MRR |
+|---|---|---|---|---|
+| 4 | 25 | 0.96 | 0.94 | 0.89 |
+
+Reproduce it with `uv run python src/lab_kit.py`. A lab that changes chunking, embeddings or ranking reports against this row.
+
 ## Using it in a lab
 
 Copy the folder unchanged into the lab, `cp -R data/larkspur <part>/<module>/lab/data/larkspur`, and never edit the copy. Lab-specific files go beside it in `lab/data/`. `tests/test_labs.py` checks that every copy matches this folder byte for byte.
