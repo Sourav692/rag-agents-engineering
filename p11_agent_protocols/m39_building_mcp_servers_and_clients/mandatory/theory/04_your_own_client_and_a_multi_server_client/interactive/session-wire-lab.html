@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sessions on the wire</title>
+<meta name="description" content="M39 lab: two Larkspur MCP servers driven through the MCP SDK over four transports and two client patterns; read the processes, sessions, messages and HTTP requests each setup costs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · shape: app screen · genre: editorial · theme: Almanac (by request, the course's lab system) · build: new
+ * nav: top bar, the wordmark and the lab's name · signature: the wire ledger, every recorded message of the run with the tool calls marked in magenta and the rest read as overhead · states: full only; every value comes from recordings embedded in the page, so it has no loading, empty or error state
+ * axes: mid/grotesk-sans/chromatic-magenta · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V4 · weakest: S, the ledger runs to 58 rows with a session per call; the first eight show and the rest fold behind a native disclosure */
+/* Hallmark · embedded mode · inside a frame (the module's index.html) the bar and intro hide, since the page section names the lab, and the lab reports its height to the page */
+:root {
+  color-scheme: light;
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem;
+  --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 120ms; --dur-short: 220ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(36% 0.12 150);
+  --container: 1440px; --gutter: 64px;
+  --color-paper: oklch(84% 0.012 245); --color-paper-2: oklch(81% 0.012 245); --color-paper-3: oklch(77% 0.012 245);
+  --color-ink: oklch(16% 0.020 245); --color-ink-2: oklch(24% 0.018 245); --color-muted: oklch(38% 0.016 245);
+  --color-rule: oklch(73% 0.013 240); --color-rule-2: oklch(32% 0.018 240);
+  --color-accent: oklch(45% 0.180 350); --color-accent-ink: oklch(97% 0.006 245); --color-focus: oklch(46% 0.190 350);
+  --color-sheet: oklch(93.5% 0.008 245);
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Newsreader", ui-serif, Georgia, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-pill: 2px; --rule-hair: 1px; --rule-bar: 2px;
+  --tracking-display: -0.02em; --display-weight: 600;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-md); line-height: 1.55; -webkit-font-smoothing: antialiased; caret-color: var(--color-accent); }
+::selection { background: color-mix(in oklab, var(--color-accent) 22%, transparent); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+h1, h2 { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight); font-synthesis: none; letter-spacing: var(--tracking-display); line-height: 1.05; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+h1 { max-width: 30ch; font-size: var(--text-display); } h2 { max-width: 30ch; font-size: var(--text-xl); }
+p { margin: 0; text-wrap: pretty; }
+[hidden] { display: none !important; }
+button, input { font: inherit; }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 60rem) { :root { --gutter: 24px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+.bar { border-bottom: var(--rule-bar) solid var(--color-rule-2); }
+.bar__in { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; padding-block: var(--space-md); }
+.wordmark { font: 600 var(--text-md)/1.2 var(--font-display); letter-spacing: var(--tracking-display); }
+.where { font-size: var(--text-sm); color: var(--color-muted); }
+main { padding-block: var(--space-xl) var(--space-3xl); }
+.intro { display: grid; gap: var(--space-sm); margin-bottom: var(--space-xl); }
+.lead { font-size: var(--text-lead); line-height: 1.45; max-width: 70ch; color: var(--color-ink-2); }
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-xl); align-items: start; }
+.stack { display: grid; gap: var(--space-lg); min-width: 0; }
+@media (max-width: 60rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+legend, .field label, dt { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); }
+fieldset.seg { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.seg legend { padding: 0; margin-bottom: var(--space-xs); }
+.seg__opts { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opt { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-pill); background: transparent; color: var(--color-ink); font: 500 var(--text-sm)/1.25 var(--font-display); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+.opt::after { content: ""; position: absolute; inset: -4px 0; }
+.opt:hover { background: var(--color-paper-2); }
+.opt:active { transform: translateY(1px); }
+.seg input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.seg input:checked + .opt { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.seg input:disabled + .opt { opacity: 0.55; cursor: not-allowed; transform: none; }
+.opt code { font-family: var(--font-outlier); font-size: 0.92em; }
+
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs) var(--space-md); }
+.field label { grid-column: 1 / -1; }
+input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+input[type="range"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+input[type="range"]:disabled { opacity: 0.55; cursor: not-allowed; }
+output.val { min-width: 3ch; text-align: right; font: 500 var(--text-xl)/1 var(--font-outlier); font-variant-numeric: tabular-nums; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; border-top: var(--rule-bar) solid var(--color-rule-2); }
+.stats > div { padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.stats > div:nth-child(odd) { padding-right: var(--space-md); }
+.stats > div:nth-child(even) { padding-left: var(--space-md); border-left: var(--rule-hair) solid var(--color-rule); }
+.stats dd { margin: var(--space-2xs) 0 0; font: 500 var(--text-2xl)/1.1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.stats dd small { font: 400 var(--text-sm)/1.3 var(--font-body); letter-spacing: 0; color: var(--color-muted); margin-left: var(--space-2xs); }
+
+.sheet { background: var(--color-sheet); border-top: var(--rule-bar) solid var(--color-ink); padding: var(--space-md) var(--space-lg) var(--space-lg); min-width: 0; }
+.sheet__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+thead th { font: 500 var(--text-sm)/1.3 var(--font-body); color: var(--color-muted); text-align: left; padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-bar) solid var(--color-rule-2); white-space: nowrap; }
+tbody td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-top: var(--rule-hair) solid var(--color-rule); vertical-align: top; color: var(--color-ink-2); }
+th.num, td.num { text-align: right; padding-right: var(--space-md); }
+td.num { font-family: var(--font-outlier); font-variant-numeric: tabular-nums; }
+th:last-child, td:last-child { padding-right: 0; }
+code, td.m { font-family: var(--font-outlier); font-size: 0.9em; }
+td.m { white-space: nowrap; }
+#wire tr.is-call td { color: var(--color-ink); }
+#wire tr.is-call td.m { color: var(--color-accent); font-weight: 500; }
+#wire tr.is-spawn td { color: var(--color-muted); font-style: italic; }
+.cmp tr.cur td { color: var(--color-ink); background: var(--color-paper-2); }
+details.more { margin-top: var(--space-xs); }
+details.more summary { cursor: pointer; font: 500 var(--text-sm)/1.3 var(--font-display); color: var(--color-ink); padding-block: var(--space-xs); min-height: 36px; }
+details.more summary:hover { color: var(--color-accent); }
+details.more summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.reading { background: var(--color-paper-2); border-top: var(--rule-bar) solid var(--color-rule-2); padding: var(--space-md) var(--space-lg); }
+.reading p { max-width: 68ch; }
+.reading b { font-weight: 600; font-family: var(--font-display); }
+.note { font-size: var(--text-sm); color: var(--color-muted); max-width: 64ch; }
+.sheet .note { margin-top: var(--space-sm); }
+@media (max-width: 40rem) {
+  .wire thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #wire tr, #wireMore tr { display: grid; grid-template-columns: 3ch minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-3xs) var(--space-sm); padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+  #wire td, #wireMore td { border: 0; padding: 0; }
+  #wire td.m, #wireMore td.m { white-space: normal; overflow-wrap: anywhere; }
+  #wire td.via, #wireMore td.via, #wire td.rep, #wireMore td.rep { grid-column: 2 / -1; }
+}
+html.embedded { --gutter: var(--space-2xs); }
+html.embedded .bar, html.embedded .intro { display: none; }
+html.embedded main { padding-block: var(--space-2xs); }
+html.embedded, html.embedded body { overflow-y: hidden; }
+/* framed in a reading column the two columns stack; order them so the controls, the counts and the reading share a screen */
+html.embedded .layout { gap: var(--space-lg); }
+html.embedded .layout > .stack { display: contents; }
+html.embedded .reading { order: 1; }
+html.embedded .sheet.cmp { order: 2; }
+html.embedded .sheet.wire { order: 3; }
+@media (min-width: 40rem) {
+  html.embedded .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.embedded .stats > div { padding-inline: var(--space-sm); border-left: var(--rule-hair) solid var(--color-rule); }
+  html.embedded .stats > div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
+</head>
+<body>
+<noscript><p class="container note">This lab builds its tables from recordings embedded in the page and needs JavaScript.</p></noscript>
+<header class="bar"><div class="container bar__in"><p class="wordmark">RAG &amp; Agents Engineering</p><p class="where">M39 lab, building MCP servers and clients</p></div></header>
+<main class="container">
+  <div class="intro">
+    <h1>Every session has a price on the wire.</h1>
+    <p class="lead">Two Larkspur MCP servers, <code>handbook</code> and <code>status</code>, driven through <code>mcp</code> 1.30.0 and <code>langchain-mcp-adapters</code> 0.3.2. Pick a transport and a client, then move the number of tool calls. Every row and count below was recorded from a real run; nothing is simulated.</p>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <fieldset class="seg"><legend>Transport</legend><div class="seg__opts" id="tOpts"></div></fieldset>
+      <fieldset class="seg"><legend>Client</legend><div class="seg__opts" id="pOpts"></div></fieldset>
+      <div class="field">
+        <label for="n">Tool calls, alternating <code>search_handbook</code> and <code>search_status</code></label>
+        <input type="range" id="n" min="1" max="8" step="1" value="8">
+        <output class="val" id="nVal" for="n"></output>
+      </div>
+      <dl class="stats">
+        <div><dt>Processes the client started</dt><dd id="sProc"></dd></div>
+        <div><dt>Sessions opened</dt><dd id="sSess"></dd></div>
+        <div><dt>JSON-RPC messages</dt><dd id="sMsg"></dd></div>
+        <div><dt>HTTP requests</dt><dd id="sHttp"></dd></div>
+      </dl>
+      <div class="reading"><p id="callout" aria-live="polite"></p></div>
+    </div>
+    <div class="stack">
+      <section class="sheet wire" aria-labelledby="wireHead">
+        <div class="sheet__head"><h2 id="wireHead">Every message in this run</h2><p class="note" id="wireCount"></p></div>
+        <div class="scroll"><table class="wire">
+          <thead><tr><th class="num" scope="col">#</th><th scope="col">Server</th><th scope="col">Message</th><th scope="col">Carried by</th><th scope="col">Reply</th></tr></thead>
+          <tbody id="wire"></tbody>
+        </table></div>
+        <details class="more" id="more"><summary id="moreSum"></summary>
+          <div class="scroll"><table class="wire"><thead class="visually-hidden"><tr><th scope="col">#</th><th scope="col">Server</th><th scope="col">Message</th><th scope="col">Carried by</th><th scope="col">Reply</th></tr></thead><tbody id="wireMore"></tbody></table></div>
+        </details>
+        <p class="note" id="wireNote"></p>
+      </section>
+      <section class="sheet cmp" aria-labelledby="cmpHead">
+        <div class="sheet__head"><h2 id="cmpHead">All eight setups at this many calls</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th scope="col">Transport</th><th scope="col">Client</th><th class="num" scope="col">Processes</th><th class="num" scope="col">Sessions</th><th class="num" scope="col">Messages</th><th class="num" scope="col">HTTP</th></tr></thead>
+          <tbody id="cmp"></tbody>
+        </table></div>
+        <p class="note">Recorded twice on fresh servers; both runs gave the same rows for all 64 settings. Parallel requests during setup can arrive in a different order from run to run.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// Recorded with mcp 1.30.0 and langchain-mcp-adapters 0.3.2. Key "transport|client|calls".
+// r: client JSON-RPC log, one token per message: server (h, s) + method (i initialize, n notifications/initialized, l tools/list, c tools/call).
+// w: server HTTP log, one token per request: server, verb (P, G, D), path (m /mcp, s /sse, q /messages/), status,
+//    reply type (E event stream, J JSON, - none), method, request carried a session id (1/0), reply carried one (1/0).
+// p: server processes the client started; d: distinct server processes that answered the tool calls.
+const DATA={"stdio|held|1":{"p":2,"d":1,"r":"hi hn hl si sn sl hc","w":""},"stdio|held|2":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc","w":""},"stdio|held|3":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc hc","w":""},"stdio|held|4":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc hc sc","w":""},"stdio|held|5":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc","w":""},"stdio|held|6":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc","w":""},"stdio|held|7":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc","w":""},"stdio|held|8":{"p":2,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc sc","w":""},"stdio|percall|1":{"p":3,"d":1,"r":"hi si hn hl sn sl hi hn hc hl","w":""},"stdio|percall|2":{"p":4,"d":2,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl","w":""},"stdio|percall|3":{"p":5,"d":3,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl","w":""},"stdio|percall|4":{"p":6,"d":4,"r":"hi si hn hl sn sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":""},"stdio|percall|5":{"p":7,"d":5,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":""},"stdio|percall|6":{"p":8,"d":6,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":""},"stdio|percall|7":{"p":9,"d":7,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":""},"stdio|percall|8":{"p":10,"d":8,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":""},"sse|held|1":{"p":0,"d":1,"r":"hi hn hl si sn sl hc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00"},"sse|held|2":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00"},"sse|held|3":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00 hPq202-c00"},"sse|held|4":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00"},"sse|held|5":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00 hPq202-c00"},"sse|held|6":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00"},"sse|held|7":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00 hPq202-c00"},"sse|held|8":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc sc","w":"hGs200E-00 hPq202-i00 hPq202-n00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-l00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00 hPq202-c00 sPq202-c00"},"sse|percall|1":{"p":0,"d":1,"r":"hi si sn sl hn hl hi hn hc hl","w":"sGs200E-00 hGs200E-00 hPq202-i00 sPq202-i00 sPq202-n00 hPq202-n00 sPq202-l00 hPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00"},"sse|percall|2":{"p":0,"d":2,"r":"si hi hn hl sn sl hi hn hc hl si sn sc sl","w":"hGs200E-00 sGs200E-00 hPq202-i00 sPq202-i00 hPq202-n00 sPq202-n00 hPq202-l00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00"},"sse|percall|3":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hGs200E-00 sGs200E-00 hPq202-i00 sPq202-i00 hPq202-n00 sPq202-n00 hPq202-l00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00"},"sse|percall|4":{"p":0,"d":2,"r":"si hi sn hn sl hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hGs200E-00 sGs200E-00 sPq202-i00 hPq202-i00 sPq202-n00 hPq202-n00 sPq202-l00 hPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00"},"sse|percall|5":{"p":0,"d":2,"r":"si hi sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hGs200E-00 sGs200E-00 sPq202-i00 hPq202-i00 sPq202-n00 hPq202-n00 sPq202-l00 hPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00"},"sse|percall|6":{"p":0,"d":2,"r":"si hi sn hn sl hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hGs200E-00 sGs200E-00 sPq202-i00 hPq202-i00 hPq202-n00 sPq202-n00 hPq202-l00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00"},"sse|percall|7":{"p":0,"d":2,"r":"si hi sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hGs200E-00 sGs200E-00 sPq202-i00 hPq202-i00 sPq202-n00 hPq202-n00 sPq202-l00 hPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00"},"sse|percall|8":{"p":0,"d":2,"r":"si hi sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hGs200E-00 sGs200E-00 sPq202-i00 hPq202-i00 sPq202-n00 hPq202-n00 sPq202-l00 hPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00 hGs200E-00 hPq202-i00 hPq202-n00 hPq202-c00 hPq202-l00 sGs200E-00 sPq202-i00 sPq202-n00 sPq202-c00 sPq202-l00"},"http|held|1":{"p":0,"d":1,"r":"hi hn hl si sn sl hc","w":"hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|2":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc","w":"hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|3":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc","w":"hPm200Ei01 hGm200E-11 hPm202Jn11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|4":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc","w":"hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|5":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc","w":"hPm200Ei01 hGm200E-11 hPm202Jn11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|6":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc","w":"hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|7":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc","w":"hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sDm200J-11 hDm200J-11"},"http|held|8":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc sc","w":"hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200El11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200El11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 hPm200Ec11 sPm200Ec11 sDm200J-11 hDm200J-11"},"http|percall|1":{"p":0,"d":1,"r":"hi si sn hn sl hl hi hn hc hl","w":"hPm200Ei01 sPm200Ei01 sPm202Jn11 hPm202Jn11 sGm200E-11 hGm200E-11 sPm200El11 hPm200El11 sDm200J-11 hDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11"},"http|percall|2":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl","w":"hPm200Ei01 sPm200Ei01 sPm202Jn11 hPm202Jn11 hGm200E-11 sGm200E-11 hPm200El11 sPm200El11 hDm200J-11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11"},"http|percall|3":{"p":0,"d":2,"r":"hi si hn hl sn sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hPm200Ei01 sPm200Ei01 hPm202Jn11 sPm202Jn11 hGm200E-11 sGm200E-11 hPm200El11 sPm200El11 hDm200J-11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sGm200E-11 sPm202Jn11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hGm200E-11 hPm202Jn11 hPm200Ec11 hPm200El11 hDm200J-11"},"http|percall|4":{"p":0,"d":2,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"sPm200Ei01 hPm200Ei01 sPm202Jn11 hGm200E-11 sGm200E-11 hPm202Jn11 sPm200El11 hPm200El11 sDm200J-11 hDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11"},"http|percall|5":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hPm200Ei01 sPm200Ei01 hPm202Jn11 sPm202Jn11 hGm200E-11 sGm200E-11 hPm200El11 sPm200El11 hDm200J-11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11"},"http|percall|6":{"p":0,"d":2,"r":"hi si hn hl sn sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hPm200Ei01 sPm200Ei01 hPm202Jn11 sPm202Jn11 hGm200E-11 sGm200E-11 hPm200El11 sPm200El11 hDm200J-11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11"},"http|percall|7":{"p":0,"d":2,"r":"hi si hn hl sn sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hPm200Ei01 sPm200Ei01 hPm202Jn11 hGm200E-11 sPm202Jn11 sGm200E-11 hPm200El11 sPm200El11 hDm200J-11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hGm200E-11 hPm202Jn11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sGm200E-11 sPm202Jn11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11"},"http|percall|8":{"p":0,"d":2,"r":"hi si hn hl sn sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hPm200Ei01 sPm200Ei01 hPm202Jn11 hGm200E-11 sPm202Jn11 sGm200E-11 hPm200El11 sPm200El11 hDm200J-11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sPm202Jn11 sGm200E-11 sPm200Ec11 sPm200El11 sDm200J-11 hPm200Ei01 hPm202Jn11 hGm200E-11 hPm200Ec11 hPm200El11 hDm200J-11 sPm200Ei01 sGm200E-11 sPm202Jn11 sPm200Ec11 sPm200El11 sDm200J-11"},"http-stateless|held|1":{"p":0,"d":1,"r":"hi hn hl si sn sl hc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00"},"http-stateless|held|2":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00"},"http-stateless|held|3":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00 hPm200Ec00"},"http-stateless|held|4":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00"},"http-stateless|held|5":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00 hPm200Ec00"},"http-stateless|held|6":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00"},"http-stateless|held|7":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00 hPm200Ec00"},"http-stateless|held|8":{"p":0,"d":2,"r":"hi hn hl si sn sl hc sc hc sc hc sc hc sc","w":"hPm200Ei00 hPm202Jn00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200El00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00 hPm200Ec00 sPm200Ec00"},"http-stateless|percall|1":{"p":0,"d":1,"r":"hi si hn hl sn sl hi hn hc hl","w":"hPm200Ei00 sPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00"},"http-stateless|percall|2":{"p":0,"d":2,"r":"hi si sn hn sl hl hi hn hc hl si sn sc sl","w":"hPm200Ei00 sPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00"},"http-stateless|percall|3":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hPm200Ei00 sPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00"},"http-stateless|percall|4":{"p":0,"d":2,"r":"hi si hn hl sn sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hPm200Ei00 sPm200Ei00 sPm202Jn00 hPm202Jn00 sPm200El00 hPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00"},"http-stateless|percall|5":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":"hPm200Ei00 sPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00"},"http-stateless|percall|6":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"hPm200Ei00 sPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00"},"http-stateless|percall|7":{"p":0,"d":2,"r":"hi si sn sl hn hl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl","w":"sPm200Ei00 hPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00"},"http-stateless|percall|8":{"p":0,"d":2,"r":"hi si hn sn hl sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl hi hn hc hl si sn sc sl","w":"sPm200Ei00 hPm200Ei00 hPm202Jn00 sPm202Jn00 hPm200El00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00 hPm200Ei00 hPm202Jn00 hPm200Ec00 hPm200El00 sPm200Ei00 sPm202Jn00 sPm200Ec00 sPm200El00"}};
+const T=[["stdio","stdio"],["sse","SSE"],["http","Streamable HTTP"],["http-stateless","Streamable HTTP, stateless"]];
+const P=[["held","Held sessions"],["percall","get_tools(), a session per call"]];
+const SRV={h:"handbook",s:"status"};
+const METH={i:"initialize",n:"notifications/initialized",l:"tools/list",c:"tools/call","-":""};
+let ti=0, pi=0;
+function opts(el,list,name,onpick){
+  list.forEach(([v,label],i)=>{
+    const id=name+i;
+    $(el).insertAdjacentHTML('beforeend',`<input type="radio" name="${name}" id="${id}"${i===0?' checked':''}><label class="opt" for="${id}">${label.replace('get_tools()','<code>get_tools()</code>')}</label>`);
+    $(id).addEventListener('change',()=>{onpick(i);render();});
+  });
+}
+opts('tOpts',T,'t',i=>ti=i);
+opts('pOpts',P,'p',i=>pi=i);
+
+function get(t,p,n){
+  const d=DATA[`${t}|${p}|${n}`], r=d.r.split(' '), w=d.w?d.w.split(' '):[];
+  return {p:d.p, d:d.d, rpc:r, http:w, sessions:r.filter(x=>x[1]==='i').length, msgs:r.length, reqs:w.length, calls:r.filter(x=>x[1]==='c').length};
+}
+function rows(t,x){
+  const out=[];
+  if(t==='stdio'){
+    x.rpc.forEach(tok=>{
+      const s=SRV[tok[0]], m=METH[tok[1]];
+      if(tok[1]==='i') out.push({spawn:true,s,m:'process starts',via:`python m39_servers.py ${s} stdio`,rep:''});
+      out.push({s,m,call:tok[1]==='c',via:'stdin pipe',rep:tok[1]==='n'?'none, a notification':'stdout pipe'});
+    });
+  } else {
+    x.http.forEach(tok=>{
+      const s=SRV[tok[0]], verb={P:'POST',G:'GET',D:'DELETE'}[tok[1]], path={m:'/mcp',s:'/sse',q:'/messages/?session_id=…'}[tok[2]];
+      const st=tok.slice(3,6), ct=tok[6], meth=tok[7], reqS=tok[8]==='1', resS=tok[9]==='1';
+      const m = meth!=='-' ? METH[meth] : verb==='GET' ? (t==='sse'?'open the stream':'open the server stream') : 'end the session';
+      let rep = st + (ct==='E'?', event stream':ct==='J'?', JSON':'');
+      if(t==='sse' && st==='202') rep = meth==='n' ? '202 Accepted' : '202 Accepted, answer on the /sse stream';
+      if(resS && !reqS) rep += ', new mcp-session-id';
+      out.push({s,m,call:meth==='c',via:`${verb} ${path}`+(reqS?' + session id':''),rep});
+    });
+  }
+  return out;
+}
+const tr=(r,i)=>`<tr class="${r.call?'is-call':''}${r.spawn?' is-spawn':''}"><td class="num">${i+1}</td><td>${r.s}</td><td class="m">${r.m}</td><td class="via"><code>${r.via}</code></td><td class="rep">${r.rep}</td></tr>`;
+const SHOW=8;
+
+function render(){
+  const n=+$('n').value, t=T[ti][0], p=P[pi][0], x=get(t,p,n);
+  $('nVal').textContent=n;
+  const one=get(t,p,1), two=get(t,p,2);
+  const per={msgs:two.msgs-one.msgs, reqs:two.reqs-one.reqs, p:two.p-one.p};
+  const setup={msgs:x.msgs-per.msgs*n, reqs:x.reqs-per.reqs*n};
+  $('sProc').innerHTML=t==='stdio'?String(x.p):`0<small>2 already running</small>`;
+  $('sSess').textContent=x.sessions;
+  $('sMsg').textContent=x.msgs;
+  $('sHttp').innerHTML=t==='stdio'?`0<small>pipes, no HTTP</small>`:String(x.reqs);
+
+  const rs=rows(t,x);
+  $('wire').innerHTML=rs.slice(0,SHOW).map(tr).join('');
+  const rest=rs.slice(SHOW);
+  $('more').hidden=!rest.length;
+  $('wireMore').innerHTML=rest.map((r,i)=>tr(r,i+SHOW)).join('');
+  $('moreSum').textContent=`Show the other ${rest.length} rows`;
+  $('wireCount').textContent=`${rs.length} rows, ${x.calls} of them tool calls`;
+  $('wireNote').textContent = t==='stdio'
+    ? 'Over stdio the messages are JSON lines on the server process’s standard input and output. A process-start row marks each new session; the lab recorded one process per session in every stdio run.'
+    : 'Recorded at the server by a logging middleware around the FastMCP app. Rows are in arrival order.';
+
+  // comparison across the eight setups
+  let c='';
+  T.forEach(([tt,tl],a)=>P.forEach(([pp,pl],b)=>{ const y=get(tt,pp,n);
+    c+=`<tr${a===ti&&b===pi?' class="cur"':''}><td>${tl}</td><td>${pp==='held'?'Held':'Per call'}</td><td class="num">${tt==='stdio'?y.p:0}</td><td class="num">${y.sessions}</td><td class="num">${y.msgs}</td><td class="num">${tt==='stdio'?0:y.reqs}</td></tr>`; }));
+  $('cmp').innerHTML=c;
+
+  // the reading, from the recorded numbers
+  const co=$('callout'), calls=`${n} tool call${n>1?'s':''}`;
+  let s='';
+  if(p==='held'){
+    s=`<b>Two sessions, opened once.</b> ${calls} cost ${x.msgs} messages: ${n} carry the calls, and the other ${x.msgs-n} are the two handshakes and tool listings, paid once. `;
+    if(t==='stdio') s+=`The client started ${x.p} processes, and the calls were answered by ${x.d} of them, so anything a server keeps in memory is still there on the next call.`;
+    else if(t==='sse') s+=`Over SSE that is ${x.reqs} HTTP requests: a <code>GET /sse</code> per server that stays open and carries every answer, and a POST per message, each answered <code>202</code>. Closing the stream ends the session; nothing else is sent.`;
+    else if(t==='http') s+=`Over Streamable HTTP that is ${x.reqs} requests: per server, <code>initialize</code>, the initialized notification, a GET for the server’s own stream and <code>tools/list</code>, then one POST per call and a <code>DELETE</code> per server at the end.`;
+    else s+=`Stateless, that is ${x.reqs} requests, one per message. No session id, no GET stream, no <code>DELETE</code>: the server builds a fresh transport for every request and remembers nothing between them.`;
+  } else {
+    s=`<b>A new session for every call.</b> Each extra call adds ${per.msgs} messages: <code>initialize</code>, the initialized notification, the call, and a <code>tools/list</code> the SDK sends after a call on a session that never listed its tools. ${calls} cost ${x.msgs} messages against ${get(t,'held',n).msgs} with held sessions. `;
+    if(t==='stdio') s+=`Over stdio a session is a process: ${x.p} processes started, and the ${n} calls were answered by ${x.d} different ones. A cache or counter in server memory starts empty on every call.`;
+    else s+=`Each call adds ${per.reqs} HTTP requests (${x.reqs} in all, against ${get(t,'held',n).reqs} held). The server process stays up, so its memory survives, but nothing tied to a session does.`;
+  }
+  co.innerHTML=s;
+}
+$('n').addEventListener('input',render);
+render();
+// framed in a module page: send the height so the page can size the frame without an inner scrollbar
+if (document.documentElement.classList.contains('embedded') && 'ResizeObserver' in window) {
+  new ResizeObserver(() => parent.postMessage({ labHeight: document.body.getBoundingClientRect().height + 2 }, '*')).observe(document.body);
+}
+</script>
+</body>
+</html>

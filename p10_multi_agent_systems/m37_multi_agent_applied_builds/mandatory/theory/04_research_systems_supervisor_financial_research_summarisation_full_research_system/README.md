@@ -1,0 +1,119 @@
+# M37.4 Theory: Research systems: supervisor financial research, summarisation, full research system
+
+*[M37 theory](../README.md) · Lesson 37.4 · Notebooks: [`04c_multi_agent_research_system.ipynb`](../../notebook/04c_multi_agent_research_system.ipynb), [`04a_supervisor_financial_research.ipynb`](../../../optional/notebook/04a_supervisor_financial_research.ipynb) (optional), [`04b_multi_agent_research_summarization.ipynb`](../../../optional/notebook/04b_multi_agent_research_summarization.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+
+## Planner, supervisor or router
+
+A Larkspur research reply can fail through no results, conflicting policy or a provider error. You will choose a planner, router or supervisor, preserve source identity through parallel research and prove the quality loop stops with replacement nodes.
+
+### Step 1: Choose when the controller decides
+
+The three research systems answer one question differently: who decides which agent works next, and when. That choice sets how many model calls a request costs and what can go wrong.
+
+| | Supervisor (04a) | Typed router (04b) | One-shot planner (04c) |
+|---|---|---|---|
+| Decides | After every worker report, who acts next or whether to finish | Once per question, which one specialist runs | Once, up front, the list of search queries |
+| Sees results | Yes | No | No |
+| Workers per request | Any number, in sequence | Exactly one, then a summarizer | One per planned query, in parallel |
+| How the choice reaches the graph | The model writes `next` into state; a pure function follows it | `with_structured_output(RouteDecision)` with `route: Literal["web_research", "rag", "llm"]` | `Send("search_agent", ...)` per query |
+| Bound in code | `MAX_SUPERVISOR_TURNS = 6` | One route per question | `NUM_QUERIES = 3`, and `MAX_DRAFTS = 2` on the revision loop |
+
+### Step 2: Compare typed routing with open-ended supervision
+
+The supervisor is the most flexible and the hardest to bound, which is why 04a proves its turn cap with a stub supervisor that never finishes. Its researcher also returns a validated `MarketData` object, numbers only, and the coder sees just the user's request and that JSON, so no web text reaches the agent that runs code. The typed router is the fix for the hotel's string routing: the choice is a field, not a word to search for in a reply. Its RAG agent answers only from chunks above a relevance floor, and when nothing clears it, it skips the model call and says so. The planner never sees a result, which is what separates it from a supervisor: it cannot adapt, but its cost is known before the first search runs.
+
+The module's lab brief asks for a research team on the Larkspur Cloud handbook: a supervisor, a RAG researcher over the handbook, a web researcher and a writer that cites its sources, tested on three edge cases. Each has a mechanism in this module:
+
+| Edge case | Mechanism | Where |
+|---|---|---|
+| No results | The RAG agent skips the model call when no chunk clears the relevance floor, and says so | 04b |
+| Conflicting sources | The analyst lists gaps and contradictions across all findings before anyone writes | 04c |
+| Tool failure | The failing node records an error in state, a pure router picks a fallback, and a cap ends retries | 02c, 04a |
+
+### Step 3: Keep conflicts attached to sources
+
+For Larkspur, a conflict is real: a web forum post can quote an old refund window while the handbook gives the current one. The writer should cite both and say which is the policy, which it can only do if the findings keep their sources.
+
+## A quality loop with a cap in code
+
+### Step 1: Prove that a rejected draft reaches a terminal path
+
+The reference implementation is the module's full research pipeline. A planner splits the topic into search queries, search agents run them in parallel and append to one shared findings list, an analyst and a writer turn the findings into a report, and a quality checker sends the report back for revision until it passes or the cap is reached.
+
+```mermaid
+flowchart LR
+    P["Planner<br/>3 queries"] -->|Send, one per query| S["Search agents<br/>3 results each"]
+    S --> A["Analyst<br/>themes, gaps"]
+    A --> W[Report writer]
+    W --> Q["Quality checker<br/>weakest criterion"]
+    Q --> G{"Approved, or<br/>2 drafts written?"}
+    G -- no --> W
+    G -- yes --> R[/Report/]
+```
+<!-- animated: diagrams/quality-loop.anim.html -->
+
+### Step 2: Enforce the plan and review caps in code
+
+The settings are in one cell and the code enforces each of them:
+
+| Setting | Value | Enforced by |
+|---|---|---|
+| `NUM_QUERIES` | 3 | The planner's list is cut to this length, so the fan-out never depends on the model counting |
+| `RESULTS_PER_QUERY` | 3 | Each DuckDuckGo search keeps this many hits |
+| `QUALITY_THRESHOLD` | 0.7 | Every review criterion must reach it |
+| `MAX_DRAFTS` | 2 | `quality_gate` ends the loop at this many reviewed drafts, whatever the scores say |
+
+Four details carry the design:
+
+- **A reducer on the findings.** `findings: Annotated[list[dict], operator.add]` lets parallel search agents append to one list. Each search agent extracts 2 or 3 findings, each tied to a result URL, and code marks `url_verified` when the URL is one the search actually returned, so an invented source shows up.
+- **The weakest criterion decides.** The reviewer scores completeness, clarity and actionability from 0.0 to 1.0, and `quality_score` is the minimum. The one criterion code can check exactly, that the four required sections (Executive Summary, Key Findings, Analysis, Recommendations) are present, is checked in code.
+- **Revisions see the previous draft.** The writer runs at temperature 0.7 and, on a revision, gets its previous draft and the reviewer's feedback. At temperature 0 a revision tends to repeat the draft.
+- **The exit is code.** `quality_gate` is a pure function: approve when the minimum score reaches 0.7 and no section is missing, otherwise go back to the writer, unless `iteration` has reached `MAX_DRAFTS`. The reviewer is never asked to be lenient on a later pass.
+
+### Step 3: Run the never-passing review before a live model
+
+The example proves the wiring before it spends a token. `create_research_system(nodes=...)` takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.
+
+### Try it yourself
+
+Use four scripted search queries with two findings each and check that all eight findings survive fan-in. Make the reviewer always return 0.1 and check two drafts, then return 0.9 and check one. Compare node paths and retained findings rather than accepting the final report's claim that research was complete.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Multi agent research system](../../notebook/04c_multi_agent_research_system.ipynb).
+- [Supervisor financial research](../../../optional/notebook/04a_supervisor_financial_research.ipynb).
+- [Multi agent research](../../../optional/notebook/04b_multi_agent_research_summarization.ipynb).
+
+## Key Takeaways
+
+- A supervisor sees results and can adapt but is hardest to bound. A typed router picks one specialist per question, and a one-shot planner fixes its queries up front, so its cost is known before the first search.
+- Tie every finding to its source and mark whether the URL is one the search returned. When a forum post and the handbook disagree, the writer can then cite both and say which is the policy.
+- End a quality loop in code. Score each draft by its weakest criterion, check the required sections in code, and stop at `MAX_DRAFTS = 2` whatever the reviewer says; prove the wiring with stub nodes first.
+
+## Check yourself
+
+<details>
+<summary>1. What separates the one-shot planner in 04c from the supervisor in 04a, and what does each give up?</summary>
+
+The supervisor decides after every worker report, so it can adapt, but it is the hardest to bound and needs `MAX_SUPERVISOR_TURNS = 6`. The planner decides the list of queries once, up front, and never sees a result: it cannot adapt, but its cost is known before the first search runs.
+
+</details>
+
+<details>
+<summary>2. The reviewer scores a first draft 0.9 for completeness, 0.8 for clarity and 0.6 for actionability, with all four sections present. What does quality_gate do?</summary>
+
+It sends the draft back to the writer. `quality_score` is the minimum, 0.6, which is below `QUALITY_THRESHOLD` 0.7. The writer gets its previous draft and the feedback, and `MAX_DRAFTS = 2` ends the loop after the second reviewed draft whatever the scores say.
+
+</details>
+
+<details>
+<summary>3. A web forum post quotes an old Larkspur refund window while the handbook gives the current one. What must the research team preserve so the writer can handle it?</summary>
+
+The source of every finding. The analyst lists contradictions across all findings before anyone writes, and the writer should cite both sources and say which one is the policy. It can only do that if the findings keep their sources.
+
+</details>
+
+---
+*Previous: [37.3 Scaling: parallel agents, memory merging, language and sentiment, web search](../../../optional/theory/03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md). Next: [M38 MCP foundations](../../../../../p11_agent_protocols/m38_mcp_foundations/mandatory/theory/README.md).*
