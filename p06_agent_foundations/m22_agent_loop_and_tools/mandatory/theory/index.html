@@ -667,7 +667,7 @@ web-1: running
 <h2 id="where-tool-errors-go">Where tool errors go</h2>
 <p class="lesson-of">Lesson 22.5: Tool errors and evaluating tool calls. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb" target="_blank" rel="noopener"><code>05a_tool_loop_errors_and_evaluation.ipynb</code></a></p>
 <p>A Larkspur Cloud customer asks the support agent <em>Is my server web-9 up?</em> The customer has no server called web-9, so the status tool raises <code>ValueError</code>. With LangGraph&rsquo;s default settings, <code>graph.invoke</code> raises that exception and the customer gets no answer at all.</p>
-<p>You will run a tool call, trigger both an invalid argument and an unknown server, then inspect how the loop handles each failure. You will also score tool choice, arguments and the final answer separately. The deterministic examples use LangGraph 1.2.18, langgraph-prebuilt 1.1.1 and langchain-core 1.7.0. Run the Python blocks in order in the repository environment (<code>uv run python</code>), without an API key.</p>
+<p>Below you trigger an invalid argument and an unknown server, see how the loop handles each, then score tool choice, arguments and the final answer separately. The deterministic examples use LangGraph 1.2.18, langgraph-prebuilt 1.1.1 and langchain-core 1.7.0. Run the Python blocks in order in the repository environment (<code>uv run python</code>), without an API key.</p>
 <h3>Step 1: Close the loop and read the message count</h3>
 <p>The agent loop has two nodes. The <code>agent</code> node calls the model. The <code>tools</code> node (a <code>ToolNode</code>) runs every tool call the model asked for and appends one <code>ToolMessage</code> per call. An edge from <code>tools</code> back to <code>agent</code> lets the model read the results, and a router ends the run when the last <code>AIMessage</code> has no tool calls.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -679,7 +679,7 @@ web-1: running
 <p>The message list is the run&rsquo;s trace. An <code>AIMessage</code> is a model reply, which can contain tool requests. A <code>ToolMessage</code> holds one tool&rsquo;s result and uses <code>tool_call_id</code> to match it to its request. The graph&rsquo;s state stores this growing list.</p>
 <p>For the Larkspur export question, the scripted lab trace contains four messages: the question, one <code>AIMessage</code> requesting <code>search_handbook</code>, its <code>ToolMessage</code>, and the final answer. The status-and-reboot question contains five messages because one model reply requests two tools. Message count helps diagnose extra work, but it does not establish whether the answer is correct.</p>
 <h3>Step 2: Call a tool with valid input</h3>
-<p>To see what the <code>ToolNode</code> does with a failure, take the model out of the picture. The helper below builds a one-node graph and feeds it a hand-written <code>AIMessage</code> containing one tool call. With no model in the run, every result is deterministic and needs no API key. The tool checks a customer&rsquo;s servers, web-1 and db-1.</p>
+<p>To isolate the <code>ToolNode</code>, the helper below builds a one-node graph and feeds it a hand-written <code>AIMessage</code> with one tool call, so every result is deterministic. The tool checks a customer&rsquo;s servers, web-1 and db-1.</p>
 <pre class="sheet code"><code class="language-python">from typing_extensions import Annotated, TypedDict
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.tools import tool
@@ -726,7 +726,7 @@ print(run_tool_node(ToolNode([get_server_status]), {&quot;server_id&quot;: &quot
 <p><strong>Expected output</strong></p>
 <pre class="sheet code"><code class="language-text">RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
 </code></pre>
-<p>No <code>ToolMessage</code> came back. The exception escaped the graph, which in the real loop means <code>graph.invoke</code> raises and the model never sees the error. The exception text is useful, too: it lists the customer&rsquo;s real servers. If the model could read it, the model could ask which one the customer meant.</p>
+<p>No <code>ToolMessage</code> came back. The exception escaped the graph, which in the real loop means <code>graph.invoke</code> raises and the model never sees the error. Yet the exception text lists the customer&rsquo;s real servers: a model that could read it could ask which one the customer meant.</p>
 <h3>Step 4: Compare the three <code>handle_tool_errors</code> settings</h3>
 <p>A tool call can fail in two places. The model can send bad arguments, which fail schema validation before the tool runs. Or the arguments are fine and the tool itself raises, as in Step 3. <code>ToolNode</code>&rsquo;s <code>handle_tool_errors</code> setting decides what happens in each case. Run both failures under each setting. The bad call names the argument <code>id</code> instead of <code>server_id</code>.</p>
 <pre class="sheet code"><code class="language-python">settings = {
@@ -783,9 +783,9 @@ handle_tool_errors=False
 </tr>
 </tbody>
 </table></div>
-<p>For these calls, the default converts the missing required argument into an error <code>ToolMessage</code> and re-raises the <code>ValueError</code> from inside the tool. Of the three settings tested, <code>True</code> converts both failures into messages the model can read. This behaviour depends on the installed version.</p>
+<p>Of the three settings, only <code>True</code> turns both failures into messages the model can read. This behaviour depends on the installed version.</p>
 <h3>Step 5: Watch what the model does next</h3>
-<p>An error <code>ToolMessage</code> gives the model a chance to recover. It does not guarantee recovery, because the model still has to read the message and choose a sensible next step. Here is the web-9 run under <code>handle_tool_errors=True</code>. The tool messages are LangGraph&rsquo;s real output, and the model&rsquo;s two turns are scripted.</p>
+<p>An error <code>ToolMessage</code> gives the model a chance to recover, not a guarantee: the model still has to read it and choose a sensible next step. Here is the web-9 run under <code>handle_tool_errors=True</code>. The tool messages are LangGraph&rsquo;s real output, and the model&rsquo;s two turns are scripted.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -863,7 +863,7 @@ handle_tool_errors=False
 </table></div>
 <figure class="lab-embed"><iframe src="05_tool_errors_and_evaluating_tool_calls/interactive/tool-error-routing-lab.html" title="Where a tool error goes, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Where a tool error goes. <a href="05_tool_errors_and_evaluating_tool_calls/interactive/tool-error-routing-lab.html">Open full screen</a></figcaption></figure>
 <ul>
-<li><strong>The unknown server is an execution error.</strong> <code>get_server_status</code> raises <code>ValueError("Unknown server 'web-9'; your servers: ['db-1', 'web-1']")</code>. Only <code>True</code> catches it, and the model can then name the customer&rsquo;s real servers, because the exception text lists them.</li>
+<li><strong>The unknown server is an execution error.</strong> Only <code>True</code> catches the tool&rsquo;s <code>ValueError</code>, and the model can then name the customer&rsquo;s real servers, because the exception text lists them.</li>
 <li><strong>The wrong argument name is a validation error.</strong> The default and <code>True</code> both return it as a message, the model retries with <code>query</code>, and the run costs one extra round trip (6 messages instead of 4). <code>False</code> re-raises it as <code>ToolInvocationError</code>.</li>
 <li><strong>The two questions with no failure behave the same under every setting.</strong> A test suite with only happy-path questions never shows the difference between the settings.</li>
 </ul>
@@ -873,12 +873,12 @@ handle_tool_errors=False
 <li><strong>The tool returns the error.</strong> A <code>divide</code> tool checks for zero and returns <code>"Error: Division by zero"</code>. The model reads it like any other result and explains that division by zero is undefined. Use this when the tool knows the failure in advance: an unknown id, an empty result, an input out of range.</li>
 <li><strong>The tool raises and the <code>ToolNode</code> catches it.</strong> <code>handle_tool_errors=True</code> catches the ordinary exceptions demonstrated here, including unexpected failures from a client library. A custom handler can instead catch selected exception types and return a message intended for the model.</li>
 </ol>
-<p><code>handle_tool_errors</code> also accepts a custom string, an exception type or a tuple of them (catch only those), or a function that formats the message. Whichever you choose, write error messages the model can act on. Say what was wrong and what would work, as the web-9 message does by listing the valid servers. Return only information the customer is allowed to see.</p>
+<p><code>handle_tool_errors</code> also accepts a custom string, an exception type or a tuple of them (catch only those), or a function that formats the message. Either way, write error messages the model can act on: what was wrong and what would work, as the web-9 message lists the valid servers. Return only information the customer is allowed to see.</p>
 <p>Returning a string such as <code>"Error: Division by zero"</code> completes the tool normally, so its <code>ToolMessage.status</code> is <code>"success"</code>. Catching an exception in <code>ToolNode</code> produces <code>status="error"</code>. Monitoring must account for that difference if tools return failure strings. Letting an exception escape also requires application code to log the failed run and return a fallback response.</p>
 <h3>Try it yourself</h3>
-<p>A customer asks <em>Is my server db-1 running?</em> and the model calls <code>get_server_status</code> with <code>{"server": "db-1"}</code>. Before running anything, predict the result under each of the three settings: a <code>ToolMessage</code> with which status, or which exception. Then check your answer with <code>run_tool_node</code> from Step 2. A wrong argument name is a validation error, and it should behave like the bad-arguments column in Step 4.</p>
+<p>A customer asks <em>Is my server db-1 running?</em> and the model calls <code>get_server_status</code> with <code>{"server": "db-1"}</code>. Before running anything, predict the result under each of the three settings: a <code>ToolMessage</code> with which status, or which exception. Then check your answer with <code>run_tool_node</code> from Step 2. Hint: a wrong argument name is a validation error, like the bad-arguments column in Step 4.</p>
 <h2 id="tool-call-evaluation">Tool-call evaluation</h2>
-<p>A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first tool call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. This section shows how to score each of those failures separately, from the same message trace you read in the previous section.</p>
+<p>A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first tool call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. Score each of those failures separately, from the same message trace.</p>
 <h3>Step 1: Split the score into three dimensions</h3>
 <div class="sheet scroll"><table>
 <thead>
@@ -906,11 +906,11 @@ handle_tool_errors=False
 </tr>
 </tbody>
 </table></div>
-<p>Scoring them separately tells you what to fix. A selection score that drops after a description change points at the description. An input score that drops suggests inspecting the schema and the generated arguments. Confirm the cause from the failing calls before changing either description or schema.</p>
+<p>Scoring them separately tells you what to fix: a selection drop after a description change points at the description, an input drop at the schema and the generated arguments. Confirm the cause from the failing calls before changing either.</p>
 <h3>Step 2: Write the expected calls for each golden question</h3>
 <p>The first two dimensions often need no model at all. Give each golden question its expected calls. <em>Is my server web-1 running, and does a reboot change its IP address?</em> expects <code>get_server_status</code> with <code>server_id='web-1'</code>, and <code>search_handbook</code> with any query. <em>How long does a refund take?</em> expects <code>search_handbook</code> alone.</p>
 <h3>Step 3: Score selection and input from the trace</h3>
-<p>The scorer below reads every tool call from the <code>AIMessage</code>s, compares the set of called names with the expected set, and flags any call that is missing a required argument or has the wrong value for a pinned one. It is a small check for these two known tools: it does not validate types, query relevance, call order or duplicate calls. A production scorer should validate against the actual tool schemas and flag unknown tool names before looking up their required fields. The two traces are the model&rsquo;s turns from the lab&rsquo;s status and refund runs.</p>
+<p>The scorer below reads every tool call from the <code>AIMessage</code>s, compares the set of called names with the expected set, and flags any call that is missing a required argument or has the wrong value for a pinned one. It is a small check for these two known tools: it does not validate types, query relevance, call order or duplicate calls. A production scorer should validate against the actual tool schemas and flag unknown tool names before looking up their required fields.</p>
 <pre class="sheet code"><code class="language-python">from langchain_core.messages import AIMessage
 
 # Golden set: for each question, the tools it needs and any argument values that must match
@@ -951,7 +951,7 @@ print(score_calls(&quot;How long does a refund take?&quot;, refund_run))
 <p>Both runs chose the right tools. The refund run&rsquo;s first call is flagged for input because it passed <code>q</code> instead of <code>query</code>. The lab&rsquo;s trace column makes the same check and marks that call <em>Right tool, missing <code>query</code></em>. In a real evaluation you pass <code>result["messages"]</code> from <code>graph.invoke</code> instead of hand-built messages.</p>
 <h3>Step 4: Inspect a synthesis judgement</h3>
 <p>Synthesis measures whether the final answer uses the returned facts correctly. An LLM judge is another model asked to grade the trace against explicit criteria. Give it the question, tool requests, tool results and final answer, then compare its decisions with human grades.</p>
-<p>The following schema names the three scores and their justification. A model supporting <code>with_structured_output(ToolUseEvaluation)</code> can return that shape. Here, inspect the saved evaluation offline rather than make a new model call:</p>
+<p>The schema below holds the three scores and a justification, the shape a model returns through <code>with_structured_output(ToolUseEvaluation)</code>. Here you inspect a saved evaluation instead of calling a model:</p>
 <pre class="sheet code"><code class="language-python">from pydantic import BaseModel, Field
 
 class ToolUseEvaluation(BaseModel):
@@ -978,21 +978,21 @@ print({k: v for k, v in saved_evaluation.model_dump().items() if k != &quot;just
 <p><strong>Expected output</strong></p>
 <pre class="sheet code"><code class="language-text">{'tool_selection_score': 5, 'tool_input_score': 5, 'synthesis_quality_score': 5}
 </code></pre>
-<p>The saved trace asks <em>Calculate 15% of 250 and check weather in Paris</em>. It calls <code>calculate(expression="0.15 * 250")</code>, which returns <code>37.5</code>, and <code>get_weather(city="Paris")</code>, which returns the simulated weather <code>65°F, Partly Cloudy</code>. The answer includes both results. Its saved judge scores are 5, 5 and 5, with the justification above. These are one recorded judgement, not a result from the Larkspur lab or a promise that a new judge call will agree.</p>
+<p>The saved trace asks <em>Calculate 15% of 250 and check weather in Paris</em>. It calls <code>calculate(expression="0.15 * 250")</code>, which returns <code>37.5</code>, and <code>get_weather(city="Paris")</code>, which returns the simulated weather <code>65°F, Partly Cloudy</code>. The answer includes both results, and the judge scored it 5, 5 and 5. These are one recorded judgement, not a result from the Larkspur lab or a promise that a new judge call will agree.</p>
 <p>The schema describes scores from 1 to 5 but uses unconstrained <code>int</code> fields. If you need validation to reject out-of-range scores, add <code>ge=1, le=5</code> to each score field. Two cautions come with the recorded result:</p>
 <ul>
 <li><strong>The judge is the agent&rsquo;s own model</strong> (<code>gpt-4o-mini</code> judging <code>gpt-4o-mini</code>), which tends to be lenient on its own work. Use a different, ideally stronger, model, and check its scores against a few human-graded runs before you trust a trend.</li>
 <li><strong>A single trace scored 5 out of 5 proves little.</strong> The scores mean something across a fixed golden set, compared before and after one change.</li>
 </ul>
 <h3>Step 5: Add trace-level counts</h3>
-<p>Per-call scores miss the runs that never finish. Log three counts per run as well: rounds per run, error <code>ToolMessage</code>s per tool, and crashed runs. They are cheap to collect and catch the failures the lab shows. The web-9 question under the default setting has no answer to score at all, and the refund question&rsquo;s extra round shows up as 6 messages instead of 4.</p>
+<p>Per-call scores miss the runs that never finish. Log three counts per run as well: rounds per run, error <code>ToolMessage</code>s per tool, and crashed runs. They are cheap and catch the lab&rsquo;s failures: the web-9 question under the default has no answer to score, and the refund question&rsquo;s extra round shows as 6 messages instead of 4.</p>
 <h3>Try it yourself</h3>
 <p>Add the question <em>Is my server web-9 up?</em> to <code>GOLDEN</code>, expecting <code>get_server_status</code> with <code>server_id='web-9'</code>. Score the run where the model calls <code>get_server_status(server_id='web-9')</code>. Selection and input should both pass, because the model asked for exactly what the customer said. The failure belongs to the tool&rsquo;s error handling, which only the crashed-run count from Step 5 records.</p>
 <h3>Practice notebook</h3>
 <p>The <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb" target="_blank" rel="noopener">tool-loop errors and evaluation notebook</a> builds the full loop with three simulated tools, adds a <code>divide</code> tool that returns its own error, runs the three <code>handle_tool_errors</code> settings on a stock-price tool, and scores a trace with the judge above.</p>
 <p>Its saved arithmetic traces have 4 messages for <code>What's 25 * 17?</code> and 5 for <em>What&rsquo;s 100 / 4 and what&rsquo;s the weather in London?</em>, matching the one-tool and two-tool patterns above.</p>
 <p>The notebook&rsquo;s <code>create_tool_agent</code> helper explicitly defaults to <code>handle_tool_errors=True</code>, which differs from omitting that argument on <code>ToolNode</code>. It configures <code>llm</code>, then builds <code>judge_llm = llm.with_structured_output(ToolUseEvaluation)</code> and invokes the judge on the flattened trace.</p>
-<p>The deterministic examples on this page need no model call. Running the notebook&rsquo;s live agent and judge cells requires its OpenAI setup. Two experiments to try:</p>
+<p>The notebook&rsquo;s live agent and judge cells need its OpenAI setup. Two experiments to try:</p>
 <ul>
 <li>Build <code>stock_agent</code> with <code>handle_tool_errors=False</code> and ask for the price of NVDA. Note where the run stops.</li>
 <li>Swap <code>judge_llm</code> for a different model and compare its scores on the same trace with the ones from <code>gpt-4o-mini</code>.</li>
