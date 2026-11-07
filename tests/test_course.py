@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 from check_links import broken_links  # noqa: E402
-from curriculum_lib import PART_GLOB, TIERS, items, lesson_folder, load, theory_dir  # noqa: E402
+from curriculum_lib import PART_GLOB, TIERS, items, lesson_dir, lesson_pages, load, module_dir, theory_dir  # noqa: E402
 
 CUR = load()
 ITEMS = items(CUR)
@@ -70,7 +70,7 @@ def test_relative_links_resolve():
 def test_rag_paths_finds_this_repo_and_its_assets():
     import rag_paths
 
-    assert rag_paths.repo_root(ROOT / COURSE_DIR) == ROOT
+    assert rag_paths.repo_root(ROOT / module_dir(CUR["modules"][0])) == ROOT
     missing = [r for r in rag_paths.ASSET_ROOTS if not (ROOT / r).is_dir()]
     assert not missing, missing
 
@@ -140,7 +140,7 @@ def test_site_curriculum_export_is_complete_and_stable():
     assert out == export_site_curriculum.export()
     data = {name: json.loads(re.search(rf"export const {name}: \w+\[\] = (.*?)\n(?=\nexport|\Z)", out, re.S).group(1))
             for name in ("RAG_TRACKS", "RAG_MODULES", "RAG_LESSONS")}
-    pages = sorted(p.parent for m in CUR["modules"] for p in (ROOT / theory_dir(m)).glob("*/README.md"))
+    pages = sorted(p for m in CUR["modules"] for p in lesson_pages(m).values())
     modules = [m for m in CUR["modules"] if (ROOT / theory_dir(m) / "README.md").exists()]
     assert len(data["RAG_TRACKS"]) == len(CUR["parts"])
     assert len(data["RAG_MODULES"]) == len(modules)
@@ -152,39 +152,36 @@ def test_site_curriculum_export_is_complete_and_stable():
     # A notebook-only lesson whose notebooks all name a vendor platform stays off the site.
     hidden = sum(all(export_site_curriculum.SITE_HIDDEN.search(it["file"]) for it in les["items"])
                  for m in modules for n, les in enumerate(m["lessons"], 1)
-                 if not (ROOT / theory_dir(m) / lesson_folder(n, les["title"]) / "README.md").exists())
+                 if n not in lesson_pages(m))
     assert notebook_only == sum(len(m["lessons"]) for m in modules) - len(pages) - hidden
     assert not export_site_curriculum.SITE_HIDDEN.search(json.dumps([m.get("notebookOnly", []) for m in data["RAG_MODULES"]]))
     assert not any(export_site_curriculum.SITE_HIDDEN.search(les["title"] + les["slug"]) for les in data["RAG_LESSONS"])
 
 
-def test_theory_pages_mirror_the_course_layout():
-    """theory/ mirrors course/: module pages at theory/<part>/<module>/, lesson pages in <NN>_<slug of lesson title>/.
+def test_theory_pages_sit_in_their_tier_folders():
+    """Theory lives in each module: the module page in <module>/mandatory/theory/, each lesson page in
+    <module>/<tier>/theory/<NN>_<slug of lesson title>/, where the tier is optional only for an all-optional lesson.
 
     Every key concept has a `##` heading on exactly one of the module's pages, the module page links each lesson
     page, and every lab is linked from the page beside it.
     """
     known = {theory_dir(m): m for m in CUR["modules"]}
+    expected = {lesson_dir(m, n) for m in CUR["modules"] for n in range(1, len(m["lessons"]) + 1)}
     bad = []
-    for readme in sorted((ROOT / "theory").glob("**/README.md")):
+    for readme in sorted(ROOT.glob(f"{PART_GLOB}/*/*/theory/**/README.md")):
         rel = readme.relative_to(ROOT).parent.as_posix()
-        if rel == "theory" or rel in known:
-            continue
-        parent = readme.parent.parent.relative_to(ROOT).as_posix()
-        m = known.get(parent)
-        if not m or readme.parent.name not in {lesson_folder(n, les["title"]) for n, les in enumerate(m["lessons"], 1)}:
-            bad.append(f"{rel}: not a module of curriculum.yaml or a lesson folder of one")
+        if rel not in known and rel not in expected:
+            bad.append(f"{rel}: not a module page or a lesson folder in its tier folder")
     for d, m in known.items():
         page = ROOT / d / "README.md"
         if not page.exists():
             continue
         md = page.read_text(encoding="utf-8")
-        lessons = [ROOT / d / lesson_folder(n, les["title"]) / "README.md" for n, les in enumerate(m["lessons"], 1)]
-        lessons = [p for p in lessons if p.exists()]
+        lessons = [ROOT / p for p in lesson_pages(m).values()]
         bad += [f"{d}: lesson page not linked: {p.parent.name}" for p in lessons if f"{p.parent.name}/README.md" not in md]
         heads = Counter(h for p in [page, *lessons] for h in re.findall(r"^## (.+?)\s*$", p.read_text(encoding="utf-8"), re.M))
         bad += [f"{d}: '## {c}' on {heads[c]} pages, want 1" for c in m["concepts"] if heads[c] != 1]
-    for lab in sorted((ROOT / "theory").glob("**/interactive/*.html")):
+    for lab in sorted(ROOT.glob(f"{PART_GLOB}/*/*/theory/**/interactive/*.html")):
         beside = lab.parent.parent / "README.md"
         if not beside.exists() or f"interactive/{lab.name}" not in beside.read_text(encoding="utf-8"):
             bad.append(f"{lab.relative_to(ROOT)}: not linked from {beside.relative_to(ROOT)}")
@@ -197,7 +194,7 @@ def test_lesson_pages_end_with_check_yourself():
     bad = []
     for m in CUR["modules"]:
         for n, les in enumerate(m["lessons"], 1):
-            page = ROOT / theory_dir(m) / lesson_folder(n, les["title"]) / "README.md"
+            page = ROOT / lesson_dir(m, n) / "README.md"
             if not page.exists():
                 continue
             md = page.read_text(encoding="utf-8")
@@ -215,7 +212,7 @@ def test_lesson_pages_have_key_takeaways():
     bad = []
     for m in CUR["modules"]:
         for n, les in enumerate(m["lessons"], 1):
-            page = ROOT / theory_dir(m) / lesson_folder(n, les["title"]) / "README.md"
+            page = ROOT / lesson_dir(m, n) / "README.md"
             if not page.exists():
                 continue
             md = page.read_text(encoding="utf-8")

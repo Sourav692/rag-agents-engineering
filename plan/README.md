@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the AI Engineering course of [curriculum.v2.yaml](../curriculum.v2.yaml) as 13 part folders at the repo root (`<part>/<module>/{mandatory,optional}/{theory,notebook}`), and give every module lab a `solution/` notebook with the data it needs in `lab/data/`.
+**Goal:** Build the AI Engineering course of `curriculum.v2.yaml` ([curriculum.yaml](../curriculum.yaml) since Phase 6) as 13 part folders at the repo root (`<part>/<module>/{mandatory,optional}/{theory,notebook}`), and give every module lab a `solution/` notebook with the data it needs in `lab/data/`.
 
 **Architecture:** `scripts/restructure_part.py` reads `curriculum.v2.yaml` and copies one v2 part out of the v1 trees (`course/`, `theory/`), using the `previous_num`, `previous` and `previous_path` fields that `plan/make_curriculum_v2.py` writes. It re-points relative paths and rewrites module and lesson numbers to v2. Lab work happens only in the new layout. A shared fictional corpus and golden set (`data/larkspur/`) and a small offline helper (`src/lab_kit.py`) keep the 46 solutions consistent, and each lab carries its own copy of the data it reads. Phase 0 builds the shared pieces; phases 1 to 5 each restructure their parts and write their labs, and depend only on Phase 0.
 
