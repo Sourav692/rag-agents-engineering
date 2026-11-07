@@ -96,9 +96,9 @@ Run-time paths left as they are, since the folders or files only exist after a n
 - M44 `03a_microsoft_graphrag.ipynb` creates `elon.md` and `graphrag/` under `data/sample/rag_techniques/`.
 - M26 `03a_simple_coding_agent.py` loads skills from `skills/` beside itself, but they sit in `optional/notebook/03c_skills/`. v1 has the same split. The fix changes the backend root and needs a run to check.
 
-Stale until Phase 6 regenerates them: the part and module READMEs copied from v1, every copied `index.html`, module page titles in v1 wording, and lesson numbers inside parentheses in prose.
+Phase 6, the switch ([phase-6-switch.md](phase-6-switch.md), branch `restructure/phase-6`): `curriculum.yaml` is the v2 curriculum, every build script and test reads the part folders, the part and module READMEs and every `index.html` are regenerated, module pages carry v2 part names and titles, v1 lesson numbers in parentheses are rewritten to v2, and `course/` and `theory/` are deleted. Paths in the phase files above name the v1 trees as they were then.
 
-Next step: the Phase 6 switch plan (see Not in this plan).
+Next step: owner review of the Phase 6 PR, then running the 46 lab solutions to fill in their results.
 
 ## Review Focus
 
