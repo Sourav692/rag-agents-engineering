@@ -4,7 +4,7 @@ Guidance for Claude (and people) working in this repository.
 
 ## What this repo is
 
-The **AI Engineering: LLM Apps, RAG & Agents** course (repo `rag-agents-engineering`): 13 parts, 46 modules, 227 lessons and 382 notebooks, one folder per part at the repo root (`p01_ai_engineering_foundations/` to `p13_design_decisions/`). It was **built** from nine source repositories, which are now archived:
+The **AI Engineering: LLM Apps, RAG & Agents** course (repo `rag-agents-engineering`): 14 parts, 46 modules, 227 lessons and 382 notebooks, one folder per part at the repo root (`p01_ai_engineering_foundations/` to `p14_architecture_decisions/`). It was **built** from nine source repositories, which are now archived:
 
 | Key | Source repo (archived) | Topic |
 |---|---|---|

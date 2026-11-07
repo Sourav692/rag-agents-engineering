@@ -54,7 +54,7 @@ From Nir Diamant's [RAG_Techniques](https://github.com/NirDiamant/RAG_Techniques
 
 A fork of [FareedKhan-dev/rag-ecosystem](https://github.com/FareedKhan-dev/rag-ecosystem) ([docs/third_party/RAG_Ecosystem_LICENSE.txt](docs/third_party/RAG_Ecosystem_LICENSE.txt)):
 
-- [`p13_design_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb`](p13_design_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb)
+- [`p14_architecture_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb`](p14_architecture_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb)
 
 ## Third-party MCP course material (repo 10)
 

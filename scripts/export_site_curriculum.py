@@ -31,7 +31,7 @@ GH = "https://github.com/Sourav692/rag-agents-engineering/blob/main/"
 VENDORED = "01_Concept_Tutorials/RAG_Agents_Engineering"
 WPM = 180  # the site's reading speed
 LAB_MINUTES = 20  # plan assumption A9
-OPTIONAL_PARTS = {"graph", "capstone"}  # Parts XII and XIII (plan 4.1)
+OPTIONAL_PARTS = {"graph", "adapt", "capstone"}  # Parts XII, XIII and XIV (plan 4.1)
 FIRST_PREREQUISITE = "orientation"  # the site's T0, which every track starts from
 # The site names no vendor platform (owner decision, 2 November 2026), so notebooks that only
 # run on Databricks stay in the course and off the site; the site's import rewrites the prose.

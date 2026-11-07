@@ -48,7 +48,7 @@ Only the first call touches the network; every later call reads the cache, and a
 ## How it connects
 
 - **Before:** [M02](../../../m02_llm_apis_and_model_selection/mandatory/theory/README.md) calls hosted models and counts their tokens on the bill; this module runs open ones locally and counts tokens against the model's limit. M01 covers the Python and NumPy the notebooks use.
-- **Next:** [M45](../../../../p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/theory/README.md) trains these models instead of only running them. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) sizes chunks, and the token limit here is the ceiling for that size. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) loads `all-MiniLM-L6-v2` with sentence-transformers, and [M18](../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/README.md) loads cross-encoder rerankers from the same cache.
+- **Next:** [M45](../../../../p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/theory/README.md) trains these models instead of only running them. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) sizes chunks, and the token limit here is the ceiling for that size. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) loads `all-MiniLM-L6-v2` with sentence-transformers, and [M18](../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/README.md) loads cross-encoder rerankers from the same cache.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

@@ -1,9 +1,9 @@
 # RAG & Agents Engineering
 
-From Python and your first LLM call to retrieval, advanced agents, a memory layer, multi-agent systems, agent protocols and GraphRAG: **13 parts, 46 modules, 227 lessons, 382 notebooks**, ordered as one course. About 216 hours over 26 weeks.
+From Python and your first LLM call to retrieval, advanced agents, a memory layer, multi-agent systems, agent protocols and GraphRAG: **14 parts, 46 modules, 227 lessons, 382 notebooks**, ordered as one course. About 216 hours over 26 weeks.
 
 - **Syllabus:** [CURRICULUM.md](CURRICULUM.md), or open [docs/site/index.html](docs/site/index.html) in a browser for the interactive version (course map, filters, progress tracking).
-- **Course folders:** one folder per part at the repo root, from [`p01_ai_engineering_foundations/`](p01_ai_engineering_foundations/README.md) to [`p13_design_decisions/`](p13_design_decisions/README.md), with one folder per module inside.
+- **Course folders:** one folder per part at the repo root, from [`p01_ai_engineering_foundations/`](p01_ai_engineering_foundations/README.md) to [`p14_architecture_decisions/`](p14_architecture_decisions/README.md), with one folder per module inside.
 - **Theory:** [THEORY.md](THEORY.md) lists every module's theory page, its lesson pages and the interactive labs.
 - **Capstones:** [capstones/](capstones/README.md).
 - **Reference:** [agentic architecture coverage](docs/agentic-architecture-coverage.md) (all 35 architectures from all-agentic-architectures, mapped to course notebooks) and [how this repo is built](docs/combined-repo.md). Both have interactive pages in [docs/site/](docs/site/).
@@ -38,7 +38,7 @@ p01_ai_engineering_foundations/
     ├── lab/                   # the module lab: README.md, solution/m01_solution.ipynb, data/
     ├── projects/              # runnable sub-projects (MCP servers and clients) where the module has them
     └── assets/
-p02_prompt_engineering/ … p13_design_decisions/
+p02_prompt_engineering/ … p14_architecture_decisions/
 ```
 
 - **Mandatory vs optional:** 211 notebooks are mandatory and complete every lab. The other 171 are **alternate** (same idea, another source or API), **platform-specific** (Databricks, Astra DB, Postgres, Milvus, Contextual AI, AutoTrain, GPU video models, ColPali) or **extension** (extra practice and refreshers).
@@ -60,7 +60,8 @@ p02_prompt_engineering/ … p13_design_decisions/
 | X | Multi-Agent Systems | 19 to 21 | M35 to M37 |
 | XI | Agent Protocols: MCP & A2A | 21 to 23 | M38 to M41 |
 | XII | Knowledge Graphs & GraphRAG | 23 to 25 | M42 to M44 |
-| XIII | Design Decisions: Model Adaptation & Architecture | 25 to 26 | M45 to M46 + capstone |
+| XIII | Fine-Tuning & Model Adaptation | 25 | M45 |
+| XIV | Architecture Decisions | 26 | M46 + capstone |
 
 ## Optional dependency groups
 
