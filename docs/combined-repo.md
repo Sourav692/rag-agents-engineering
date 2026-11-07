@@ -4,7 +4,7 @@
 
 The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09, 10) combined into one public course repository, `Sourav692/rag-agents-engineering`, organised by the RAG & Agents Engineering curriculum.
 
-**Status: built and in use.** 13 parts · 46 modules · 382 notebooks (211 mandatory, 171 optional) · about 216 h. Operating model: **Option A**, this repo canonical.
+**Status: built and in use.** 14 parts · 46 modules · 382 notebooks (211 mandatory, 171 optional) · about 216 h. Operating model: **Option A**, this repo canonical.
 
 ## Decision
 
@@ -12,7 +12,7 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 
 ### What the combined repo gives
 
-- **One learning path.** 13 parts and 46 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Architecture Synthesis: Choosing a System Design (M46).
+- **One learning path.** 14 parts and 46 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Architecture Synthesis: Choosing a System Design (M46).
 - **Tiers visible on disk.** mandatory/notebook/ holds the 211 mandatory notebooks; optional/notebook/ and projects/ hold the other 171.
 - **One environment.** One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts.
 - **Every notebook placed once.** All 382 notebooks from the 9 source repos sit in exactly one lesson; the tests enforce it.
@@ -97,8 +97,9 @@ rag-agents-engineering/
 │   ├── m42_hierarchical_memory_rag/  # 2 mandatory · 1 optional
 │   ├── m43_knowledge_graphs_neo4j/  # 6 mandatory · 1 optional
 │   └── m44_graphrag/  # 2 mandatory · 2 optional
-├── p13_design_decisions/  # Part XIII · Weeks 25–26
-│   ├── m45_fine_tuning_model_adaptation/  # 5 mandatory · 8 optional
+├── p13_fine_tuning/  # Part XIII · Week 25
+│   └── m45_fine_tuning_model_adaptation/  # 5 mandatory · 8 optional
+├── p14_architecture_decisions/  # Part XIV · Week 26
 │   └── m46_architecture_synthesis/  # 1 mandatory · 0 optional
 ├── capstones/                 # Enterprise Knowledge Assistant, Customer-Support Routing Copilot, Multi-Agent Research Analyst, Research GraphRAG Explorer
 ├── src/                       # helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, pointed at the part folders)

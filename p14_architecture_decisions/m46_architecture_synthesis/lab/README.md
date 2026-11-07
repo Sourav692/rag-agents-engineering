@@ -23,13 +23,13 @@ Code cells appear only where a claim can be checked on the Larkspur golden set:
 
 What to watch: hit rate is scored on the 25 golden questions with evidence, so one question moves it by 0.04. Treat a small difference between two rows as a tie and keep the cheaper component.
 
-**The row that depends on M45.** The last row, RAG or fine-tune, takes its decision from the [M45 lab verdict](../../m45_fine_tuning_model_adaptation/lab/README.md#verdict). Until that verdict exists the row reads *pending the M45 verdict*.
+**The row that depends on M45.** The last row, RAG or fine-tune, takes its decision from the [M45 lab verdict](../../../p13_fine_tuning/m45_fine_tuning_model_adaptation/lab/README.md#verdict). Until that verdict exists the row reads *pending the M45 verdict*.
 
 ## How to run
 
 ```bash
 uv sync
-uv run jupyter lab p13_design_decisions/m46_architecture_synthesis/lab/solution/m46_solution.ipynb
+uv run jupyter lab p14_architecture_decisions/m46_architecture_synthesis/lab/solution/m46_solution.ipynb
 ```
 
 Keys: sections 1, 2 and 4 run offline with no keys. Section 3 needs `DATABRICKS_HOST` and `DATABRICKS_TOKEN` for the default embeddings.

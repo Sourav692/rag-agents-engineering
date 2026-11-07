@@ -24,7 +24,8 @@ DONE_PARTS: set[str] = {
     "p10_multi_agent_systems",
     "p11_agent_protocols",
     "p12_knowledge_graphs_and_graph_rag",
-    "p13_design_decisions",
+    "p13_fine_tuning",
+    "p14_architecture_decisions",
 }
 
 ROOT = Path(__file__).resolve().parent.parent

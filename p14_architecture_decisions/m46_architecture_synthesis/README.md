@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part XIII · Design Decisions: Model Adaptation & Architecture** · **Level:** Expert · **Time:** ~3 h · **Notebooks:** 2 mandatory, 0 optional
+**Part XIV · Architecture Decisions** · **Level:** Expert · **Time:** ~3 h · **Notebooks:** 2 mandatory, 0 optional
 
 ## Why it matters
 

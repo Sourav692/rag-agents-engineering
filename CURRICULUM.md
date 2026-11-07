@@ -20,7 +20,7 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 
 | Parts | Modules | Lessons | Notebooks mapped | Mandatory | Optional | Suggested effort | Pace |
 |---|---|---|---|---|---|---|---|
-| 13 | 46 + capstone | 227 | 382 | 211 | 171 | ~216 hours | 26 weeks at ~8 h/week |
+| 14 | 46 + capstone | 227 | 382 | 211 | 171 | ~216 hours | 26 weeks at ~8 h/week |
 
 ## Who this course is for
 
@@ -110,7 +110,8 @@ flowchart LR
 | X | Multi-Agent Systems | Weeks 19–21 | Expert | M35, M36, M37 |
 | XI | Agent Protocols: MCP & A2A | Weeks 21–23 | Advanced | M38, M39, M40, M41 |
 | XII | Knowledge Graphs & GraphRAG | Weeks 23–25 | Expert | M42, M43, M44 |
-| XIII | Design Decisions: Model Adaptation & Architecture | Weeks 25–26 | Expert | M45, M46, Capstone |
+| XIII | Fine-Tuning & Model Adaptation | Week 25 | Expert | M45 |
+| XIV | Architecture Decisions | Week 26 | Expert | M46, Capstone |
 
 ---
 
@@ -1394,9 +1395,9 @@ flowchart LR
 
 ---
 
-## Part XIII — Design Decisions: Model Adaptation & Architecture
+## Part XIII — Fine-Tuning & Model Adaptation
 
-**Weeks 25–26 · Expert** — Two decisions that close the course: whether to fine-tune or retrieve, then which architecture to build for the capstone and why each component beats a simpler one.
+**Week 25 · Expert** — Whether to fine-tune or retrieve: when a model needs new behaviour rather than new facts, and how to adapt one through instruction tuning, data preparation, training and evaluation.
 
 ### Module 45 — Fine-Tuning & Model Adaptation
 
@@ -1415,17 +1416,25 @@ flowchart LR
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 45.1 | Why fine-tune | [`01a_why_finetuning_lab`](p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/notebook/01_why_finetune/01a_why_finetuning_lab.ipynb) | [`01b_why_finetuning_lecture`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/01_why_finetune/01b_why_finetuning_lecture.ipynb) *(alternate)* |
-| 45.2 | Where fine-tuning fits *(optional lesson)* | — | [`02a_where_finetuning_fits_in_lab`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/02_where_finetuning_fits/02a_where_finetuning_fits_in_lab.ipynb) *(extension)*<br>[`02b_where_finetuning_fits_in_lecture`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/02_where_finetuning_fits/02b_where_finetuning_fits_in_lecture.ipynb) *(alternate)* |
-| 45.3 | Instruction tuning | [`03a_instruction_tuning_lab`](p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/notebook/03_instruction_tuning/03a_instruction_tuning_lab.ipynb) | [`03b_instruction_tuning_lecture`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/03_instruction_tuning/03b_instruction_tuning_lecture.ipynb) *(alternate)* |
-| 45.4 | Data preparation | [`04a_data_preparation_lab`](p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/notebook/04_data_preparation/04a_data_preparation_lab.ipynb) | [`04b_data_preparation_lecture`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/04_data_preparation/04b_data_preparation_lecture.ipynb) *(alternate)* |
-| 45.5 | Training | [`05a_training_lab`](p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/notebook/05_training/05a_training_lab.ipynb) | [`05b_training_lecture`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/05_training/05b_training_lecture.ipynb) *(alternate)* |
-| 45.6 | Evaluation | [`06a_evaluation_lab`](p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/notebook/06_evaluation/06a_evaluation_lab.ipynb) | [`06b_evaluation_lecture`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/06_evaluation/06b_evaluation_lecture.ipynb) *(alternate)* |
-| 45.7 | Fine-tuning Llama 2 with AutoTrain *(optional lesson)* | — | [`07a_3_ways_fine_tuning_llama_2_with_autotrain`](p13_design_decisions/m45_fine_tuning_model_adaptation/optional/notebook/07_llama2_autotrain/07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb) *(platform-specific)* |
+| 45.1 | Why fine-tune | [`01a_why_finetuning_lab`](p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/notebook/01_why_finetune/01a_why_finetuning_lab.ipynb) | [`01b_why_finetuning_lecture`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/01_why_finetune/01b_why_finetuning_lecture.ipynb) *(alternate)* |
+| 45.2 | Where fine-tuning fits *(optional lesson)* | — | [`02a_where_finetuning_fits_in_lab`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/02_where_finetuning_fits/02a_where_finetuning_fits_in_lab.ipynb) *(extension)*<br>[`02b_where_finetuning_fits_in_lecture`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/02_where_finetuning_fits/02b_where_finetuning_fits_in_lecture.ipynb) *(alternate)* |
+| 45.3 | Instruction tuning | [`03a_instruction_tuning_lab`](p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/notebook/03_instruction_tuning/03a_instruction_tuning_lab.ipynb) | [`03b_instruction_tuning_lecture`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/03_instruction_tuning/03b_instruction_tuning_lecture.ipynb) *(alternate)* |
+| 45.4 | Data preparation | [`04a_data_preparation_lab`](p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/notebook/04_data_preparation/04a_data_preparation_lab.ipynb) | [`04b_data_preparation_lecture`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/04_data_preparation/04b_data_preparation_lecture.ipynb) *(alternate)* |
+| 45.5 | Training | [`05a_training_lab`](p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/notebook/05_training/05a_training_lab.ipynb) | [`05b_training_lecture`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/05_training/05b_training_lecture.ipynb) *(alternate)* |
+| 45.6 | Evaluation | [`06a_evaluation_lab`](p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/notebook/06_evaluation/06a_evaluation_lab.ipynb) | [`06b_evaluation_lecture`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/06_evaluation/06b_evaluation_lecture.ipynb) *(alternate)* |
+| 45.7 | Fine-tuning Llama 2 with AutoTrain *(optional lesson)* | — | [`07a_3_ways_fine_tuning_llama_2_with_autotrain`](p13_fine_tuning/m45_fine_tuning_model_adaptation/optional/notebook/07_llama2_autotrain/07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb) *(platform-specific)* |
 
 **Hands-on lab.** RAG or fine-tune: for one narrow task, compare the M10 RAG baseline with a small fine-tuned model on the same questions and write down which wins and why.
 
 **Key concepts:** Instruction tuning · Data preparation · Trainer · Evaluation
+
+**Part XIII checkpoint:** concept quiz plus one design question (for example, “Your hit rate is fine but answers are wrong — which stage do you inspect first and why?”).
+
+---
+
+## Part XIV — Architecture Decisions
+
+**Week 26 · Expert** — The decision that closes the course: which architecture to build for the capstone, and why each component beats a simpler one.
 
 ### Module 46 — Architecture Synthesis: Choosing a System Design
 
@@ -1443,19 +1452,19 @@ flowchart LR
 
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
-| 46.1 | The agentic RAG architecture map | [`01a_AGENTIC_RAG_ARCHITECTURES`](p13_design_decisions/m46_architecture_synthesis/mandatory/notebook/01a_AGENTIC_RAG_ARCHITECTURES.md) | — |
-| 46.2 | End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS) | [`02a_rag_ecosystem`](p13_design_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb) | — |
+| 46.1 | The agentic RAG architecture map | [`01a_AGENTIC_RAG_ARCHITECTURES`](p14_architecture_decisions/m46_architecture_synthesis/mandatory/notebook/01a_AGENTIC_RAG_ARCHITECTURES.md) | — |
+| 46.2 | End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS) | [`02a_rag_ecosystem`](p14_architecture_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb) | — |
 | 46.3 | Decision framework: picking the simplest architecture that works | *Lecture / discussion* | — |
 
 **Hands-on lab.** Architecture review: write a two-page design document for your capstone that justifies each component against a simpler alternative.
 
 **Key concepts:** Architecture selection · Complexity budget · Late interaction (ColBERT) · End-to-end evaluation
 
-**Part XIII checkpoint:** concept quiz plus one design question (for example, “Your hit rate is fine but answers are wrong — which stage do you inspect first and why?”).
+**Part XIV checkpoint:** concept quiz plus one design question (for example, “Your hit rate is fine but answers are wrong — which stage do you inspect first and why?”).
 
 ---
 
-## Capstone projects (Weeks 25–26, ~12 h)
+## Capstone projects (Week 26, ~12 h)
 
 Pick one. Each capstone must ship a working system, an evaluation report against a golden question set, and a 10-minute demo.
 

@@ -27,7 +27,7 @@ What to watch: a 101-row dataset and a small model can memorise phrasings withou
 
 ```bash
 uv sync --group hf-foundations
-uv run --group hf-foundations jupyter lab p13_design_decisions/m45_fine_tuning_model_adaptation/lab/solution/m45_solution.ipynb
+uv run --group hf-foundations jupyter lab p13_fine_tuning/m45_fine_tuning_model_adaptation/lab/solution/m45_solution.ipynb
 ```
 
 Keys: `EXPERIENTIALLABS_API_KEY` (RAG answers and the judge). The first run downloads `google/flan-t5-small` from the Hugging Face Hub; training runs on a CPU.
@@ -55,6 +55,6 @@ After changing the refund window to 3 to 5 business days:
 
 ## Verdict
 
-*Pending run.* The verdict is written from the tables above with the rule in the solution's Verdict cell: the fine-tuned model replaces retrieval only if it matches the RAG baseline's judged-correct count, declines both unanswerable questions, and survives the fact change. [M46](../../m46_architecture_synthesis/lab/README.md) takes its RAG or fine-tune row from this verdict.
+*Pending run.* The verdict is written from the tables above with the rule in the solution's Verdict cell: the fine-tuned model replaces retrieval only if it matches the RAG baseline's judged-correct count, declines both unanswerable questions, and survives the fact change. [M46](../../../p14_architecture_decisions/m46_architecture_synthesis/lab/README.md) takes its RAG or fine-tune row from this verdict.
 
 Back to the module: [README.md](../README.md)
