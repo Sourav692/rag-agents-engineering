@@ -8,7 +8,13 @@ so scripts/restructure_part.py can copy the old files into the v2 layout.
 Production topics (evaluation, observability, guardrails, security) are not in v2: they belong to the
 Production AI Engineering track, outlined in CURRICULUM.production-ai.md.
 """
-import copy
+import sys
+
+# Retired in Phase 6 (plan/phase-6-switch.md): its input, the v1 curriculum.yaml, was replaced by the v2
+# curriculum it wrote, which is now curriculum.yaml and hand-maintained. Kept as the record of how v2 was made.
+sys.exit("plan/make_curriculum_v2.py is retired: curriculum.yaml is v2 since the Phase 6 switch")
+
+import copy  # noqa: E402
 import re
 import sys
 from collections import Counter

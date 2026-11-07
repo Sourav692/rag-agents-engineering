@@ -11,12 +11,14 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 from check_links import broken_links  # noqa: E402
-from curriculum_lib import COURSE_DIR, TIERS, items, lesson_folder, load, theory_dir  # noqa: E402
+from curriculum_lib import PART_GLOB, TIERS, items, lesson_folder, load, theory_dir  # noqa: E402
 
 CUR = load()
 ITEMS = items(CUR)
+# Lesson notebooks: every notebook in a part folder except the lab solutions, which are not lesson items.
 COURSE_NOTEBOOKS = sorted(
-    p.relative_to(ROOT).as_posix() for p in (ROOT / COURSE_DIR).rglob("*.ipynb") if ".ipynb_checkpoints" not in p.parts
+    p.relative_to(ROOT).as_posix() for p in ROOT.glob(f"{PART_GLOB}/**/*.ipynb")
+    if ".ipynb_checkpoints" not in p.parts and "lab" not in p.relative_to(ROOT).parts[2:3]
 )
 
 
@@ -34,12 +36,10 @@ def test_every_course_notebook_is_in_exactly_one_lesson():
 def test_tiers_and_folders_agree():
     assert all(it.tier in TIERS for it in ITEMS)
     for it in ITEMS:
-        top = it.folder.split("/")[0]
-        assert top in ("notebooks", "optional", "exercises", "projects"), it.dest
-        if top == "notebooks":
-            assert it.tier == "mandatory", it.dest
-        if top == "optional":
-            assert it.tier != "mandatory", it.dest
+        parts = it.folder.split("/")
+        assert parts[:2] in (["mandatory", "notebook"], ["optional", "notebook"]) or it.folder == "projects", it.dest
+        if parts[0] != "projects":
+            assert (parts[0] == "mandatory") == (it.tier == "mandatory"), it.dest
 
 
 def test_modules_are_numbered_in_order():

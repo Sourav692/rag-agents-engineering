@@ -1,7 +1,13 @@
 """Shared helpers for reading curriculum.yaml.
 
-Every script in scripts/ and every test goes through this module, so the rules for
-where a file comes from and where it lands live in one place.
+Every script in scripts/ and every test goes through this module, so the rules for where a file
+lives are in one place. One folder per part at the repo root:
+
+    <part>/<module>/{mandatory,optional}/notebook/   items (`folder` names it) and their helper files
+    <part>/<module>/projects/                        runnable sub-projects
+    <part>/<module>/mandatory/theory/                module page, index.html, module diagrams, lesson pages
+    <part>/<module>/optional/theory/                 pages of lessons whose notebooks are all optional
+    <part>/<module>/lab/                             brief, solution/ and data/ (hand-maintained)
 """
 from __future__ import annotations
 
@@ -13,14 +19,14 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 CURRICULUM = ROOT / "curriculum.yaml"
-COURSE_DIR = "course"
-THEORY_DIR = "theory"
+PART_GLOB = "p[0-9][0-9]_*"  # the part folders at the repo root
+THEORY_INDEX = "THEORY.md"  # generated index of every theory page
 TIERS = ("mandatory", "alternate", "platform", "extension")
 
 
 @dataclass(frozen=True)
 class Item:
-    """One source file (notebook, script or folder) placed in one lesson."""
+    """One file (notebook, script or folder) placed in one lesson."""
 
     module: dict
     lesson_no: int  # 0 for the module lab notebook
@@ -28,12 +34,12 @@ class Item:
     repo: str  # source repo key, e.g. "05"
     source_path: str  # path relative to the source repo root
     tier: str
-    folder: str  # notebooks | optional | exercises
+    folder: str  # mandatory/notebook | optional/notebook (either with a subfolder) | projects
     file: str
 
     @property
     def dest(self) -> str:
-        """Path of the copied file relative to the course repo root."""
+        """Path of the file relative to the repo root."""
         return f"{module_dir(self.module)}/{self.folder}/{self.file}"
 
     @property
@@ -43,11 +49,6 @@ class Item:
     @property
     def is_notebook(self) -> bool:
         return self.source_path.endswith(".ipynb")
-
-    @property
-    def source_dir(self) -> str:
-        """Folder holding the source file; its other files travel with it."""
-        return self.source_path.rsplit("/", 1)[0]
 
 
 _PART_FOLDER: dict[str, str] = {}
@@ -61,17 +62,35 @@ def load(path: Path = CURRICULUM) -> dict:
 
 
 def module_dir(module: dict) -> str:
-    return f"{COURSE_DIR}/{_PART_FOLDER[module['part']]}/{module['folder']}"
+    return f"{_PART_FOLDER[module['part']]}/{module['folder']}"
 
 
 def theory_dir(module: dict) -> str:
-    """theory/ mirrors course/: theory/<part folder>/<module folder>."""
-    return f"{THEORY_DIR}/{_PART_FOLDER[module['part']]}/{module['folder']}"
+    """The folder of the module page (README.md, index.html and module diagrams)."""
+    return f"{module_dir(module)}/mandatory/theory"
 
 
 def lesson_folder(n: int, title: str) -> str:
     """A lesson's theory folder: lesson number and slugged title, e.g. 03_numpy_pandas_and_matplotlib."""
     return f"{n:02d}_{re.sub(r'[^a-z0-9]+', '_', title.lower()).strip('_')}"
+
+
+def lesson_tier(lesson: dict) -> str:
+    """`optional` when the lesson has items and none is mandatory, else `mandatory`."""
+    its = lesson["items"]
+    return "optional" if its and all(it["tier"] != "mandatory" for it in its) else "mandatory"
+
+
+def lesson_dir(module: dict, n: int) -> str:
+    """Theory folder of lesson n (1-based): <module>/<tier>/theory/<NN>_<slug of title>."""
+    les = module["lessons"][n - 1]
+    return f"{module_dir(module)}/{lesson_tier(les)}/theory/{lesson_folder(n, les['title'])}"
+
+
+def lesson_pages(module: dict) -> dict[int, str]:
+    """Lesson number -> its theory page, for the lessons that have one."""
+    return {n: f"{lesson_dir(module, n)}/README.md" for n in range(1, len(module["lessons"]) + 1)
+            if (ROOT / lesson_dir(module, n) / "README.md").exists()}
 
 
 def items(cur: dict) -> list[Item]:
@@ -90,10 +109,6 @@ def _item(m: dict, n: int, title: str, it: dict) -> Item:
     if it["tier"] not in TIERS:
         raise ValueError(f"{it['source']}: unknown tier {it['tier']!r}")
     return Item(m, n, title, repo, path, it["tier"], it["folder"], it["file"])
-
-
-def source_root(cur: dict, sources_dir: Path, repo: str) -> Path:
-    return sources_dir / cur["sources"][repo]["repo"]
 
 
 def source_module(path: str) -> str:
