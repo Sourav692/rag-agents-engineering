@@ -1,6 +1,6 @@
 # M12.2 Theory: Semantic chunking: breakpoints on embedding distance
 
-*[M12 theory](../README.md) · Lesson 12.2 · Notebooks: [`02a_semantic_chunking.ipynb`](../../notebook/02a_semantic_chunking.ipynb), [`02b_semantic_chunking_walkthrough.ipynb`](../../../optional/notebook/02b_semantic_chunking_walkthrough.ipynb) (optional), [`02c_semantic_chunking_rag_techniques.ipynb`](../../../optional/notebook/02c_semantic_chunking_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M12 theory](../README.md) · Lesson 12.2 · Notebooks: [`02a_semantic_chunking.ipynb`](../../notebook/02a_semantic_chunking.ipynb), [`02b_semantic_chunking_walkthrough.ipynb`](../../../optional/notebook/02b_semantic_chunking_walkthrough.ipynb) (optional), [`02c_semantic_chunking_rag_techniques.ipynb`](../../../optional/notebook/02c_semantic_chunking_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Breakpoint threshold
 

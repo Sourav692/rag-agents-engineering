@@ -1,6 +1,6 @@
 # M07.4 Theory: Inputs and outputs: messages, LLM vs chat model
 
-*[M06 theory](../README.md) · Lesson 6.4 · Notebooks: [`04a_LangChain_Inputs_and_Outputs.ipynb`](../../notebook/04a_LangChain_Inputs_and_Outputs.ipynb), [`04b_LLM_vs_ChatModel.ipynb`](../../notebook/04b_LLM_vs_ChatModel.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M06 theory](../README.md) · Lesson 6.4 · Notebooks: [`04a_LangChain_Inputs_and_Outputs.ipynb`](../../notebook/04a_LangChain_Inputs_and_Outputs.ipynb), [`04b_LLM_vs_ChatModel.ipynb`](../../notebook/04b_LLM_vs_ChatModel.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Messages
 

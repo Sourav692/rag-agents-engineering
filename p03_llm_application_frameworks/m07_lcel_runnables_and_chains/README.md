@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part III · LangChain & LangGraph Fundamentals** · **Level:** Foundation · **Time:** ~3 h · **Notebooks:** 7 mandatory, 5 optional
+**Part III · LLM Application Frameworks: LangChain & LangGraph** · **Level:** Foundation · **Time:** ~3 h · **Notebooks:** 7 mandatory, 5 optional
 
 ## Why it matters
 
@@ -43,26 +43,27 @@ Chain rewrite: rebuild one legacy chain as LCEL, add a branch that routes short 
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_LCEL_Introduction.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/01_LCEL_Introduction.ipynb` |
-| `notebooks/01b_Runnables.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/02_Runnables.ipynb` |
-| `notebooks/02a_LCEL_Deepdive.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/03_LCEL_Deepdive.ipynb` |
-| `optional/02b_LCEL_and_Runnables.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/04_LCEL_and_Runnables.ipynb` |
-| `notebooks/03a_Branching_Routing_Merging_Chains.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/05_Branching_Routing_Merging_Chains.ipynb` |
-| `notebooks/04a_Chain_Migrations.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/04_Chain_Migrations.ipynb` |
-| `optional/04b_Basics_of_Chains.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/01_Basics_of_Chains.ipynb` |
-| `optional/04c_Chains_Basics_and_OutputParsers.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/02_Chains_Basics_and_OutputParsers.ipynb` |
-| `optional/04d_Advanced_Chains.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/03_Advanced_Chains.ipynb` |
-| `optional/04e_Chain_Migration_Advanced.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/05_Chain_Migration_Advanced.ipynb` |
-| `notebooks/05a_Summarization_Essentials.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/05_summarization/notebooks/01_Summarization_Essentials.ipynb` |
-| `notebooks/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/05_summarization/notebooks/02_Doc_Chains_to_LCEL_LangChain_v1.ipynb` |
+| `mandatory/notebook/01a_LCEL_Introduction.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/01_LCEL_Introduction.ipynb` |
+| `mandatory/notebook/01b_Runnables.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/02_Runnables.ipynb` |
+| `mandatory/notebook/02a_LCEL_Deepdive.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/03_LCEL_Deepdive.ipynb` |
+| `optional/notebook/02b_LCEL_and_Runnables.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/04_LCEL_and_Runnables.ipynb` |
+| `mandatory/notebook/03a_Branching_Routing_Merging_Chains.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/03_lcel_and_runnables/notebooks/05_Branching_Routing_Merging_Chains.ipynb` |
+| `mandatory/notebook/04a_Chain_Migrations.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/04_Chain_Migrations.ipynb` |
+| `optional/notebook/04b_Basics_of_Chains.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/01_Basics_of_Chains.ipynb` |
+| `optional/notebook/04c_Chains_Basics_and_OutputParsers.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/02_Chains_Basics_and_OutputParsers.ipynb` |
+| `optional/notebook/04d_Advanced_Chains.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/03_Advanced_Chains.ipynb` |
+| `optional/notebook/04e_Chain_Migration_Advanced.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/04_legacy_chains_and_migration/notebooks/05_Chain_Migration_Advanced.ipynb` |
+| `mandatory/notebook/05a_Summarization_Essentials.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/05_summarization/notebooks/01_Summarization_Essentials.ipynb` |
+| `mandatory/notebook/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb` | `ai-engineering-demystified-03-langchain-fundamentals` | `modules/05_summarization/notebooks/02_Doc_Chains_to_LCEL_LangChain_v1.ipynb` |

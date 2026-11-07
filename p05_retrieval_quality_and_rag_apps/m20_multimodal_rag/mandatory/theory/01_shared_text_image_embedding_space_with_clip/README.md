@@ -1,6 +1,6 @@
 # M20.1 Theory: Shared text–image embedding space with CLIP
 
-*[M20 theory](../README.md) · Lesson 20.1 · Notebooks: [`01a_multimodal_rag_with_clip.ipynb`](../../notebook/01a_multimodal_rag_with_clip.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M20 theory](../README.md) · Lesson 20.1 · Notebooks: [`01a_multimodal_rag_with_clip.ipynb`](../../notebook/01a_multimodal_rag_with_clip.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Joint embedding space
 
@@ -16,7 +16,7 @@ def embed_text(text):
 
 `embed_image` does the same with `get_image_features`. Indexing walks each PDF page with PyMuPDF: `page.get_text()` goes through a `RecursiveCharacterTextSplitter` (500 characters, overlap 100) and each chunk is embedded with `embed_text`; every image from `page.get_images()` is embedded with `embed_image`, stored as base64 for the answer model, and indexed as a stub Document `"[Image: page_0_img_0]"` with `type: "image"` in its metadata. All vectors go into one FAISS index through `FAISS.from_embeddings(..., embedding=None)`. FAISS ranks by L2 distance, which on unit vectors orders results the same way as cosine.
 
-At query time the question goes through `embed_text`, `similarity_search_by_vector` returns the top 5, and `create_multimodal_message` builds one `HumanMessage` for `gpt-4.1`: the text chunks as text parts, each retrieved image as an `image_url` part with a base64 data URL ([M05](../../../../../theory/p02_prompt_engineering/m06_multimodal_prompting/README.md) covers that format).
+At query time the question goes through `embed_text`, `similarity_search_by_vector` returns the top 5, and `create_multimodal_message` builds one `HumanMessage` for `gpt-4.1`: the text chunks as text parts, each retrieved image as an `image_url` part with a base64 data URL ([M05](../../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/README.md) covers that format).
 
 Both encoders have hard input limits, and both matter for documents:
 

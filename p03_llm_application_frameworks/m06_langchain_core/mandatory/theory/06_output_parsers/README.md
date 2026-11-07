@@ -1,6 +1,6 @@
 # M07.6 Theory: Output parsers
 
-*[M06 theory](../README.md) · Lesson 6.6 · Notebooks: [`06a_Output_Parser.ipynb`](../../notebook/06a_Output_Parser.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M06 theory](../README.md) · Lesson 6.6 · Notebooks: [`06a_Output_Parser.ipynb`](../../notebook/06a_Output_Parser.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Output parsers
 

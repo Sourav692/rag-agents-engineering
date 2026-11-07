@@ -1,6 +1,6 @@
 # M14.3 Theory: Managed stores: Astra DB and Pinecone
 
-*[M14 theory](../README.md) · Lesson 14.3 · Notebooks: [`03b_pinecone.ipynb`](../../notebook/03b_pinecone.ipynb), [`03a_astra_db.ipynb`](../../../optional/notebook/03a_astra_db.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M14 theory](../README.md) · Lesson 14.3 · Notebooks: [`03b_pinecone.ipynb`](../../notebook/03b_pinecone.ipynb), [`03a_astra_db.ipynb`](../../../optional/notebook/03a_astra_db.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Collections and namespaces
 

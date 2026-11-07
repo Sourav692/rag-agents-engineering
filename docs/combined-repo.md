@@ -4,7 +4,7 @@
 
 The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09, 10) combined into one public course repository, `Sourav692/rag-agents-engineering`, organised by the RAG & Agents Engineering curriculum.
 
-**Status: built and in use.** 13 parts · 45 modules · 382 notebooks (211 mandatory, 171 optional) · about 214 h. Operating model: **Option A**, this repo canonical.
+**Status: built and in use.** 13 parts · 46 modules · 382 notebooks (211 mandatory, 171 optional) · about 216 h. Operating model: **Option A**, this repo canonical.
 
 ## Decision
 
@@ -12,8 +12,8 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 
 ### What the combined repo gives
 
-- **One learning path.** 13 parts and 45 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Agentic RAG Architectures: Choosing a Design (M45).
-- **Tiers visible on disk.** notebooks/ holds the 211 mandatory notebooks; optional/, exercises/ and projects/ hold the other 171.
+- **One learning path.** 13 parts and 46 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Architecture Synthesis: Choosing a System Design (M46).
+- **Tiers visible on disk.** mandatory/notebook/ holds the 211 mandatory notebooks; optional/notebook/ and projects/ hold the other 171.
 - **One environment.** One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts.
 - **Every notebook placed once.** All 382 notebooks from the 9 source repos sit in exactly one lesson; the tests enforce it.
 - **Course-only content.** Module labs, 4 capstones, an interactive syllabus and a provenance CSV that the topic repos never had.
@@ -35,73 +35,73 @@ rag-agents-engineering/
 ├── README.md                  # Landing page: parts table, quick start, dependency groups
 ├── CLAUDE.md                  # Operating rules (Option A: this repo is canonical), migration history
 ├── CURRICULUM.md              # Full syllabus, generated from curriculum.yaml
-├── curriculum.yaml            # Single source of truth: parts, modules, lessons, every source file with tier and destination
+├── THEORY.md                  # Index of every theory page and lab, generated
+├── curriculum.yaml            # Single source of truth: parts, modules, lessons, every file with its tier, folder and source
 ├── pyproject.toml / uv.lock   # One environment; optional dependency groups with declared uv conflicts
 ├── .env.example               # Union of the 9 source repos' keys, each annotated with the repos that use it
 ├── LICENSE                    # MIT for original content
 ├── NOTICE.md                  # Third-party terms, generated: RAG Techniques anthology (non-commercial), RAG Ecosystem, third-party MCP course material, GPL-3.0 MCP client labs
-├── course/
-│   ├── p01_ai_engineering_foundations/  # Part I · Weeks 1–2
-│   │   ├── m01_python_data_refresher/  # 3 mandatory · 11 optional
-│   │   ├── m02_llm_apis_and_model_selection/  # 4 mandatory · 1 optional
-│   │   ├── m03_hugging_face_models/  # 5 mandatory · 16 optional
-│   │   └── m04_fine_tuning_fundamentals/  # 5 mandatory · 8 optional
-│   ├── p02_prompt_engineering/  # Part II · Week 3
-│   │   ├── m05_prompt_engineering_patterns/  # 4 mandatory · 3 optional
-│   │   └── m06_multimodal_prompting/  # 1 mandatory · 2 optional
-│   ├── p03_langchain_and_langgraph/  # Part III · Weeks 4–5
-│   │   ├── m07_langchain_core/  # 9 mandatory · 13 optional
-│   │   ├── m08_lcel_runnables_and_chains/  # 7 mandatory · 5 optional
-│   │   ├── m09_langgraph_core/  # 10 mandatory · 0 optional
-│   │   └── m10_langgraph_runtime/  # 9 mandatory · 0 optional
-│   ├── p04_rag_foundations/  # Part IV · Week 6
-│   │   └── m11_rag_lifecycle/  # 4 mandatory · 0 optional
-│   ├── p05_ingestion_and_indexing/  # Part V · Weeks 7–9
-│   │   ├── m12_document_ingestion/  # 4 mandatory · 9 optional
-│   │   ├── m13_chunking/  # 4 mandatory · 6 optional
-│   │   ├── m14_embeddings/  # 4 mandatory · 4 optional
-│   │   ├── m15_vector_stores/  # 6 mandatory · 4 optional
-│   │   └── m16_advanced_indexing/  # 6 mandatory · 2 optional
-│   ├── p06_retrieval_quality/  # Part VI · Weeks 10–11
-│   │   ├── m17_retrievers_hybrid_search/  # 6 mandatory · 2 optional
-│   │   ├── m18_query_transformation/  # 9 mandatory · 6 optional
-│   │   └── m19_reranking_post_retrieval/  # 5 mandatory · 2 optional
-│   ├── p07_rag_applications/  # Part VII · Week 12
-│   │   ├── m20_end_to_end_rag_systems/  # 8 mandatory · 3 optional
-│   │   ├── m21_multimodal_rag/  # 2 mandatory · 1 optional
-│   │   └── m22_llamaindex/  # 4 mandatory · 1 optional
-│   ├── p08_agent_foundations/  # Part VIII · Weeks 13–15
-│   │   ├── m23_agent_loop_and_tools/  # 7 mandatory · 4 optional
-│   │   ├── m24_react_agents/  # 6 mandatory · 7 optional
-│   │   ├── m25_agentic_workflow_patterns/  # 8 mandatory · 5 optional
-│   │   ├── m26_planning_reflection_reasoning/  # 8 mandatory · 9 optional
-│   │   └── m27_human_approval_applied_agents/  # 4 mandatory · 6 optional
-│   ├── p09_agentic_rag/  # Part IX · Weeks 16–17
-│   │   ├── m28_retrieval_grading_rewriting/  # 2 mandatory · 1 optional
-│   │   ├── m29_crag_and_self_rag/  # 2 mandatory · 2 optional
-│   │   ├── m30_adaptive_rag_routing/  # 3 mandatory · 2 optional
-│   │   ├── m31_rag_as_agent_tool/  # 1 mandatory · 1 optional
-│   │   └── m32_reliability_feedback/  # 2 mandatory · 1 optional
-│   ├── p10_memory_and_multi_agent/  # Part X · Weeks 18–20
-│   │   ├── m33_conversational_memory_rag/  # 7 mandatory · 3 optional
-│   │   ├── m34_long_term_agentic_memory/  # 6 mandatory · 5 optional
-│   │   ├── m35_multi_agent_architectures/  # 6 mandatory · 3 optional
-│   │   ├── m36_collaboration_parallel_agents/  # 4 mandatory · 5 optional
-│   │   └── m37_multi_agent_builds_deep_agents/  # 6 mandatory · 13 optional
-│   ├── p11_agent_protocols/  # Part XI · Weeks 21–22
-│   │   ├── m38_mcp_foundations/  # 6 mandatory · 1 optional
-│   │   ├── m39_building_mcp_servers_and_clients/  # 0 mandatory · 0 optional
-│   │   ├── m40_mcp_applications/  # 0 mandatory · 0 optional
-│   │   └── m41_a2a_protocol/  # 3 mandatory · 0 optional
-│   ├── p12_hierarchical_and_graph_rag/  # Part XII · Weeks 23–24
-│   │   ├── m42_hierarchical_memory_rag/  # 2 mandatory · 1 optional
-│   │   ├── m43_knowledge_graphs_neo4j/  # 6 mandatory · 1 optional
-│   │   └── m44_graphrag/  # 2 mandatory · 2 optional
-│   └── p13_architecture_and_capstone/  # Part XIII · Weeks 25–26
-│       └── m45_architecture_synthesis/  # 1 mandatory · 0 optional
+├── p01_ai_engineering_foundations/  # Part I · Weeks 1–2
+│   ├── m01_python_data_refresher/  # 3 mandatory · 11 optional
+│   ├── m02_llm_apis_and_model_selection/  # 4 mandatory · 1 optional
+│   └── m03_hugging_face_models/  # 5 mandatory · 16 optional
+├── p02_prompt_engineering/  # Part II · Week 2
+│   ├── m04_prompt_engineering_patterns/  # 4 mandatory · 3 optional
+│   └── m05_multimodal_prompting/  # 1 mandatory · 2 optional
+├── p03_llm_application_frameworks/  # Part III · Weeks 2–4
+│   ├── m06_langchain_core/  # 9 mandatory · 13 optional
+│   ├── m07_lcel_runnables_and_chains/  # 7 mandatory · 5 optional
+│   ├── m08_langgraph_core/  # 10 mandatory · 0 optional
+│   └── m09_langgraph_runtime/  # 9 mandatory · 0 optional
+├── p04_rag_foundations/  # Part IV · Weeks 4–8
+│   ├── m10_rag_lifecycle/  # 4 mandatory · 0 optional
+│   ├── m11_document_ingestion/  # 4 mandatory · 9 optional
+│   ├── m12_chunking/  # 4 mandatory · 6 optional
+│   ├── m13_embeddings/  # 4 mandatory · 4 optional
+│   ├── m14_vector_stores/  # 6 mandatory · 4 optional
+│   └── m15_advanced_indexing/  # 6 mandatory · 2 optional
+├── p05_retrieval_quality_and_rag_apps/  # Part V · Weeks 8–11
+│   ├── m16_retrievers_hybrid_search/  # 6 mandatory · 2 optional
+│   ├── m17_query_transformation/  # 9 mandatory · 6 optional
+│   ├── m18_reranking_post_retrieval/  # 5 mandatory · 2 optional
+│   ├── m19_end_to_end_rag_systems/  # 8 mandatory · 3 optional
+│   ├── m20_multimodal_rag/  # 2 mandatory · 1 optional
+│   └── m21_llamaindex/  # 4 mandatory · 1 optional
+├── p06_agent_foundations/  # Part VI · Weeks 12–13
+│   ├── m22_agent_loop_and_tools/  # 7 mandatory · 4 optional
+│   ├── m23_react_agents/  # 5 mandatory · 4 optional
+│   └── m24_agentic_workflow_patterns/  # 8 mandatory · 5 optional
+├── p07_advanced_agents/  # Part VII · Weeks 14–15
+│   ├── m25_planning_reflection_reasoning/  # 8 mandatory · 9 optional
+│   ├── m26_coding_computer_use_and_deep_agents/  # 1 mandatory · 4 optional
+│   └── m27_human_approval_applied_agents/  # 4 mandatory · 6 optional
+├── p08_agentic_rag/  # Part VIII · Weeks 16–18
+│   ├── m28_retrieval_grading_rewriting/  # 2 mandatory · 1 optional
+│   ├── m29_crag_and_self_rag/  # 2 mandatory · 2 optional
+│   ├── m30_adaptive_rag_routing/  # 3 mandatory · 2 optional
+│   ├── m31_rag_as_agent_tool/  # 1 mandatory · 1 optional
+│   └── m32_reliability_feedback/  # 2 mandatory · 1 optional
+├── p09_memory_layer/  # Part IX · Weeks 18–19
+│   ├── m33_short_term_memory_conversation_state/  # 7 mandatory · 3 optional
+│   └── m34_long_term_agentic_memory/  # 6 mandatory · 5 optional
+├── p10_multi_agent_systems/  # Part X · Weeks 19–21
+│   ├── m35_multi_agent_architectures/  # 6 mandatory · 3 optional
+│   ├── m36_collaboration_parallel_agents/  # 4 mandatory · 5 optional
+│   └── m37_multi_agent_applied_builds/  # 6 mandatory · 12 optional
+├── p11_agent_protocols/  # Part XI · Weeks 21–23
+│   ├── m38_mcp_foundations/  # 6 mandatory · 1 optional
+│   ├── m39_building_mcp_servers_and_clients/  # 0 mandatory · 0 optional
+│   ├── m40_mcp_applications/  # 0 mandatory · 0 optional
+│   └── m41_a2a_protocol/  # 3 mandatory · 0 optional
+├── p12_knowledge_graphs_and_graph_rag/  # Part XII · Weeks 23–25
+│   ├── m42_hierarchical_memory_rag/  # 2 mandatory · 1 optional
+│   ├── m43_knowledge_graphs_neo4j/  # 6 mandatory · 1 optional
+│   └── m44_graphrag/  # 2 mandatory · 2 optional
+├── p13_design_decisions/  # Part XIII · Weeks 25–26
+│   ├── m45_fine_tuning_model_adaptation/  # 5 mandatory · 8 optional
+│   └── m46_architecture_synthesis/  # 1 mandatory · 0 optional
 ├── capstones/                 # Enterprise Knowledge Assistant, Customer-Support Routing Copilot, Multi-Agent Research Analyst, Research GraphRAG Explorer
-├── theory/                    # Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs
-├── src/                       # helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, rewritten to course/ paths)
+├── src/                       # helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, pointed at the part folders)
 ├── data/                      # Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)
 ├── docs/                      # site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md
 ├── scripts/                   # migrate.py (retired: the one-time copy from the source repos, kept as history), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets
@@ -111,19 +111,20 @@ rag-agents-engineering/
 
 ### Conventions
 
-- **Folders follow the syllabus:** `course/pNN_<part>/mNN_<module>/`, numbered M01–M45 as in the curriculum.
-- **Tiers are folders:** `notebooks/` is the mandatory track; `optional/` holds alternate, platform-specific and extension notebooks; `exercises/` holds exercises; `projects/` holds runnable MCP sub-projects.
+- **Folders follow the syllabus:** `pNN_<part>/mNN_<module>/` at the repo root, numbered M01 to M46 as in the curriculum.
+- **Tiers are folders:** `mandatory/notebook/` is the mandatory track; `optional/notebook/` holds alternate, platform-specific, extension and exercise notebooks; `projects/` holds runnable MCP sub-projects. Theory pages sit in `mandatory/theory/` and `optional/theory/` by the same rule.
 - **File names carry the lesson:** `03b_parallelization_sectioning_and_voting.ipynb` is lesson 3, second item, so a lesson's mandatory and optional notebooks sort side by side.
-- **Every module has README.md and lab/README.md:** generated from `curriculum.yaml`.
+- **Every module has README.md and lab/:** the README is generated from `curriculum.yaml`; `lab/README.md`, `lab/solution/` and `lab/data/` are hand-maintained.
 - **Provenance:** `docs/content-inventory.csv` maps every copied file to its source repo and path; source docs are archived under `docs/source/<key>/`.
 
-### Example: M25 Agentic Workflow Patterns
+### Example: M24 Agentic Workflow Patterns
 
 ```text
-m25_agentic_workflow_patterns/
-├── README.md        # objectives, lessons, tiers, sources
-├── lab/README.md    # the module lab
-├── notebooks/
+m24_agentic_workflow_patterns/
+├── README.md          # objectives, lessons, tiers, sources
+├── lab/               # brief (README.md), solution/ and data/
+├── mandatory/theory/  # module page, index.html, pages of lessons with a mandatory notebook
+├── mandatory/notebook/
 │   ├── 01a_prompt_chaining_langgraph.ipynb
 │   ├── 02a_routing_langgraph.ipynb
 │   ├── 02b_routing_by_model_tier.ipynb
@@ -132,7 +133,7 @@ m25_agentic_workflow_patterns/
 │   ├── 04a_orchestrator_worker_send_api.ipynb
 │   ├── 05a_evaluator_optimizer_langgraph.ipynb
 │   └── 05b_evaluator_optimizer_lcel.ipynb
-└── optional/
+└── optional/notebook/
     ├── 01b_prompt_chaining_structured_output.ipynb  # extension
     ├── 01c_prompt_chaining_lcel.ipynb  # alternate
     ├── 02c_routing_lcel_runnable_branch.ipynb  # alternate
@@ -144,16 +145,17 @@ m25_agentic_workflow_patterns/
 
 ```text
 m38_mcp_foundations/
-├── README.md        # objectives, lessons, tiers, sources
-├── lab/README.md    # the module lab
-├── notebooks/
+├── README.md          # objectives, lessons, tiers, sources
+├── lab/               # brief (README.md), solution/ and data/
+├── mandatory/theory/  # module page, index.html, pages of lessons with a mandatory notebook
+├── mandatory/notebook/
 │   ├── 01a_chatbot_example.ipynb
 │   ├── 02a_creating_an_mcp_server.ipynb
 │   ├── 03a_creating_an_mcp_client.ipynb
 │   ├── 04a_connecting_to_reference_servers.ipynb
 │   ├── 05a_adding_prompt_and_resource_features.ipynb
 │   └── 06a_creating_and_deploying_remote_servers.ipynb
-├── optional/
+├── optional/notebook/
 │   └── 01b_chatbot_example_openai_walkthrough.ipynb  # alternate
 └── projects/
     ├── lesson4_research_server
@@ -171,11 +173,11 @@ m38_mcp_foundations/
 | Group | Contents | Needed by |
 |---|---|---|
 | `(default)` | LangChain 1.x, LangGraph, OpenAI, Chroma, FAISS, BM25, Jupyter | Every Part |
-| `hf-foundations` | Hugging Face media models, Gradio, fine-tuning (torch) | M03–M04 |
-| `document-parsing` | Unstructured loaders, NLTK/spaCy splitters | M12–M13 |
+| `hf-foundations` | Hugging Face media models, Gradio, fine-tuning (torch) | M03, M45 |
+| `document-parsing` | Unstructured loaders, NLTK/spaCy splitters | M11–M12 |
 | `hf` | Hugging Face embeddings, cross-encoders, CLIP, MarianMT (torch) | Retrieval and multimodal modules |
-| `colpali` | ColPali page retrieval; conflicts with hf and hf-foundations | M21 (optional) |
-| `llamaindex` | LlamaIndex notebooks and the Chainlit exercise | M22 and alternates |
+| `colpali` | ColPali page retrieval; conflicts with hf and hf-foundations | M20 (optional) |
+| `llamaindex` | LlamaIndex notebooks and the Chainlit exercise | M21 and alternates |
 | `vendors` | Pinecone, Astra DB, Cohere, Gemini, Contextual AI | Platform-specific notebooks |
 | `databricks` | Databricks Vector Search, MLflow, SQL | Platform-specific notebooks |
 | `protocols` | MCP and A2A SDKs | M38–M41 |
@@ -183,7 +185,7 @@ m38_mcp_foundations/
 | `graph` | Neo4j, Milvus, spaCy concept extraction | M43–M44 |
 | `msgraphrag` | Microsoft GraphRAG | M44 |
 | `local-models` | Ollama, sentence-transformers | M44 |
-| `rag-ecosystem` | ColBERT and RAGAS cells | M45 |
+| `rag-ecosystem` | ColBERT and RAGAS cells | M46 |
 | `apps` | Streamlit apps | Applied builds |
 | `finance` | OpenBB finance agents; conflicts with protocols, mcp-labs and mcp-apps | Applied multi-agent builds |
 
@@ -203,7 +205,7 @@ m38_mcp_foundations/
 - Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.
 - Companion files were copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. After the switch to Option A, the 24 copies each of helper_functions.py and evalute_rag.py became one-line shims over src/rag_techniques/.
 - Paths are rewritten to the new depth rather than routed through a data_dir() helper, for the same reason.
-- Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use notebooks/05_training and similar).
+- Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use mandatory/notebook/05_training and similar).
 - MCP sub-projects keep their source names under projects/, because repo 10 notebooks write into ../projects/<name>/.
 
 ## Final sync (history)

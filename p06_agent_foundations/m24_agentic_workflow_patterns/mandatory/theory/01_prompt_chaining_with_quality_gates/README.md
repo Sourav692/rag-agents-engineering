@@ -1,6 +1,6 @@
 # M24.1 Theory: Prompt chaining with quality gates
 
-*[M24 theory](../README.md) · Lesson 24.1 · Notebooks: [`01a_prompt_chaining_langgraph.ipynb`](../../notebook/01a_prompt_chaining_langgraph.ipynb), [`01b_prompt_chaining_structured_output.ipynb`](../../../optional/notebook/01b_prompt_chaining_structured_output.ipynb) (optional), [`01c_prompt_chaining_lcel.ipynb`](../../../optional/notebook/01c_prompt_chaining_lcel.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M24 theory](../README.md) · Lesson 24.1 · Notebooks: [`01a_prompt_chaining_langgraph.ipynb`](../../notebook/01a_prompt_chaining_langgraph.ipynb), [`01b_prompt_chaining_structured_output.ipynb`](../../../optional/notebook/01b_prompt_chaining_structured_output.ipynb) (optional), [`01c_prompt_chaining_lcel.ipynb`](../../../optional/notebook/01c_prompt_chaining_lcel.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Workflow vs agent
 
@@ -24,11 +24,11 @@ Each workflow pattern hands the model exactly one kind of decision, and keeps th
 
 | Pattern | Code fixes | The model decides |
 |---|---|---|
-| Prompt chaining (25.1) | the order of the steps | each step's content, and a gate's verdict |
-| Routing (25.2) | the set of handlers | which single handler runs |
-| Parallelization (25.3) | the branches and the merge | each branch's content, each vote |
-| Orchestrator-worker (25.4) | the worker's job and the merge | how many workers run, and what each one gets |
-| Evaluator-optimizer (25.5) | the criteria and the iteration cap | the grade, and so whether to go round again |
+| Prompt chaining (24.1) | the order of the steps | each step's content, and a gate's verdict |
+| Routing (24.2) | the set of handlers | which single handler runs |
+| Parallelization (24.3) | the branches and the merge | each branch's content, each vote |
+| Orchestrator-worker (24.4) | the worker's job and the merge | how many workers run, and what each one gets |
+| Evaluator-optimizer (24.5) | the criteria and the iteration cap | the grade, and so whether to go round again |
 
 The lesson 24.1 graph shows how little the model controls. `get_graph()` prints five nodes and eight edges. Three edges are conditional, and all three leave the gate. Everything else is a fixed `add_edge`. A Larkspur refund reply has the same shape: pull the plan and the purchase date out of the ticket, check them, draft, polish. A question nobody drew a path for, such as investigating why one customer's servers keep rebooting, is where an agent earns its extra calls.
 

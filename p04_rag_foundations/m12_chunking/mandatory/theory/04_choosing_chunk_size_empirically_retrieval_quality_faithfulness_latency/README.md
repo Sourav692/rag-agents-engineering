@@ -1,6 +1,6 @@
 # M12.4 Theory: Choosing chunk size empirically: retrieval quality, faithfulness, latency
 
-*[M12 theory](../README.md) · Lesson 12.4 · Notebooks: [`04a_choosing_chunk_size.ipynb`](../../notebook/04a_choosing_chunk_size.ipynb), [`04b_choose_chunk_size_llamaindex.ipynb`](../../../optional/notebook/04b_choose_chunk_size_llamaindex.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M12 theory](../README.md) · Lesson 12.4 · Notebooks: [`04a_choosing_chunk_size.ipynb`](../../notebook/04a_choosing_chunk_size.ipynb), [`04b_choose_chunk_size_llamaindex.ipynb`](../../../optional/notebook/04b_choose_chunk_size_llamaindex.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Choosing chunk size
 

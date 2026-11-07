@@ -1,6 +1,6 @@
 # M11.3 Theory: Semi-structured sources: CSV rows and JSON / JSONL with jq schemas
 
-*[M11 theory](../../../mandatory/theory/README.md) · Lesson 11.3 · Notebooks: [`03a_csv_loader.ipynb`](../../notebook/03a_csv_loader.ipynb) (optional), [`03b_json_loader.ipynb`](../../notebook/03b_json_loader.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M11 theory](../../../mandatory/theory/README.md) · Lesson 11.3 · Notebooks: [`03a_csv_loader.ipynb`](../../notebook/03a_csv_loader.ipynb) (optional), [`03b_json_loader.ipynb`](../../notebook/03b_json_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## One record, one Document
 

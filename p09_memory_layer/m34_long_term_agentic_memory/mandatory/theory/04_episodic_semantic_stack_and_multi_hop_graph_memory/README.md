@@ -1,6 +1,6 @@
 # M34.4 Theory: Episodic + semantic stack and multi-hop graph memory
 
-*[M34 theory](../README.md) · Lesson 34.4 · Notebooks: [`04a_episodic_with_semantic_memory.ipynb`](../../notebook/04a_episodic_with_semantic_memory.ipynb), [`04b_graph_memory_multi_hop.ipynb`](../../../optional/notebook/04b_graph_memory_multi_hop.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M34 theory](../README.md) · Lesson 34.4 · Notebooks: [`04a_episodic_with_semantic_memory.ipynb`](../../notebook/04a_episodic_with_semantic_memory.ipynb), [`04b_graph_memory_multi_hop.ipynb`](../../../optional/notebook/04b_graph_memory_multi_hop.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Recall by similarity
 

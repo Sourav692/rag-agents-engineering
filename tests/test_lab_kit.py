@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from lab_kit import baseline, hit_rate, load_handbook, load_jsonl, mrr, normalise, recall_at_k, tfidf_retriever  # noqa: E402
 
 LARKSPUR = ROOT / "data/larkspur"
-TOPK_LAB = ROOT / ("theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours"
+TOPK_LAB = ROOT / ("p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours"
                    "/interactive/top-k-retrieval-lab.html")
 
 

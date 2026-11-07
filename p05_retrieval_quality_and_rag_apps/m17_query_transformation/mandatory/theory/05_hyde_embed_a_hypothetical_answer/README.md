@@ -1,6 +1,6 @@
 # M17.5 Theory: HyDE: embed a hypothetical answer
 
-*[M17 theory](../README.md) · Lesson 17.5 · Notebooks: [`05a_hyde.ipynb`](../../notebook/05a_hyde.ipynb), [`05b_hyde_walkthrough.ipynb`](../../../optional/notebook/05b_hyde_walkthrough.ipynb) (optional), [`05c_hyde_rag_techniques.ipynb`](../../../optional/notebook/05c_hyde_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M17 theory](../README.md) · Lesson 17.5 · Notebooks: [`05a_hyde.ipynb`](../../notebook/05a_hyde.ipynb), [`05b_hyde_walkthrough.ipynb`](../../../optional/notebook/05b_hyde_walkthrough.ipynb) (optional), [`05c_hyde_rag_techniques.ipynb`](../../../optional/notebook/05c_hyde_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## HyDE
 

@@ -1,6 +1,6 @@
 # M23.4 Theory: Middleware, including human-in-the-loop
 
-*[M23 theory](../README.md) · Lesson 23.4 · Notebooks: [`04a_middleware.ipynb`](../../notebook/04a_middleware.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M23 theory](../README.md) · Lesson 23.4 · Notebooks: [`04a_middleware.ipynb`](../../notebook/04a_middleware.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Middleware
 

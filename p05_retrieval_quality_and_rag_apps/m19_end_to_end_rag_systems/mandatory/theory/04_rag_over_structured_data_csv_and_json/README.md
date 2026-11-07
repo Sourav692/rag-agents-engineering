@@ -1,6 +1,6 @@
 # M19.4 Theory: RAG over structured data: CSV and JSON
 
-*[M19 theory](../README.md) · Lesson 19.4 · Notebooks: [`04a_structured_data_rag.ipynb`](../../notebook/04a_structured_data_rag.ipynb), [`04b_simple_csv_rag.ipynb`](../../../optional/notebook/04b_simple_csv_rag.ipynb) (optional), [`04c_json_rag.ipynb`](../../../optional/notebook/04c_json_rag.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M19 theory](../README.md) · Lesson 19.4 · Notebooks: [`04a_structured_data_rag.ipynb`](../../notebook/04a_structured_data_rag.ipynb), [`04b_simple_csv_rag.ipynb`](../../../optional/notebook/04b_simple_csv_rag.ipynb) (optional), [`04c_json_rag.ipynb`](../../../optional/notebook/04c_json_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Record representation
 
@@ -27,7 +27,7 @@ The lab measures what the choice does with real `all-MiniLM-L6-v2` scores:
 - **Fields dilute the vector.** For *A server for a memory-hungry database*, the description-only index ranks `ls-mem-4` (0.733) and `ls-mem-2` (0.626) first, 0.115 ahead of the third row. Embed every column and the two still lead, but `ls-mem-2` (0.464491) beats the general-purpose `ls-small` (0.464116) by 0.0004. The names and numbers in each string pull every row towards every other.
 - **Ids in the text make lookups a coin toss.** For *Tell me about ls-cpu-8.*, the description never names the server, so similarity matches "cpu" to "CPU cores" and ranks the sibling `ls-cpu-4` first (0.535 against 0.517). With every column embedded, `ls-cpu-8` wins by 0.050 (0.708 against 0.659). Neither is a lookup; `store.get(ids=["ls-cpu-8"])` is.
 
-Two details from the notebook make the split work. `row_to_document` casts every number with `int()` before it goes into metadata, because a range filter compares numbers and `CSVLoader` returns strings ([M11.3](../../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md)). And the context sent to the model adds the metadata back: its `format_docs` prints address, price, bedrooms and year after each description, so the model can quote a price it could not search on.
+Two details from the notebook make the split work. `row_to_document` casts every number with `int()` before it goes into metadata, because a range filter compares numbers and `CSVLoader` returns strings ([M11.3](../../../../../p04_rag_foundations/m11_document_ingestion/optional/theory/03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md)). And the context sent to the model adds the metadata back: its `format_docs` prints address, price, bedrooms and year after each description, so the model can quote a price it could not search on.
 
 The rule is a default. "Built in 1962" carries meaning a buyer might search for, in a way "295000" does not; judge each field by whether its value has meaning or only magnitude.
 

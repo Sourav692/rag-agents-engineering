@@ -1,6 +1,6 @@
 # M38.5 Theory: Prompts and resources
 
-*[M38 theory](../README.md) · Lesson 38.5 · Notebooks: [`05a_adding_prompt_and_resource_features.ipynb`](../../notebook/05a_adding_prompt_and_resource_features.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M38 theory](../README.md) · Lesson 38.5 · Notebooks: [`05a_adding_prompt_and_resource_features.ipynb`](../../notebook/05a_adding_prompt_and_resource_features.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Tools, resources, prompts
 

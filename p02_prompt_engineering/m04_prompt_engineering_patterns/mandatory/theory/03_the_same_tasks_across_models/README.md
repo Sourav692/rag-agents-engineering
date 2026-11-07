@@ -1,6 +1,6 @@
 # M05.3 Theory: The same tasks across models
 
-*[M04 theory](../README.md) · Lesson 4.3 · Notebooks: [`03a_openai_gpt_4o_mini.ipynb`](../../notebook/03a_openai_gpt_4o_mini.ipynb), [`03b_google_gemini_1_5_flash.ipynb`](../../../optional/notebook/03b_google_gemini_1_5_flash.ipynb) (optional), [`03c_meta_llama_3_2_90b_groq.ipynb`](../../../optional/notebook/03c_meta_llama_3_2_90b_groq.ipynb) (optional), [`03d_meta_llama_3_2_1b_huggingface.ipynb`](../../../optional/notebook/03d_meta_llama_3_2_1b_huggingface.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M04 theory](../README.md) · Lesson 4.3 · Notebooks: [`03a_openai_gpt_4o_mini.ipynb`](../../notebook/03a_openai_gpt_4o_mini.ipynb), [`03b_google_gemini_1_5_flash.ipynb`](../../../optional/notebook/03b_google_gemini_1_5_flash.ipynb) (optional), [`03c_meta_llama_3_2_90b_groq.ipynb`](../../../optional/notebook/03c_meta_llama_3_2_90b_groq.ipynb) (optional), [`03d_meta_llama_3_2_1b_huggingface.ipynb`](../../../optional/notebook/03d_meta_llama_3_2_1b_huggingface.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## One prompt set across four APIs
 

@@ -1,6 +1,6 @@
 # M01.6 Theory: Concurrency: threads, processes, the GIL and asyncio (22 runnable scripts)
 
-*[M01 theory](../../../mandatory/theory/README.md) · Lesson 1.6 · Notebooks: [`06a_concurrency_scripts`](../../notebook/06a_concurrency_scripts) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M01 theory](../../../mandatory/theory/README.md) · Lesson 1.6 · Notebooks: [`06a_concurrency_scripts`](../../notebook/06a_concurrency_scripts) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## asyncio
 

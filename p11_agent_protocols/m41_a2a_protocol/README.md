@@ -42,18 +42,19 @@ Agent as a service: put your agentic RAG graph behind A2A and call it from an ag
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_a2a_protocol_basics.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/notebooks/01_a2a_protocol_basics.ipynb` |
-| `notebooks/02a_langgraph_agent_over_a2a.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/notebooks/02_langgraph_agent_over_a2a.ipynb` |
-| `notebooks/03a_cross_framework_agent_interop.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/notebooks/03_cross_framework_agent_interop.ipynb` |
+| `mandatory/notebook/01a_a2a_protocol_basics.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/notebooks/01_a2a_protocol_basics.ipynb` |
+| `mandatory/notebook/02a_langgraph_agent_over_a2a.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/notebooks/02_langgraph_agent_over_a2a.ipynb` |
+| `mandatory/notebook/03a_cross_framework_agent_interop.ipynb` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/notebooks/03_cross_framework_agent_interop.ipynb` |
 | `projects/mcp_a2a_agentic_rag` | `ai-engineering-demystified-10-agent-protocols` | `modules/05_a2a/projects/mcp_a2a_agentic_rag` |

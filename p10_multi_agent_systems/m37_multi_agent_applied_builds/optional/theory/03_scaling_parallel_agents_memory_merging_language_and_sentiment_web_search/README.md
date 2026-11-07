@@ -1,6 +1,6 @@
 # M37.3 Theory: Scaling: parallel agents, memory merging, language and sentiment, web search
 
-*[M37 theory](../../../mandatory/theory/README.md) · Lesson 37.3 · Notebooks: [`03a_hotel_parallel_reservation_agents.ipynb`](../../notebook/03a_hotel_parallel_reservation_agents.ipynb) (optional), [`03b_hotel_merging_and_conversation_memory.ipynb`](../../notebook/03b_hotel_merging_and_conversation_memory.ipynb) (optional), [`03c_hotel_guest_language_and_sentiment.ipynb`](../../notebook/03c_hotel_guest_language_and_sentiment.ipynb) (optional), [`03d_hotel_web_search_integration.ipynb`](../../notebook/03d_hotel_web_search_integration.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M37 theory](../../../mandatory/theory/README.md) · Lesson 37.3 · Notebooks: [`03a_hotel_parallel_reservation_agents.ipynb`](../../notebook/03a_hotel_parallel_reservation_agents.ipynb) (optional), [`03b_hotel_merging_and_conversation_memory.ipynb`](../../notebook/03b_hotel_merging_and_conversation_memory.ipynb) (optional), [`03c_hotel_guest_language_and_sentiment.ipynb`](../../notebook/03c_hotel_guest_language_and_sentiment.ipynb) (optional), [`03d_hotel_web_search_integration.ipynb`](../../notebook/03d_hotel_web_search_integration.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Memory merging
 

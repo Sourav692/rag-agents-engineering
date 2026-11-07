@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part V · The Ingestion & Indexing Pipeline** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 4 mandatory, 9 optional
+**Part IV · RAG Foundations: Ingestion & Indexing** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 4 mandatory, 9 optional
 
 ## Why it matters
 
@@ -44,27 +44,28 @@ Multi-source ingestor: load a mixed folder (PDF, DOCX, Markdown, CSV, one web pa
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_document_loading_and_metadata.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/01_document_loading_and_metadata.ipynb` |
-| `optional/01b_document_loaders_overview.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/13_document_loaders_overview.ipynb` |
-| `optional/02a_text_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/02_text_loader.ipynb` |
-| `optional/02b_markdown_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/03_markdown_loader.ipynb` |
-| `optional/03a_csv_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/04_csv_loader.ipynb` |
-| `optional/03b_json_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/05_json_loader.ipynb` |
-| `notebooks/04a_pdf_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/06_pdf_loader.ipynb` |
-| `optional/04b_ms_word_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/07_ms_word_loader.ipynb` |
-| `notebooks/05a_url_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/10_url_loader.ipynb` |
-| `optional/05b_youtube_transcript_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/09_youtube_transcript_loader.ipynb` |
-| `optional/05c_research_paper_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/11_research_paper_loader.ipynb` |
-| `optional/05d_directory_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/08_directory_loader.ipynb` |
-| `notebooks/06a_custom_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/12_custom_loader.ipynb` |
+| `mandatory/notebook/01a_document_loading_and_metadata.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/01_document_loading_and_metadata.ipynb` |
+| `optional/notebook/01b_document_loaders_overview.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/13_document_loaders_overview.ipynb` |
+| `optional/notebook/02a_text_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/02_text_loader.ipynb` |
+| `optional/notebook/02b_markdown_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/03_markdown_loader.ipynb` |
+| `optional/notebook/03a_csv_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/04_csv_loader.ipynb` |
+| `optional/notebook/03b_json_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/05_json_loader.ipynb` |
+| `mandatory/notebook/04a_pdf_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/06_pdf_loader.ipynb` |
+| `optional/notebook/04b_ms_word_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/07_ms_word_loader.ipynb` |
+| `mandatory/notebook/05a_url_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/10_url_loader.ipynb` |
+| `optional/notebook/05b_youtube_transcript_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/09_youtube_transcript_loader.ipynb` |
+| `optional/notebook/05c_research_paper_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/11_research_paper_loader.ipynb` |
+| `optional/notebook/05d_directory_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/08_directory_loader.ipynb` |
+| `mandatory/notebook/06a_custom_loader.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/02_document_loading/notebooks/12_custom_loader.ipynb` |

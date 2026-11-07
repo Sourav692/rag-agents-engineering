@@ -1,6 +1,6 @@
 # M32.2 Theory: Retrieval with a user-feedback loop
 
-*[M32 theory](../README.md) · Lesson 32.2 · Notebooks: [`02a_retrieval_with_feedback_loop.ipynb`](../../notebook/02a_retrieval_with_feedback_loop.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M32 theory](../README.md) · Lesson 32.2 · Notebooks: [`02a_retrieval_with_feedback_loop.ipynb`](../../notebook/02a_retrieval_with_feedback_loop.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## The feedback re-ranker
 

@@ -1,6 +1,6 @@
 # M40.3 Theory: MCP servers for data analysis
 
-*[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.3 · Notebooks: [`04_mcp_servers_for_data_analysis`](../../../projects/04_mcp_servers_for_data_analysis) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.3 · Notebooks: [`04_mcp_servers_for_data_analysis`](../../../projects/04_mcp_servers_for_data_analysis) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Checking the agent's numbers
 

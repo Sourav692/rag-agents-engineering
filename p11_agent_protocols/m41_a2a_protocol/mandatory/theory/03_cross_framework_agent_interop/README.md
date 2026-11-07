@@ -1,6 +1,6 @@
 # M41.3 Theory: Cross-framework agent interop
 
-*[M41 theory](../README.md) · Lesson 41.3 · Notebooks: [`03a_cross_framework_agent_interop.ipynb`](../../notebook/03a_cross_framework_agent_interop.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M41 theory](../README.md) · Lesson 41.3 · Notebooks: [`03a_cross_framework_agent_interop.ipynb`](../../notebook/03a_cross_framework_agent_interop.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Cross-framework interop
 

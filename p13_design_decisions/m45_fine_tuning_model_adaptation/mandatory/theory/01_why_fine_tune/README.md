@@ -1,6 +1,6 @@
 # M45.1 Theory: Why fine-tune
 
-*[M45 theory](../README.md) · Lesson 45.1 · Notebooks: [`01a_why_finetuning_lab.ipynb`](../../notebook/01_why_finetune/01a_why_finetuning_lab.ipynb), [`01b_why_finetuning_lecture.ipynb`](../../../optional/notebook/01_why_finetune/01b_why_finetuning_lecture.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../README.md) · Lesson 45.1 · Notebooks: [`01a_why_finetuning_lab.ipynb`](../../notebook/01_why_finetune/01a_why_finetuning_lab.ipynb), [`01b_why_finetuning_lecture.ipynb`](../../../optional/notebook/01_why_finetune/01b_why_finetuning_lecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## When to fine-tune
 

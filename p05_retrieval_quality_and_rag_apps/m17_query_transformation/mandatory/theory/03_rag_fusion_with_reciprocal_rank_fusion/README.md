@@ -1,6 +1,6 @@
 # M17.3 Theory: RAG-Fusion with Reciprocal Rank Fusion
 
-*[M17 theory](../README.md) · Lesson 17.3 · Notebooks: [`03a_rag_fusion.ipynb`](../../notebook/03a_rag_fusion.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M17 theory](../README.md) · Lesson 17.3 · Notebooks: [`03a_rag_fusion.ipynb`](../../notebook/03a_rag_fusion.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## RRF
 

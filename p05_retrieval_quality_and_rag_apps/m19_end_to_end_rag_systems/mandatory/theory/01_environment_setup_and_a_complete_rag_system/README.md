@@ -1,6 +1,6 @@
 # M19.1 Theory: Environment setup and a complete RAG system
 
-*[M19 theory](../README.md) · Lesson 19.1 · Notebooks: [`01a_setup.ipynb`](../../notebook/01a_setup.ipynb), [`01b_build_a_simple_rag_system.ipynb`](../../notebook/01b_build_a_simple_rag_system.ipynb), [`01c_simple_rag_pdf.ipynb`](../../../optional/notebook/01c_simple_rag_pdf.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M19 theory](../README.md) · Lesson 19.1 · Notebooks: [`01a_setup.ipynb`](../../notebook/01a_setup.ipynb), [`01b_build_a_simple_rag_system.ipynb`](../../notebook/01b_build_a_simple_rag_system.ipynb), [`01c_simple_rag_pdf.ipynb`](../../../optional/notebook/01c_simple_rag_pdf.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Grounded generation
 
@@ -11,7 +11,7 @@ A grounded answer comes from evidence the system retrieved for this question, an
 | Load | `JSONLoader` reads `wikidata_rag_demo.jsonl` one line per Document; each article's `paragraphs` are joined and `title`, `id` and `source` kept as metadata. `PyMuPDFLoader` reads every PDF in `data/sample/`. |
 | Split | `RecursiveCharacterTextSplitter`, `chunk_size=3500`, `chunk_overlap=200`, for the PDFs. Wikipedia articles stay whole. |
 | Embed | `text-embedding-3-small`, 1,536 dimensions. |
-| Store | Chroma, persisted to `./my_db`, with `collection_metadata={"hnsw:space": "cosine"}`. Without it Chroma uses Euclidean distance ([M10.4](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/04_your_first_langchain_rag_with_chroma/README.md#distance-not-similarity)). |
+| Store | Chroma, persisted to `./my_db`, with `collection_metadata={"hnsw:space": "cosine"}`. Without it Chroma uses Euclidean distance ([M10.4](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/04_your_first_langchain_rag_with_chroma/README.md#distance-not-similarity)). |
 | Retrieve | `as_retriever(search_type="similarity", search_kwargs={"k": 5})`. |
 | Generate | `gpt-4o-mini` at `temperature=0`, with a prompt that restricts it to the retrieved context. |
 
@@ -35,7 +35,7 @@ Grounding rests on three things, and the notebook's prompt has all three:
 
 On the Larkspur handbook, *Can I export my data after I cancel my plan?* retrieves the `export` and `retention` chunks, and the answer should say "within 30 days, from Settings, then Data". *Does Larkspur offer a free tier?* has no chunk in the handbook, so the grounded answer is "I don't know". Whether a given model complies is a property you test: put questions with no answer in the golden set and count the refusals.
 
-The instruction does not guarantee compliance. A model can still blend in outside knowledge or misread a chunk; [M29](../../../../../theory/p09_agentic_rag/m29_crag_and_self_rag/README.md) and [M32](../../../../../theory/p09_agentic_rag/m32_reliability_feedback/README.md) add a second call that grades the answer against its evidence.
+The instruction does not guarantee compliance. A model can still blend in outside knowledge or misread a chunk; [M29](../../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/README.md) and [M32](../../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/README.md) add a second call that grades the answer against its evidence.
 
 ### What this chain throws away
 

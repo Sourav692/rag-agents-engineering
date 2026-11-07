@@ -1,6 +1,6 @@
 # M40.7 Theory: Deploying an MCP server on EC2
 
-*[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.7 · Notebooks: [`08_deploy_mcp_server_on_ec2`](../../../projects/08_deploy_mcp_server_on_ec2) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.7 · Notebooks: [`08_deploy_mcp_server_on_ec2`](../../../projects/08_deploy_mcp_server_on_ec2) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Deployment
 
@@ -66,7 +66,7 @@ Run the complete implementation from the practice material after checking the tr
 
 - [The project's setup notes](../../../projects/08_deploy_mcp_server_on_ec2/anaconda_setup.md).
 - [40.2](../02_mcp_servers_with_claude_desktop/README.md#claude-desktop).
-- [M27](../../../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md).
+- [M27](../../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/README.md).
 
 ## Key Takeaways
 

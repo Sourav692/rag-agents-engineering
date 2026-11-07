@@ -1,6 +1,6 @@
 # M38.2 Theory: Building an MCP server
 
-*[M38 theory](../README.md) · Lesson 38.2 · Notebooks: [`02a_creating_an_mcp_server.ipynb`](../../notebook/02a_creating_an_mcp_server.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M38 theory](../README.md) · Lesson 38.2 · Notebooks: [`02a_creating_an_mcp_server.ipynb`](../../notebook/02a_creating_an_mcp_server.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## From a function to a tool definition
 

@@ -1,6 +1,6 @@
 # M09 Theory: LangGraph runtime
 
-*Part III · LangChain & LangGraph Fundamentals · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part III · LLM Application Frameworks: LangChain & LangGraph · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 M08 builds a graph that runs from start to end in one call. Real workflows stop and start again: a person approves a step hours later, a payment provider times out, a deploy restarts the worker, a user wants to see progress while the graph runs. The M09 notebooks build on four ideas: the checkpointer, `interrupt()`, subgraphs and streaming modes, plus the retry policies, loop bounds and state rules that make a resumed run safe. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -48,7 +48,7 @@ The checkpointer writes after every step. At the gate, the first `invoke` return
 ## How it connects
 
 - **Before:** [M08](../../../m08_langgraph_core/mandatory/theory/README.md) builds the graphs this module pauses and resumes: state, reducers, nodes, conditional edges. M06 and M07 supply the chat models and tools inside the nodes.
-- **Next:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) starts the RAG pipeline these graphs will orchestrate. [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md)'s `HumanInTheLoopMiddleware` and [M27](../../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md)'s approval gate are built on `interrupt()`. [M29](../../../../theory/p09_agentic_rag/m29_crag_and_self_rag/README.md)'s grade-and-retry loops need the bounds from lesson 9.5, [M33](../../../../theory/p10_memory_and_multi_agent/m33_conversational_memory_rag/README.md) keeps conversations in checkpointer threads, and [M35](../../../../theory/p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md) to M37 compose agents as subgraphs.
+- **Next:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) starts the RAG pipeline these graphs will orchestrate. [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md)'s `HumanInTheLoopMiddleware` and [M27](../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/README.md)'s approval gate are built on `interrupt()`. [M29](../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/README.md)'s grade-and-retry loops need the bounds from lesson 9.5, [M33](../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md) keeps conversations in checkpointer threads, and [M35](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md) to M37 compose agents as subgraphs.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
@@ -102,4 +102,4 @@ The checkpointer writes after every step. At the gate, the first `invoke` return
 - Bound every loop twice: a counter that a node increments and the router reads, and an explicit `recursion_limit` as the backstop.
 
 ---
-*Previous: [M08 LangGraph core](../../../m08_langgraph_core/mandatory/theory/README.md). Next: [M10 The RAG lifecycle](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md).*
+*Previous: [M08 LangGraph core](../../../m08_langgraph_core/mandatory/theory/README.md). Next: [M10 The RAG lifecycle](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md).*

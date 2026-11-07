@@ -1,6 +1,6 @@
 # M44.1 Theory: Concept-graph traversal
 
-*[M44 theory](../README.md) · Lesson 44.1 · Notebooks: [`01a_graph_rag.ipynb`](../../notebook/01a_graph_rag.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M44 theory](../README.md) · Lesson 44.1 · Notebooks: [`01a_graph_rag.ipynb`](../../notebook/01a_graph_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chunk graphs and traversal
 

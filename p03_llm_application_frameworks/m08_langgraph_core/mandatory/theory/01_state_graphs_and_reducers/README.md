@@ -1,6 +1,6 @@
 # M09.1 Theory: State, graphs and reducers
 
-*[M08 theory](../README.md) · Lesson 8.1 · Notebooks: [`01a_State_and_Graph_Basics.ipynb`](../../notebook/01a_State_and_Graph_Basics.ipynb), [`01b_MessagesState.ipynb`](../../notebook/01b_MessagesState.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M08 theory](../README.md) · Lesson 8.1 · Notebooks: [`01a_State_and_Graph_Basics.ipynb`](../../notebook/01a_State_and_Graph_Basics.ipynb), [`01b_MessagesState.ipynb`](../../notebook/01b_MessagesState.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## StateGraph
 
@@ -63,7 +63,7 @@ The reducer and what the nodes return have to agree. The [interactive lab](inter
 
 <!-- lab: interactive/reducer-lab.html -->
 
-Reducers matter again when nodes run in parallel. If two nodes in the same step write a key that has no reducer, LangGraph 1.2.18 raises `InvalidUpdateError: At key 'out': Can receive only one value per step`. The fan-out patterns in [M24](../../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) give such keys a reducer, usually `operator.add`.
+Reducers matter again when nodes run in parallel. If two nodes in the same step write a key that has no reducer, LangGraph 1.2.18 raises `InvalidUpdateError: At key 'out': Can receive only one value per step`. The fan-out patterns in [M24](../../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md) give such keys a reducer, usually `operator.add`.
 
 ## Key Takeaways
 

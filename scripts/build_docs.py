@@ -138,7 +138,7 @@ def coverage():
     L = ["# Agentic Architecture Coverage", "", GEN_NOTE.format(extra=" and `docs/agentic-architectures.yaml`"),
          f"Comparison of [all-agentic-architectures]({up}) ({n} architectures) with this course "
          f"({len(MODULES)} modules, {len(SOURCES)} source repos). The architectures are taught by notebooks from repos {repos_txt}; "
-         "paths and module numbers below are the course's (`course/<part>/<module>/<folder>/<file>`).", "",
+         "paths and module numbers below are the course's (`<part>/<module>/<folder>/<file>`).", "",
          "## Verdict", "",
          f"**All {n} architectures are covered.** {counts['full']} have a dedicated notebook, {counts['merged']} is merged into "
          f"another notebook ({merged}), and {counts['adapted']} is taught as an adaptation ({adapted}).", "",
@@ -270,7 +270,7 @@ CHANGED = [
     "Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.",
     "Companion files were copied beside their notebooks, so notebooks stay identical to the source apart from path rewrites. After the switch to Option A, the 24 copies each of helper_functions.py and evalute_rag.py became one-line shims over src/rag_techniques/.",
     "Paths are rewritten to the new depth rather than routed through a data_dir() helper, for the same reason.",
-    "Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use notebooks/05_training and similar).",
+    "Lessons whose companion files would clash get per-lesson subfolders (the fine-tuning lessons use mandatory/notebook/05_training and similar).",
     "MCP sub-projects keep their source names under projects/, because repo 10 notebooks write into ../projects/<name>/.",
 ]
 SYNC = [
@@ -307,7 +307,7 @@ def combined_repo():
         out = defaultdict(list)
         for it in sorted(by_mod[num], key=lambda i: i.dest):
             out[it.folder].append(it)
-        order = ["notebooks", "optional", "exercises", "projects"]
+        order = ["mandatory", "optional", "projects"]
         return sorted(out.items(), key=lambda kv: (order.index(kv[0].split("/")[0]), kv[0]))
 
     def part_mods():
@@ -321,7 +321,8 @@ def combined_repo():
         ("README.md", "Landing page: parts table, quick start, dependency groups"),
         ("CLAUDE.md", "Operating rules (Option A: this repo is canonical), migration history"),
         ("CURRICULUM.md", "Full syllabus, generated from curriculum.yaml"),
-        ("curriculum.yaml", "Single source of truth: parts, modules, lessons, every source file with tier and destination"),
+        ("THEORY.md", "Index of every theory page and lab, generated"),
+        ("curriculum.yaml", "Single source of truth: parts, modules, lessons, every file with its tier, folder and source"),
         ("pyproject.toml / uv.lock", "One environment; optional dependency groups with declared uv conflicts"),
         (".env.example", f"Union of the {n_src} source repos' keys, each annotated with the repos that use it"),
         ("LICENSE", "MIT for original content"),
@@ -329,8 +330,7 @@ def combined_repo():
     ]
     support = [
         ("capstones/", ", ".join(c["title"] for c in CUR["capstones"])),
-        ("theory/", "Hand-written theory pages, one folder per module key: concepts, Mermaid and SVG diagrams, interactive HTML labs"),
-        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, rewritten to course/ paths)"),
+        ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, pointed at the part folders)"),
         ("data/", "Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)"),
         ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, "
                   "content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md"),
@@ -340,7 +340,7 @@ def combined_repo():
     ]
     outcomes = [
         ("One learning path", f"{n_parts} parts and {n_mods} modules in syllabus order, from {MODULES[0]['title']} ({first}) to {MODULES[-1]['title']} ({last})."),
-        ("Tiers visible on disk", f"notebooks/ holds the {n_man} mandatory notebooks; optional/, exercises/ and projects/ hold the other {n_opt}."),
+        ("Tiers visible on disk", f"mandatory/notebook/ holds the {n_man} mandatory notebooks; optional/notebook/ and projects/ hold the other {n_opt}."),
         ("One environment", "One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts."),
         ("Every notebook placed once", f"All {n_nb} notebooks from the {n_src} source repos sit in exactly one lesson; the tests enforce it."),
         ("Course-only content", f"Module labs, {len(CUR['capstones'])} capstones, an interactive syllabus and a provenance CSV that the topic repos never had."),
@@ -355,21 +355,19 @@ def combined_repo():
         ("Drift in reference docs", "Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale."),
     ]
     conventions = [
-        ("Folders follow the syllabus", f"`course/pNN_<part>/mNN_<module>/`, numbered {first}–{last} as in the curriculum."),
-        ("Tiers are folders", "`notebooks/` is the mandatory track; `optional/` holds alternate, platform-specific and extension notebooks; `exercises/` holds exercises; `projects/` holds runnable MCP sub-projects."),
+        ("Folders follow the syllabus", f"`pNN_<part>/mNN_<module>/` at the repo root, numbered {first} to {last} as in the curriculum."),
+        ("Tiers are folders", "`mandatory/notebook/` is the mandatory track; `optional/notebook/` holds alternate, platform-specific, extension and exercise notebooks; `projects/` holds runnable MCP sub-projects. Theory pages sit in `mandatory/theory/` and `optional/theory/` by the same rule."),
         ("File names carry the lesson", "`03b_parallelization_sectioning_and_voting.ipynb` is lesson 3, second item, so a lesson's mandatory and optional notebooks sort side by side."),
-        ("Every module has README.md and lab/README.md", "generated from `curriculum.yaml`."),
+        ("Every module has README.md and lab/", "the README is generated from `curriculum.yaml`; `lab/README.md`, `lab/solution/` and `lab/data/` are hand-maintained."),
         ("Provenance", "`docs/content-inventory.csv` maps every copied file to its source repo and path; source docs are archived under `docs/source/<key>/`."),
     ]
     status = f"{n_parts} parts · {n_mods} modules · {n_nb} notebooks ({n_man} mandatory, {n_opt} optional) · about {hours} h"
 
     def tree_lines():
-        t = [f"{COURSE_REPO}/"] + [f"├── {n:<26} # {d}" for n, d in top] + ["├── course/"]
-        plist = list(part_mods())
-        for pi, (p, mods) in enumerate(plist):
-            lastp = pi == len(plist) - 1
-            t.append(f"│   {'└──' if lastp else '├──'} {p['folder']}/  # Part {p['num']} · {p['weeks']}")
-            ind = "│       " if lastp else "│   │   "
+        t = [f"{COURSE_REPO}/"] + [f"├── {n:<26} # {d}" for n, d in top]
+        for p, mods in part_mods():
+            t.append(f"├── {p['folder']}/  # Part {p['num']} · {p['weeks']}")
+            ind = "│   "
             for mi, m in enumerate(mods):
                 man, opt = counts(m["num"])
                 t.append(f"{ind}{'└── ' if mi == len(mods) - 1 else '├── '}{m['folder']}/  # {man} mandatory · {opt} optional")
@@ -379,7 +377,9 @@ def combined_repo():
 
     def module_detail(num):
         m = MODULES[num - 1]
-        lines = [f"{m['folder']}/", "├── README.md        # objectives, lessons, tiers, sources", "├── lab/README.md    # the module lab"]
+        lines = [f"{m['folder']}/", "├── README.md          # objectives, lessons, tiers, sources",
+                 "├── lab/               # brief (README.md), solution/ and data/",
+                 "├── mandatory/theory/  # module page, index.html, pages of lessons with a mandatory notebook"]
         fl = folders(num)
         for gi, (folder, its) in enumerate(fl):
             lg = gi == len(fl) - 1
@@ -436,16 +436,16 @@ def combined_repo():
          "<div class='tbtns'><button class='tbtn' id='exp'>Expand all</button><button class='tbtn' id='col'>Collapse all</button></div><div class='tree'>",
          f"<div class='row'><span class='dir'>{COURSE_REPO}/</span></div>"]
     H += [f"<div class='row'><span>{E(n)}</span><span class='note'>{E(d)}</span></div>" for n, d in top]
-    H.append("<details open><summary><span class='dir'>course/</span><span class='note'>one folder per Part and module</span></summary>")
     for p, mods in part_mods():
         H.append(f"<details><summary><span class='dir'>{p['folder']}/</span><span class='note'>Part {p['num']} · {E(p['title'])} · {p['weeks']}</span></summary>")
         for m in mods:
             man, opt = counts(m["num"])
             H.append(f"<details><summary><span class='dir'>{m['folder']}/</span><span class='note'>{mref(m['num'])} {E(m['title'])} · {man} mandatory · {opt} optional</span></summary>")
             H.append("<div class='row'><span>README.md</span><span class='note'>objectives, lessons, tiers</span></div>"
-                     "<div class='row'><span>lab/README.md</span><span class='note'>lab brief</span></div>")
+                     "<div class='row'><span>lab/</span><span class='note'>brief, solution/ and data/</span></div>"
+                     "<div class='row'><span>mandatory/theory/</span><span class='note'>module page, index.html, lesson pages</span></div>")
             for folder, its in folders(m["num"]):
-                cls = "fold-core" if folder.startswith("notebooks") else "fold-opt"
+                cls = "fold-core" if folder.startswith("mandatory") else "fold-opt"
                 H.append(f"<details open><summary><span class='dir {cls}'>{E(folder)}/</span><span class='note'>{len(its)} items</span></summary>")
                 for it in its:
                     tag = f"<span class='opt opt-{ {'alternate': 'alt'}.get(it.tier, it.tier)}'>{tiers[it.tier]}</span>" if it.optional else ""
@@ -454,7 +454,6 @@ def combined_repo():
                 H.append("</details>")
             H.append("</details>")
         H.append("</details>")
-    H.append("</details>")
     H += [f"<div class='row'><span class='dir'>{E(n)}</span><span class='note'>{E(d)}</span></div>" for n, d in support]
     H.append("</div></section>")
 

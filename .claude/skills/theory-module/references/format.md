@@ -1,13 +1,13 @@
 # Page formats
 
-Everything here defines the build-sensitive page structure used by M11 (`theory/p04_rag_foundations/m11_rag_lifecycle/`). When in doubt, copy its structural contracts, not its prose density. Apply `tutorial.md` to the learner-facing body within those contracts. `build_theory_html.py` parses some of these lines, so the marked ones are load-bearing.
+Everything here defines the build-sensitive page structure used by M10 (`p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/`). When in doubt, copy its structural contracts, not its prose density. Apply `tutorial.md` to the learner-facing body within those contracts. `build_theory_html.py` parses some of these lines, so the marked ones are load-bearing.
 
-## Module page: `theory/<part>/<module>/README.md`
+## Module page: `<part>/<module>/mandatory/theory/README.md`
 
 ```markdown
 # M14 Theory: Embeddings and model selection                     ← "# M<NN> Theory: <name>"; the HTML h1 uses the text after ": "
 
-*Part V · The Ingestion & Indexing Pipeline · [Module README](../../../course/<part>/<module>/README.md) · [All theory pages](../../README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
                                                                  ← load-bearing: "*Part <roman> · <part title> · [Module README](…)"
 
 <Two or three sentences on what the module is about.> The M14 notebooks build on four ideas: <the concepts in plain words>. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
@@ -73,7 +73,7 @@ Without a lab, drop the `## Interactive lab` section. Section anchors are GitHub
 ```markdown
 # M14.2 Theory: <lesson title from curriculum.yaml, exact>
 
-*[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_x.ipynb`](../../../../course/<part>/<module>/notebooks/02a_x.ipynb), [`02b_y.ipynb`](../../../../course/<part>/<module>/optional/02b_y.ipynb) (optional) · [All theory pages](../../../README.md)*
+*[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_x.ipynb`](../../notebook/02a_x.ipynb), [`02b_y.ipynb`](../../../optional/notebook/02b_y.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
                                                                  ← load-bearing: " · Notebooks: … · [All theory pages]"; leave out "· Notebooks: …" when the lesson has none
 
 ## <Concept, exact text from concepts:>
@@ -104,7 +104,7 @@ Own `viewBox`, a sheet background rect (`#e5eaef`), ink `#060e15`, second ink `#
 
 ## Animated fragment: `diagrams/<name>.anim.html`
 
-Canonical: `theory/p04_rag_foundations/m11_rag_lifecycle/diagrams/lifecycle.anim.html` (stages appearing) and `05_the_rag_lifecycle_and_a_measured_baseline/diagrams/baseline-loop.anim.html` (a marker travelling a loop).
+Canonical: `p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/diagrams/lifecycle.anim.html` (stages appearing) and `05_the_rag_lifecycle_and_a_measured_baseline/diagrams/baseline-loop.anim.html` (a marker travelling a loop).
 
 ```html
 <!-- Animated version of the <name> flowchart in ../README.md, used by index.html. … -->   ← dropped on build
@@ -135,7 +135,7 @@ Classes for shapes and text: `lane`, `lane-label`, `box`, `label`, `small`, `fig
 
 ## Lab file: `<lesson folder>/interactive/<name>.html`
 
-Canonical: `theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html`. Its title is the lab's name everywhere (frame caption, module page button). Its stamp's waivers and dropped-id lines are part of the Hallmark record; write this lab's own. The embedded-mode block:
+Canonical: `p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html`. Its title is the lab's name everywhere (frame caption, module page button). Its stamp's waivers and dropped-id lines are part of the Hallmark record; write this lab's own. The embedded-mode block:
 
 ```html
 html.embedded { --gutter: var(--space-2xs); }

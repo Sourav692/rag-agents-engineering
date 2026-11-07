@@ -1,8 +1,8 @@
-# Part XIII: Design Decisions: Model Adaptation & Architecture
+# Part XIII — Design Decisions: Model Adaptation & Architecture
 
-> Hand-written for the v2 part-folder layout from `curriculum.v2.yaml`. Phase 6 regenerates it.
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Weeks 25 to 26 · Expert**
+**Weeks 25–26 · Expert**
 
 Two decisions that close the course: whether to fine-tune or retrieve, then which architecture to build for the capstone and why each component beats a simpler one.
 

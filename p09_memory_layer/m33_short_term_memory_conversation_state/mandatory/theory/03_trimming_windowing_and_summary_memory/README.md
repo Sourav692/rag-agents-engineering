@@ -1,6 +1,6 @@
 # M33.3 Theory: Trimming, windowing and summary memory
 
-*[M33 theory](../README.md) · Lesson 33.3 · Notebooks: [`03a_trimming_windowing_and_summary.ipynb`](../../notebook/03a_trimming_windowing_and_summary.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M33 theory](../README.md) · Lesson 33.3 · Notebooks: [`03a_trimming_windowing_and_summary.ipynb`](../../notebook/03a_trimming_windowing_and_summary.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Summary memory
 

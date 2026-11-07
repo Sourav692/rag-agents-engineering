@@ -1,10 +1,10 @@
 # M19.2 Theory: Answers with sources and per-claim citations
 
-*[M19 theory](../README.md) · Lesson 19.2 · Notebooks: [`02a_rag_system_with_sources.ipynb`](../../notebook/02a_rag_system_with_sources.ipynb), [`02b_rag_system_with_citations.ipynb`](../../notebook/02b_rag_system_with_citations.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M19 theory](../README.md) · Lesson 19.2 · Notebooks: [`02a_rag_system_with_sources.ipynb`](../../notebook/02a_rag_system_with_sources.ipynb), [`02b_rag_system_with_citations.ipynb`](../../notebook/02b_rag_system_with_citations.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Returning the sources
 
-Both notebooks start with `%run` on the M15 contextual retrieval notebook, [`05b_contextual_retrieval_rag_system.ipynb`](../../../../../course/p05_ingestion_and_indexing/m16_advanced_indexing/notebooks/05b_contextual_retrieval_rag_system.ipynb) ([M15.5](../../../../../theory/p05_ingestion_and_indexing/m16_advanced_indexing/05_context_aware_chunks_contextual_headers_and_contextual_retrieval/README.md#contextual-retrieval)). That run builds the index the citations depend on, and it writes four metadata fields on every chunk:
+Both notebooks start with `%run` on the M15 contextual retrieval notebook, [`05b_contextual_retrieval_rag_system.ipynb`](../../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/05b_contextual_retrieval_rag_system.ipynb) ([M15.5](../../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/theory/05_context_aware_chunks_contextual_headers_and_contextual_retrieval/README.md#contextual-retrieval)). That run builds the index the citations depend on, and it writes four metadata fields on every chunk:
 
 | Field | Wikipedia articles | PDF chunks |
 |---|---|---|

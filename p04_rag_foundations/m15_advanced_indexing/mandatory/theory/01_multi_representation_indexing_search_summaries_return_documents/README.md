@@ -1,6 +1,6 @@
 # M15.1 Theory: Multi-representation indexing: search summaries, return documents
 
-*[M15 theory](../README.md) · Lesson 15.1 · Notebooks: [`01a_multi_representation_indexing.ipynb`](../../notebook/01a_multi_representation_indexing.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M15 theory](../README.md) · Lesson 15.1 · Notebooks: [`01a_multi_representation_indexing.ipynb`](../../notebook/01a_multi_representation_indexing.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Search key vs payload
 

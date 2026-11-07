@@ -1,6 +1,6 @@
 # M43.1 Theory: Graph fundamentals and Cypher
 
-*[M43 theory](../README.md) · Lesson 43.1 · Notebooks: [`01a_kg_simple.ipynb`](../../notebook/01a_kg_simple.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M43 theory](../README.md) · Lesson 43.1 · Notebooks: [`01a_kg_simple.ipynb`](../../notebook/01a_kg_simple.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Nodes, edges, properties
 

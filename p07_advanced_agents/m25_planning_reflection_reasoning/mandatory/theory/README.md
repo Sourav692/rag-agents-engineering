@@ -1,6 +1,6 @@
 # M25 Theory: Planning, reflection and reasoning patterns
 
-*Part VII · Advanced Agents · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VII · Advanced Agents · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur's cancellation answer needs several facts, and one search may return the wrong policy passage. You will compare planning all lookups in advance with choosing each next action after a result, then add checks that can change the plan or correct the draft. The tutorials cover plan-and-execute, replanning, chain-of-verification and tree search with tree of thoughts and LATS. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -105,4 +105,4 @@ Every box is a place to spend an LLM call, and each one buys a different guarant
 - Verify claims in calls that cannot see the draft, and spend tree search only where an evaluator can tell a good partial answer from a bad one.
 
 ---
-*Previous: [M24 Agentic workflow patterns](../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md). Next: [M26 Coding, computer-use and deep agents](../../../m26_coding_computer_use_and_deep_agents/mandatory/theory/README.md).*
+*Previous: [M24 Agentic workflow patterns](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md). Next: [M26 Coding, computer-use and deep agents](../../../m26_coding_computer_use_and_deep_agents/mandatory/theory/README.md).*

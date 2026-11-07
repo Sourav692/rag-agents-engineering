@@ -2,9 +2,9 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Week 3 · Foundation**
+**Week 2 · Foundation**
 
-The prompt patterns behind every LLM step in a RAG pipeline, across models and modalities.
+Prompt patterns, reasoning prompts and multimodal prompting across providers.
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|

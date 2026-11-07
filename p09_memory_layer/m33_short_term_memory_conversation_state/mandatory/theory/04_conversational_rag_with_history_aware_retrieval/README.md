@@ -1,6 +1,6 @@
 # M33.4 Theory: Conversational RAG with history-aware retrieval
 
-*[M33 theory](../README.md) · Lesson 33.4 · Notebooks: [`04a_conversational_rag_with_history.ipynb`](../../notebook/04a_conversational_rag_with_history.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M33 theory](../README.md) · Lesson 33.4 · Notebooks: [`04a_conversational_rag_with_history.ipynb`](../../notebook/04a_conversational_rag_with_history.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## History-aware retriever
 
@@ -64,7 +64,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M13](../../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md).
+- [M13](../../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md).
 
 ## Key Takeaways
 

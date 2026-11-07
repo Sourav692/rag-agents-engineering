@@ -1,6 +1,6 @@
 # M37 Theory: Multi-Agent Applied Builds
 
-*Part X · Multi-Agent Systems · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part X · Multi-Agent Systems · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A hotel coordinator can skip policy review or misroute a booking while still producing a polite reply. You will inspect actual node paths and database effects, add bounded error handling and merge specialist results, then build a research team led by a supervisor, a typed router or a one-shot planner. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -49,7 +49,7 @@ Two lessons of the earlier numbering moved to M26 Coding, Computer-Use & Deep Ag
 
 ## How it connects
 
-- **Before:** [M33](../../../../theory/p10_memory_and_multi_agent/m33_conversational_memory_rag/README.md) and [M34](../../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/README.md) teach the checkpointers, threads, summaries and stores these builds use for memory. [M35](../../../m35_multi_agent_architectures/mandatory/theory/README.md) and [M36](../../../m36_collaboration_parallel_agents/mandatory/theory/README.md) teach supervisors, routers, parallel branches and `Send` one at a time. [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md) covers `create_agent` and middleware, and [M27](../../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md) human approval with `interrupt()`.
+- **Before:** [M33](../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md) and [M34](../../../../p09_memory_layer/m34_long_term_agentic_memory/mandatory/theory/README.md) teach the checkpointers, threads, summaries and stores these builds use for memory. [M35](../../../m35_multi_agent_architectures/mandatory/theory/README.md) and [M36](../../../m36_collaboration_parallel_agents/mandatory/theory/README.md) teach supervisors, routers, parallel branches and `Send` one at a time. [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) covers `create_agent` and middleware, and [M27](../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/README.md) human approval with `interrupt()`.
 - **Next:** [M38](../../../../p11_agent_protocols/m38_mcp_foundations/mandatory/theory/README.md) to M41 move tools and agents behind protocols: MCP servers for tools, A2A between agents. The coordinator and specialist split stays the same.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

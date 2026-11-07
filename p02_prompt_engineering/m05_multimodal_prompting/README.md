@@ -39,17 +39,18 @@ Report reader: answer five questions about a chart-heavy PDF page by prompting a
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_multimodal_google_gemini.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/04_multimodal_prompting/notebooks/01_multimodal_google_gemini.ipynb` |
-| `optional/02a_multimodal_openai_gpt_4o.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/04_multimodal_prompting/notebooks/02_multimodal_openai_gpt_4o.ipynb` |
-| `exercises/03a_financial_report_analysis.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/04_multimodal_prompting/exercises/01_financial_report_analysis.ipynb` |
+| `mandatory/notebook/01a_multimodal_google_gemini.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/04_multimodal_prompting/notebooks/01_multimodal_google_gemini.ipynb` |
+| `optional/notebook/02a_multimodal_openai_gpt_4o.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/04_multimodal_prompting/notebooks/02_multimodal_openai_gpt_4o.ipynb` |
+| `optional/notebook/03a_financial_report_analysis.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/04_multimodal_prompting/exercises/01_financial_report_analysis.ipynb` |

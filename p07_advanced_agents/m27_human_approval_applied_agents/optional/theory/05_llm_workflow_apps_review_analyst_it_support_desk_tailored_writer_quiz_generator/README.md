@@ -1,6 +1,6 @@
 # M27.5 Theory: LLM workflow apps: review analyst, IT support desk, tailored writer, quiz generator
 
-*[M27 theory](../../../mandatory/theory/README.md) · Lesson 27.5 · Notebooks: [`05a_review_analyst.ipynb`](../../notebook/05a_review_analyst.ipynb) (optional), [`05b_multilingual_it_support_desk.ipynb`](../../notebook/05b_multilingual_it_support_desk.ipynb) (optional), [`05c_audience_tailored_writer.ipynb`](../../notebook/05c_audience_tailored_writer.ipynb) (optional), [`05d_quiz_generator.ipynb`](../../notebook/05d_quiz_generator.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M27 theory](../../../mandatory/theory/README.md) · Lesson 27.5 · Notebooks: [`05a_review_analyst.ipynb`](../../notebook/05a_review_analyst.ipynb) (optional), [`05b_multilingual_it_support_desk.ipynb`](../../notebook/05b_multilingual_it_support_desk.ipynb) (optional), [`05c_audience_tailored_writer.ipynb`](../../notebook/05c_audience_tailored_writer.ipynb) (optional), [`05d_quiz_generator.ipynb`](../../notebook/05d_quiz_generator.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Workflow apps
 

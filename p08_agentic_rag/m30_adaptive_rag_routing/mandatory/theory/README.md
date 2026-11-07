@@ -1,6 +1,6 @@
 # M30 Theory: Adaptive RAG and query routing
 
-*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A Larkspur ticket may need billing policy, live incident data or a person. You will classify the request, inspect the selected filter and measure the cost of the wrong route. The tutorials cover query classification, multi-knowledge-base routing, escalation and retrieval strategy by question type. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -45,7 +45,7 @@ The router decides what retrieval is allowed to see. Each knowledge base then re
 
 ## How it connects
 
-- **Before:** [M17](../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md) introduced logical and semantic routing and metadata filters built from the question; this module puts a router at the front of a whole graph. M09 covers checkpointers and interrupts, which a production escalation path needs. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) and [M29](../../../m29_crag_and_self_rag/mandatory/theory/README.md) built the document grader and the hallucination check that lesson 30.3 combines with routing. The lab reuses the handbook and the TF-IDF index of [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md).
+- **Before:** [M17](../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md) introduced logical and semantic routing and metadata filters built from the question; this module puts a router at the front of a whole graph. M09 covers checkpointers and interrupts, which a production escalation path needs. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) and [M29](../../../m29_crag_and_self_rag/mandatory/theory/README.md) built the document grader and the hallucination check that lesson 30.3 combines with routing. The lab reuses the handbook and the TF-IDF index of [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md).
 - **Next:** [M31](../../../m31_rag_as_agent_tool/mandatory/theory/README.md) hands retrieval to an agent as one tool among many, so the agent's choice of tool becomes the router. [M32](../../../m32_reliability_feedback/mandatory/theory/README.md) covers source attribution, unsupported-answer detection and feedback loops for systems like these.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

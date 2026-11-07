@@ -1,6 +1,6 @@
 # M23.1 Theory: The ReAct loop in LangGraph; tool calling vs ReAct
 
-*[M23 theory](../README.md) · Lesson 23.1 · Notebooks: [`01a_react_agent_langgraph.ipynb`](../../notebook/01a_react_agent_langgraph.ipynb), [`01b_tool_calling_vs_react.ipynb`](../../notebook/01b_tool_calling_vs_react.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M23 theory](../README.md) · Lesson 23.1 · Notebooks: [`01a_react_agent_langgraph.ipynb`](../../notebook/01a_react_agent_langgraph.ipynb), [`01b_tool_calling_vs_react.ipynb`](../../notebook/01b_tool_calling_vs_react.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Reason–act–observe
 

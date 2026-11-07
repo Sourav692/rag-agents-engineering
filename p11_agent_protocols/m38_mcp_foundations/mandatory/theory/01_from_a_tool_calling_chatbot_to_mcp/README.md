@@ -1,6 +1,6 @@
 # M38.1 Theory: From a tool-calling chatbot to MCP
 
-*[M38 theory](../README.md) · Lesson 38.1 · Notebooks: [`01a_chatbot_example.ipynb`](../../notebook/01a_chatbot_example.ipynb), [`01b_chatbot_example_openai_walkthrough.ipynb`](../../../optional/notebook/01b_chatbot_example_openai_walkthrough.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M38 theory](../README.md) · Lesson 38.1 · Notebooks: [`01a_chatbot_example.ipynb`](../../notebook/01a_chatbot_example.ipynb), [`01b_chatbot_example_openai_walkthrough.ipynb`](../../../optional/notebook/01b_chatbot_example_openai_walkthrough.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## What moves out of the chatbot
 

@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part IX · Agentic & Self-Correcting RAG** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 3 mandatory, 2 optional
+**Part VIII · Agentic RAG** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 3 mandatory, 2 optional
 
 ## Why it matters
 
@@ -43,19 +43,20 @@ Support desk router: route billing, technical and general questions to separate 
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_router_agentic_rag.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/01_router_agentic_rag.ipynb` |
-| `optional/01b_router_agentic_rag_modular.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/02_router_agentic_rag_modular.ipynb` |
-| `optional/02a_healthcare_router_agentic_rag.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/03_healthcare_router_agentic_rag.ipynb` |
-| `notebooks/03a_adaptive_rag_langgraph.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/04_adaptive_rag_langgraph.ipynb` |
-| `notebooks/04a_adaptive_retrieval_rag_techniques.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/05_adaptive_retrieval_rag_techniques.ipynb` |
+| `mandatory/notebook/01a_router_agentic_rag.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/01_router_agentic_rag.ipynb` |
+| `optional/notebook/01b_router_agentic_rag_modular.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/02_router_agentic_rag_modular.ipynb` |
+| `optional/notebook/02a_healthcare_router_agentic_rag.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/03_healthcare_router_agentic_rag.ipynb` |
+| `mandatory/notebook/03a_adaptive_rag_langgraph.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/04_adaptive_rag_langgraph.ipynb` |
+| `mandatory/notebook/04a_adaptive_retrieval_rag_techniques.ipynb` | `ai-engineering-demystified-09-advanced-rag` | `modules/04_adaptive_rag_and_routing/notebooks/05_adaptive_retrieval_rag_techniques.ipynb` |

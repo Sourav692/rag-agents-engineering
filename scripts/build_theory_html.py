@@ -1,4 +1,4 @@
-"""Render each module's theory pages into one HTML page: theory/<part>/<module>/index.html.
+"""Render each module's theory pages into one HTML page: <part>/<module>/mandatory/theory/index.html.
 
 A Mermaid block followed by `<!-- animated: diagrams/<name>.anim.html -->` is drawn as that animated SVG fragment
 instead, with the controller from scripts/site/theory-anim.{css,js}; the README keeps the Mermaid for GitHub.
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import markdown
 
-from curriculum_lib import ROOT, load, theory_dir
+from curriculum_lib import ROOT, THEORY_INDEX, load, module_dir, theory_dir
 
 GH = "https://github.com/Sourav692/rag-agents-engineering/blob/main/"
 TEMPLATE = Path(__file__).parent / "site" / "theory.template.html"
@@ -36,7 +36,7 @@ def slug(s):
 
 
 def absolute(md, page):
-    """Rewrite a page's relative links as repo-absolute ("/course/..."), so pages from different folders can be joined."""
+    """Rewrite a page's relative links as repo-absolute ("/p04_.../..."), so pages from different folders can be joined."""
     def fix(m):
         label, target = m.group(1), m.group(2)
         if target.startswith(("http", "#")):
@@ -74,7 +74,7 @@ def flatten(d):
 
 
 def render(m, pages):
-    """One module's index.html. `pages` maps a module page (theory/.../README.md) to its index.html."""
+    """One module's index.html. `pages` maps a module page (<module>/mandatory/theory/README.md) to its index.html."""
     d = theory_dir(m)
     here = ROOT / d
 
@@ -83,7 +83,7 @@ def render(m, pages):
 
     lesson_dirs = {}  # a lesson page of any module -> that module's index.html
     for page, index in pages.items():
-        for p in (ROOT / page).parent.glob("*/README.md"):
+        for p in (ROOT / page).parents[2].glob("*/theory/*/README.md"):  # lesson pages in both tiers
             lesson_dirs[p.relative_to(ROOT).as_posix()] = index
 
     def link(target):
@@ -171,7 +171,7 @@ def render(m, pages):
 
     meta = [f'<div><dt>Module</dt><dd><a href="{link(readme)}">{num} on GitHub</a></dd></div>',
             f'<div><dt>{part.group(1)}</dt><dd>{html.escape(part.group(2).strip())}</dd></div>']
-    for lab in sorted(here.glob("*/interactive/*.html")):
+    for lab in sorted((ROOT / module_dir(m)).glob("*/theory/*/interactive/*.html")):
         title = re.search(r"<title>(.*?)</title>", lab.read_text(), re.S)
         title = html.escape(title.group(1).strip() if title else lab.stem)
         meta.append(f'<div><dt>{title}</dt><dd><a class="btn btn--quiet" href="{rel(lab.relative_to(ROOT))}">Open the lab</a></dd></div>')
@@ -186,7 +186,7 @@ def render(m, pages):
         "{{BODY}}": body,
         "{{TOC}}": toc_html,
         "{{FOOTER}}": inline_md(footer.group(1)).removeprefix("<p>").removesuffix("</p>") if footer else "",
-        "{{INDEX}}": GH + "theory/README.md",
+        "{{INDEX}}": GH + THEORY_INDEX,
     }.items():
         page = page.replace(key, value)
     page = re.sub(r'<a href="(https?://[^"]+)"', r'<a href="\1" target="_blank" rel="noopener"', page)
@@ -197,8 +197,8 @@ def render(m, pages):
 
 
 def has_animation(m):
-    d = ROOT / theory_dir(m)
-    return any(MARK.search(p.read_text()) for p in [d / "README.md", *d.glob("*/README.md")])
+    d = ROOT / module_dir(m)
+    return any(MARK.search(p.read_text()) for p in [d / "mandatory/theory/README.md", *d.glob("*/theory/*/README.md")])
 
 
 def main():

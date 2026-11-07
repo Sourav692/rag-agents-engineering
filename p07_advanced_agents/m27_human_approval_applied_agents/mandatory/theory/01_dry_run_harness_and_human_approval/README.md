@@ -1,6 +1,6 @@
 # M27.1 Theory: Dry-run harness and human approval
 
-*[M27 theory](../README.md) · Lesson 27.1 · Notebooks: [`01a_dry_run_harness.ipynb`](../../notebook/01a_dry_run_harness.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M27 theory](../README.md) · Lesson 27.1 · Notebooks: [`01a_dry_run_harness.ipynb`](../../notebook/01a_dry_run_harness.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Dry run
 

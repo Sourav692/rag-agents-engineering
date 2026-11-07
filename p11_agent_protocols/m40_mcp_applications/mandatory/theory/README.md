@@ -1,6 +1,6 @@
 # M40 Theory: MCP applications and RAG over MCP
 
-*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur now needs MCP applications that return validated results and keep their data and process lifetimes clear. You will inspect local and desktop hosts, recompute a data-analysis report, expose RAG through MCP and test the session and deployment boundaries of a research assistant. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -52,7 +52,7 @@ The server holds the retriever and the index; everything to its left belongs to 
 
 ## How it connects
 
-- **Before:** [M38](../../../m38_mcp_foundations/mandatory/theory/README.md) covers the handshake, the three server primitives and remote transports; [M39](../../../m39_building_mcp_servers_and_clients/mandatory/theory/README.md) covers multi-server clients, client sessions and streamable HTTP. The retriever served here is the M10 to M14 pipeline ([M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md), [M14](../../../../theory/p05_ingestion_and_indexing/m15_vector_stores/README.md)), and the LangGraph loop is the one from [M31](../../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/README.md).
+- **Before:** [M38](../../../m38_mcp_foundations/mandatory/theory/README.md) covers the handshake, the three server primitives and remote transports; [M39](../../../m39_building_mcp_servers_and_clients/mandatory/theory/README.md) covers multi-server clients, client sessions and streamable HTTP. The retriever served here is the M10 to M14 pipeline ([M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md), [M14](../../../../p04_rag_foundations/m14_vector_stores/mandatory/theory/README.md)), and the LangGraph loop is the one from [M31](../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md).
 - **Next:** [M41](../../../m41_a2a_protocol/mandatory/theory/README.md) moves from agents calling tools to agents calling agents over A2A; its capstone puts an MCP retriever behind an A2A agent.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

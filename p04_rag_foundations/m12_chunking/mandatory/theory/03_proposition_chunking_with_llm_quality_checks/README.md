@@ -1,6 +1,6 @@
 # M12.3 Theory: Proposition chunking with LLM quality checks
 
-*[M12 theory](../README.md) · Lesson 12.3 · Notebooks: [`03a_proposition_chunking.ipynb`](../../notebook/03a_proposition_chunking.ipynb), [`03b_proposition_chunking_rag_techniques.ipynb`](../../../optional/notebook/03b_proposition_chunking_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M12 theory](../README.md) · Lesson 12.3 · Notebooks: [`03a_proposition_chunking.ipynb`](../../notebook/03a_proposition_chunking.ipynb), [`03b_proposition_chunking_rag_techniques.ipynb`](../../../optional/notebook/03b_proposition_chunking_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Propositions
 

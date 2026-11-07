@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part X · Memory & Multi-Agent RAG** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 6 mandatory, 3 optional
+**Part X · Multi-Agent Systems** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 6 mandatory, 3 optional
 
 ## Why it matters
 
@@ -43,23 +43,24 @@ Specialist retrievers: replace the single router from M30 with a supervisor over
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_multi_agent_vs_monolithic_agent.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/01_multi_agent_vs_monolithic_agent.ipynb` |
-| `optional/01b_multiagent_pattern_from_scratch.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb` |
-| `notebooks/02a_five_multi_agent_architectures.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb` |
-| `optional/02b_agent_communication.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb` |
-| `optional/03a_supervisor_workflow_with_human_review.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb` |
-| `notebooks/04a_supervisor_pattern.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb` |
-| `notebooks/04b_hierarchical_agents.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/06_supervisor_and_hierarchical_agents/notebooks/02_hierarchical_agents.ipynb` |
-| `notebooks/05a_agent_handoffs.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/07_swarm_and_handoffs/notebooks/01_agent_handoffs.ipynb` |
-| `notebooks/05b_multi_agent_swarm.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/07_swarm_and_handoffs/notebooks/02_multi_agent_swarm.ipynb` |
+| `mandatory/notebook/01a_multi_agent_vs_monolithic_agent.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/01_multi_agent_vs_monolithic_agent.ipynb` |
+| `optional/notebook/01b_multiagent_pattern_from_scratch.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb` |
+| `mandatory/notebook/02a_five_multi_agent_architectures.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb` |
+| `optional/notebook/02b_agent_communication.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb` |
+| `optional/notebook/03a_supervisor_workflow_with_human_review.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb` |
+| `mandatory/notebook/04a_supervisor_pattern.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb` |
+| `mandatory/notebook/04b_hierarchical_agents.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/06_supervisor_and_hierarchical_agents/notebooks/02_hierarchical_agents.ipynb` |
+| `mandatory/notebook/05a_agent_handoffs.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/07_swarm_and_handoffs/notebooks/01_agent_handoffs.ipynb` |
+| `mandatory/notebook/05b_multi_agent_swarm.ipynb` | `ai-engineering-demystified-08-advanced-agent-systems` | `modules/07_swarm_and_handoffs/notebooks/02_multi_agent_swarm.ipynb` |

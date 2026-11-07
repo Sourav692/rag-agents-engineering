@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VIII · Agent Foundations for RAG** · **Level:** Advanced · **Time:** ~6 h · **Notebooks:** 8 mandatory, 9 optional
+**Part VII · Advanced Agents** · **Level:** Advanced · **Time:** ~6 h · **Notebooks:** 8 mandatory, 9 optional
 
 ## Why it matters
 
@@ -45,31 +45,32 @@ Verified answers: add chain-of-verification to your RAG answer step and measure 
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_planning_react_vs_plan.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/01_planning_react_vs_plan.ipynb` |
-| `notebooks/01b_planning_decompose_execute_replan.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/02_planning_decompose_execute_replan.ipynb` |
-| `notebooks/02a_planning_agent_deep_research.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/03_planning_agent_deep_research.ipynb` |
-| `optional/02b_reflective_dynamic_planning_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/04_reflective_dynamic_planning_agent.ipynb` |
-| `notebooks/03a_reflection_agents.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/01_reflection_agents.ipynb` |
-| `notebooks/03b_reflexion_agents.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/02_reflexion_agents.ipynb` |
-| `optional/03c_reflection_architecture.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/03_reflection_architecture.ipynb` |
-| `notebooks/04a_chain_of_verification.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/04_chain_of_verification.ipynb` |
-| `optional/04b_constitutional_ai_critique_loop.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/06_constitutional_ai_critique_loop.ipynb` |
-| `optional/05a_self_discover.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/05_self_discover.ipynb` |
-| `optional/05b_reflective_code_generation_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/07_reflective_code_generation_agent.ipynb` |
-| `notebooks/06a_self_consistency.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/01_self_consistency.ipynb` |
-| `notebooks/06b_tree_of_thoughts.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/02_tree_of_thoughts.ipynb` |
-| `optional/06c_lats.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/03_lats.ipynb` |
-| `optional/07a_mental_loop_simulator.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/04_mental_loop_simulator.ipynb` |
-| `optional/07b_reflexive_metacognitive.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/05_reflexive_metacognitive.ipynb` |
-| `optional/07c_self_improving_exemplar_memory.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/06_self_improving_exemplar_memory.ipynb` |
+| `mandatory/notebook/01a_planning_react_vs_plan.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/01_planning_react_vs_plan.ipynb` |
+| `mandatory/notebook/01b_planning_decompose_execute_replan.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/02_planning_decompose_execute_replan.ipynb` |
+| `mandatory/notebook/02a_planning_agent_deep_research.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/03_planning_agent_deep_research.ipynb` |
+| `optional/notebook/02b_reflective_dynamic_planning_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/10_planning/notebooks/04_reflective_dynamic_planning_agent.ipynb` |
+| `mandatory/notebook/03a_reflection_agents.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/01_reflection_agents.ipynb` |
+| `mandatory/notebook/03b_reflexion_agents.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/02_reflexion_agents.ipynb` |
+| `optional/notebook/03c_reflection_architecture.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/03_reflection_architecture.ipynb` |
+| `mandatory/notebook/04a_chain_of_verification.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/04_chain_of_verification.ipynb` |
+| `optional/notebook/04b_constitutional_ai_critique_loop.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/06_constitutional_ai_critique_loop.ipynb` |
+| `optional/notebook/05a_self_discover.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/05_self_discover.ipynb` |
+| `optional/notebook/05b_reflective_code_generation_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/11_reflection/notebooks/07_reflective_code_generation_agent.ipynb` |
+| `mandatory/notebook/06a_self_consistency.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/01_self_consistency.ipynb` |
+| `mandatory/notebook/06b_tree_of_thoughts.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/02_tree_of_thoughts.ipynb` |
+| `optional/notebook/06c_lats.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/03_lats.ipynb` |
+| `optional/notebook/07a_mental_loop_simulator.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/04_mental_loop_simulator.ipynb` |
+| `optional/notebook/07b_reflexive_metacognitive.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/05_reflexive_metacognitive.ipynb` |
+| `optional/notebook/07c_self_improving_exemplar_memory.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/12_advanced_cognitive_patterns/notebooks/06_self_improving_exemplar_memory.ipynb` |

@@ -1,6 +1,6 @@
 # M32.1 Theory: Reliable RAG: relevance checks, hallucination checks, source highlighting
 
-*[M32 theory](../README.md) · Lesson 32.1 · Notebooks: [`01a_reliable_rag.ipynb`](../../notebook/01a_reliable_rag.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M32 theory](../README.md) · Lesson 32.1 · Notebooks: [`01a_reliable_rag.ipynb`](../../notebook/01a_reliable_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Relevance grading
 

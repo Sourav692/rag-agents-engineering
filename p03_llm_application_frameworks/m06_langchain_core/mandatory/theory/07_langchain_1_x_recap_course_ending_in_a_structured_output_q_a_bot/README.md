@@ -1,6 +1,6 @@
 # M07.7 Theory: LangChain 1.x recap course, ending in a structured-output Q&A bot
 
-*[M06 theory](../README.md) · Lesson 6.7 · Notebooks: [`07a_smart_bot_section1.ipynb`](../../notebook/07a_smart_bot_section1.ipynb), [`07f_output_parsers_demo.ipynb`](../../../optional/notebook/07f_output_parsers_demo.ipynb) (optional), [`07g_output_parsers_final.ipynb`](../../../optional/notebook/07g_output_parsers_final.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M06 theory](../README.md) · Lesson 6.7 · Notebooks: [`07a_smart_bot_section1.ipynb`](../../notebook/07a_smart_bot_section1.ipynb), [`07f_output_parsers_demo.ipynb`](../../../optional/notebook/07f_output_parsers_demo.ipynb) (optional), [`07g_output_parsers_final.ipynb`](../../../optional/notebook/07g_output_parsers_final.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Structured output
 

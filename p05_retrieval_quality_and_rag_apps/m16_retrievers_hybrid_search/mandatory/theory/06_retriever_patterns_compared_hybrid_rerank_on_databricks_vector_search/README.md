@@ -1,6 +1,6 @@
 # M16.6 Theory: Retriever patterns compared; hybrid + rerank on Databricks Vector Search
 
-*[M16 theory](../README.md) · Lesson 16.6 · Notebooks: [`06a_advanced_retriever_patterns.ipynb`](../../notebook/06a_advanced_retriever_patterns.ipynb), [`06b_hybrid_search_and_reranking_databricks.ipynb`](../../../optional/notebook/06b_hybrid_search_and_reranking_databricks.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M16 theory](../README.md) · Lesson 16.6 · Notebooks: [`06a_advanced_retriever_patterns.ipynb`](../../notebook/06a_advanced_retriever_patterns.ipynb), [`06b_hybrid_search_and_reranking_databricks.ipynb`](../../../optional/notebook/06b_hybrid_search_and_reranking_databricks.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Choosing a retriever pattern
 

@@ -1,6 +1,6 @@
 # M26 Theory: Coding, computer-use and deep agents
 
-*Part VII · Advanced Agents · [Module README](../../lab/README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VII · Advanced Agents · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Agents that write code, drive a browser or run for hours need a harness: sub-agents, a file system, skills and a tester that checks the work. You will move the ReAct loop from web search into files, browsers and screens, see where the success signal and the stop condition have to live, and then configure a deep agent instead of wiring a graph node by node. The M26 notebooks build on two ideas: the same agent loop running in new environments, and a deep-agent harness around one orchestrator. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -38,8 +38,8 @@ Every lesson keeps this loop and changes one part of it. Lesson 26.1 swaps the e
 
 ## How it connects
 
-- **Before:** [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md) teaches the ReAct loop, `create_agent` and middleware such as `ModelCallLimitMiddleware`, which lesson 26.1 uses as the researcher's bound. [M25](../../../m25_planning_reflection_reasoning/mandatory/theory/README.md) weighs plan-and-execute against ReAct and builds reflection loops; the planned pipeline of lesson 26.1 and the developer and tester pair of lesson 26.2 are applied versions of both. M24 treats the pipeline side as workflow patterns.
-- **Next:** [M27](../../../m27_human_approval_applied_agents/mandatory/theory/README.md) adds human approval with `interrupt()`, the mechanism behind the `interrupt_on` approval a deep agent's `execute` calls need. [M37](../../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/README.md) builds multi-agent systems from the other end, with a coordinator and specialists wired node by node and routing, caps and checks kept in code.
+- **Before:** [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) teaches the ReAct loop, `create_agent` and middleware such as `ModelCallLimitMiddleware`, which lesson 26.1 uses as the researcher's bound. [M25](../../../m25_planning_reflection_reasoning/mandatory/theory/README.md) weighs plan-and-execute against ReAct and builds reflection loops; the planned pipeline of lesson 26.1 and the developer and tester pair of lesson 26.2 are applied versions of both. M24 treats the pipeline side as workflow patterns.
+- **Next:** [M27](../../../m27_human_approval_applied_agents/mandatory/theory/README.md) adds human approval with `interrupt()`, the mechanism behind the `interrupt_on` approval a deep agent's `execute` calls need. [M37](../../../../p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/theory/README.md) builds multi-agent systems from the other end, with a coordinator and specialists wired node by node and routing, caps and checks kept in code.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

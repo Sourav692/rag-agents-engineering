@@ -1,6 +1,6 @@
 # M12 Theory: Chunking strategies
 
-*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 The chunk is the unit of retrieval. The retriever scores chunks, returns chunks and hands chunks to the model, so a chunk boundary decides whether a fact can be found whole. M12 rests on four ideas: chunk size and overlap, the breakpoint threshold in semantic chunking, propositions, and structure-aware splitting. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 

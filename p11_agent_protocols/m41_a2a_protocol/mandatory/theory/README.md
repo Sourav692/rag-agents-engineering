@@ -1,6 +1,6 @@
 # M41 Theory: A2A: Agent-to-Agent Protocol
 
-*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur delegates a handbook question to another agent whose tools and framework are private to it. You will discover that agent through its card, read Message and Task replies and extract the answer before passing it to a second hop. The tutorials separate A2A delegation from MCP tool access. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -51,7 +51,7 @@ The caller sees two things: a card and a stream of task events. Everything to th
 
 ## How it connects
 
-- **Before:** [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md) builds the ReAct agents that notebooks 41.2 and 41.3 put behind A2A. [M31](../../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/README.md) turns retrieval into an agent's tool; here the whole agent becomes a service. [M35](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md) teaches [supervisors](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/04_supervisors_and_hierarchical_teams/README.md#supervisor) and [handoffs](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/05_handoffs_and_swarms/README.md#handoffs) inside one process; A2A is how a supervisor reaches a worker that runs in another process, team or framework. [M40](../../../m40_mcp_applications/mandatory/theory/README.md) serves retrieval as an MCP tool, the other way to share a RAG system.
+- **Before:** [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) builds the ReAct agents that notebooks 41.2 and 41.3 put behind A2A. [M31](../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md) turns retrieval into an agent's tool; here the whole agent becomes a service. [M35](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md) teaches [supervisors](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/04_supervisors_and_hierarchical_teams/README.md#supervisor) and [handoffs](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/05_handoffs_and_swarms/README.md#handoffs) inside one process; A2A is how a supervisor reaches a worker that runs in another process, team or framework. [M40](../../../m40_mcp_applications/mandatory/theory/README.md) serves retrieval as an MCP tool, the other way to share a RAG system.
 - **Next:** [M42](../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/README.md) to M44 return to retrieval itself: hierarchical indexes, memory-augmented retrieval and knowledge graphs. Any of them can sit behind the same A2A executor.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

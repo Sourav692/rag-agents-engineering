@@ -1,6 +1,6 @@
 # M41.1 Theory: A2A basics: Agent Cards, tasks, messages
 
-*[M41 theory](../README.md) · Lesson 41.1 · Notebooks: [`01a_a2a_protocol_basics.ipynb`](../../notebook/01a_a2a_protocol_basics.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M41 theory](../README.md) · Lesson 41.1 · Notebooks: [`01a_a2a_protocol_basics.ipynb`](../../notebook/01a_a2a_protocol_basics.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Agent Card
 
@@ -123,7 +123,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M31](../../../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/README.md).
+- [M31](../../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md).
 
 ## Key Takeaways
 

@@ -1,6 +1,6 @@
 # M30.3 Theory: Adaptive RAG: vector store vs web, with hallucination grading
 
-*[M30 theory](../README.md) · Lesson 30.3 · Notebooks: [`03a_adaptive_rag_langgraph.ipynb`](../../notebook/03a_adaptive_rag_langgraph.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M30 theory](../README.md) · Lesson 30.3 · Notebooks: [`03a_adaptive_rag_langgraph.ipynb`](../../notebook/03a_adaptive_rag_langgraph.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Vector store or web
 

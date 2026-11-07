@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VIII · Agent Foundations for RAG** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 4 mandatory, 6 optional
+**Part VII · Advanced Agents** · **Level:** Advanced · **Time:** ~5 h · **Notebooks:** 4 mandatory, 6 optional
 
 ## Why it matters
 
@@ -43,24 +43,25 @@ SQL or vectors: answer the same 20 questions over a product catalogue with CSV R
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_dry_run_harness.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/13_human_approval_basics/notebooks/01_dry_run_harness.ipynb` |
-| `notebooks/02a_research_assistant_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/01_research_assistant_agent.ipynb` |
-| `optional/02b_competitive_intelligence_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/02_competitive_intelligence_agent.ipynb` |
-| `optional/03a_financial_analyst_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/03_financial_analyst_agent.ipynb` |
-| `notebooks/04a_text2sql_workflow.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/04_text2sql_workflow.ipynb` |
-| `notebooks/04b_text2sql_react_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/05_text2sql_react_agent.ipynb` |
-| `optional/05a_review_analyst.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/06_review_analyst.ipynb` |
-| `optional/05b_multilingual_it_support_desk.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/07_multilingual_it_support_desk.ipynb` |
-| `optional/05c_audience_tailored_writer.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/08_audience_tailored_writer.ipynb` |
-| `optional/05d_quiz_generator.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/09_quiz_generator.ipynb` |
+| `mandatory/notebook/01a_dry_run_harness.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/13_human_approval_basics/notebooks/01_dry_run_harness.ipynb` |
+| `mandatory/notebook/02a_research_assistant_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/01_research_assistant_agent.ipynb` |
+| `optional/notebook/02b_competitive_intelligence_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/02_competitive_intelligence_agent.ipynb` |
+| `optional/notebook/03a_financial_analyst_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/03_financial_analyst_agent.ipynb` |
+| `mandatory/notebook/04a_text2sql_workflow.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/04_text2sql_workflow.ipynb` |
+| `mandatory/notebook/04b_text2sql_react_agent.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/05_text2sql_react_agent.ipynb` |
+| `optional/notebook/05a_review_analyst.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/06_review_analyst.ipynb` |
+| `optional/notebook/05b_multilingual_it_support_desk.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/07_multilingual_it_support_desk.ipynb` |
+| `optional/notebook/05c_audience_tailored_writer.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/08_audience_tailored_writer.ipynb` |
+| `optional/notebook/05d_quiz_generator.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/14_applied_single_agent_builds/notebooks/09_quiz_generator.ipynb` |

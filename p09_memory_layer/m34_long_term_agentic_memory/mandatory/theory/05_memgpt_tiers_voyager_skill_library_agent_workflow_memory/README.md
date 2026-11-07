@@ -1,6 +1,6 @@
 # M34.5 Theory: MemGPT tiers, Voyager skill library, Agent Workflow Memory
 
-*[M34 theory](../README.md) · Lesson 34.5 · Notebooks: [`05a_memgpt_tiered_memory.ipynb`](../../notebook/05a_memgpt_tiered_memory.ipynb), [`05b_voyager_skill_library.ipynb`](../../../optional/notebook/05b_voyager_skill_library.ipynb) (optional), [`05c_agent_workflow_memory.ipynb`](../../../optional/notebook/05c_agent_workflow_memory.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M34 theory](../README.md) · Lesson 34.5 · Notebooks: [`05a_memgpt_tiered_memory.ipynb`](../../notebook/05a_memgpt_tiered_memory.ipynb), [`05b_voyager_skill_library.ipynb`](../../../optional/notebook/05b_voyager_skill_library.ipynb) (optional), [`05c_agent_workflow_memory.ipynb`](../../../optional/notebook/05c_agent_workflow_memory.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Tiered memory
 

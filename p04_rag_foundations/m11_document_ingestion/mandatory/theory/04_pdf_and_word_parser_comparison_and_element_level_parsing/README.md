@@ -1,6 +1,6 @@
 # M11.4 Theory: PDF and Word: parser comparison and element-level parsing
 
-*[M11 theory](../README.md) · Lesson 11.4 · Notebooks: [`04a_pdf_loader.ipynb`](../../notebook/04a_pdf_loader.ipynb), [`04b_ms_word_loader.ipynb`](../../../optional/notebook/04b_ms_word_loader.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M11 theory](../README.md) · Lesson 11.4 · Notebooks: [`04a_pdf_loader.ipynb`](../../notebook/04a_pdf_loader.ipynb), [`04b_ms_word_loader.ipynb`](../../../optional/notebook/04b_ms_word_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Element-level parsing
 

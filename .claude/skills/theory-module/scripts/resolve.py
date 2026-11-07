@@ -2,9 +2,9 @@
 
     uv run python .claude/skills/theory-module/scripts/resolve.py <module> [<lesson or topic>]
 
-<module> is a number (11, M11, m11), a key (lifecycle) or words from the title ("rag lifecycle").
-<lesson or topic> is a lesson number (3, 11.3) or words from a lesson title or a key concept.
-A single argument like "11.3" means module 11, lesson 3. Prints JSON: paths, lessons with their theory
+<module> is a number (10, M10, m10), a key (lifecycle) or words from the title ("rag lifecycle").
+<lesson or topic> is a lesson number (3, 10.3) or words from a lesson title or a key concept.
+A single argument like "10.3" means module 10, lesson 3. Prints JSON: paths, lessons with their theory
 folder and notebooks, concepts and which page has each, labs and animated diagrams already present.
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "scripts"))
-from curriculum_lib import items, lesson_folder, load, module_dir, theory_dir  # noqa: E402
+from curriculum_lib import items, lesson_dir, load, module_dir, theory_dir  # noqa: E402
 
 
 def words(s):
@@ -62,7 +62,7 @@ def main(argv):
     pages = {f"{d}/README.md": "module"}
     lessons = []
     for n, les in enumerate(mod["lessons"], 1):
-        folder = f"{d}/{lesson_folder(n, les['title'])}"
+        folder = lesson_dir(mod, n)  # mandatory/theory/ or optional/theory/
         has = (ROOT / folder / "README.md").exists()
         if has:
             pages[f"{folder}/README.md"] = f"lesson {n}"
@@ -98,8 +98,8 @@ def main(argv):
         "lessons": lessons,
         "lab_notebooks": nbs.get(0, []),
         "concepts": concepts,
-        "labs": [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / d).glob("**/interactive/*.html"))],
-        "animated": [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / d).glob("**/diagrams/*.anim.html"))],
+        "labs": [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / module_dir(mod)).glob("*/theory/**/interactive/*.html"))],
+        "animated": [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / module_dir(mod)).glob("*/theory/**/diagrams/*.anim.html"))],
         "neighbours": {"previous": next((f"M{x['num']:02d} {x['title']}" for x in mods if x["num"] == mod["num"] - 1), None),
                        "next": next((f"M{x['num']:02d} {x['title']}" for x in mods if x["num"] == mod["num"] + 1), None)},
         "topic": topic,

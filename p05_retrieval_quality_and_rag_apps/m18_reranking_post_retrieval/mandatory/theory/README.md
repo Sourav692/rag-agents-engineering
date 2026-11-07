@@ -1,6 +1,6 @@
 # M18 Theory: Post-retrieval optimisation and reranking
 
-*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A retriever that scores every chunk in the index has to be cheap, so it is coarse. M18 adds a second, slower pass over a short candidate list, then decides how much of each surviving chunk the model reads. The M18 notebooks build on four ideas: why a bi-encoder and a cross-encoder do different jobs, why the first stage is judged on recall and the second on precision, why a model reads the middle of a long prompt less reliably, and how to spend a fixed context budget. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -58,7 +58,7 @@ Each stage has its own metric and its own failure. Stage 1 fails when the eviden
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) defines recall@k and precision@k and the baseline every change is measured against. [M12](../../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md) sets the chunk size that compression and enrichment windows work around. [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) covers the embedding models that stage 1 runs as bi-encoders. [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) builds the hybrid first stage, and [M17](../../../m17_query_transformation/mandatory/theory/README.md) rewrites the question before it reaches it.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) defines recall@k and precision@k and the baseline every change is measured against. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) sets the chunk size that compression and enrichment windows work around. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) covers the embedding models that stage 1 runs as bi-encoders. [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) builds the hybrid first stage, and [M17](../../../m17_query_transformation/mandatory/theory/README.md) rewrites the question before it reaches it.
 - **Next:** M19 assembles the full pipeline with sources and citations on top of these stages. M28 and M29 add an LLM grader that judges each retrieved chunk, the same pointwise judgement as the LLM reranker in 19.3, with a yes or no instead of a score.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
@@ -76,7 +76,7 @@ Each stage has its own metric and its own failure. Stage 1 fails when the eviden
 ### 2. The team wants the best possible ranking for a high-traffic support chat and proposes an LLM reranker. What do you recommend?
 
 **What a strong answer covers:**
-- Pointwise LLM reranking costs one call per candidate (up to 30 calls per question in the 19.3 notebook); listwise costs one long call whose output must be parsed back into an order
+- Pointwise LLM reranking costs one call per candidate (up to 30 calls per question in the 18.3 notebook); listwise costs one long call whose output must be parsed back into an order
 - A cross-encoder scores every pair locally in one batch, with no parsing step that can fail
 - Default to the cross-encoder and reserve the LLM for low-volume, high-stakes questions, or for re-scoring only the top few after the cross-encoder
 - Decides on golden-set precision@5 and p95 latency together, not on a demo query
@@ -93,9 +93,9 @@ Each stage has its own metric and its own failure. Stage 1 fails when the eviden
 
 **What a strong answer covers:**
 - Recognises a boundary problem: the ranking is right and the unit of context is too small
-- Expands each top chunk to its neighbours (19.5) or extracts a contiguous segment (19.6), using a key-value lookup by document and chunk index
+- Expands each top chunk to its neighbours (18.5) or extracts a contiguous segment (18.6), using a key-value lookup by document and chunk index
 - Accounts for the extra tokens in the context budget, for example by keeping fewer chunks
-- Checks that compression (19.4) is not the step dropping the qualifier, since an extractor can cut the condition from a rule
+- Checks that compression (18.4) is not the step dropping the qualifier, since an extractor can cut the condition from a rule
 
 ### 5. The reranker has run in production for a month. How do you show it is still earning its latency?
 

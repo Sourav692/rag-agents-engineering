@@ -1,6 +1,6 @@
 # M05.1 Theory: Core prompt patterns
 
-*[M04 theory](../README.md) · Lesson 4.1 · Notebooks: [`01a_prompt_engineering_patterns.ipynb`](../../notebook/01a_prompt_engineering_patterns.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M04 theory](../README.md) · Lesson 4.1 · Notebooks: [`01a_prompt_engineering_patterns.ipynb`](../../notebook/01a_prompt_engineering_patterns.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Few-shot
 

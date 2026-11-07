@@ -1,6 +1,6 @@
 # M37.4 Theory: Research systems: supervisor financial research, summarisation, full research system
 
-*[M37 theory](../README.md) · Lesson 37.4 · Notebooks: [`04c_multi_agent_research_system.ipynb`](../../notebook/04c_multi_agent_research_system.ipynb), [`04a_supervisor_financial_research.ipynb`](../../../optional/notebook/04a_supervisor_financial_research.ipynb) (optional), [`04b_multi_agent_research_summarization.ipynb`](../../../optional/notebook/04b_multi_agent_research_summarization.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M37 theory](../README.md) · Lesson 37.4 · Notebooks: [`04c_multi_agent_research_system.ipynb`](../../notebook/04c_multi_agent_research_system.ipynb), [`04a_supervisor_financial_research.ipynb`](../../../optional/notebook/04a_supervisor_financial_research.ipynb) (optional), [`04b_multi_agent_research_summarization.ipynb`](../../../optional/notebook/04b_multi_agent_research_summarization.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Planner, supervisor or router
 

@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VI · Retrieval Quality Engineering** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 9 mandatory, 6 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~7 h · **Notebooks:** 9 mandatory, 6 optional
 
 ## Why it matters
 
@@ -47,29 +47,30 @@ Query-transformation matrix: run multi-query, RAG-Fusion, HyDE and decomposition
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_query_expansion.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/09_query_expansion.ipynb` |
-| `optional/01b_query_transformations_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/14_query_transformations_rag_techniques.ipynb` |
-| `notebooks/02a_multi_query_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/01_multi_query_retrieval.ipynb` |
-| `optional/02b_multiquery_retrieval_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/12_multiquery_retrieval_walkthrough.ipynb` |
-| `optional/02c_better_queries.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/13_better_queries.ipynb` |
-| `notebooks/03a_rag_fusion.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/02_rag_fusion.ipynb` |
-| `notebooks/04a_step_back_prompting.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/03_step_back_prompting.ipynb` |
-| `notebooks/05a_hyde.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/04_hyde.ipynb` |
-| `optional/05b_hyde_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/11_hyde_walkthrough.ipynb` |
-| `optional/05c_hyde_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/15_hyde_rag_techniques.ipynb` |
-| `notebooks/06a_query_decomposition.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/05_query_decomposition.ipynb` |
-| `optional/06b_query_decomposition_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/10_query_decomposition_walkthrough.ipynb` |
-| `notebooks/07a_routing_with_llm_classifier.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/06_routing_with_llm_classifier.ipynb` |
-| `notebooks/07b_semantic_routing.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/07_semantic_routing.ipynb` |
-| `notebooks/08a_self_querying_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/08_self_querying_retrieval.ipynb` |
+| `mandatory/notebook/01a_query_expansion.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/09_query_expansion.ipynb` |
+| `optional/notebook/01b_query_transformations_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/14_query_transformations_rag_techniques.ipynb` |
+| `mandatory/notebook/02a_multi_query_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/01_multi_query_retrieval.ipynb` |
+| `optional/notebook/02b_multiquery_retrieval_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/12_multiquery_retrieval_walkthrough.ipynb` |
+| `optional/notebook/02c_better_queries.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/13_better_queries.ipynb` |
+| `mandatory/notebook/03a_rag_fusion.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/02_rag_fusion.ipynb` |
+| `mandatory/notebook/04a_step_back_prompting.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/03_step_back_prompting.ipynb` |
+| `mandatory/notebook/05a_hyde.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/04_hyde.ipynb` |
+| `optional/notebook/05b_hyde_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/11_hyde_walkthrough.ipynb` |
+| `optional/notebook/05c_hyde_rag_techniques.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/15_hyde_rag_techniques.ipynb` |
+| `mandatory/notebook/06a_query_decomposition.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/05_query_decomposition.ipynb` |
+| `optional/notebook/06b_query_decomposition_walkthrough.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/10_query_decomposition_walkthrough.ipynb` |
+| `mandatory/notebook/07a_routing_with_llm_classifier.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/06_routing_with_llm_classifier.ipynb` |
+| `mandatory/notebook/07b_semantic_routing.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/07_semantic_routing.ipynb` |
+| `mandatory/notebook/08a_self_querying_retrieval.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/08_query_transformation/notebooks/08_self_querying_retrieval.ipynb` |

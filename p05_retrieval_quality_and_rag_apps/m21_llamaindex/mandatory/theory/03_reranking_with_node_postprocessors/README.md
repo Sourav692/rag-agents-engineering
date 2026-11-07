@@ -1,6 +1,6 @@
 # M21.3 Theory: Reranking with node postprocessors
 
-*[M21 theory](../README.md) · Lesson 21.3 · Notebooks: [`03a_reranking_with_llamaindex.ipynb`](../../notebook/03a_reranking_with_llamaindex.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M21 theory](../README.md) · Lesson 21.3 · Notebooks: [`03a_reranking_with_llamaindex.ipynb`](../../notebook/03a_reranking_with_llamaindex.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Postprocessors
 

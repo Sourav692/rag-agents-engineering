@@ -1,6 +1,6 @@
 # M37.1 Theory: Hotel system: environment, coordinator, reservation agent, compliance
 
-*[M37 theory](../README.md) · Lesson 37.1 · Notebooks: [`01a_hotel_environment_and_coordinator.ipynb`](../../notebook/01a_hotel_environment_and_coordinator.ipynb), [`01b_hotel_reservation_agent.ipynb`](../../notebook/01b_hotel_reservation_agent.ipynb), [`01c_hotel_compliance_checker.ipynb`](../../notebook/01c_hotel_compliance_checker.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M37 theory](../README.md) · Lesson 37.1 · Notebooks: [`01a_hotel_environment_and_coordinator.ipynb`](../../notebook/01a_hotel_environment_and_coordinator.ipynb), [`01b_hotel_reservation_agent.ipynb`](../../notebook/01b_hotel_reservation_agent.ipynb), [`01c_hotel_compliance_checker.ipynb`](../../notebook/01c_hotel_compliance_checker.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Compliance agent
 

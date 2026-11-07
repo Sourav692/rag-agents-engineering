@@ -1,6 +1,6 @@
 # M39 Theory: Building MCP Servers & Clients
 
-*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur connects more than one MCP server and makes repeated tool calls. You will inspect name ownership, partial failures and session lifetime, then trace where responses travel over SSE and Streamable HTTP. The tutorials cover multi-server clients, held sessions and the two HTTP transports. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -48,7 +48,7 @@ Lesson 39.3 is a platform variant: the same FastMCP server with a stock-price to
 
 ## How it connects
 
-- **Before:** [M38](../../../m38_mcp_foundations/mandatory/theory/README.md) builds the first server and client, the three things a server offers, and a remote server over SSE. [M22](../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md) builds the tool-calling loop the clients here run, and [M31](../../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/README.md) makes retrieval a tool, the job the `handbook` server does behind a protocol.
+- **Before:** [M38](../../../m38_mcp_foundations/mandatory/theory/README.md) builds the first server and client, the three things a server offers, and a remote server over SSE. [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) builds the tool-calling loop the clients here run, and [M31](../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md) makes retrieval a tool, the job the `handbook` server does behind a protocol.
 - **Next:** [M40](../../../m40_mcp_applications/mandatory/theory/README.md) builds MCP applications and RAG over MCP on these clients and transports. [M41](../../../m41_a2a_protocol/mandatory/theory/README.md) moves from tools to agents with the A2A protocol.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

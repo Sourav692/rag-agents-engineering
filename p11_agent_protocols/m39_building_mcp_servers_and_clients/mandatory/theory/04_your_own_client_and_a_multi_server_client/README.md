@@ -1,6 +1,6 @@
 # M39.4 Theory: Your own client and a multi-server client
 
-*[M39 theory](../README.md) · Lesson 39.4 · Notebooks: [`01_build_your_own_server_client`](../../../projects/01_build_your_own_server_client), [`02_multi_server_client`](../../../projects/02_multi_server_client) · [All theory pages](../../../../../theory/README.md)*
+*[M39 theory](../README.md) · Lesson 39.4 · Notebooks: [`01_build_your_own_server_client`](../../../projects/01_build_your_own_server_client), [`02_multi_server_client`](../../../projects/02_multi_server_client) · [All theory pages](../../../../../THEORY.md)*
 
 ## Client sessions
 
@@ -97,7 +97,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M23](../../../../../theory/p08_agent_foundations/m24_react_agents/README.md).
+- [M23](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md).
 
 ## Key Takeaways
 

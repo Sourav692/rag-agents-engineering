@@ -43,35 +43,36 @@ Model demo: wrap an open embedding or text model from the Hub in a Gradio app th
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_hf_setup.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/01_hf_setup.ipynb` |
-| `notebooks/01b_hf_basics.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/02_hf_basics.ipynb` |
-| `notebooks/02a_pipelines_for_nlp_tasks.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/03_pipelines_for_nlp_tasks.ipynb` |
-| `notebooks/02b_understanding_llms.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/04_understanding_llms.ipynb` |
-| `optional/02c_accessing_pretrained_models.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/21_accessing_pretrained_models.ipynb` |
-| `optional/03a_understanding_image_data.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/05_understanding_image_data.ipynb` |
-| `optional/03b_understanding_diffusion_models.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/06_understanding_diffusion_models.ipynb` |
-| `optional/03c_autopipelines_diffusers.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/07_autopipelines_diffusers.ipynb` |
-| `optional/03d_stable_video_diffusion.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/08_stable_video_diffusion.ipynb` |
-| `optional/03e_image2videogen_xl.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/09_image2videogen_xl.ipynb` |
-| `optional/04a_audio_data.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/10_audio_data.ipynb` |
-| `optional/04b_audio_classification.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/11_audio_classification.ipynb` |
-| `optional/04c_audio_transcription.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/12_audio_transcription.ipynb` |
-| `optional/04d_audio_generation.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/13_audio_generation.ipynb` |
-| `notebooks/05a_gradio_introduction.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/14_gradio_introduction.ipynb` |
-| `optional/05b_gradio_layout.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/15_gradio_layout.ipynb` |
-| `optional/05c_gradio_interactions.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/16_gradio_interactions.ipynb` |
-| `optional/05d_gradio_image_ml_integration.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/17_gradio_image_ml_integration.ipynb` |
-| `optional/05e_gradio_text_ml_integration.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/18_gradio_text_ml_integration.ipynb` |
-| `optional/05f_gradio_modals_errors.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/19_gradio_modals_errors.ipynb` |
-| `optional/05g_gradio_styling_and_themes.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/20_gradio_styling_and_themes.ipynb` |
+| `mandatory/notebook/01a_hf_setup.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/01_hf_setup.ipynb` |
+| `mandatory/notebook/01b_hf_basics.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/02_hf_basics.ipynb` |
+| `mandatory/notebook/02a_pipelines_for_nlp_tasks.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/03_pipelines_for_nlp_tasks.ipynb` |
+| `mandatory/notebook/02b_understanding_llms.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/04_understanding_llms.ipynb` |
+| `optional/notebook/02c_accessing_pretrained_models.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/21_accessing_pretrained_models.ipynb` |
+| `optional/notebook/03a_understanding_image_data.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/05_understanding_image_data.ipynb` |
+| `optional/notebook/03b_understanding_diffusion_models.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/06_understanding_diffusion_models.ipynb` |
+| `optional/notebook/03c_autopipelines_diffusers.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/07_autopipelines_diffusers.ipynb` |
+| `optional/notebook/03d_stable_video_diffusion.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/08_stable_video_diffusion.ipynb` |
+| `optional/notebook/03e_image2videogen_xl.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/09_image2videogen_xl.ipynb` |
+| `optional/notebook/04a_audio_data.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/10_audio_data.ipynb` |
+| `optional/notebook/04b_audio_classification.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/11_audio_classification.ipynb` |
+| `optional/notebook/04c_audio_transcription.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/12_audio_transcription.ipynb` |
+| `optional/notebook/04d_audio_generation.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/13_audio_generation.ipynb` |
+| `mandatory/notebook/05a_gradio_introduction.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/14_gradio_introduction.ipynb` |
+| `optional/notebook/05b_gradio_layout.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/15_gradio_layout.ipynb` |
+| `optional/notebook/05c_gradio_interactions.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/16_gradio_interactions.ipynb` |
+| `optional/notebook/05d_gradio_image_ml_integration.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/17_gradio_image_ml_integration.ipynb` |
+| `optional/notebook/05e_gradio_text_ml_integration.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/18_gradio_text_ml_integration.ipynb` |
+| `optional/notebook/05f_gradio_modals_errors.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/19_gradio_modals_errors.ipynb` |
+| `optional/notebook/05g_gradio_styling_and_themes.ipynb` | `ai-engineering-demystified-01-foundations` | `modules/07_hugging_face_models/notebooks/20_gradio_styling_and_themes.ipynb` |

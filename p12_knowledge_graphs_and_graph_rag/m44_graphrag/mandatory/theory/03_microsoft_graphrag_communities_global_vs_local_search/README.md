@@ -1,6 +1,6 @@
 # M44.3 Theory: Microsoft GraphRAG: communities, global vs local search
 
-*[M44 theory](../README.md) · Lesson 44.3 · Notebooks: [`03a_microsoft_graphrag.ipynb`](../../notebook/03a_microsoft_graphrag.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M44 theory](../README.md) · Lesson 44.3 · Notebooks: [`03a_microsoft_graphrag.ipynb`](../../notebook/03a_microsoft_graphrag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Community detection
 

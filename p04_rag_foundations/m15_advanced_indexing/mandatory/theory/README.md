@@ -1,6 +1,6 @@
 # M15 Theory: Advanced indexing strategies
 
-*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Plain RAG embeds a chunk, matches the question against it and sends that same chunk to the model. M15 separates the two jobs: the text that gets embedded and matched, and the text the model reads, joined by an id. The M15 notebooks build on four ideas: the search key and the payload, the docstore that holds payloads, hypothetical questions as search keys (HyPE), and context written into each chunk before it is embedded (contextual retrieval). Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -11,7 +11,7 @@ The running example is one 2,184-character page of the Larkspur Cloud handbook w
 - **The search key and the payload can differ.** The key is whatever gets embedded: a small child chunk, a summary, a list of generated questions, or a chunk with context prepended. The payload is what the model reads: a parent chunk, a whole document, the original chunk. An id stored with each key points at its payload.
 - **Parent-document retrieval searches small and returns large.** In the lab at child 150 and parent 600, the top 2 children contain the whole answer for 0 of the 3 golden questions (about 53 tokens on average); their parents contain it for 3 of 3 (about 206 tokens).
 - **Parent size is a cost dial with an edge.** With the whole page as the parent, every question costs 546 tokens. With parents of 400 characters, the parent splitter cuts the outage answer in two, and no parent returns it whole.
-- **An LLM can write the key at index time.** Summaries (16.1, 16.3) and hypothetical questions (16.4) cost one LLM call per chunk or document, paid once, and are only as good as what the LLM kept.
+- **An LLM can write the key at index time.** Summaries (15.1, 15.3) and hypothetical questions (15.4) cost one LLM call per chunk or document, paid once, and are only as good as what the LLM kept.
 - **Context in the chunk fixes chunks that never name their subject.** In notebook 05a a document title raises a chunk's reranker relevance from about 0.1 to 0.92. Anthropic reports that contextual embeddings reduced top-20 retrieval failures by 35%, and by 49% with contextual BM25.
 
 ## Mental model
@@ -47,7 +47,7 @@ At index time the document is written twice: once as payloads into the docstore 
 ## How it connects
 
 - **Before:** [M12](../../../m12_chunking/mandatory/theory/README.md) ends on the trade-off this module resolves: small chunks match precisely, large ones keep facts whole. [M13](../../../m13_embeddings/mandatory/theory/README.md) turns each chunk into one vector, so a chunk that mixes topics gets a vector that averages them. M14 stores the vectors; the docstore here sits beside that vector store and needs the same care when documents change.
-- **Next:** [M16](../../../../theory/p06_retrieval_quality/m17_retrievers_hybrid_search/README.md) builds BM25 indexes, which take contextual chunks as readily as embeddings do (Anthropic's contextual BM25). M17 writes hypothetical answers at query time (HyDE), the mirror image of HyPE. M18 reranks what the retriever returns, and any reranker must score the same text that was embedded, header included.
+- **Next:** [M16](../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/README.md) builds BM25 indexes, which take contextual chunks as readily as embeddings do (Anthropic's contextual BM25). M17 writes hypothetical answers at query time (HyDE), the mirror image of HyPE. M18 reranks what the retriever returns, and any reranker must score the same text that was embedded, header included.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
@@ -101,4 +101,4 @@ At index time the document is written twice: once as payloads into the docstore 
 - Keys written by an LLM (summaries, questions, context) are paid for at index time and can omit facts. Measure them against the plain index before you pay for them on every document.
 
 ---
-*Previous: [M14 Vector stores](../../../m14_vector_stores/mandatory/theory/README.md). Next: [M16 Retrievers and hybrid search](../../../../theory/p06_retrieval_quality/m17_retrievers_hybrid_search/README.md).*
+*Previous: [M14 Vector stores](../../../m14_vector_stores/mandatory/theory/README.md). Next: [M16 Retrievers and hybrid search](../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/README.md).*

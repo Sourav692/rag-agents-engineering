@@ -1,6 +1,6 @@
 # M10 Theory: The RAG lifecycle
 
-*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A language model answers from what it memorised during training. RAG adds a second source: passages retrieved from your own documents at the moment the question arrives. The M10 notebooks build on four ideas: where knowledge lives, the stages of the pipeline, how many chunks to retrieve, and why you measure a baseline before you optimise anything. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -103,4 +103,4 @@ The index is the only thing the two phases share. A bad chunk written at indexin
 - Record a baseline on a frozen golden set, change one stage at a time, and keep only the changes that beat it.
 
 ---
-*Previous: [M09 LangGraph runtime](../../../../theory/p03_langchain_and_langgraph/m10_langgraph_runtime/README.md). Next: [M11 Document ingestion](../../../m11_document_ingestion/mandatory/theory/README.md).*
+*Previous: [M09 LangGraph runtime](../../../../p03_llm_application_frameworks/m09_langgraph_runtime/mandatory/theory/README.md). Next: [M11 Document ingestion](../../../m11_document_ingestion/mandatory/theory/README.md).*

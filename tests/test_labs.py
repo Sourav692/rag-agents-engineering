@@ -49,7 +49,7 @@ def test_every_module_has_tiers_and_a_lab_readme():
 
 
 def test_done_parts_have_one_solution_per_module():
-    v2 = yaml.safe_load((ROOT / "curriculum.v2.yaml").read_text())
+    v2 = yaml.safe_load((ROOT / "curriculum.yaml").read_text())
     folder = {p["id"]: p["folder"] for p in v2["parts"]}
     for part in sorted(DONE_PARTS):
         for m in (m for m in v2["modules"] if folder[m["part"]] == part):

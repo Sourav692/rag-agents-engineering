@@ -1,6 +1,6 @@
 # M02.4 Theory: Reasoning-effort levers and cost
 
-*[M02 theory](../README.md) · Lesson 2.4 · Notebooks: [`04a_Reasoning_Effort_Levers.ipynb`](../../notebook/04a_Reasoning_Effort_Levers.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M02 theory](../README.md) · Lesson 2.4 · Notebooks: [`04a_Reasoning_Effort_Levers.ipynb`](../../notebook/04a_Reasoning_Effort_Levers.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Cost vs accuracy
 

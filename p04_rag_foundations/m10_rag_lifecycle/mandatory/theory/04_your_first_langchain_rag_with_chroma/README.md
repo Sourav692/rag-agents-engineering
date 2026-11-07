@@ -1,6 +1,6 @@
 # M10.4 Theory: Your first LangChain RAG with Chroma
 
-*[M10 theory](../README.md) · Lesson 10.4 · Notebooks: [`04a_langchain_rag_quickstart.ipynb`](../../notebook/04a_langchain_rag_quickstart.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M10 theory](../README.md) · Lesson 10.4 · Notebooks: [`04a_langchain_rag_quickstart.ipynb`](../../notebook/04a_langchain_rag_quickstart.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## What LangChain replaces
 
@@ -42,7 +42,7 @@ The notebook imports `Chroma` from `langchain_community.vectorstores`. That pack
 
 Chroma ranks by distance, and its default metric is squared Euclidean (L2) distance, so `similarity_search_with_score` returns lower numbers for closer chunks. For vectors of length 1 the two measures are tied by `distance = 2 - 2 × cosine`, so L2 and cosine rank chunks in the same order. On the 12 Larkspur chunks, embedded with `all-MiniLM-L6-v2` as in lesson 10.3 (langchain-chroma 1.1.0, chromadb 1.5.9):
 
-| Question | Chunk | Cosine (11.3) | `similarity_search_with_score` | `similarity_search_with_relevance_scores` |
+| Question | Chunk | Cosine (10.3) | `similarity_search_with_score` | `similarity_search_with_relevance_scores` |
 |---|---|---|---|---|
 | *How long does a refund take?* | `refund-timing` (1st) | 0.766 | 0.469 | 0.668 |
 | *Can I export my data after I cancel my plan?* | `retention` (1st) | 0.817 | 0.367 | 0.741 |

@@ -1,6 +1,6 @@
 # M18.1 Theory: Two-stage retrieval: retrieve wide, rerank narrow
 
-*[M18 theory](../README.md) · Lesson 18.1 · Notebooks: [`01a_two_stage_reranking.ipynb`](../../notebook/01a_two_stage_reranking.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M18 theory](../README.md) · Lesson 18.1 · Notebooks: [`01a_two_stage_reranking.ipynb`](../../notebook/01a_two_stage_reranking.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Recall@50 → precision@5
 
@@ -35,7 +35,7 @@ flowchart TD
     A -- yes --> B{"Evidence in the top 5<br/>after the rerank?"}
     B -- no --> F2["Fix stage 2<br/>reranker model<br/>input truncation"]
     B -- yes --> C{"Answer uses<br/>the evidence?"}
-    C -- no --> F3["Fix the context<br/>order and budget<br/>(19.4 to 19.6)"]
+    C -- no --> F3["Fix the context<br/>order and budget<br/>(18.4 to 18.6)"]
     C -- yes --> OK["Stages agree;<br/>check the prompt"]
 ```
 

@@ -1,6 +1,6 @@
 # M10.5 Theory: Retry policies and bounded cycles
 
-*[M09 theory](../README.md) · Lesson 9.5 · Notebooks: [`05a_Retries.ipynb`](../../notebook/05a_Retries.ipynb), [`05b_Cycles_and_Loops.ipynb`](../../notebook/05b_Cycles_and_Loops.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M09 theory](../README.md) · Lesson 9.5 · Notebooks: [`05a_Retries.ipynb`](../../notebook/05a_Retries.ipynb), [`05b_Cycles_and_Loops.ipynb`](../../notebook/05b_Cycles_and_Loops.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Retry policies
 
@@ -46,7 +46,7 @@ The notebook's guard has three parts:
 - **The router checks success first, then the cap.** With `max_iterations=3` and a validator that always fails, the run is generate, validate, three times over, then `finalize`: 7 node runs, 3 errors accumulated through the `operator.add` reducer, and a result with `success` still false that the caller must handle.
 - **`recursion_limit` is the backstop.** It counts steps, not loops. The installed LangGraph's default is 10,007 (set by `LANGGRAPH_DEFAULT_RECURSION_LIMIT`), far too high to save an LLM budget. Pass it per run: the same loop with no counter and `{"recursion_limit": 10}` stops after 10 steps (five generates, five validations) with `GraphRecursionError`.
 
-A loop on the Larkspur desk, such as "rewrite the customer reply until the tone checker passes", gets the same treatment: a counter in the rewriting node, a cap in the router, an explicit `recursion_limit`, and a fallback path when the cap is hit. [M29](../../../../../theory/p09_agentic_rag/m29_crag_and_self_rag/README.md)'s grade-and-rewrite loops are built this way.
+A loop on the Larkspur desk, such as "rewrite the customer reply until the tone checker passes", gets the same treatment: a counter in the rewriting node, a cap in the router, an explicit `recursion_limit`, and a fallback path when the cap is hit. [M29](../../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/README.md)'s grade-and-rewrite loops are built this way.
 
 ## Key Takeaways
 

@@ -1,6 +1,6 @@
 # M06.2 Theory: Multimodal prompting with GPT-4o
 
-*[M05 theory](../../../mandatory/theory/README.md) · Lesson 5.2 · Notebooks: [`02a_multimodal_openai_gpt_4o.ipynb`](../../notebook/02a_multimodal_openai_gpt_4o.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M05 theory](../../../mandatory/theory/README.md) · Lesson 5.2 · Notebooks: [`02a_multimodal_openai_gpt_4o.ipynb`](../../notebook/02a_multimodal_openai_gpt_4o.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Image content parts
 

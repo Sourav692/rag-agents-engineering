@@ -1,6 +1,6 @@
 # M24.5 Theory: Evaluator–optimizer loops, always bounded: LangGraph vs LCEL
 
-*[M24 theory](../README.md) · Lesson 24.5 · Notebooks: [`05a_evaluator_optimizer_langgraph.ipynb`](../../notebook/05a_evaluator_optimizer_langgraph.ipynb), [`05b_evaluator_optimizer_lcel.ipynb`](../../notebook/05b_evaluator_optimizer_lcel.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M24 theory](../README.md) · Lesson 24.5 · Notebooks: [`05a_evaluator_optimizer_langgraph.ipynb`](../../notebook/05a_evaluator_optimizer_langgraph.ipynb), [`05b_evaluator_optimizer_lcel.ipynb`](../../notebook/05b_evaluator_optimizer_lcel.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Bounded loops
 

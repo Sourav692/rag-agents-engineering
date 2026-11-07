@@ -1,6 +1,6 @@
 # M16 Theory: Retrievers and hybrid search
 
-*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 An embedding retriever finds chunks that mean what the question means, and misses chunks that only share a rare exact token: an order ID, a plan name, an error code. A keyword retriever has the opposite failure. M16 runs both and merges their rankings. The M16 notebooks build on four ideas: dense and sparse retrieval, the BM25 ranking function, Reciprocal Rank Fusion, and the λ that trades relevance against diversity in Maximal Marginal Relevance. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -51,7 +51,7 @@ Two retrievers rank the same chunks by different evidence, and fusion turns two 
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) gives the baseline and the symptom table that sends exact-code misses here; its TF-IDF lab is the sparse half in miniature. [M12](../../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md) sets chunk length, which BM25's `b` parameter normalises. [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) and [M14](../../../../theory/p05_ingestion_and_indexing/m15_vector_stores/README.md) supply the embeddings and the vector store behind the dense half.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) gives the baseline and the symptom table that sends exact-code misses here; its TF-IDF lab is the sparse half in miniature. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) sets chunk length, which BM25's `b` parameter normalises. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) and [M14](../../../../p04_rag_foundations/m14_vector_stores/mandatory/theory/README.md) supply the embeddings and the vector store behind the dense half.
 - **Next:** [M17](../../../m17_query_transformation/mandatory/theory/README.md) rewrites the question before these retrievers see it, and RAG-Fusion applies this module's RRF to several query variants. [M18](../../../m18_reranking_post_retrieval/mandatory/theory/README.md) reranks the fused list with a cross-encoder.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
@@ -106,4 +106,4 @@ Two retrievers rank the same chunks by different evidence, and fusion turns two 
 - Set λ, score thresholds and fusion weights by measuring them on your golden set, and measure again when the embedding model changes.
 
 ---
-*Previous: [M15 Advanced indexing strategies](../../../../theory/p05_ingestion_and_indexing/m16_advanced_indexing/README.md). Next: [M17 Query transformation and routing](../../../m17_query_transformation/mandatory/theory/README.md).*
+*Previous: [M15 Advanced indexing strategies](../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/theory/README.md). Next: [M17 Query transformation and routing](../../../m17_query_transformation/mandatory/theory/README.md).*

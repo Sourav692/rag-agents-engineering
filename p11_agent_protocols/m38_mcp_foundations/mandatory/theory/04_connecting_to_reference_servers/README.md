@@ -1,6 +1,6 @@
 # M38.4 Theory: Connecting to reference servers
 
-*[M38 theory](../README.md) · Lesson 38.4 · Notebooks: [`04a_connecting_to_reference_servers.ipynb`](../../notebook/04a_connecting_to_reference_servers.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M38 theory](../README.md) · Lesson 38.4 · Notebooks: [`04a_connecting_to_reference_servers.ipynb`](../../notebook/04a_connecting_to_reference_servers.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Reference servers
 

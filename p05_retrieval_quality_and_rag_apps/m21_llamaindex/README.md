@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VII · Building Complete RAG Applications** · **Level:** Core · **Time:** ~3 h · **Notebooks:** 4 mandatory, 1 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~3 h · **Notebooks:** 4 mandatory, 1 optional
 
 ## Why it matters
 
@@ -33,7 +33,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 
 ## Hands-on lab
 
-Port one of your Part VI pipelines (hybrid + rerank) to LlamaIndex and confirm the metrics match. Details: [lab/README.md](lab/README.md).
+Port one of your Part V pipelines (hybrid + rerank) to LlamaIndex and confirm the metrics match. Details: [lab/README.md](lab/README.md).
 
 ## Key concepts
 
@@ -41,19 +41,20 @@ Port one of your Part VI pipelines (hybrid + rerank) to LlamaIndex and confirm t
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_simple_rag_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/01_simple_rag_with_llamaindex.ipynb` |
-| `optional/01b_simple_csv_rag_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/02_simple_csv_rag_with_llamaindex.ipynb` |
-| `notebooks/02a_fusion_retrieval_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/03_fusion_retrieval_with_llamaindex.ipynb` |
-| `notebooks/03a_reranking_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/04_reranking_with_llamaindex.ipynb` |
-| `notebooks/04a_context_enrichment_window_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/05_context_enrichment_window_with_llamaindex.ipynb` |
+| `mandatory/notebook/01a_simple_rag_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/01_simple_rag_with_llamaindex.ipynb` |
+| `optional/notebook/01b_simple_csv_rag_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/02_simple_csv_rag_with_llamaindex.ipynb` |
+| `mandatory/notebook/02a_fusion_retrieval_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/03_fusion_retrieval_with_llamaindex.ipynb` |
+| `mandatory/notebook/03a_reranking_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/04_reranking_with_llamaindex.ipynb` |
+| `mandatory/notebook/04a_context_enrichment_window_with_llamaindex.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/13_llamaindex_rag/notebooks/05_context_enrichment_window_with_llamaindex.ipynb` |

@@ -1,6 +1,6 @@
 # M16.3 Theory: Fusion retrieval: score normalisation vs rank fusion
 
-*[M16 theory](../README.md) · Lesson 16.3 · Notebooks: [`03a_fusion_retrieval.ipynb`](../../notebook/03a_fusion_retrieval.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M16 theory](../README.md) · Lesson 16.3 · Notebooks: [`03a_fusion_retrieval.ipynb`](../../notebook/03a_fusion_retrieval.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Weighted score fusion
 

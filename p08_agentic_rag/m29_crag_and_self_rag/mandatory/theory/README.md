@@ -1,6 +1,6 @@
 # M29 Theory: Self-correcting RAG: CRAG and Self-RAG
 
-*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur must decide whether checking an answer is worth the extra calls. You will follow corrective retrieval and Self-RAG decisions, inspect unsupported-answer loops and compare the costs on the same questions. The tutorials cover retrieval evaluation, refinement, reflection decisions and groundedness. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -45,7 +45,7 @@ There are two places to catch a bad answer. CRAG checks the context before gener
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) supplies the handbook, the golden questions and the baseline these pipelines are compared against. [M17](../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md) teaches query rewriting, and [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) the relevance grader and bounded retry loop that CRAG and Self-RAG both reuse. [M25](../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/README.md) covers reflection as a general agent pattern.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) supplies the handbook, the golden questions and the baseline these pipelines are compared against. [M17](../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md) teaches query rewriting, and [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) the relevance grader and bounded retry loop that CRAG and Self-RAG both reuse. [M25](../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/README.md) covers reflection as a general agent pattern.
 - **Next:** [M30](../../../m30_adaptive_rag_routing/mandatory/theory/README.md) routes the question before retrieval and adds a hallucination grader of its own. [M32](../../../m32_reliability_feedback/mandatory/theory/README.md) turns these checks into feedback loops, and M46 weighs CRAG and Self-RAG against the other agentic RAG designs.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

@@ -1,6 +1,6 @@
 # M08.1 Theory: LCEL and the Runnable interface
 
-*[M07 theory](../README.md) · Lesson 7.1 · Notebooks: [`01a_LCEL_Introduction.ipynb`](../../notebook/01a_LCEL_Introduction.ipynb), [`01b_Runnables.ipynb`](../../notebook/01b_Runnables.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M07 theory](../README.md) · Lesson 7.1 · Notebooks: [`01a_LCEL_Introduction.ipynb`](../../notebook/01a_LCEL_Introduction.ipynb), [`01b_Runnables.ipynb`](../../notebook/01b_Runnables.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Runnable interface
 

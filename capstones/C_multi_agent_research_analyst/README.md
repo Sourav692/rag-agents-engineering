@@ -17,7 +17,7 @@ A supervisor-led research team that plans, retrieves from private and web source
 ## Deliverables
 
 - A working system (notebook or small app) in this folder
-- An evaluation report on a golden question set, compared with the M11 baseline
+- An evaluation report on a golden question set, compared with the M10 baseline
 - A 10-minute demo
 
 Assessment weights are in [CURRICULUM.md](../../CURRICULUM.md#assessment).

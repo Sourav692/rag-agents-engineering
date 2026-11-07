@@ -1,6 +1,6 @@
 # M04 Theory: Prompt engineering patterns
 
-*Part II · Prompt & Context Engineering · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part II · Prompt & Context Engineering · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Every LLM step in a RAG pipeline is a prompt: the query rewrite, the relevance grade, the route and the final answer. A prompt pattern is a reusable way to write one of those steps. The M04 notebooks build on four ideas: showing the model worked examples, asking it to reason before it answers, sampling several reasoning paths and voting, and running a loop of thoughts and tool calls. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -43,8 +43,8 @@ Three of the four steps between the question and the answer are prompts, and eac
 
 ## How it connects
 
-- **Before:** [M02](../../../../p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/theory/README.md) calls the provider APIs these prompts are sent through. Fine-tuning, the alternative when a prompt cannot carry enough examples, comes later in [M45](../../../../theory/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/README.md).
-- **Next:** [M05](../../../m05_multimodal_prompting/mandatory/theory/README.md) applies the patterns to image inputs, and [M06](../../../../p03_llm_application_frameworks/m06_langchain_core/mandatory/theory/README.md) turns them into LangChain prompt templates and output parsers. The rewrite prompt returns in [M17](../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md), the grading prompt in [M28](../../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/README.md), the ReAct loop in [M22](../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md) and [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md), and self-consistency with tree of thoughts in [M25](../../../../theory/p08_agent_foundations/m26_planning_reflection_reasoning/README.md).
+- **Before:** [M02](../../../../p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/theory/README.md) calls the provider APIs these prompts are sent through. Fine-tuning, the alternative when a prompt cannot carry enough examples, comes later in [M45](../../../../p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/theory/README.md).
+- **Next:** [M05](../../../m05_multimodal_prompting/mandatory/theory/README.md) applies the patterns to image inputs, and [M06](../../../../p03_llm_application_frameworks/m06_langchain_core/mandatory/theory/README.md) turns them into LangChain prompt templates and output parsers. The rewrite prompt returns in [M17](../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md), the grading prompt in [M28](../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md), the ReAct loop in [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) and [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md), and self-consistency with tree of thoughts in [M25](../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/README.md).
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

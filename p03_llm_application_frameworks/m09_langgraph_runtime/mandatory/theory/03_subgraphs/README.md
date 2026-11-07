@@ -1,6 +1,6 @@
 # M10.3 Theory: Subgraphs
 
-*[M09 theory](../README.md) · Lesson 9.3 · Notebooks: [`03a_Subgraphs.ipynb`](../../notebook/03a_Subgraphs.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M09 theory](../README.md) · Lesson 9.3 · Notebooks: [`03a_Subgraphs.ipynb`](../../notebook/03a_Subgraphs.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Subgraphs
 
@@ -32,7 +32,7 @@ The runtime features from this module reach inside subgraphs:
 - **Interrupts.** An `interrupt()` inside the child pauses the whole run, in both forms. Resuming re-runs only the interrupted child node; the child's earlier nodes keep their saved results. With a wrapper, the wrapper function also runs again from its first line, so any parent-side code before `subgraph.invoke` repeats. In a two-node child (a check, then a gate) both forms ran the check once and the gate twice; the wrapper ran twice.
 - **Streaming.** `stream(..., subgraphs=True)` yields `(namespace, chunk)` pairs, where the namespace names the subgraph node (`("approval:<task id>",)`) and the parent's own events have the empty namespace `()`.
 
-Choose a subgraph when a piece has its own loop or its own state that the parent should not carry, when a team owns it separately, or when several parents reuse it. [M35](../../../../../theory/p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md) to M37 build multi-agent systems out of exactly these pieces. For a straight sequence of steps on the same state, plain nodes are simpler.
+Choose a subgraph when a piece has its own loop or its own state that the parent should not carry, when a team owns it separately, or when several parents reuse it. [M35](../../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md) to M37 build multi-agent systems out of exactly these pieces. For a straight sequence of steps on the same state, plain nodes are simpler.
 
 ## Key Takeaways
 

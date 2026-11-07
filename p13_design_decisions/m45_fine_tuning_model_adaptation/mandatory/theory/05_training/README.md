@@ -1,6 +1,6 @@
 # M45.5 Theory: Training
 
-*[M45 theory](../README.md) · Lesson 45.5 · Notebooks: [`05a_training_lab.ipynb`](../../notebook/05_training/05a_training_lab.ipynb), [`05b_training_lecture.ipynb`](../../../optional/notebook/05_training/05b_training_lecture.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../README.md) · Lesson 45.5 · Notebooks: [`05a_training_lab.ipynb`](../../notebook/05_training/05a_training_lab.ipynb), [`05b_training_lecture.ipynb`](../../../optional/notebook/05_training/05b_training_lecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Trainer
 

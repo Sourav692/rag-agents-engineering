@@ -1,6 +1,6 @@
 # M15.5 Theory: Context-aware chunks: contextual headers and contextual retrieval
 
-*[M15 theory](../README.md) · Lesson 15.5 · Notebooks: [`05a_contextual_chunk_headers.ipynb`](../../notebook/05a_contextual_chunk_headers.ipynb), [`05b_contextual_retrieval_rag_system.ipynb`](../../notebook/05b_contextual_retrieval_rag_system.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M15 theory](../README.md) · Lesson 15.5 · Notebooks: [`05a_contextual_chunk_headers.ipynb`](../../notebook/05a_contextual_chunk_headers.ipynb), [`05b_contextual_retrieval_rag_system.ipynb`](../../notebook/05b_contextual_retrieval_rag_system.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Contextual chunk headers
 

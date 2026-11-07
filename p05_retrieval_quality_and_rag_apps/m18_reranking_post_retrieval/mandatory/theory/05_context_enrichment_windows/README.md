@@ -1,6 +1,6 @@
 # M18.5 Theory: Context enrichment windows
 
-*[M18 theory](../README.md) · Lesson 18.5 · Notebooks: [`05a_context_enrichment_window.ipynb`](../../notebook/05a_context_enrichment_window.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M18 theory](../README.md) · Lesson 18.5 · Notebooks: [`05a_context_enrichment_window.ipynb`](../../notebook/05a_context_enrichment_window.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Enrichment windows
 
@@ -17,7 +17,7 @@ The window length follows from the split. Neighbouring chunks start `chunk_size 
 | Climate change PDF | 400 / 200 | 400 characters | 800 characters | 2× |
 | AI-history passage, *When did deep learning become prominent in AI?* | 250 / 20 | 250 characters | 710 characters | 2.84× |
 
-The more the chunks already overlap, the less the window adds. Either way the growth comes out of the context budget (19.4), so a pipeline that widens each hit usually keeps fewer hits.
+The more the chunks already overlap, the less the window adds. Either way the growth comes out of the context budget (18.4), so a pipeline that widens each hit usually keeps fewer hits.
 
 On the Larkspur handbook the window repairs M12's boundary cut. M12's 300-character split ends chunk 2 of the refund section at "used less than" and starts chunk 3 with the 100 GB condition; a window around chunk 2 sends both halves of the rule.
 

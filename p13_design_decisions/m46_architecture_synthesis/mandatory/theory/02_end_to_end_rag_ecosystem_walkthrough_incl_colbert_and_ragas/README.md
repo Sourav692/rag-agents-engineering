@@ -1,6 +1,6 @@
 # M46.2 Theory: End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS)
 
-*[M46 theory](../README.md) · Lesson 46.2 · Notebooks: [`02a_rag_ecosystem.ipynb`](../../notebook/02a_rag_ecosystem.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M46 theory](../README.md) · Lesson 46.2 · Notebooks: [`02a_rag_ecosystem.ipynb`](../../notebook/02a_rag_ecosystem.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## The stack in one notebook
 
@@ -8,11 +8,11 @@
 
 | Notebook part | What it builds | Taught in depth |
 |---|---|---|
-| Basic RAG | load, split, embed, retrieve, generate | [M10](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) |
-| Query transformations | multi-query, RAG-Fusion, decomposition, step-back, HyDE | [M17](../../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md) |
-| Routing and query construction | logical and semantic routing, a metadata filter written from the question | [M17](../../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md), [M30](../../../../../theory/p09_agentic_rag/m30_adaptive_rag_routing/README.md) |
-| Indexing | multi-representation indexing, RAPTOR (described), ColBERT | [M15](../../../../../theory/p05_ingestion_and_indexing/m16_advanced_indexing/README.md), [M42](../../../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/README.md), below |
-| Retrieval and generation | Cohere reranking, CRAG and Self-RAG (described), long context | [M18](../../../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/README.md), [M29](../../../../../theory/p09_agentic_rag/m29_crag_and_self_rag/README.md) |
+| Basic RAG | load, split, embed, retrieve, generate | [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) |
+| Query transformations | multi-query, RAG-Fusion, decomposition, step-back, HyDE | [M17](../../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md) |
+| Routing and query construction | logical and semantic routing, a metadata filter written from the question | [M17](../../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md), [M30](../../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md) |
+| Indexing | multi-representation indexing, RAPTOR (described), ColBERT | [M15](../../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/theory/README.md), [M42](../../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/README.md), below |
+| Retrieval and generation | Cohere reranking, CRAG and Self-RAG (described), long context | [M18](../../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/README.md), [M29](../../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/README.md) |
 | Evaluation | judges written from scratch, deepeval, grouse, RAGAS | below |
 
 The notebook ships without outputs. Sentences such as "The output is remarkable" after the rerank cell, or "`faithfulness` and `context_recall` are perfect" after the RAGAS cell, describe a run that is not saved with it. Treat them as expectations to check.
@@ -38,7 +38,7 @@ flowchart TB
     end
 ```
 
-The name places it between the two retrieval models the course already uses. A bi-encoder computes everything at index time and compares one pair of vectors at query time. A cross-encoder reranker ([M18](../../../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/README.md)) computes nothing in advance and reads every question and passage pair together at query time. ColBERT computes the passage token vectors at index time and lets the tokens interact only at the end, through a cheap max and sum. [M20](../../../../../theory/p07_rag_applications/m21_multimodal_rag/03_page_image_retrieval_with_colpali/README.md#late-interaction) uses the same scoring on page images, where every image patch gets a vector.
+The name places it between the two retrieval models the course already uses. A bi-encoder computes everything at index time and compares one pair of vectors at query time. A cross-encoder reranker ([M18](../../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/README.md)) computes nothing in advance and reads every question and passage pair together at query time. ColBERT computes the passage token vectors at index time and lets the tokens interact only at the end, through a cheap max and sum. [M20](../../../../../p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/optional/theory/03_page_image_retrieval_with_colpali/README.md#late-interaction) uses the same scoring on page images, where every image patch gets a vector.
 
 The notebook runs it through RAGatouille:
 
@@ -48,7 +48,7 @@ The notebook runs it through RAGatouille:
 
 The cost moves into storage. ColBERTv2 stores 128 dimensions per token vector (Santhanam et al., *ColBERTv2*, NAACL 2022). A passage of up to 180 tokens is then up to 23,040 numbers, against 1,536 for one `text-embedding-3-small` vector, 15 times as many before compression. ColBERTv2 shrinks each vector to a centroid id plus a residual of 1 or 2 bits per dimension. Pages in M20 are larger still: ColSmol stores 1,139 vectors of 128 dimensions per page.
 
-On the architecture map, late interaction is an entry-level change. It replaces the retriever and keeps one retrieval and one model call per question. Weigh it against the other retrieval upgrades on the same golden set: BM25 in a hybrid ([M16](../../../../../theory/p06_retrieval_quality/m17_retrievers_hybrid_search/README.md)) already catches exact codes, where dense retrieval ranked the E-4021 chunk 5th, and a cross-encoder reranks a wide candidate list at a measured latency.
+On the architecture map, late interaction is an entry-level change. It replaces the retriever and keeps one retrieval and one model call per question. Weigh it against the other retrieval upgrades on the same golden set: BM25 in a hybrid ([M16](../../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/README.md)) already catches exact codes, where dense retrieval ranked the E-4021 chunk 5th, and a cross-encoder reranks a wide candidate list at a measured latency.
 
 ## End-to-end evaluation
 

@@ -1,6 +1,6 @@
 # M23 Theory: ReAct agents and LangChain create_agent
 
-*Part VI · Agent Foundations · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VI · Agent Foundations · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A Larkspur handbook search misses the refund-timing passage. The agent needs to read the result, rephrase the search and leave enough call budget to answer. You will trace that feedback loop, inspect the graph built by `create_agent`, return validated fields and add middleware for limits and approval. The tutorials cover reason, act and observe, the agent factory, structured output and middleware. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -47,7 +47,7 @@ The applied ReAct lesson (web research, SWE and computer-use agents), with its c
 
 ## How it connects
 
-- **Before:** M22 introduces the agent loop and tool calling this module names ReAct. M08 and M09 teach the LangGraph state, persistence and interrupts that `create_agent` and its middleware compile to. The lab's tool is the [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) baseline retriever, and its rewording does by hand what query rewriting (M17) does on purpose.
+- **Before:** M22 introduces the agent loop and tool calling this module names ReAct. M08 and M09 teach the LangGraph state, persistence and interrupts that `create_agent` and its middleware compile to. The lab's tool is the [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) baseline retriever, and its rewording does by hand what query rewriting (M17) does on purpose.
 - **Next:** M24 sets fixed workflows beside this loop, M25 adds planning and reflection, and M27 uses human approval in applied single-agent builds. M28 to M32 build agentic RAG on these pieces; M31 makes the retriever an agent tool.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

@@ -1,6 +1,6 @@
 # M10.4 Theory: Async and streaming
 
-*[M09 theory](../README.md) · Lesson 9.4 · Notebooks: [`04a_Async_and_Streaming.ipynb`](../../notebook/04a_Async_and_Streaming.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M09 theory](../README.md) · Lesson 9.4 · Notebooks: [`04a_Async_and_Streaming.ipynb`](../../notebook/04a_Async_and_Streaming.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Streaming modes
 

@@ -1,6 +1,6 @@
 # M36.3 Theory: STORM: multi-perspective research and writing
 
-*[M36 theory](../README.md) · Lesson 36.3 · Notebooks: [`03a_storm.ipynb`](../../notebook/03a_storm.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M36 theory](../README.md) · Lesson 36.3 · Notebooks: [`03a_storm.ipynb`](../../notebook/03a_storm.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## STORM
 

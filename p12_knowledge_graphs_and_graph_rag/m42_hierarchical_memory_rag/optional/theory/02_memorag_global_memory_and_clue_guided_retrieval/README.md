@@ -1,6 +1,6 @@
 # M42.2 Theory: MemoRAG: global memory and clue-guided retrieval
 
-*[M42 theory](../../../mandatory/theory/README.md) · Lesson 42.2 · Notebooks: [`02a_memorag.ipynb`](../../notebook/02a_memorag.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M42 theory](../../../mandatory/theory/README.md) · Lesson 42.2 · Notebooks: [`02a_memorag.ipynb`](../../notebook/02a_memorag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Global memory
 

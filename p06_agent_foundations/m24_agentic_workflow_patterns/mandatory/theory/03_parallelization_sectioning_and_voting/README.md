@@ -1,6 +1,6 @@
 # M24.3 Theory: Parallelization: sectioning and voting
 
-*[M24 theory](../README.md) · Lesson 24.3 · Notebooks: [`03a_parallelization_langgraph.ipynb`](../../notebook/03a_parallelization_langgraph.ipynb), [`03b_parallelization_sectioning_and_voting.ipynb`](../../notebook/03b_parallelization_sectioning_and_voting.ipynb), [`03c_parallelization_lcel.ipynb`](../../../optional/notebook/03c_parallelization_lcel.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M24 theory](../README.md) · Lesson 24.3 · Notebooks: [`03a_parallelization_langgraph.ipynb`](../../notebook/03a_parallelization_langgraph.ipynb), [`03b_parallelization_sectioning_and_voting.ipynb`](../../notebook/03b_parallelization_sectioning_and_voting.ipynb), [`03c_parallelization_lcel.ipynb`](../../../optional/notebook/03c_parallelization_lcel.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Fan-out / fan-in
 

@@ -1,6 +1,6 @@
 # M39.1 Theory: Single-server MCP, with resources
 
-*[M39 theory](../README.md) · Lesson 39.1 · Notebooks: [`01_single_server_mcp`](../../../projects/01_single_server_mcp), [`02_single_server_mcp_with_resources`](../../../projects/02_single_server_mcp_with_resources) · [All theory pages](../../../../../theory/README.md)*
+*[M39 theory](../README.md) · Lesson 39.1 · Notebooks: [`01_single_server_mcp`](../../../projects/01_single_server_mcp), [`02_single_server_mcp_with_resources`](../../../projects/02_single_server_mcp_with_resources) · [All theory pages](../../../../../THEORY.md)*
 
 ## What comes back from a server
 

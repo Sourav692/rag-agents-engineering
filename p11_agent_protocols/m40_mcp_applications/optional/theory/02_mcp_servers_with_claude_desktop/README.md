@@ -1,6 +1,6 @@
 # M40.2 Theory: MCP servers with Claude Desktop
 
-*[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.2 · Notebooks: [`03_mcp_servers_with_claude_desktop`](../../../projects/03_mcp_servers_with_claude_desktop) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.2 · Notebooks: [`03_mcp_servers_with_claude_desktop`](../../../projects/03_mcp_servers_with_claude_desktop) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Claude Desktop
 

@@ -1,6 +1,6 @@
 # M45.6 Theory: Evaluation
 
-*[M45 theory](../README.md) · Lesson 45.6 · Notebooks: [`06a_evaluation_lab.ipynb`](../../notebook/06_evaluation/06a_evaluation_lab.ipynb), [`06b_evaluation_lecture.ipynb`](../../../optional/notebook/06_evaluation/06b_evaluation_lecture.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../README.md) · Lesson 45.6 · Notebooks: [`06a_evaluation_lab.ipynb`](../../notebook/06_evaluation/06a_evaluation_lab.ipynb), [`06b_evaluation_lecture.ipynb`](../../../optional/notebook/06_evaluation/06b_evaluation_lecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Evaluation
 

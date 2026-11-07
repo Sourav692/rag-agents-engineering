@@ -1,6 +1,6 @@
 # M08.2 Theory: LCEL deep dive
 
-*[M07 theory](../README.md) · Lesson 7.2 · Notebooks: [`02a_LCEL_Deepdive.ipynb`](../../notebook/02a_LCEL_Deepdive.ipynb), [`02b_LCEL_and_Runnables.ipynb`](../../../optional/notebook/02b_LCEL_and_Runnables.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M07 theory](../README.md) · Lesson 7.2 · Notebooks: [`02a_LCEL_Deepdive.ipynb`](../../notebook/02a_LCEL_Deepdive.ipynb), [`02b_LCEL_and_Runnables.ipynb`](../../../optional/notebook/02b_LCEL_and_Runnables.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Pipe composition
 

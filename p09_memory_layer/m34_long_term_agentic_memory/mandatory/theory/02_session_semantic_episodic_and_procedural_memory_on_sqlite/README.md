@@ -1,6 +1,6 @@
 # M34.2 Theory: Session, semantic, episodic and procedural memory on SQLite
 
-*[M34 theory](../README.md) · Lesson 34.2 · Notebooks: [`02b_long_term_semantic_memory_sqlite.ipynb`](../../notebook/02b_long_term_semantic_memory_sqlite.ipynb), [`02c_long_term_episodic_memory_sqlite.ipynb`](../../notebook/02c_long_term_episodic_memory_sqlite.ipynb), [`02a_session_memory_sqlite.ipynb`](../../../optional/notebook/02a_session_memory_sqlite.ipynb) (optional), [`02d_long_term_procedural_memory_sqlite.ipynb`](../../../optional/notebook/02d_long_term_procedural_memory_sqlite.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M34 theory](../README.md) · Lesson 34.2 · Notebooks: [`02b_long_term_semantic_memory_sqlite.ipynb`](../../notebook/02b_long_term_semantic_memory_sqlite.ipynb), [`02c_long_term_episodic_memory_sqlite.ipynb`](../../notebook/02c_long_term_episodic_memory_sqlite.ipynb), [`02a_session_memory_sqlite.ipynb`](../../../optional/notebook/02a_session_memory_sqlite.ipynb) (optional), [`02d_long_term_procedural_memory_sqlite.ipynb`](../../../optional/notebook/02d_long_term_procedural_memory_sqlite.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Semantic / episodic / procedural memory
 

@@ -1,6 +1,6 @@
 # M29.1 Theory: Corrective RAG in LangGraph with web-search fallback
 
-*[M29 theory](../README.md) · Lesson 29.1 · Notebooks: [`01a_agentic_corrective_rag_langgraph.ipynb`](../../notebook/01a_agentic_corrective_rag_langgraph.ipynb), [`01b_crag_rag_techniques.ipynb`](../../../optional/notebook/01b_crag_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M29 theory](../README.md) · Lesson 29.1 · Notebooks: [`01a_agentic_corrective_rag_langgraph.ipynb`](../../notebook/01a_agentic_corrective_rag_langgraph.ipynb), [`01b_crag_rag_techniques.ipynb`](../../../optional/notebook/01b_crag_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Retrieval evaluator
 

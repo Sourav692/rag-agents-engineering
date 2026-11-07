@@ -1,6 +1,6 @@
 # M40.6 Theory: Research assistant with MCP and LangGraph
 
-*[M40 theory](../README.md) · Lesson 40.6 · Notebooks: [`07_research_assistant_with_mcp_and_langgraph`](../../../projects/07_research_assistant_with_mcp_and_langgraph) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../README.md) · Lesson 40.6 · Notebooks: [`07_research_assistant_with_mcp_and_langgraph`](../../../projects/07_research_assistant_with_mcp_and_langgraph) · [All theory pages](../../../../../THEORY.md)*
 
 ## MCP + LangGraph
 
@@ -89,8 +89,8 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M22](../../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md).
-- [M31](../../../../../theory/p09_agentic_rag/m31_rag_as_agent_tool/README.md).
+- [M22](../../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md).
+- [M31](../../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md).
 - [40.2 config](../../../optional/theory/02_mcp_servers_with_claude_desktop/README.md#claude-desktop).
 - [lesson 40.7](../../../optional/theory/07_deploying_an_mcp_server_on_ec2/README.md#deployment).
 

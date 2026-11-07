@@ -1,6 +1,6 @@
 # M44.2 Theory: Local GraphRAG with source attribution
 
-*[M44 theory](../../../mandatory/theory/README.md) · Lesson 44.2 · Notebooks: [`02a_graph_rag_local_attribution.ipynb`](../../notebook/02a_graph_rag_local_attribution.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M44 theory](../../../mandatory/theory/README.md) · Lesson 44.2 · Notebooks: [`02a_graph_rag_local_attribution.ipynb`](../../notebook/02a_graph_rag_local_attribution.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Source attribution
 

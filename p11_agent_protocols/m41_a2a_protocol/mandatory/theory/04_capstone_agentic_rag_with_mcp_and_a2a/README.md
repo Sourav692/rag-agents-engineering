@@ -1,6 +1,6 @@
 # M41.4 Theory: Capstone: agentic RAG with MCP and A2A
 
-*[M41 theory](../README.md) · Lesson 41.4 · Notebooks: [`mcp_a2a_agentic_rag`](../../../projects/mcp_a2a_agentic_rag/README.md) (project) · [All theory pages](../../../../../theory/README.md)*
+*[M41 theory](../README.md) · Lesson 41.4 · Notebooks: [`mcp_a2a_agentic_rag`](../../../projects/mcp_a2a_agentic_rag/README.md) (project) · [All theory pages](../../../../../THEORY.md)*
 
 ## MCP + A2A
 

@@ -1,10 +1,10 @@
-# M33 Theory: Conversation memory and conversational RAG
+# M33 Theory: Short-term memory and conversation state
 
-*Part IX · The Memory Layer · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IX · The Memory Layer · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A Larkspur customer states their plan, then refers to it in a later question. You will preserve the relevant history for both the model and retriever, isolate sessions and compare full replay with trimming and summaries. The tutorials cover message history, history-aware retrieval, checkpoint threads and summary memory. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
-The running example is the Larkspur Cloud support assistant answering from the same twelve handbook chunks as the [M10 lab](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md). Customers ask a first question and then follow up: *Can I get a refund on my annual plan?* then *How long until the money is back?*, or *How do I export my data?* then *How long do I have?* The [lab](#interactive-lab) runs six of these three-turn chats.
+The running example is the Larkspur Cloud support assistant answering from the same twelve handbook chunks as the [M10 lab](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md). Customers ask a first question and then follow up: *Can I get a refund on my annual plan?* then *How long until the money is back?*, or *How do I export my data?* then *How long do I have?* The [lab](#interactive-lab) runs six of these three-turn chats.
 
 ## TL;DR
 
@@ -44,8 +44,8 @@ One history feeds two consumers. The rewrite step reads it so the retriever sear
 
 ## How it connects
 
-- **Before:** M07 builds the LCEL chains that `RunnableWithMessageHistory` wraps, and M09 introduces LangGraph checkpointers. The lab reuses the handbook and TF-IDF index from [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md); the vocabulary misses it shows are the problem [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) solves with embeddings, and [M17](../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md) rewrites single questions the way lesson 33.4 rewrites follow-ups.
-- **Next:** [M34](../../../m34_long_term_agentic_memory/mandatory/theory/README.md) keeps memory across threads: facts about a user that outlive one conversation. [M37](../../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/README.md) compacts context at agent-harness scale with the summary idea from lesson 33.3.
+- **Before:** M07 builds the LCEL chains that `RunnableWithMessageHistory` wraps, and M09 introduces LangGraph checkpointers. The lab reuses the handbook and TF-IDF index from [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md); the vocabulary misses it shows are the problem [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) solves with embeddings, and [M17](../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md) rewrites single questions the way lesson 33.4 rewrites follow-ups.
+- **Next:** [M34](../../../m34_long_term_agentic_memory/mandatory/theory/README.md) keeps memory across threads: facts about a user that outlive one conversation. [M37](../../../../p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/theory/README.md) compacts context at agent-harness scale with the summary idea from lesson 33.3.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

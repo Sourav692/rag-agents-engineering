@@ -1,6 +1,6 @@
 # M16.1 Theory: The retriever interface and its search modes
 
-*[M16 theory](../README.md) · Lesson 16.1 · Notebooks: [`01a_retrievers.ipynb`](../../notebook/01a_retrievers.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M16 theory](../README.md) · Lesson 16.1 · Notebooks: [`01a_retrievers.ipynb`](../../notebook/01a_retrievers.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Search modes
 

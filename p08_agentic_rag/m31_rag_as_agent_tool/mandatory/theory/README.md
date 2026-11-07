@@ -1,6 +1,6 @@
 # M31 Theory: RAG as an agent tool
 
-*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur needs handbook evidence for a policy answer, but small talk should not trigger a search. You will let the agent choose a retriever tool, inspect the description that controls that choice and keep source information through a managed service or a chat interface. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -42,7 +42,7 @@ Retrieval sits inside the loop, so the model decides whether it runs, how often,
 
 ## How it connects
 
-- **Before:** M22 and M23 teach tool calling and the ReAct loop this module puts a retriever into. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) to [M30](../../../m30_adaptive_rag_routing/mandatory/theory/README.md) make the retrieval decision inside a fixed graph; here the model makes it. [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) gives the retriever and the golden-set habit the lab reuses.
+- **Before:** M22 and M23 teach tool calling and the ReAct loop this module puts a retriever into. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) to [M30](../../../m30_adaptive_rag_routing/mandatory/theory/README.md) make the retrieval decision inside a fixed graph; here the model makes it. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) gives the retriever and the golden-set habit the lab reuses.
 - **Next:** [M32](../../../m32_reliability_feedback/mandatory/theory/README.md) checks whether an answer is supported by what was retrieved. M33 adds conversation memory to the chat. M40 exposes retrieval as a tool over MCP, so any agent can call it.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

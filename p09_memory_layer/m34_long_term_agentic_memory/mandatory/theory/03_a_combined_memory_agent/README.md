@@ -1,6 +1,6 @@
 # M34.3 Theory: A combined-memory agent
 
-*[M34 theory](../README.md) · Lesson 34.3 · Notebooks: [`03a_combined_memory_agent_sqlite.ipynb`](../../notebook/03a_combined_memory_agent_sqlite.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M34 theory](../README.md) · Lesson 34.3 · Notebooks: [`03a_combined_memory_agent_sqlite.ipynb`](../../notebook/03a_combined_memory_agent_sqlite.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Who writes each layer
 

@@ -1,6 +1,6 @@
 # M06.3 Theory: Exercise: financial report analysis
 
-*[M05 theory](../../../mandatory/theory/README.md) · Lesson 5.3 · Notebooks: [`03a_financial_report_analysis.ipynb`](../../notebook/03a_financial_report_analysis.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M05 theory](../../../mandatory/theory/README.md) · Lesson 5.3 · Notebooks: [`03a_financial_report_analysis.ipynb`](../../notebook/03a_financial_report_analysis.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Questions about a report page
 

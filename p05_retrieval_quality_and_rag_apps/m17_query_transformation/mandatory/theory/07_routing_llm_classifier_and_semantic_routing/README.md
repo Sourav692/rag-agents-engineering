@@ -1,6 +1,6 @@
 # M17.7 Theory: Routing: LLM classifier and semantic routing
 
-*[M17 theory](../README.md) · Lesson 17.7 · Notebooks: [`07a_routing_with_llm_classifier.ipynb`](../../notebook/07a_routing_with_llm_classifier.ipynb), [`07b_semantic_routing.ipynb`](../../notebook/07b_semantic_routing.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M17 theory](../README.md) · Lesson 17.7 · Notebooks: [`07a_routing_with_llm_classifier.ipynb`](../../notebook/07a_routing_with_llm_classifier.ipynb), [`07b_semantic_routing.ipynb`](../../notebook/07b_semantic_routing.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Logical vs semantic routing
 

@@ -1,6 +1,6 @@
 # M15.4 Theory: Question-side indexing: HyPE and document augmentation
 
-*[M15 theory](../README.md) · Lesson 15.4 · Notebooks: [`04a_hypothetical_prompt_embeddings.ipynb`](../../notebook/04a_hypothetical_prompt_embeddings.ipynb), [`04b_document_augmentation.ipynb`](../../../optional/notebook/04b_document_augmentation.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M15 theory](../README.md) · Lesson 15.4 · Notebooks: [`04a_hypothetical_prompt_embeddings.ipynb`](../../notebook/04a_hypothetical_prompt_embeddings.ipynb), [`04b_document_augmentation.ipynb`](../../../optional/notebook/04b_document_augmentation.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## HyPE
 

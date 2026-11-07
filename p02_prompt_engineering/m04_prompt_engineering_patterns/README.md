@@ -42,21 +42,22 @@ Prompt bake-off: write three prompts for grading whether a retrieved passage ans
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_prompt_engineering_patterns.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/01_prompting_basics/notebooks/01_prompt_engineering_patterns.ipynb` |
-| `notebooks/02a_advanced_prompt_engineering_patterns.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/02_advanced_prompt_patterns/notebooks/01_advanced_prompt_engineering_patterns.ipynb` |
-| `notebooks/03a_openai_gpt_4o_mini.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/01_openai_gpt_4o_mini.ipynb` |
-| `optional/03b_google_gemini_1_5_flash.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/02_google_gemini_1_5_flash.ipynb` |
-| `optional/03c_meta_llama_3_2_90b_groq.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/03_meta_llama_3_2_90b_groq.ipynb` |
-| `optional/03d_meta_llama_3_2_1b_huggingface.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/04_meta_llama_3_2_1b_huggingface.ipynb` |
-| `notebooks/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/06_applied_prompting/notebooks/01_gpt_4o_and_llama_3_2_real_world_tasks.ipynb` |
+| `mandatory/notebook/01a_prompt_engineering_patterns.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/01_prompting_basics/notebooks/01_prompt_engineering_patterns.ipynb` |
+| `mandatory/notebook/02a_advanced_prompt_engineering_patterns.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/02_advanced_prompt_patterns/notebooks/01_advanced_prompt_engineering_patterns.ipynb` |
+| `mandatory/notebook/03a_openai_gpt_4o_mini.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/01_openai_gpt_4o_mini.ipynb` |
+| `optional/notebook/03b_google_gemini_1_5_flash.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/02_google_gemini_1_5_flash.ipynb` |
+| `optional/notebook/03c_meta_llama_3_2_90b_groq.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/03_meta_llama_3_2_90b_groq.ipynb` |
+| `optional/notebook/03d_meta_llama_3_2_1b_huggingface.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/03_model_specific_practice/notebooks/04_meta_llama_3_2_1b_huggingface.ipynb` |
+| `mandatory/notebook/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb` | `ai-engineering-demystified-02-prompt-context-engineering` | `modules/06_applied_prompting/notebooks/01_gpt_4o_and_llama_3_2_real_world_tasks.ipynb` |

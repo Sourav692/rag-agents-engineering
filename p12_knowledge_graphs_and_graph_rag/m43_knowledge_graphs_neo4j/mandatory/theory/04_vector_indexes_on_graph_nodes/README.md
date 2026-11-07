@@ -1,6 +1,6 @@
 # M43.4 Theory: Vector indexes on graph nodes
 
-*[M43 theory](../README.md) · Lesson 43.4 · Notebooks: [`04a_vector_indexing_and_embedding.ipynb`](../../notebook/04a_vector_indexing_and_embedding.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M43 theory](../README.md) · Lesson 43.4 · Notebooks: [`04a_vector_indexing_and_embedding.ipynb`](../../notebook/04a_vector_indexing_and_embedding.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Graph + vector hybrid
 

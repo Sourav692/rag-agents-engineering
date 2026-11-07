@@ -1,6 +1,6 @@
 # M30.1 Theory: Router agentic RAG over multiple knowledge bases
 
-*[M30 theory](../README.md) · Lesson 30.1 · Notebooks: [`01a_router_agentic_rag.ipynb`](../../notebook/01a_router_agentic_rag.ipynb), [`01b_router_agentic_rag_modular.ipynb`](../../../optional/notebook/01b_router_agentic_rag_modular.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M30 theory](../README.md) · Lesson 30.1 · Notebooks: [`01a_router_agentic_rag.ipynb`](../../notebook/01a_router_agentic_rag.ipynb), [`01b_router_agentic_rag_modular.ipynb`](../../../optional/notebook/01b_router_agentic_rag_modular.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Query classification
 

@@ -1,6 +1,6 @@
 # M17.6 Theory: Query decomposition for multi-hop questions
 
-*[M17 theory](../README.md) · Lesson 17.6 · Notebooks: [`06a_query_decomposition.ipynb`](../../notebook/06a_query_decomposition.ipynb), [`06b_query_decomposition_walkthrough.ipynb`](../../../optional/notebook/06b_query_decomposition_walkthrough.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M17 theory](../README.md) · Lesson 17.6 · Notebooks: [`06a_query_decomposition.ipynb`](../../notebook/06a_query_decomposition.ipynb), [`06b_query_decomposition_walkthrough.ipynb`](../../../optional/notebook/06b_query_decomposition_walkthrough.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Decomposing compound questions
 

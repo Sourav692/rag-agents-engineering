@@ -1,6 +1,6 @@
 # M38 Theory: MCP Foundations
 
-*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XI · Agent Protocols: MCP & A2A · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur wants its handbook search reused by several hosts without copying tool definitions into each one. You will move the tools behind an MCP server, inspect discovery and call messages and compare local subprocesses with remote sessions. The tutorials cover server-client roles, tools, resources, prompts, reference servers and remote transport. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -55,7 +55,7 @@ The client and the server agree on a protocol version and capabilities once, the
 
 ## How it connects
 
-- **Before:** [M22](../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md) builds the tool-calling loop that M38 splits in two, and [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md) packages it as `create_agent`. The `larkspur-handbook` server wraps the retriever from [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md), the one Part VII improves. [M37](../../../../p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/theory/README.md) ends Part X by pointing at protocols: the coordinator and specialist split stays, and the tools move behind servers.
+- **Before:** [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) builds the tool-calling loop that M38 splits in two, and [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) packages it as `create_agent`. The `larkspur-handbook` server wraps the retriever from [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md), the one Part VII improves. [M37](../../../../p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/theory/README.md) ends Part X by pointing at protocols: the coordinator and specialist split stays, and the tools move behind servers.
 - **Next:** [M39](../../../m39_building_mcp_servers_and_clients/mandatory/theory/README.md) builds MCP servers and clients with more of the protocol. M40 builds MCP applications and RAG over MCP, and M41 moves from tools to agents with the A2A protocol.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

@@ -1,6 +1,6 @@
 # M07.5 Theory: Prompt templates and few-shot composition
 
-*[M06 theory](../README.md) · Lesson 6.5 · Notebooks: [`05a_Prompt_Templates.ipynb`](../../notebook/05a_Prompt_Templates.ipynb), [`05b_Few_Shot_Composition_and_Serialization.ipynb`](../../../optional/notebook/05b_Few_Shot_Composition_and_Serialization.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M06 theory](../README.md) · Lesson 6.5 · Notebooks: [`05a_Prompt_Templates.ipynb`](../../notebook/05a_Prompt_Templates.ipynb), [`05b_Few_Shot_Composition_and_Serialization.ipynb`](../../../optional/notebook/05b_Few_Shot_Composition_and_Serialization.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Prompt templates
 

@@ -1,6 +1,6 @@
 # M38.6 Theory: Remote servers and deployment
 
-*[M38 theory](../README.md) · Lesson 38.6 · Notebooks: [`06a_creating_and_deploying_remote_servers.ipynb`](../../notebook/06a_creating_and_deploying_remote_servers.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M38 theory](../README.md) · Lesson 38.6 · Notebooks: [`06a_creating_and_deploying_remote_servers.ipynb`](../../notebook/06a_creating_and_deploying_remote_servers.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Remote transport
 

@@ -1,6 +1,6 @@
 # M43 Theory: Knowledge Graphs with Neo4j
 
-*Part XII · Hierarchical, Memory & Graph RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XII · Knowledge Graphs & GraphRAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A knowledge graph represents named entities and their relationships explicitly. Cypher matches those relationships; vector retrieval helps find a starting entity when a question uses different words. The M43 notebooks build on four ideas: the property graph, pattern queries, translating questions into Cypher, and combining graph facts with text retrieval. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 

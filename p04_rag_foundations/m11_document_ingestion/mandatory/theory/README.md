@@ -1,6 +1,6 @@
 # M11 Theory: Document ingestion and metadata design
 
-*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Retrieval can only return text that ingestion extracted, labelled with metadata that ingestion attached. M11 rests on four ideas: what a loader does compared with a parser, why element-level parsing matters for PDFs, how to design a metadata schema before you need it, and why loaders should stream. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 

@@ -1,10 +1,10 @@
-# Part XII — Hierarchical, Memory & Graph RAG
+# Part XII — Knowledge Graphs & GraphRAG
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Weeks 23–24 · Expert**
+**Weeks 23–25 · Expert**
 
-Structural indexes for questions flat chunks cannot answer: summary trees, memory, knowledge graphs and GraphRAG.
+Hierarchical and memory-augmented retrieval, knowledge graphs in Neo4j, and GraphRAG for global and multi-hop questions.
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|

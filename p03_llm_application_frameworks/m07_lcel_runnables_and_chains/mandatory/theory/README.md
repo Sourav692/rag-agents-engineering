@@ -1,6 +1,6 @@
 # M07 Theory: LCEL, Runnables & Chains
 
-*Part III · LangChain & LangGraph Fundamentals · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part III · LLM Application Frameworks: LangChain & LangGraph · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 LCEL is how LangChain 1.x composes work: prompts, models, parsers and retrievers snap together with `|`, and the result runs with the same methods as each piece. Every RAG chain from M10 onwards is one of these pipes. The M07 notebooks build on four ideas: the one interface every component shares, the pipe that joins components into a sequence, the parallel and branching shapes a pipe can take, and map-reduce for documents longer than one prompt. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -42,7 +42,7 @@ This is the RAG chain from notebook 04a, and every box in it is a Runnable. The 
 ## How it connects
 
 - **Before:** [M06](../../../m06_langchain_core/mandatory/theory/README.md) covers the pieces this module pipes together: chat models, prompt templates and output parsers.
-- **Next:** [M08](../../../m08_langgraph_core/mandatory/theory/README.md) and [M09](../../../m09_langgraph_runtime/mandatory/theory/README.md) move control flow into LangGraph, where a Runnable can be a node. [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) composes its baseline RAG chain as exactly this pipe (notebook 05a), and [M12](../../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md) explains the splitter the map step depends on. [M24](../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) turns `RunnableParallel` into the parallelisation workflow pattern, and [M42](../../../../theory/p12_hierarchical_and_graph_rag/m42_hierarchical_memory_rag/README.md) applies recursive summarisation to a whole corpus.
+- **Next:** [M08](../../../m08_langgraph_core/mandatory/theory/README.md) and [M09](../../../m09_langgraph_runtime/mandatory/theory/README.md) move control flow into LangGraph, where a Runnable can be a node. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) composes its baseline RAG chain as exactly this pipe (notebook 05a), and [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) explains the splitter the map step depends on. [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md) turns `RunnableParallel` into the parallelisation workflow pattern, and [M42](../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/README.md) applies recursive summarisation to a whole corpus.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

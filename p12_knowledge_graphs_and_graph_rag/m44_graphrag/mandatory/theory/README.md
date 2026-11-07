@@ -1,6 +1,6 @@
 # M44 Theory: GraphRAG Techniques
 
-*Part XII · Hierarchical, Memory & Graph RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XII · Knowledge Graphs & GraphRAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Graph retrieval changes which evidence reaches the answer model. A question can start at one entity, follow a relationship to another passage, or ask for themes across communities. The M44 notebooks build on four ideas: community detection, global and local search, graph expansion, and the indexing work those choices require. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -98,4 +98,4 @@ Both routes must return evidence that the answer can cite. The graph supplies ca
 - Re-evaluate source coverage, update work and answer quality whenever extraction or routing changes.
 
 ---
-*Previous: [M43 Knowledge Graphs with Neo4j](../../../m43_knowledge_graphs_neo4j/mandatory/theory/README.md). Next: [M46 Agentic RAG Architectures: Choosing a Design](../../../../theory/p13_architecture_and_capstone/m45_architecture_synthesis/README.md).*
+*Previous: [M43 Knowledge Graphs with Neo4j](../../../m43_knowledge_graphs_neo4j/mandatory/theory/README.md). Next: [M46 Agentic RAG Architectures: Choosing a Design](../../../../p13_design_decisions/m46_architecture_synthesis/mandatory/theory/README.md).*

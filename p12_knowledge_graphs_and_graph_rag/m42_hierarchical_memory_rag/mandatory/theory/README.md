@@ -1,6 +1,6 @@
 # M42 Theory: Hierarchical & Memory-Augmented Retrieval
 
-*Part XII · Hierarchical, Memory & Graph RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XII · Knowledge Graphs & GraphRAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A passage index finds local evidence. A question about the whole handbook may need a representation assembled from several passages before retrieval begins. The M42 notebooks build on four ideas: abstraction levels, collapsed-tree retrieval, global memory and dual-level retrieval. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -42,7 +42,7 @@ Derived representations can make distributed evidence easier to find. They also 
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) establishes the flat retrieval baseline. [M33](../../../../theory/p10_memory_and_multi_agent/m33_conversational_memory_rag/README.md) and [M34](../../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/README.md) cover conversational and persistent agent memory; this module's memory represents a document corpus.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) establishes the flat retrieval baseline. [M33](../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md) and [M34](../../../../p09_memory_layer/m34_long_term_agentic_memory/mandatory/theory/README.md) cover conversational and persistent agent memory; this module's memory represents a document corpus.
 - **Next:** [M43](../../../m43_knowledge_graphs_neo4j/mandatory/theory/README.md) makes graph modelling and queries explicit. [M44](../../../m44_graphrag/mandatory/theory/README.md) compares graph traversal, community reports and graph expansion.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

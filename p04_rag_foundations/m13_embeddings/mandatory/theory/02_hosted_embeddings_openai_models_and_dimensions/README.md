@@ -1,6 +1,6 @@
 # M13.2 Theory: Hosted embeddings: OpenAI models and dimensions
 
-*[M13 theory](../README.md) · Lesson 13.2 · Notebooks: [`02a_openai_embeddings.ipynb`](../../notebook/02a_openai_embeddings.ipynb), [`02b_openai_embeddings_tutorial.ipynb`](../../../optional/notebook/02b_openai_embeddings_tutorial.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M13 theory](../README.md) · Lesson 13.2 · Notebooks: [`02a_openai_embeddings.ipynb`](../../notebook/02a_openai_embeddings.ipynb), [`02b_openai_embeddings_tutorial.ipynb`](../../../optional/notebook/02b_openai_embeddings_tutorial.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Vector dimensionality
 

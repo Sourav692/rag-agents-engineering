@@ -1,6 +1,6 @@
 # M39.5 Theory: Transports: SSE and streamable HTTP
 
-*[M39 theory](../README.md) · Lesson 39.5 · Notebooks: [`03_sse_transport_server_client`](../../../projects/03_sse_transport_server_client), [`04_streamable_http_client`](../../../projects/04_streamable_http_client) · [All theory pages](../../../../../theory/README.md)*
+*[M39 theory](../README.md) · Lesson 39.5 · Notebooks: [`03_sse_transport_server_client`](../../../projects/03_sse_transport_server_client), [`04_streamable_http_client`](../../../projects/04_streamable_http_client) · [All theory pages](../../../../../THEORY.md)*
 
 ## SSE
 

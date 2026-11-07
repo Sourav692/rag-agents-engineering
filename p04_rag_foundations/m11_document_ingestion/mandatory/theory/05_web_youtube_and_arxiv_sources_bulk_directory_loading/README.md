@@ -1,6 +1,6 @@
 # M11.5 Theory: Web, YouTube and arXiv sources; bulk directory loading
 
-*[M11 theory](../README.md) · Lesson 11.5 · Notebooks: [`05a_url_loader.ipynb`](../../notebook/05a_url_loader.ipynb), [`05b_youtube_transcript_loader.ipynb`](../../../optional/notebook/05b_youtube_transcript_loader.ipynb) (optional), [`05c_research_paper_loader.ipynb`](../../../optional/notebook/05c_research_paper_loader.ipynb) (optional), [`05d_directory_loader.ipynb`](../../../optional/notebook/05d_directory_loader.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M11 theory](../README.md) · Lesson 11.5 · Notebooks: [`05a_url_loader.ipynb`](../../notebook/05a_url_loader.ipynb), [`05b_youtube_transcript_loader.ipynb`](../../../optional/notebook/05b_youtube_transcript_loader.ipynb) (optional), [`05c_research_paper_loader.ipynb`](../../../optional/notebook/05c_research_paper_loader.ipynb) (optional), [`05d_directory_loader.ipynb`](../../../optional/notebook/05d_directory_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Routing a mixed folder
 

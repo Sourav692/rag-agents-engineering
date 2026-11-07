@@ -1,6 +1,6 @@
 # M08.4 Theory: Legacy chains and migration to LCEL
 
-*[M07 theory](../README.md) · Lesson 7.4 · Notebooks: [`04a_Chain_Migrations.ipynb`](../../notebook/04a_Chain_Migrations.ipynb), [`04b_Basics_of_Chains.ipynb`](../../../optional/notebook/04b_Basics_of_Chains.ipynb) (optional), [`04c_Chains_Basics_and_OutputParsers.ipynb`](../../../optional/notebook/04c_Chains_Basics_and_OutputParsers.ipynb) (optional), [`04d_Advanced_Chains.ipynb`](../../../optional/notebook/04d_Advanced_Chains.ipynb) (optional), [`04e_Chain_Migration_Advanced.ipynb`](../../../optional/notebook/04e_Chain_Migration_Advanced.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M07 theory](../README.md) · Lesson 7.4 · Notebooks: [`04a_Chain_Migrations.ipynb`](../../notebook/04a_Chain_Migrations.ipynb), [`04b_Basics_of_Chains.ipynb`](../../../optional/notebook/04b_Basics_of_Chains.ipynb) (optional), [`04c_Chains_Basics_and_OutputParsers.ipynb`](../../../optional/notebook/04c_Chains_Basics_and_OutputParsers.ipynb) (optional), [`04d_Advanced_Chains.ipynb`](../../../optional/notebook/04d_Advanced_Chains.ipynb) (optional), [`04e_Chain_Migration_Advanced.ipynb`](../../../optional/notebook/04e_Chain_Migration_Advanced.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Legacy chains to LCEL
 

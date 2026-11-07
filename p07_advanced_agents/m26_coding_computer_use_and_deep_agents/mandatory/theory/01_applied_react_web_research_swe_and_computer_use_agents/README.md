@@ -1,6 +1,6 @@
 # M26.1 Theory: Applied ReAct: web research, SWE and computer-use agents
 
-*[M26 theory](../README.md) · Lesson 26.1 · Notebooks: [`01a_web_research_agent.ipynb`](../../notebook/01a_web_research_agent.ipynb), [`01b_swe_agent_applied.ipynb`](../../../optional/notebook/01b_swe_agent_applied.ipynb) (optional), [`01c_browser_agent_computer_use.ipynb`](../../../optional/notebook/01c_browser_agent_computer_use.ipynb) (optional), [`01d_vision_driven_computer_use.ipynb`](../../../optional/notebook/01d_vision_driven_computer_use.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M26 theory](../README.md) · Lesson 26.1 · Notebooks: [`01a_web_research_agent.ipynb`](../../notebook/01a_web_research_agent.ipynb), [`01b_swe_agent_applied.ipynb`](../../../optional/notebook/01b_swe_agent_applied.ipynb) (optional), [`01c_browser_agent_computer_use.ipynb`](../../../optional/notebook/01c_browser_agent_computer_use.ipynb) (optional), [`01d_vision_driven_computer_use.ipynb`](../../../optional/notebook/01d_vision_driven_computer_use.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Planned pipeline vs ReAct loop
 

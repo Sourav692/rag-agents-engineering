@@ -1,10 +1,10 @@
 # M18.6 Theory: Relevant segment extraction
 
-*[M18 theory](../../../mandatory/theory/README.md) · Lesson 18.6 · Notebooks: [`06a_relevant_segment_extraction.ipynb`](../../notebook/06a_relevant_segment_extraction.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M18 theory](../../../mandatory/theory/README.md) · Lesson 18.6 · Notebooks: [`06a_relevant_segment_extraction.ipynb`](../../notebook/06a_relevant_segment_extraction.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Relevant segment extraction
 
-An enrichment window (19.5) grows every hit by a fixed amount. Relevant segment extraction (RSE) lets the reranker's scores decide how much to send. It rests on one observation from the notebook: "relevant chunks tend to be clustered within their original documents". RSE finds those clusters and sends each one as a single contiguous segment, in document order, including chunks between two relevant ones that the reranker scored low.
+An enrichment window (18.5) grows every hit by a fixed amount. Relevant segment extraction (RSE) lets the reranker's scores decide how much to send. It rests on one observation from the notebook: "relevant chunks tend to be clustered within their original documents". RSE finds those clusters and sends each one as a single contiguous segment, in document order, including chunks between two relevant ones that the reranker scored low.
 
 The notebook's pipeline, on Nike's 2023 annual report:
 
@@ -33,7 +33,7 @@ The notebook reports its authors' evaluation on their KITE benchmark (50 questio
 
 These are the authors' numbers, not a measurement in this course. The notebook reports the context length as roughly equal in both configurations, so the gain does not come from sending more text.
 
-RSE spends the context budget (19.4) in a bounded way: at the notebook's settings, at most 30 chunks of 800 characters, 24,000 characters in all. For the Larkspur handbook the sections are short, so set `max_length` to a section's chunk count and the overall cap to what the generation prompt can hold.
+RSE spends the context budget (18.4) in a bounded way: at the notebook's settings, at most 30 chunks of 800 characters, 24,000 characters in all. For the Larkspur handbook the sections are short, so set `max_length` to a section's chunk count and the overall cap to what the generation prompt can hold.
 
 ## Key Takeaways
 

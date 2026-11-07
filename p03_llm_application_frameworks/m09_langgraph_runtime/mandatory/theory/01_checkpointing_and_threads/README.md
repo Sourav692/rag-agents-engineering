@@ -1,6 +1,6 @@
 # M10.1 Theory: Checkpointing and threads
 
-*[M09 theory](../README.md) · Lesson 9.1 · Notebooks: [`01a_Checkpointing.ipynb`](../../notebook/01a_Checkpointing.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M09 theory](../README.md) · Lesson 9.1 · Notebooks: [`01a_Checkpointing.ipynb`](../../notebook/01a_Checkpointing.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Checkpointer
 

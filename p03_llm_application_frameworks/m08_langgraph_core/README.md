@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part III · LangChain & LangGraph Fundamentals** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 10 mandatory, 0 optional
+**Part III · LLM Application Frameworks: LangChain & LangGraph** · **Level:** Foundation · **Time:** ~4 h · **Notebooks:** 10 mandatory, 0 optional
 
 ## Why it matters
 
@@ -43,24 +43,25 @@ First graph: build a graph that classifies a question, routes it to one of two n
 
 ## Folder layout
 
-- `notebooks/` — mandatory track, plus the helper files those notebooks import
-- `optional/` — alternate, platform-specific and extension notebooks
-- `exercises/` — exercises and solutions, where the module has them
-- `projects/` — runnable sub-projects (e.g. MCP servers and clients), where the module has them
-- `assets/` — images and data used by this module's notebooks
-- `lab/` — the module lab brief
+- `mandatory/notebook/`: the mandatory track, plus the helper files those notebooks import
+- `optional/notebook/`: alternate, platform-specific, extension and exercise notebooks
+- `mandatory/theory/`: the module page, its `index.html` and the pages of lessons with a mandatory notebook
+- `optional/theory/`: the pages of lessons whose notebooks are all optional
+- `projects/`: runnable sub-projects (for example MCP servers and clients), where the module has them
+- `assets/`: images and data used by this module's notebooks, where it has them
+- `lab/`: the module lab brief, its solution notebook in `solution/` and its data in `data/`
 
 ## Where each file comes from
 
 | File | Source repo | Source path |
 |---|---|---|
-| `notebooks/01a_State_and_Graph_Basics.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/01_graphs_state_and_reducers/notebooks/01_State_and_Graph_Basics.ipynb` |
-| `notebooks/01b_MessagesState.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/01_graphs_state_and_reducers/notebooks/02_MessagesState.ipynb` |
-| `notebooks/02a_Conditional_Routing.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/02_conditional_edges_and_llm_nodes/notebooks/01_Conditional_Routing.ipynb` |
-| `notebooks/02b_LLM_Powered_Chatbot.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/02_conditional_edges_and_llm_nodes/notebooks/02_LLM_Powered_Chatbot.ipynb` |
-| `notebooks/03a_Different_Graph_States.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/03_state_schemas/notebooks/01_Different_Graph_States.ipynb` |
-| `notebooks/03b_Pydantic_State_Validation.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/03_state_schemas/notebooks/02_Pydantic_State_Validation.ipynb` |
-| `notebooks/04a_Node_Patterns.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/04_nodes_runtime_context_and_commands/notebooks/01_Node_Patterns.ipynb` |
-| `notebooks/04b_Runtime_Context.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/04_nodes_runtime_context_and_commands/notebooks/02_Runtime_Context.ipynb` |
-| `notebooks/04c_Command_Objects.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/04_nodes_runtime_context_and_commands/notebooks/03_Command_Objects.ipynb` |
-| `notebooks/05a_Advanced_State.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/07_input_output_schemas_and_configuration/notebooks/01_Advanced_State.ipynb` |
+| `mandatory/notebook/01a_State_and_Graph_Basics.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/01_graphs_state_and_reducers/notebooks/01_State_and_Graph_Basics.ipynb` |
+| `mandatory/notebook/01b_MessagesState.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/01_graphs_state_and_reducers/notebooks/02_MessagesState.ipynb` |
+| `mandatory/notebook/02a_Conditional_Routing.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/02_conditional_edges_and_llm_nodes/notebooks/01_Conditional_Routing.ipynb` |
+| `mandatory/notebook/02b_LLM_Powered_Chatbot.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/02_conditional_edges_and_llm_nodes/notebooks/02_LLM_Powered_Chatbot.ipynb` |
+| `mandatory/notebook/03a_Different_Graph_States.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/03_state_schemas/notebooks/01_Different_Graph_States.ipynb` |
+| `mandatory/notebook/03b_Pydantic_State_Validation.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/03_state_schemas/notebooks/02_Pydantic_State_Validation.ipynb` |
+| `mandatory/notebook/04a_Node_Patterns.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/04_nodes_runtime_context_and_commands/notebooks/01_Node_Patterns.ipynb` |
+| `mandatory/notebook/04b_Runtime_Context.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/04_nodes_runtime_context_and_commands/notebooks/02_Runtime_Context.ipynb` |
+| `mandatory/notebook/04c_Command_Objects.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/04_nodes_runtime_context_and_commands/notebooks/03_Command_Objects.ipynb` |
+| `mandatory/notebook/05a_Advanced_State.ipynb` | `ai-engineering-demystified-04-langgraph-fundamentals` | `modules/07_input_output_schemas_and_configuration/notebooks/01_Advanced_State.ipynb` |

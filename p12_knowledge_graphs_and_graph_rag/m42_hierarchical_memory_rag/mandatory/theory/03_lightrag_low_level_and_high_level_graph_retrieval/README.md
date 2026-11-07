@@ -1,6 +1,6 @@
 # M42.3 Theory: LightRAG: low-level and high-level graph retrieval
 
-*[M42 theory](../README.md) · Lesson 42.3 · Notebooks: [`03a_light_rag.ipynb`](../../notebook/03a_light_rag.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M42 theory](../README.md) · Lesson 42.3 · Notebooks: [`03a_light_rag.ipynb`](../../notebook/03a_light_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Dual-level retrieval
 
