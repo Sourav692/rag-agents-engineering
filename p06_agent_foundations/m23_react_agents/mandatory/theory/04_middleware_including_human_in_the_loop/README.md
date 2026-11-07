@@ -1,0 +1,108 @@
+# M23.4 Theory: Middleware, including human-in-the-loop
+
+*[M23 theory](../README.md) · Lesson 23.4 · Notebooks: [`04a_middleware.ipynb`](../../notebook/04a_middleware.ipynb) · [All theory pages](../../../../../theory/README.md)*
+
+## Middleware
+
+Larkspur's agent may read account information automatically, but sending a message needs review. You will place hooks around the model and tool calls, inspect the saved approval request, and resume the same thread without leaving a tool call unanswered.
+
+### Step 1: Locate the hooks in the compiled graph
+
+Middleware attaches hooks at fixed points of the `create_agent` loop: before the model call, after it, and around a model or tool call. You use it for observability (logging, timing), transformation (rewriting the prompt, filtering tools), control flow (retries, early exit) and guardrails (call limits, PII redaction, human approval), without rebuilding the loop as raw LangGraph nodes.
+
+Inspect the graph to see how these middleware hooks are represented. The recorded node lists are:
+
+```
+SummarizationMiddleware              model, SummarizationMiddleware.before_model
+HumanInTheLoopMiddleware             model, tools, HumanInTheLoopMiddleware.after_model
+PIIMiddleware("email") + call limit  model, tools, PIIMiddleware[email].before_model, PIIMiddleware[email].after_model,
+                                     ModelCallLimitMiddleware.before_model, ModelCallLimitMiddleware.after_model
+```
+
+The built-ins used in this comparison:
+
+| Middleware | What it does | Key arguments |
+|---|---|---|
+| `SummarizationMiddleware` | Before the model call, replaces old history with a summary, keeps recent messages verbatim | `model` (the summariser), `trigger` and `keep` in `("messages", n)`, `("tokens", n)` or `("fraction", f)` |
+| `HumanInTheLoopMiddleware` | After the model call, pauses before a gated tool call runs | `interrupt_on={tool: {"allowed_decisions": [...]}}`, or `False` to let a tool run |
+| `PIIMiddleware` | Before and after the model call, redacts one PII type in inputs and tool results | the type (`"email"`, `"credit_card"`, `"ip"`, ...), `strategy="redact"`, `apply_to_input`, `apply_to_tool_results` |
+| `ModelCallLimitMiddleware` | Counts model calls after each call, checks them before the next, and ends the run at the cap | `run_limit`, `thread_limit`, `exit_behavior` |
+
+### Step 2: Observe summarisation and state updates
+
+With `trigger=("messages", 10)` and `keep=("messages", 4)`, the recorded history grew 2, 4, 6, 8, 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure. Tokens track what runs out, and a fraction of the context window keeps its meaning when you change models. A checkpointer preserves history across invocations and is required to resume an approval interrupt. Summarisation can also operate on the history supplied within a run. It does not itself require persistence.
+
+Middleware runs in the order you list it. A custom one subclasses `AgentMiddleware` and overrides the hook it needs, with two rules that are easy to break. Every hook takes `(self, state, runtime)`. Leaving out `runtime` raises `TypeError` at run time. And a hook returns a state update instead of mutating `state`: to pass a value from `before_model` to `after_model`, declare it on a custom `state_schema` and `return {"key": value}`. To end a run early, follow `ModelCallLimitMiddleware`'s own `before_model`: it is decorated with `@hook_config(can_jump_to=["end"])` and returns `{"jump_to": "end", "messages": [AIMessage(...)]}`. The M23 lab brief's off-topic guard has the same shape.
+
+### Step 3: Pause before the tool executes
+
+`HumanInTheLoopMiddleware` turns an irreversible tool call into a decision. In this example, gate writes such as sending email or issuing a refund and allow authorised reads. A sensitive read can also need approval or access control.
+
+```mermaid
+sequenceDiagram
+    participant U as App
+    participant A as Agent
+    participant H as Reviewer
+    U->>A: invoke(msg, thread_id)
+    A->>A: model asks for send_email
+    A-->>U: __interrupt__
+    U->>H: pending call
+    H->>U: approve, edit or reject
+    U->>A: Command(resume=decisions)
+    A->>A: run, rewrite or skip
+    A-->>U: final AIMessage
+```
+
+### Step 4: Resume with one decision per call
+
+The pause is a real suspension: the state is checkpointed under the `thread_id` and nothing runs until you resume with one decision per gated call. The three decisions, as the recorded message trails show them:
+
+- **Approve.** The tool runs with the model's arguments.
+- **Edit.** `{"type": "edit", "edited_action": {"name": ..., "args": {...}}}` replaces the arguments, and the tool runs with yours. The `ToolMessage` tells the model a reviewer replaced its call, so it does not re-issue the original.
+- **Reject.** The tool never runs. The model receives a `ToolMessage` saying the user rejected the call and not to retry unless asked, and it explains to the user that it could not send.
+
+### Step 5: Diagnose an unanswered tool call
+
+One pitfall breaks real deployments. When the middleware interrupts, the `AIMessage` with the tool call is already saved on the thread. Invoking that thread again with a new user message instead of `Command(resume=...)` leaves the call unanswered, and the provider rejects the next request: *An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'* (OpenAI, error 400). Resume a parked thread, or start a new one.
+
+### Try it yourself
+
+An approval request is parked on a thread with one `send_email` call. Compare resuming it with an approve decision against invoking it with a new user message. Check the trace for a matching tool result before another model request. If the user wants a separate conversation, start a new thread rather than overwriting the pending decision.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [Agent middleware](../../notebook/04a_middleware.ipynb).
+
+## Key Takeaways
+
+- Middleware hooks run before, after or around model and tool calls, in the order you list them. A custom hook takes `(self, state, runtime)` and returns a state update instead of mutating `state`.
+- Trigger summarisation on tokens or a fraction of the context window rather than a message count. Use a checkpointer to preserve history across runs and to resume human approval. Summarisation itself can operate on history within a run.
+- Gate consequential writes and apply the appropriate access policy to reads. Resume a paused thread with `Command(resume=...)`. A new user message on it leaves the tool call unanswered, and the provider rejects the next request.
+
+## Check yourself
+
+<details>
+<summary>1. Why should human approval gate tools that write, such as sending email, but not tools that only read?</summary>
+
+The middleware turns an irreversible call into a decision, which makes it useful for consequential writes. Authorised reads can run without a pause in this example. Sensitive reads still need an access policy. The pause is a real suspension checkpointed under the `thread_id`, so approval needs a checkpointer.
+
+</details>
+
+<details>
+<summary>2. With summarisation triggered at 10 messages and keeping 4, history grows by two messages a turn. On which turn does it shrink, and to how many messages?</summary>
+
+On the sixth turn. The recorded history grew 2, 4, 6, 8 and 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure. Tokens or a fraction of the window track what runs out.
+
+</details>
+
+<details>
+<summary>3. An agent paused on a send_email approval is invoked again with a new user message, and OpenAI returns error 400. Why, and what should the app do?</summary>
+
+The `AIMessage` with the tool call was saved on the thread when the middleware interrupted, and the new message leaves that call without a matching tool message, which the provider rejects. Resume the parked thread with `Command(resume=...)`, one decision per gated call, or start a new thread.
+
+</details>
+
+---
+*Previous: [23.3 Models, messages and structured output in LangChain 1.x](../03_models_messages_and_structured_output_in_langchain_1_x/README.md). Next: [M23 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
