@@ -16,7 +16,7 @@ euclidean(q, d) = ‖q − d‖               the straight-line gap; lower is cl
 
 Cosine measures direction only, so a vector's length cannot change it. The dot product is cosine multiplied by both lengths, so a longer vector scores higher at the same angle. Euclidean distance measures the gap between the two tips, so a longer vector moves away. The figure shows one pair: stretching the chunk to 1.5× leaves its cosine at 0.866, raises its dot product from 0.866 to 1.299, and pushes its distance from 0.518 to 0.807.
 
-When both vectors have length 1, the three agree. The dot product equals the cosine, and Euclidean distance is √(2 − 2·cos), which falls as cosine rises, so all three return the same chunks in the same order. Notebook 14.1 checks this on two real `text-embedding-3-small` vectors, and it is why the first thing to print about a new model is the norm of one of its vectors:
+When both vectors have length 1, the three agree. The dot product equals the cosine, and Euclidean distance is √(2 − 2·cos), which falls as cosine rises, so all three return the same chunks in the same order. Notebook 13.1 checks this on two real `text-embedding-3-small` vectors, and it is why the first thing to print about a new model is the norm of one of its vectors:
 
 | Model output | Norm | Which metric |
 |---|---|---|
@@ -42,7 +42,7 @@ Two cautions. Cosine scores are not probabilities, and their range differs betwe
 
 ## The same model on both sides
 
-The model that embeds the chunks must also embed the questions, with the same `dimensions` setting. Breaking this rule raises no error. Notebook 14.1 indexes with `text-embedding-3-small`, queries with `text-embedding-3-large` truncated to 1536 dimensions, and gets vectors of the same shape on both sides; the search runs and returns scores from two unrelated coordinate systems.
+The model that embeds the chunks must also embed the questions, with the same `dimensions` setting. Breaking this rule raises no error. Notebook 13.1 indexes with `text-embedding-3-small`, queries with `text-embedding-3-large` truncated to 1536 dimensions, and gets vectors of the same shape on both sides; the search runs and returns scores from two unrelated coordinate systems.
 
 ```mermaid
 flowchart LR

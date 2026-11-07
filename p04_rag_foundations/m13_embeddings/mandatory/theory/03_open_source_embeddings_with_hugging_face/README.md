@@ -45,7 +45,7 @@ flowchart TD
     B -- no --> H["Shortlist hosted and<br/>open models"]
 ```
 
-Every shortlist then goes through the same scoring on the golden set: recall@k, margin, cost and latency. A useful golden set for Larkspur holds the M10 questions plus **hard negatives**: chunks on the same topic that do not answer the question, such as `cancel` for *Can I export my data after I cancel my plan?* Notebook 14.1's exercise asks for exactly this, because a six-document toy set separates no models.
+Every shortlist then goes through the same scoring on the golden set: recall@k, margin, cost and latency. A useful golden set for Larkspur holds the M10 questions plus **hard negatives**: chunks on the same topic that do not answer the question, such as `cancel` for *Can I export my data after I cancel my plan?* Notebook 13.1's exercise asks for exactly this, because a six-document toy set separates no models.
 
 Score more than one thing. The optional lesson 13.5 notebook, [`05a_compare_embedding_models_databricks.ipynb`](../../../optional/notebook/05a_compare_embedding_models_databricks.ipynb), indexes eight short documents with three open models in Databricks Vector Search and grades the top-5 results for 15 queries with MLflow's `RetrievalRelevance` and `RetrievalGroundedness` scorers. Its recorded result:
 

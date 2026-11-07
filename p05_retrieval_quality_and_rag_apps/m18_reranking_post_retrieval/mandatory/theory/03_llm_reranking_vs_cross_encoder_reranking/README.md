@@ -16,7 +16,7 @@ An LLM can rerank in two ways, and this module shows both. Lesson 18.1's noteboo
 
 Each failure shows up in the notebook code:
 
-- **Listwise parsing drops documents.** The 19.1 parser keeps only tokens that are digits, then rebuilds the list from them. A chunk the LLM leaves out of its answer disappears from the result, and nothing reports it. Check that the returned indices are a permutation of the inputs, and append any missing ones at the end.
+- **Listwise parsing drops documents.** The 18.1 parser keeps only tokens that are digits, then rebuilds the list from them. A chunk the LLM leaves out of its answer disappears from the result, and nothing reports it. Check that the returned indices are a permutation of the inputs, and append any missing ones at the end.
 - **Pointwise scores tie.** If the model answers in whole numbers, 15 candidates on a 10-point scale must include ties. Python's sort is stable, so ties keep their stage-1 order, and the reranker decides less than it appears to.
 - **Pointwise latency adds up.** The loop calls the model once per document, one after another. Thirty sequential calls take about thirty times the latency of one `gpt-4o` request. Run them in parallel, or score fewer candidates.
 

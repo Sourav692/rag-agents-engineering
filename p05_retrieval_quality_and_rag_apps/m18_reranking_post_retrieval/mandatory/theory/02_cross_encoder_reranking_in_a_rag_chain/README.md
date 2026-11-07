@@ -30,7 +30,7 @@ A **cross-encoder** reads the question and one chunk as a single input, so every
 | Work at index time | Embed every chunk once | None |
 | Work per question | One embedding, one index search | One forward pass per candidate |
 | Used for | Stage 1 over the whole index | Stage 2 over the candidates |
-| In these notebooks | `all-MiniLM-L6-v2`, `OpenAIEmbeddings` | `BAAI/bge-reranker-base`, `cross-encoder/ms-marco-MiniLM-L-6-v2`; Cohere's hosted `rerank-english-v3.0` in 19.6 |
+| In these notebooks | `all-MiniLM-L6-v2`, `OpenAIEmbeddings` | `BAAI/bge-reranker-base`, `cross-encoder/ms-marco-MiniLM-L-6-v2`; Cohere's hosted `rerank-english-v3.0` in 18.6 |
 
 The two notebooks wire the cross-encoder into a chain in different ways:
 
@@ -43,7 +43,7 @@ Three details in that code matter in production:
 - `02b`'s `rerank_documents` creates the `CrossEncoder` inside the function, so the model loads again on every question. Load it once at start-up.
 - `02b`'s chain version returns all 10 reranked chunks, so it reorders without narrowing. Slice the sorted list to the top few, as its earlier cell does with `[0:2]`.
 
-Cross-encoder scores rank the candidates for one question. Nothing guarantees that a score means the same thing across questions or across models. The 19.6 notebook notes that Cohere's reranker returns values "very close to 0 or 1" and spreads them with a beta transform before using them. Before you set a fixed score threshold, check its distribution on your golden set.
+Cross-encoder scores rank the candidates for one question. Nothing guarantees that a score means the same thing across questions or across models. The 18.6 notebook notes that Cohere's reranker returns values "very close to 0 or 1" and spreads them with a beta transform before using them. Before you set a fixed score threshold, check its distribution on your golden set.
 
 ## Key Takeaways
 
@@ -70,7 +70,7 @@ Load the `CrossEncoder` once at start-up instead of inside `rerank_documents`, w
 <details>
 <summary>3. You plan to drop every chunk whose cross-encoder score falls below a fixed threshold. What must you check first?</summary>
 
-The score distribution on your golden set. Cross-encoder scores rank the candidates for one question; nothing guarantees a score means the same thing across questions or models. The 19.6 notebook finds Cohere's scores bunched very close to 0 or 1 and spreads them with a beta transform before using them.
+The score distribution on your golden set. Cross-encoder scores rank the candidates for one question; nothing guarantees a score means the same thing across questions or models. The 18.6 notebook finds Cohere's scores bunched very close to 0 or 1 and spreads them with a beta transform before using them.
 
 </details>
 

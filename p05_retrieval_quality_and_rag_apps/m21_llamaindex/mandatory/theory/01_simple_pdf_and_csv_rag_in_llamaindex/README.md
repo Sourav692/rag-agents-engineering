@@ -70,7 +70,7 @@ sequenceDiagram
 
 `response.response` is the answer; `response.source_nodes` is the list of nodes the answer was built from, with their scores. `01a`'s `evaluate_rag` reads both: the answer goes to the correctness and faithfulness metrics, the source node texts become the retrieval context for DeepEval's `ContextualRelevancyMetric`. Logging `source_nodes` on every production query gives the same view without an evaluation run.
 
-`query_engine.retrieve(QueryBundle(question))` runs the retriever and the postprocessors without the LLM, which is how the lab in 22.4 was checked. Building the engine still needs an LLM: `as_query_engine()` resolves `Settings.llm` when it is created, and with no model set and no OpenAI key it raises before any retrieval. Set `Settings.llm` (a `MockLLM` works for tests) or use `index.as_retriever()` when you only need nodes.
+`query_engine.retrieve(QueryBundle(question))` runs the retriever and the postprocessors without the LLM, which is how the lab in 21.4 was checked. Building the engine still needs an LLM: `as_query_engine()` resolves `Settings.llm` when it is created, and with no model set and no OpenAI key it raises before any retrieval. Set `Settings.llm` (a `MockLLM` works for tests) or use `index.as_retriever()` when you only need nodes.
 
 ### The CSV variant
 

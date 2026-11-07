@@ -4,7 +4,7 @@
 
 ## Context budget
 
-The context budget is the share of each prompt that retrieved text may take. Four things set it: the model's context window, the cost of input tokens, the latency of reading them, and the position effect from 19.1, which makes a long context less reliable than a short one. Every step after retrieval either saves from that budget or spends it:
+The context budget is the share of each prompt that retrieved text may take. Four things set it: the model's context window, the cost of input tokens, the latency of reading them, and the position effect from 18.1, which makes a long context less reliable than a short one. Every step after retrieval either saves from that budget or spends it:
 
 | Step | Lesson | Effect on the budget | What it costs |
 |---|---|---|---|
@@ -16,7 +16,7 @@ The context budget is the share of each prompt that retrieved text may take. Fou
 
 Saving and spending go together. A pipeline that expands each hit to its neighbours can afford it by keeping three chunks instead of five; one that compresses each chunk can keep more of them.
 
-`04a` saves with `LLMChainExtractor`. It wraps `gpt-4o-mini` (temperature 0, `max_tokens=4000`) and plugs into `ContextualCompressionRetriever`, the same wrapper 19.2 used for the cross-encoder. For each retrieved chunk the extractor asks the LLM to copy out only the parts that bear on the question; a chunk with nothing relevant comes back empty and is dropped. A `RetrievalQA` chain then answers from what is left.
+`04a` saves with `LLMChainExtractor`. It wraps `gpt-4o-mini` (temperature 0, `max_tokens=4000`) and plugs into `ContextualCompressionRetriever`, the same wrapper 18.2 used for the cross-encoder. For each retrieved chunk the extractor asks the LLM to copy out only the parts that bear on the question; a chunk with nothing relevant comes back empty and is dropped. A `RetrievalQA` chain then answers from what is left.
 
 ```mermaid
 flowchart LR
@@ -30,7 +30,7 @@ Whichever compressor fills the slot, its output is what the prompt receives. The
 
 Compression has the same risk as M12's propositions: an LLM sits between the source and the prompt. On the Larkspur `refund-window` chunk, an extractor that keeps "An annual plan can get a full refund within 30 days of purchase" and drops "if the account used less than 100 GB of outbound traffic" produces a confident wrong answer. Check compressed context for faithfulness on the golden set, and keep each chunk's id so the citation points at the full source text.
 
-Filtering has a simpler failure. The optional `02b` notebook's `evaluate_documents` asks `gpt-4o-mini` whether each chunk suits the question and keeps it only if the reply equals the string `"True"` exactly. A reply of `"True."` drops the chunk. Ask for structured output, as 19.3's pointwise reranker does, instead of matching text.
+Filtering has a simpler failure. The optional `02b` notebook's `evaluate_documents` asks `gpt-4o-mini` whether each chunk suits the question and keeps it only if the reply equals the string `"True"` exactly. A reply of `"True."` drops the chunk. Ask for structured output, as 18.3's pointwise reranker does, instead of matching text.
 
 ## Key Takeaways
 
@@ -57,7 +57,7 @@ The model gives a confident wrong answer, because the condition that limits the 
 <details>
 <summary>3. The optional 02b filter drops chunks that the model judged relevant. What is the likely cause?</summary>
 
-It keeps a chunk only when the reply equals the string `"True"` exactly, so a reply of `"True."` drops it. Ask for structured output, as 19.3's pointwise reranker does, instead of matching text.
+It keeps a chunk only when the reply equals the string `"True"` exactly, so a reply of `"True."` drops it. Ask for structured output, as 18.3's pointwise reranker does, instead of matching text.
 
 </details>
 
