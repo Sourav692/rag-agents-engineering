@@ -11,7 +11,7 @@ from pathlib import Path
 import nbformat
 import yaml
 
-DONE_PARTS: set[str] = set()
+DONE_PARTS: set[str] = {"p13_design_decisions"}
 
 ROOT = Path(__file__).resolve().parent.parent
 TIERS = ("mandatory/theory", "mandatory/notebook", "optional/theory", "optional/notebook")
