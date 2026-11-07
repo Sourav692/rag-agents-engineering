@@ -36,7 +36,7 @@ def slug(s):
 
 
 def absolute(md, page):
-    """Rewrite a page's relative links as repo-absolute ("/course/..."), so pages from different folders can be joined."""
+    """Rewrite a page's relative links as repo-absolute ("/p04_.../..."), so pages from different folders can be joined."""
     def fix(m):
         label, target = m.group(1), m.group(2)
         if target.startswith(("http", "#")):
