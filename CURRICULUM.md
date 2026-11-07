@@ -781,7 +781,7 @@ flowchart LR
 
 **Learning objectives**
 
-- Implement reflection, tool use and ReAct-style planning with raw API calls and no framework
+- Implement tool use and ReAct-style planning with raw API calls and no framework
 - Define tools, bind them to a model and run the tool-calling loop by hand and in LangGraph
 - Handle tool errors and evaluate whether the model called the right tool with the right arguments
 - Choose between client-side tools and provider-hosted tools such as code execution
