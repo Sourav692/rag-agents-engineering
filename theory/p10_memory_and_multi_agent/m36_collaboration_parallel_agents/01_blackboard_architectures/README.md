@@ -4,7 +4,11 @@
 
 ## Blackboard
 
-A blackboard system coordinates specialists through one shared store, the blackboard. Specialists never call each other. Each one reads the board, does its own job and appends its result. A controller reads the whole board after every contribution and picks the next specialist, or `FINISH`. The design comes from the HEARSAY-II speech-recognition system (Erman et al., 1980). In HEARSAY-II the specialists watched the board for their own trigger conditions and a scheduler chose among them; in the notebooks the controller does all the watching.
+Larkspur must choose between a service-credit reply and a troubleshooting reply after inspecting an outage. You will put findings on a shared board, let a controller choose the next worker and test whether the selected branch matches the observed condition.
+
+### Step 1: Read the shared board before selecting work
+
+A blackboard system coordinates specialists through one shared store, the blackboard. Specialists never call each other. Each one reads the board, does its own job and appends its result. A controller reads the whole board after every contribution and picks the next specialist, or `FINISH`. The design comes from the HEARSAY-II speech-recognition system (Erman et al., 1980). In HEARSAY-II the specialists watched the board for their own trigger conditions and a scheduler chose among them; in the reference implementations the controller does all the watching.
 
 ```mermaid
 flowchart LR
@@ -16,11 +20,11 @@ flowchart LR
 ```
 <!-- animated: diagrams/blackboard-loop.anim.html -->
 
-The controller is the only part that decides order. The specialists stay narrow, and adding one means adding a node and a name the controller may choose; nothing else is rewired.
+The controller is the only part that decides order. The specialists stay narrow, and adding one means adding a node and a name the controller may choose. Nothing else is rewired.
 
-### Where a fixed pipeline fails
+### Step 2: Compare a conditional controller with a fixed pipeline
 
-Lesson 36.1's notebook gives both designs one request with conditional logic: find the latest news, then run a technical analysis if the news is neutral or positive, or a financial analysis if it is negative. The pipeline `news → technical → financial → writer` runs both analyses on every request, because its edges cannot skip a node. The blackboard controller reads the news analyst's post, then picks one branch. The notebook checks this in code from the list of specialists that ran, rather than asking another model whether the instruction was followed:
+The conditional-analysis example gives both designs one request with conditional logic: find the latest news, then run a technical analysis if the news is neutral or positive, or a financial analysis if it is negative. The pipeline `news → technical → financial → writer` runs both analyses on every request, because its edges cannot skip a node. The blackboard controller reads the news analyst's post, then picks one branch. The example checks this in code from the list of specialists that ran, rather than asking another model whether the instruction was followed:
 
 | Check, computed from `steps` | Sequential pipeline | Blackboard |
 |---|---|---|
@@ -29,24 +33,39 @@ Lesson 36.1's notebook gives both designs one request with conditional logic: fi
 
 The blackboard row can fail too, because the controller is an LLM. That is the reason the check is computed on every run instead of assumed.
 
-On the Larkspur handbook the same shape is an outage escalation: *a customer says their server went down twice this week; if the outages pushed availability below the 99.95% SLA, draft a service-credit reply, otherwise draft a reply that points to the status page and the root-cause report*. An incident analyst posts what the incident log shows, the controller reads it and calls either the credits analyst or the status analyst, and a writer drafts from the board. A pipeline would pay for both analysts on every escalation.
+On the Larkspur handbook the same shape is an outage escalation: *a customer says their server went down twice this week. If the outages pushed availability below the 99.95% SLA, draft a service-credit reply, otherwise draft a reply that points to the status page and the root-cause report*. An incident analyst posts what the incident log shows, the controller reads it and calls either the credits analyst or the status analyst, and a writer drafts from the board. A pipeline would pay for both analysts on every escalation.
 
-### Guards that keep a controller honest
+### Step 3: Reject invalid or repeated controller choices
 
-A controller that re-decides at every step can also loop, stall or name a step that cannot run yet. The notebooks guard it at four points:
+A controller that re-decides at every step can also loop, stall or name a step that cannot run yet. The reference implementations guard it at four points:
 
 - **A typed decision.** `ControllerDecision.next_agent` is a `Literal` of the specialist names plus `FINISH`, so the model can only name a real node. The node writes the decision to state, and a separate, pure routing function reads it.
 - **A cap in code.** The controller returns `FINISH` without calling the model once `MAX_SPECIALIST_CALLS = 6` specialists have run. LangGraph's `recursion_limit = 20` is the backstop, and it ends the run with an error rather than a clean stop.
-- **Preconditions checked in code.** In the optional research-team notebook, `precondition_problem()` rejects impossible choices (fact-checking an empty board, finishing without a draft) and `rule_based_next()` substitutes the rule-based choice. Every override is printed and counted.
+- **Preconditions checked in code.** In the optional research-team implementation, `precondition_problem()` rejects impossible choices (fact-checking an empty board, finishing without a draft) and `rule_based_next()` substitutes the rule-based choice. Every override is printed and counted.
 - **Structured contributions.** Posts there are dicts with `agent`, `type` and `content`, so code can tell a finding from a fact-check from a draft, and can pair each finding with its own verdict.
 
-Specialists that search must execute their tool. The notebook runs each one as a small `create_agent` loop; binding the tool with `bind_tools()` alone only lets the model request a search, and nothing runs it.
+Specialists that search must execute their tool. The example runs each one as a small `create_agent` loop; binding the tool with `bind_tools()` alone only lets the model request a search, and nothing runs it.
 
-### What it costs, and when it pays
+### Step 4: Budget controller calls as well as worker calls
 
-Every specialist turn sits between two controller turns, so a run with `k` specialists makes up to `k + 1` controller calls on top of the specialists' own. Traces are harder to read than a pipeline's because the path changes from run to run; in the research-team notebook a fact-check that flags a finding sends the controller back to the researcher, a loop-back no edge in the graph spells out.
+Every specialist turn sits between two controller turns, so a run with `k` specialists makes up to `k + 1` controller calls on top of the specialists' own. Traces are harder to read than a pipeline's because the path changes from run to run; in the research-team implementation a fact-check that flags a finding sends the controller back to the researcher, a loop-back no edge in the graph spells out.
 
-Use a blackboard when the next step depends on what earlier steps found: diagnosis, triage, research with verification. When the order is known before the run starts, a pipeline or a fan-out ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md)) is cheaper and easier to test.
+Use a blackboard when the next step depends on what earlier steps found: diagnosis, triage, research with verification. When the order is known before the run starts, a pipeline or a fan-out (lesson 36.5) is cheaper and easier to test.
+
+### Try it yourself
+
+Give the controller a request whose negative news requires only the financial branch. Check the recorded steps for the chosen branch and absence of the other. Then compare the fixed pipeline, where both branches run by construction. A plausible final report is not evidence that the either/or was followed.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Blackboard intro](../../../../course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/notebooks/01a_blackboard_intro.ipynb).
+- [Blackboard research team](../../../../course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/optional/01b_blackboard_research_team.ipynb).
+
+### Continue learning
+
+- [lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md).
 
 ## Key Takeaways
 
@@ -59,7 +78,7 @@ Use a blackboard when the next step depends on what earlier steps found: diagnos
 <details>
 <summary>1. A request asks for a technical or a financial analysis depending on the news sentiment. Why does the fixed pipeline never follow it, while the blackboard can?</summary>
 
-The pipeline's edges cannot skip a node, so `news → technical → financial → writer` runs both analyses on every request. The blackboard controller reads the news analyst's post and then picks one branch. It can still choose wrong, because it is an LLM, so the notebook computes the check from `steps` on every run.
+The pipeline's edges cannot skip a node, so `news → technical → financial → writer` runs both analyses on every request. The blackboard controller reads the news analyst's post and then picks one branch. It can still choose wrong, because it is an LLM, so the implementation computes the check from `steps` on every run.
 
 </details>
 
@@ -71,7 +90,7 @@ The controller should call the status analyst, not the credits analyst, and then
 </details>
 
 <details>
-<summary>3. A blackboard controller keeps picking specialists and never returns FINISH. What in the notebooks stops the run, and why is that better than relying on recursion_limit?</summary>
+<summary>3. A blackboard controller keeps picking specialists and never returns FINISH. What in the implementations stops the run, and why is that better than relying on recursion_limit?</summary>
 
 A cap in code: once `MAX_SPECIALIST_CALLS = 6` specialists have run, the controller returns `FINISH` without calling the model, so the run ends with a reply. `recursion_limit = 20` is only the backstop, and it ends the run with an error rather than a clean stop.
 

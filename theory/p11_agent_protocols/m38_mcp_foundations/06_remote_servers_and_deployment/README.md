@@ -4,15 +4,21 @@
 
 ## Remote transport
 
-A stdio server is a subprocess: the client starts it, owns it, and talks over its standard input and output. A remote server is a process of its own, often on another machine, that must already be running when the client connects by URL. The tools, resources and prompts do not change; with FastMCP only the last line does:
+Larkspur moves its handbook server from a local subprocess to a remote endpoint. You will compare SSE and Streamable HTTP exchanges, inspect the session headers and distinguish a working container command from an externally reachable service.
 
-```python
+### Step 1: Compare local ownership with a remote service
+
+A stdio server is a subprocess: the client starts it, owns it, and talks over its standard input and output. A remote server is a process of its own, often on another machine, that must already be running when the client connects by URL. The tools, resources and prompts do not change. With FastMCP only the last line does:
+
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 mcp = FastMCP("research", port=8001)   # notebook 06a
 ...
 mcp.run(transport="sse")               # or "streamable-http", or "stdio"
 ```
 
-Notebook 06a deploys over SSE because, when the course was filmed, Streamable HTTP was still being built into the Python SDK; it adds notes for Streamable HTTP. SDK 1.30.0 ships both. Recorded against the Larkspur server running each way (initialize, list tools, one `tools/call`, close):
+The reference implementation deploys over SSE because, when the course was filmed, Streamable HTTP was still being built into the Python SDK; it adds notes for Streamable HTTP. SDK 1.30.0 ships both. Recorded against the Larkspur server running each way (initialize, list tools, one `tools/call`, close):
 
 | | SSE | Streamable HTTP | Streamable HTTP, `stateless_http=True` |
 |---|---|---|---|
@@ -40,23 +46,43 @@ sequenceDiagram
 ```
 <!-- animated: diagrams/streamable-http.anim.html -->
 
+### Step 2: Track stateful session headers
+
 After `initialize`, every request in the stateful run carried two headers: `mcp-session-id` (32 characters) and `mcp-protocol-version: 2025-11-25`. The session id is what lets a stateful server remember a client between requests; it is also why a stateful server behind several replicas needs sticky routing, while a stateless one can answer from any replica and cannot keep anything between calls.
+
+### Step 3: Choose the correct endpoint and SDK setting
 
 Paths and names to get right in SDK 1.30.0:
 
-- **Defaults.** `FastMCP` listens on `127.0.0.1:8000`, with SSE at `/sse` and `/messages/` and Streamable HTTP at `/mcp`. The notebook's `port=8001` still works as a constructor argument.
-- **The URL.** The notebook says to append `/mcp/`. The server answers `POST /mcp/` with `307` and a `Location` of `/mcp`; the 1.30.0 client follows a same-origin `307` for a POST, so either works, and `/mcp` saves the round trip.
-- **The client function.** The notebook imports `streamablehttp_client`. In 1.30.0 it is marked deprecated with “Use `streamable_http_client` instead.”; the new one takes the URL and an optional `httpx.AsyncClient` for headers and auth. `sse_client(url)` still takes the URL as the notebook passes it.
+- **Defaults.** `FastMCP` listens on `127.0.0.1:8000`, with SSE at `/sse` and `/messages/` and Streamable HTTP at `/mcp`. The example's `port=8001` still works as a constructor argument.
+- **The URL.** The example says to append `/mcp/`. The server answers `POST /mcp/` with `307` and a `Location` of `/mcp`; the 1.30.0 client follows a same-origin `307` for a POST, so either works, and `/mcp` saves the round trip.
+- **The client function.** The example imports `streamablehttp_client`. In 1.30.0 it is marked deprecated with “Use `streamable_http_client` instead.”; the new one takes the URL and an optional `httpx.AsyncClient` for headers and auth. `sse_client(url)` still takes the URL as the example passes it.
 
 ## Deploying a remote server
 
+### Step 1: Test the bind address and server-owned files
+
 The lesson 9 project ships a `Dockerfile`: `python:3.11-slim`, `uv pip install --system .`, `EXPOSE 8001`, then `uv run research_server.py`. Two things change once the server leaves your laptop.
 
-**The bind address depends on the SDK version.** The project's own `uv.lock` pins mcp 1.8.0, whose FastMCP default host is `0.0.0.0`, reachable through the container's mapped port. The course environment's 1.30.0 defaults to `127.0.0.1`, which only the container itself can reach. Set `host="0.0.0.0"` in the constructor and the server behaves the same under both.
+### Step 2: Test reachability using the actual SDK defaults
 
-**The server's files live where it runs.** The research server keeps papers in a `papers/` folder beside it. In notebook 06a's hosted server that folder is empty, so the resources list no topics. On a fresh copy, recorded with 1.30.0, `papers://folders` returns “No topics found.” and `extract_info` fails with `[Errno 2] No such file or directory: 'papers'`, because it lists the folder without checking that it exists. A remote server needs storage that outlives the container, and tools that handle an empty start.
+The project's own `uv.lock` pins mcp 1.8.0, whose FastMCP default host is `0.0.0.0`, reachable through the container's mapped port. The course environment's 1.30.0 defaults to `127.0.0.1`, which only the container itself can reach. Set `host="0.0.0.0"` in the constructor and the server behaves the same under both.
 
-Before anyone outside can reach the server, it needs what a stdio server never did: authentication, because anyone who can reach the URL can call the tools; TLS; and logs of which client called what. The 1.30.0 `FastMCP` constructor takes `auth` settings and a `token_verifier` for the first. Notebook 06a's optional section deploys to Render, and its resources link Cloudflare's guide to remote MCP servers.
+### Step 3: Locate persistent data on the server
+
+The research server keeps papers in a `papers/` folder beside it. In the reference implementation's hosted server that folder is empty, so the resources list no topics. On a fresh copy, recorded with 1.30.0, `papers://folders` returns “No topics found.” and `extract_info` fails with `[Errno 2] No such file or directory: 'papers'`, because it lists the folder without checking that it exists. A remote server needs storage that outlives the container, and tools that handle an empty start.
+
+Before anyone outside can reach the server, it needs what a stdio server never did: authentication, because anyone who can reach the URL can call the tools; TLS; and logs of which client called what. The 1.30.0 `FastMCP` constructor takes `auth` settings and a `token_verifier` for the first. The reference implementation's optional section deploys to Render, and its resources link Cloudflare's guide to remote MCP servers.
+
+### Try it yourself
+
+Compare the project's SDK 1.8.0 default bind address with the course SDK 1.30.0 default. Check that exposing container port 8001 does not make a process bound to 127.0.0.1 reachable through that mapping. Inspect the configured host, endpoint and session mode before testing authentication or model behaviour.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Creating and deploying remote](../../../../course/p11_agent_protocols/m38_mcp_foundations/notebooks/06a_creating_and_deploying_remote_servers.ipynb).
 
 ## Key Takeaways
 

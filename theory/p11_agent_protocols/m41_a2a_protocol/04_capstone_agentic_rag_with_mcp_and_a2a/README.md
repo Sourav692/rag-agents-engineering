@@ -4,6 +4,10 @@
 
 ## MCP + A2A
 
+Larkspur's host delegates handbook questions to a remote agent whose retrieval tools are exposed over MCP. You will separate those two protocol boundaries and test the capstone for silent failures before judging its final wording.
+
+### Step 1: Separate delegation from tool access
+
 The capstone project runs two Google ADK agents, each behind its own A2A server, and gives both of them MCP tools. It runs in its own environment (its `requirements.txt`), with a Gemini model (`gemini-2.0-flash-exp` in `model.py`) and a Streamlit UI.
 
 ```mermaid
@@ -22,7 +26,11 @@ flowchart TB
 | The caller gets | A tool result, which its own model reasons over | An answer from an agent with its own model, tools and state |
 | Lifetime | One call | A Task, with states, that can be polled, streamed or canceled |
 
+### Step 2: Follow the host and specialist toolsets
+
 The host is an orchestrator, as in 41.3, with four function tools (`_list_agents`, `_delegate_task`, `_smart_delegate_to_rag`, `_get_model_info`) next to the MCP toolsets. It does not always ask its model where to send a question. `_is_document_question` checks the text for keywords such as `resume`, `pdf`, `document` or `tell me about`, and on a match the host calls the RAG agent directly. Keyword routing is fast and predictable, and it misroutes: *tell me about today's AWS outage* goes to the document agent, though only the web can answer it.
+
+### Step 3: Inspect retrieval and answer selection
 
 The RAG agent splits a PDF into 500-token chunks (tiktoken `cl100k_base`) with 50 tokens of overlap, indexes them in a FAISS `IndexFlatL2`, and answers with multi-candidate retrieval: it adds Gaussian noise (standard deviation 0.01) to the query embedding three times, takes the top 5 chunks for each, answers all three candidate sets in parallel, and asks the model to pick the best answer. That is the agentic RAG of M28 to M32, now behind an A2A card instead of inside one graph.
 
@@ -30,14 +38,34 @@ On Larkspur Cloud, the host is the support desk, the RAG agent holds the handboo
 
 ## What the capstone needs to run
 
-The project's A2A connector was written against an older `a2a-sdk` API, which notebook 41.3 also points out, and two of its paths fail without raising. Both are known bugs in the connector, listed here so the symptoms make sense:
+### Step 1: Check both connector paths before trusting an answer
 
-- **The A2A hop.** `utilities/a2a/agent_connect.py` builds `A2AClient(base_url=self.agent_card.base_url, ...)` and calls `client.send_request(...)`. In `a2a-sdk` 0.3.26 `AgentCard` has no `base_url`, and `A2AClient` takes `agent_card` or `url` and has `send_message` but no `send_request`. Run against 0.3.26, `send_task` returns the string `Error communicating with agent: 'AgentCard' object has no attribute 'base_url'`, and the host passes that string on as the RAG agent's answer: to its model through `_delegate_task`, or, for a keyword-routed question, straight to the user. Notebook 41.3's connector uses the current API; combine it with the reader from [41.3](../03_cross_framework_agent_interop/README.md#reading-the-reply).
+### Step 2: Check the connector against its SDK version
+
+The project's A2A connector was written against an older `a2a-sdk` API and two of its paths fail without raising. Both are known bugs in the connector, listed here so the symptoms make sense:
+
+- **The A2A hop.** `utilities/a2a/agent_connect.py` builds `A2AClient(base_url=self.agent_card.base_url, ...)` and calls `client.send_request(...)`. In `a2a-sdk` 0.3.26 `AgentCard` has no `base_url`, and `A2AClient` takes `agent_card` or `url` and has `send_message` but no `send_request`. Run against 0.3.26, `send_task` returns the string `Error communicating with agent: 'AgentCard' object has no attribute 'base_url'`, and the host passes that string on as the RAG agent's answer: to its model through `_delegate_task`, or, for a keyword-routed question, straight to the user. The two-hop example's connector uses the current API; combine it with the reader from 41.3.
 - **The RAG agent's own web search.** Besides the MCP tools ADK loads, `rag_orchestrator.py` has a `WebSearchAgent` that posts a JSON-RPC request with method `search` to `http://localhost:8000` (or `MCP_ENDPOINT`). Nothing in the project listens there, and `search` is not an MCP method (MCP calls a tool with `tools/call`). When the decision prompt asks for a web search, the final prompt receives `[WebSearchAgent] Failed to obtain web data.` as its web context.
 
 Two smaller points: `pyproject.toml` lists `a2a-python` where `requirements.txt` lists `a2a-sdk>=0.3.0`, and the web search server logs the first ten characters of `SERPAPI_KEY` at startup, so its log is not safe to share.
 
+### Step 3: Verify both protocol boundaries on one golden question
+
 A smoke test that sends one golden question through the host and checks that the reply contains handbook text, not `Error communicating`, catches the first failure on the first run.
+
+### Try it yourself
+
+Send one handbook golden question through the host. Check that the reply contains handbook evidence rather than Error communicating. Then ask about today's AWS outage and inspect the keyword route: tell me about sends it to the document agent. Finally inspect the RAG agent's separate web-search endpoint. An error string in that context is not retrieved evidence.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [MCP A2A agentic RAG](../../../../course/p11_agent_protocols/m41_a2a_protocol/projects/mcp_a2a_agentic_rag/README.md).
+
+### Continue learning
+
+- [41.3](../03_cross_framework_agent_interop/README.md#reading-the-reply).
 
 ## Key Takeaways
 

@@ -240,7 +240,7 @@ th:last-child, td:last-child { padding-right: 0; }
   <header class="module__head">
     <div class="module__name">
       <h1 id="module-title">M23 The agent loop and tool calling</h1>
-      <p class="module__lede">An agent is a model call inside a loop. The model reads the conversation and either answers or asks for tools; your code runs the tools, appends their results, and calls the model again. The M23 notebooks build on four ideas: the loop itself, the schema a tool becomes when the model reads it, how to score whether the model called the right tool with the right arguments, and who runs the tool, you or the provider.</p>
+      <p class="module__lede">A Larkspur customer asks whether web-1 is running and whether rebooting changes its IP address. The model must request two tools, your code must execute them, and the results must return before it answers. You will build that exchange, inspect the tool schemas, and follow errors through the loop before scoring the calls. The tutorials cover the agent loop, tool schemas, tool-call evaluation and the choice between client-side and hosted execution.</p>
     </div>
     <dl class="module__meta">
       <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/README.md" target="_blank" rel="noopener">M23 on GitHub</a></dd></div>
@@ -326,12 +326,14 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The model never runs anything. It writes a request; your code decides whether to run it, runs it, and writes the result into the conversation. Every later agent in this course, from <code>create_agent</code> to a multi-agent graph, is this loop with more around it.</p>
 <h2 id="agent-loop">Agent loop</h2>
 <p class="lesson-of">Lesson 23.1: Agentic patterns from scratch: reflection, tool use, ReAct planning. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/01b_tool_use_pattern.ipynb" target="_blank" rel="noopener"><code>01b_tool_use_pattern.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/01c_planning_pattern_react.ipynb" target="_blank" rel="noopener"><code>01c_planning_pattern_react.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/optional/01a_reflection_pattern.ipynb" target="_blank" rel="noopener"><code>01a_reflection_pattern.ipynb</code></a> (optional)</p>
-<p>The three notebooks build the same machine three times, each with more of a loop in it. They use only the raw OpenAI SDK and <code>gpt-4o-mini</code>: no <code>tools=</code> parameter and no framework, so every step that frameworks hide is a line of Python you can read.</p>
+<p>A Larkspur customer asks how long a refund takes. Your model can request a handbook search, but your application must run it and return the evidence. You will trace that exchange, then see why dependent actions need a loop and a stopping rule.</p>
+<h3>Step 1: Read the three stopping rules</h3>
+<p>The three implementations below use the raw OpenAI SDK and <code>gpt-4o-mini</code>. They describe tools in prompt text rather than using the native <code>tools=</code> parameter. An observation is the result your code sends back after executing the requested function.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Pattern</th>
-<th>Notebook</th>
+<th>Implementation</th>
 <th>What repeats</th>
 <th>Stops when</th>
 </tr>
@@ -339,32 +341,34 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Reflection</td>
-<td><code>01a</code> (optional)</td>
+<td>Draft and critic</td>
 <td>Generate a draft, critique it with a second persona, regenerate</td>
 <td>The critic answers <code>&lt;OK&gt;</code>, or after <code>n_steps</code> rounds</td>
 </tr>
 <tr>
 <td>Tool use</td>
-<td><code>01b</code></td>
+<td>One-round <code>ToolAgent</code></td>
 <td>Nothing: one round of tool calls, then the answer</td>
 <td>The model has answered from the observation</td>
 </tr>
 <tr>
 <td>ReAct planning</td>
-<td><code>01c</code></td>
+<td>Repeated <code>ReactAgent</code></td>
 <td>Thought, tool call, observation</td>
 <td>The model writes <code>&lt;response&gt;</code>, or after <code>max_rounds</code> (10 by default)</td>
 </tr>
 </tbody>
 </table></div>
-<p><strong>Tool calling by hand.</strong> In <code>01b</code> the model never receives a function. It receives text: a system prompt that lists each tool&rsquo;s signature inside <code>&lt;tools&gt;</code> tags and asks for calls in a fixed format. The model answers <em>What&rsquo;s the current temperature in Madrid, in Celsius?</em> with text, not an answer:</p>
+<h3>Step 2: Turn a request into an observation</h3>
+<p>In the one-round implementation, the model never receives a function. It receives text: a system prompt that lists each tool&rsquo;s signature inside <code>&lt;tools&gt;</code> tags and asks for calls in a fixed format. The model answers <em>What&rsquo;s the current temperature in Madrid, in Celsius?</em> with text, not an answer:</p>
 <pre class="sheet code"><code>&lt;tool_call&gt;
 {&quot;name&quot;: &quot;get_current_weather&quot;,&quot;arguments&quot;: {&quot;location&quot;: &quot;Madrid&quot;, &quot;unit&quot;: &quot;celsius&quot;}}
 &lt;/tool_call&gt;
 </code></pre>
 <p>Your code does the rest: a regular expression strips the tags, <code>json.loads</code> turns the call into a dict, <code>get_current_weather(**arguments)</code> runs it, and the result goes back as a user message, <code>Observation: {"temperature": 25, "unit": "celsius"}</code>. A second model call turns that into the sentence the user reads. The <code>@tool</code> decorator automates the signature (name, docstring, type hints), and <code>validate_arguments</code> casts values to the annotated types, so <code>"5"</code> becomes <code>5</code> when the hint says <code>int</code>.</p>
-<p><code>01b</code>&rsquo;s <code>ToolAgent</code> stops after one round. It cannot use one tool&rsquo;s result to choose the next call, and that is the gap ReAct fills.</p>
-<p><strong>The ReAct loop.</strong> <code>01c</code> gives the model a protocol: think inside <code>&lt;thought&gt;</code>, act with a <code>&lt;tool_call&gt;</code>, read the <code>&lt;observation&gt;</code> your code sends back, and finish inside <code>&lt;response&gt;</code>. The notebook&rsquo;s task needs three calls in order, each depending on the one before:</p>
+<p>The one-round <code>ToolAgent</code> stops after one round. It cannot use one tool&rsquo;s result to choose the next call, and that is the gap ReAct fills.</p>
+<h3>Step 3: Feed each result into the next action</h3>
+<p>The ReAct implementation gives the model a protocol: think inside <code>&lt;thought&gt;</code>, act with a <code>&lt;tool_call&gt;</code>, read the <code>&lt;observation&gt;</code> your code sends back, and finish inside <code>&lt;response&gt;</code>. The reference example&rsquo;s task needs three calls in order, each depending on the one before:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant C as Your code
     participant M as Model
@@ -377,8 +381,8 @@ th:last-child, td:last-child { padding-right: 0; }
     C-&gt;&gt;M: observation 10.450452222917992
     M--&gt;&gt;C: response, about 10.45
 </pre></figure>
-<p>Dependent steps work because every observation stays in the chat history for the next turn. Written out, <code>ReactAgent.run()</code> is a short loop:</p>
-<pre class="sheet code"><code class="language-python">for _ in range(max_rounds):                    # 10 by default
+<p>Dependent steps work because every observation stays in the chat history for the next turn. In pseudocode, <code>ReactAgent.run()</code> is this loop. The helper names stand for parsing and dispatch operations rather than runnable Python:</p>
+<pre class="sheet code"><code class="language-text">for _ in range(max_rounds):                    # 10 by default
     reply = model(history)
     if has_tag(reply, &quot;response&quot;):
         return the response                    # the model says it is done
@@ -386,8 +390,18 @@ th:last-child, td:last-child { padding-right: 0; }
         history.append(observation(run(call)))  # results feed the next turn
 </code></pre>
 <p>The loop has two exits. The <code>&lt;response&gt;</code> tag is the model&rsquo;s own decision to stop. <code>max_rounds</code> is yours: without it, a model that keeps asking for tools (because the tool keeps returning nothing useful, say) runs and bills forever.</p>
-<p><strong>What the hand-written version cannot guarantee.</strong> Nothing forces the model to write valid JSON, name a real tool or supply every argument; the parser raises <code>ValueError</code> when the tags or the JSON are wrong. The type casting covers four types (<code>int</code>, <code>str</code>, <code>bool</code>, <code>float</code>). Native tool calling (lesson 23.4) moves the schema into the API, so the provider returns structured <code>tool_calls</code> with ids. The loop stays the same.</p>
+<h3>Step 4: Diagnose a broken call before retrying</h3>
+<p>Nothing forces the model to write valid JSON, name a real tool or supply every argument. The parser raises <code>ValueError</code> when the tags or the JSON are wrong. The type casting covers four types (<code>int</code>, <code>str</code>, <code>bool</code>, <code>float</code>). Native tool calling (lesson 23.4) moves the schema into the API, so the provider returns structured <code>tool_calls</code> with ids. The loop stays the same.</p>
 <p>For Larkspur&rsquo;s support agent the loop is identical with different tools. <em>How long does a refund take?</em> becomes a thought (&ldquo;I need the refund policy&rdquo;), a call to <code>search_handbook</code>, an observation holding the retrieved chunks, and a response that quotes them. The M23 lab runs that question through LangGraph&rsquo;s version of this loop, including a first call that fails.</p>
+<h3>Try it yourself</h3>
+<p>Trace the arithmetic example with a one-round <code>ToolAgent</code> instead of <code>ReactAgent</code>. Which result is unavailable when the first calls are chosen? Check that the multiplication needs the observed sum, 6912, and the logarithm needs the observed product, 34560. Then set a round cap below the required dependent actions and explain why the run must stop without a complete answer.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/01b_tool_use_pattern.ipynb" target="_blank" rel="noopener">One-round tool use</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/01c_planning_pattern_react.ipynb" target="_blank" rel="noopener">ReAct from scratch</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/optional/01a_reflection_pattern.ipynb" target="_blank" rel="noopener">Reflection from scratch</a> (optional).</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The model never runs a tool. It writes a call as text, your code parses and runs it, and the result goes back as an observation.</li>
@@ -397,7 +411,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can the ReAct agent chain three dependent tool calls when the one-round tool-use agent cannot?</summary>
-<p>The <code>ToolAgent</code> in <code>01b</code> runs one round of tool calls and then answers, so it cannot use one result to choose the next call. <code>ReactAgent.run()</code> loops, and every observation stays in the chat history, so the model sees <code>6912</code> before it asks to multiply it by 5.</p>
+<p>The one-round <code>ToolAgent</code> runs one round of tool calls and then answers, so it cannot use one result to choose the next call. <code>ReactAgent.run()</code> loops, and every observation stays in the chat history, so the model sees <code>6912</code> before it asks to multiply it by 5.</p>
 </details>
 <details>
 <summary>2. The ReAct task sums 1234 and 5678, multiplies the result by 5, then takes the log. How many observations does your code send back, and what is the second?</summary>
@@ -409,6 +423,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="tool-schema">Tool schema</h2>
 <p class="lesson-of">Lesson 23.3: Defining tools and binding them to a model. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/03a_defining_tools.ipynb" target="_blank" rel="noopener"><code>03a_defining_tools.ipynb</code></a></p>
+<p>Larkspur&rsquo;s agent chooses between searching policy and checking a server. It sees tool names and argument descriptions, not the functions&rsquo; bodies. You will inspect that interface, compare untyped and typed arguments, and decide where an invalid request should be rejected.</p>
+<h3>Step 1: Inspect what the model receives</h3>
 <p>A tool never reaches the model as Python. When you bind tools to a model, LangChain turns each one into a JSON schema with three parts, and that schema is all the model reads when it decides whether to call the tool and with what arguments.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     F["Python function&lt;br/&gt;docstring, type hints"] -- "@tool" --&gt; T["Tool object&lt;br/&gt;name, description, args"]
@@ -442,8 +458,28 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>The function body is the one part the model never sees. A vague description produces wrong or missing calls however good the code behind it is.</p>
-<p><strong>Typed arguments or none.</strong> The notebook&rsquo;s first <code>multiply</code> has no type hints. Its arguments come out as <code>{'a': {'title': 'A'}, 'b': {'title': 'B'}}</code>, with no type at all, and <code>multiply.invoke({'a': 2, 'b': 'abc'})</code> returns <code>abcabc</code>, because Python multiplies a string by an integer without complaint. The Pydantic version (<code>StructuredTool.from_function</code> with an <code>args_schema</code>) declares both as <code>number</code> with a description each, and the same call fails with a <code>ValidationError</code> before the function runs.</p>
-<p>Here is Larkspur&rsquo;s <code>search_handbook</code> at the same three levels, as <code>convert_to_openai_tool</code> prints them with <code>langchain-core</code> 1.7:</p>
+<h3>Step 2: Compare a permissive and a validated call</h3>
+<p>An untyped <code>multiply</code> has no type hints. Its arguments come out as <code>{'a': {'title': 'A'}, 'b': {'title': 'B'}}</code>, with no type at all, and <code>multiply.invoke({'a': 2, 'b': 'abc'})</code> returns <code>abcabc</code>, because Python multiplies a string by an integer without complaint. The Pydantic version (<code>StructuredTool.from_function</code> with an <code>args_schema</code>) declares both as <code>number</code> with a description each, and the same call fails with a <code>ValidationError</code> before the function runs.</p>
+<p>Run this schema inspection without a model call. The function echoes the query only to keep the example focused on its interface. It is not a retriever.</p>
+<pre class="sheet code"><code class="language-python">from langchain_core.tools import tool
+from langchain_core.utils.function_calling import convert_to_openai_tool
+
+@tool
+def search_handbook(query: str) -&gt; str:
+    &quot;&quot;&quot;Search the Larkspur Cloud handbook for policy evidence.&quot;&quot;&quot;
+    return query
+
+parameters = convert_to_openai_tool(search_handbook)[&quot;function&quot;][&quot;parameters&quot;]
+print(parameters[&quot;properties&quot;][&quot;query&quot;][&quot;type&quot;])
+print(parameters[&quot;required&quot;])
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">string
+['query']
+</code></pre>
+<p>The model sees a required string argument. Test the argument contract before relying on the search implementation behind it.</p>
+<h3>Step 3: Build a schema for the handbook search</h3>
+<p>Here is Larkspur&rsquo;s <code>search_handbook</code> at the same three levels, as <code>convert_to_openai_tool</code> prints them with <code>langchain-core</code> 1.7. Compare the <code>query</code> field before looking at the full schema:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -485,9 +521,17 @@ th:last-child, td:last-child { padding-right: 0; }
   }
 }
 </code></pre>
-<p>The description says what the tool returns and which questions it is for, so the model can tell it apart from <code>get_server_status</code>. The argument description says what a good query looks like. Passing <code>{"query": 3}</code> to this tool fails Pydantic validation (<code>Input should be a valid string</code>); in an agent that error goes back to the model as a message (lesson 23.5).</p>
-<p><strong>Built-in and wrapped tools.</strong> LangChain&rsquo;s built-in tools carry their own schema: <code>WikipediaQueryRun</code> is named <code>wikipedia</code> and takes one string, <code>query</code>. Wrapping one in <code>Tool(name=…, func=…, description=…)</code> gives it your name and description, and changes its argument to the generic <code>tool_input</code>, which is worth checking before you bind it. Whatever the source, print <code>tool.name</code>, <code>tool.description</code> and <code>tool.args</code> (or the <code>convert_to_openai_tool</code> output) before you trust a tool in a loop: that printout is exactly what the model will read.</p>
+<p>The description says what the tool returns and which questions it is for, so the model can tell it apart from <code>get_server_status</code>. The argument description says what a good query looks like. Passing <code>{"query": 3}</code> to this tool fails Pydantic validation (<code>Input should be a valid string</code>). A <code>ToolNode</code> can turn that validation failure into a message the model can read, depending on its error-handling setting.</p>
+<h3>Step 4: Inspect a wrapped tool before binding it</h3>
+<p>LangChain&rsquo;s built-in tools carry their own schema: <code>WikipediaQueryRun</code> is named <code>wikipedia</code> and takes one string, <code>query</code>. Wrapping one in <code>Tool(name=…, func=…, description=…)</code> gives it your name and description, and changes its argument to the generic <code>tool_input</code>, which is worth checking before you bind it. Whatever the source, print <code>tool.name</code>, <code>tool.description</code> and <code>tool.args</code> (or the <code>convert_to_openai_tool</code> output) before you trust a tool in a loop: that printout is exactly what the model will read.</p>
 <p>The from-scratch signatures in lesson 23.1 wrote Python type names (<code>"type": "int"</code>) into a prompt. The native schema uses JSON Schema types (<code>string</code>, <code>number</code>) and travels in the API request, so the provider can return structured calls against it.</p>
+<h3>Try it yourself</h3>
+<p>Compare the three <code>search_handbook</code> definitions with <code>query=3</code>. Predict which definition rejects it before the function runs. Check the typed schema for <code>type: string</code>, then inspect the Pydantic error text, <code>Input should be a valid string</code>. For a wrapper, also check whether the argument is named <code>query</code> or <code>tool_input</code>. Using the right value under the wrong key is still an invalid call.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/03a_defining_tools.ipynb" target="_blank" rel="noopener">Tool schemas</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The model reads only the schema: <code>name</code>, <code>description</code> and <code>parameters</code>, never the function body. A vague description gives wrong or missing calls however good the code is.</li>
@@ -497,7 +541,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The model never sees a tool's function body. Which three parts of the schema does it read, and what does each one decide?</summary>
-<p><code>name</code>, <code>description</code> and <code>parameters</code>. The name is the call it writes and your code dispatches on; the description decides when to call the tool out of all the tools it holds; the parameters decide what to pass, with each argument&rsquo;s type, description and whether it is required. A vague description gives wrong or missing calls however good the code is.</p>
+<p><code>name</code>, <code>description</code> and <code>parameters</code>. The name is the call it writes and your code dispatches on. The description decides when to call the tool out of all the tools it holds. The parameters decide what to pass, with each argument&rsquo;s type, description and whether it is required. A vague description gives wrong or missing calls however good the code is.</p>
 </details>
 <details>
 <summary>2. The untyped multiply tool gets 2 and the string abc. What comes back, and what does the Pydantic version do with the same call?</summary>
@@ -509,18 +553,37 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="native-tool-calls-and-the-message-trace">Native tool calls and the message trace</h2>
 <p class="lesson-of">Lesson 23.4: The manual tool loop and the augmented LLM in LangGraph. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/04a_tool_calling_manual_loop.ipynb" target="_blank" rel="noopener"><code>04a_tool_calling_manual_loop.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/04b_augmented_llm_with_tools_langgraph.ipynb" target="_blank" rel="noopener"><code>04b_augmented_llm_with_tools_langgraph.ipynb</code></a></p>
-<p><code>llm.bind_tools(tools)</code> returns a model that sends the tool schemas with every request. Its reply is an <code>AIMessage</code> with empty <code>content</code> and a <code>tool_calls</code> list. In <code>04a</code>, <em>How will the weather be in Munich today?</em> comes back as one call:</p>
-<pre class="sheet code"><code class="language-python">[{'name': 'fake_weather_api', 'args': {'city': 'Munich'}, 'id': 'call_GRGobvpFuPRkrEUTERCcyNIw', 'type': 'tool_call'}]
+<p>A Larkspur customer asks whether web-1 is running and whether rebooting changes its IP address. One model reply can request both lookups. You will pair each request with its result, then compare a graph that stops after tool execution with one that lets the model answer.</p>
+<h3>Step 1: Read the requested arguments</h3>
+<p><code>llm.bind_tools(tools)</code> returns a model that sends the tool schemas with every request. A tool-request reply can be an <code>AIMessage</code> with empty <code>content</code> and a <code>tool_calls</code> list. In the recorded weather example, <em>How will the weather be in Munich today?</em> comes back as one call:</p>
+<pre class="sheet code"><code class="language-text">[{'name': 'fake_weather_api', 'args': {'city': 'Munich'}, 'id': 'call_GRGobvpFuPRkrEUTERCcyNIw', 'type': 'tool_call'}]
 </code></pre>
-<p>Ask about the weather and outdoor seating together and the same reply holds two calls, one per tool, with <code>finish_reason: 'tool_calls'</code>. The model asks for both at once because neither depends on the other; there is no extra round trip.</p>
+<p>Ask about the weather and outdoor seating together and the same reply holds two calls, one per tool, with <code>finish_reason: 'tool_calls'</code>. The model asks for both at once because neither depends on the other. There is no extra round trip.</p>
+<h3>Step 2: Return one result for each call</h3>
 <p>The model still runs nothing. The loop from lesson 23.1 is now four steps over typed messages:</p>
 <ol>
 <li>Send the <code>HumanMessage</code> and append the model&rsquo;s <code>AIMessage</code> with its <code>tool_calls</code>.</li>
 <li>For each call, look the tool up by <code>name</code> and invoke it with <code>args</code>.</li>
 <li>Append one <code>ToolMessage(output, tool_call_id=call["id"])</code> per call.</li>
-<li>Call the model again with the whole list; it answers from the results.</li>
+<li>Call the model again with the whole list. It answers from the results.</li>
 </ol>
 <p>The <code>tool_call_id</code> is what pairs a result with its request. With two parallel calls the model would otherwise have two unlabelled strings and no way to tell which tool produced which. OpenAI&rsquo;s API also rejects a history in which an <code>AIMessage</code>&rsquo;s tool call has no matching <code>ToolMessage</code>, so a loop that drops a failed call&rsquo;s result breaks the next request.</p>
+<p>Build a small message exchange with a scripted tool request. This checks result pairing without a model or a server lookup.</p>
+<pre class="sheet code"><code class="language-python">from langchain_core.messages import AIMessage, ToolMessage
+
+request = AIMessage(content=&quot;&quot;, tool_calls=[{
+    &quot;name&quot;: &quot;get_server_status&quot;, &quot;args&quot;: {&quot;server_id&quot;: &quot;web-1&quot;}, &quot;id&quot;: &quot;status_1&quot;
+}])
+result = ToolMessage(content=&quot;web-1: running&quot;, tool_call_id=&quot;status_1&quot;)
+print(request.tool_calls[0][&quot;id&quot;] == result.tool_call_id)
+print(result.content)
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">True
+web-1: running
+</code></pre>
+<p>The equality is the association the next model turn needs. It does not execute the tool or establish that a server was checked.</p>
+<h3>Step 3: Count messages in a two-tool run</h3>
 <p>The lab&rsquo;s two-tool question shows the shape on Larkspur&rsquo;s tools:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -558,10 +621,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>Five messages, two of them tool results. The scores are real TF-IDF over the M11 chunks; the model turns are scripted.</p>
-<p>For a model without native tool calling, <code>04a</code> ends with the old route: <code>render_text_description(tools)</code> writes the signatures into the system prompt, and <code>JsonOutputParser</code> reads a <code>{"name": …, "arguments": …}</code> blob from the reply. It works on the notebook&rsquo;s two questions, but nothing guarantees valid JSON, a real tool name or every argument. Use it only when the model leaves no choice.</p>
+<p>Five messages, two of them tool results. The scores are real TF-IDF over the M11 chunks. The model turns are scripted.</p>
+<p>For a model without native tool calling, the alternative is a text protocol: <code>render_text_description(tools)</code> writes the signatures into the system prompt, and <code>JsonOutputParser</code> reads a <code>{"name": …, "arguments": …}</code> blob from the reply. It works on the two recorded questions, but nothing guarantees valid JSON, a real tool name or every argument. Use it only when the model leaves no choice.</p>
 <h2 id="the-augmented-llm">The augmented LLM</h2>
-<p><code>04b</code> hands step 2 to LangGraph. A <code>tool_calling_llm</code> node calls the bound model, the prebuilt <code>tools_condition</code> routes to a <code>ToolNode</code> when the reply has <code>tool_calls</code> and to <code>END</code> when it has none, and the <code>ToolNode</code> runs every requested call and writes the <code>ToolMessage</code>s into state.</p>
+<h3>Step 1: Route requests to the tool node</h3>
+<p>A one-shot LangGraph implementation hands tool dispatch to the framework. A <code>tool_calling_llm</code> node calls the bound model, the prebuilt <code>tools_condition</code> routes to a <code>ToolNode</code> when the reply has <code>tool_calls</code> and to <code>END</code> when it has none, and the <code>ToolNode</code> runs every requested call and writes the <code>ToolMessage</code>s into state.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S([START]) --&gt; L["tool_calling_llm&lt;br/&gt;bound model"]
     L --&gt; C{tools_condition}
@@ -570,8 +634,17 @@ th:last-child, td:last-child { padding-right: 0; }
     T --&gt; E
     T -. "lesson 23.5" .-&gt; L
 </pre></figure>
-<p>The solid edges are <code>04b</code>&rsquo;s graph. <em>Explain AI in 2 bullets</em> ends at the first <code>END</code> with a direct answer. <em>What is the latest news on OpenAI product releases</em> calls <code>search_web</code>, and the run ends on the raw Tavily JSON in a <code>ToolMessage</code>: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.</p>
-<p>That graph is an augmented LLM. One more edge makes it an agent: <code>tools</code> back to the model instead of to <code>END</code> (the dashed line). Lesson 23.5&rsquo;s <code>create_tool_agent</code> adds it with <code>graph.add_edge("tools", "agent")</code>, and the graph becomes the loop in the module&rsquo;s mental model.</p>
+<h3>Step 2: Compare stopping after tools with answering</h3>
+<p>Follow the solid edges in this one-shot graph. <em>Explain AI in 2 bullets</em> ends at the first <code>END</code> with a direct answer. <em>What is the latest news on OpenAI product releases</em> calls <code>search_web</code>, and the run ends on the raw Tavily JSON in a <code>ToolMessage</code>: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.</p>
+<p>That graph is an augmented LLM. One more edge makes it an agent: <code>tools</code> back to the model instead of to <code>END</code> (the dashed line). The looping <code>create_tool_agent</code> implementation adds it with <code>graph.add_edge("tools", "agent")</code>, and the graph becomes the loop in the module&rsquo;s mental model.</p>
+<h3>Try it yourself</h3>
+<p>Remove the return edge from <code>tools</code> to the model. For the two-tool question, name the final message type and whether a user-facing answer can exist. Check against the diagram: the solid <code>tools → END</code> path stops on a <code>ToolMessage</code>. Restore the return edge and check that the final <code>AIMessage</code> has no tool calls.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/04a_tool_calling_manual_loop.ipynb" target="_blank" rel="noopener">Manual tool calling</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/04b_augmented_llm_with_tools_langgraph.ipynb" target="_blank" rel="noopener">LangGraph tool dispatch</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A bound model returns an <code>AIMessage</code> with <code>tool_calls</code> and runs nothing. Independent calls arrive together in one reply, saving a round trip.</li>
@@ -588,17 +661,102 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Five: the <code>HumanMessage</code>, one <code>AIMessage</code> with two calls (<code>get_server_status</code> and <code>search_handbook</code>), two <code>ToolMessage</code>s and the final <code>AIMessage</code>. Neither call depends on the other, so the model asks for both at once and saves a round trip.</p>
 </details>
 <details>
-<summary>3. The graph from the second notebook answers a news question with raw Tavily JSON and no sentence. What is missing, and which one change fixes it?</summary>
+<summary>3. The graph from the one-shot graph example answers a news question with raw Tavily JSON and no sentence. What is missing, and which one change fixes it?</summary>
 <p>The <code>tools</code> node goes straight to <code>END</code>, so nobody reads the result and no dependent call is possible. That graph is an augmented LLM. Adding the edge from <code>tools</code> back to the model (<code>graph.add_edge("tools", "agent")</code> in lesson 23.5&rsquo;s <code>create_tool_agent</code>) makes it an agent loop.</p>
 </details>
 <h2 id="where-tool-errors-go">Where tool errors go</h2>
 <p class="lesson-of">Lesson 23.5: Tool errors and evaluating tool calls. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/05a_tool_loop_errors_and_evaluation.ipynb" target="_blank" rel="noopener"><code>05a_tool_loop_errors_and_evaluation.ipynb</code></a></p>
-<p><code>05a</code> closes the loop from lesson 23.4 with one edge, <code>tools</code> back to <code>agent</code>, and a router that ends the run when the last <code>AIMessage</code> has no tool calls. The message count tells you how the run went: <em>What&rsquo;s 25 * 17?</em> ends with 4 messages (question, tool call, result, answer), and <em>What&rsquo;s 100 / 4 and what&rsquo;s the weather in London?</em> with 5, because the model asked for two tools in one reply.</p>
-<p>Then the tools fail. What matters is where the failure goes. If it reaches the model as a <code>ToolMessage</code>, the model can explain it or retry with better arguments. If it escapes as an exception, <code>graph.invoke</code> raises and the user gets nothing. There are two ways to send it to the model:</p>
-<ol>
-<li><strong>The tool returns the error.</strong> <code>divide</code> checks for zero and returns <code>"Error: Division by zero"</code>; the model reads it like any other result and explains that division by zero is undefined.</li>
-<li><strong>The tool raises, and the <code>ToolNode</code> catches it.</strong> That depends on <code>handle_tool_errors</code>, whose default is narrower than it looks.</li>
-</ol>
+<p>A Larkspur Cloud customer asks the support agent <em>Is my server web-9 up?</em> The customer has no server called web-9, so the status tool raises <code>ValueError</code>. With LangGraph&rsquo;s default settings, <code>graph.invoke</code> raises that exception and the customer gets no answer at all.</p>
+<p>You will run a tool call, trigger both an invalid argument and an unknown server, then inspect how the loop handles each failure. You will also score tool choice, arguments and the final answer separately. The deterministic examples use LangGraph 1.2.18, langgraph-prebuilt 1.1.1 and langchain-core 1.7.0. Run the Python blocks in order in the repository environment (<code>uv run python</code>), without an API key.</p>
+<h3>Step 1: Close the loop and read the message count</h3>
+<p>The agent loop has two nodes. The <code>agent</code> node calls the model. The <code>tools</code> node (a <code>ToolNode</code>) runs every tool call the model asked for and appends one <code>ToolMessage</code> per call. An edge from <code>tools</code> back to <code>agent</code> lets the model read the results, and a router ends the run when the last <code>AIMessage</code> has no tool calls.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S([Question]) --&gt; A["agent&lt;br/&gt;calls the model"]
+    A --&gt;|tool calls| T["tools&lt;br/&gt;ToolNode runs them"]
+    T --&gt;|ToolMessages| A
+    A --&gt;|no tool calls| E([Answer])
+</pre></figure>
+<p>The message list is the run&rsquo;s trace. An <code>AIMessage</code> is a model reply, which can contain tool requests. A <code>ToolMessage</code> holds one tool&rsquo;s result and uses <code>tool_call_id</code> to match it to its request. The graph&rsquo;s state stores this growing list.</p>
+<p>For the Larkspur export question, the scripted lab trace contains four messages: the question, one <code>AIMessage</code> requesting <code>search_handbook</code>, its <code>ToolMessage</code>, and the final answer. The status-and-reboot question contains five messages because one model reply requests two tools. Message count helps diagnose extra work, but it does not establish whether the answer is correct.</p>
+<h3>Step 2: Call a tool with valid input</h3>
+<p>To see what the <code>ToolNode</code> does with a failure, take the model out of the picture. The helper below builds a one-node graph and feeds it a hand-written <code>AIMessage</code> containing one tool call. With no model in the run, every result is deterministic and needs no API key. The tool checks a customer&rsquo;s servers, web-1 and db-1.</p>
+<pre class="sheet code"><code class="language-python">from typing_extensions import Annotated, TypedDict
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.tools import tool
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode
+
+SERVERS = {&quot;web-1&quot;: &quot;running&quot;, &quot;db-1&quot;: &quot;running&quot;}
+
+@tool
+def get_server_status(server_id: str) -&gt; str:
+    &quot;&quot;&quot;Get the status of one of the customer's servers.&quot;&quot;&quot;
+    if server_id not in SERVERS:
+        raise ValueError(f&quot;Unknown server {server_id!r}; your servers: {sorted(SERVERS)}&quot;)
+    return f&quot;{server_id}: {SERVERS[server_id]}&quot;
+
+class State(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]
+
+def run_tool_node(node, args):
+    &quot;&quot;&quot;Run one ToolNode on one hand-written tool call, with no model.&quot;&quot;&quot;
+    g = StateGraph(State)
+    g.add_node(&quot;tools&quot;, node)
+    g.add_edge(START, &quot;tools&quot;)
+    g.add_edge(&quot;tools&quot;, END)
+    call = AIMessage(content=&quot;&quot;, tool_calls=[
+        {&quot;name&quot;: &quot;get_server_status&quot;, &quot;args&quot;: args, &quot;id&quot;: &quot;call_1&quot;}])
+    try:
+        msg = g.compile().invoke({&quot;messages&quot;: [call]})[&quot;messages&quot;][-1]
+        return f&quot;ToolMessage(status={msg.status!r}): {msg.content}&quot;
+    except Exception as e:
+        return f&quot;RAISED {type(e).__name__}: {e}&quot;
+
+print(run_tool_node(ToolNode([get_server_status]), {&quot;server_id&quot;: &quot;web-1&quot;}))
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">ToolMessage(status='success'): web-1: running
+</code></pre>
+<p>A successful call becomes a <code>ToolMessage</code> with <code>status='success'</code> whose content is the tool&rsquo;s return value. In the full loop, that message goes back to the model as the next input.</p>
+<h3>Step 3: Trigger a controlled failure</h3>
+<p>Change the server to one the customer does not have.</p>
+<pre class="sheet code"><code class="language-python">print(run_tool_node(ToolNode([get_server_status]), {&quot;server_id&quot;: &quot;web-9&quot;}))
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
+</code></pre>
+<p>No <code>ToolMessage</code> came back. The exception escaped the graph, which in the real loop means <code>graph.invoke</code> raises and the model never sees the error. The exception text is useful, too: it lists the customer&rsquo;s real servers. If the model could read it, the model could ask which one the customer meant.</p>
+<h3>Step 4: Compare the three <code>handle_tool_errors</code> settings</h3>
+<p>A tool call can fail in two places. The model can send bad arguments, which fail schema validation before the tool runs. Or the arguments are fine and the tool itself raises, as in Step 3. <code>ToolNode</code>&rsquo;s <code>handle_tool_errors</code> setting decides what happens in each case. Run both failures under each setting. The bad call names the argument <code>id</code> instead of <code>server_id</code>.</p>
+<pre class="sheet code"><code class="language-python">settings = {
+    &quot;default&quot;: ToolNode([get_server_status]),
+    &quot;True&quot;: ToolNode([get_server_status], handle_tool_errors=True),
+    &quot;False&quot;: ToolNode([get_server_status], handle_tool_errors=False),
+}
+for label, node in settings.items():
+    print(f&quot;handle_tool_errors={label}&quot;)
+    print(&quot;  bad arguments:&quot;, run_tool_node(node, {&quot;id&quot;: &quot;web-1&quot;}))
+    print(&quot;  tool raises:  &quot;, run_tool_node(node, {&quot;server_id&quot;: &quot;web-9&quot;}))
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">handle_tool_errors=default
+  bad arguments: ToolMessage(status='error'): Error invoking tool 'get_server_status' with kwargs {'id': 'web-1'} with error:
+ server_id: Field required
+ Please fix the error and try again.
+  tool raises:   RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
+handle_tool_errors=True
+  bad arguments: ToolMessage(status='error'): Error: ToolInvocationError(&quot;Error invoking tool 'get_server_status' with kwargs {'id': 'web-1'} with error:\n server_id: Field required\n Please fix the error and try again.&quot;)
+ Please fix your mistakes.
+  tool raises:   ToolMessage(status='error'): Error: ValueError(&quot;Unknown server 'web-9'; your servers: ['db-1', 'web-1']&quot;)
+ Please fix your mistakes.
+handle_tool_errors=False
+  bad arguments: RAISED ToolInvocationError: Error invoking tool 'get_server_status' with kwargs {'id': 'web-1'} with error:
+ server_id: Field required
+ Please fix the error and try again.
+  tool raises:   RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
+</code></pre>
+<p>Read it as a table:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -625,7 +783,42 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The <a href="05_tool_errors_and_evaluating_tool_calls/interactive/tool-error-routing-lab.html">interactive lab</a> runs Larkspur&rsquo;s four golden questions through this loop under each setting. Its tool results and error texts are byte for byte what LangGraph 1.2.18 produces for the same calls (12 runs, 0 mismatches); the model&rsquo;s turns are scripted.</p>
+<p>For these calls, the default converts the missing required argument into an error <code>ToolMessage</code> and re-raises the <code>ValueError</code> from inside the tool. Of the three settings tested, <code>True</code> converts both failures into messages the model can read. This behaviour depends on the installed version.</p>
+<h3>Step 5: Watch what the model does next</h3>
+<p>An error <code>ToolMessage</code> gives the model a chance to recover. It does not guarantee recovery, because the model still has to read the message and choose a sensible next step. Here is the web-9 run under <code>handle_tool_errors=True</code>. The tool messages are LangGraph&rsquo;s real output, and the model&rsquo;s two turns are scripted.</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Message</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>HumanMessage</code></td>
+<td>Is my server web-9 up?</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>AIMessage</code></td>
+<td>Calls <code>get_server_status(server_id='web-9')</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ToolMessage</code>, status error</td>
+<td><code>Error: ValueError("Unknown server 'web-9'; your servers: ['db-1', 'web-1']")</code> <code>Please fix your mistakes.</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>AIMessage</code></td>
+<td>I can&rsquo;t find a server called web-9 on your account. Your servers are db-1 and web-1. Which one did you mean?</td>
+</tr>
+</tbody>
+</table></div>
+<p>The scripted next reply asks for clarification using the server names in the error. A live model could choose another action, including an unhelpful retry. Under the default or <code>False</code>, the same run raises after message 1, before another model turn.</p>
+<p>The <a href="05_tool_errors_and_evaluating_tool_calls/interactive/tool-error-routing-lab.html">interactive lab</a> runs Larkspur&rsquo;s four golden questions through the full loop under each setting. Its tool results and error texts are byte for byte what LangGraph 1.2.18 produces for the same calls (12 runs, 0 mismatches). The model&rsquo;s turns are scripted, as in the trace above.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -672,11 +865,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <ul>
 <li><strong>The unknown server is an execution error.</strong> <code>get_server_status</code> raises <code>ValueError("Unknown server 'web-9'; your servers: ['db-1', 'web-1']")</code>. Only <code>True</code> catches it, and the model can then name the customer&rsquo;s real servers, because the exception text lists them.</li>
 <li><strong>The wrong argument name is a validation error.</strong> The default and <code>True</code> both return it as a message, the model retries with <code>query</code>, and the run costs one extra round trip (6 messages instead of 4). <code>False</code> re-raises it as <code>ToolInvocationError</code>.</li>
-<li><strong>The two questions with no failure behave the same under every setting.</strong> That is why a test suite with only happy-path questions never shows the difference.</li>
+<li><strong>The two questions with no failure behave the same under every setting.</strong> A test suite with only happy-path questions never shows the difference between the settings.</li>
 </ul>
-<p>Write error messages the model can act on. Say what was wrong and what would work. <code>handle_tool_errors</code> also accepts a custom string, an exception type or a tuple of them (catch only those), or a function that formats the message. Return an error yourself when the tool knows the failure (an unknown id, an empty result), and keep <code>handle_tool_errors=True</code> as the net for the failures it does not expect.</p>
+<h3>Step 6: Decide where each error is handled</h3>
+<p>Choose how the model will receive each failure:</p>
+<ol>
+<li><strong>The tool returns the error.</strong> A <code>divide</code> tool checks for zero and returns <code>"Error: Division by zero"</code>. The model reads it like any other result and explains that division by zero is undefined. Use this when the tool knows the failure in advance: an unknown id, an empty result, an input out of range.</li>
+<li><strong>The tool raises and the <code>ToolNode</code> catches it.</strong> <code>handle_tool_errors=True</code> catches the ordinary exceptions demonstrated here, including unexpected failures from a client library. A custom handler can instead catch selected exception types and return a message intended for the model.</li>
+</ol>
+<p><code>handle_tool_errors</code> also accepts a custom string, an exception type or a tuple of them (catch only those), or a function that formats the message. Whichever you choose, write error messages the model can act on. Say what was wrong and what would work, as the web-9 message does by listing the valid servers. Return only information the customer is allowed to see.</p>
+<p>Returning a string such as <code>"Error: Division by zero"</code> completes the tool normally, so its <code>ToolMessage.status</code> is <code>"success"</code>. Catching an exception in <code>ToolNode</code> produces <code>status="error"</code>. Monitoring must account for that difference if tools return failure strings. Letting an exception escape also requires application code to log the failed run and return a fallback response.</p>
+<h3>Try it yourself</h3>
+<p>A customer asks <em>Is my server db-1 running?</em> and the model calls <code>get_server_status</code> with <code>{"server": "db-1"}</code>. Before running anything, predict the result under each of the three settings: a <code>ToolMessage</code> with which status, or which exception. Then check your answer with <code>run_tool_node</code> from Step 2. A wrong argument name is a validation error, and it should behave like the bad-arguments column in Step 4.</p>
 <h2 id="tool-call-evaluation">Tool-call evaluation</h2>
-<p>A run can finish and still be wrong. For a tool-using agent, <code>05a</code> scores three things separately, all read from the message trace:</p>
+<p>A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first tool call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. This section shows how to score each of those failures separately, from the same message trace you read in the previous section.</p>
+<h3>Step 1: Split the score into three dimensions</h3>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -703,23 +906,112 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The first two often need no model at all. Give each golden question its expected calls (<em>Is my server web-1 running, and does a reboot change its IP address?</em> expects <code>get_server_status</code> and <code>search_handbook</code>) and check the trace: the lab&rsquo;s trace column does exactly this, and marks the refund question&rsquo;s first call <em>Right tool, missing <code>query</code></em>. A selection score that drops after a description change points at the description; an input score that drops points at the schema.</p>
-<p>Synthesis needs judgement. The notebook&rsquo;s judge reads the trace of <em>Calculate 15% of 250 and check weather in Paris</em> and returns structured scores through <code>with_structured_output(ToolUseEvaluation)</code>: 5, 5 and 5, with a justification. Two cautions come with it:</p>
+<p>Scoring them separately tells you what to fix. A selection score that drops after a description change points at the description. An input score that drops suggests inspecting the schema and the generated arguments. Confirm the cause from the failing calls before changing either description or schema.</p>
+<h3>Step 2: Write the expected calls for each golden question</h3>
+<p>The first two dimensions often need no model at all. Give each golden question its expected calls. <em>Is my server web-1 running, and does a reboot change its IP address?</em> expects <code>get_server_status</code> with <code>server_id='web-1'</code>, and <code>search_handbook</code> with any query. <em>How long does a refund take?</em> expects <code>search_handbook</code> alone.</p>
+<h3>Step 3: Score selection and input from the trace</h3>
+<p>The scorer below reads every tool call from the <code>AIMessage</code>s, compares the set of called names with the expected set, and flags any call that is missing a required argument or has the wrong value for a pinned one. It is a small check for these two known tools: it does not validate types, query relevance, call order or duplicate calls. A production scorer should validate against the actual tool schemas and flag unknown tool names before looking up their required fields. The two traces are the model&rsquo;s turns from the lab&rsquo;s status and refund runs.</p>
+<pre class="sheet code"><code class="language-python">from langchain_core.messages import AIMessage
+
+# Golden set: for each question, the tools it needs and any argument values that must match
+GOLDEN = {
+    &quot;Is my server web-1 running, and does a reboot change its IP address?&quot;:
+        {&quot;get_server_status&quot;: {&quot;server_id&quot;: &quot;web-1&quot;}, &quot;search_handbook&quot;: {}},
+    &quot;How long does a refund take?&quot;:
+        {&quot;search_handbook&quot;: {}},
+}
+REQUIRED = {&quot;get_server_status&quot;: {&quot;server_id&quot;}, &quot;search_handbook&quot;: {&quot;query&quot;}}
+
+def score_calls(question, messages):
+    expected = GOLDEN[question]
+    calls = [c for m in messages if isinstance(m, AIMessage) for c in m.tool_calls]
+    called = {c[&quot;name&quot;] for c in calls}
+    bad_input = [
+        c[&quot;name&quot;] for c in calls
+        if not REQUIRED[c[&quot;name&quot;]] &lt;= c[&quot;args&quot;].keys()
+        or any(c[&quot;args&quot;].get(k) != v for k, v in expected.get(c[&quot;name&quot;], {}).items())
+    ]
+    return {&quot;selection_ok&quot;: called == set(expected), &quot;calls&quot;: len(calls), &quot;bad_input&quot;: bad_input}
+
+# The model's turns from two runs in the lab
+status_run = [AIMessage(content=&quot;&quot;, tool_calls=[
+    {&quot;name&quot;: &quot;get_server_status&quot;, &quot;args&quot;: {&quot;server_id&quot;: &quot;web-1&quot;}, &quot;id&quot;: &quot;call_1_1&quot;},
+    {&quot;name&quot;: &quot;search_handbook&quot;, &quot;args&quot;: {&quot;query&quot;: &quot;reboot server IP address&quot;}, &quot;id&quot;: &quot;call_1_2&quot;}])]
+refund_run = [
+    AIMessage(content=&quot;&quot;, tool_calls=[{&quot;name&quot;: &quot;search_handbook&quot;, &quot;args&quot;: {&quot;q&quot;: &quot;refund&quot;}, &quot;id&quot;: &quot;call_1_1&quot;}]),
+    AIMessage(content=&quot;&quot;, tool_calls=[{&quot;name&quot;: &quot;search_handbook&quot;, &quot;args&quot;: {&quot;query&quot;: &quot;how long do refunds take&quot;}, &quot;id&quot;: &quot;call_2_1&quot;}])]
+
+print(score_calls(&quot;Is my server web-1 running, and does a reboot change its IP address?&quot;, status_run))
+print(score_calls(&quot;How long does a refund take?&quot;, refund_run))
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">{'selection_ok': True, 'calls': 2, 'bad_input': []}
+{'selection_ok': True, 'calls': 2, 'bad_input': ['search_handbook']}
+</code></pre>
+<p>Both runs chose the right tools. The refund run&rsquo;s first call is flagged for input because it passed <code>q</code> instead of <code>query</code>. The lab&rsquo;s trace column makes the same check and marks that call <em>Right tool, missing <code>query</code></em>. In a real evaluation you pass <code>result["messages"]</code> from <code>graph.invoke</code> instead of hand-built messages.</p>
+<h3>Step 4: Inspect a synthesis judgement</h3>
+<p>Synthesis measures whether the final answer uses the returned facts correctly. An LLM judge is another model asked to grade the trace against explicit criteria. Give it the question, tool requests, tool results and final answer, then compare its decisions with human grades.</p>
+<p>The following schema names the three scores and their justification. A model supporting <code>with_structured_output(ToolUseEvaluation)</code> can return that shape. Here, inspect the saved evaluation offline rather than make a new model call:</p>
+<pre class="sheet code"><code class="language-python">from pydantic import BaseModel, Field
+
+class ToolUseEvaluation(BaseModel):
+    &quot;&quot;&quot;Schema for evaluating the agent's tool use and final answer.&quot;&quot;&quot;
+    tool_selection_score: int = Field(description=&quot;Score 1-5 on whether the agent chose the correct tools for the task.&quot;)
+    tool_input_score: int = Field(description=&quot;Score 1-5 on how well-formed and relevant the tool inputs were.&quot;)
+    synthesis_quality_score: int = Field(description=&quot;Score 1-5 on how well the final answer integrates the tool outputs.&quot;)
+    justification: str = Field(description=&quot;A brief justification for the scores.&quot;)
+
+# Scores and justification saved with the practice trace, not a fresh model judgement.
+saved_evaluation = ToolUseEvaluation(
+    tool_selection_score=5,
+    tool_input_score=5,
+    synthesis_quality_score=5,
+    justification=(
+        &quot;The agent effectively selected the appropriate tools for both calculations and weather &quot;
+        &quot;retrieval, demonstrating a clear understanding of the tasks. The inputs for both tools &quot;
+        &quot;were well-formed and relevant, directly addressing the user's requests. The final answer &quot;
+        &quot;synthesized the outputs from both tools seamlessly, providing a clear and concise response.&quot;
+    ),
+)
+print({k: v for k, v in saved_evaluation.model_dump().items() if k != &quot;justification&quot;})
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">{'tool_selection_score': 5, 'tool_input_score': 5, 'synthesis_quality_score': 5}
+</code></pre>
+<p>The saved trace asks <em>Calculate 15% of 250 and check weather in Paris</em>. It calls <code>calculate(expression="0.15 * 250")</code>, which returns <code>37.5</code>, and <code>get_weather(city="Paris")</code>, which returns the simulated weather <code>65°F, Partly Cloudy</code>. The answer includes both results. Its saved judge scores are 5, 5 and 5, with the justification above. These are one recorded judgement, not a result from the Larkspur lab or a promise that a new judge call will agree.</p>
+<p>The schema describes scores from 1 to 5 but uses unconstrained <code>int</code> fields. If you need validation to reject out-of-range scores, add <code>ge=1, le=5</code> to each score field. Two cautions come with the recorded result:</p>
 <ul>
 <li><strong>The judge is the agent&rsquo;s own model</strong> (<code>gpt-4o-mini</code> judging <code>gpt-4o-mini</code>), which tends to be lenient on its own work. Use a different, ideally stronger, model, and check its scores against a few human-graded runs before you trust a trend.</li>
-<li><strong>A single trace scored 5 out of 5 proves little.</strong> The scores mean something across a fixed golden set, compared before and after one change, as with the <a href="../../p04_rag_foundations/m11_rag_lifecycle/index.html#baseline-first-optimisation">baseline in M11</a>.</li>
+<li><strong>A single trace scored 5 out of 5 proves little.</strong> The scores mean something across a fixed golden set, compared before and after one change.</li>
 </ul>
-<p>Add trace-level counts to the per-call scores: rounds per run, error <code>ToolMessage</code>s per tool, and crashed runs. They are cheap to log and catch the failures the lab shows, where the answer never arrives.</p>
+<h3>Step 5: Add trace-level counts</h3>
+<p>Per-call scores miss the runs that never finish. Log three counts per run as well: rounds per run, error <code>ToolMessage</code>s per tool, and crashed runs. They are cheap to collect and catch the failures the lab shows. The web-9 question under the default setting has no answer to score at all, and the refund question&rsquo;s extra round shows up as 6 messages instead of 4.</p>
+<h3>Try it yourself</h3>
+<p>Add the question <em>Is my server web-9 up?</em> to <code>GOLDEN</code>, expecting <code>get_server_status</code> with <code>server_id='web-9'</code>. Score the run where the model calls <code>get_server_status(server_id='web-9')</code>. Selection and input should both pass, because the model asked for exactly what the customer said. The failure belongs to the tool&rsquo;s error handling, which only the crashed-run count from Step 5 records.</p>
+<h3>Practice notebook</h3>
+<p>The <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/05a_tool_loop_errors_and_evaluation.ipynb" target="_blank" rel="noopener">tool-loop errors and evaluation notebook</a> builds the full loop with three simulated tools, adds a <code>divide</code> tool that returns its own error, runs the three <code>handle_tool_errors</code> settings on a stock-price tool, and scores a trace with the judge above.</p>
+<p>Its saved arithmetic traces have 4 messages for <code>What's 25 * 17?</code> and 5 for <em>What&rsquo;s 100 / 4 and what&rsquo;s the weather in London?</em>, matching the one-tool and two-tool patterns above.</p>
+<p>The notebook&rsquo;s <code>create_tool_agent</code> helper explicitly defaults to <code>handle_tool_errors=True</code>, which differs from omitting that argument on <code>ToolNode</code>. It configures <code>llm</code>, then builds <code>judge_llm = llm.with_structured_output(ToolUseEvaluation)</code> and invokes the judge on the flattened trace.</p>
+<p>The deterministic examples on this page need no model call. Running the notebook&rsquo;s live agent and judge cells requires its OpenAI setup. Two experiments to try:</p>
+<ul>
+<li>Build <code>stock_agent</code> with <code>handle_tool_errors=False</code> and ask for the price of NVDA. Note where the run stops.</li>
+<li>Swap <code>judge_llm</code> for a different model and compare its scores on the same trace with the ones from <code>gpt-4o-mini</code>.</li>
+</ul>
+<h3>Continue learning</h3>
+<ul>
+<li><a href="../../p04_rag_foundations/m11_rag_lifecycle/index.html#baseline-first-optimisation">Baseline-first optimisation</a>: how to compare scores across a fixed golden set before and after one change.</li>
+<li><a href="#">Hosted vs client-side tools</a>: what changes when the provider runs the tool instead of your code.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Send tool failures to the model as messages, not exceptions. The default <code>handle_tool_errors</code> catches bad arguments but re-raises exceptions inside the tool, so set it to <code>True</code> as a safety net.</li>
+<li>Choose error routing explicitly. In the tested version, default <code>ToolNode</code> handles the missing argument but re-raises the tool&rsquo;s <code>ValueError</code>; <code>True</code> returns both as error messages. Returning a failure string normally produces a success-status message.</li>
 <li>Write error messages the model can act on, saying what was wrong and what would work. Happy-path tests never show the difference between settings.</li>
-<li>Score tool selection, tool input and synthesis separately. The first two come straight from the trace; judge synthesis with a different model, across a fixed golden set.</li>
+<li>Score tool selection, tool input and synthesis separately. The first two come straight from the trace. Judge synthesis with a different model, across a fixed golden set.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does it matter whether a tool failure reaches the model as a message or escapes as an exception?</summary>
-<p>As an error <code>ToolMessage</code>, the model can explain the failure or retry with better arguments. As an exception, <code>graph.invoke</code> raises and the user gets nothing. You send it to the model either by returning the error from the tool or by letting the <code>ToolNode</code> catch it.</p>
+<p>As an error <code>ToolMessage</code>, the model can explain the failure or retry with better arguments. As an exception, <code>graph.invoke</code> raises before the model can recover. Application code must handle that failure if the user is to receive a fallback response. You send it to the model either by returning the error from the tool or by letting the <code>ToolNode</code> catch it.</p>
 </details>
 <details>
 <summary>2. A customer asks whether web-9 is up, and the server-status tool raises ValueError. Under which error-handling setting does the run still answer, and how does the model help?</summary>
@@ -727,12 +1019,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. After a description edit, the tool selection score drops while the input score holds. Where do you look, and why is no model needed to score it?</summary>
-<p>Look at the description: a selection drop points at the description, an input drop at the schema. Both scores come from the message trace, by comparing the called names and arguments with each golden question&rsquo;s expected calls. Only synthesis needs an LLM judge.</p>
+<p>Inspect the changed description and the failing calls. A selection drop suggests the model is choosing the wrong tool. An input drop suggests inspecting the schema and arguments. Both scores come from the message trace, by comparing the called names and arguments with each golden question&rsquo;s expected calls. Only synthesis needs an LLM judge.</p>
 </details>
 <h2 id="hosted-vs-client-side-tools">Hosted vs client-side tools</h2>
 <p class="lesson-of">Lesson 23.6: Hosted vs client-side tools: code execution and image generation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/06a_hosted_vs_client_side_tools.ipynb" target="_blank" rel="noopener"><code>06a_hosted_vs_client_side_tools.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/optional/06b_hosted_code_execution.ipynb" target="_blank" rel="noopener"><code>06b_hosted_code_execution.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/optional/06c_agentic_image_generation.ipynb" target="_blank" rel="noopener"><code>06c_agentic_image_generation.ipynb</code></a> (optional)</p>
-<p>Every tool so far ran on your machine: the model returned a call, your code ran it, you sent the result back. A hosted tool runs on the provider&rsquo;s infrastructure instead, and the reply arrives with the result already folded in. The API difference is a few lines; the difference in what you can see and control is large.</p>
-<p><code>06a</code> answers <em>What is the current population of Lisbon?</em> both ways with <code>gpt-4o-mini</code>:</p>
+<p>Larkspur must enforce account access before a status lookup runs. A public web search may need different controls. You will follow the same question through client-side and hosted execution, then identify what your application can inspect or refuse at each boundary.</p>
+<h3>Step 1: Follow both execution paths</h3>
+<p>Every tool so far ran on your machine: the model returned a call, your code ran it, you sent the result back. A hosted tool runs on the provider&rsquo;s infrastructure instead, and the reply arrives with the result already folded in. The API difference is a few lines. The difference in what you can see and control is large.</p>
+<p>The recorded comparison answers <em>What is the current population of Lisbon?</em> both ways with <code>gpt-4o-mini</code>:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant Y as Your code
     participant P as Provider
@@ -747,7 +1041,7 @@ th:last-child, td:last-child { padding-right: 0; }
     Note over P: the provider chooses the query and runs the search
     P--&gt;&gt;Y: answer and a web_search_call item
 </pre></figure>
-<p>In the notebook&rsquo;s run the client-side path took two round trips and 1.86 s; the hosted path took one round trip and 3.16 s. One run proves little about latency, but it does show that one round trip is not automatically faster. The hosted reply carries a <code>web_search_call</code> output item with its status and the query the provider chose (<code>current population of Lisbon 2023</code>). That item is your only window into the execution: you did not choose the query, you cannot see the raw results, and nothing of yours ran between retrieval and generation.</p>
+<p>In the recorded run the client-side path took two round trips and 1.86 s. The hosted path took one round trip and 3.16 s. One run proves little about latency, but it does show that one round trip is not automatically faster. The hosted reply carries a <code>web_search_call</code> output item with its status and the query the provider chose (<code>current population of Lisbon 2023</code>). That item is your only window into the execution: you did not choose the query, you cannot see the raw results, and nothing of yours ran between retrieval and generation.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -789,8 +1083,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><strong>The seam.</strong> The gap between &ldquo;the model asked&rdquo; and &ldquo;the model sees the result&rdquo; is where policy lives. <code>06a</code>&rsquo;s <code>guarded_lookup</code> is four lines that refuse any city outside an allow-list; asked about Pyongyang, it returns an error and the model says it cannot retrieve that population. Allow-lists, tenant scoping, PII redaction and spend caps all sit in that seam, and choosing a hosted tool means choosing not to have it.</p>
-<p><strong>Visibility varies by tool.</strong> The optional notebooks refine the rule that a hosted tool shows you nothing:</p>
+<h3>Step 2: Place the policy check before execution</h3>
+<p>The gap between &ldquo;the model asked&rdquo; and &ldquo;the model sees the result&rdquo; is where policy lives. The client-side <code>guarded_lookup</code> is four lines that refuse any city outside an allow-list. Asked about Pyongyang, it returns an error and the model says it cannot retrieve that population. Allow-lists, tenant scoping, PII redaction and spend caps all sit in that seam, and choosing a hosted tool means choosing not to have it.</p>
+<h3>Step 3: Compare the evidence returned by each tool</h3>
+<p>Hosted tools expose different amounts of execution detail in these examples:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -804,23 +1100,33 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>The query, roughly; no raw results</td>
 </tr>
 <tr>
-<td><code>code_interpreter</code> (<code>06b</code>)</td>
+<td><code>code_interpreter</code></td>
 <td>The source it ran, its output and any files, so you can audit the method</td>
 </tr>
 <tr>
-<td><code>image_generation</code> (<code>06c</code>)</td>
+<td><code>image_generation</code></td>
 <td>The <code>revised_prompt</code> the model wrote for itself and the image as base64</td>
 </tr>
 </tbody>
 </table></div>
-<p>Code interpreter is also configurable: <code>06b</code> sets a memory ceiling and a network policy (<code>{"type": "disabled"}</code> for a sandbox that works only on data you supplied). What you still cannot do is approve the code before it runs, veto one call, or stub it in a test. <code>06c</code> adds a different caution: the agent narrates what it <em>meant</em> to draw, and only feeding the image back to a vision model shows what it actually drew. The model also has to leave the tool alone when a turn asks for advice; <code>06c</code> checks that it does.</p>
+<p>Code interpreter is also configurable: The code-execution example sets a memory ceiling and a network policy (<code>{"type": "disabled"}</code> for a sandbox that works only on data you supplied). What you still cannot do is approve the code before it runs, veto one call, or stub it in a test. The image-generation example adds a different caution: the agent narrates what it <em>meant</em> to draw, and only feeding the image back to a vision model shows what it actually drew. The model also has to leave the tool alone when a turn asks for advice; The image example checks that it does.</p>
+<h3>Step 4: Choose an execution location for each task</h3>
 <p>For Larkspur&rsquo;s support agent the split follows the data:</p>
 <ul>
 <li><code>search_handbook</code> and <code>get_server_status</code> stay client-side. They read the customer&rsquo;s account and Larkspur&rsquo;s own policy, need tenant scoping and logging, and must be stubbed in tests (the M23 lab runs them deterministically for this reason).</li>
 <li>A hosted <code>web_search</code> fits questions the handbook cannot answer, about public software or third-party services, where there is nothing to enforce between the call and the result.</li>
-<li>Hosted code execution fits arithmetic on numbers the customer pasted into the chat. <code>06b</code>&rsquo;s point holds: a model that runs three lines of Python computes, while one that answers directly samples plausible digits.</li>
+<li>Hosted code execution fits arithmetic on numbers the customer pasted into the chat. The arithmetic example shows why execution matters: a model that runs three lines of Python computes, while one that answers directly samples plausible digits.</li>
 </ul>
-<p>Hosted tools exist only on OpenAI&rsquo;s Responses API; Chat Completions offers function tools only. <code>06a</code> calls <code>client.responses.create</code> on the raw OpenAI client, because LangChain does not surface hosted-tool configuration. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.</p>
+<p>In these OpenAI examples, hosted tools use the Responses API, while Chat Completions carries the client-side function calls. The reference example uses <code>client.responses.create</code> on the raw OpenAI client to make hosted-tool configuration explicit. Check the integration and provider version before choosing a wrapper. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.</p>
+<h3>Try it yourself</h3>
+<p>Apply the Lisbon comparison to a lookup for a city outside the allow-list. Identify the exact place where <code>guarded_lookup</code> can refuse the call and explain why the hosted search has no equivalent client-side interception point. Then choose a path for a tenant-scoped server lookup. Check that your design enforces account scope before execution and can stub the lookup in a test.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/06a_hosted_vs_client_side_tools.ipynb" target="_blank" rel="noopener">Tool execution placement</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/optional/06b_hosted_code_execution.ipynb" target="_blank" rel="noopener">Hosted code execution</a> (optional).</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m23_agent_loop_and_tools/optional/06c_agentic_image_generation.ipynb" target="_blank" rel="noopener">Agent image generation</a> (optional).</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A hosted tool runs on the provider&rsquo;s side and returns the result folded into the reply. You lose the seam where your code can log, refuse, redact or cache a call.</li>

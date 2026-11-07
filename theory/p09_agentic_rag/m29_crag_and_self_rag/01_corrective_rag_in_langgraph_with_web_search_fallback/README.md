@@ -4,7 +4,11 @@
 
 ## Retrieval evaluator
 
-Corrective RAG (Yan et al., *Corrective Retrieval Augmented Generation*, 2024, [arXiv:2401.15884](https://arxiv.org/abs/2401.15884)) adds one component to the baseline: a retrieval evaluator that judges the retrieved documents before the model sees them. Its verdict picks what happens next. If retrieval looks right, generate from it; if it looks wrong, find other context; if it is unclear, use both. The paper trains a small model (T5-large) as the evaluator. Both M29 notebooks prompt an LLM instead.
+The export answer needs both instructions and the retention rule. You will grade the retrieved chunks, calculate when the majority rule falls back to web search, and compare chunk filtering with refining the text inside a chunk.
+
+### Step 1: Inspect the evaluator before generating
+
+Corrective RAG (Yan et al., *Corrective Retrieval Augmented Generation*, 2024, [arXiv:2401.15884](https://arxiv.org/abs/2401.15884)) adds one component to the baseline: a retrieval evaluator that judges the retrieved documents before the model sees them. Its verdict picks what happens next. If retrieval looks right, generate from it. If it looks wrong, find other context. If it is unclear, use both. The paper trains a small model (T5-large) as the evaluator. Both M29 implementations prompt an LLM instead.
 
 ```mermaid
 flowchart TD
@@ -17,9 +21,9 @@ flowchart TD
     W --> GEN
 ```
 
-That is the graph notebook 01a builds in LangGraph, with nodes `retrieve`, `grade_documents`, `rewrite_query`, `web_search` and `generate_answer`. The two notebooks build the evaluator differently:
+That is the graph the reference implementation builds in LangGraph, with nodes `retrieve`, `grade_documents`, `rewrite_query`, `web_search` and `generate_answer`. The two implementations build the evaluator differently:
 
-| | 01a, LangGraph | 01b, plain functions (optional) |
+| | CRAG graph, LangGraph | CRAG function variant, plain functions (optional) |
 |---|---|---|
 | Retriever | Chroma, `k = 5`, `similarity_score_threshold` 0.35 | FAISS, `k = 3` |
 | Evaluator output | `binary_score`, yes or no per chunk (`gpt-4o`, temperature 0) | `relevance_score`, 0 to 1 per chunk (`gpt-4o-mini`) |
@@ -27,19 +31,43 @@ That is the graph notebook 01a builds in LangGraph, with nodes `retrieve`, `grad
 | Web search | Tavily, `max_results=6`, `search_depth='advanced'`, full page text | DuckDuckGo results, refined to bullet points |
 | LLM calls | one per retrieved chunk, plus a rewrite on the fallback, plus generation | one per retrieved chunk, plus rewrite and refinement on the fallback, plus generation |
 
-Three behaviours follow from 01a's rule, and the [M29 lab](../03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html) shows each on the Larkspur handbook. Its grader is a stand-in that agrees with the golden labels, so these are routing effects, not grader mistakes.
+### Step 2: Test the relevant-fraction threshold
+
+Three behaviours follow from the implementation's rule, and the [M29 lab](../03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html) shows each on the Larkspur handbook. Its grader is a stand-in that agrees with the golden labels, so these are routing effects, not grader mistakes.
 
 - **The threshold is a fraction, so it moves with `k`.** Every golden question has two evidence chunks. A perfect grader keeps two, and 2 of `k` is more than half only when `k` is 3 or less. On *Can I export my data after I cancel my plan?* CRAG answers in 4 calls at `k = 3`. At `k = 5` it keeps both evidence chunks, still falls back, and spends 7 calls plus a web search.
 - **It grades chunks, not answers.** At `k = 1` the export question retrieves only `retention`. One relevant chunk out of one passes the rule, and CRAG answers in 2 calls without the `export` chunk, which says how to export.
 - **A correct verdict can trigger the wrong fix.** For *What happens if my server goes down?* TF-IDF returns `reboot`, `sizing` and `export`, and the grader rightly rejects all three. CRAG then searches the web for a private handbook's outage policy. The answer was in the corpus all along, under the words "outage" and "availability"; a rewrite and retry against the index (M18, M28) would have found it.
 
-The web fallback suits a corpus of public facts that go stale, such as the research papers in 01a. For a private handbook, replace it or guard it: retry inside the index, then refuse.
+Hold the two relevant chunks fixed and test the graph's majority rule. This local calculation does not call a grader or search the web.
+
+```python
+for retrieved, relevant in [(3, 2), (5, 2), (1, 1)]:
+    fraction = relevant / retrieved
+    print(retrieved, relevant, "generate" if fraction > 0.5 else "web_search")
+```
+
+**Expected output**
+
+```text
+3 2 generate
+5 2 web_search
+1 1 generate
+```
+
+### Step 3: Choose where missing evidence may come from
+
+The web fallback suits a corpus of public facts that go stale, such as the research papers in this implementation. For a private handbook, replace it or guard it: retry inside the index, then refuse.
 
 ## Knowledge refinement
 
+### Step 1: Keep only the supporting evidence
+
 Retrieval returns whole chunks, and a chunk can mix the sentence that answers the question with sentences that do not. Knowledge refinement cuts the context down to the useful parts before generation. The CRAG paper does it with decompose-then-recompose: split each document into short strips, score every strip with the evaluator, drop the low scorers and join the rest.
 
-Notebook 01b uses a simpler version. `knowledge_refinement` sends a document to the LLM with the prompt "Extract the key information from the following document in bullet points" and returns the bullets as a list. Where it runs depends on the action:
+### Step 2: Compare whole chunks with refined facts
+
+The reference implementation uses a simpler version. `knowledge_refinement` sends a document to the LLM with the prompt "Extract the key information from the following document in bullet points" and returns the bullets as a list. Where it runs depends on the action:
 
 | Action | Best score | Context sent to the generator |
 |---|---|---|
@@ -47,9 +75,11 @@ Notebook 01b uses a simpler version. `knowledge_refinement` sends a document to 
 | Incorrect | below 0.3 | refined bullets from the web results |
 | Ambiguous | 0.3 to 0.7 | refined bullets from the best document, plus refined web results |
 
-Notebook 01a has no refinement step. It filters at chunk level, keeping only chunks graded yes, and passes the web pages in full (`include_raw_content=True`), so a fallback can put six whole pages into the prompt.
+The reference implementation has no refinement step. It filters at chunk level, keeping only chunks graded yes, and passes the web pages in full (`include_raw_content=True`), so a fallback can put six whole pages into the prompt.
 
-On the Larkspur export question at `k = 3`, the retriever returns `retention`, `export` and `cancel`. Chunk-level filtering keeps the first two whole. Strip-level refinement would go one step further. As an illustration (written by hand, not notebook output):
+### Step 3: Inspect which strips support the request
+
+On the Larkspur export question at `k = 3`, the retriever returns `retention`, `export` and `cancel`. Chunk-level filtering keeps the first two whole. Strip-level refinement would go one step further. As an illustration (written by hand, not a measured output):
 
 | Strip | Keep? |
 |---|---|
@@ -60,6 +90,17 @@ On the Larkspur export question at `k = 3`, the retriever returns `retention`, `
 | `cancel`: You can cancel any plan from the Billing page. | no |
 
 Refinement costs one more LLM call per document it rewrites, and an LLM that rewrites evidence can also change it. Keep the original chunk id beside each bullet so the answer can still cite the source.
+
+### Try it yourself
+
+For the export question keep two relevant chunks but change k from three to five. Check that two-thirds passes while two-fifths falls back. Then reduce k to one: one relevant chunk passes the majority rule, but the answer lacks export instructions. Separate a passing retrieval verdict from complete evidence.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Agentic corrective RAG](../../../../course/p09_agentic_rag/m29_crag_and_self_rag/notebooks/01a_agentic_corrective_rag_langgraph.ipynb).
+- [Crag RAG techniques](../../../../course/p09_agentic_rag/m29_crag_and_self_rag/optional/01b_crag_rag_techniques.ipynb).
 
 ## Key Takeaways
 

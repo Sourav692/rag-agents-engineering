@@ -2,7 +2,7 @@
 
 *Part IX · Agentic & Self-Correcting RAG · [Module README](../../../course/p09_agentic_rag/m29_crag_and_self_rag/README.md) · [All theory pages](../../README.md)*
 
-A plain RAG pipeline generates from whatever the retriever returns. Corrective RAG (CRAG) grades the retrieved chunks first and finds other context when they fail. Self-RAG asks the model to judge each step, from whether to retrieve at all to whether its answer is supported and useful. The M29 notebooks build on four ideas: a retrieval evaluator, knowledge refinement, reflection tokens and a groundedness check. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+Larkspur must decide whether checking an answer is worth the extra calls. You will follow corrective retrieval and Self-RAG decisions, inspect unsupported-answer loops and compare the costs on the same questions. The tutorials cover retrieval evaluation, refinement, reflection decisions and groundedness. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the twelve-chunk Larkspur Cloud handbook from M11 and its three golden questions, plus two questions the handbook cannot answer: *Does Larkspur offer GPU servers?* and *How much does the starter plan cost per month?* The handbook is private, so a web search cannot answer for it. That makes it a fair stress test for a pipeline whose fallback is the web.
 

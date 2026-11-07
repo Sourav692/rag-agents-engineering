@@ -4,9 +4,15 @@
 
 ## Supervisor
 
-A supervisor is a node that reads the work so far and picks the next specialist, or decides the task is done. Every specialist reports back to it. In the 35.4 notebook the supervisor is a model with structured output: `RouteDecision` holds `next`, a closed `Literal["researcher", "writer", "critic", "FINISH"]`, and a one-line `reasoning`. A typed choice cannot name a node that does not exist, and the graph never parses prose to find out where to go.
+Larkspur operations resolves an outage and billing must assess credits. You will follow supervisor decisions, count specialist work separately and test whether adding a team layer helps enough to justify its routing cost.
 
-The notebook splits deciding from routing:
+### Step 1: Keep the supervisor decision in state
+
+A supervisor is a node that reads the work so far and picks the next specialist, or decides the task is done. Every specialist reports back to it. In the hierarchical-team example the supervisor is a model with structured output: `RouteDecision` holds `next`, a closed `Literal["researcher", "writer", "critic", "FINISH"]`, and a one-line `reasoning`. A typed choice cannot name a node that does not exist, and the graph never parses prose to find out where to go.
+
+### Step 2: Separate deciding, routing and counting
+
+The example splits deciding from routing:
 
 - The **supervisor** calls the model and writes the decision to state: `next_agent`, `task_complete`, and one entry in `route_log`. It never writes to `messages`, so the transcript holds only the work and the routing history sits in its own key.
 - Each **specialist** appends its output to `messages` and returns `specialist_calls: 1`. The `operator.add` reducer sums those, so the count never depends on reading message text.
@@ -20,11 +26,48 @@ flowchart LR
     W -- "specialist_calls + 1" --> S
 ```
 
-`recursion_limit = 25` stays as the backstop, but it ends a run with an error; the counter ends it with a result. Part 9 of the notebook proves the cap with stubs: a supervisor that never says `FINISH` and a writer that returns numbered drafts without a model. The run stops at 6 specialist calls, and no model is called.
+Replace supervisor and worker model calls with scripted nodes. The supervisor deliberately never chooses FINISH. The code-owned six-call cap must still stop it.
+
+```python
+from typing import Literal
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import Command
+
+class Work(TypedDict):
+    specialist_calls: int
+
+def supervisor(state: Work) -> Command[Literal["worker", "__end__"]]:
+    return Command(goto=END if state["specialist_calls"] >= 6 else "worker")
+
+def worker(state: Work) -> Command[Literal["supervisor"]]:
+    return Command(goto="supervisor", update={"specialist_calls": state["specialist_calls"] + 1})
+
+builder = StateGraph(Work)
+builder.add_node("supervisor", supervisor)
+builder.add_node("worker", worker)
+builder.add_edge(START, "supervisor")
+print(builder.compile().invoke({"specialist_calls": 0},
+                                {"recursion_limit": 25})["specialist_calls"])
+```
+
+**Expected output**
+
+```text
+6
+```
+
+### Step 3: Prove a clean stop with a never-finishing supervisor
+
+`recursion_limit = 25` stays as the backstop, but it ends a run with an error; the counter ends it with a result. Part 9 of the example proves the cap with stubs: a supervisor that never says `FINISH` and a writer that returns numbered drafts without a model. The run stops at 6 specialist calls, and no model is called.
+
+### Step 4: Count routing overhead
 
 The supervisor's price is one decision before each specialist and one more to finish. On Larkspur's outage request (operations, then billing) that is 5 model calls, 3 of them routing, where a swarm needs 3. Each follow-up costs the supervisor 3 calls, because every turn starts at the supervisor again. The [routing cost lab](../05_handoffs_and_swarms/interactive/routing-cost-lab.html) counts it call by call. In exchange, every routing decision is in one log with its reason, the routing rules are in one prompt you can test, and one counter caps the whole run.
 
 ## Hierarchical teams
+
+### Step 1: Check the parent and team state contract
 
 When one supervisor has too many workers to choose among well, group the workers into teams with a supervisor each, and put a coordinator over the team supervisors. In LangGraph each team is its own `StateGraph`, compiled on its own, and added to the parent graph with `add_node` like any function node. The parent never sees inside it.
 
@@ -49,7 +92,9 @@ flowchart LR
     end
 ```
 
-After each department the run returns to the CEO, which can send the work on to a second department (research, then content) or finish. The notebook's teams show that a team's inside is its own choice: research fans out to two specialists and merges in a lead, content has its own supervisor, analysis is a fixed pipeline.
+After each department the run returns to the CEO, which can send the work on to a second department (research, then content) or finish. The example's teams show that a team's inside is its own choice: research fans out to two specialists and merges in a lead, content has its own supervisor, analysis is a fixed pipeline.
+
+### Step 2: Check the parent-team state contract
 
 Four rules make the hierarchy compose:
 
@@ -60,7 +105,20 @@ Four rules make the hierarchy compose:
 
 Test each team on its own before you assemble the hierarchy; a team that misbehaves is much harder to diagnose once it is one node inside a larger graph. The cost is visibility and steps: the parent sees what a team appended, not why, and in lesson 35.2 the two-level run needs `recursion_limit` raised from 25 to 50.
 
-Larkspur's three specialists do not need a hierarchy. Put billing and data in an accounts team with its own lead and operations in a platform team, and the outage request costs 7 model calls, 5 of them routing, against 5 for a flat supervisor. A hierarchy starts to pay when the flat supervisor's prompt has to describe so many specialists that its routing accuracy drops; measure that before adding the layer.
+### Step 3: Compare flat and hierarchical routing
+
+Larkspur's three specialists do not need a hierarchy. Put billing and data in an accounts team with its own lead and operations in a platform team, and the outage request costs 7 model calls, 5 of them routing, against 5 for a flat supervisor. A hierarchy starts to pay when the flat supervisor's prompt has to describe so many specialists that its routing accuracy drops. Measure that before adding the layer.
+
+### Try it yourself
+
+Use a stub supervisor that never returns FINISH. Check that the specialist counter still stops at six calls with a result, rather than waiting for a recursion error. For the outage case compare five flat-supervisor calls with seven hierarchical calls. Identify the extra decisions before adding another team level.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Supervisor pattern](../../../../course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/04a_supervisor_pattern.ipynb).
+- [Hierarchical agents](../../../../course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/04b_hierarchical_agents.ipynb).
 
 ## Key Takeaways
 

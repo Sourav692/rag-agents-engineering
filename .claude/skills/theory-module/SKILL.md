@@ -6,7 +6,7 @@ argument-hint: <module number, key or name> [lesson number or topic]
 
 # Theory module
 
-Writes the theory for a module the way M11 is written: `theory/p04_rag_foundations/m11_rag_lifecycle/` is the reference build. Match it in structure, voice, diagram style, lab design and verification. `CLAUDE.md` → Theory pages holds the rules; this skill is the procedure.
+Writes tutorial-first theory for a module. `theory/p04_rag_foundations/m11_rag_lifecycle/` is the reference for repository structure, diagram style, labs and verification, not a mandate to copy dense exposition or inline reference-heavy prose. Follow `references/tutorial.md` for the reader-facing learning experience and `references/format.md` for build-sensitive page contracts. `CLAUDE.md` → Theory pages holds the repository rules; this skill is the procedure.
 
 The input is `$ARGUMENTS`:
 
@@ -17,7 +17,7 @@ Never invent a number, quote, benchmark or API. Every figure on a page comes fro
 
 ## 0. Set up
 
-1. Load the `napkin`, `no-ai-slop` and `hallmark` skills (the user's standing rules for this repo). Read `CLAUDE.md` → Theory pages and `references/format.md` in this skill folder.
+1. Load the `napkin`, `no-ai-slop` and `hallmark` skills (the user's standing rules for this repo). Read `CLAUDE.md` → Theory pages, `references/format.md`, and `references/tutorial.md` in this skill folder.
 2. Resolve the argument:
 
    ```bash
@@ -38,16 +38,17 @@ Decide and state in a few lines:
 - **Concept to lesson map.** Each entry in `concepts:` goes to exactly one lesson page, the lesson that teaches it (M11: the seven-step lifecycle table went to 11.5, not 11.4). A lesson can hold several concepts or extra sections (M13.4 has "Choosing chunk size" and "Choosing a strategy"). Lessons with nothing to say beyond the notebook stay *planned*: no folder, a `*planned*` row in the module page's Lessons table. A lesson page always has at least one `##` section.
 - **Diagrams per page.** One mental-model diagram on the module page; one or two per lesson where a picture beats prose. Mermaid first. SVG in `diagrams/` only for spatial layouts and charts Mermaid cannot draw. Animate only diagrams that show a process over time (a pipeline, a loop): usually the module's mental model plus one more. Decision trees, comparisons and charts stay static.
 - **The lab.** At most one per module unless two lessons each have a parameter worth playing with. A lab earns its place when moving one control changes a number the prose argues about (M11: `k` against recall, precision and tokens). Prefer running the real algorithm in JS when it is small (TF-IDF, recursive splitting, BM25, cosine, MMR); otherwise hand-placed outputs labelled representative. Pick the lesson it belongs to and the section it sits in.
-- **Running example.** Which part of the Larkspur handbook carries this module, and the golden questions it uses.
+- **Running example.** Which part of the Larkspur handbook carries this module, and the golden questions it uses. Choose one concrete request or failure to follow through the lesson wherever possible.
+- **Tutorial path.** For each lesson, plan the reader's starting knowledge, observable goal, ordered steps, minimal executable code or a concrete trace when coding is unnecessary, expected results, common failure, a short practice task, and where references will live. Preserve every exact concept heading required by the curriculum and build tests.
 
 In topic mode also state: which existing sections of the module page change (Lessons row, TL;DR bullet, mental model, How it connects, interview questions, takeaways), and that nothing else is rewritten.
 
 ## 3. Write the pages
 
-Follow `references/format.md` exactly: headings, header and footer lines, the Lessons table, the Interview Spotlight shape, link styles. In short:
+Follow `references/format.md` exactly for load-bearing headings, header/footer lines, Lessons table, Interview Spotlight and link styles. Follow `references/tutorial.md` for the teaching sequence and readable prose within these constraints. In short:
 
 - **Module page** `theory/<part>/<module>/README.md`: title line, meta line, intro with the "Each idea has a page…" sentence, running-example paragraph, `## TL;DR`, `## Mental model` (diagram, then one paragraph), `## Lessons` table, `## Interactive lab`, `## How it connects`, `## Interview Spotlight: 5 Questions You Might Get Asked`, `## Key Takeaways`, previous/next footer.
-- **Lesson page** `<lesson folder>/README.md`: title, header line with module page, lesson number and notebooks, then the `## <concept>` sections (exact `concepts:` text), then `## Key Takeaways` (three bullets, four when the page has four or more concepts: the mechanism, decision rule, trade-off or number to remember, each drawn from the page and none copying a Check yourself answer), then `## Check yourself`, then the footer chaining to the neighbouring lesson pages.
+- **Lesson page** `<lesson folder>/README.md`: title and exact build-sensitive header line; then a tutorial body beginning at its first `##` section. Preserve exact `## <concept>` headings from `concepts:` once each, but make each concept a learn-by-doing sequence with a real problem, example, step-by-step explanation, runnable snippet or verified trace, expected output, an experiment and a decision rule as appropriate. Use `### Step N: ...` inside a concept rather than replacing the concept headings with generic `## Step N` headings. Finish with `## Key Takeaways` (three bullets, four when the page has four or more concepts: mechanism, decision rule, trade-off or verified number), then `## Check yourself`, then the footer chaining to neighbouring lesson pages. Put notebook links in a dedicated `### Practice notebook` or `### Continue learning` subsection near the end of the relevant concept instead of packing references into teaching sentences.
 - **Check yourself:** three questions per lesson page, each a `<details>` block (`<summary>N. Question?</summary>`, blank line, a 2 to 4 sentence answer, blank line, `</details>`): one on the core mechanism, one applying it to the page's example or numbers, one diagnosing a failure or making a decision. Answers use only facts on the page. Questions are plain text (no Markdown or module codes: neither GitHub nor the site renders them inside `<summary>`). `test_lesson_pages_end_with_check_yourself` checks the shape.
 - **Interview Spotlight:** five production scenarios on this module's running example, never "what is X". Cover at least one incident or debugging question, one design trade-off, one measurement or monitoring question and one edge case. Each has four "What a strong answer covers" bullets.
 - **Links:** notebooks by their `course/` path, other modules by number in prose and by relative path to their theory module page when one exists. Relative paths from the file being written; `check_links.py` verifies them.
@@ -73,7 +74,7 @@ Mark where it embeds with `<!-- lab: interactive/<name>.html -->` on its own lin
 
 ## 6. Edit the prose
 
-Run the `no-ai-slop` edit over every page before building: no en or em dashes anywhere (write "20 to 50", "M14 to M16"), no "not X, it's Y", no faux-insight setups, no colon reveals, no closing aphorisms, no invented metrics. Keep the voice of the M11 pages: plain declaratives, numbers from the lab, short sections.
+Apply `references/tutorial.md` and then run the `no-ai-slop` edit over every page before building: no en or em dashes anywhere (write "20 to 50", "M14 to M16"), no "not X, it's Y", no faux-insight setups, no colon reveals, no closing aphorisms, no invented metrics. Keep the clarity of the M11 pages, but improve the pacing: begin with a reader problem, build understanding in numbered steps, put code next to its explanation and expected output, and separate optional reading from the main lesson. Do not turn every lesson into a code lab when a verified trace or decision walkthrough teaches better. Prefer short paragraphs, readable tables, one consistent example and explicit observations.
 
 ## 7. Build and verify
 

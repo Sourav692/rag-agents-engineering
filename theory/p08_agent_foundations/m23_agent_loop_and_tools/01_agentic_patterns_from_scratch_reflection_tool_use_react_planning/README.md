@@ -4,15 +4,21 @@
 
 ## Agent loop
 
-The three notebooks build the same machine three times, each with more of a loop in it. They use only the raw OpenAI SDK and `gpt-4o-mini`: no `tools=` parameter and no framework, so every step that frameworks hide is a line of Python you can read.
+A Larkspur customer asks how long a refund takes. Your model can request a handbook search, but your application must run it and return the evidence. You will trace that exchange, then see why dependent actions need a loop and a stopping rule.
 
-| Pattern | Notebook | What repeats | Stops when |
+### Step 1: Read the three stopping rules
+
+The three implementations below use the raw OpenAI SDK and `gpt-4o-mini`. They describe tools in prompt text rather than using the native `tools=` parameter. An observation is the result your code sends back after executing the requested function.
+
+| Pattern | Implementation | What repeats | Stops when |
 |---|---|---|---|
-| Reflection | `01a` (optional) | Generate a draft, critique it with a second persona, regenerate | The critic answers `<OK>`, or after `n_steps` rounds |
-| Tool use | `01b` | Nothing: one round of tool calls, then the answer | The model has answered from the observation |
-| ReAct planning | `01c` | Thought, tool call, observation | The model writes `<response>`, or after `max_rounds` (10 by default) |
+| Reflection | Draft and critic | Generate a draft, critique it with a second persona, regenerate | The critic answers `<OK>`, or after `n_steps` rounds |
+| Tool use | One-round `ToolAgent` | Nothing: one round of tool calls, then the answer | The model has answered from the observation |
+| ReAct planning | Repeated `ReactAgent` | Thought, tool call, observation | The model writes `<response>`, or after `max_rounds` (10 by default) |
 
-**Tool calling by hand.** In `01b` the model never receives a function. It receives text: a system prompt that lists each tool's signature inside `<tools>` tags and asks for calls in a fixed format. The model answers *What's the current temperature in Madrid, in Celsius?* with text, not an answer:
+### Step 2: Turn a request into an observation
+
+In the one-round implementation, the model never receives a function. It receives text: a system prompt that lists each tool's signature inside `<tools>` tags and asks for calls in a fixed format. The model answers *What's the current temperature in Madrid, in Celsius?* with text, not an answer:
 
 ```
 <tool_call>
@@ -22,9 +28,11 @@ The three notebooks build the same machine three times, each with more of a loop
 
 Your code does the rest: a regular expression strips the tags, `json.loads` turns the call into a dict, `get_current_weather(**arguments)` runs it, and the result goes back as a user message, `Observation: {"temperature": 25, "unit": "celsius"}`. A second model call turns that into the sentence the user reads. The `@tool` decorator automates the signature (name, docstring, type hints), and `validate_arguments` casts values to the annotated types, so `"5"` becomes `5` when the hint says `int`.
 
-`01b`'s `ToolAgent` stops after one round. It cannot use one tool's result to choose the next call, and that is the gap ReAct fills.
+The one-round `ToolAgent` stops after one round. It cannot use one tool's result to choose the next call, and that is the gap ReAct fills.
 
-**The ReAct loop.** `01c` gives the model a protocol: think inside `<thought>`, act with a `<tool_call>`, read the `<observation>` your code sends back, and finish inside `<response>`. The notebook's task needs three calls in order, each depending on the one before:
+### Step 3: Feed each result into the next action
+
+The ReAct implementation gives the model a protocol: think inside `<thought>`, act with a `<tool_call>`, read the `<observation>` your code sends back, and finish inside `<response>`. The reference example's task needs three calls in order, each depending on the one before:
 
 ```mermaid
 sequenceDiagram
@@ -40,9 +48,9 @@ sequenceDiagram
     M-->>C: response, about 10.45
 ```
 
-Dependent steps work because every observation stays in the chat history for the next turn. Written out, `ReactAgent.run()` is a short loop:
+Dependent steps work because every observation stays in the chat history for the next turn. In pseudocode, `ReactAgent.run()` is this loop. The helper names stand for parsing and dispatch operations rather than runnable Python:
 
-```python
+```text
 for _ in range(max_rounds):                    # 10 by default
     reply = model(history)
     if has_tag(reply, "response"):
@@ -53,9 +61,23 @@ for _ in range(max_rounds):                    # 10 by default
 
 The loop has two exits. The `<response>` tag is the model's own decision to stop. `max_rounds` is yours: without it, a model that keeps asking for tools (because the tool keeps returning nothing useful, say) runs and bills forever.
 
-**What the hand-written version cannot guarantee.** Nothing forces the model to write valid JSON, name a real tool or supply every argument; the parser raises `ValueError` when the tags or the JSON are wrong. The type casting covers four types (`int`, `str`, `bool`, `float`). Native tool calling (lesson 23.4) moves the schema into the API, so the provider returns structured `tool_calls` with ids. The loop stays the same.
+### Step 4: Diagnose a broken call before retrying
+
+Nothing forces the model to write valid JSON, name a real tool or supply every argument. The parser raises `ValueError` when the tags or the JSON are wrong. The type casting covers four types (`int`, `str`, `bool`, `float`). Native tool calling (lesson 23.4) moves the schema into the API, so the provider returns structured `tool_calls` with ids. The loop stays the same.
 
 For Larkspur's support agent the loop is identical with different tools. *How long does a refund take?* becomes a thought ("I need the refund policy"), a call to `search_handbook`, an observation holding the retrieved chunks, and a response that quotes them. The M23 lab runs that question through LangGraph's version of this loop, including a first call that fails.
+
+### Try it yourself
+
+Trace the arithmetic example with a one-round `ToolAgent` instead of `ReactAgent`. Which result is unavailable when the first calls are chosen? Check that the multiplication needs the observed sum, 6912, and the logarithm needs the observed product, 34560. Then set a round cap below the required dependent actions and explain why the run must stop without a complete answer.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [One-round tool use](../../../../course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/01b_tool_use_pattern.ipynb).
+- [ReAct from scratch](../../../../course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/01c_planning_pattern_react.ipynb).
+- [Reflection from scratch](../../../../course/p08_agent_foundations/m23_agent_loop_and_tools/optional/01a_reflection_pattern.ipynb) (optional).
 
 ## Key Takeaways
 
@@ -68,7 +90,7 @@ For Larkspur's support agent the loop is identical with different tools. *How lo
 <details>
 <summary>1. Why can the ReAct agent chain three dependent tool calls when the one-round tool-use agent cannot?</summary>
 
-The `ToolAgent` in `01b` runs one round of tool calls and then answers, so it cannot use one result to choose the next call. `ReactAgent.run()` loops, and every observation stays in the chat history, so the model sees `6912` before it asks to multiply it by 5.
+The one-round `ToolAgent` runs one round of tool calls and then answers, so it cannot use one result to choose the next call. `ReactAgent.run()` loops, and every observation stays in the chat history, so the model sees `6912` before it asks to multiply it by 5.
 
 </details>
 

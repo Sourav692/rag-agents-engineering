@@ -4,7 +4,11 @@
 
 ## Checking the agent's numbers
 
-This project has no code. It ships the input and the output of one analysis run in Claude through MCP, the job the `excel` and `ppt` entries in the [40.2 config](../02_mcp_servers_with_claude_desktop/README.md#claude-desktop) are there for: `support_tickets_data.xlsx`, with 50 support tickets in a `support_tickets_data` sheet and the model's findings written back as a `data_analysis` sheet, and `Support_Tickets_Analysis_Report.pptx`, nine slides that end "Analysis completed using Claude MCP Analysis".
+Larkspur receives a polished analysis deck built through spreadsheet and slide tools. You will trace its headline figures back to the ticket rows, recompute the arithmetic and identify which errors the model hid in plausible-looking charts.
+
+### Step 1: Separate moving cells from computing figures
+
+This project has no code. It ships the input and the output of one analysis run in Claude through MCP, the job the `excel` and `ppt` entries in the 40.2 config are there for: `support_tickets_data.xlsx`, with 50 support tickets in a `support_tickets_data` sheet and the model's findings written back as a `data_analysis` sheet, and `Support_Tickets_Analysis_Report.pptx`, nine slides that end "Analysis completed using Claude MCP Analysis".
 
 ```mermaid
 flowchart LR
@@ -13,7 +17,9 @@ flowchart LR
     M -- "ppt server" --> D["Nine-slide deck"]
 ```
 
-The servers move cells and slides; the arithmetic happens in the model. Recomputing the deck's figures from the ticket sheet with pandas:
+### Step 2: Recompute figures from the source rows
+
+The servers move cells and slides. The arithmetic happens in the model. Recomputing the deck's figures from the ticket sheet with pandas:
 
 | Figure | Deck and analysis sheet | From the 50 tickets |
 |---|---|---|
@@ -25,15 +31,35 @@ The servers move cells and slides; the arithmetic happens in the model. Recomput
 | Data Import and Billing share | 44% | 22 of 50, 44% |
 | Critical tickets resolved | "Only 42.9%" | **71.4%** (5 of 7) |
 
+### Step 3: Trace a plausible percentage to its source cell
+
 Most figures are right, and the two wrong ones look the same as the rest. 42.9% is agent A001's resolution rate (3 of 7), one block up in the same sheet, reported as the critical-ticket rate, and it drives the slide's "Critical Ticket Problems" finding. Response time is called on target while missing the target the sheet sets in its own success-metrics block.
 
+### Step 4: Make the spreadsheet perform the arithmetic
+
 The excel server can do the sums itself. Its README (excel-mcp-server 0.12.0) says a written value that starts with `=` is a formula, so `=AVERAGE(support_tickets_data!I2:I51)` would let the workbook compute the average and keep the source of every number visible. The analysis sheet holds typed strings such as `2.84/5` instead, and its seven section headings, which begin with `=` (`==== EXECUTIVE SUMMARY ===`), were stored as formulas with no value, so pandas reads them as empty cells.
+
+### Step 5: Check provenance before publishing a deck
 
 Rules for analysis sessions over MCP:
 
 - **Make the tool compute.** Ask for formulas, or give the host a code or SQL tool, so each figure has a derivation you can inspect.
 - **Recompute the headline numbers** before a deck leaves the room. Here that took one pandas cell and found two wrong figures and one wrong verdict.
 - **Check the paging limit against the data.** `EXCEL_MCP_PAGING_CELLS_LIMIT` is 4000 cells per read; this sheet is 612 cells, so one read covered it. A larger sheet arrives in pages, and a model that stops after the first page analyses part of the data.
+
+### Try it yourself
+
+Recompute average satisfaction and the technical-ticket resolution rate from the fifty-ticket sheet. Check 2.82 rather than 2.84 for satisfaction, and trace the misplaced 42.9% to agent A001's three-of-seven rate. Use a formula or code result as the source for the slide, not a second model-written number.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [MCP servers for data](../../../../course/p11_agent_protocols/m40_mcp_applications/projects/04_mcp_servers_for_data_analysis).
+
+### Continue learning
+
+- [40.2 config](../02_mcp_servers_with_claude_desktop/README.md#claude-desktop).
 
 ## Key Takeaways
 

@@ -240,7 +240,7 @@ th:last-child, td:last-child { padding-right: 0; }
   <header class="module__head">
     <div class="module__name">
       <h1 id="module-title">M29 Self-correcting RAG: CRAG and Self-RAG</h1>
-      <p class="module__lede">A plain RAG pipeline generates from whatever the retriever returns. Corrective RAG (CRAG) grades the retrieved chunks first and finds other context when they fail. Self-RAG asks the model to judge each step, from whether to retrieve at all to whether its answer is supported and useful. The M29 notebooks build on four ideas: a retrieval evaluator, knowledge refinement, reflection tokens and a groundedness check.</p>
+      <p class="module__lede">Larkspur must decide whether checking an answer is worth the extra calls. You will follow corrective retrieval and Self-RAG decisions, inspect unsupported-answer loops and compare the costs on the same questions. The tutorials cover retrieval evaluation, refinement, reflection decisions and groundedness.</p>
     </div>
     <dl class="module__meta">
       <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/README.md" target="_blank" rel="noopener">M29 on GitHub</a></dd></div>
@@ -337,7 +337,9 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>There are two places to catch a bad answer. CRAG checks the context before generation; Self-RAG also checks the answer after it. Each check is an LLM call, and each failed check sends the question round again, so the price of correction is set by how often the checks fail.</p>
 <h2 id="retrieval-evaluator">Retrieval evaluator</h2>
 <p class="lesson-of">Lesson 29.1: Corrective RAG in LangGraph with web-search fallback. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/notebooks/01a_agentic_corrective_rag_langgraph.ipynb" target="_blank" rel="noopener"><code>01a_agentic_corrective_rag_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/optional/01b_crag_rag_techniques.ipynb" target="_blank" rel="noopener"><code>01b_crag_rag_techniques.ipynb</code></a> (optional)</p>
-<p>Corrective RAG (Yan et al., <em>Corrective Retrieval Augmented Generation</em>, 2024, <a href="https://arxiv.org/abs/2401.15884" target="_blank" rel="noopener">arXiv:2401.15884</a>) adds one component to the baseline: a retrieval evaluator that judges the retrieved documents before the model sees them. Its verdict picks what happens next. If retrieval looks right, generate from it; if it looks wrong, find other context; if it is unclear, use both. The paper trains a small model (T5-large) as the evaluator. Both M29 notebooks prompt an LLM instead.</p>
+<p>The export answer needs both instructions and the retention rule. You will grade the retrieved chunks, calculate when the majority rule falls back to web search, and compare chunk filtering with refining the text inside a chunk.</p>
+<h3>Step 1: Inspect the evaluator before generating</h3>
+<p>Corrective RAG (Yan et al., <em>Corrective Retrieval Augmented Generation</em>, 2024, <a href="https://arxiv.org/abs/2401.15884" target="_blank" rel="noopener">arXiv:2401.15884</a>) adds one component to the baseline: a retrieval evaluator that judges the retrieved documents before the model sees them. Its verdict picks what happens next. If retrieval looks right, generate from it. If it looks wrong, find other context. If it is unclear, use both. The paper trains a small model (T5-large) as the evaluator. Both M29 implementations prompt an LLM instead.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[/Question/] --&gt; R["Retrieve&lt;br/&gt;k = 5, score at least 0.35"]
     R --&gt; GD["Grade each chunk&lt;br/&gt;yes or no"]
@@ -347,13 +349,13 @@ th:last-child, td:last-child { padding-right: 0; }
     RW --&gt; W["Web search&lt;br/&gt;Tavily, 6 results"]
     W --&gt; GEN
 </pre></figure>
-<p>That is the graph notebook 01a builds in LangGraph, with nodes <code>retrieve</code>, <code>grade_documents</code>, <code>rewrite_query</code>, <code>web_search</code> and <code>generate_answer</code>. The two notebooks build the evaluator differently:</p>
+<p>That is the graph the reference implementation builds in LangGraph, with nodes <code>retrieve</code>, <code>grade_documents</code>, <code>rewrite_query</code>, <code>web_search</code> and <code>generate_answer</code>. The two implementations build the evaluator differently:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th></th>
-<th>01a, LangGraph</th>
-<th>01b, plain functions (optional)</th>
+<th>CRAG graph, LangGraph</th>
+<th>CRAG function variant, plain functions (optional)</th>
 </tr>
 </thead>
 <tbody>
@@ -384,16 +386,30 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>Three behaviours follow from 01a&rsquo;s rule, and the <a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html">M29 lab</a> shows each on the Larkspur handbook. Its grader is a stand-in that agrees with the golden labels, so these are routing effects, not grader mistakes.</p>
+<h3>Step 2: Test the relevant-fraction threshold</h3>
+<p>Three behaviours follow from the implementation&rsquo;s rule, and the <a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html">M29 lab</a> shows each on the Larkspur handbook. Its grader is a stand-in that agrees with the golden labels, so these are routing effects, not grader mistakes.</p>
 <ul>
 <li><strong>The threshold is a fraction, so it moves with <code>k</code>.</strong> Every golden question has two evidence chunks. A perfect grader keeps two, and 2 of <code>k</code> is more than half only when <code>k</code> is 3 or less. On <em>Can I export my data after I cancel my plan?</em> CRAG answers in 4 calls at <code>k = 3</code>. At <code>k = 5</code> it keeps both evidence chunks, still falls back, and spends 7 calls plus a web search.</li>
 <li><strong>It grades chunks, not answers.</strong> At <code>k = 1</code> the export question retrieves only <code>retention</code>. One relevant chunk out of one passes the rule, and CRAG answers in 2 calls without the <code>export</code> chunk, which says how to export.</li>
 <li><strong>A correct verdict can trigger the wrong fix.</strong> For <em>What happens if my server goes down?</em> TF-IDF returns <code>reboot</code>, <code>sizing</code> and <code>export</code>, and the grader rightly rejects all three. CRAG then searches the web for a private handbook&rsquo;s outage policy. The answer was in the corpus all along, under the words &ldquo;outage&rdquo; and &ldquo;availability&rdquo;; a rewrite and retry against the index (M18, M28) would have found it.</li>
 </ul>
-<p>The web fallback suits a corpus of public facts that go stale, such as the research papers in 01a. For a private handbook, replace it or guard it: retry inside the index, then refuse.</p>
+<p>Hold the two relevant chunks fixed and test the graph&rsquo;s majority rule. This local calculation does not call a grader or search the web.</p>
+<pre class="sheet code"><code class="language-python">for retrieved, relevant in [(3, 2), (5, 2), (1, 1)]:
+    fraction = relevant / retrieved
+    print(retrieved, relevant, &quot;generate&quot; if fraction &gt; 0.5 else &quot;web_search&quot;)
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">3 2 generate
+5 2 web_search
+1 1 generate
+</code></pre>
+<h3>Step 3: Choose where missing evidence may come from</h3>
+<p>The web fallback suits a corpus of public facts that go stale, such as the research papers in this implementation. For a private handbook, replace it or guard it: retry inside the index, then refuse.</p>
 <h2 id="knowledge-refinement">Knowledge refinement</h2>
+<h3>Step 1: Keep only the supporting evidence</h3>
 <p>Retrieval returns whole chunks, and a chunk can mix the sentence that answers the question with sentences that do not. Knowledge refinement cuts the context down to the useful parts before generation. The CRAG paper does it with decompose-then-recompose: split each document into short strips, score every strip with the evaluator, drop the low scorers and join the rest.</p>
-<p>Notebook 01b uses a simpler version. <code>knowledge_refinement</code> sends a document to the LLM with the prompt &ldquo;Extract the key information from the following document in bullet points&rdquo; and returns the bullets as a list. Where it runs depends on the action:</p>
+<h3>Step 2: Compare whole chunks with refined facts</h3>
+<p>The reference implementation uses a simpler version. <code>knowledge_refinement</code> sends a document to the LLM with the prompt &ldquo;Extract the key information from the following document in bullet points&rdquo; and returns the bullets as a list. Where it runs depends on the action:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -420,8 +436,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>Notebook 01a has no refinement step. It filters at chunk level, keeping only chunks graded yes, and passes the web pages in full (<code>include_raw_content=True</code>), so a fallback can put six whole pages into the prompt.</p>
-<p>On the Larkspur export question at <code>k = 3</code>, the retriever returns <code>retention</code>, <code>export</code> and <code>cancel</code>. Chunk-level filtering keeps the first two whole. Strip-level refinement would go one step further. As an illustration (written by hand, not notebook output):</p>
+<p>The reference implementation has no refinement step. It filters at chunk level, keeping only chunks graded yes, and passes the web pages in full (<code>include_raw_content=True</code>), so a fallback can put six whole pages into the prompt.</p>
+<h3>Step 3: Inspect which strips support the request</h3>
+<p>On the Larkspur export question at <code>k = 3</code>, the retriever returns <code>retention</code>, <code>export</code> and <code>cancel</code>. Chunk-level filtering keeps the first two whole. Strip-level refinement would go one step further. As an illustration (written by hand, not a measured output):</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -453,6 +470,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p>Refinement costs one more LLM call per document it rewrites, and an LLM that rewrites evidence can also change it. Keep the original chunk id beside each bullet so the answer can still cite the source.</p>
+<h3>Try it yourself</h3>
+<p>For the export question keep two relevant chunks but change k from three to five. Check that two-thirds passes while two-fifths falls back. Then reduce k to one: one relevant chunk passes the majority rule, but the answer lacks export instructions. Separate a passing retrieval verdict from complete evidence.</p>
+<h3>Practice notebook</h3>
+<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/notebooks/01a_agentic_corrective_rag_langgraph.ipynb" target="_blank" rel="noopener">Agentic corrective RAG</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/optional/01b_crag_rag_techniques.ipynb" target="_blank" rel="noopener">Crag RAG techniques</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>CRAG grades the retrieved chunks before generation and falls back to a rewritten web search when too few pass. It grades chunks, not answers, so a passing set can still miss the evidence.</li>
@@ -474,6 +499,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="reflection-tokens">Reflection tokens</h2>
 <p class="lesson-of">Lesson 29.2: Self-RAG: retrieve-or-not, relevance, groundedness, utility. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/notebooks/02a_self_rag_langgraph.ipynb" target="_blank" rel="noopener"><code>02a_self_rag_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/optional/02b_self_rag_rag_techniques.ipynb" target="_blank" rel="noopener"><code>02b_self_rag_rag_techniques.ipynb</code></a> (optional)</p>
+<p>A Larkspur answer can cite real policy and still miss the question. You will separate relevance, support and usefulness, then follow an unsupported answer through regeneration and check whether its counter actually advances.</p>
+<h3>Step 1: Separate the four reflection decisions</h3>
 <p>Self-RAG (Asai et al., <em>Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</em>, <a href="https://arxiv.org/abs/2310.11511" target="_blank" rel="noopener">arXiv:2310.11511</a>) trains one model to emit special tokens that judge its own pipeline. The paper calls them reflection tokens, and there are four kinds:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -481,8 +508,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <th>Token</th>
 <th>Question it answers</th>
 <th>Values in the paper</th>
-<th>02a (LangGraph)</th>
-<th>02b (optional)</th>
+<th>Self-RAG graph (LangGraph)</th>
+<th>Self-RAG function variant (optional)</th>
 </tr>
 </thead>
 <tbody>
@@ -516,8 +543,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>In the paper the tokens are part of the model&rsquo;s vocabulary and come out of the same decoding pass as the answer. Neither notebook trains a model. Each judgment is a separate LLM call with a structured-output schema, so &ldquo;reflection token&rdquo; here means &ldquo;one more call that returns a label&rdquo;.</p>
-<p>Notebook 02a wires each judgment to its own conditional edge:</p>
+<p>In the paper the tokens are part of the model&rsquo;s vocabulary and come out of the same decoding pass as the answer. Neither implementation trains a model. Each judgment is a separate LLM call with a structured-output schema, so &ldquo;reflection token&rdquo; here means &ldquo;one more call that returns a label&rdquo;.</p>
+<p>The reference implementation wires each judgment to its own conditional edge:</p>
 <figure class="anim sheet" aria-labelledby="anim-selfrag-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The Self-RAG loop, scrolls sideways on a narrow screen">
     <svg viewBox="0 -16 800 356" role="img" aria-labelledby="anim-selfrag-title anim-selfrag-desc">
@@ -584,25 +611,39 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button" data-tok="646,220">Utility</button><span>The utility grade says no, but the cap is reached, so the run ends: 20 LLM calls for a question the handbook cannot answer.</span></li>
   </ol>
 </figure>
+<h3>Step 2: Trace each retry destination</h3>
 <p>Two loops go back to retrieval (no relevant chunk, or an answer that misses the question) and one goes back to generation (an unsupported answer). <code>max_iterations = 2</code> bounds the rewrite loops: after two rewrites, <code>route_after_relevance_grading</code> sends the question to <code>generate</code> even with no relevant chunk, and <code>route_after_utility</code> ends the run.</p>
-<p>The first token is the one CRAG lacks. <em>What is 9 plus 10?</em> gets <code>need_retrieval = 'no'</code> in 02a and skips the vector store. Every Larkspur question is about the handbook, so on this corpus the Retrieve token saves nothing and costs one call.</p>
+<p>The first token is the one CRAG lacks. <em>What is 9 plus 10?</em> gets <code>need_retrieval = 'no'</code> in this implementation and skips the vector store. Every Larkspur question is about the handbook, so on this corpus the Retrieve token saves nothing and costs one call.</p>
+<h3>Step 3: Count the work on missing evidence</h3>
 <p>The loops make the cost depend on the question. On <em>How much does the starter plan cost per month?</em> at <code>k = 5</code>, no chunk is ever relevant, and the <a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html">M29 lab</a> counts 20 LLM calls: 1 retrieve decision, 15 relevance grades over three passes, 2 rewrites, 1 generation and 1 utility grade. On the export question the same graph stops after one pass in 9 calls.</p>
 <h2 id="groundedness-check">Groundedness check</h2>
-<p>The groundedness check is the hallucination guard. In 02a, <code>grade_groundedness</code> sends the context and the answer to a &ldquo;strict fact-checker&rdquo; prompt; the schema returns <code>binary_score</code>, yes only if every claim is supported, and a <code>feedback</code> string naming the unsupported claims. On a no, the router sends the run back to <code>generate</code>, and the feedback goes into the prompt as &ldquo;a previous attempt at this answer was rejected for this reason&rdquo;. Groundedness and utility are separate checks because they fail separately: an answer can be fully supported by the chunks and still miss the question.</p>
-<p>Two details in 02a decide what the check catches.</p>
-<p><strong>With no documents it passes without running.</strong> If <code>documents</code> is empty, <code>grade_groundedness</code> returns <code>"yes"</code> and makes no call. That is exactly the out-of-corpus case: on the starter-plan question, Self-RAG exhausts its rewrites, generates with no context, and the check waves the answer through. The only guard left is the generation prompt&rsquo;s line &ldquo;If the context does not contain enough information to answer confidently, say so plainly&rdquo;. Notebook 02b is weaker still. When no chunk is relevant it generates with the context &ldquo;No relevant context found.&rdquo; and a prompt that asks only to &ldquo;generate a response&rdquo;, so the model answers from memory; its own low-relevance test asks a climate-change corpus <em>how did harry beat quirrell?</em></p>
-<p><strong>The cap does not bound the regenerate loop.</strong> <code>route_after_groundedness</code> writes <code>state["iteration"] = iteration + 1</code> inside the routing function. LangGraph keeps only what nodes return, so that write is lost and the counter never moves. Run against the notebook&rsquo;s own node and router code with a groundedness grader that always says no, the compiled graph (langgraph 1.2.18) regenerated until LangGraph raised <code>GraphRecursionError</code>: with <code>recursion_limit = 200</code>, that was 98 regenerations and 200 LLM calls. With the default config it ran to the limit that release reports, 10,007 steps. The fix is to count in a node: have <code>generate</code> return the new <code>iteration</code> when it is regenerating, or add a small <code>regenerate</code> node before it.</p>
-<p>The paper&rsquo;s three support levels are worth keeping when you build this yourself. 02b ranks candidate answers by &ldquo;fully supported&rdquo; first and utility second (<code>max(responses, key=lambda x: (x[1] == 'fully supported', x[2]))</code>), which a yes or no grade cannot do.</p>
+<h3>Step 1: Check support independently of usefulness</h3>
+<p>The groundedness check is the hallucination guard. In this implementation, <code>grade_groundedness</code> sends the context and the answer to a &ldquo;strict fact-checker&rdquo; prompt; the schema returns <code>binary_score</code>, yes only if every claim is supported, and a <code>feedback</code> string naming the unsupported claims. On a no, the router sends the run back to <code>generate</code>, and the feedback goes into the prompt as &ldquo;a previous attempt at this answer was rejected for this reason&rdquo;. Groundedness and utility are separate checks because they fail separately: an answer can be fully supported by the chunks and still miss the question.</p>
+<h3>Step 2: Inspect the empty-context and retry boundaries</h3>
+<p>Two details in this implementation decide what the check catches.</p>
+<h3>Step 3: Test the empty-context path</h3>
+<p>If <code>documents</code> is empty, <code>grade_groundedness</code> returns <code>"yes"</code> and makes no call. That is exactly the out-of-corpus case: on the starter-plan question, Self-RAG exhausts its rewrites, generates with no context, and the check waves the answer through. The only guard left is the generation prompt&rsquo;s line &ldquo;If the context does not contain enough information to answer confidently, say so plainly&rdquo;. The reference implementation is weaker still. When no chunk is relevant it generates with the context &ldquo;No relevant context found.&rdquo; and a prompt that asks only to &ldquo;generate a response&rdquo;, so the model answers from memory; its own low-relevance test asks a climate-change corpus <em>how did harry beat quirrell?</em></p>
+<h3>Step 4: Find the counter update that is discarded</h3>
+<p><code>route_after_groundedness</code> writes <code>state["iteration"] = iteration + 1</code> inside the routing function. LangGraph keeps only what nodes return, so that write is lost and the counter never moves. Run against the example&rsquo;s own node and router code with a groundedness grader that always says no, the compiled graph (langgraph 1.2.18) regenerated until LangGraph raised <code>GraphRecursionError</code>: with <code>recursion_limit = 200</code>, that was 98 regenerations and 200 LLM calls. With the default config it ran to the limit that release reports, 10,007 steps. The fix is to count in a node: have <code>generate</code> return the new <code>iteration</code> when it is regenerating, or add a small <code>regenerate</code> node before it.</p>
+<p>The paper&rsquo;s three support levels are worth keeping when you build this yourself. Self-RAG function variant ranks candidate answers by &ldquo;fully supported&rdquo; first and utility second (<code>max(responses, key=lambda x: (x[1] == 'fully supported', x[2]))</code>), which a yes or no grade cannot do.</p>
+<h3>Try it yourself</h3>
+<p>Trace an answer with no documents through the groundedness check. Check that this implementation returns yes without calling a grader. Next force groundedness to reject forever: identify why writing iteration inside a router does not persist, and move that update into a node before relying on the retry cap.</p>
+<h3>Practice notebook</h3>
+<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/notebooks/02a_self_rag_langgraph.ipynb" target="_blank" rel="noopener">Self RAG langgraph</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m29_crag_and_self_rag/optional/02b_self_rag_rag_techniques.ipynb" target="_blank" rel="noopener">Self RAG RAG techniques</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Self-RAG judges four things: whether to retrieve, whether each chunk is relevant, whether the answer is supported and whether it is useful. In the notebooks each judgement is one more LLM call that returns a label.</li>
+<li>Self-RAG judges four things: whether to retrieve, whether each chunk is relevant, whether the answer is supported and whether it is useful. In these implementations each judgement is one more LLM call that returns a label.</li>
 <li>The loops make cost depend on the question, from 9 calls on the export question to 20 on an out-of-corpus price question at <code>k = 5</code>. With no documents, the groundedness check passes without running.</li>
 <li>Groundedness and utility fail separately, so check both. Update loop counters in a node, because LangGraph discards state written inside a routing function.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. How do the notebooks' reflection tokens differ from the ones in the Self-RAG paper?</summary>
-<p>In the paper one trained model emits the tokens from its vocabulary, in the same decoding pass as the answer. Neither notebook trains a model: each judgment is a separate LLM call with a structured-output schema. So &ldquo;reflection token&rdquo; here means one more call that returns a label.</p>
+<summary>1. How do the examples' reflection labels differ from the ones in the Self-RAG paper?</summary>
+<p>In the paper one trained model emits the tokens from its vocabulary, in the same decoding pass as the answer. Neither implementation trains a model: each judgment is a separate LLM call with a structured-output schema. So &ldquo;reflection token&rdquo; here means one more call that returns a label.</p>
 </details>
 <details>
 <summary>2. On the starter-plan price question at k equal to 5, no chunk is ever relevant. How many LLM calls does Self-RAG make, and where do they go?</summary>
@@ -614,7 +655,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="cost-per-question">Cost per question</h2>
 <p class="lesson-of">Lesson 29.3: Trade-offs: when correction is worth the extra calls</p>
-<p>Every check in CRAG and Self-RAG is an LLM call, and every failed check sends the question round again. The calls are easy to count from the notebook graphs:</p>
+<p>Larkspur must decide whether more grading calls buy a safer answer or repeat the same retrieval miss. You will count calls by path, compare the five golden questions, and choose a correction mechanism that can reach the missing evidence.</p>
+<h3>Step 1: Count calls before comparing answers</h3>
+<p>Every check in CRAG and Self-RAG is an LLM call, and every failed check sends the question round again. The calls are easy to count from the example graphs:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -628,16 +671,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>1: generate</td>
 </tr>
 <tr>
-<td>CRAG (01a)</td>
+<td>CRAG (CRAG graph)</td>
 <td>one grade per retrieved chunk, plus 1 rewrite if it falls back, plus 1 generation; the web search is a tool call on top</td>
 </tr>
 <tr>
-<td>Self-RAG (02a)</td>
+<td>Self-RAG (Self-RAG graph)</td>
 <td>1 retrieve decision, one grade per retrieved chunk on every pass, 1 rewrite per extra pass, and per generation 1 call, 1 groundedness grade (skipped with no documents) and 1 utility grade</td>
 </tr>
 </tbody>
 </table></div>
-<p>The <a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html">interactive lab</a> runs those graphs on the M11 handbook with TF-IDF retrieval and stand-in graders: relevance agrees with the golden labels, groundedness says yes, utility says yes only when every evidence chunk reached the generator, and a rewrite repeats the question. The last rule makes the Self-RAG figures a worst case, since a real rewrite can find the evidence and end the loop early. Its counts, checked against the notebooks&rsquo; own LangGraph code with the same stand-ins (50 runs, 0 mismatches):</p>
+<p>The <a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html">interactive lab</a> runs those graphs on the M11 handbook with TF-IDF retrieval and stand-in graders: relevance agrees with the golden labels, groundedness says yes, utility says yes only when every evidence chunk reached the generator, and a rewrite repeats the question. The last rule makes the Self-RAG figures a worst case, since a real rewrite can find the evidence and end the loop early. Its counts, checked against the reference implementations&rsquo; own LangGraph code with the same stand-ins (50 runs, 0 mismatches):</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -701,14 +744,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <figure class="lab-embed"><iframe src="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html" title="What correction costs, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: What correction costs. <a href="03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html">Open full screen</a></figcaption></figure>
+<h3>Step 2: Locate the expensive failures</h3>
 <p>Three patterns hold across the table:</p>
 <ul>
 <li><strong>Correction costs most where it helps least.</strong> The two questions the handbook cannot answer are the expensive ones for Self-RAG, 14 to 20 calls, and they end with a generation that has no context to be grounded in. CRAG sends both to the web, which cannot see a private handbook.</li>
 <li><strong>Some misses no check can repair.</strong> On the refund question, <code>refund-timing</code> shares no term with &ldquo;How long does a refund take?&rdquo;, so it is never retrieved and never graded. Self-RAG&rsquo;s utility check sees the gap and spends 18 calls on three passes that return the same chunks. The fix is upstream, in retrieval (M14, M17) or in a rewrite that changes the words (M18).</li>
 <li><strong>On an easy question the checks are overhead.</strong> At <code>k = 3</code> the export question is answered from both evidence chunks by all three pipelines; CRAG pays 4 calls and Self-RAG 7 for the same context the baseline read in 1.</li>
 </ul>
-<p>The notebooks also make the calls one after another. <code>grade_documents</code> and <code>grade_relevance</code> loop over the chunks in Python, so <code>k</code> grades add <code>k</code> round trips of latency. Batching them (<code>doc_grader.batch(...)</code>) cuts the wait, not the bill.</p>
+<h3>Step 3: Separate latency from billed calls</h3>
+<p>The reference implementations also make the calls one after another. <code>grade_documents</code> and <code>grade_relevance</code> loop over the chunks in Python, so <code>k</code> grades add <code>k</code> round trips of latency. Batching them (<code>doc_grader.batch(...)</code>) cuts the wait, not the bill.</p>
 <h2 id="when-correction-pays">When correction pays</h2>
+<h3>Step 1: Choose a fix that can reach missing evidence</h3>
 <p>Correction earns its calls when a wrong answer costs more than the extra latency and tokens, and when the fix it reaches for can supply the missing evidence. A short chain of questions settles most cases:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q1{"Does a wrong answer&lt;br/&gt;cost more than&lt;br/&gt;extra latency?"}
@@ -719,13 +765,19 @@ th:last-child, td:last-child { padding-right: 0; }
     Q3 -- yes --&gt; RW["Rewrite and retry&lt;br/&gt;inside the index"]
     Q3 -- no --&gt; S["Self-RAG checks&lt;br/&gt;and a refusal path"]
 </pre></figure>
+<h3>Step 2: Choose a correction path for private policy</h3>
 <p>For the Larkspur assistant that means:</p>
 <ul>
 <li><strong>Billing and refund questions</strong> are worth a check, because a wrong refund window turns into a support ticket. A relevance grade per chunk and one groundedness check on the answer add <code>k + 1</code> calls.</li>
 <li><strong>The web fallback stays off.</strong> Every Larkspur fact lives in the handbook. A question the handbook cannot answer should get a refusal and a handoff to support, not a search.</li>
-<li><strong>Retrieval misses are fixed in retrieval.</strong> The outage question fails on wording; one rewrite against the index is cheaper than three Self-RAG passes or a web search.</li>
-<li><strong>Every loop gets a counter and a budget.</strong> <code>max_iterations</code> caps the rewrite loops in 02a; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.</li>
+<li><strong>Retrieval misses are fixed in retrieval.</strong> The outage question fails on wording. One rewrite against the index is cheaper than three Self-RAG passes or a web search.</li>
+<li><strong>Every loop gets a counter and a budget.</strong> <code>max_iterations</code> caps the rewrite loops in this implementation; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.</li>
 </ul>
+<h3>Try it yourself</h3>
+<p>At k=3 compare the export and refund questions in the lab. Check that CRAG spends four calls on export while Self-RAG spends seven. The refund run still misses evidence after 18 Self-RAG calls. Identify the missing chunk and specify a retrieval change that could reach it instead of adding another identical grading pass.</p>
+<h3>Practice notebook</h3>
+<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p>Use the project and lab resources below to run the exercise.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Count the calls before adding correction. On the lab&rsquo;s golden set at <code>k = 3</code>, the mean was 1 call for the baseline, 4.6 for CRAG and 13.4 for Self-RAG.</li>

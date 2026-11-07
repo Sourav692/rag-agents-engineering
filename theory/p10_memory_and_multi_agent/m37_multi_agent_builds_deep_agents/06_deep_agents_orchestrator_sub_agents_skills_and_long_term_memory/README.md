@@ -4,6 +4,10 @@
 
 ## Deep-agent harness
 
+A Larkspur deep agent may delegate research and save preferences through a prebuilt harness. You will inspect which tools and instructions the harness exposes, distinguish path restrictions from execution isolation and trace which memory survives a new conversation.
+
+### Step 1: Inspect the configured harness rather than its name
+
 The hotel system and the research pipeline are graphs you wire node by node. A deep agent starts from the other end: one orchestrator model inside a ready-made **harness** that gives it files, sub-agents, skills, an execution backend and memory, and you configure the harness instead of drawing the graph. Lesson 37.6 uses the `deepagents` library's `create_deep_agent`, in two command-line scripts. The tool and backend behaviour below is that of `deepagents` 0.7.32, the version in this course's lock file.
 
 ```mermaid
@@ -29,18 +33,26 @@ The parts, as the scripts configure them:
 | Checkpointer | Memory within one thread | `MemorySaver`, one `thread_id` per task |
 | Model | The orchestrator's model | `databricks-claude-opus-4-6`, temperature 0.1 |
 
-**Sub-agents keep the orchestrator's context small.** A call to `task` runs the sub-agent with its own messages and tools, and only its final message returns to the orchestrator. The research agent's search calls (up to 5 results each by default) and its notes stay in its own context; the orchestrator reads its report.
+### Step 2: Keep delegated context out of the parent transcript
 
-**Skills are read on demand.** A `SKILL.md` starts with YAML frontmatter, a `name` and a `description`. The harness puts only those two fields in the system prompt and tells the model to `read_file` the full instructions when a task matches the description. This is progressive disclosure: eight skills cost eight short lines until one is needed. The `memory-manager` skill, for example, sets a workflow (assess, then save, recall or forget), five categories, and a rule to confirm before deleting unless the request is unambiguous.
+A call to `task` runs the sub-agent with its own messages and tools, and only its final message returns to the orchestrator. The research agent's search calls (up to 5 results each by default) and its notes stay in its own context; the orchestrator reads its report.
 
-**The backend decides what the agent can do to your machine.** Two settings in the scripts look safer than they are:
+### Step 3: Read instructions only when the task needs them
+
+A `SKILL.md` starts with YAML frontmatter, a `name` and a `description`. The harness puts only those two fields in the system prompt and tells the model to `read_file` the full instructions when a task matches the description. This is progressive disclosure: eight skills cost eight short lines until one is needed. The `memory-manager` skill, for example, sets a workflow (assess, then save, recall or forget), five categories, and a rule to confirm before deleting unless the request is unambiguous.
+
+### Step 4: Inspect the actual execution backend
+
+Two settings in the scripts look safer than they are:
 
 - `FilesystemBackend(virtual_mode=True)` anchors paths under `root_dir` and blocks traversal such as `..`. The library's own docstring says it provides no sandboxing or process isolation.
 - The script's comment says `USE_SANDBOX=true` selects a LangSmith cloud sandbox. The code selects `LocalShellBackend`, which the library documents as unrestricted shell execution on the host, with no isolation.
 
-Code execution belongs in a real sandbox backend, with a person approving each command; `create_deep_agent` takes `interrupt_on` for that. Notebook 05a gives the same advice for its Python tool.
+Code execution belongs in a real sandbox backend, with a person approving each command; `create_deep_agent` takes `interrupt_on` for that. The reference implementation gives the same advice for its Python tool.
 
-**Long-term memory outlives the thread.** 06b keeps three layers apart:
+### Step 5: Separate thread state from durable memory
+
+The implementation keeps three layers apart:
 
 | Layer | Scope | Store in 06b | Store in the deployed version |
 |---|---|---|---|
@@ -50,7 +62,23 @@ Code execution belongs in a real sandbox backend, with a person approving each c
 
 The orchestrator's prompt tells it to recall memories at the start of each conversation and to save preferences, facts, decisions, project context and feedback as they come up. Two limits are visible in the code: `CURRENT_USER_ID` is fixed to `default-user`, so every user shares one namespace until it comes from authentication, and `recall_memories` matches a substring of the stored text, so a paraphrase finds nothing. The script's comment names `PostgresStore` as the production replacement.
 
-The module's deployed design, in [`deep_agent_overview.md`](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md), runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.
+The module's deployed design, in `deep_agent_overview.md`, runs the same harness behind a FastAPI backend with Server-Sent Events, eight sub-agents and a recursion limit of 100.
+
+### Try it yourself
+
+Compare the USE_SANDBOX comment with the backend class actually selected. Check that LocalShellBackend runs on the host and virtual filesystem mode is not process isolation. Then trace recall under CURRENT_USER_ID=default-user and identify why authentication-derived user scope is needed before serving multiple customers.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Simple coding agent](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/06a_simple_coding_agent.py).
+- [Long term memory agent](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/06b_long_term_memory_agent.py).
+- [Skills](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/06c_skills).
+
+### Continue learning
+
+- [`deep_agent_overview.md`](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md).
 
 ## Key Takeaways
 

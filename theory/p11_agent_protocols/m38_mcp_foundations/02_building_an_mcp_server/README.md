@@ -4,9 +4,15 @@
 
 ## From a function to a tool definition
 
-A server that offers tools answers two requests: list the tools, and call one. The MCP Python SDK gives two ways to build it. The low-level `Server` makes you handle `ListToolsRequest` and `CallToolRequest` yourself. `FastMCP`, which notebook 02a uses, does it for you: create the server, decorate functions, run it.
+Larkspur wants a search function discoverable by any MCP client. You will expose it through FastMCP, inspect the generated input and output schemas and test the server before writing an agent host.
 
-```python
+### Step 1: Expose a typed function as a server tool
+
+A server that offers tools answers two requests: list the tools, and call one. The MCP Python SDK gives two ways to build it. The low-level `Server` makes you handle `ListToolsRequest` and `CallToolRequest` yourself. `FastMCP`, which the reference implementation uses, does it for you: create the server, decorate functions, run it.
+
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("research")
@@ -22,9 +28,41 @@ if __name__ == "__main__":
     mcp.run(transport="stdio")
 ```
 
-The notebook writes this file with `%%writefile`, so the cell saves the server instead of running it; the server starts later from a terminal or from a client. On `stdio` the server reads requests from its standard input and writes replies to its standard output, one JSON-RPC message per line.
+### Step 2: Start the server outside the example cell
 
-FastMCP builds the definition from the function. Here is what SDK 1.30.0 sends for `search_papers` in reply to `tools/list`, recorded from the notebook's server and printed as the dict the chatbot builds:
+The example writes this file with `%%writefile`, so the cell saves the server instead of running it; the server starts later from a terminal or from a client. On `stdio` the server reads requests from its standard input and writes replies to its standard output, one JSON-RPC message per line.
+
+Inspect discovery locally with the pinned MCP SDK. This registers a synthetic tool and lists it in-process. It does not start a network server or search arXiv.
+
+```python
+import asyncio
+from mcp.server.fastmcp import FastMCP
+
+server = FastMCP("schema-demo")
+
+@server.tool()
+def search_handbook(query: str, max_results: int = 2) -> str:
+    """Search the Larkspur handbook."""
+    return query
+
+tools = asyncio.run(server.list_tools())
+definition = tools[0]
+print(definition.name)
+print(definition.inputSchema["required"])
+print(definition.inputSchema["properties"]["max_results"]["default"])
+```
+
+**Expected output**
+
+```text
+search_handbook
+['query']
+2
+```
+
+### Step 3: Inspect the advertised tool definition
+
+FastMCP builds the definition from the function. Here is what SDK 1.30.0 sends for `search_papers` in reply to `tools/list`, recorded from the example's server and printed as the dict the chatbot builds:
 
 ```json
 {
@@ -50,11 +88,25 @@ FastMCP builds the definition from the function. Here is what SDK 1.30.0 sends f
 | `default` | The Python default (`max_results = 5`) |
 | Property descriptions | Nothing: the `Args:` lines stay in the description |
 
-Compare it with the schema notebook 01a wrote by hand. That one gave each parameter a description (“The topic to search for”) and a one-line tool description. The generated pair is 989 characters of compact JSON against 611 for the hand-written pair, and the model reads the parameter help only as free text inside the description. When a parameter needs help or limits, put them in the type: with `Annotated[int, Field(description="Number of chunks to return", ge=1, le=12)]`, SDK 1.30.0 adds `description`, `minimum` and `maximum` to that property.
+### Step 4: Compare generated metadata with a hand-written schema
 
-FastMCP also infers an output schema from the return type. For the Larkspur `search_handbook` tool, which returns `str`, the definition carries `"outputSchema": {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "search_handbookOutput", "type": "object"}`, and every call returns the text twice: once in `content` and once in `structuredContent`. The notebook's chatbot passes only `result.content` to the model, so the copy costs bytes on the wire and nothing in the prompt.
+Compare it with the schema the reference implementation wrote by hand. That one gave each parameter a description (“The topic to search for”) and a one-line tool description. The generated pair is 989 characters of compact JSON against 611 for the hand-written pair, and the model reads the parameter help only as free text inside the description. When a parameter needs help or limits, put them in the type: with `Annotated[int, Field(description="Number of chunks to return", ge=1, le=12)]`, SDK 1.30.0 adds `description`, `minimum` and `maximum` to that property.
+
+### Step 5: Read the output contract before returning a value
+
+FastMCP also infers an output schema from the return type. For the Larkspur `search_handbook` tool, which returns `str`, the definition carries `"outputSchema": {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "search_handbookOutput", "type": "object"}`, and every call returns the text twice: once in `content` and once in `structuredContent`. The example's chatbot passes only `result.content` to the model, so the copy costs bytes on the wire and nothing in the prompt.
 
 Test a server before writing a client. The MCP Inspector launches it the way a client would, `npx @modelcontextprotocol/inspector uv run research_server.py`, and lets you list and call tools by hand. If a tool works in the Inspector and fails in the chatbot, look in the client first.
+
+### Try it yourself
+
+List the server's tools and compare required topic with defaulted max_results. Check that a docstring Args block does not automatically become per-argument JSON Schema descriptions in the recorded SDK version. Add a Field description and inspect the definition again before binding it to a model.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Creating an MCP server](../../../../course/p11_agent_protocols/m38_mcp_foundations/notebooks/02a_creating_an_mcp_server.ipynb).
 
 ## Key Takeaways
 

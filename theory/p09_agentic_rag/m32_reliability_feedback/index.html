@@ -240,7 +240,7 @@ th:last-child, td:last-child { padding-right: 0; }
   <header class="module__head">
     <div class="module__name">
       <h1 id="module-title">M32 Reliability, Feedback Loops &amp; Diversity</h1>
-      <p class="module__lede">A RAG pipeline returns an answer whether or not the chunks behind it were relevant, whether or not the answer stays inside them, and whether or not the reader can check it. M32 adds a check for each of those, then lets user ratings reorder retrieval, then makes sure the chunks the model reads are not copies of each other. The M32 notebooks build on four ideas: catching an answer the retrieved chunks do not support, showing the exact passages an answer used, the difference between ratings users give and signals they leave, and choosing chunks that are relevant without repeating each other.</p>
+      <p class="module__lede">A fluent Larkspur answer can use irrelevant evidence, quote unsupported text or repeat a mistake after feedback. You will test those failure points separately, validate highlights and inspect what reranking can recover from the candidate pool. The tutorials cover support checks, source evidence, user feedback and diversity-aware selection.</p>
     </div>
     <dl class="module__meta">
       <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/README.md" target="_blank" rel="noopener">M32 on GitHub</a></dd></div>
@@ -349,9 +349,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The checks in the top row act on one answer and can only remove: a grader drops a chunk or rejects an answer, and neither can add the chunk that was missing. The loop in the bottom row acts across many answers and can only reorder the chunks retrieval already returns. A missing chunk is a retrieval problem in both rows, and the fixes for it sit in M14 to M19.</p>
 <h2 id="relevance-grading">Relevance grading</h2>
 <p class="lesson-of">Lesson 32.1: Reliable RAG: relevance checks, hallucination checks, source highlighting. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/notebooks/01a_reliable_rag.ipynb" target="_blank" rel="noopener"><code>01a_reliable_rag.ipynb</code></a></p>
-<p><code>01a</code> indexes five posts from DeepLearning.AI&rsquo;s <em>The Batch</em> on agentic design patterns. It splits them with <code>RecursiveCharacterTextSplitter.from_tiktoken_encoder</code> into 500-token chunks with no overlap, embeds them with OpenAI&rsquo;s <code>text-embedding-3-small</code> into Chroma, and retrieves <code>k = 4</code> chunks for a question about the kinds of agentic design pattern.</p>
+<p>A Larkspur refund answer may be based on a related passage that contains no timing information. You will filter irrelevant chunks, grade support for the generated answer, and validate highlighted quotes against the original text.</p>
+<h3>Step 1: Filter the retrieved candidates</h3>
+<p>The reliability pipeline indexes five posts from DeepLearning.AI&rsquo;s <em>The Batch</em> on agentic design patterns. It splits them with <code>RecursiveCharacterTextSplitter.from_tiktoken_encoder</code> into 500-token chunks with no overlap, embeds them with OpenAI&rsquo;s <code>text-embedding-3-small</code> into Chroma, and retrieves <code>k = 4</code> chunks for a question about the kinds of agentic design pattern.</p>
 <p>Before generation, a grader reads each retrieved chunk with the question and returns a structured verdict:</p>
-<pre class="sheet code"><code class="language-python">class GradeDocuments(BaseModel):
+<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
+<pre class="sheet code"><code class="language-text">class GradeDocuments(BaseModel):
     binary_score: str = Field(description=&quot;Documents are relevant to the question, 'yes' or 'no'&quot;)
 
 llm = ChatGroq(model=&quot;llama-3.1-8b-instant&quot;, temperature=0)
@@ -369,27 +372,34 @@ retrieval_grader = grade_prompt | llm.with_structured_output(GradeDocuments)
     H -- no --&gt; RG["Regenerate&lt;br/&gt;or abstain"]
     H -- yes --&gt; S[Highlight segments]
 </pre></figure>
+<h3>Step 2: Separate removing noise from finding evidence</h3>
 <p>On the Larkspur handbook, the M11 TF-IDF retriever answers <em>How long does a refund take?</em> with <code>refund-window</code> first and <code>reboot</code> second; <code>reboot</code> wins only because both texts contain &ldquo;does&rdquo;. A grader with this prompt should drop <code>reboot</code>. It cannot add <code>refund-timing</code>, the chunk that holds the answer, because that chunk was never retrieved. Grading removes noise and leaves recall where retrieval put it.</p>
-<p>The notebook passes <code>docs_to_use</code> to generation without checking whether it is empty. If every chunk is graded <code>no</code>, the model receives no documents and answers anyway. Branch on the empty case: rewrite the query and retry a bounded number of times (M28), fall back to another source (M29), or say the handbook does not cover the question.</p>
+<h3>Step 3: Branch when no chunk survives</h3>
+<p>The example passes <code>docs_to_use</code> to generation without checking whether it is empty. If every chunk is graded <code>no</code>, the model receives no documents and answers anyway. Branch on the empty case: rewrite the query and retry a bounded number of times (M28), fall back to another source (M29), or say the handbook does not cover the question.</p>
 <h2 id="hallucination-detection">Hallucination detection</h2>
+<h3>Step 1: Check claims against the kept documents</h3>
 <p>After generation, a second grader reads the kept chunks and the answer, and returns <code>yes</code> when the answer is &ldquo;grounded in / supported by the set of facts&rdquo;:</p>
-<pre class="sheet code"><code class="language-python">class GradeHallucinations(BaseModel):
+<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
+<pre class="sheet code"><code class="language-text">class GradeHallucinations(BaseModel):
     binary_score: str = Field(..., description=&quot;Answer is grounded in the facts, 'yes' or 'no'&quot;)
 
 hallucination_grader = hallucination_prompt | llm.with_structured_output(GradeHallucinations)
 hallucination_grader.invoke({&quot;documents&quot;: format_docs(docs_to_use), &quot;generation&quot;: generation})
 </code></pre>
+<h3>Step 2: Read the limits of an answer-level verdict</h3>
 <p>Three things about this check decide how far to trust it:</p>
 <ul>
 <li><strong>It checks support, not usefulness.</strong> The question is not in the grader&rsquo;s input. An answer can be fully grounded and still miss the question; Self-RAG (M29) adds a separate check for that.</li>
 <li><strong>It returns one verdict for the whole answer.</strong> One unsupported sentence fails the answer and the grader does not say which one. Per-claim checks, which split the answer into statements and verify each against a cited chunk, give the location as well as the verdict.</li>
 <li><strong>It is a model judgment.</strong> The same 8B model writes and grades here, so they can share blind spots. Before relying on it, label a sample of answers by hand and measure how often the grader agrees, for <code>yes</code> and <code>no</code> separately.</li>
 </ul>
-<p>The generation prompt in <code>01a</code> makes the grader&rsquo;s job harder than it needs to be. It says &ldquo;Answer the question based upon your knowledge&rdquo;, which invites the model to add what it remembers. On the refund question, if only <code>refund-window</code> survives grading, any number of days in the answer is unsupported, because that chunk states the 30-day window and nothing about how long a refund takes. The grader should return <code>no</code>; a prompt that says &ldquo;answer only from the documents, and say so when they do not cover the question&rdquo; stops most of those answers before they are written.</p>
-<p>The notebook prints the verdict and stops. In production, a <code>no</code> leads somewhere: regenerate with the stricter prompt, retry retrieval with a rewritten query, or answer that the handbook does not say and offer a person. Cap the retries; each one is another generation call and another grading call.</p>
+<p>The generation prompt in this implementation makes the grader&rsquo;s job harder than it needs to be. It says &ldquo;Answer the question based upon your knowledge&rdquo;, which invites the model to add what it remembers. On the refund question, if only <code>refund-window</code> survives grading, any number of days in the answer is unsupported, because that chunk states the 30-day window and nothing about how long a refund takes. The grader should return <code>no</code>; a prompt that says &ldquo;answer only from the documents, and say so when they do not cover the question&rdquo; stops most of those answers before they are written.</p>
+<p>The example prints the verdict and stops. In production, a <code>no</code> leads somewhere: regenerate with the stricter prompt, retry retrieval with a rewritten query, or answer that the handbook does not say and offer a person. Cap the retries; each one is another generation call and another grading call.</p>
 <h2 id="source-highlighting">Source highlighting</h2>
+<h3>Step 1: Match each quote to its cited text</h3>
 <p>The last step asks the model which parts of the kept chunks the answer used. A Pydantic schema and <code>PydanticOutputParser</code> define the output:</p>
-<pre class="sheet code"><code class="language-python">class HighlightDocuments(BaseModel):
+<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
+<pre class="sheet code"><code class="language-text">class HighlightDocuments(BaseModel):
     id: List[str]       # ids of the documents used
     title: List[str]
     source: List[str]
@@ -414,13 +424,32 @@ hallucination_grader.invoke({&quot;documents&quot;: format_docs(docs_to_use), &q
 </tr>
 </tbody>
 </table></div>
+<h3>Step 2: Verify quoted segments in code</h3>
 <p>The parser checks the JSON shape and nothing else. A model can paraphrase, merge two sentences or quote a chunk it was never given, and the output still parses. Check each segment in code before showing it:</p>
-<pre class="sheet code"><code class="language-python">for doc_id, segment in zip(result.id, result.segment):
+<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
+<pre class="sheet code"><code class="language-text">for doc_id, segment in zip(result.id, result.segment):
     text = chunks_by_id[doc_id].page_content
     start = text.find(segment)          # -1 means the segment is not in the chunk
 </code></pre>
+<p>Validate a highlight against the exact source string. This checks quotation, not whether the sentence fully answers the customer.</p>
+<pre class="sheet code"><code class="language-python">text = &quot;Export your data at any time from Settings, then Data.&quot;
+for quote in [text, &quot;You can always export in Settings.&quot;]:
+    print(text.find(quote))
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">0
+-1
+</code></pre>
+<h3>Step 3: Handle missing or misaligned highlights</h3>
 <p>A segment that is found gives character offsets to highlight in the interface. A segment that is not found falls back to citing the whole chunk, and goes in a log, because a rising miss rate means the highlighting prompt or model has drifted. The four parallel lists have a trap of their own: <code>zip</code> stops at the shortest list, so a response with three ids and two segments silently loses a row. Compare the lengths before zipping.</p>
 <p>Highlights serve the reader, who can check the answer against the handbook in one glance, and they serve the team. Logged segments show which chunks answers actually use, and a chunk that is retrieved often and never highlighted is a candidate for the grader to drop or for retrieval to stop returning.</p>
+<h3>Try it yourself</h3>
+<p>For the export answer, locate each highlighted sentence in its cited chunk and record its character offset. Change a quote into a paraphrase and check that literal matching fails. Also compare the lengths of id and segment lists before zipping. A well-formed JSON response can still omit a citation row.</p>
+<h3>Practice notebook</h3>
+<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/notebooks/01a_reliable_rag.ipynb" target="_blank" rel="noopener">Reliable RAG</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Grade each retrieved chunk for relevance before generation, at one grader call per chunk. Grading drops noise but cannot add a chunk retrieval missed, so branch on the empty case instead of answering anyway.</li>
@@ -442,11 +471,15 @@ hallucination_grader.invoke({&quot;documents&quot;: format_docs(docs_to_use), &q
 </details>
 <h2 id="the-feedback-re-ranker">The feedback re-ranker</h2>
 <p class="lesson-of">Lesson 32.2: Retrieval with a user-feedback loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/notebooks/02a_retrieval_with_feedback_loop.ipynb" target="_blank" rel="noopener"><code>02a_retrieval_with_feedback_loop.ipynb</code></a></p>
-<p><code>02a</code> builds a <code>RetrievalQA</code> chain with <code>gpt-4o</code> over <em>Understanding_Climate_Change.pdf</em> and stores one feedback record per answer as a line of JSON:</p>
-<pre class="sheet code"><code class="language-python">{&quot;query&quot;: ..., &quot;response&quot;: ..., &quot;relevance&quot;: 5, &quot;quality&quot;: 5, &quot;comments&quot;: &quot;&quot;}   # relevance and quality on a 1 to 5 scale
+<p>Larkspur receives a thumbs-down, but the missing refund-timing passage was never a candidate. You will apply the rating multiplier, distinguish answer-level and source-level feedback, and test what reranking cannot recover.</p>
+<h3>Step 1: Apply feedback only to retrieved candidates</h3>
+<p>The implementation builds a <code>RetrievalQA</code> chain with <code>gpt-4o</code> over <em>Understanding_Climate_Change.pdf</em> and stores one feedback record per answer as a line of JSON:</p>
+<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
+<pre class="sheet code"><code class="language-text">{&quot;query&quot;: ..., &quot;response&quot;: ..., &quot;relevance&quot;: 5, &quot;quality&quot;: 5, &quot;comments&quot;: &quot;&quot;}   # relevance and quality on a 1 to 5 scale
 </code></pre>
 <p>On the next query, <code>adjust_relevance_scores</code> re-weights the retrieved chunks. For each chunk and each stored record it asks <code>gpt-4o</code> whether the record is relevant to the current query and that chunk. It averages the <code>relevance</code> of the records judged relevant and multiplies the chunk&rsquo;s score:</p>
-<pre class="sheet code"><code class="language-python">doc.metadata['relevance_score'] *= (avg_relevance / 3)  # Assuming a 1-5 scale, 3 is neutral
+<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
+<pre class="sheet code"><code class="language-text">doc.metadata['relevance_score'] *= (avg_relevance / 3)  # Assuming a 1-5 scale, 3 is neutral
 return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 </code></pre>
 <figure class="anim sheet" aria-labelledby="anim-flywheel-cap">
@@ -519,13 +552,15 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
     <li><button type="button">Re-weight</button><span>sla and export rise to 5/3, or 1.667. Recall@2 has gone from 0.00 to 1.00, and the 91 events after this change nothing.</span></li>
   </ol>
 </figure>
+<h3>Step 2: Calculate the multiplier and pairwise cost</h3>
 <p>Four properties of this rule decide what it can do:</p>
 <ul>
 <li><strong>Feedback sets the order on its own.</strong> <code>encode_from_string</code> in <code>helper_functions.py</code> gives every chunk <code>relevance_score = 1.0</code>, so after the multiplication the order depends on the ratings alone. Similarity only breaks ties, because Python&rsquo;s <code>sorted</code> is stable and keeps the retriever&rsquo;s order for equal scores.</li>
-<li><strong>The multiplier is bounded.</strong> It uses the average, so a chunk sits between 1/3 (every rating 1) and 5/3 (every rating 5). The first rating moves a chunk as far as it will go; later ratings only move the average.</li>
+<li><strong>The multiplier is bounded.</strong> It uses the average, so a chunk sits between 1/3 (every rating 1) and 5/3 (every rating 5). The first rating moves a chunk as far as it will go. Later ratings only move the average.</li>
 <li><strong>It reorders the candidates and nothing else.</strong> The chunks come from <code>retriever.invoke</code>, which returns 4 by default. A chunk outside those 4 never receives a rating.</li>
 <li><strong>It costs one model call per pair.</strong> Every retrieved chunk is checked against every stored record, so 4 chunks and 1,000 records make 4,000 <code>gpt-4o</code> calls for one query.</li>
 </ul>
+<h3>Step 3: Follow one rating through the ranking</h3>
 <p>The <a href="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html">interactive lab</a> runs this rule on the Larkspur handbook with the M11 TF-IDF retriever. Five golden questions take turns, 20 times each over 100 events. Each answer uses the top 2 of the 4 candidates, and the simulated user gives a 5 when every evidence chunk is in the answer and a 1 otherwise. The lab replaces the <code>gpt-4o</code> relevance call with a fixed rule: a record counts for a chunk when it was given on the same question and its answer used that chunk. Its port of the rule matches the Python function on all 202 settings it offers.</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -581,9 +616,11 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 <li><strong>Feedback cannot reach a missing chunk.</strong> <code>refund-timing</code> scores 0 for the refund question, and <code>sla</code> and <code>incidents</code> score 0 for the outage question, so none of them is ever a candidate. Those two questions account for 40 of the 41 wrong answers. On the outage question, every candidate has an average of 1 by event 8, all sit at 0.333, and the order is the retriever&rsquo;s again.</li>
 </ul>
 <figure class="lab-embed"><iframe src="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html" title="The feedback flywheel, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The feedback flywheel. <a href="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html">Open full screen</a></figcaption></figure>
-<p>Three lines of the notebook&rsquo;s code need fixing before the loop runs as described. The relevance check compares the model&rsquo;s answer with lowercase <code>'yes'</code> while the prompt asks for <code>'Yes'</code> or <code>'No'</code>; normalise with <code>.strip().lower()</code>. A FAISS store returns its stored <code>Document</code> objects, so <code>*=</code> on their metadata persists between calls and compounds: one rating of 5 gives 1.667 on the first query and 2.778 on the second. Copy the documents before adjusting them. And <code>retriever.search_kwargs['docs'] = adjusted_docs</code> has no effect: the FAISS retriever ignores a <code>docs</code> argument and searches the index again, so the re-ranked list has to be passed to the chain directly.</p>
+<h3>Step 4: Keep reranking from mutating or losing its output</h3>
+<p>Three lines of the example&rsquo;s code need fixing before the loop runs as described. The relevance check compares the model&rsquo;s answer with lowercase <code>'yes'</code> while the prompt asks for <code>'Yes'</code> or <code>'No'</code>; normalise with <code>.strip().lower()</code>. A FAISS store returns its stored <code>Document</code> objects, so <code>*=</code> on their metadata persists between calls and compounds: one rating of 5 gives 1.667 on the first query and 2.778 on the second. Copy the documents before adjusting them. And <code>retriever.search_kwargs['docs'] = adjusted_docs</code> has no effect: the FAISS retriever ignores a <code>docs</code> argument and searches the index again, so the re-ranked list has to be passed to the chain directly.</p>
 <h2 id="implicit-vs-explicit-feedback">Implicit vs explicit feedback</h2>
-<p>Explicit feedback is a judgment the user states: a thumbs-up, a star rating, the 1 to 5 <code>relevance</code> and <code>quality</code> fields in <code>02a</code>. Implicit feedback is inferred from what the user does next.</p>
+<h3>Step 1: Compare what a rating and a click measure</h3>
+<p>Explicit feedback is a judgment the user states: a thumbs-up, a star rating, the 1 to 5 <code>relevance</code> and <code>quality</code> fields in this implementation. Implicit feedback is inferred from what the user does next.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -620,16 +657,26 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 </tr>
 </tbody>
 </table></div>
-<p>The lab&rsquo;s second setting shows why the granularity matters. <em>Thumbs on the answer</em> gives every chunk in the answer the same rating, as <code>02a</code> does. <em>Clicks on each source</em> rates each chunk on its own: 5 for an evidence chunk the user opened, 1 for one they skipped. On <em>Can I still use my server after I cancel the plan?</em>, <code>sizing</code> is not evidence but sits in every good answer next to <code>cancel</code>. Rated through the answer, it rides along to 1.667; rated per source, it falls to 0.333. On the refund question the effect runs the other way: the answer is always incomplete, so thumbs on the answer push the evidence chunk <code>refund-window</code> down to 0.333 with the distractor, while per-source ratings lift it to 1.667.</p>
+<h3>Step 2: Change the granularity of feedback</h3>
+<p>The lab&rsquo;s second setting shows why the granularity matters. <em>Thumbs on the answer</em> gives every chunk in the answer the same rating, as the answer-level feedback implementation does. <em>Clicks on each source</em> rates each chunk on its own: 5 for an evidence chunk the user opened, 1 for one they skipped. On <em>Can I still use my server after I cancel the plan?</em>, <code>sizing</code> is not evidence but sits in every good answer next to <code>cancel</code>. Rated through the answer, it rides along to 1.667; rated per source, it falls to 0.333. On the refund question the effect runs the other way: the answer is always incomplete, so thumbs on the answer push the evidence chunk <code>refund-window</code> down to 0.333 with the distractor, while per-source ratings lift it to 1.667.</p>
 <p>The sharper signal does not change the lab&rsquo;s totals. With either setting, mean recall@2 ends at 0.70 and 41 of 100 answers are wrong, because neither signal reaches a chunk the retriever does not return. Per-source ratings keep reshuffling non-evidence chunks for longer, and the order settles at event 15 instead of event 8.</p>
-<p>In practice, use both. Implicit signals give volume and per-chunk detail, after correcting for position: compare clicks at the same rank, or occasionally shuffle the order of sources. Explicit ratings are fewer but mean what they say; every thumbs-down is a candidate for the golden set, so the next change to retrieval is measured on the questions that failed.</p>
+<p>In practice, use both. Implicit signals give volume and per-chunk detail, after correcting for position: compare clicks at the same rank, or occasionally shuffle the order of sources. Explicit ratings are fewer but mean what they say. Every thumbs-down is a candidate for the golden set, so the next change to retrieval is measured on the questions that failed.</p>
 <h2 id="folding-good-answers-into-the-index">Folding good answers into the index</h2>
-<p>The second half of <code>02a</code> uses feedback to change the index itself. <code>fine_tune_index</code> keeps records with <code>relevance &gt;= 4</code> and <code>quality &gt;= 4</code>, joins each question and answer into one text, appends them to the original document text and re-encodes everything with <code>encode_from_string</code> (1,000-character chunks, 200 overlap) into a new FAISS store. The notebook calls it a periodic job, &ldquo;daily or weekly&rdquo;.</p>
+<h3>Step 1: Keep historical answers from becoming stale policy</h3>
+<p>The second half of The implementation uses feedback to change the index itself. <code>fine_tune_index</code> keeps records with <code>relevance &gt;= 4</code> and <code>quality &gt;= 4</code>, joins each question and answer into one text, appends them to the original document text and re-encodes everything with <code>encode_from_string</code> (1,000-character chunks, 200 overlap) into a new FAISS store. The example calls it a periodic job, &ldquo;daily or weekly&rdquo;.</p>
+<h3>Step 2: Check the consequences of indexing old answers</h3>
 <p>This adds chunks that are worded the way users ask, which helps future questions phrased like past ones. It has limits:</p>
 <ul>
 <li><strong>Only answers that were already good get in.</strong> In the lab, the refund and outage questions never earn a thumbs-up, so nothing about them would be added. The questions that most need new text get none.</li>
 <li><strong>Past answers become retrievable facts.</strong> When Larkspur changes a policy, the stored answers still quote the old one and compete with the corrected handbook. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.</li>
-<li><strong>It rebuilds the whole index.</strong> Every run re-embeds the full corpus plus the feedback text; incremental upserts (M15) avoid that.</li>
+<li><strong>It rebuilds the whole index.</strong> Every run re-embeds the full corpus plus the feedback text. Incremental upserts (M15) avoid that.</li>
+</ul>
+<h3>Try it yourself</h3>
+<p>In the lab follow the credit question at events four and nine, then the refund question after 100 events. Check that feedback can move a candidate but cannot add refund-timing to the candidate pool. Compare answer thumbs with source clicks: the scores differ even when mean recall remains 0.70 and 41 answers remain wrong.</p>
+<h3>Practice notebook</h3>
+<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/notebooks/02a_retrieval_with_feedback_loop.ipynb" target="_blank" rel="noopener">Retrieval with feedback loop</a>.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -652,8 +699,11 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 </details>
 <h2 id="diversity-aware-selection">Diversity-aware selection</h2>
 <p class="lesson-of">Lesson 32.3: Dartboard RAG: relevance and diversity together. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/optional/03a_dartboard_rag.ipynb" target="_blank" rel="noopener"><code>03a_dartboard_rag.ipynb</code></a> (optional)</p>
-<p>When a knowledge base holds the same passage several times, top-k retrieval fills every slot with copies of the best match. <code>03a</code> makes that happen on purpose: it loads <em>Understanding_Climate_Change.pdf</em> with <code>documents = documents * 5</code>, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for <em>What is the main cause of climate change?</em> are repetitions of one chunk.</p>
-<p>Its fix comes from <em>Better RAG using Relevant Information Gain</em> (<a href="https://arxiv.org/abs/2407.12101" target="_blank" rel="noopener">arXiv 2407.12101</a>), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it. A set of chunks scores by how close its nearest member lies to where the darts land. A second copy of a chunk already in the set lies exactly where the first one does, so it adds nothing; a chunk that covers ground nearby adds the most.</p>
+<p>Five copies of each handbook chunk fill the top retrieval slots with the same passage. You will build a diverse set from the candidate pool, increase oversampling, and distinguish duplicate selection from evidence that never entered the pool.</p>
+<h3>Step 1: Inspect the duplicate-filled candidate pool</h3>
+<p>When a knowledge base holds the same passage several times, top-k retrieval fills every slot with copies of the best match. The implementation makes that happen on purpose: it loads <em>Understanding_Climate_Change.pdf</em> with <code>documents = documents * 5</code>, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for <em>What is the main cause of climate change?</em> are repetitions of one chunk.</p>
+<p>Its fix comes from <em>Better RAG using Relevant Information Gain</em> (<a href="https://arxiv.org/abs/2407.12101" target="_blank" rel="noopener">arXiv 2407.12101</a>), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it. A set of chunks scores by how close its nearest member lies to where the darts land. A second copy of a chunk already in the set lies exactly where the first one does, so it adds nothing. A chunk that covers ground nearby adds the most.</p>
+<h3>Step 2: Follow the greedy selection rule</h3>
 <p><code>greedy_dartsearch</code> builds the set one chunk at a time from a candidate pool of <code>num_results * oversampling_factor</code> nearest chunks (3 by default):</p>
 <ol>
 <li>Turn distances (<code>1 - cosine similarity</code>) into log probabilities with a normal density of width <code>SIGMA = 0.1</code>, for query to chunk and for chunk to chunk.</li>
@@ -669,7 +719,8 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
     D -- no --&gt; S
     D -- yes --&gt; R[/Selected chunks/]
 </pre></figure>
-<p>Running the notebook&rsquo;s <code>greedy_dartsearch</code>, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors) shows both the gain and its limit. For <em>Can I export my data after I cancel my plan?</em>, whose evidence is <code>export</code> and <code>retention</code>, with <code>num_results = 3</code>:</p>
+<h3>Step 3: Compare pool sizes on the export question</h3>
+<p>Running the example&rsquo;s <code>greedy_dartsearch</code>, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors) shows both the gain and its limit. For <em>Can I export my data after I cancel my plan?</em>, whose evidence is <code>export</code> and <code>retention</code>, with <code>num_results = 3</code>:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -711,9 +762,22 @@ return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
 </tr>
 </tbody>
 </table></div>
+<h3>Step 4: Locate the candidate-pool limit</h3>
 <p>Plain top-3 has recall 0.50 on this question at every pool size. Dartboard reaches 1.00 once the pool holds <code>retention</code>, from an oversampling factor of 2. At the default of 3 its third pick is still a copy of <code>export</code>, because a pool of 9 drawn from five copies of each chunk holds only two distinct chunks. A selector can only choose among the candidates it is given: make the pool larger than the number of copies, or remove the copies at indexing time.</p>
-<p>Dartboard and MMR (<a href="../../p06_retrieval_quality/m17_retrievers_hybrid_search/index.html#mmr-λ">M17.4</a>) solve the same problem the same greedy way and differ in the score. MMR subtracts a redundancy penalty with a linear λ; Dartboard adds log probabilities, so <code>SIGMA</code> sets how quickly closeness stops counting, and the two weights shift the balance between relevance and coverage. The notebook&rsquo;s notes point out that the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores.</p>
-<p>Two details to know when running <code>03a</code>. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls <code>get_context_with_dartboard(test_query, k=3)</code>, while the function&rsquo;s parameter is <code>num_results</code>; Python raises a <code>TypeError</code>, and <code>num_results=3</code> is the fix.</p>
+<h3>Step 5: Choose the relevance and coverage trade-off</h3>
+<p>Dartboard and MMR (M17.4) solve the same problem the same greedy way and differ in the score. MMR subtracts a redundancy penalty with a linear λ; Dartboard adds log probabilities, so <code>SIGMA</code> sets how quickly closeness stops counting, and the two weights shift the balance between relevance and coverage. The example&rsquo;s notes point out that the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores.</p>
+<p>Two details to know when running the dartboard implementation. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls <code>get_context_with_dartboard(test_query, k=3)</code>, while the function&rsquo;s parameter is <code>num_results</code>; Python raises a <code>TypeError</code>, and <code>num_results=3</code> is the fix.</p>
+<h3>Try it yourself</h3>
+<p>Compare oversampling factors one, two and four with three requested results. Check that recall rises only when retention enters the pool, and that factor four finally offers three distinct chunks. Fix the final example call to use num_results=3. K is not the function parameter.</p>
+<h3>Practice notebook</h3>
+<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p09_agentic_rag/m32_reliability_feedback/optional/03a_dartboard_rag.ipynb" target="_blank" rel="noopener">Dartboard RAG</a>.</li>
+</ul>
+<h3>Continue learning</h3>
+<ul>
+<li><a href="../../p06_retrieval_quality/m17_retrievers_hybrid_search/index.html#mmr-λ">M17.4</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Top-k fills every slot with copies of the best match when the corpus holds duplicates. Dartboard selection scores a set by how close its nearest member lies to each landing place, so a copy adds nothing.</li>

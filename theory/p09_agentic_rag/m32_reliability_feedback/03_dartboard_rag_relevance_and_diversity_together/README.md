@@ -4,9 +4,15 @@
 
 ## Diversity-aware selection
 
-When a knowledge base holds the same passage several times, top-k retrieval fills every slot with copies of the best match. `03a` makes that happen on purpose: it loads *Understanding_Climate_Change.pdf* with `documents = documents * 5`, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for *What is the main cause of climate change?* are repetitions of one chunk.
+Five copies of each handbook chunk fill the top retrieval slots with the same passage. You will build a diverse set from the candidate pool, increase oversampling, and distinguish duplicate selection from evidence that never entered the pool.
 
-Its fix comes from *Better RAG using Relevant Information Gain* ([arXiv 2407.12101](https://arxiv.org/abs/2407.12101)), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it. A set of chunks scores by how close its nearest member lies to where the darts land. A second copy of a chunk already in the set lies exactly where the first one does, so it adds nothing; a chunk that covers ground nearby adds the most.
+### Step 1: Inspect the duplicate-filled candidate pool
+
+When a knowledge base holds the same passage several times, top-k retrieval fills every slot with copies of the best match. The implementation makes that happen on purpose: it loads *Understanding_Climate_Change.pdf* with `documents = documents * 5`, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for *What is the main cause of climate change?* are repetitions of one chunk.
+
+Its fix comes from *Better RAG using Relevant Information Gain* ([arXiv 2407.12101](https://arxiv.org/abs/2407.12101)), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it. A set of chunks scores by how close its nearest member lies to where the darts land. A second copy of a chunk already in the set lies exactly where the first one does, so it adds nothing. A chunk that covers ground nearby adds the most.
+
+### Step 2: Follow the greedy selection rule
 
 `greedy_dartsearch` builds the set one chunk at a time from a candidate pool of `num_results * oversampling_factor` nearest chunks (3 by default):
 
@@ -25,7 +31,9 @@ flowchart LR
     D -- yes --> R[/Selected chunks/]
 ```
 
-Running the notebook's `greedy_dartsearch`, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors) shows both the gain and its limit. For *Can I export my data after I cancel my plan?*, whose evidence is `export` and `retention`, with `num_results = 3`:
+### Step 3: Compare pool sizes on the export question
+
+Running the example's `greedy_dartsearch`, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors) shows both the gain and its limit. For *Can I export my data after I cancel my plan?*, whose evidence is `export` and `retention`, with `num_results = 3`:
 
 | `oversampling_factor` | Pool | Distinct chunks in pool | Plain top-3 | Dartboard top-3 |
 |---|---|---|---|---|
@@ -34,11 +42,29 @@ Running the notebook's `greedy_dartsearch`, unchanged, on the twelve Larkspur ch
 | 3 (default) | 9 | 2 | `export` × 3 | `export`, `retention`, `export` |
 | 4 | 12 | 3 | `export` × 3 | `export`, `retention`, `cancel` |
 
+### Step 4: Locate the candidate-pool limit
+
 Plain top-3 has recall 0.50 on this question at every pool size. Dartboard reaches 1.00 once the pool holds `retention`, from an oversampling factor of 2. At the default of 3 its third pick is still a copy of `export`, because a pool of 9 drawn from five copies of each chunk holds only two distinct chunks. A selector can only choose among the candidates it is given: make the pool larger than the number of copies, or remove the copies at indexing time.
 
-Dartboard and MMR ([M17.4](../../../p06_retrieval_quality/m17_retrievers_hybrid_search/04_maximal_marginal_relevance_for_diversity/README.md#mmr-λ)) solve the same problem the same greedy way and differ in the score. MMR subtracts a redundancy penalty with a linear λ; Dartboard adds log probabilities, so `SIGMA` sets how quickly closeness stops counting, and the two weights shift the balance between relevance and coverage. The notebook's notes point out that the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores.
+### Step 5: Choose the relevance and coverage trade-off
 
-Two details to know when running `03a`. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls `get_context_with_dartboard(test_query, k=3)`, while the function's parameter is `num_results`; Python raises a `TypeError`, and `num_results=3` is the fix.
+Dartboard and MMR (M17.4) solve the same problem the same greedy way and differ in the score. MMR subtracts a redundancy penalty with a linear λ; Dartboard adds log probabilities, so `SIGMA` sets how quickly closeness stops counting, and the two weights shift the balance between relevance and coverage. The example's notes point out that the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores.
+
+Two details to know when running the dartboard implementation. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls `get_context_with_dartboard(test_query, k=3)`, while the function's parameter is `num_results`; Python raises a `TypeError`, and `num_results=3` is the fix.
+
+### Try it yourself
+
+Compare oversampling factors one, two and four with three requested results. Check that recall rises only when retention enters the pool, and that factor four finally offers three distinct chunks. Fix the final example call to use num_results=3. K is not the function parameter.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Dartboard RAG](../../../../course/p09_agentic_rag/m32_reliability_feedback/optional/03a_dartboard_rag.ipynb).
+
+### Continue learning
+
+- [M17.4](../../../p06_retrieval_quality/m17_retrievers_hybrid_search/04_maximal_marginal_relevance_for_diversity/README.md#mmr-λ).
 
 ## Key Takeaways
 

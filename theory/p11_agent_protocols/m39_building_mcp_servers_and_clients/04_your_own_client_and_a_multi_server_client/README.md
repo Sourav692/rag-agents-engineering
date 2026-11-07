@@ -4,9 +4,15 @@
 
 ## Client sessions
 
+Larkspur makes repeated calls to two MCP servers. You will follow transport, session and discovery layers, count what a fresh session repeats and inspect why a one-round handwritten client cannot execute a dependent second call.
+
+### Step 1: Separate transport from protocol session
+
 Every client in these projects is built from the same three layers, each an async context manager:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 transport = await stack.enter_async_context(stdio_client(params))   # or sse_client(url), streamable_http_client(url)
 read, write = transport[0], transport[1]
 session = await stack.enter_async_context(ClientSession(read, write))
@@ -19,7 +25,11 @@ The transport moves bytes: pipes to a child process, or HTTP. `ClientSession` sp
 
 A **session** is the unit of state in MCP. The protocol version, the capabilities and anything the server ties to the connection live for one session. Over stdio a session is also a process, because the client starts one server process per connection. That makes the question of how long a session lives the main design choice in a client.
 
+### Step 2: Compare held and per-call sessions
+
 Project 02 holds one session per server for the life of the agent, on one `AsyncExitStack`. `MultiServerMCPClient.get_tools()` in project 03 does not hold any. Its docstring says it plainly: "A new session will be created for each tool call". Each tool call opens a session, initializes it, calls the tool and closes it. With SDK 1.30.0 a fresh session also sends `tools/list` after the call, because `call_tool` checks the result against the tool's output schema and a new session has not listed its tools yet.
+
+### Step 3: Read the wire cost of eight tool calls
 
 The [interactive lab](interactive/session-wire-lab.html) drives the two Larkspur servers through both clients over every transport and shows each recorded message. For 8 tool calls:
 
@@ -34,9 +44,13 @@ Held sessions pay 6 messages once (an `initialize`, a notification and a `tools/
 
 <!-- lab: interactive/session-wire-lab.html -->
 
+### Step 4: Hold an adapter session explicitly
+
 To keep the convenience of `MultiServerMCPClient` and hold the session, open it yourself:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 client = MultiServerMCPClient(connections)
 async with client.session("handbook") as session:
     tools = await load_mcp_tools(session)        # calls reuse this session
@@ -48,7 +62,11 @@ A session per call is the right choice in one case: a stateless server behind se
 
 ## A client written by hand
 
+### Step 1: Inspect what the adapter otherwise handles
+
 Project 01's `client.py` connects Gemini to the terminal server without LangChain, which shows the work an adapter does for you. After the handshake it lists the server's tools and turns each into a Gemini `FunctionDeclaration`: the MCP name, the description and the `inputSchema` with every `title` key removed. FastMCP's schema for `get_weather` in lesson 39.1 shows what gets stripped: `"title": "get_weatherArguments"` on the object and `"title": "Location"` on the property.
+
+### Step 2: Inspect the handwritten client's stopping point
 
 Then each query runs one round:
 
@@ -62,9 +80,24 @@ flowchart LR
     G2 --> T
 ```
 
-The client stops after that round. If the second reply asks for another tool, the client does not run it and returns only the first part's text. It also sends `execution_result.content`, a list of MCP content objects, as the function response, where a plain string or dict would be safer. `langchain_mcp_client.py` in the same project replaces all of it with two calls: `load_mcp_tools(session)` converts the tools and `create_react_agent(llm, tools)` runs the loop until the model stops asking for tools. In langgraph 1.2.18 `create_react_agent` is deprecated in favour of `create_agent` from `langchain.agents`, which [M24](../../../p08_agent_foundations/m24_react_agents/README.md) uses.
+The client stops after that round. If the second reply asks for another tool, the client does not run it and returns only the first part's text. It also sends `execution_result.content`, a list of MCP content objects, as the function response, where a plain string or dict would be safer. `langchain_mcp_client.py` in the same project replaces all of it with two calls: `load_mcp_tools(session)` converts the tools and `create_react_agent(llm, tools)` runs the loop until the model stops asking for tools. In langgraph 1.2.18 `create_react_agent` is deprecated in favour of `create_agent` from `langchain.agents`, which M24 uses.
 
 The terminal server these clients drive runs any shell command the model writes, with `shell=True` and the working directory set to `~/Desktop/github/langgraph-ai/mcp/01-build-your-own-server-client/workspace`, a path from the author's machine. Point it at a folder of your own before running it, and treat the tool as remote code execution: project 02's copy runs it inside a container, which limits what a bad command can reach.
+
+### Try it yourself
+
+In the lab use eight calls across two servers and compare held sessions with one session per call. Check the stdio counts of two versus ten processes and fourteen versus thirty-eight messages. Then inspect the client's second model reply: if it requests another tool, returning only text ends the loop too early.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Build your own server](../../../../course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/01_build_your_own_server_client).
+- [Multi server client](../../../../course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/02_multi_server_client).
+
+### Continue learning
+
+- [M24](../../../p08_agent_foundations/m24_react_agents/README.md).
 
 ## Key Takeaways
 

@@ -4,6 +4,10 @@
 
 ## Agent Card
 
+Larkspur knows a handbook agent's base URL but not its skills or supported methods. You will fetch the Agent Card, read the wire field names and follow one request through discovery to an agent reply.
+
+### Step 1: Discover the agent contract before sending work
+
 An Agent Card is the JSON document an A2A server publishes about itself. A client that knows only a base URL fetches the card first, and everything else it needs comes from there: where to post requests, which skills the agent has, and whether it can stream.
 
 In `a2a-sdk` 0.3.26, `AgentCard` has eight required fields:
@@ -16,7 +20,9 @@ In `a2a-sdk` 0.3.26, `AgentCard` has eight required fields:
 | `skills` | Picks the agent for a job: each `AgentSkill` needs `id`, `name`, `description` and `tags`, and may add `examples` and its own input and output modes |
 | `default_input_modes`, `default_output_modes` | Learns which content types the agent accepts and returns |
 
-Two fields have defaults the notebooks never set: `protocol_version` is `0.3.0` and `preferred_transport` is `JSONRPC`. Authentication also lives on the card, in `security_schemes` and `security`, and an agent can keep some skills on an authenticated extended card (`supports_authenticated_extended_card`, served at `/agent/authenticatedExtendedCard`).
+### Step 2: Inspect defaults and authentication metadata
+
+Two fields have defaults the reference implementations never set: `protocol_version` is `0.3.0` and `preferred_transport` is `JSONRPC`. Authentication also lives on the card, in `security_schemes` and `security`, and an agent can keep some skills on an authenticated extended card (`supports_authenticated_extended_card`, served at `/agent/authenticatedExtendedCard`).
 
 On the wire the fields are camelCase. This is the card the lab's handbook agent serves, recorded from a live server:
 
@@ -40,13 +46,43 @@ On the wire the fields are camelCase. This is the card the lab's handbook agent 
 }
 ```
 
-**Where the card lives.** The notebooks say `/.well-known/agent.json`. In 0.3.26 the SDK's constant is `AGENT_CARD_WELL_KNOWN_PATH = "/.well-known/agent-card.json"`, and `A2ACardResolver` fetches that path. `A2AStarletteApplication` serves both: the old path still returns the card and logs that it is deprecated and will be removed. Clients written against the new SDK never touch the old path, so the notebooks work unchanged.
+Inspect field names and version defaults without running an agent. The card is an illustrative local object for the SDK pinned in this repository.
 
-The card is a contract. A skill description is all a calling agent's model knows about the agent, the same way a tool description is all it knows about a tool ([M31](../../../p09_agentic_rag/m31_rag_as_agent_tool/README.md)). Changing `streaming`, a skill id or the URL breaks callers that read the old card, so bump `version` when you do.
+```python
+from a2a.types import AgentCard, AgentCapabilities, AgentSkill
+
+card = AgentCard(
+    name="Handbook", description="Answer Larkspur policy questions.",
+    url="http://127.0.0.1:10002/", version="1.0.0",
+    capabilities=AgentCapabilities(), default_input_modes=["text"],
+    default_output_modes=["text"],
+    skills=[AgentSkill(id="handbook", name="Handbook", description="Search policy.", tags=["policy"])]
+)
+wire = card.model_dump(by_alias=True)
+print(wire["protocolVersion"])
+print(wire["preferredTransport"])
+print("defaultInputModes" in wire)
+```
+
+**Expected output**
+
+```text
+0.3.0
+JSONRPC
+True
+```
+
+### Step 3: Fetch the SDK version's actual discovery path
+
+The reference implementations say `/.well-known/agent.json`. In 0.3.26 the SDK's constant is `AGENT_CARD_WELL_KNOWN_PATH = "/.well-known/agent-card.json"`, and `A2ACardResolver` fetches that path. `A2AStarletteApplication` serves both: the old path still returns the card and logs that it is deprecated and will be removed. Clients written against the new SDK never touch the old path, so the reference implementations work unchanged.
+
+The card is a contract. A skill description is all a calling agent's model knows about the agent, the same way a tool description is all it knows about a tool (M31). Changing `streaming`, a skill id or the URL breaks callers that read the old card, so bump `version` when you do.
 
 ## From discovery to reply
 
-Notebook 41.1 runs one server and one client in the same process. The server is an echo agent: its `AgentExecutor` puts a single agent message on the event queue. The client goes through four steps, and each maps to one HTTP call or one decision:
+### Step 1: Read the request envelope and reply kind
+
+The echo-server example runs one server and one client in the same process. The server is an echo agent: its `AgentExecutor` puts a single agent message on the event queue. The client goes through four steps, and each maps to one HTTP call or one decision:
 
 ```mermaid
 flowchart LR
@@ -54,6 +90,8 @@ flowchart LR
     N --> S["Submit<br/>POST message/send"]
     S --> R["Read the reply<br/>Message or Task"]
 ```
+
+### Step 2: Read the JSON-RPC request envelope
 
 Submitting means posting a JSON-RPC 2.0 request. The message has a `role` (`user` or `agent`), a client-chosen `messageId` and a list of parts, each a `text`, `file` or `data` part:
 
@@ -67,9 +105,25 @@ Submitting means posting a JSON-RPC 2.0 request. The message has a `role` (`user
 }
 ```
 
+### Step 3: Distinguish a message reply from a persisted task
+
 The echo agent answers with a Message: `"kind": "message"`, `"role": "agent"`, and the text in `parts`. The request context hands the executor a `contextId`, which groups related turns, and a `taskId`, and the executor copies both into its reply. It never created a task, though, so nothing was stored. In the lab, `tasks/get` on that id returns error -32001, Task not found. A Message is the whole answer; there is nothing to poll.
 
-The server side of the notebook is three objects: an `AgentExecutor` with the agent logic, a `DefaultRequestHandler` that implements the JSON-RPC methods on top of it with an `InMemoryTaskStore`, and an `A2AStarletteApplication` that serves the card and the endpoint. The client side is `A2ACardResolver` and `A2AClient`. In 0.3.26, constructing `A2AClient` emits a `DeprecationWarning` that points to `ClientFactory`; the notebooks' calls still work.
+The server side of the example is three objects: an `AgentExecutor` with the agent logic, a `DefaultRequestHandler` that implements the JSON-RPC methods on top of it with an `InMemoryTaskStore`, and an `A2AStarletteApplication` that serves the card and the endpoint. The client side is `A2ACardResolver` and `A2AClient`. In 0.3.26, constructing `A2AClient` emits a `DeprecationWarning` that points to `ClientFactory`; the reference implementations' calls still work.
+
+### Try it yourself
+
+Fetch the card at /.well-known/agent-card.json for the recorded SDK version and compare its url and skills with the request destination. Send one echo message and check kind=message. Do not poll it as a Task or infer that the server enforces authentication just because a security scheme appears on the card.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [A2A protocol basics](../../../../course/p11_agent_protocols/m41_a2a_protocol/notebooks/01a_a2a_protocol_basics.ipynb).
+
+### Continue learning
+
+- [M31](../../../p09_agentic_rag/m31_rag_as_agent_tool/README.md).
 
 ## Key Takeaways
 

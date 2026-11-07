@@ -4,9 +4,15 @@
 
 ## One history per session
 
+Two Larkspur customers use the same chat service. You will load history by session, map the wrapper input and output keys, and restart the chain to test whether memory is in Python or the database.
+
+### Step 1: Load exactly one session history
+
 `RunnableWithMessageHistory` does the load and save of lesson 33.1 around any runnable. You give it the chain and a factory, `get_session_history(session_id)`, that returns the history for one conversation. Every call then carries the id in its config:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 chain_with_history.invoke({"query": "Which plan am I on?"},
                           config={"configurable": {"session_id": "cust-4821"}})
 ```
@@ -18,13 +24,19 @@ flowchart LR
     P --> M[Model] --> S["Save the human<br/>and AI messages"]
 ```
 
+### Step 2: Map the history placeholder and saved answer
+
 Two keys tell the wrapper where things go when the chain takes a dict. `input_messages_key` names the input that holds the new message (it is saved after the call), and `history_messages_key` names the `MessagesPlaceholder` that receives the stored history. The model then receives the system message, the history at the placeholder and the new question, in that order. A chain that returns a dict, like the retrieval chain of lesson 33.4, also needs `output_messages_key` to say which output to save as the AI message.
 
-The `session_id` is the only thing that separates one customer's conversation from another's. In the notebook, two users talk to the same chain with their turns interleaved, and each one's *Summarize what we discussed* sees only their own messages; a new `session_id` starts empty. Any string works: a user id, a chat id, or both combined, so one customer can hold several separate chats. Because whoever supplies the id chooses which history loads, take it from the authenticated session on the server, never from text the user can edit.
+### Step 3: Keep the session identifier server-controlled
+
+The `session_id` is the only thing that separates one customer's conversation from another's. In the recorded example, two users talk to the same chain with their turns interleaved, and each one's *Summarize what we discussed* sees only their own messages; a new `session_id` starts empty. Any string works: a user id, a chat id, or both combined, so one customer can hold several separate chats. Because whoever supplies the id chooses which history loads, take it from the authenticated session on the server, never from text the user can edit.
 
 ## Where the history lives
 
-Only the factory changes when the store changes; the chain and the wrapper stay the same.
+### Step 1: Test persistence after a new process
+
+Only the factory changes when the store changes. The chain and the wrapper stay the same.
 
 | Backend | Survives a restart | Many users | Typical use |
 |---|---|---|---|
@@ -32,9 +44,22 @@ Only the factory changes when the store changes; the chain and the wrapper stay 
 | `FileChatMessageHistory` | Yes | One JSON file per session | Single-user CLI or desktop tools |
 | `SQLChatMessageHistory` | Yes | Yes, one table keyed by `session_id` | Web apps and services |
 
-The notebook proves the database does the remembering. Run 1 stores a user's preferences through one chain and deletes the chain object; four rows sit in the `message_store` table. Run 2 builds a brand-new chain with no Python-side state, and it still answers *What's my name?* from those rows. Pass the database URL by keyword, `SQLChatMessageHistory(session_id=..., connection="sqlite:///x.db")`: the second positional argument is `table_name`, so the positional form creates no connection and fails only when invoked.
+### Step 2: Restart the chain without deleting the records
+
+The example proves the database does the remembering. Run 1 stores a user's preferences through one chain and deletes the chain object; four rows sit in the `message_store` table. Run 2 builds a brand-new chain with no Python-side state, and it still answers *What's my name?* from those rows. Pass the database URL by keyword, `SQLChatMessageHistory(session_id=..., connection="sqlite:///x.db")`: the second positional argument is `table_name`, so the positional form creates no connection and fails only when invoked.
 
 SQLite is fine for one process. For a service with concurrent writers, use the same interface on Postgres or Redis. These classes come from `langchain-community`, and `RunnableWithMessageHistory` is deprecated in `langchain-core`; lesson 33.6 does the same job with a LangGraph checkpointer, which is where new code should go.
+
+### Try it yourself
+
+Interleave two sessions and ask each to summarise its conversation. Check that each sees only its own messages. Recreate the chain against the same SQLite history and repeat the recall question. Use connection= for the database URL. The second positional parameter names the table.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Runnable with message history](../../../../course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/02a_runnable_with_message_history.ipynb).
+- [Multi user sessions and](../../../../course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/02b_multi_user_sessions_and_persistence.ipynb).
 
 ## Key Takeaways
 

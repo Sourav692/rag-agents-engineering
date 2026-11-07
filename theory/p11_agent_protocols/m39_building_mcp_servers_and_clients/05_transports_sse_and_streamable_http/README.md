@@ -4,9 +4,15 @@
 
 ## SSE
 
-[Lesson 38.6](../../m38_mcp_foundations/06_remote_servers_and_deployment/README.md) compares the two HTTP transports side by side. Project 03 builds the SSE one by hand, which shows how it works. The server is a Starlette app with two routes around the SDK's `SseServerTransport`:
+A Larkspur HTTP client gets an accepted POST but still has no tool answer. You will trace the SSE response stream, compare it with Streamable HTTP and choose a transport using session and deployment requirements.
 
-```python
+### Step 1: Follow the SSE request and reply channels
+
+Lesson 38.6 compares the two HTTP transports side by side. Project 03 builds the SSE one by hand, which shows how it works. The server is a Starlette app with two routes around the SDK's `SseServerTransport`:
+
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 sse = SseServerTransport("/messages/")
 routes = [
     Route("/sse", endpoint=handle_sse),             # GET: one long-lived stream per session
@@ -31,7 +37,11 @@ sequenceDiagram
 ```
 <!-- animated: diagrams/sse.anim.html -->
 
+### Step 2: Match the asynchronous answer by request id
+
 The POST never carries an answer. Every request gets `202 Accepted`, and its result arrives later as an event on the GET stream, matched by JSON-RPC id. Recorded with SDK 1.30.0 on the two Larkspur servers with held sessions, setup took 4 requests per server (the GET and three POSTs) and each tool call 1 more, so 8 calls made 16 HTTP requests. Nothing closes the session but the stream: when the GET ends, the server drops the session id. That puts the whole session on one long-lived connection, which a proxy that closes idle connections will cut.
+
+### Step 3: Inspect disconnect and origin handling
 
 The project's code has five problems to fix before you copy it:
 
@@ -43,13 +53,19 @@ The project's code has five problems to fix before you copy it:
 
 ## Streamable HTTP
 
+### Step 1: Read the response on the request channel
+
 Project 04's temperature server is a FastMCP server on one endpoint, `/mcp`:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 mcp = FastMCP("Temperature Converter", host=host, port=port, stateless_http=True)
 ...
 mcp.run(transport="streamable-http")
 ```
+
+### Step 2: Separate transport selection from stateless mode
 
 The comment beside `stateless_http=True` in the project says it enables the streamable HTTP protocol. It does not: `transport="streamable-http"` in `run()` picks the transport, and `stateless_http`, in the words of FastMCP's settings, decides "if the server should create a new transport per request". Stateful is the default. The two modes cost this, recorded on the Larkspur servers with held sessions:
 
@@ -60,11 +76,15 @@ The comment beside `stateless_http=True` in the project says it enables the stre
 | Close, per server | `DELETE /mcp` | nothing |
 | 8 calls, 2 servers | 18 requests | 14 requests |
 
+### Step 3: Read Streamable HTTP responses and headers
+
 Each POST gets its own answer in the response, as `text/event-stream` by default or JSON with `json_response=True`. The `mcp-session-id` header ties a stateful client's requests together, and the server checks it on every request. Probed against a stateful Larkspur server in SDK 1.30.0:
 
 - A `GET /mcp` without `text/event-stream` in `Accept` gets `406` "Not Acceptable: Client must accept text/event-stream". Project 04's `server_launcher.py` uses exactly this as its health check, treating a 406 as "the server is up".
 - A `tools/list` POST with no session id gets `400` "Bad Request: Missing session ID".
 - A session id the server does not know, such as one from another replica or one that expired, gets `404` "Session not found", and the client has to initialize again.
+
+### Step 4: Check the configured session bounds
 
 Stateful sessions expire after 1,800 seconds with no request in flight, and one server holds at most 10,000 at once; both are FastMCP settings (`session_idle_timeout`, `max_sessions`). Stateless mode has neither, and no server-to-client stream either, so the server can only speak in answer to a request.
 
@@ -72,12 +92,29 @@ Project 04's client mixes transports behind one agent. `config/servers.json` lis
 
 ## Choosing a transport
 
+### Step 1: Match process ownership to connection lifetime
+
 - **stdio** for a server on the same machine that the client starts and owns: a desktop assistant's file tools, a local retriever over the handbook. No network, no auth, and a process per session.
 - **SSE** only to reach a server that speaks nothing else, such as M38's deployed research server. It needs two endpoints and one long-lived GET per session.
 - **Streamable HTTP, stateful** for a shared server that keeps something per client or sends messages between requests. With several replicas, route by `mcp-session-id`.
 - **Streamable HTTP, stateless** for tools that keep no per-client state and must scale out: Larkspur's `status` search can run as many replicas as it needs, and any of them can answer any request.
 
 Lesson 39.3's Databricks server ends with `mcp.run()`. In SDK 1.30.0 `run()` defaults to `transport="stdio"`, so as written the server reads its standard input instead of listening for HTTP. A server that a platform reaches by URL needs `transport="streamable-http"` and must listen on the host and port the platform expects.
+
+### Try it yourself
+
+Send a request over SSE and identify where 202 Accepted ends and where the JSON-RPC result arrives. Repeat with Streamable HTTP and inspect the POST response. For the latter, test Accept headers rather than using a plain GET as a readiness probe. A 406 does not by itself mean the server process is down.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [SSE transport server client](../../../../course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/03_sse_transport_server_client).
+- [Streamable HTTP client](../../../../course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/04_streamable_http_client).
+
+### Continue learning
+
+- [Lesson 38.6](../../m38_mcp_foundations/06_remote_servers_and_deployment/README.md).
 
 ## Key Takeaways
 

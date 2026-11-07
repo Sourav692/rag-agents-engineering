@@ -4,7 +4,11 @@
 
 ## Memory merging
 
-Once several agents work on one request, their outputs have to come back together: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. Notebooks 03a and 03b do both on a chain with two hotels. Hotel 1 has rooms 101 to 104, Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools.
+Two hotel assistants must compare availability without sharing private tool histories or booking twice. You will merge their answers in priority order, keep concurrent state updates valid and test what remains after summarising older turns.
+
+### Step 1: Keep parallel branch inputs and outputs separate
+
+Once several agents work on one request, their outputs have to come back together: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. The two implementations do both on a chain with two hotels. Hotel 1 has rooms 101 to 104, Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools.
 
 ```mermaid
 flowchart LR
@@ -20,7 +24,7 @@ flowchart LR
     J --> R[/One reply/]
 ```
 
-Notebook 03a reaches that shape in three attempts, and each failure is a LangGraph rule:
+The reference implementation reaches that shape in three attempts, and each failure is a LangGraph rule:
 
 | Attempt | What breaks | The rule |
 |---|---|---|
@@ -28,9 +32,13 @@ Notebook 03a reaches that shape in three attempts, and each failure is a LangGra
 | Both tool loops share `messages` | A `ToolNode` answers the latest tool call in its list, which may be the other branch's; with same-named tools (`run_query` in both) the wrong database answers silently | One message key per branch, with `ToolNode(..., messages_key=...)` and `partial(tools_condition, messages_key=...)` |
 | Each branch's end goes straight to the merge node | The merge runs once per branch, so the guest gets two replies and the first misses a hotel | A sync node at the end of each branch and a join, `add_edge(["hotel1_done", "hotel2_done"], "merge_answers")` |
 
+### Step 2: Bind each branch to its own read-only tools
+
 Two more choices keep the branches honest. Both assistants come from one factory, so each is bound to its own hotel's tools; copying the first assistant to make the second is how Hotel 2's agent ends up answering from Hotel 1's database. And the branches cannot book: both run the same request at the same time, so a `book_room` in each would create two reservations. They report availability and prices, and booking waits until the guest picks a hotel.
 
-Notebook 03b turns the merge into an agent. The merge node reads the guest's request and each hotel's final answer, listed in priority order (`PRIORITY = ["hotel1", "hotel2"]`), and writes one reply: recommend the first hotel that can help and offer the other as an alternative, ignore a hotel that cannot help unless none can, and keep room numbers, prices and dates exactly as the assistants gave them. Only the merged reply enters `messages`; each branch's tool calls stay in its own key. The two test turns:
+### Step 3: Merge checked facts in the intended order
+
+The reference implementation turns the merge into an agent. The merge node reads the guest's request and each hotel's final answer, listed in priority order (`PRIORITY = ["hotel1", "hotel2"]`), and writes one reply: recommend the first hotel that can help and offer the other as an alternative, ignore a hotel that cannot help unless none can, and keep room numbers, prices and dates exactly as the assistants gave them. Only the merged reply enters `messages`; each branch's tool calls stay in its own key. The two test turns:
 
 | Guest asks | Ground truth from SQLite | The reply should |
 |---|---|---|
@@ -39,11 +47,15 @@ Notebook 03b turns the merge into an agent. The merge node reads the guest's req
 
 The code checks the first case by the position of the room numbers in the reply, against the ground truth from `free_rooms()`, not against the model's claim.
 
-Every turn now adds several agent messages to the thread, so the second half of 03b keeps it small by **summarizing into state**. A `summarize_conversation` node runs at `START` when the stored conversation has more than `SUMMARIZE_AFTER = 6` messages:
+### Step 4: Summarise without splitting tool pairs
+
+Every turn now adds several agent messages to the thread, so the second half of The implementation keeps it small by **summarizing into state**. A `summarize_conversation` node runs at `START` when the stored conversation has more than `SUMMARIZE_AFTER = 6` messages:
 
 1. It keeps the last `KEEP_TURNS = 1` guest turn word for word; everything before it is old. The cut is always at a guest message, so no tool call is separated from its result.
 2. It asks the model to fold the old messages into the running `summary` field, keeping every concrete fact: names, room types and numbers, prices, dates, what was offered and refused.
 3. It returns `RemoveMessage(id=...)` for each old message, and the `add_messages` reducer deletes them.
+
+### Step 5: Test recall from the summary alone
 
 The summary goes into the coordinator's and assistants' prompts as a system message, never into the guest's reply. The test turn asks *Remind me: which Deluxe room did you recommend, and at what price?* after the summarizer removed every earlier message, so the model can only answer from the summary. The new graph continues the same thread because both graphs share one checkpointer.
 
@@ -56,12 +68,27 @@ The summary goes into the coordinator's and assistants' prompts as a system mess
 
 ## Adding agents around the core
 
-Notebooks 03c and 03d add capabilities without changing the coordinator, the checker or the reservation agent:
+### Step 1: Keep new capabilities inside their own state boundary
+
+The two implementations add capabilities without changing the coordinator, the checker or the reservation agent:
 
 - **Language and sentiment.** `translate_in` detects the guest's language and replaces the message with an English version (one structured-output call returns the language code and the text); `sentiment_analysis` scores the English text with TextBlob's word lexicon; the coordinator adds a de-escalation instruction only when the message reads as negative; `translate_out` translates the final reply back. The language is a per-thread state field, because a global `user_language` breaks the moment two guests write at once. The lexicon is English-only and word-level: raw German scores nothing, and sarcasm still fools it.
 - **Web search.** A `web_search_assistant` with `TavilySearch(max_results=3)` answers questions about the neighbourhood, which no hotel database holds. It is one more tool loop and one more name the coordinator can route to, and the test checks which node ran for a nearby-places question and for a booking question.
 
-Each notebook adds its capability to the core from 37.1 on its own; no notebook composes all of them into one graph.
+Each implementation adds its capability to the core from 37.1 on its own. No example composes all of them into one graph.
+
+### Try it yourself
+
+Ask for a Deluxe room and check room 104 before room 108 against SQLite availability. Then trigger summarisation and ask which room and price were recommended. Inspect that old messages were removed and the answer comes from the retained summary. Booking must still wait for a chosen hotel.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Hotel parallel reservation](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03a_hotel_parallel_reservation_agents.ipynb).
+- [Hotel merging and conversation](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03b_hotel_merging_and_conversation_memory.ipynb).
+- [Hotel guest language and](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03c_hotel_guest_language_and_sentiment.ipynb).
+- [Hotel web search integration](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/03d_hotel_web_search_integration.ipynb).
 
 ## Key Takeaways
 

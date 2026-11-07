@@ -4,7 +4,11 @@
 
 ## Dynamic fan-out with Send
 
-Orchestrator-worker looks like parallelization: several LLM calls run at once and a final step merges them. The difference is who decides the branches. In parallelization you wrote them into the graph; here an orchestrator LLM decides, per input, how many subtasks there are and what each one covers.
+The Larkspur export question has two distinct information needs: how to export and how long data remains after cancellation. A refund-timing question needs only one. You will turn that difference into a variable-length plan, dispatch one worker per item, and inspect how the results return to shared state.
+
+### Step 1: Distinguish a plan from fixed branches
+
+Orchestrator-worker looks like parallelization: several LLM calls run at once and a final step merges them. The difference is who decides the branches. In parallelization you wrote them into the graph. Here an orchestrator LLM decides, per input, how many subtasks there are and what each one covers.
 
 | | Parallelization (25.3) | Orchestrator-worker (25.4) |
 |---|---|---|
@@ -12,6 +16,8 @@ Orchestrator-worker looks like parallelization: several LLM calls run at once an
 | Number of branches | fixed | follows the input |
 | Branch identity | known in advance (characters, setting, premise) | generated (whatever sections this topic needs) |
 | Graph shape | static `add_edge` fan-out | one conditional edge returning a list of `Send` |
+
+A reducer combines a previous state value with a returned update. Here `operator.add` concatenates the workers' result lists.
 
 The same graph is often called **map-reduce**: the plan is the list, the `Send` fan-out is the map, and the synthesizer is the reduce.
 
@@ -23,16 +29,43 @@ flowchart LR
 ```
 <!-- animated: diagrams/send-fanout.anim.html -->
 
-The parts, as the notebook builds them:
+### Step 2: Follow a plan item into a worker
+
+Trace the four parts of the implementation:
 
 - **A plan with a variable length.** The orchestrator calls `with_structured_output(ReportPlan)`, where `sections` is a `list[Section]`, each with a `name` and a `description`.
 - **Dispatch from the plan.** A normal conditional edge returns one node name. `assign_workers` returns a list, one `Send("llm_call", {"topic": ..., "section": section})` per planned section, and LangGraph starts that many runs of `llm_call`. The graph drawing shows the `orchestrator` to `llm_call` edge once, because the graph does not know the count until the orchestrator has run.
 - **A narrow worker state.** Each worker gets a `WorkerState` with the topic and its one section, and its prompt uses `section.description`. That is what makes the plan load-bearing.
-- **A reducer for the results.** `completed_sections` is `Annotated[list, operator.add]`, because an unknown number of workers write to it at once. The notebook notes that the merged list follows the order the `Send`s were created, while `stream_mode="updates"` reports workers in the order they finish.
+- **A reducer for the results.** `completed_sections` is `Annotated[list, operator.add]`, because an unknown number of workers write to it at once. The reference trace shows that the merged list follows the order the `Send`s were created, while `stream_mode="updates"` reports workers in the order they finish.
 
-Two failure modes come from the notebook. The first is in the prompt: a planner told "simple topics might need 2 sections, broad topics 5+" answered with five sections, Introduction and Conclusion included, for every topic. Asking for one section per distinct question and banning padding sections let the plan size follow the input. The second is the anti-pattern of a plan nobody reads: the orchestrator runs, but five fixed workers wired with `add_edge` ignore its output. If the set of workers that ran is the same for every input while the plan changes, the plan does not drive execution. That graph is parallelization with a decorative LLM call in front.
+Inspect dispatch with a hand-written plan before using a model to generate one. These `Send` objects describe worker tasks. This snippet does not execute them.
 
-LCEL can express the fan-out with `.map()` (`04b`), with four gaps against `Send`:
+```python
+from langgraph.types import Send
+
+sections = ["export instructions", "retention after cancellation"]
+workers = [Send("llm_call", {"topic": "cancel and export", "section": section})
+           for section in sections]
+print(len(workers))
+print([worker.arg["section"] for worker in workers])
+```
+
+**Expected output**
+
+```text
+2
+['export instructions', 'retention after cancellation']
+```
+
+Replace the plan with `["refund timing"]` and inspect the list again. The dispatch count follows the plan rather than a fixed set of edges.
+
+### Step 3: Check that the plan drives execution
+
+The reference implementation demonstrates two failure modes. The first is in the prompt: a planner told "simple topics might need 2 sections, broad topics 5+" answered with five sections, Introduction and Conclusion included, for every topic. Asking for one section per distinct question and banning padding sections let the plan size follow the input. The second is the anti-pattern of a plan nobody reads: the orchestrator runs, but five fixed workers wired with `add_edge` ignore its output. If the set of workers that ran is the same for every input while the plan changes, the plan does not drive execution. That graph is parallelization with a decorative LLM call in front.
+
+### Step 4: Choose the result and persistence model
+
+LCEL can express the fan-out with `.map()` , with four gaps against `Send`:
 
 | | LangGraph `Send` | LCEL `.map()` |
 |---|---|---|
@@ -41,7 +74,20 @@ LCEL can express the fan-out with `.map()` (`04b`), with four gaps against `Send
 | One worker fails | the graph can route around it | the whole batch raises, unless you use `batch(..., return_exceptions=True)` |
 | Durability | per-worker checkpoints, interrupts, resume | none: the chain is stateless |
 
+### Step 5: Bound the number of dispatched tasks
+
 This is the shape of query decomposition (M18) and of the module lab: the orchestrator splits a Larkspur question into sub-questions, each worker retrieves and answers one, and the synthesizer writes the reply. *Can I export my data after I cancel my plan?* splits into "how do I export?" and "what happens to my data after I cancel?", whose evidence is the `export` and `retention` chunks of the M11 golden set. *How long does a refund take?* should get a plan of one item. Bound the plan in code as well as in the prompt: a maximum number of `Send`s, a direct path for one-item plans, and a decision about what an empty plan returns.
+
+### Try it yourself
+
+Write a two-item plan for exporting after cancellation and a one-item plan for refund timing. Check that `assign_workers` returns two `Send`s for the first and one for the second, and that each payload includes its own `section`. If both inputs always run five fixed workers, inspect the edges: the plan is not controlling dispatch. Also specify a maximum plan size and what an empty plan returns.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [Dynamic Send workers](../../../../course/p08_agent_foundations/m25_agentic_workflow_patterns/notebooks/04a_orchestrator_worker_send_api.ipynb).
+- [LCEL mapped workers](../../../../course/p08_agent_foundations/m25_agentic_workflow_patterns/optional/04b_orchestrator_worker_lcel_map.ipynb) (optional).
 
 ## Key Takeaways
 

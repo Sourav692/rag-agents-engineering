@@ -240,7 +240,7 @@ th:last-child, td:last-child { padding-right: 0; }
   <header class="module__head">
     <div class="module__name">
       <h1 id="module-title">M24 ReAct agents and LangChain create_agent</h1>
-      <p class="module__lede">A ReAct agent reasons about one step, acts with a tool, reads the result and decides again, until it can answer. LangChain 1.x packages that loop as <code>create_agent</code> and opens it to middleware, which is where call limits, redaction and human review go. The M24 notebooks build on four ideas: the reason, act and observe loop, the <code>create_agent</code> graph, structured output, and middleware.</p>
+      <p class="module__lede">A Larkspur handbook search misses the refund-timing passage. The agent needs to read the result, rephrase the search and leave enough call budget to answer. You will trace that feedback loop, inspect the graph built by <code>create_agent</code>, return validated fields and add middleware for limits and approval. The tutorials cover reason, act and observe, the agent factory, structured output and middleware.</p>
     </div>
     <dl class="module__meta">
       <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/README.md" target="_blank" rel="noopener">M24 on GitHub</a></dd></div>
@@ -257,7 +257,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>ReAct interleaves reasoning and tool calls, and reads every observation before choosing the next step. The difference from a single-shot tool call is one edge, <code>tools → model</code>.</li>
 <li>In the lab, the loop lifts mean evidence recall on the M11 golden set from 0.50 (one search, the M11 baseline) to 1.00 by rewording failed searches, for 9 model calls instead of 3. Every call rereads the whole message list, so cost grows each round.</li>
 <li><code>create_agent(model, tools, system_prompt=...)</code> returns that loop as a compiled LangGraph graph (<code>model ⇄ tools</code>) on native tool calls, so there is no text to parse.</li>
-<li><code>response_format=Schema</code> on an agent, or <code>with_structured_output(Schema)</code> on a model, returns typed data the next system can trust; Pydantic is the style that validates it.</li>
+<li><code>response_format=Schema</code> on an agent, or <code>with_structured_output(Schema)</code> on a model, returns structured data for the next system to validate; Pydantic is the style that validates it.</li>
 <li>Middleware hooks run before and after each model call: <code>ModelCallLimitMiddleware</code> bounds the loop, <code>HumanInTheLoopMiddleware</code> pauses irreversible tool calls for approve, edit or reject, <code>PIIMiddleware</code> redacts, <code>SummarizationMiddleware</code> compresses history.</li>
 </ul>
 <h2 id="mental-model">Mental model</h2>
@@ -321,6 +321,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The model is the only part that decides; the graph executes and the middleware guards. A run is as long as the model&rsquo;s decisions make it, so every production agent pairs the loop with a cap, and every irreversible tool with a checkpoint where a person can stop it.</p>
 <h2 id="reasonactobserve">Reason–act–observe</h2>
 <p class="lesson-of">Lesson 24.1: The ReAct loop in LangGraph; tool calling vs ReAct. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/01a_react_agent_langgraph.ipynb" target="_blank" rel="noopener"><code>01a_react_agent_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/01b_tool_calling_vs_react.ipynb" target="_blank" rel="noopener"><code>01b_tool_calling_vs_react.ipynb</code></a></p>
+<p>Larkspur&rsquo;s first refund search returns a related passage but misses the timing rule. A single tool call cannot repair that result. You will trace how an agent rephrases the search after reading it, measure the extra calls, and test what happens when the call limit blocks the final answer.</p>
+<h3>Step 1: Read the growing message history</h3>
 <p>A ReAct agent does not plan its steps up front. It reasons about the next step only, acts by calling a tool, observes the result, and reasons again with that result in front of it. The loop ends when the model replies without asking for a tool (Yao et al., <em>ReAct: Synergizing Reasoning and Acting in Language Models</em>, ICLR 2023).</p>
 <p>In LangGraph the whole run lives in one state key, a message list with the <code>add_messages</code> reducer, so every model call sees everything that came before:</p>
 <pre class="sheet code"><code>HumanMessage   the question
@@ -328,6 +330,7 @@ AIMessage      tool_calls=[search_handbook(...)]     reason + act
 ToolMessage    what the tool returned                observe
 AIMessage      another tool call, or the answer
 </code></pre>
+<h3>Step 2: Add the feedback edge</h3>
 <p>The model never runs a tool. <code>bind_tools()</code> lets it return a <em>request</em> for a tool call; <code>ToolNode</code> executes the request and appends the <code>ToolMessage</code>. The difference between a one-shot augmented LLM and an agent is one edge:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
     subgraph single["Single shot"]
@@ -344,7 +347,8 @@ AIMessage      another tool call, or the answer
         A2 -- "no tool call" --&gt; E2[END]
     end
 </pre></figure>
-<p>With <code>tools → END</code>, the last message is the <code>ToolMessage</code> itself: the user gets search snippets, and no search can build on another. With <code>tools → agent</code>, <code>tools_condition</code> sends the run back to the model after every observation and ends it when the model stops calling tools. The notebook asks both graphs a question that needs a chain of searches (the company behind <em>Dune</em>, its CEO, its latest film, that film&rsquo;s budget). The single-shot graph returned a <code>ToolMessage</code>; the loop wrote an answer from several searches, each naming something only an earlier result contained. The same loop costs nothing extra on a question that needs no tool: <em>Explain AI in 2 bullets</em> goes <code>START → agent → END</code> in one call.</p>
+<p>With <code>tools → END</code>, the last message is the <code>ToolMessage</code> itself: the user gets search snippets, and no search can build on another. With <code>tools → agent</code>, <code>tools_condition</code> sends the run back to the model after every observation and ends it when the model stops calling tools. The recorded comparison asks both graphs a question that needs a chain of searches (the company behind <em>Dune</em>, its CEO, its latest film, that film&rsquo;s budget). The single-shot graph returned a <code>ToolMessage</code>. The loop wrote an answer from several searches, each naming something only an earlier result contained. The same loop costs nothing extra on a question that needs no tool: <em>Explain AI in 2 bullets</em> goes <code>START → agent → END</code> in one call.</p>
+<h3>Step 3: Compare evidence and completed answers</h3>
 <p>The <a href="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html">interactive lab</a> runs this loop over the twelve Larkspur handbook chunks from the M11 lab. The tool, <code>search_handbook</code>, returns the top two chunks by real TF-IDF. The model is scripted: it writes the queries a model might write and answers once the evidence is in the message list. The retrieval, the loop and the counts are computed. On the three M11 golden questions:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -382,17 +386,18 @@ AIMessage      another tool call, or the answer
 </tr>
 </tbody>
 </table></div>
-<p>What the numbers show:</p>
+<p>Read the evidence and completion columns separately:</p>
 <ul>
 <li><strong>Single shot equals the M11 baseline.</strong> One top-2 retrieval per question gives the same mean recall, 0.50, and the user receives chunks instead of an answer.</li>
-<li><strong>The loop recovers vocabulary mismatch by rewording.</strong> The refund question&rsquo;s first search misses <code>refund-timing</code> (&ldquo;Refunds&rdquo; in the chunk, &ldquo;refund&rdquo; in the question); the second, written after reading the first result, finds it. The outage question needs three searches: the question&rsquo;s own words and &ldquo;server outage&rdquo; both rank <code>reboot</code> and <code>sizing</code> first, and &ldquo;what happens during an outage incident&rdquo; returns <code>incidents</code> and <code>sla</code>.</li>
+<li><strong>The loop recovers vocabulary mismatch by rewording.</strong> The refund question&rsquo;s first search misses <code>refund-timing</code> (&ldquo;Refunds&rdquo; in the chunk, &ldquo;refund&rdquo; in the question). The second, written after reading the first result, finds it. The outage question needs three searches: the question&rsquo;s own words and &ldquo;server outage&rdquo; both rank <code>reboot</code> and <code>sizing</code> first, and &ldquo;what happens during an outage incident&rdquo; returns <code>incidents</code> and <code>sla</code>.</li>
 <li><strong>Every call rereads the whole list.</strong> The outage run reads about 451 tokens of context over four calls, against 9 for the single search. Cost grows with every round, which is why a loop needs a cap (lesson 24.2).</li>
-<li><strong>A cap set too low cuts off the answer, not the search.</strong> At <code>run_limit=3</code> the outage run already holds both evidence chunks when the middleware stops it; the call it blocks is the one that would have written the answer.</li>
+<li><strong>A cap set too low cuts off the answer, not the search.</strong> At <code>run_limit=3</code> the outage run already holds both evidence chunks when the middleware stops it. The call it blocks is the one that would have written the answer.</li>
 </ul>
 <figure class="lab-embed"><iframe src="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html" title="The ReAct loop and its call cap, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The ReAct loop and its call cap. <a href="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html">Open full screen</a></figcaption></figure>
 <p>ReAct earns its extra calls on questions whose path depends on what the searches find. When you already know the fixed sequence of steps, a workflow is cheaper, more predictable and easier to test (lesson 24.5, M25).</p>
 <h2 id="native-tool-calls-vs-text-based-react">Native tool calls vs text-based ReAct</h2>
-<p>The ReAct paper predates tool-calling APIs. It drove the loop with text: the prompt listed the tools and asked the model to write <code>Thought:</code>, <code>Action:</code> and <code>Action Input:</code> lines; the framework stopped generation at <code>Observation:</code>, parsed the action with a regular expression, ran the tool and pasted the result back. Native tool calling moves the same loop onto structured <code>tool_calls</code> returned by the provider.</p>
+<h3>Step 1: Compare structured calls with parsed text</h3>
+<p>The ReAct paper predates tool-calling APIs. It drove the loop with text: the prompt listed the tools and asked the model to write <code>Thought:</code>, <code>Action:</code> and <code>Action Input:</code> lines. The framework stopped generation at <code>Observation:</code>, parsed the action with a regular expression, ran the tool and pasted the result back. Native tool calling moves the same loop onto structured <code>tool_calls</code> returned by the provider.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -429,8 +434,17 @@ AIMessage      another tool call, or the answer
 </tr>
 </tbody>
 </table></div>
-<p>The notebook runs both on the same two stub tools. With <code>gpt-4o-mini</code>, the text agent often wrote <code>Action Input: 'Tokyo'</code> with the quotes, the tool looked up the city <code>'Tokyo'</code> and found nothing, and the calculator received <code>'0.25 * 80'</code> as a quoted string. The model knew which tool it wanted; the transport failed. Text-driven tools need input cleaning, and <code>handle_parsing_errors=True</code> turns a format break into an observation the model can react to.</p>
-<p>On <em>What&rsquo;s the weather in Tokyo and calculate 25% of 80?</em> the native agent asked for both tools in one turn and needed 2 model calls; the text agent, one <code>Action</code> per turn, needed 3. LangChain 1.x <code>create_agent</code> uses native tool calls, so there is nothing to parse. The ReAct idea, read every observation before choosing the next step, is unchanged.</p>
+<h3>Step 2: Inspect a transport failure</h3>
+<p>The recorded comparison runs both on the same two stub tools. With <code>gpt-4o-mini</code>, the text agent often wrote <code>Action Input: 'Tokyo'</code> with the quotes, the tool looked up the city <code>'Tokyo'</code> and found nothing, and the calculator received <code>'0.25 * 80'</code> as a quoted string. The model knew which tool it wanted. The transport failed. Text-driven tools need input cleaning, and <code>handle_parsing_errors=True</code> turns a format break into an observation the model can react to.</p>
+<p>On <em>What&rsquo;s the weather in Tokyo and calculate 25% of 80?</em> the native agent asked for both tools in one turn and needed 2 model calls. The text agent, one <code>Action</code> per turn, needed 3. LangChain 1.x <code>create_agent</code> uses native tool calls, so there is nothing to parse. The ReAct idea, read every observation before choosing the next step, is unchanged.</p>
+<h3>Try it yourself</h3>
+<p>In the lab select the outage question and set <code>run_limit=3</code>. Predict whether having both evidence chunks guarantees an answer. Check that evidence is 1.00 but the run stops: the blocked fourth model call would have written the answer. Raise the limit enough to allow that call and compare the completed-answer count, not only recall.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/01a_react_agent_langgraph.ipynb" target="_blank" rel="noopener">ReAct in LangGraph</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/01b_tool_calling_vs_react.ipynb" target="_blank" rel="noopener">Native versus text calls</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A ReAct agent reasons about one step, calls a tool, reads the result and repeats until it replies without a tool call. The <code>tools → agent</code> edge is what turns a single-shot graph into that loop.</li>
@@ -452,7 +466,9 @@ AIMessage      another tool call, or the answer
 </details>
 <h2 id="create_agent">create_agent</h2>
 <p class="lesson-of">Lesson 24.2: ReAct with LangChain <code>create_agent</code>. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/02a_react_with_create_agent.ipynb" target="_blank" rel="noopener"><code>02a_react_with_create_agent.ipynb</code></a></p>
-<p><code>create_agent(model, tools, system_prompt=...)</code> from <code>langchain.agents</code> builds the loop of lesson 24.1 for you and returns a compiled LangGraph graph (<code>CompiledStateGraph</code>). The notebook prints its structure:</p>
+<p>You need a Larkspur agent that can inspect a tool result and decide whether another lookup is necessary. You will read the graph built by <code>create_agent</code>, distinguish dependent from independent calls, and diagnose a loop that repeatedly retrieves documents without the answer.</p>
+<h3>Step 1: Inspect the compiled loop</h3>
+<p><code>create_agent(model, tools, system_prompt=...)</code> from <code>langchain.agents</code> builds the loop of lesson 24.1 for you and returns a compiled LangGraph graph (<code>CompiledStateGraph</code>). Its compiled structure exposes the loop:</p>
 <pre class="sheet code"><code>nodes: __start__, model, tools, __end__
 __start__ -&gt; model
 model -&gt; tools      (conditional: the model asked for a tool)
@@ -466,12 +482,14 @@ model -&gt; __end__    (conditional: no tool call)
     M -- "no tool call" --&gt; E[__end__]
 </pre></figure>
 <p>Because it is a graph, everything from M09 and M10 applies: <code>.stream(..., stream_mode="values")</code> replaces 0.x&rsquo;s <code>verbose=True</code>, and a checkpointer plus a <code>thread_id</code> gives memory. Input and output are message lists: <code>invoke({"messages": [...]})</code> returns the whole trail, and <code>result["messages"][-1]</code> is the answer.</p>
+<h3>Step 2: Separate dependent and independent calls</h3>
 <p>The model decides how much to do per turn:</p>
 <ul>
 <li><strong>Dependent calls take one turn each.</strong> <em>Get Google&rsquo;s price, then email it to an analyst</em> needs <code>get_stock_price</code>, an observation, then <code>send_email</code>, because the email body needs the price.</li>
-<li><strong>Independent calls share a turn.</strong> <em>Weather in Bangalore and Mumbai, and 25 * 4</em> came back as three tool calls in one <code>AIMessage</code>; the <code>tools</code> node ran all three before the model&rsquo;s second and last call.</li>
+<li><strong>Independent calls share a turn.</strong> <em>Weather in Bangalore and Mumbai, and 25 * 4</em> came back as three tool calls in one <code>AIMessage</code>. The <code>tools</code> node ran all three before the model&rsquo;s second and last call.</li>
 </ul>
-<p>What changed from LangChain 0.x, from the notebook&rsquo;s migration table:</p>
+<h3>Step 3: Migrate the input and control settings</h3>
+<p>What changed from LangChain 0.x, in the migration comparison:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -503,10 +521,12 @@ model -&gt; __end__    (conditional: no tool call)
 </tbody>
 </table></div>
 <p>Renaming only the function is not enough: the old <code>prompt=</code> argument raises <code>TypeError</code> on <code>create_agent</code>, which takes <code>system_prompt=</code>. <code>create_react_agent</code> in <code>langgraph.prebuilt</code> is deprecated since LangGraph v1.0.</p>
-<p>Tools come in three weights. <code>load_tools</code> (now in <code>langchain_community</code>) gives ready-made ones such as <code>llm-math</code>; <code>@tool</code> turns a function into a tool; a <code>BaseTool</code> subclass carries configuration, such as which vector store to search. In every case the model chooses tools by their name and description, so the description is prompt text.</p>
+<p>Tools come in three weights. <code>load_tools</code> (now in <code>langchain_community</code>) gives ready-made ones such as <code>llm-math</code>; <code>@tool</code> turns a function into a tool. A <code>BaseTool</code> subclass carries configuration, such as which vector store to search. In every case the model chooses tools by their name and description, so the description is prompt text.</p>
 <h2 id="call-limits-and-runaway-loops">Call limits and runaway loops</h2>
-<p>A loop that decides its own length can run long. The notebook builds the failure on purpose: a restaurant FAQ indexed badly, with only the questions stored and the answers lost. Asked <em>When does the restaurant open?</em>, a plain agent searched once, saw four questions and no hours, and said it could not answer. An agent told to keep searching until it found the answer reworded its query again and again, getting the same answerless questions back each time, until <code>ModelCallLimitMiddleware(run_limit=3, exit_behavior="end")</code> ended the run and appended its notice. The cap bounded the bill; the user still had no opening hours.</p>
-<p>The notebook ranks the fixes by how much they change what the model sees:</p>
+<h3>Step 1: Reproduce an answerless retrieval</h3>
+<p>A loop that decides its own length can run long. The controlled failure uses a restaurant FAQ indexed badly, with only the questions stored and the answers lost. Asked <em>When does the restaurant open?</em>, the recorded plain-agent run searched once, saw four questions and no hours, and said it could not answer. An agent told to keep searching until it found the answer reworded its query again and again, getting the same answerless questions back each time, until <code>ModelCallLimitMiddleware(run_limit=3, exit_behavior="end")</code> ended the run and appended its notice. The cap bounded the bill. The user still had no opening hours.</p>
+<h3>Step 2: Fix the evidence before increasing the cap</h3>
+<p>Rank the fixes by how much they change what the model sees:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -538,10 +558,18 @@ model -&gt; __end__    (conditional: no tool call)
 </tbody>
 </table></div>
 <p>Fix 5 is the least effective: it buys more attempts at a retrieval problem. With fixes 1 to 4 the same question took one search and one answer, under the same cap.</p>
-<p><code>ModelCallLimitMiddleware</code> counts model calls per run (<code>run_limit</code>) and per thread across runs (<code>thread_limit</code>). It checks before each model call; at the limit, <code>exit_behavior="end"</code> jumps to the end with an <code>AIMessage</code> such as <code>Model call limits exceeded: run limit (3/3)</code>, and <code>"error"</code> raises <code>ModelCallLimitExceededError</code>. In the <a href="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html">M24.1 lab</a> the golden questions need 2, 3 and 4 calls; at <code>run_limit=2</code> only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.</p>
+<h3>Step 3: Budget the final answering call</h3>
+<p><code>ModelCallLimitMiddleware</code> counts model calls per run (<code>run_limit</code>) and per thread across runs (<code>thread_limit</code>). It checks before each model call. At the limit, <code>exit_behavior="end"</code> jumps to the end with an <code>AIMessage</code> such as <code>Model call limits exceeded: run limit (3/3)</code>, and <code>"error"</code> raises <code>ModelCallLimitExceededError</code>. In the <a href="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html">M24.1 lab</a> the golden questions need 2, 3 and 4 calls. At <code>run_limit=2</code> only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.</p>
+<h3>Try it yourself</h3>
+<p>Use the restaurant failure to debug a Larkspur tool that returns only handbook titles. Raising <code>run_limit</code> gives more titles, not policy evidence. Write the corrected tool contract: return the relevant passage with its title. Check a trace for one successful search followed by an answer, and leave enough call budget for that final model turn.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/02a_react_with_create_agent.ipynb" target="_blank" rel="noopener">The agent factory</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li><code>create_agent</code> builds the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and <code>thread_id</code> memory work as usual. Pass <code>system_prompt=</code>; the old <code>prompt=</code> argument raises <code>TypeError</code>.</li>
+<li><code>create_agent</code> builds the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and <code>thread_id</code> memory work as usual. Pass <code>system_prompt=</code>. The old <code>prompt=</code> argument raises <code>TypeError</code>.</li>
 <li><code>ModelCallLimitMiddleware</code> replaces <code>max_iterations</code> and checks before every model call. A cap set below what real questions need stops runs that already hold the evidence.</li>
 <li>When an agent loops without an answer, fix what it retrieves first: the data, <code>k</code>, the result format and the tool description. Raising the call cap only buys more attempts at the same problem.</li>
 </ul>
@@ -560,7 +588,9 @@ model -&gt; __end__    (conditional: no tool call)
 </details>
 <h2 id="structured-output">Structured output</h2>
 <p class="lesson-of">Lesson 24.3: Models, messages and structured output in LangChain 1.x. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/03c_structured_output.ipynb" target="_blank" rel="noopener"><code>03c_structured_output.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/03a_model_integration.ipynb" target="_blank" rel="noopener"><code>03a_model_integration.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/03b_messages.ipynb" target="_blank" rel="noopener"><code>03b_messages.ipynb</code></a> (optional)</p>
-<p>An agent&rsquo;s last message is prose. When the next consumer is code (a ticket queue, a database row, a judge&rsquo;s score), ask for a schema instead. The schema goes to the provider, not into the prompt as an instruction: providers that support structured output constrain decoding to it, so the reply parses.</p>
+<p>A Larkspur ticket queue needs fields it can validate, such as category and an optional refund amount. Prose alone is hard to route reliably. You will choose where to attach an output schema, inspect what it returns, and distinguish a missing value from a fabricated one.</p>
+<h3>Step 1: Choose where the schema is applied</h3>
+<p>An agent&rsquo;s last message is prose. When the next consumer is code (a ticket queue, a database row, a judge&rsquo;s score), ask for a schema instead. A structured-output integration sends a machine-readable schema, using a provider-supported mechanism such as native structured output or tool calling. Confirm which mechanism your model supports and handle validation failures.</p>
 <p>There are two places to attach a schema:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     S["Schema&lt;br/&gt;Pydantic, TypedDict or dataclass"] --&gt; W["model.with_structured_output(Schema)"]
@@ -572,6 +602,7 @@ model -&gt; __end__    (conditional: no tool call)
 <li><strong>On a model.</strong> <code>llm.with_structured_output(Movie)</code> returns a new runnable; <code>llm</code> itself is unchanged. Its <code>invoke()</code> returns a <code>Movie</code> instead of an <code>AIMessage</code>. The judge in lesson 24.1 is built this way, so its scores are fields rather than sentences.</li>
 <li><strong>On an agent.</strong> <code>create_agent(model=llm, response_format=ContactInfo)</code> runs the agent as usual and adds <code>structured_response</code> to the result state, next to <code>messages</code>. It selects <code>ProviderStrategy</code> where the provider supports native structured output.</li>
 </ul>
+<h3>Step 2: Compare returned values and validation</h3>
 <p>The three schema styles differ in what they check:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -603,28 +634,56 @@ model -&gt; __end__    (conditional: no tool call)
 </tr>
 </tbody>
 </table></div>
-<p>Choose Pydantic when the data crosses a trust boundary: if a provider returns a string where you declared an <code>int</code>, Pydantic raises and <code>TypedDict</code> hands you the string. Two <code>TypedDict</code> traps from the notebook: <code>= Field(...)</code> inside a <code>TypedDict</code> is silently discarded, so the field stays required and its description never reaches the model; and <code>NotRequired[...]</code> is rejected by LangChain&rsquo;s schema converter (<code>TypeError: NotRequired accepts only a single type</code>). Use the middle slot of <code>Annotated</code> for the default.</p>
+<p>Choose Pydantic when the data crosses a trust boundary: if a provider returns a nonnumeric string where you declared an <code>int</code>, Pydantic raises and <code>TypedDict</code> hands you the string. In the tested schema conversion, there are two <code>TypedDict</code> traps: <code>= Field(...)</code> inside a <code>TypedDict</code> is silently discarded, so the field stays required and its description never reaches the model. <code>NotRequired[...]</code> is rejected by LangChain&rsquo;s schema converter (<code>TypeError: NotRequired accepts only a single type</code>). Use the middle slot of <code>Annotated</code> for the default.</p>
+<h3>Step 3: Inspect descriptions and missing values</h3>
 <p>Three details matter in production:</p>
 <ul>
-<li><strong>Descriptions are prompt text.</strong> <code>Field(description="The movie's rating out of 10")</code> tells the model the scale; without it the model guesses one.</li>
-<li><strong>Optional fields stop invented values.</strong> A field the source may not contain (a budget, a refund amount on a question that has none) should be optional with a <code>None</code> default, so the model is not forced to write a number.</li>
-<li><strong><code>include_raw=True</code></strong> returns <code>{"raw", "parsed", "parsing_error"}</code>. You keep the <code>AIMessage</code> with its <code>usage_metadata</code> (119 input and 22 output tokens for the notebook&rsquo;s four-field <code>Movie</code>), and a parse failure becomes a value you can branch on instead of an exception.</li>
+<li><strong>Descriptions are prompt text.</strong> <code>Field(description="The movie's rating out of 10")</code> tells the model the scale. Without it the model guesses one.</li>
+<li><strong>Optional fields allow missing values.</strong> A field the source may not contain (a budget, a refund amount on a question that has none) should be optional with a <code>None</code> default, so the schema does not require a number when the source has none. This permits abstention. It does not guarantee factual correctness.</li>
+<li><strong><code>include_raw=True</code></strong> returns <code>{"raw", "parsed", "parsing_error"}</code>. You keep the <code>AIMessage</code> with its <code>usage_metadata</code> (119 input and 22 output tokens for the recorded four-field <code>Movie</code>), and a parse failure becomes a value you can branch on instead of an exception.</li>
 </ul>
-<p>Not every model supports structured output. <code>llm.profile</code> (LangChain 1.1) reports capabilities from the open <code>models.dev</code> data; for <code>gpt-4o-mini</code> it lists <code>structured_output: true</code>, <code>tool_calling: true</code> and <code>max_input_tokens: 128000</code>. Branch on it rather than guessing.</p>
-<p>The two optional notebooks cover the parts underneath. <code>init_chat_model</code> builds a model for any provider behind one interface, with streaming and batching. Messages are the unit of context: <code>SystemMessage</code>, <code>HumanMessage</code>, <code>AIMessage</code> and <code>ToolMessage</code>, and the list you pass is all the model sees. An <code>AIMessage</code> that asks for a tool usually has <code>content=""</code> and carries the call in <code>.tool_calls</code>, so print both when you debug a run.</p>
+<p>Test missing and invalid values locally. This Pydantic check needs no model and makes the optional-field behaviour observable.</p>
+<pre class="sheet code"><code class="language-python">from pydantic import BaseModel, ValidationError
+
+class Ticket(BaseModel):
+    refund_amount: float | None = None
+
+print(Ticket().model_dump())
+try:
+    Ticket(refund_amount=&quot;unknown&quot;)
+except ValidationError as error:
+    print(error.errors()[0][&quot;type&quot;])
+</code></pre>
+<p><strong>Expected output</strong></p>
+<pre class="sheet code"><code class="language-text">{'refund_amount': None}
+float_parsing
+</code></pre>
+<p>Pydantic permits the absent amount but rejects a nonnumeric string. Its default validation can coerce compatible values, such as a numeric string, unless strict types are requested.</p>
+<h3>Step 4: Check capability and raw parsing results</h3>
+<p>Not every model supports structured output. <code>llm.profile</code> (LangChain 1.1) reports capabilities from the open <code>models.dev</code> data. For <code>gpt-4o-mini</code> it lists <code>structured_output: true</code>, <code>tool_calling: true</code> and <code>max_input_tokens: 128000</code>. Branch on it rather than guessing.</p>
+<p>The underlying model and message APIs explain what travels through this boundary. <code>init_chat_model</code> builds a model for any provider behind one interface, with streaming and batching. Messages are the unit of context: <code>SystemMessage</code>, <code>HumanMessage</code>, <code>AIMessage</code> and <code>ToolMessage</code>, and the list you pass is all the model sees. An <code>AIMessage</code> that asks for a tool usually has <code>content=""</code> and carries the call in <code>.tool_calls</code>, so print both when you debug a run.</p>
+<h3>Try it yourself</h3>
+<p>Compare a required <code>refund_amount: float</code> with <code>refund_amount: float | None = None</code> for a ticket that never mentions a refund. Check that <code>None</code> is allowed by the second schema. Then send a nonnumeric string and confirm that Pydantic raises a validation error. A permitted missing value and a supported factual value are different checks.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/03c_structured_output.ipynb" target="_blank" rel="noopener">Structured output</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/03a_model_integration.ipynb" target="_blank" rel="noopener">Model integration</a> (optional).</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/03b_messages.ipynb" target="_blank" rel="noopener">Message types</a> (optional).</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Ask for a schema when code consumes the output. <code>with_structured_output()</code> makes a model return a schema instance, and <code>response_format=</code> adds <code>structured_response</code> to an agent&rsquo;s result next to <code>messages</code>.</li>
 <li>Use Pydantic when data crosses a trust boundary, because it validates types and <code>TypedDict</code> does not. Inside a <code>TypedDict</code>, <code>= Field(...)</code> is silently dropped.</li>
-<li>Field descriptions are prompt text, and optional fields with a <code>None</code> default stop invented values. <code>include_raw=True</code> keeps token usage and turns a parse failure into a value you can branch on.</li>
+<li>Field descriptions are prompt text, and optional fields with a <code>None</code> default allow missing values. <code>include_raw=True</code> keeps token usage and turns a parse failure into a value you can branch on.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When should a structured-output schema be a Pydantic model rather than a TypedDict?</summary>
-<p>When the data crosses a trust boundary. Pydantic returns an instance and raises if the provider sends a string where you declared an <code>int</code>; a <code>TypedDict</code> returns a plain <code>dict</code> with no validation and hands you the string.</p>
+<p>When the data crosses a trust boundary. Pydantic returns an instance and raises if the provider sends a nonnumeric string where you declared an <code>int</code>. A <code>TypedDict</code> returns a plain <code>dict</code> with no validation and hands you the string.</p>
 </details>
 <details>
-<summary>2. A ticket schema has a required refund amount, and the model writes a number even for questions that mention no refund. What change stops it?</summary>
+<summary>2. A ticket schema has a required refund amount, and the model writes a number even for questions that mention no refund. What schema change allows a missing amount?</summary>
 <p>Make the field optional with a <code>None</code> default, for example <code>refund_amount: float | None = Field(None, description=...)</code>. A required field forces the model to write a value, while an optional one lets it leave a missing fact empty.</p>
 </details>
 <details>
@@ -633,14 +692,16 @@ model -&gt; __end__    (conditional: no tool call)
 </details>
 <h2 id="middleware">Middleware</h2>
 <p class="lesson-of">Lesson 24.4: Middleware, including human-in-the-loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/04a_middleware.ipynb" target="_blank" rel="noopener"><code>04a_middleware.ipynb</code></a></p>
+<p>Larkspur&rsquo;s agent may read account information automatically, but sending a message needs review. You will place hooks around the model and tool calls, inspect the saved approval request, and resume the same thread without leaving a tool call unanswered.</p>
+<h3>Step 1: Locate the hooks in the compiled graph</h3>
 <p>Middleware attaches hooks at fixed points of the <code>create_agent</code> loop: before the model call, after it, and around a model or tool call. You use it for observability (logging, timing), transformation (rewriting the prompt, filtering tools), control flow (retries, early exit) and guardrails (call limits, PII redaction, human approval), without rebuilding the loop as raw LangGraph nodes.</p>
-<p>Each hook compiles to a node in the agent&rsquo;s graph. The notebook prints them:</p>
+<p>Inspect the graph to see how these middleware hooks are represented. The recorded node lists are:</p>
 <pre class="sheet code"><code>SummarizationMiddleware              model, SummarizationMiddleware.before_model
 HumanInTheLoopMiddleware             model, tools, HumanInTheLoopMiddleware.after_model
 PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email].before_model, PIIMiddleware[email].after_model,
                                      ModelCallLimitMiddleware.before_model, ModelCallLimitMiddleware.after_model
 </code></pre>
-<p>The built-ins the notebooks use:</p>
+<p>The built-ins used in this comparison:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -672,10 +733,11 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 </tr>
 </tbody>
 </table></div>
-<p>With <code>trigger=("messages", 10)</code> and <code>keep=("messages", 4)</code>, the notebook&rsquo;s history grew 2, 4, 6, 8, 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure; tokens track what runs out, and a fraction of the context window keeps its meaning when you change models. Summarisation and human approval both need a checkpointer, because they rewrite or suspend the run between calls.</p>
-<p>Middleware runs in the order you list it. A custom one subclasses <code>AgentMiddleware</code> and overrides the hook it needs, with two rules that are easy to break. Every hook takes <code>(self, state, runtime)</code>; leaving out <code>runtime</code> raises <code>TypeError</code> at run time. And a hook returns a state update instead of mutating <code>state</code>: to pass a value from <code>before_model</code> to <code>after_model</code>, declare it on a custom <code>state_schema</code> and <code>return {"key": value}</code>. To end a run early, follow <code>ModelCallLimitMiddleware</code>&rsquo;s own <code>before_model</code>: it is decorated with <code>@hook_config(can_jump_to=["end"])</code> and returns <code>{"jump_to": "end", "messages": [AIMessage(...)]}</code>. The M24 lab brief&rsquo;s off-topic guard has the same shape.</p>
-<h3>Human-in-the-loop</h3>
-<p><code>HumanInTheLoopMiddleware</code> turns an irreversible tool call into a decision. Gate the writes (sending email, issuing a refund) and let the reads run; pausing on reads is friction with no safety gain.</p>
+<h3>Step 2: Observe summarisation and state updates</h3>
+<p>With <code>trigger=("messages", 10)</code> and <code>keep=("messages", 4)</code>, the recorded history grew 2, 4, 6, 8, 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure. Tokens track what runs out, and a fraction of the context window keeps its meaning when you change models. A checkpointer preserves history across invocations and is required to resume an approval interrupt. Summarisation can also operate on the history supplied within a run. It does not itself require persistence.</p>
+<p>Middleware runs in the order you list it. A custom one subclasses <code>AgentMiddleware</code> and overrides the hook it needs, with two rules that are easy to break. Every hook takes <code>(self, state, runtime)</code>. Leaving out <code>runtime</code> raises <code>TypeError</code> at run time. And a hook returns a state update instead of mutating <code>state</code>: to pass a value from <code>before_model</code> to <code>after_model</code>, declare it on a custom <code>state_schema</code> and <code>return {"key": value}</code>. To end a run early, follow <code>ModelCallLimitMiddleware</code>&rsquo;s own <code>before_model</code>: it is decorated with <code>@hook_config(can_jump_to=["end"])</code> and returns <code>{"jump_to": "end", "messages": [AIMessage(...)]}</code>. The M24 lab brief&rsquo;s off-topic guard has the same shape.</p>
+<h3>Step 3: Pause before the tool executes</h3>
+<p><code>HumanInTheLoopMiddleware</code> turns an irreversible tool call into a decision. In this example, gate writes such as sending email or issuing a refund and allow authorised reads. A sensitive read can also need approval or access control.</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant U as App
     participant A as Agent
@@ -689,27 +751,36 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
     A-&gt;&gt;A: run, rewrite or skip
     A--&gt;&gt;U: final AIMessage
 </pre></figure>
-<p>The pause is a real suspension: the state is checkpointed under the <code>thread_id</code> and nothing runs until you resume with one decision per gated call. The three decisions, as the notebook&rsquo;s message trails show them:</p>
+<h3>Step 4: Resume with one decision per call</h3>
+<p>The pause is a real suspension: the state is checkpointed under the <code>thread_id</code> and nothing runs until you resume with one decision per gated call. The three decisions, as the recorded message trails show them:</p>
 <ul>
 <li><strong>Approve.</strong> The tool runs with the model&rsquo;s arguments.</li>
 <li><strong>Edit.</strong> <code>{"type": "edit", "edited_action": {"name": ..., "args": {...}}}</code> replaces the arguments, and the tool runs with yours. The <code>ToolMessage</code> tells the model a reviewer replaced its call, so it does not re-issue the original.</li>
 <li><strong>Reject.</strong> The tool never runs. The model receives a <code>ToolMessage</code> saying the user rejected the call and not to retry unless asked, and it explains to the user that it could not send.</li>
 </ul>
+<h3>Step 5: Diagnose an unanswered tool call</h3>
 <p>One pitfall breaks real deployments. When the middleware interrupts, the <code>AIMessage</code> with the tool call is already saved on the thread. Invoking that thread again with a new user message instead of <code>Command(resume=...)</code> leaves the call unanswered, and the provider rejects the next request: <em>An assistant message with &lsquo;tool_calls&rsquo; must be followed by tool messages responding to each &lsquo;tool_call_id&rsquo;</em> (OpenAI, error 400). Resume a parked thread, or start a new one.</p>
+<h3>Try it yourself</h3>
+<p>An approval request is parked on a thread with one <code>send_email</code> call. Compare resuming it with an approve decision against invoking it with a new user message. Check the trace for a matching tool result before another model request. If the user wants a separate conversation, start a new thread rather than overwriting the pending decision.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/04a_middleware.ipynb" target="_blank" rel="noopener">Agent middleware</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Middleware hooks run before, after or around model and tool calls, in the order you list them. A custom hook takes <code>(self, state, runtime)</code> and returns a state update instead of mutating <code>state</code>.</li>
-<li>Trigger summarisation on tokens or a fraction of the context window rather than a message count. Summarisation and human approval both need a checkpointer, because they rewrite or suspend the run.</li>
-<li>Gate tools that write and let reads run. Resume a paused thread with <code>Command(resume=...)</code>; a new user message on it leaves the tool call unanswered, and the provider rejects the next request.</li>
+<li>Trigger summarisation on tokens or a fraction of the context window rather than a message count. Use a checkpointer to preserve history across runs and to resume human approval. Summarisation itself can operate on history within a run.</li>
+<li>Gate consequential writes and apply the appropriate access policy to reads. Resume a paused thread with <code>Command(resume=...)</code>. A new user message on it leaves the tool call unanswered, and the provider rejects the next request.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why should human approval gate tools that write, such as sending email, but not tools that only read?</summary>
-<p>The middleware turns an irreversible call into a decision, and only writes are irreversible. Pausing on reads adds friction with no safety gain. The pause is a real suspension checkpointed under the <code>thread_id</code>, so approval needs a checkpointer.</p>
+<p>The middleware turns an irreversible call into a decision, which makes it useful for consequential writes. Authorised reads can run without a pause in this example. Sensitive reads still need an access policy. The pause is a real suspension checkpointed under the <code>thread_id</code>, so approval needs a checkpointer.</p>
 </details>
 <details>
 <summary>2. With summarisation triggered at 10 messages and keeping 4, history grows by two messages a turn. On which turn does it shrink, and to how many messages?</summary>
-<p>On the sixth turn. The notebook&rsquo;s history grew 2, 4, 6, 8 and 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure; tokens or a fraction of the window track what runs out.</p>
+<p>On the sixth turn. The recorded history grew 2, 4, 6, 8 and 10 over five turns and dropped to 6 on the sixth, when the summary replaced the older turns. A message count is predictable but a poor proxy for context pressure. Tokens or a fraction of the window track what runs out.</p>
 </details>
 <details>
 <summary>3. An agent paused on a send_email approval is invoked again with a new user message, and OpenAI returns error 400. Why, and what should the app do?</summary>
@@ -717,7 +788,9 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 </details>
 <h2 id="planned-pipeline-vs-react-loop">Planned pipeline vs ReAct loop</h2>
 <p class="lesson-of">Lesson 24.5: Applied ReAct: web research, SWE and computer-use agents. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/05a_web_research_agent.ipynb" target="_blank" rel="noopener"><code>05a_web_research_agent.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/05b_swe_agent_applied.ipynb" target="_blank" rel="noopener"><code>05b_swe_agent_applied.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/05c_browser_agent_computer_use.ipynb" target="_blank" rel="noopener"><code>05c_browser_agent_computer_use.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/05d_vision_driven_computer_use.ipynb" target="_blank" rel="noopener"><code>05d_vision_driven_computer_use.ipynb</code></a> (optional)</p>
-<p>The most common &ldquo;research agent&rdquo; is not a loop. It plans every search up front and runs them in a straight line. The notebook builds both on the same topic, <em>Artificial Intelligence in Healthcare</em>:</p>
+<p>You need a research report, but must decide whether its searches can be planned before seeing any results. You will compare a fixed research pipeline with a ReAct researcher on the same topic, then transfer the distinction to file edits and browser actions.</p>
+<h3>Step 1: Draw the two research paths</h3>
+<p>A planned researcher writes every search up front and runs them in a fixed sequence. A ReAct researcher chooses the next search after reading the results. The comparison builds both on the same topic, <em>Artificial Intelligence in Healthcare</em>:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
     subgraph pipe["Planned pipeline"]
         direction TB
@@ -730,7 +803,8 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
     end
 </pre></figure>
 <p>The pipeline&rsquo;s state carries more than messages: the topic, the planned questions, a <code>{question: results}</code> dict merged by a custom reducer, the report, and a log appended with <code>operator.add</code>. Each node returns only the keys it changes. The plan is fixed before any result comes back, and no edge goes back, so the pipeline cannot notice an empty search or follow a lead. The ReAct researcher is <code>create_agent</code> with one <code>web_search</code> tool, a prompt asking for one search per turn and 3 to 5 in all, and <code>ModelCallLimitMiddleware</code> as the bound.</p>
-<p>One live run (search results change, so the counts vary between runs):</p>
+<h3>Step 2: Compare a recorded run without treating it as a benchmark</h3>
+<p>One recorded live run has the following results. Search results and model choices change, so these counts and report lengths are observations rather than repeatable performance guarantees:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -757,6 +831,7 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 </tr>
 </tbody>
 </table></div>
+<h3>Step 3: Choose predictability or adaptive search</h3>
 <p>The pipeline&rsquo;s three questions were written together and are broad and parallel. The agent started broad, then searched for things its results had named (AI models in surgery at Duke University, physician adoption statistics). The trade-off:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -794,13 +869,25 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 </tr>
 </tbody>
 </table></div>
+<h3>Step 4: Combine planning with bounded exploration</h3>
 <p>Many production researchers combine them: plan first, then let each step react. M25 treats the pipeline side as workflow patterns.</p>
 <h2 id="the-same-loop-in-other-environments">The same loop in other environments</h2>
-<p>The optional notebooks keep the <code>agent ⇄ tools</code> graph and change only the tools and the environment.</p>
+<h3>Step 1: Inspect actions and success signals</h3>
+<p>The applied examples keep the <code>agent ⇄ tools</code> graph and change only the tools and the environment.</p>
 <ul>
-<li><strong>SWE agent.</strong> The actions are file edits and the observation is a test run. Every file sits in a <code>tempfile.mkdtemp()</code> sandbox, paths are reduced to a filename inside it, and <code>run_tests()</code> runs one fixed <code>pytest</code> command, so the model cannot touch anything else whatever it writes. Tests are the reward signal; diff the changes and re-run the tests yourself instead of trusting the final message.</li>
+<li><strong>SWE agent.</strong> The actions are file edits and the observation is a test run. Every file sits in a <code>tempfile.mkdtemp()</code> sandbox, paths are reduced to a filename inside it, and <code>run_tests()</code> runs one fixed <code>pytest</code> command, which constrains those tool interfaces. This is a teaching sandbox, not a security boundary against arbitrary adversarial code. Production execution needs isolation and resource limits. Tests are the reward signal. Diff the changes and re-run the tests yourself instead of trusting the final message.</li>
 <li><strong>Browser agent.</strong> <code>screenshot_text</code>, <code>click</code>, <code>type_text</code> and <code>navigate</code> are ordinary tools over a deterministic mock browser. Actions now change state, so the turn cap becomes a safety bound, and success is graded on the environment (the cart&rsquo;s contents), not the agent&rsquo;s words.</li>
-<li><strong>Vision-driven computer use.</strong> When the observation is pixels, locating a control is the hard part. In the notebook&rsquo;s runs <code>gpt-4o-mini</code> missed 53 of 53 clicks, even with every miss fed back; <code>gpt-4o</code> missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.</li>
+<li><strong>Vision-driven computer use.</strong> When the observation is pixels, locating a control is the hard part. In the example&rsquo;s runs <code>gpt-4o-mini</code> missed 53 of 53 clicks, even with every miss fed back; <code>gpt-4o</code> missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.</li>
+</ul>
+<h3>Try it yourself</h3>
+<p>For a weekly report with fixed sections, write the planned searches before execution. Now make the first search return nothing. Check the graph for a return edge that could change the plan: the fixed pipeline has none. For the adaptive alternative, specify a search cap and an observable goal, such as evidence for each report section, rather than trusting the final claim that research is complete.</p>
+<h3>Practice notebook</h3>
+<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<ul>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/notebooks/05a_web_research_agent.ipynb" target="_blank" rel="noopener">Research agents</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/05b_swe_agent_applied.ipynb" target="_blank" rel="noopener">A coding agent</a> (optional).</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/05c_browser_agent_computer_use.ipynb" target="_blank" rel="noopener">A mock browser agent</a> (optional).</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p08_agent_foundations/m24_react_agents/optional/05d_vision_driven_computer_use.ipynb" target="_blank" rel="noopener">Vision-driven actions</a> (optional).</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -819,7 +906,7 @@ PIIMiddleware(&quot;email&quot;) + call limit  model, tools, PIIMiddleware[email
 </details>
 <details>
 <summary>3. A vision-driven computer-use agent keeps clicking, never reaches its goal and raises no error. What is going on, and what stops it?</summary>
-<p>It cannot locate the controls from pixels: in the notebook <code>gpt-4o-mini</code> missed 53 of 53 clicks even with every miss fed back. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.</p>
+<p>It cannot locate the controls from pixels: in the reported experiment <code>gpt-4o-mini</code> missed 53 of 53 clicks even with every miss fed back. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html"><strong>The ReAct loop and its call cap</strong></a>: open the file in a browser. Pick <em>What happens if my server goes down?</em> and switch between single shot and ReAct: one search returns <code>reboot</code> and <code>sizing</code>, the loop rewords twice and finds <code>incidents</code> and <code>sla</code>. Then drag the call cap down to 3 and watch the run stop with both evidence chunks already in the message list, one call short of the answer.</p>

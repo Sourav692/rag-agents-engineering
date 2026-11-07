@@ -2,7 +2,7 @@
 
 *Part VIII · Agent Foundations for RAG · [Module README](../../../course/p08_agent_foundations/m27_human_approval_applied_agents/README.md) · [All theory pages](../../README.md)*
 
-An agent that only reads can give a wrong answer. An agent that acts can publish, delete or charge something, and that cannot be taken back. M27 puts a gate in front of those actions, then builds complete single-agent applications, including one that retrieves from a SQL database instead of a vector index. The M27 notebooks build on four ideas: the dry run, the approval gate, text-to-SQL, and workflow apps that check every model output in code. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+Larkspur's agent has drafted an eu-west status update. A reviewer must see the text before publication, and an edit after approval must not slip through. You will build the preview-and-approval boundary, then apply explicit checks to SQL answers and fixed workflow applications. The tutorials cover dry runs, approval gates, text-to-SQL and workflow apps. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the Larkspur Cloud handbook from M11 to M13, seen from the operations side. An agent drafts posts for the Larkspur status feed after the eu-west outage, and a person approves each one before it goes out. The text-to-SQL lesson keeps the notebooks' comic-store database, because its numbers come from that data; the interview questions move the same ideas to Larkspur's billing data.
 

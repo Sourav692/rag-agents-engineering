@@ -4,6 +4,10 @@
 
 ## Store namespaces
 
+Dana opens a new Larkspur chat tomorrow and expects the assistant to remember her plan. You will separate checkpoint state from cross-thread storage, choose a namespace and test that another customer cannot read it.
+
+### Step 1: Separate a conversation from a user memory
+
 LangGraph has two persistence primitives, and they answer different questions:
 
 | | Checkpointer | Store |
@@ -14,6 +18,29 @@ LangGraph has two persistence primitives, and they answer different questions:
 | Attached with | `compile(checkpointer=...)` | `compile(store=...)` |
 
 A new thread starts with an empty checkpoint. If Dana tells the Larkspur assistant her plan in one chat and opens another chat tomorrow, only the store can bring that fact back.
+
+Inspect namespaces and the default result limit with synthetic facts. This uses an in-memory store, so it needs neither a model nor a database service.
+
+```python
+from langgraph.store.memory import InMemoryStore
+
+store = InMemoryStore()
+for index in range(11):
+    store.put(("semantic", "dana"), str(index), {"text": f"Synthetic fact {index}"})
+print(len(store.search(("semantic", "dana"))))
+print(len(store.search(("semantic", "dana"), limit=100)))
+print(store.get(("semantic", "omar"), "0"))
+```
+
+**Expected output**
+
+```text
+10
+11
+None
+```
+
+### Step 2: Read and write a namespaced item
 
 A store item has three parts. The **namespace** is a tuple such as `("memories", "dana")`. The **key** names the item inside it. The **value** is a JSON-serialisable dict. The API is small:
 
@@ -37,9 +64,9 @@ flowchart LR
     T3 -- read --> NO
 ```
 
-The notebook runs exactly this: thread 1 stores "my name is Alice", thread 2 (same user, new thread) answers from the store, and thread 3 (another user) finds an empty namespace.
+The example runs exactly this: thread 1 stores "my name is Alice", thread 2 (same user, new thread) answers from the store, and thread 3 (another user) finds an empty namespace.
 
-### The namespace is the access boundary
+### Step 3: Bind memory scope to trusted identity
 
 Nothing else in the store separates customers. Who may read what is decided by how you build the tuple, so the parts of it must come from trusted input:
 
@@ -54,11 +81,21 @@ Nothing else in the store separates customers. Who may read what is decided by h
 | `("session", session_id)` | One visit, any number of threads | Reply in French for this visit | Keyed by `user_id`, it never ends |
 | `("procedures", agent_id)` | One agent or tenant | The approved refund procedure | Keyed by `user_id`, a customer could own a rule |
 
-The notebook's first graph uses a deliberately naive write rule (save whatever follows the word "remember") to keep the focus on the store. Lesson 34.2 replaces it with tools and write rules per layer.
+The example's first graph uses a deliberately naive write rule (save whatever follows the word "remember") to keep the focus on the store. Lesson 34.2 replaces it with tools and write rules per layer.
 
-### Swapping the backend
+### Step 4: Swap persistence without changing the node contract
 
-`InMemoryStore` disappears with the process. `PostgresStore` implements the same interface, so the graph is recompiled with a different `store=` and no node changes. `PostgresStore.from_conn_string(...)` is a context manager that closes its connection when the `with` block ends, and `setup()` creates the tables on first use. The notebook probes for a local Postgres first and skips that part when none is running.
+`InMemoryStore` disappears with the process. `PostgresStore` implements the same interface, so the graph is recompiled with a different `store=` and no node changes. `PostgresStore.from_conn_string(...)` is a context manager that closes its connection when the `with` block ends, and `setup()` creates the tables on first use. The example probes for a local Postgres first and skips that part when none is running.
+
+### Try it yourself
+
+Store a plan under Dana's user namespace and read it from a new thread. Check that a different user namespace returns no item. Keep thread_id for the checkpointer and user_id in trusted runtime context. Letting the model choose a namespace would defeat the intended customer boundary.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Cross thread memory store](../../../../course/p10_memory_and_multi_agent/m34_long_term_agentic_memory/notebooks/01a_cross_thread_memory_store.ipynb).
 
 ## Key Takeaways
 

@@ -2,15 +2,23 @@
 
 *[M30 theory](../README.md) · Lesson 30.3 · Notebooks: [`03a_adaptive_rag_langgraph.ipynb`](../../../../course/p09_agentic_rag/m30_adaptive_rag_routing/notebooks/03a_adaptive_rag_langgraph.ipynb) · [All theory pages](../../../README.md)*
 
-## Routing between the vector store and the web
+## Vector store or web
 
-Adaptive-RAG (Jeong et al., NAACL 2024, [arXiv:2403.14403](https://arxiv.org/abs/2403.14403)) starts from the observation that a fixed pipeline does the same work for an easy question and a hard one. The paper routes by question complexity: no retrieval, one retrieval step or several, chosen by a small classifier trained for the job. The 03a notebook keeps the idea of deciding up front and routes by source instead: the vector store or the web.
+<a id="routing-between-the-vector-store-and-the-web"></a>
+
+A Larkspur policy question should reach the handbook, while a public question may need web search. You will trace both routes, apply the relevant-fraction rule, and inspect how a rejected answer returns to generation with feedback.
+
+### Step 1: Choose a source before retrieving
+
+Adaptive-RAG (Jeong et al., NAACL 2024, [arXiv:2403.14403](https://arxiv.org/abs/2403.14403)) starts from the observation that a fixed pipeline does the same work for an easy question and a hard one. The paper routes by question complexity: no retrieval, one retrieval step or several, chosen by a small classifier trained for the job. The source-routing example keeps the idea of deciding up front and routes by source instead: the vector store or the web.
 
 The source classifier is one LLM call with a closed schema, `datasource: Literal["vectordb", "web_search"]`. Its system prompt lists what the vector store holds (chain-of-thought prompting, transformers and attention, DINO, diffusion models, parameter-efficient fine-tuning) and asks the model to choose `vectordb` when the question relates to any of them. That list is the router's only knowledge of the index. Add documents on a new topic and the router keeps sending those questions to the web until someone edits the prompt. For Larkspur, the list would be the handbook's sections: pricing, refunds, exports, outages and server sizing.
 
-Each route rewrites the question for its own engine before searching. The vector-store rewriter makes it concise for semantic search; the web rewriter makes it a search-engine query.
+### Step 2: Match the query to the search engine
 
-| Path | Settings in 03a |
+Each route rewrites the question for its own engine before searching. The vector-store rewriter makes it concise for semantic search. The web rewriter makes it a search-engine query.
+
+| Path | Settings in Source router |
 |---|---|
 | Vector store | Research-paper PDFs split at 4,000 characters with 300 overlap; Chroma with cosine distance; up to 5 chunks scoring 0.35 or more |
 | Web | Tavily with `max_results=6`, `search_depth='advanced'` and `include_raw_content=True`; pages with no content are dropped |
@@ -36,9 +44,13 @@ flowchart TD
 
 ## Grading documents and answers
 
-The graph checks its work twice, once on the evidence and once on the answer. M28 and M29 teach each check on its own; here they sit behind a router.
+### Step 1: Inspect evidence before grading the answer
 
-**The document grader** asks the LLM, once per retrieved chunk, whether the chunk is relevant (`binary_score`, yes or no). `grade_documents` keeps the chunks graded yes and computes the relevant fraction. The rule is `relevance_frac <= 0.5`, with `RELEVANCE_THRESHOLD = 0.5`:
+The graph checks its work twice, once on the evidence and once on the answer. M28 and M29 teach each check on its own. Here they sit behind a router.
+
+### Step 2: Test the evidence threshold
+
+asks the LLM, once per retrieved chunk, whether the chunk is relevant (`binary_score`, yes or no). `grade_documents` keeps the chunks graded yes and computes the relevant fraction. The rule is `relevance_frac <= 0.5`, with `RELEVANCE_THRESHOLD = 0.5`:
 
 | Chunks retrieved | Graded relevant | Fraction | Next step |
 |---|---|---|---|
@@ -49,11 +61,17 @@ The graph checks its work twice, once on the evidence and once on the answer. M2
 
 Exactly half counts as failure. On the web route, `web_search` appends the pages to the chunks that passed, so the answer can draw on both sources.
 
-**The hallucination grader** reads the answer and the documents and returns `binary_score` and `feedback`. The score is inverted from what the name suggests: `yes` means the answer may contain unsupported or contradicting content. On `yes`, the graph returns to `generate_answer`, which adds the feedback to the RAG prompt and tries again. On `no`, the graph ends.
+### Step 3: Read the meaning of the yes label
+
+reads the answer and the documents and returns `binary_score` and `feedback`. The score is inverted from what the name suggests: `yes` means the answer may contain unsupported or contradicting content. On `yes`, the graph returns to `generate_answer`, which adds the feedback to the RAG prompt and tries again. On `no`, the graph ends.
+
+### Step 4: Find the unbounded regeneration path
 
 Nothing counts the retries. The regeneration edge has no limit, so a grader that keeps saying `yes` loops until LangGraph's recursion limit stops the graph, and in the version this repo locks (langgraph 1.2.18) that limit is 10,007 steps by default. Each round costs two LLM calls. Add a counter to `GraphState`, stop after one or two retries, and return the best answer with a warning or escalate it (lesson 30.2).
 
-The notebook tests the loop by uncommenting a hard-coded wrong answer in `generate_answer`. That line sits in the first-attempt branch only, so the retry, which takes the feedback branch, runs the real chain. The test exercises one rejection and one retry with feedback.
+The example tests the loop by uncommenting a hard-coded wrong answer in `generate_answer`. That line sits in the first-attempt branch only, so the retry, which takes the feedback branch, runs the real chain. The test exercises one rejection and one retry with feedback.
+
+### Step 5: Budget the selected path
 
 Counting the LLM calls per path from the graph, before any retry:
 
@@ -64,6 +82,16 @@ Counting the LLM calls per path from the graph, before any retry:
 | Web from the start | Route, rewrite, generate, check: 4 | 1 |
 
 A question the router sends to the vector store and the grader then rejects is the most expensive path. If many questions take it, the router's topic list is wrong or the index is missing content, and both are cheaper to fix than to grade around.
+
+### Try it yourself
+
+Use the four-chunk case with two relevant chunks. Check that exactly half triggers web fallback while retaining the two accepted chunks. Then force the hallucination grader to keep returning yes. Identify the missing retry counter and a terminal fallback. A source-routing decision does not bound answer regeneration.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Adaptive RAG langgraph](../../../../course/p09_agentic_rag/m30_adaptive_rag_routing/notebooks/03a_adaptive_rag_langgraph.ipynb).
 
 ## Key Takeaways
 

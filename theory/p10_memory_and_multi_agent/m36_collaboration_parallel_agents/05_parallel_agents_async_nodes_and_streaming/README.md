@@ -4,9 +4,13 @@
 
 ## Map-reduce / async
 
-An agent spends almost all of its time waiting: for a model, a search, a database. Three agents that each wait one second take 3 s one after another and about 1 s together, because the waits overlap; nothing runs faster. Notebook 05b measures exactly that with `asyncio.sleep(1)` standing in for a model call. The rest of this page is how LangGraph arranges the overlap and where it goes wrong.
+Larkspur needs four independent sub-answers, but one branch first rewrites its question. You will trace superstep barriers, select a join that waits for complete evidence and compare async execution with actual dependency changes.
 
-The running example is the compound Larkspur question from the [module page](../README.md), split into four sub-questions. Three are answered directly; the outage one first rewrites "outages" into the handbook's own words (availability, service credits), because TF-IDF missed that evidence in M11.
+### Step 1: Draw dependencies before making nodes async
+
+An agent spends almost all of its time waiting: for a model, a search, a database. Three agents that each wait one second take 3 s one after another and about 1 s together, because the waits overlap; nothing runs faster. The reference implementation measures exactly that with `asyncio.sleep(1)` standing in for a model call. The rest of this page is how LangGraph arranges the overlap and where it goes wrong.
+
+The running example is the compound Larkspur question from the module page, split into four sub-questions. Three are answered directly. The outage one first rewrites "outages" into the handbook's own words (availability, service credits), because TF-IDF missed that evidence in M11.
 
 ```mermaid
 flowchart TD
@@ -20,15 +24,15 @@ flowchart TD
 ```
 <!-- animated: diagrams/supersteps.anim.html -->
 
-### Supersteps
+### Step 2: Measure the barrier at each graph step
 
-LangGraph runs a graph in supersteps. In each superstep it runs every node that the previous superstep triggered, waits for all of them, applies their state updates together, and only then works out what runs next. Several edges out of one node (a fan-out) put all their targets in the same superstep, so they run in parallel: `async def` nodes on the event loop, plain `def` nodes in a thread pool. Notebook 05a proves the layout with stub nodes and `stream_mode="debug"`, which reports the superstep of every task: `plan` alone, then the three searchers together, then `report` once.
+LangGraph runs a graph in supersteps. In each superstep it runs every node that the previous superstep triggered, waits for all of them, applies their state updates together, and only then works out what runs next. Several edges out of one node (a fan-out) put all their targets in the same superstep, so they run in parallel: `async def` nodes on the event loop, plain `def` nodes in a thread pool. The reference implementation proves the layout with stub nodes and `stream_mode="debug"`, which reports the superstep of every task: `plan` alone, then the three searchers together, then `report` once.
 
 The barrier at the end of a superstep has a cost when branches have different lengths. In the graph above, `rewrite` finishes at 0.9 s, but `credits` cannot start until the whole superstep ends at 1.6 s, when `export` (the slowest, 1.2 s) finishes. The outage branch waits 0.7 s for work it does not depend on. Moving the rewrite inside the `credits` node keeps every branch one node long, and the answer lands at 2.7 s instead of 3.4 s.
 
-### The join
+### Step 3: Wait for the right predecessor set
 
-A join is a node with several incoming branches. With separate edges (`add_edge("a", "join")`, `add_edge("b2", "join")`) it runs once for every superstep in which one of its predecessors finished. Notebook 05a builds one unequal-branch graph three ways and counts the join's runs:
+A join is a node with several incoming branches. With separate edges (`add_edge("a", "join")`, `add_edge("b2", "join")`) it runs once for every superstep in which one of its predecessors finished. The reference implementation builds one unequal-branch graph three ways and counts the join's runs:
 
 | Join style | Join runs | What happens |
 |---|---|---|
@@ -38,7 +42,45 @@ A join is a node with several incoming branches. With separate edges (`add_edge(
 
 In the lab's graph the separate-edges synthesizer runs in superstep 3 with 3 of 4 sub-answers, writes a reply with nothing about outage credits, and runs again after `credits`. Use a list edge when you know the predecessors at build time. It waits for every node it names, so if a conditional edge skips one of them, the join never runs. `defer=True` waits for the run to go quiet instead, which also suits branches chosen at run time.
 
-### Reducers
+Test the join with model-free nodes. One branch is one step long, the other is two. The result counts how often the synthesizer runs.
+
+```python
+import operator
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    joins: Annotated[int, operator.add]
+
+def run(list_edge):
+    graph = StateGraph(State)
+    for node in ["a", "b", "b2"]:
+        graph.add_node(node, lambda state: {})
+    graph.add_node("join", lambda state: {"joins": 1})
+    graph.add_edge(START, "a")
+    graph.add_edge(START, "b")
+    graph.add_edge("b", "b2")
+    if list_edge:
+        graph.add_edge(["a", "b2"], "join")
+    else:
+        graph.add_edge("a", "join")
+        graph.add_edge("b2", "join")
+    graph.add_edge("join", END)
+    return graph.compile().invoke({"joins": 0})["joins"]
+
+print(run(False))
+print(run(True))
+```
+
+**Expected output**
+
+```text
+2
+1
+```
+
+### Step 4: Merge concurrent state updates explicitly
 
 Nodes of one superstep write their updates together when it ends. If two of them write the same key and the key has no reducer, LangGraph cannot choose a winner and raises `InvalidUpdateError`. A reducer in the state schema, `Annotated[type, reducer]`, says how to combine the writes:
 
@@ -46,13 +88,15 @@ Nodes of one superstep write their updates together when it ends. If two of them
 - `Annotated[int, operator.add]` adds counters.
 - A dict merge (`merge_dicts`, or `operator.or_`) combines one-entry dicts into one dict keyed by branch.
 
-The notebook runs the same two nodes against both schemas: the plain one raises, the reduced one keeps both writes. The combined list comes out in the same order on every run, whichever branch finished first, because LangGraph applies a superstep's writes in a fixed order. A key that only one node per superstep writes needs no reducer.
+The example runs the same two nodes against both schemas: the plain one raises, the reduced one keeps both writes. The combined list comes out in the same order on every run, whichever branch finished first, because LangGraph applies a superstep's writes in a fixed order. A key that only one node per superstep writes needs no reducer.
 
-### Map-reduce with `Send`
+### Step 5: Dispatch a runtime-sized set of tasks
 
 Fixed edges cannot express a fan-out whose size is known only at run time: one branch per document, or one per sub-question when the decomposer (M18) returns three for one question and five for the next. A routing function that returns a list of `Send` objects can:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 def fan_out(state):
     return [Send("answer_one", {"index": i, "question": q}) for i, q in enumerate(state["sub_questions"])]
 
@@ -60,9 +104,9 @@ graph.add_conditional_edges("plan", fan_out, ["answer_one"])
 graph.add_edge("answer_one", "synth")
 ```
 
-Each `Send` runs `answer_one` with its own private input, and all of them land in one superstep. An `operator.add` reducer collects the results; since branches can finish in any order, the reduce step sorts them by their tag before combining. Notebook 05a maps an LLM summary over three documents this way and counts one map branch per document.
+Each `Send` runs `answer_one` with its own private input, and all of them land in one superstep. An `operator.add` reducer collects the results; since branches can finish in any order, the reduce step sorts them by their tag before combining. The reference implementation maps an LLM summary over three documents this way and counts one map branch per document.
 
-### Async nodes and what `astream` shows
+### Step 6: Read progress events without confusing shared state
 
 Making nodes `async def` and calling `await graph.ainvoke(...)` changes nothing about which nodes are parallel: edges from one source do that. A chain of async nodes still runs in order. What `async` adds is overlap on one event loop, and `astream` lets you watch it:
 
@@ -72,7 +116,7 @@ Making nodes `async def` and calling `await graph.ainvoke(...)` changes nothing 
 | `"values"` | The full state: the input, then once per superstep | Debugging the shared state |
 | `"messages"` | Model output token by token, tagged with the node | Showing two agents writing at once |
 
-In 05b three agents wired to `START` and sleeping 1.0, 1.5 and 0.5 s report through `updates` at 0.5, 1.0 and 1.5 s, in finish order, and the whole team takes about 1.5 s against 3.0 s for the sum. `values` reports two snapshots, empty and full, because all three share one superstep.
+In this implementation three agents wired to `START` and sleeping 1.0, 1.5 and 0.5 s report through `updates` at 0.5, 1.0 and 1.5 s, in finish order, and the whole team takes about 1.5 s against 3.0 s for the sum. `values` reports two snapshots, empty and full, because all three share one superstep.
 
 In the lab, with the rewrite inside the agent node, the first sub-answer (`refund_timing`) streams through `updates` at 1.2 s, while `values` stays silent until the superstep ends at 1.9 s, when `credits` (1.5 s with its rewrite) finishes. The [interactive lab](interactive/parallel-subquestions-lab.html) runs this graph with stub latencies and draws every superstep. Its schedule matches LangGraph 1.2.18 running the same graph with `asyncio.sleep` at all 39 settings, to within 0.04 s:
 
@@ -90,13 +134,28 @@ In the lab, with the rewrite inside the agent node, the first sub-answer (`refun
 
 `max_concurrency` in the run config caps how many tasks run at once, which is how you stay under a provider's rate limit. LangGraph starts a superstep's tasks in node-name order, so under a cap the later names wait for a free slot. At a cap of 1 the parallel graph takes as long as the chain; with separate edges it takes longer, 6.5 s against 5.7 s, because the synthesizer still runs twice.
 
-### When parallelism buys nothing
+### Step 7: When parallelism buys nothing
 
-- **A chain.** If the writer needs the researcher's output, it cannot start early. 05b's three dependent one-second steps take about 3 s whether or not they are async.
+- **A chain.** If the writer needs the researcher's output, it cannot start early. the implementation's three dependent one-second steps take about 3 s whether or not they are async.
 - **A single agent.** One agent waiting is one wait. Streaming can still show progress, but there is no time to win.
-- **Fast local work.** Arithmetic and string handling are work, not waiting; async adds overhead to them.
+- **Fast local work.** Arithmetic and string handling are work, not waiting. Async adds overhead to them.
 
 Whole runs can overlap too. `asyncio.gather` over three `ainvoke` calls runs three complete team runs in about the time of one (1.5 s against about 4.5 s), with no change to the graph. In a notebook, `await` directly; `asyncio.run(...)` fails inside a running event loop.
+
+### Try it yourself
+
+In the lab compare separate join edges with a list edge, then place the rewrite inside its branch. Check that the first change removes a partial synthesis without changing 3.4 s wall time, while the second reduces wall time to 2.7 s. Then cap concurrency at two and explain the rise to 3.7 s.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Parallel agents](../../../../course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/notebooks/05a_parallel_agents.ipynb).
+- [Async multi agent streaming](../../../../course/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/notebooks/05b_async_multi_agent_streaming.ipynb).
+
+### Continue learning
+
+- [module page](../README.md).
 
 ## Key Takeaways
 

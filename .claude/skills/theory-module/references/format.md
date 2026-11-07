@@ -1,6 +1,6 @@
 # Page formats
 
-Everything here is how the M11 pages are written today (`theory/p04_rag_foundations/m11_rag_lifecycle/`). When in doubt, open the M11 file and copy its shape. `build_theory_html.py` parses some of these lines, so the marked ones are load-bearing.
+Everything here defines the build-sensitive page structure used by M11 (`theory/p04_rag_foundations/m11_rag_lifecycle/`). When in doubt, copy its structural contracts, not its prose density. Apply `tutorial.md` to the learner-facing body within those contracts. `build_theory_html.py` parses some of these lines, so the marked ones are load-bearing.
 
 ## Module page: `theory/<part>/<module>/README.md`
 

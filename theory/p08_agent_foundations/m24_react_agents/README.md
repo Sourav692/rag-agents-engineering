@@ -2,7 +2,7 @@
 
 *Part VIII · Agent Foundations for RAG · [Module README](../../../course/p08_agent_foundations/m24_react_agents/README.md) · [All theory pages](../../README.md)*
 
-A ReAct agent reasons about one step, acts with a tool, reads the result and decides again, until it can answer. LangChain 1.x packages that loop as `create_agent` and opens it to middleware, which is where call limits, redaction and human review go. The M24 notebooks build on four ideas: the reason, act and observe loop, the `create_agent` graph, structured output, and middleware. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+A Larkspur handbook search misses the refund-timing passage. The agent needs to read the result, rephrase the search and leave enough call budget to answer. You will trace that feedback loop, inspect the graph built by `create_agent`, return validated fields and add middleware for limits and approval. The tutorials cover reason, act and observe, the agent factory, structured output and middleware. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is a support agent for the Larkspur Cloud handbook from M11 to M13. Its one tool, `search_handbook`, is the M11 lab's TF-IDF retriever over twelve chunks, and its questions are the M11 golden set: *Can I export my data after I cancel my plan?*, *How long does a refund take?* and *What happens if my server goes down?* The interview questions add the tools a real support agent would have, such as an account lookup and a refund action.
 
@@ -11,7 +11,7 @@ The running example is a support agent for the Larkspur Cloud handbook from M11 
 - ReAct interleaves reasoning and tool calls, and reads every observation before choosing the next step. The difference from a single-shot tool call is one edge, `tools → model`.
 - In the lab, the loop lifts mean evidence recall on the M11 golden set from 0.50 (one search, the M11 baseline) to 1.00 by rewording failed searches, for 9 model calls instead of 3. Every call rereads the whole message list, so cost grows each round.
 - `create_agent(model, tools, system_prompt=...)` returns that loop as a compiled LangGraph graph (`model ⇄ tools`) on native tool calls, so there is no text to parse.
-- `response_format=Schema` on an agent, or `with_structured_output(Schema)` on a model, returns typed data the next system can trust; Pydantic is the style that validates it.
+- `response_format=Schema` on an agent, or `with_structured_output(Schema)` on a model, returns structured data for the next system to validate; Pydantic is the style that validates it.
 - Middleware hooks run before and after each model call: `ModelCallLimitMiddleware` bounds the loop, `HumanInTheLoopMiddleware` pauses irreversible tool calls for approve, edit or reject, `PIIMiddleware` redacts, `SummarizationMiddleware` compresses history.
 
 ## Mental model

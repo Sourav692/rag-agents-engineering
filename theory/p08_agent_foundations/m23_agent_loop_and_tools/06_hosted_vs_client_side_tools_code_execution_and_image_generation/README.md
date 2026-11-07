@@ -4,9 +4,13 @@
 
 ## Hosted vs client-side tools
 
-Every tool so far ran on your machine: the model returned a call, your code ran it, you sent the result back. A hosted tool runs on the provider's infrastructure instead, and the reply arrives with the result already folded in. The API difference is a few lines; the difference in what you can see and control is large.
+Larkspur must enforce account access before a status lookup runs. A public web search may need different controls. You will follow the same question through client-side and hosted execution, then identify what your application can inspect or refuse at each boundary.
 
-`06a` answers *What is the current population of Lisbon?* both ways with `gpt-4o-mini`:
+### Step 1: Follow both execution paths
+
+Every tool so far ran on your machine: the model returned a call, your code ran it, you sent the result back. A hosted tool runs on the provider's infrastructure instead, and the reply arrives with the result already folded in. The API difference is a few lines. The difference in what you can see and control is large.
+
+The recorded comparison answers *What is the current population of Lisbon?* both ways with `gpt-4o-mini`:
 
 ```mermaid
 sequenceDiagram
@@ -24,7 +28,7 @@ sequenceDiagram
     P-->>Y: answer and a web_search_call item
 ```
 
-In the notebook's run the client-side path took two round trips and 1.86 s; the hosted path took one round trip and 3.16 s. One run proves little about latency, but it does show that one round trip is not automatically faster. The hosted reply carries a `web_search_call` output item with its status and the query the provider chose (`current population of Lisbon 2023`). That item is your only window into the execution: you did not choose the query, you cannot see the raw results, and nothing of yours ran between retrieval and generation.
+In the recorded run the client-side path took two round trips and 1.86 s. The hosted path took one round trip and 3.16 s. One run proves little about latency, but it does show that one round trip is not automatically faster. The hosted reply carries a `web_search_call` output item with its status and the query the provider chose (`current population of Lisbon 2023`). That item is your only window into the execution: you did not choose the query, you cannot see the raw results, and nothing of yours ran between retrieval and generation.
 
 | | Client-side | Hosted |
 |---|---|---|
@@ -35,25 +39,43 @@ In the notebook's run the client-side path took two round trips and 1.86 s; the 
 | Failure | Your exception, your retry | A status across an API boundary; you can only re-run the whole request |
 | Cost | Tokens and your infrastructure | Tokens and a fee per tool call (code interpreter: per container session) |
 
-**The seam.** The gap between "the model asked" and "the model sees the result" is where policy lives. `06a`'s `guarded_lookup` is four lines that refuse any city outside an allow-list; asked about Pyongyang, it returns an error and the model says it cannot retrieve that population. Allow-lists, tenant scoping, PII redaction and spend caps all sit in that seam, and choosing a hosted tool means choosing not to have it.
+### Step 2: Place the policy check before execution
 
-**Visibility varies by tool.** The optional notebooks refine the rule that a hosted tool shows you nothing:
+The gap between "the model asked" and "the model sees the result" is where policy lives. The client-side `guarded_lookup` is four lines that refuse any city outside an allow-list. Asked about Pyongyang, it returns an error and the model says it cannot retrieve that population. Allow-lists, tenant scoping, PII redaction and spend caps all sit in that seam, and choosing a hosted tool means choosing not to have it.
+
+### Step 3: Compare the evidence returned by each tool
+
+Hosted tools expose different amounts of execution detail in these examples:
 
 | Hosted tool | What comes back besides the answer |
 |---|---|
 | `web_search` | The query, roughly; no raw results |
-| `code_interpreter` (`06b`) | The source it ran, its output and any files, so you can audit the method |
-| `image_generation` (`06c`) | The `revised_prompt` the model wrote for itself and the image as base64 |
+| `code_interpreter`  | The source it ran, its output and any files, so you can audit the method |
+| `image_generation`  | The `revised_prompt` the model wrote for itself and the image as base64 |
 
-Code interpreter is also configurable: `06b` sets a memory ceiling and a network policy (`{"type": "disabled"}` for a sandbox that works only on data you supplied). What you still cannot do is approve the code before it runs, veto one call, or stub it in a test. `06c` adds a different caution: the agent narrates what it *meant* to draw, and only feeding the image back to a vision model shows what it actually drew. The model also has to leave the tool alone when a turn asks for advice; `06c` checks that it does.
+Code interpreter is also configurable: The code-execution example sets a memory ceiling and a network policy (`{"type": "disabled"}` for a sandbox that works only on data you supplied). What you still cannot do is approve the code before it runs, veto one call, or stub it in a test. The image-generation example adds a different caution: the agent narrates what it *meant* to draw, and only feeding the image back to a vision model shows what it actually drew. The model also has to leave the tool alone when a turn asks for advice; The image example checks that it does.
+
+### Step 4: Choose an execution location for each task
 
 For Larkspur's support agent the split follows the data:
 
 - `search_handbook` and `get_server_status` stay client-side. They read the customer's account and Larkspur's own policy, need tenant scoping and logging, and must be stubbed in tests (the M23 lab runs them deterministically for this reason).
 - A hosted `web_search` fits questions the handbook cannot answer, about public software or third-party services, where there is nothing to enforce between the call and the result.
-- Hosted code execution fits arithmetic on numbers the customer pasted into the chat. `06b`'s point holds: a model that runs three lines of Python computes, while one that answers directly samples plausible digits.
+- Hosted code execution fits arithmetic on numbers the customer pasted into the chat. The arithmetic example shows why execution matters: a model that runs three lines of Python computes, while one that answers directly samples plausible digits.
 
-Hosted tools exist only on OpenAI's Responses API; Chat Completions offers function tools only. `06a` calls `client.responses.create` on the raw OpenAI client, because LangChain does not surface hosted-tool configuration. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.
+In these OpenAI examples, hosted tools use the Responses API, while Chat Completions carries the client-side function calls. The reference example uses `client.responses.create` on the raw OpenAI client to make hosted-tool configuration explicit. Check the integration and provider version before choosing a wrapper. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.
+
+### Try it yourself
+
+Apply the Lisbon comparison to a lookup for a city outside the allow-list. Identify the exact place where `guarded_lookup` can refuse the call and explain why the hosted search has no equivalent client-side interception point. Then choose a path for a tenant-scoped server lookup. Check that your design enforces account scope before execution and can stub the lookup in a test.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [Tool execution placement](../../../../course/p08_agent_foundations/m23_agent_loop_and_tools/notebooks/06a_hosted_vs_client_side_tools.ipynb).
+- [Hosted code execution](../../../../course/p08_agent_foundations/m23_agent_loop_and_tools/optional/06b_hosted_code_execution.ipynb) (optional).
+- [Agent image generation](../../../../course/p08_agent_foundations/m23_agent_loop_and_tools/optional/06c_agentic_image_generation.ipynb) (optional).
 
 ## Key Takeaways
 

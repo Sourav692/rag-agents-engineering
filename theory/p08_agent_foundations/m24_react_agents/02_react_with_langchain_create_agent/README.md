@@ -4,7 +4,11 @@
 
 ## create_agent
 
-`create_agent(model, tools, system_prompt=...)` from `langchain.agents` builds the loop of lesson 24.1 for you and returns a compiled LangGraph graph (`CompiledStateGraph`). The notebook prints its structure:
+You need a Larkspur agent that can inspect a tool result and decide whether another lookup is necessary. You will read the graph built by `create_agent`, distinguish dependent from independent calls, and diagnose a loop that repeatedly retrieves documents without the answer.
+
+### Step 1: Inspect the compiled loop
+
+`create_agent(model, tools, system_prompt=...)` from `langchain.agents` builds the loop of lesson 24.1 for you and returns a compiled LangGraph graph (`CompiledStateGraph`). Its compiled structure exposes the loop:
 
 ```
 nodes: __start__, model, tools, __end__
@@ -24,12 +28,16 @@ flowchart LR
 
 Because it is a graph, everything from M09 and M10 applies: `.stream(..., stream_mode="values")` replaces 0.x's `verbose=True`, and a checkpointer plus a `thread_id` gives memory. Input and output are message lists: `invoke({"messages": [...]})` returns the whole trail, and `result["messages"][-1]` is the answer.
 
+### Step 2: Separate dependent and independent calls
+
 The model decides how much to do per turn:
 
 - **Dependent calls take one turn each.** *Get Google's price, then email it to an analyst* needs `get_stock_price`, an observation, then `send_email`, because the email body needs the price.
-- **Independent calls share a turn.** *Weather in Bangalore and Mumbai, and 25 * 4* came back as three tool calls in one `AIMessage`; the `tools` node ran all three before the model's second and last call.
+- **Independent calls share a turn.** *Weather in Bangalore and Mumbai, and 25 * 4* came back as three tool calls in one `AIMessage`. The `tools` node ran all three before the model's second and last call.
 
-What changed from LangChain 0.x, from the notebook's migration table:
+### Step 3: Migrate the input and control settings
+
+What changed from LangChain 0.x, in the migration comparison:
 
 | LangChain 0.x | LangChain 1.x |
 |---|---|
@@ -41,13 +49,17 @@ What changed from LangChain 0.x, from the notebook's migration table:
 
 Renaming only the function is not enough: the old `prompt=` argument raises `TypeError` on `create_agent`, which takes `system_prompt=`. `create_react_agent` in `langgraph.prebuilt` is deprecated since LangGraph v1.0.
 
-Tools come in three weights. `load_tools` (now in `langchain_community`) gives ready-made ones such as `llm-math`; `@tool` turns a function into a tool; a `BaseTool` subclass carries configuration, such as which vector store to search. In every case the model chooses tools by their name and description, so the description is prompt text.
+Tools come in three weights. `load_tools` (now in `langchain_community`) gives ready-made ones such as `llm-math`; `@tool` turns a function into a tool. A `BaseTool` subclass carries configuration, such as which vector store to search. In every case the model chooses tools by their name and description, so the description is prompt text.
 
 ## Call limits and runaway loops
 
-A loop that decides its own length can run long. The notebook builds the failure on purpose: a restaurant FAQ indexed badly, with only the questions stored and the answers lost. Asked *When does the restaurant open?*, a plain agent searched once, saw four questions and no hours, and said it could not answer. An agent told to keep searching until it found the answer reworded its query again and again, getting the same answerless questions back each time, until `ModelCallLimitMiddleware(run_limit=3, exit_behavior="end")` ended the run and appended its notice. The cap bounded the bill; the user still had no opening hours.
+### Step 1: Reproduce an answerless retrieval
 
-The notebook ranks the fixes by how much they change what the model sees:
+A loop that decides its own length can run long. The controlled failure uses a restaurant FAQ indexed badly, with only the questions stored and the answers lost. Asked *When does the restaurant open?*, the recorded plain-agent run searched once, saw four questions and no hours, and said it could not answer. An agent told to keep searching until it found the answer reworded its query again and again, getting the same answerless questions back each time, until `ModelCallLimitMiddleware(run_limit=3, exit_behavior="end")` ended the run and appended its notice. The cap bounded the bill. The user still had no opening hours.
+
+### Step 2: Fix the evidence before increasing the cap
+
+Rank the fixes by how much they change what the model sees:
 
 | Fix | Where |
 |---|---|
@@ -59,11 +71,23 @@ The notebook ranks the fixes by how much they change what the model sees:
 
 Fix 5 is the least effective: it buys more attempts at a retrieval problem. With fixes 1 to 4 the same question took one search and one answer, under the same cap.
 
-`ModelCallLimitMiddleware` counts model calls per run (`run_limit`) and per thread across runs (`thread_limit`). It checks before each model call; at the limit, `exit_behavior="end"` jumps to the end with an `AIMessage` such as `Model call limits exceeded: run limit (3/3)`, and `"error"` raises `ModelCallLimitExceededError`. In the [M24.1 lab](../01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) the golden questions need 2, 3 and 4 calls; at `run_limit=2` only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.
+### Step 3: Budget the final answering call
+
+`ModelCallLimitMiddleware` counts model calls per run (`run_limit`) and per thread across runs (`thread_limit`). It checks before each model call. At the limit, `exit_behavior="end"` jumps to the end with an `AIMessage` such as `Model call limits exceeded: run limit (3/3)`, and `"error"` raises `ModelCallLimitExceededError`. In the [M24.1 lab](../01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) the golden questions need 2, 3 and 4 calls. At `run_limit=2` only the export question is answered, even though the refund run already holds both evidence chunks. Set the cap from the call counts your golden set needs, with headroom, and alert when runs hit it.
+
+### Try it yourself
+
+Use the restaurant failure to debug a Larkspur tool that returns only handbook titles. Raising `run_limit` gives more titles, not policy evidence. Write the corrected tool contract: return the relevant passage with its title. Check a trace for one successful search followed by an answer, and leave enough call budget for that final model turn.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [The agent factory](../../../../course/p08_agent_foundations/m24_react_agents/notebooks/02a_react_with_create_agent.ipynb).
 
 ## Key Takeaways
 
-- `create_agent` builds the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and `thread_id` memory work as usual. Pass `system_prompt=`; the old `prompt=` argument raises `TypeError`.
+- `create_agent` builds the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and `thread_id` memory work as usual. Pass `system_prompt=`. The old `prompt=` argument raises `TypeError`.
 - `ModelCallLimitMiddleware` replaces `max_iterations` and checks before every model call. A cap set below what real questions need stops runs that already hold the evidence.
 - When an agent loops without an answer, fix what it retrieves first: the data, `k`, the result format and the tool description. Raising the call cap only buys more attempts at the same problem.
 

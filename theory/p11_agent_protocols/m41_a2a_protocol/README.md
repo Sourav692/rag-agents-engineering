@@ -2,7 +2,7 @@
 
 *Part XI · Agent Protocols: MCP & A2A · [Module README](../../../course/p11_agent_protocols/m41_a2a_protocol/README.md) · [All theory pages](../../README.md)*
 
-MCP gives one agent a standard way to call tools. A2A gives agents a standard way to call each other over HTTP, whatever framework each one is built with. The M41 notebooks build on four ideas: the Agent Card a server publishes so callers can find it, the Task and Message objects that carry the work, agents from different frameworks talking only through that contract, and a system that uses MCP for tools and A2A between agents. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+Larkspur delegates a handbook question to another agent whose tools and framework are private to it. You will discover that agent through its card, read Message and Task replies and extract the answer before passing it to a second hop. The tutorials separate A2A delegation from MCP tool access. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is Larkspur Cloud, the fictional cloud host whose handbook runs through M11 to M13. Its handbook agent, the agentic RAG graph from M28 to M31, becomes a service: it publishes an Agent Card and answers over A2A, and the support desk agent, built in another framework, calls it. The lab asks every agent the M11 golden question *Can I export my data after I cancel my plan?* All protocol details on these pages come from the installed `a2a-sdk` 0.3.26 (the `protocols` uv group) or from the notebooks.
 

@@ -4,6 +4,10 @@
 
 ## Chain-of-verification
 
+A Larkspur cancellation draft promises a full refund and 90 days of retention. You must verify each promise against policy before sending it. You will write questions that stand alone, answer them without exposing the draft, and inspect both useful corrections and mistakes introduced during revision.
+
+### Step 1: Separate the draft from verification
+
 Reflection (lesson 26.3) asks the model to re-read its own answer. If the model did not know a fact was wrong the first time, re-reading rarely shows it: the draft sits in the prompt and the model agrees with itself. Chain-of-verification (CoVe; Dhuliawala et al., 2023) checks claims in calls that cannot see the draft.
 
 ```mermaid
@@ -14,22 +18,28 @@ flowchart LR
 ```
 <!-- animated: diagrams/cove.anim.html -->
 
-Notebook 04a runs the four steps with structured output at each one:
+### Step 2: Turn each claim into a checkable question
 
-1. **Draft.** Answer in one pass. The notebook asks for 8 U.S. presidents born in Ohio when only 7 exist, so the model has to pad the list.
+The verification implementation runs the four steps with structured output at each one:
+
+1. **Draft.** Answer in one pass. The recorded president example asks for 8 U.S. presidents born in Ohio when only 7 exist, so the model has to pad the list.
 2. **Plan.** `VerificationPlan.questions` holds one atomic, self-contained question per claim. Say what to verify: a prompt that only asked for "one question per factual claim" produced *"Who was the 18th President?"*, which checks a claim nobody doubted. Tying each question to the property the user asked about ("born in Ohio" becomes "Where was X born?") fixed it.
-3. **Verify.** Each question goes to its own call with no draft, no other questions and no earlier answers. The calls are independent, so the notebook runs them as one `batch`.
+3. **Verify.** Each question goes to its own call with no draft, no other questions and no earlier answers. The calls are independent, so the reference example runs them as one `batch`.
 4. **Revise.** Only now does the model see the draft next to every (question, independent answer) pair. It returns `final_items` and `corrections_made`, and code scores both lists against the ground truth.
 
-The notebook's findings set the limits:
+### Step 3: Track corrections and newly introduced errors
+
+The recorded findings set the limits:
 
 - **It raises precision, not recall.** CoVe checks the claims that were made. A president the draft left out is still missing after revision.
-- **The reviser can add errors.** In one run it removed Rutherford B. Hayes, whose verified birthplace is "Delaware, Ohio", apparently reading Delaware as the state. Its own `corrections_made` called that a fix; only the scoring in code exposed it.
+- **The reviser can add errors.** In one run it removed Rutherford B. Hayes, whose verified birthplace is "Delaware, Ohio", apparently reading Delaware as the state. Its own `corrections_made` called that a fix. Only the scoring in code exposed it.
 - **It is bounded by what the verifier knows.** If the model answers the narrow question wrongly too, CoVe agrees with the draft.
 - **It costs 1 + 1 + N + 1 calls** for N claims, against 1 for the draft alone.
-- **It must leave a correct answer alone.** The notebook's second run asks for 5 presidents born in Virginia, where 8 exist and the draft is usually right.
+- **It must leave a correct answer alone.** A second control run asks for 5 presidents born in Virginia, where 8 exist and the draft is usually right.
 
-In a RAG system the third limit is the one to remove: answer each verification question from retrieved chunks, not from the model's memory. That is the M26 lab brief, applied here to a hand-written Larkspur example. A customer cancels an annual plan 20 days after buying it, and the draft answer makes three claims:
+### Step 4: Verify the Larkspur cancellation draft
+
+In a RAG system the third limit is the one to remove: answer each verification question from retrieved chunks, not from the model's memory. The following Larkspur example is an illustrative application of that retrieval-backed check. A customer cancels an annual plan 20 days after buying it, and the draft answer makes three claims:
 
 | Draft claim | Verification question | What the retrieved chunk says | Verdict |
 |---|---|---|---|
@@ -39,7 +49,20 @@ In a RAG system the third limit is the one to remove: answer each verification q
 
 The revised answer adds the traffic condition to the first claim and changes 90 days to 30 in the third. Each verification question is self-contained ("a Larkspur annual plan", not "the plan"), so retrieval for it works without the draft, and each correction traces to one question and one chunk. To measure it on a golden set, count claims per answer that no retrieved chunk supports, before and after, and count the correct claims the reviser removed as a separate number. A drop in the first with a rise in the second is the Hayes failure at scale.
 
-The optional notebook 04b runs the same draft, critique and revise loop against a written constitution: each named rule gets its own structured verdict (`rule`, `passes`, `critique`), only the failing rules go back to the reviser, and `MAX_ITERATIONS` bounds the loop. The notebook labels it a teaching pattern, not a safety system.
+### Step 5: Compare factual checks with rule-based critique
+
+Constitutional critique runs the same draft, critique and revise loop against a written constitution: each named rule gets its own structured verdict (`rule`, `passes`, `critique`), only the failing rules go back to the reviser, and `MAX_ITERATIONS` bounds the loop. The implementation labels it a teaching pattern, not a safety system.
+
+### Try it yourself
+
+For the 20-day cancellation case, verify the refund claim without assuming traffic usage. Check that being within 30 days is insufficient: the policy also requires less than 100 GB outbound traffic. Keep the 5 to 10 business-day timing claim and replace 90-day retention with 30 days. Count the three independent verification questions and explain the six-call total from 1 + 1 + N + 1.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [Verifying draft claims](../../../../course/p08_agent_foundations/m26_planning_reflection_reasoning/notebooks/04a_chain_of_verification.ipynb).
+- [Constitutional critique](../../../../course/p08_agent_foundations/m26_planning_reflection_reasoning/optional/04b_constitutional_ai_critique_loop.ipynb) (optional).
 
 ## Key Takeaways
 

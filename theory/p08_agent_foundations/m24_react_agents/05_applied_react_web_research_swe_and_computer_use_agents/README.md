@@ -4,7 +4,11 @@
 
 ## Planned pipeline vs ReAct loop
 
-The most common "research agent" is not a loop. It plans every search up front and runs them in a straight line. The notebook builds both on the same topic, *Artificial Intelligence in Healthcare*:
+You need a research report, but must decide whether its searches can be planned before seeing any results. You will compare a fixed research pipeline with a ReAct researcher on the same topic, then transfer the distinction to file edits and browser actions.
+
+### Step 1: Draw the two research paths
+
+A planned researcher writes every search up front and runs them in a fixed sequence. A ReAct researcher chooses the next search after reading the results. The comparison builds both on the same topic, *Artificial Intelligence in Healthcare*:
 
 ```mermaid
 flowchart TB
@@ -21,13 +25,17 @@ flowchart TB
 
 The pipeline's state carries more than messages: the topic, the planned questions, a `{question: results}` dict merged by a custom reducer, the report, and a log appended with `operator.add`. Each node returns only the keys it changes. The plan is fixed before any result comes back, and no edge goes back, so the pipeline cannot notice an empty search or follow a lead. The ReAct researcher is `create_agent` with one `web_search` tool, a prompt asking for one search per turn and 3 to 5 in all, and `ModelCallLimitMiddleware` as the bound.
 
-One live run (search results change, so the counts vary between runs):
+### Step 2: Compare a recorded run without treating it as a benchmark
+
+One recorded live run has the following results. Search results and model choices change, so these counts and report lengths are observations rather than repeatable performance guarantees:
 
 | | Planned pipeline | ReAct agent |
 |---|---|---|
 | Web searches | 3 | 4 |
 | LLM calls | 2 | 5 |
 | Report characters | 7,229 | 4,298 |
+
+### Step 3: Choose predictability or adaptive search
 
 The pipeline's three questions were written together and are broad and parallel. The agent started broad, then searched for things its results had named (AI models in surgery at Duke University, physician adoption statistics). The trade-off:
 
@@ -39,15 +47,32 @@ The pipeline's three questions were written together and are broad and parallel.
 | Easy to test and debug | Yes, same steps every run | Harder, the path changes run to run |
 | Good for | Known-shape reports, batch jobs | Open questions, multi-hop facts |
 
+### Step 4: Combine planning with bounded exploration
+
 Many production researchers combine them: plan first, then let each step react. M25 treats the pipeline side as workflow patterns.
 
 ## The same loop in other environments
 
-The optional notebooks keep the `agent ⇄ tools` graph and change only the tools and the environment.
+### Step 1: Inspect actions and success signals
 
-- **SWE agent.** The actions are file edits and the observation is a test run. Every file sits in a `tempfile.mkdtemp()` sandbox, paths are reduced to a filename inside it, and `run_tests()` runs one fixed `pytest` command, so the model cannot touch anything else whatever it writes. Tests are the reward signal; diff the changes and re-run the tests yourself instead of trusting the final message.
+The applied examples keep the `agent ⇄ tools` graph and change only the tools and the environment.
+
+- **SWE agent.** The actions are file edits and the observation is a test run. Every file sits in a `tempfile.mkdtemp()` sandbox, paths are reduced to a filename inside it, and `run_tests()` runs one fixed `pytest` command, which constrains those tool interfaces. This is a teaching sandbox, not a security boundary against arbitrary adversarial code. Production execution needs isolation and resource limits. Tests are the reward signal. Diff the changes and re-run the tests yourself instead of trusting the final message.
 - **Browser agent.** `screenshot_text`, `click`, `type_text` and `navigate` are ordinary tools over a deterministic mock browser. Actions now change state, so the turn cap becomes a safety bound, and success is graded on the environment (the cart's contents), not the agent's words.
-- **Vision-driven computer use.** When the observation is pixels, locating a control is the hard part. In the notebook's runs `gpt-4o-mini` missed 53 of 53 clicks, even with every miss fed back; `gpt-4o` missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
+- **Vision-driven computer use.** When the observation is pixels, locating a control is the hard part. In the example's runs `gpt-4o-mini` missed 53 of 53 clicks, even with every miss fed back; `gpt-4o` missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
+
+### Try it yourself
+
+For a weekly report with fixed sections, write the planned searches before execution. Now make the first search return nothing. Check the graph for a return edge that could change the plan: the fixed pipeline has none. For the adaptive alternative, specify a search cap and an observable goal, such as evidence for each report section, rather than trusting the final claim that research is complete.
+
+### Practice notebook
+
+Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+
+- [Research agents](../../../../course/p08_agent_foundations/m24_react_agents/notebooks/05a_web_research_agent.ipynb).
+- [A coding agent](../../../../course/p08_agent_foundations/m24_react_agents/optional/05b_swe_agent_applied.ipynb) (optional).
+- [A mock browser agent](../../../../course/p08_agent_foundations/m24_react_agents/optional/05c_browser_agent_computer_use.ipynb) (optional).
+- [Vision-driven actions](../../../../course/p08_agent_foundations/m24_react_agents/optional/05d_vision_driven_computer_use.ipynb) (optional).
 
 ## Key Takeaways
 
@@ -74,7 +99,7 @@ The planned pipeline. It suits known-shape reports and batch jobs, its cost is f
 <details>
 <summary>3. A vision-driven computer-use agent keeps clicking, never reaches its goal and raises no error. What is going on, and what stops it?</summary>
 
-It cannot locate the controls from pixels: in the notebook `gpt-4o-mini` missed 53 of 53 clicks even with every miss fed back. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
+It cannot locate the controls from pixels: in the reported experiment `gpt-4o-mini` missed 53 of 53 clicks even with every miss fed back. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
 
 </details>
 

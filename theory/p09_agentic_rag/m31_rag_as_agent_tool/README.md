@@ -2,7 +2,7 @@
 
 *Part IX · Agentic & Self-Correcting RAG · [Module README](../../../course/p09_agentic_rag/m31_rag_as_agent_tool/README.md) · [All theory pages](../../README.md)*
 
-In M28 to M30 the graph decides when to retrieve: a grader, a router or a fixed edge sends every question down a path someone drew in advance. In M31 retrieval becomes one tool among several, and the model decides whether to call it and what query to send. The M31 notebooks build on four ideas: the agent deciding when to retrieve, the tool description as the only thing it knows about the retriever, managed platforms that run the whole RAG pipeline as a service, and the chat UI that puts an agent in front of users. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+Larkspur needs handbook evidence for a policy answer, but small talk should not trigger a search. You will let the agent choose a retriever tool, inspect the description that controls that choice and keep source information through a managed service or a chat interface. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the Larkspur Cloud support agent. It has two tools: `handbook_search`, a retriever over the handbook from M11 to M13, and `web_search` for everything outside Larkspur. The lab routes twenty mixed questions between them, ten about the handbook (*How long does a refund take?*, *Can I export my data after I cancel my plan?*), six for the web (*What does Hetzner charge for a 4 GB server?*) and four that need no tool at all (*What is 15% of 240?*).
 

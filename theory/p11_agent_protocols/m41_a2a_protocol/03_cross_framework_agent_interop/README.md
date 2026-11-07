@@ -4,7 +4,11 @@
 
 ## Cross-framework interop
 
-Notebook 41.3 serves two agents that share no code. The research agent is a LangGraph ReAct agent with one tool, `lookup_facts`, on port 10101. The writer agent is a single `get_llm(temperature=0.7).invoke(...)` call behind a copywriter prompt, with no graph and no tools, on port 10102. Each has its own `AgentExecutor` and its own Agent Card. An orchestrator reads a registry file listing the two base URLs, fetches both cards, sends a topic to the research agent (hop 1) and passes the research agent's output to the writer agent (hop 2).
+A Larkspur orchestrator asks a handbook agent for facts and a separate writer for a concise reply. You will discover each agent through its card and inspect the exact payload passed between hops, including Task replies and errors.
+
+### Step 1: Agree on the wire contract instead of a framework
+
+The two-hop example serves two agents that share no code. The research agent is a LangGraph ReAct agent with one tool, `lookup_facts`, on port 10101. The writer agent is a single `get_llm(temperature=0.7).invoke(...)` call behind a copywriter prompt, with no graph and no tools, on port 10102. Each has its own `AgentExecutor` and its own Agent Card. An orchestrator reads a registry file listing the two base URLs, fetches both cards, sends a topic to the research agent (hop 1) and passes the research agent's output to the writer agent (hop 2).
 
 ```mermaid
 flowchart LR
@@ -21,29 +25,43 @@ The two agents agree on four things: the card's shape, the `message/send` method
 
 On Larkspur Cloud the same layout is a support desk orchestrator, the handbook agent (the M28 to M31 agentic RAG graph, in LangGraph) as hop 1, and a reply drafter that turns the handbook answer into a customer email as hop 2. The drafter's team can pick any framework.
 
-**Discovery from a registry.** The registry holds URLs only. Capabilities come from each card at run time, so a new agent joins by adding one URL, and a changed skill shows up without an orchestrator release. The notebook picks cards by `card.name`. Picking by skill (`id` or `tags`) survives a rename and lets two agents offer the same skill. The registry itself is a trust list: only agents on it get your traffic.
+### Step 2: Load skills from cards at runtime
+
+The registry holds URLs only. Capabilities come from each card at run time, so a new agent joins by adding one URL, and a changed skill shows up without an orchestrator release. The example picks cards by `card.name`. Picking by skill (`id` or `tags`) survives a rename and lets two agents offer the same skill. The registry itself is a trust list: only agents on it get your traffic.
 
 ## Reading the reply
 
+### Step 1: Extract answer text from the correct reply shape
+
 The orchestrator talks to both agents through an `AgentConnector` with one method, `send_task(message, session_id)`. Its reading of the reply decides what hop 2 receives:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 result = response.root.result
 if hasattr(result, "parts"):          # a Message
     return "\n".join(part.root.text for part in result.parts if hasattr(part.root, "text"))
 return str(result)                    # a Task object; fall back to its string representation
 ```
 
-Both executors in the notebook enqueue a Task before their answer, so every reply is a Task, and a Task has no `parts`. The connector returns `str(result)`, the Python repr of the whole Task, and the orchestrator forwards that to the writer. The [interactive lab](../02_a_langgraph_agent_over_a2a/interactive/a2a-exchange-lab.html) shows it with the handbook agent: the repr is 1,492 characters of `context_id=…`, `history=[Message(…)]` and `TaskStatus(…)`, around a 185-character answer. Running the notebook's own `AgentConnector` cell against the same server returns the same 1,492 characters. The writer, told to synthesise research notes, receives Pydantic field names as its notes.
+### Step 2: Find the answer inside the returned Task
+
+Both executors in the example enqueue a Task before their answer, so every reply is a Task, and a Task has no `parts`. The connector returns `str(result)`, the Python repr of the whole Task, and the orchestrator forwards that to the writer. The [interactive lab](../02_a_langgraph_agent_over_a2a/interactive/a2a-exchange-lab.html) shows it with the handbook agent: the repr is 1,492 characters of `context_id=…`, `history=[Message(…)]` and `TaskStatus(…)`, around a 185-character answer. Running the example's own `AgentConnector` cell against the same server returns the same 1,492 characters. The writer, told to synthesise research notes, receives Pydantic field names as its notes.
+
+### Step 3: Handle error and input-required replies
 
 Two more paths in the same connector:
 
 - **An error reply.** When the agent fails, `response.root` is a `JSONRPCErrorResponse`, which has no `result`. The `AttributeError` lands in the connector's `except`, and `send_task` returns the string `Error communicating with agent: 'JSONRPCErrorResponse' object has no attribute 'result'`, which the orchestrator passes to the writer as research notes.
 - **The session.** `send_task` takes a `session_id` and never sends it, so each hop gets a fresh `contextId`. To keep the two hops in one conversation, set `context_id` on the outgoing `Message`; the server then files the new task under that context.
 
+### Step 4: Branch on reply kind before extracting text
+
 A reader that checks for an error first and then branches on the reply's kind fixes the first two:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 root = response.root
 if hasattr(root, "error"):
     raise RuntimeError(f"A2A error {root.error.code}: {root.error.message}")
@@ -55,6 +73,16 @@ return "\n".join(p.root.text for p in message.parts if p.root.kind == "text")
 ```
 
 An agent that publishes its output as artifacts (`TaskUpdater.add_artifact`) puts it in `result.artifacts` instead; read those the same way.
+
+### Try it yourself
+
+Give the connector a Task with text only in status.message. Check that it has no parts attribute and that stringifying the whole Task is not answer extraction. Compare a corrected reader that checks errors first, then Message parts, Task status and artifacts, before passing plain answer text to the writer.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Cross framework agent interop](../../../../course/p11_agent_protocols/m41_a2a_protocol/notebooks/03a_cross_framework_agent_interop.ipynb).
 
 ## Key Takeaways
 

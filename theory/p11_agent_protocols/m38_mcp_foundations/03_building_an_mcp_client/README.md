@@ -4,11 +4,17 @@
 
 ## MCP server / client
 
+A Larkspur client must discover the handbook tool before it can call it. You will separate host, session and transport responsibilities, read the initialise exchange and follow a tool definition into the model-facing schema.
+
+### Step 1: Open one client session to one server
+
 MCP names three roles. The **host** is the application the user talks to, here the chatbot with its LLM. The **client** is the piece inside the host that holds one connection to one server. The **server** offers tools, resources and prompts. A host that uses three servers holds three clients, and the model never talks to any server directly: it sees definitions and asks for calls, and the host decides which client sends them.
 
-Notebook 03a wraps the 38.1 loop in an `MCP_ChatBot` class and adds the client:
+The reference implementation wraps the 38.1 loop in an `MCP_ChatBot` class and adds the client:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 server_params = StdioServerParameters(command="uv", args=["run", "research_server.py"], env=None)
 
 async with stdio_client(server_params) as (read, write):      # starts the server as a subprocess
@@ -20,7 +26,11 @@ async with stdio_client(server_params) as (read, write):      # starts the serve
         await self.chat_loop()                                 # calls session.call_tool(...)
 ```
 
+### Step 2: Tie subprocess lifetime to the context manager
+
 With `stdio` the client owns the server's life: `stdio_client` starts the process, and leaving the `async with` block ends the session and stops it. Nothing has to be running beforehand.
+
+### Step 3: Read the recorded handshake and call
 
 Here is the session the client opens against the Larkspur handbook server, recorded over stdio with SDK 1.30.0. Sizes are the compact JSON of each message.
 
@@ -34,13 +44,27 @@ Here is the session the client opens against the Larkspur handbook server, recor
 | `tools/call` request | client to server | `{"name": "search_handbook", "arguments": {"query": "How long does a refund take?"}}` | 135 |
 | `tools/call` result | server to client | `refund-window` and `refund-timing` as text, the same text in `structuredContent`, `isError: false` | 835 |
 
+### Step 4: Diagnose version, capability and error fields
+
 Three details in that trace matter when you debug:
 
 - **The handshake fixes what the session can do.** The server declared `tools`, `resources` and `prompts`, each with `listChanged: false`, so this client will not be told if the tool list changes; it has to list again.
 - **Requests and replies pair by `id`.** The client numbers its requests 0, 1, 2 and the server echoes the id; the notification carries none because nothing answers it.
 - **`serverInfo.version` was `1.30.0`**, the SDK version, because the server did not set one. Pass a version of your own if clients should be able to tell your releases apart.
 
-The client also translates for the model. Notebook 03a's live code runs on OpenAI and wraps each MCP definition as `{"type": "function", "function": {"name": ..., "description": ..., "parameters": tool.inputSchema}}`; the Anthropic version kept in comments uses `input_schema: tool.inputSchema`. Both read the same `inputSchema`, so one server serves either model. On the way back the Anthropic version passes `result.content` as the `tool_result`, and the OpenAI version passes `result.content[0].text` as the `tool` message.
+### Step 5: Translate the discovered schema for the model
+
+The client also translates for the model. The reference implementation's live code runs on OpenAI and wraps each MCP definition as `{"type": "function", "function": {"name": ..., "description": ..., "parameters": tool.inputSchema}}`; the Anthropic version kept in comments uses `input_schema: tool.inputSchema`. Both read the same `inputSchema`, so one server serves either model. On the way back the Anthropic version passes `result.content` as the `tool_result`, and the OpenAI version passes `result.content[0].text` as the `tool` message.
+
+### Try it yourself
+
+Trace initialise, the initialised notification, tools/list and a handbook tool call. Check which direction each message travels and where the client learns the tool schema. Leave the stdio context and verify the child process ends. An MCP session is not an already-running remote service.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Creating an MCP client](../../../../course/p11_agent_protocols/m38_mcp_foundations/notebooks/03a_creating_an_mcp_client.ipynb).
 
 ## Key Takeaways
 

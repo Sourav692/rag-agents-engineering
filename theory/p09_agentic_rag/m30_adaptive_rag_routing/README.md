@@ -2,7 +2,7 @@
 
 *Part IX · Agentic & Self-Correcting RAG · [Module README](../../../course/p09_agentic_rag/m30_adaptive_rag_routing/README.md) · [All theory pages](../../README.md)*
 
-A plain RAG pipeline sends every question down the same path. An adaptive one decides first: which knowledge base to search, whether to search the web instead, whether a person should take over, and how much retrieval work the question deserves. The M30 notebooks build on four ideas: classifying the query into a closed set of labels, routing each label to its own knowledge base, escalating to a human, and choosing a retrieval strategy per query type. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+A Larkspur ticket may need billing policy, live incident data or a person. You will classify the request, inspect the selected filter and measure the cost of the wrong route. The tutorials cover query classification, multi-knowledge-base routing, escalation and retrieval strategy by question type. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the Larkspur Cloud support desk. The twelve handbook chunks from M11 are split into the three knowledge bases the 01a notebook routes between: billing (five chunks), technical (four) and general (three). The lab routes eighteen support tickets, each labelled with the knowledge base that holds its answer, such as *Why was I billed twice this month?* (billing) and *How long do you keep my data after I cancel?* (general).
 

@@ -4,7 +4,11 @@
 
 ## Message history
 
-A chat model call is a function of the messages sent in that call and nothing else. Tell the Larkspur assistant *I'm on the annual Team plan*, then ask *Which plan am I on?* in a second call, and the second call receives only the question. The notebook shows the same thing with a name: the stateless chain `prompt | llm | parser` cannot answer *What's my name?*.
+The customer tells Larkspur which plan they use, then asks the assistant to recall it. A new model call cannot see that fact unless the application resends it. You will build the message list and calculate how full-history replay grows.
+
+### Step 1: Resend the facts the next turn needs
+
+A chat model call is a function of the messages sent in that call and nothing else. Tell the Larkspur assistant *I'm on the annual Team plan*, then ask *Which plan am I on?* in a second call, and the second call receives only the question. The example shows the same thing with a name: the stateless chain `prompt | llm | parser` cannot answer *What's my name?*.
 
 The fix is to send the earlier turns back. A **message history** is the ordered list of typed messages that make up the conversation so far:
 
@@ -28,13 +32,21 @@ sequenceDiagram
     Model-->>App: AI 3
 ```
 
-The notebook's hand-rolled loop is the whole idea in four lines: append the `HumanMessage`, `llm.invoke(history)`, append the reply, return it. `InMemoryChatMessageHistory` gives the same list a standard interface (`add_user_message`, `add_ai_message`, `messages`, `clear`) that file, SQLite and Redis backends share, which is what lesson 33.2 relies on.
+### Step 2: Append both sides of the exchange
 
-The price is that a history which keeps everything resends everything. Turn N sends 2N − 1 messages: 1, 3, 5, 7, 9 and 11 over six turns, 36 messages in total, where six independent calls would send 6. Token cost and latency grow with the length of the conversation, and a long enough chat no longer fits the context window. Lessons 33.3 and 33.6 bound that growth.
+The example's hand-rolled loop is the whole idea in four lines: append the `HumanMessage`, `llm.invoke(history)`, append the reply, return it. `InMemoryChatMessageHistory` gives the same list a standard interface (`add_user_message`, `add_ai_message`, `messages`, `clear`) that file, SQLite and Redis backends share, which is what lesson 33.2 relies on.
+
+### Step 3: Count replayed messages
+
+The price is that a history which keeps everything resends everything. Turn N sends 2N - 1 messages: 1, 3, 5, 7, 9 and 11 over six turns, 36 messages in total, where six independent calls would send 6. Token cost and latency grow with the length of the conversation, and a long enough chat no longer fits the context window. Lessons 33.3 and 33.6 bound that growth.
 
 ## The classic memory classes
 
-Before `RunnableWithMessageHistory` and LangGraph checkpointers, LangChain packaged memory as classes that a chain loaded before each call and saved after it. The optional notebook runs them through the load, invoke and save loop. Forgetting the save step is the classic bug: the chain runs, and the next turn has no history.
+### Step 1: Inspect the load and save boundary
+
+### Step 2: Inspect the older load-and-save contract
+
+Before `RunnableWithMessageHistory` and LangGraph checkpointers, LangChain packaged memory as classes that a chain loaded before each call and saved after it. The optional implementation runs them through the load, invoke and save loop. Forgetting the save step is the classic bug: the chain runs, and the next turn has no history.
 
 | Class | What the prompt receives | Keeps early facts | Extra LLM calls | Where the idea lives now |
 |---|---|---|---|---|
@@ -45,6 +57,17 @@ Before `RunnableWithMessageHistory` and LangGraph checkpointers, LangChain packa
 | `VectorStoreRetrieverMemory` | The past exchanges most similar to the question | Only if retrieved | None | Long-term memory (M34) |
 
 These classes live in `langchain_classic` now. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.
+
+### Try it yourself
+
+Write the messages sent on the first three turns when each turn adds one user and one assistant message. Check input lengths of one, three and five. Then omit saving the assistant reply and describe the incomplete transcript the next call receives. Compare that bug with omitting all history.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Why llms forget](../../../../course/p10_memory_and_multi_agent/m33_conversational_memory_rag/notebooks/01a_why_llms_forget.ipynb).
+- [Classic memory classes and](../../../../course/p10_memory_and_multi_agent/m33_conversational_memory_rag/optional/01b_classic_memory_classes_and_chains.ipynb).
 
 ## Key Takeaways
 

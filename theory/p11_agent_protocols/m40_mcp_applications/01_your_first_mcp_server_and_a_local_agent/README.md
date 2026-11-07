@@ -4,11 +4,17 @@
 
 ## A local agent over MCP
 
-The first project serves two FastMCP servers over streamable HTTP: `demo-server` with one `add` tool, and `weather` with `get_weather` and `get_forecast`, which call the public wttr.in API. Each comes with a plain client that lists the tools and calls one. `client_fastmcp.py` uses FastMCP's `Client` on `http://127.0.0.1:8000/mcp`; `client_mcp.py` uses the SDK's `streamablehttp_client` and `ClientSession`, and prints the session id before and after `initialize`: `None`, then a 32-character hex id the server assigned during the handshake ([M39](../../m39_building_mcp_servers_and_clients/README.md) covers that header).
+Larkspur exposes a numeric tool through MCP and expects the client to validate its output. You will connect a local agent to the server, inspect its step budget and compare a returned failure string with the declared numeric result schema.
+
+### Step 1: Choose who starts each server
+
+The first project serves two FastMCP servers over streamable HTTP: `demo-server` with one `add` tool, and `weather` with `get_weather` and `get_forecast`, which call the public wttr.in API. Each comes with a plain client that lists the tools and calls one. `client_fastmcp.py` uses FastMCP's `Client` on `http://127.0.0.1:8000/mcp`; `client_mcp.py` uses the SDK's `streamablehttp_client` and `ClientSession`, and prints the session id before and after `initialize`: `None`, then a 32-character hex id the server assigned during the handshake (M39 covers that header).
 
 The second project hands the same servers to an agent that runs on your machine. `mcp_use` reads a server map in the shape Claude Desktop uses, starts or connects to each server, and gives their tools to a LangChain chat model:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 client = MCPClient.from_config_file("mcp-http.json")       # or MCPClient.from_dict(config)
 llm = ChatOllama(base_url="http://localhost:11434", model="gpt-oss:20b")
 agent = MCPAgent(llm=llm, client=client, max_steps=30, use_server_manager=True)
@@ -22,14 +28,20 @@ The project's two config files show the two ways a host reaches a server:
 | `mcp.json` | `"command": "uv", "args": ["run", "--directory", "…/servers", "weather_server.py"]` | The agent, as a stdio subprocess |
 | `mcp-http.json` | `"url": "http://localhost:8001/mcp"` (weather), `:8000/mcp` (math) | You, in another terminal, before the agent runs |
 
+### Step 2: Inspect loop and memory settings
+
 Two `MCPAgent` settings change what the model does, and both have defaults worth knowing in mcp-use 1.7.1:
 
 - **`max_steps`** caps the agent loop. The default is 5; both clients raise it to 30. The advanced query needs at least three tool calls (weather, forecast, multiply), so a low cap ends the run before the answer.
 - **`use_server_manager=True`** stops the model from seeing the servers' tools directly. It gets five management tools instead (`list_mcp_servers`, `connect_to_mcp_server`, `get_active_mcp_server`, `search_mcp_tools`, `disconnect_from_mcp_server`) and must connect to a server before it can call `multiply`. That keeps the prompt small when many servers are configured, at the price of extra model turns.
 
+### Step 3: Separate local inference from tool connectivity
+
 The models are local Ollama models (`qwen3:8b` in `agentic_client.py`, `gpt-oss:20b` in the advanced client), so the whole loop runs without an API key. The weather tools still call wttr.in over the internet.
 
 ## Return types are part of the contract
+
+### Step 1: Validate a returned result against its schema
 
 FastMCP builds a tool's output schema from its return annotation. In fastmcp 3.4.11, `add(a: int, b: int) -> int` lists as:
 
@@ -38,7 +50,11 @@ FastMCP builds a tool's output schema from its return annotation. In fastmcp 3.4
  "outputSchema": {"properties": {"result": {"type": "integer"}}, "required": ["result"], "type": "object", "x-fastmcp-wrap-result": true}}
 ```
 
+### Step 2: Compare text with structured output
+
 A call to `add` with 5 and 7 returns the text `12` and the structured content `{"result": 12}`. The client keeps the output schema and checks every structured result against it.
+
+### Step 3: Trigger a result-schema mismatch
 
 The math server's `divide` breaks its own schema. It is annotated `-> float` and returns the string `"Error: Division by zero"` when `b` is 0. The server sends that result; the mcp 1.30.0 client rejects it:
 
@@ -50,6 +66,21 @@ The friendly message never reaches the model. The host gets an exception from it
 
 - **Raise instead of returning.** `raise ToolError("Division by zero")` comes back as a result with `isError: true` and the text `Division by zero`. Without the check, `1 / 0` raises `ZeroDivisionError`, which also comes back with `isError: true`, as `Error calling tool 'divide': division by zero`.
 - **Annotate what you return.** `-> float | str` makes the string valid, and moves the job of telling numbers from error messages to every client.
+
+### Try it yourself
+
+Call add with five and seven and compare text 12 with structured result 12. Then inspect divide with a zero divisor: returning an error string violates its float output contract. Check the client exception before assuming a friendly error reached the model, and compare raising ToolError instead.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Build your first MCP](../../../../course/p11_agent_protocols/m40_mcp_applications/projects/01_build_your_first_mcp_server).
+- [MCP servers and local](../../../../course/p11_agent_protocols/m40_mcp_applications/projects/02_mcp_servers_and_local_agent).
+
+### Continue learning
+
+- [M39](../../m39_building_mcp_servers_and_clients/README.md).
 
 ## Key Takeaways
 

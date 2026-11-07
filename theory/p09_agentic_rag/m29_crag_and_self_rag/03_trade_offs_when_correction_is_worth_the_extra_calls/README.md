@@ -4,15 +4,19 @@
 
 ## Cost per question
 
-Every check in CRAG and Self-RAG is an LLM call, and every failed check sends the question round again. The calls are easy to count from the notebook graphs:
+Larkspur must decide whether more grading calls buy a safer answer or repeat the same retrieval miss. You will count calls by path, compare the five golden questions, and choose a correction mechanism that can reach the missing evidence.
+
+### Step 1: Count calls before comparing answers
+
+Every check in CRAG and Self-RAG is an LLM call, and every failed check sends the question round again. The calls are easy to count from the example graphs:
 
 | Pipeline | LLM calls per question |
 |---|---|
 | Baseline | 1: generate |
-| CRAG (01a) | one grade per retrieved chunk, plus 1 rewrite if it falls back, plus 1 generation; the web search is a tool call on top |
-| Self-RAG (02a) | 1 retrieve decision, one grade per retrieved chunk on every pass, 1 rewrite per extra pass, and per generation 1 call, 1 groundedness grade (skipped with no documents) and 1 utility grade |
+| CRAG (CRAG graph) | one grade per retrieved chunk, plus 1 rewrite if it falls back, plus 1 generation; the web search is a tool call on top |
+| Self-RAG (Self-RAG graph) | 1 retrieve decision, one grade per retrieved chunk on every pass, 1 rewrite per extra pass, and per generation 1 call, 1 groundedness grade (skipped with no documents) and 1 utility grade |
 
-The [interactive lab](interactive/correction-cost-lab.html) runs those graphs on the M11 handbook with TF-IDF retrieval and stand-in graders: relevance agrees with the golden labels, groundedness says yes, utility says yes only when every evidence chunk reached the generator, and a rewrite repeats the question. The last rule makes the Self-RAG figures a worst case, since a real rewrite can find the evidence and end the loop early. Its counts, checked against the notebooks' own LangGraph code with the same stand-ins (50 runs, 0 mismatches):
+The [interactive lab](interactive/correction-cost-lab.html) runs those graphs on the M11 handbook with TF-IDF retrieval and stand-in graders: relevance agrees with the golden labels, groundedness says yes, utility says yes only when every evidence chunk reached the generator, and a rewrite repeats the question. The last rule makes the Self-RAG figures a worst case, since a real rewrite can find the evidence and end the loop early. Its counts, checked against the reference implementations' own LangGraph code with the same stand-ins (50 runs, 0 mismatches):
 
 | Question | Baseline | CRAG, `k = 3` | Self-RAG, `k = 3` | CRAG, `k = 5` | Self-RAG, `k = 5` |
 |---|---|---|---|---|---|
@@ -25,15 +29,21 @@ The [interactive lab](interactive/correction-cost-lab.html) runs those graphs on
 
 <!-- lab: interactive/correction-cost-lab.html -->
 
+### Step 2: Locate the expensive failures
+
 Three patterns hold across the table:
 
 - **Correction costs most where it helps least.** The two questions the handbook cannot answer are the expensive ones for Self-RAG, 14 to 20 calls, and they end with a generation that has no context to be grounded in. CRAG sends both to the web, which cannot see a private handbook.
 - **Some misses no check can repair.** On the refund question, `refund-timing` shares no term with "How long does a refund take?", so it is never retrieved and never graded. Self-RAG's utility check sees the gap and spends 18 calls on three passes that return the same chunks. The fix is upstream, in retrieval (M14, M17) or in a rewrite that changes the words (M18).
 - **On an easy question the checks are overhead.** At `k = 3` the export question is answered from both evidence chunks by all three pipelines; CRAG pays 4 calls and Self-RAG 7 for the same context the baseline read in 1.
 
-The notebooks also make the calls one after another. `grade_documents` and `grade_relevance` loop over the chunks in Python, so `k` grades add `k` round trips of latency. Batching them (`doc_grader.batch(...)`) cuts the wait, not the bill.
+### Step 3: Separate latency from billed calls
+
+The reference implementations also make the calls one after another. `grade_documents` and `grade_relevance` loop over the chunks in Python, so `k` grades add `k` round trips of latency. Batching them (`doc_grader.batch(...)`) cuts the wait, not the bill.
 
 ## When correction pays
+
+### Step 1: Choose a fix that can reach missing evidence
 
 Correction earns its calls when a wrong answer costs more than the extra latency and tokens, and when the fix it reaches for can supply the missing evidence. A short chain of questions settles most cases:
 
@@ -48,12 +58,24 @@ flowchart TD
     Q3 -- no --> S["Self-RAG checks<br/>and a refusal path"]
 ```
 
+### Step 2: Choose a correction path for private policy
+
 For the Larkspur assistant that means:
 
 - **Billing and refund questions** are worth a check, because a wrong refund window turns into a support ticket. A relevance grade per chunk and one groundedness check on the answer add `k + 1` calls.
 - **The web fallback stays off.** Every Larkspur fact lives in the handbook. A question the handbook cannot answer should get a refusal and a handoff to support, not a search.
-- **Retrieval misses are fixed in retrieval.** The outage question fails on wording; one rewrite against the index is cheaper than three Self-RAG passes or a web search.
-- **Every loop gets a counter and a budget.** `max_iterations` caps the rewrite loops in 02a; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.
+- **Retrieval misses are fixed in retrieval.** The outage question fails on wording. One rewrite against the index is cheaper than three Self-RAG passes or a web search.
+- **Every loop gets a counter and a budget.** `max_iterations` caps the rewrite loops in this implementation; the regenerate loop needs a counter updated in a node (lesson 29.2), and a per-request limit on LLM calls catches the next loop nobody bounded.
+
+### Try it yourself
+
+At k=3 compare the export and refund questions in the lab. Check that CRAG spends four calls on export while Self-RAG spends seven. The refund run still misses evidence after 18 Self-RAG calls. Identify the missing chunk and specify a retrieval change that could reach it instead of adding another identical grading pass.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+Use the project and lab resources below to run the exercise.
 
 ## Key Takeaways
 

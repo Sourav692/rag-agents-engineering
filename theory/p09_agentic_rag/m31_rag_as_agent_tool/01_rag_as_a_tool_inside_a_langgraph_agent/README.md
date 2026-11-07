@@ -4,7 +4,11 @@
 
 ## Agent-decided retrieval
 
-The notebook builds two graphs over the same retriever: four short documents about a fictional cafe, embedded with `text-embedding-3-small`, stored in Chroma and searched with `k = 2`. These pages tell the same story with the Larkspur handbook.
+Larkspur must retrieve policy evidence before quoting a refund rule. You will compare a pipeline-controlled lookup with a model-selected tool call, inspect what sources survive the tool wrapper, and test how descriptions change routing.
+
+### Step 1: Compare who decides to retrieve
+
+The example builds two graphs over the same retriever: four short documents about a fictional cafe, embedded with `text-embedding-3-small`, stored in Chroma and searched with `k = 2`. These pages tell the same story with the Larkspur handbook.
 
 The first graph lets the pipeline decide. A classifier node, `topic_decision`, asks the model a yes or no question with structured output (`GradeQuestion.score`), and a conditional edge sends the question either to `retrieve` and `generate_answer` or to a fixed off-topic reply. Every on-topic question is retrieved exactly once, with the user's words as the query.
 
@@ -14,6 +18,8 @@ flowchart LR
     C -- yes --> R[retrieve] --> G[generate_answer]
     C -- no --> O["off_topic_response<br/>fixed message"]
 ```
+
+### Step 2: Follow a model-selected search
 
 The second graph lets the model decide. `create_retriever_tool` wraps the retriever as `retriever_tool`, a second tool `off_topic` handles unrelated questions, and both are bound to the model with `bind_tools`. The graph has two nodes: `agent` calls the model, and `ToolNode` runs whatever tools it asked for. `should_continue` routes to `tools` while the last message has `tool_calls`, and to `END` when it has none. The edge from `tools` back to `agent` makes it a loop.
 
@@ -41,11 +47,45 @@ Both graphs spend two model calls on a handbook question: classify and generate 
 
 The model-decided graph handles what the fixed one cannot: small talk that needs no retrieval, a follow-up whose query must be rewritten from the conversation, and a second search when the first chunks miss. It pays for that with a decision you no longer control in code. A question about Larkspur's refund window that the model answers without calling `handbook_search` gets an answer from its training data, with nothing to cite.
 
+### Step 3: Keep source metadata in the result
+
 The tool's output loses the sources. `create_retriever_tool` joins the retrieved `page_content` strings with a blank line (`document_separator="\n\n"`) and drops the metadata, so the model sees the chunk text without the `source` field. To cite, pass a `document_prompt` that prints the source into each chunk, or `response_format="content_and_artifact"` to keep the Documents beside the text.
 
 ## Tool descriptions
 
-When the model picks a tool, it reads what `bind_tools` sends with every call: each tool's name, its description and the JSON schema of its arguments. For the notebook's retriever tool that is:
+Use a fixed retriever to inspect source handling without embeddings or a model. It returns an illustrative handbook document. The two tool wrappers differ only in formatting.
+
+```python
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.tools.retriever import create_retriever_tool
+from langchain_core.prompts import PromptTemplate
+
+class FixedRetriever(BaseRetriever):
+    def _get_relevant_documents(self, query: str, *, run_manager):
+        return [Document(page_content="Refunds take 5 to 10 business days.",
+                         metadata={"source": "refund-timing"})]
+
+retriever = FixedRetriever()
+plain = create_retriever_tool(retriever, "plain", "Search handbook policy.")
+cited = create_retriever_tool(
+    retriever, "cited", "Search handbook policy with sources.",
+    document_prompt=PromptTemplate.from_template("{source}: {page_content}")
+)
+print("refund-timing" in plain.invoke({"query": "refund timing"}))
+print("refund-timing" in cited.invoke({"query": "refund timing"}))
+```
+
+**Expected output**
+
+```text
+False
+True
+```
+
+### Step 1: Specify the tool scope and returned data
+
+When the model picks a tool, it reads what `bind_tools` sends with every call: each tool's name, its description and the JSON schema of its arguments. For the example's retriever tool that is:
 
 ```json
 {"type": "function",
@@ -57,6 +97,8 @@ When the model picks a tool, it reads what `bind_tools` sends with every call: e
 
 The description carries the scope that the first graph kept in its classifier prompt ("questions about Cafe Lumiere's founder, menu pricing, or opening hours"). It now has to separate `retriever_tool` from every other tool the model can call, and the model never sees the documents behind it.
 
+### Step 2: Compare description presets on held-out questions
+
 The [interactive lab](interactive/tool-routing-lab.html) gives the Larkspur agent two tools, `handbook_search` and `web_search`, and routes twenty golden questions plus five held-out ones. Its router is a stand-in for the model: the M11 TF-IDF retriever, scoring each question against the two descriptions and picking the higher score, or no tool when neither shares a word with the question. Its scores match scikit-learn's `TfidfVectorizer` to within 4.5e-16. The four presets:
 
 | Descriptions | Golden set, of 20 | Sent to the wrong tool | Held out, of 5 | Tokens per call |
@@ -66,12 +108,14 @@ The [interactive lab](interactive/tool-routing-lab.html) gives the Larkspur agen
 | Specific: the topics each tool covers | 15 | 1 | 2 | 84 |
 | Tuned: Specific plus words taken from the golden questions | 19 | 0 | 4 | 133 |
 
-- **Names only** routes nothing. The four questions it gets right are the small talk and arithmetic that needed no tool; all sixteen handbook and web questions are answered from memory.
+- **Names only** routes nothing. The four questions it gets right are the small talk and arithmetic that needed no tool. All sixteen handbook and web questions are answered from memory.
 - **Vague** catches *When are monthly plans billed?* on the word "plans" and nothing else. *Can I export my data after I cancel my plan?* misses because the lab, like TF-IDF, treats "plan" and "plans" as different words.
 - **Specific** routes 15 of 20, with one question sent to the wrong tool: *What does Hetzner charge for a 4 GB server?* goes to `handbook_search`, because "server" appears only in the handbook description. A competitor's price answered from Larkspur's handbook is the worst miss in the set. Three handbook questions are right for the same thin reason: *goes down*, *reboot* and *size* match nothing, and "server" carries them.
 - **Tuned** names PostgreSQL, AWS, Hetzner, Docker and Ubuntu, words copied from the golden questions, and reaches 19 of 20. On the held-out five it reaches 4 of 5: *What is the newest Node.js version?* still gets no tool. It also sends 133 tokens with every model call, against 84.
 
 <!-- lab: interactive/tool-routing-lab.html -->
+
+### Step 3: Translate the stand-in results into a tool contract
 
 A model reads meaning, so word forms such as "refund" and "refunds" matter far less to it than to the stand-in. A missing scope fails for a model too. If neither description says which tool owns other providers' prices, the model has to guess, as the stand-in did with the Hetzner question. A description that works states four things:
 
@@ -81,6 +125,16 @@ A model reads meaning, so word forms such as "refund" and "refunds" matter far l
 - **What it returns:** handbook passages as plain text, so the model knows what it will get back and that it must quote it.
 
 Every description is sent with every call, so each added word costs tokens on every turn of every conversation. Treat the descriptions as a retrieval setting: keep a routing golden set of questions with the tool each one should use, score each change against it and against held-out questions, and add the misses you find in production traces.
+
+### Try it yourself
+
+Compare Specific and Tuned descriptions in the lab, including the held-out five questions. Check the 84 versus 133 tokens per call and the remaining Node.js miss. Then state which tool owns a competitor price question. Adding Larkspur policy words alone cannot establish that boundary.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [RAG as tool in](../../../../course/p09_agentic_rag/m31_rag_as_agent_tool/notebooks/01a_rag_as_tool_in_agents.ipynb).
 
 ## Key Takeaways
 

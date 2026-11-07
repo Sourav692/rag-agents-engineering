@@ -4,7 +4,13 @@
 
 ## Human review in a supervisor loop
 
-The 35.3 notebook turns a short transfer rumour into a publishable news article. An article passes when it is about football transfers, names the player's current club and market value, and runs to at least 100 words. A supervisor, the "news chef", grades the article and routes it to the specialist that can fix the first failing check. A human reads the result before it is published.
+A draft article lacks a required fact, and a person must review it before publication. You will route to the first failing specialist, enforce the attempt cap and compare a static pause with a decision made inside a node.
+
+### Step 1: Turn publication criteria into routing decisions
+
+The article-review example turns a short transfer rumour into a publishable news article. An article passes when it is about football transfers, names the player's current club and market value, and runs to at least 100 words. A supervisor, the "news chef", grades the article and routes it to the specialist that can fix the first failing check. A human reads the result before it is published.
+
+### Step 2: Separate exact checks from model judgement
 
 Four design choices make the loop safe to run unattended up to the human step:
 
@@ -27,9 +33,23 @@ flowchart TD
     H --> P[/Publish/]
 ```
 
-The workflow then becomes one node of an outer graph, followed by a node that publishes. Compiling the outer graph with a checkpointer and `interrupt_after=["newsagent_node"]` pauses every run after the article is written. The reviewer reads the state, changes it with `update_state` if needed, and resumes with `invoke(None, ...)`. In the notebook the edited article, not the model's, reaches the publishing call.
+### Step 3: Pause the outer graph before publishing
+
+The workflow then becomes one node of an outer graph, followed by a node that publishes. Compiling the outer graph with a checkpointer and `interrupt_after=["newsagent_node"]` pauses every run after the article is written. The reviewer reads the state, changes it with `update_state` if needed, and resumes with `invoke(None, ...)`. In the example the edited article, not the model's, reaches the publishing call.
+
+### Step 4: Choose static or dynamic review
 
 That interrupt is static: fixed at compile time, it pauses every run at the named node. A dynamic `interrupt(payload)` inside a node pauses only when the node decides to, and the run resumes with `Command(resume=...)`. Larkspur needs the dynamic kind. A refund the billing agent proposes inside the 30-day window can go straight to the customer; one outside the window pauses for a person. The check that decides to pause compares dates in code, for the same reason the word count does.
+
+### Try it yourself
+
+Trace an article that has the right topic and word count but lacks the market value. Check that the supervisor selects the responsible specialist and grades again afterwards. At the human pause, edit the article in state and resume. Publication must use that edited value, not a stale local variable.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Supervisor workflow with human](../../../../course/p10_memory_and_multi_agent/m35_multi_agent_architectures/optional/03a_supervisor_workflow_with_human_review.ipynb).
 
 ## Key Takeaways
 

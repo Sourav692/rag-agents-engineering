@@ -4,7 +4,11 @@
 
 ## Five architectures, one primitive
 
-Every architecture in the 35.2 notebook is built from one return value. A node returns `Command(goto="writer", update={...})`: the update is written to state and the graph runs `writer` next. The node's return annotation, such as `Command[Literal["writer", "__end__"]]`, lists the nodes it may jump to, and LangGraph draws those as the graph's edges. `add_edge` fixes a path when the graph is built; `Command(goto=...)` picks one at run time. Most real systems use both.
+A Larkspur request may need one specialist or several. You will express the next agent as a structured decision, choose what agents exchange, and distinguish a fixed critique loop from a controller that selects work dynamically.
+
+### Step 1: Read the command that transfers control
+
+Every architecture in the routing example is built from one return value. A node returns `Command(goto="writer", update={...})`: the update is written to state and the graph runs `writer` next. The node's return annotation, such as `Command[Literal["writer", "__end__"]]`, lists the nodes it may jump to, and LangGraph draws those as the graph's edges. `add_edge` fixes a path when the graph is built; `Command(goto=...)` picks one at run time. Most real systems use both.
 
 | Architecture | Who decides what runs next | Fails when | Reach for it when |
 |---|---|---|---|
@@ -14,12 +18,16 @@ Every architecture in the 35.2 notebook is built from one return value. A node r
 | Hierarchical | a coordinator over team coordinators | step budgets grow and team internals are hidden | the problem is shaped like an org chart |
 | Custom workflow | mostly the graph, with one dynamic branch | the work is too open-ended for fixed paths | the sequence is known in advance |
 
-The tool-calling supervisor needs no routing code. Each specialist is wrapped as a tool, and `InjectedState` hands it the graph's state without the model having to pass it as an argument. The docstring is the routing rule, because it is the tool description the model reads. The notebook's mixed query ("trouble with my bill and the app keeps crashing") may call one specialist or two, and that variability is the trade.
+### Step 2: Inspect a specialist exposed as a tool
 
-Two points from the notebook carry through the rest of the module:
+The tool-calling supervisor needs no routing code. Each specialist is wrapped as a tool, and `InjectedState` hands it the graph's state without the model having to pass it as an argument. The docstring is the routing rule, because it is the tool description the model reads. The example's mixed query ("trouble with my bill and the app keeps crashing") may call one specialist or two, and that variability is the trade.
+
+### Step 3: Keep routing logs separate from work
+
+Two points from the example carry through the rest of the module:
 
 - **A router that writes nothing keeps the transcript readable.** The supervisor in Part 2 decides without appending a message, so the transcript holds only the work.
-- **Always pass `recursion_limit`.** LangGraph counts super-steps, and its default limit is 10,007. The notebook passes 25 on every run, and a deliberately endless ping-pong between two nodes stops with `GraphRecursionError` in a fraction of a second. The hierarchy run needs twice that, because each team adds steps of its own.
+- **Always pass `recursion_limit`.** LangGraph counts super-steps, and its default limit is 10,007. The example passes 25 on every run, and a deliberately endless ping-pong between two nodes stops with `GraphRecursionError` in a fraction of a second. The hierarchy run needs twice that, because each team adds steps of its own.
 
 For Larkspur, the choice comes down to a few questions in order:
 
@@ -35,17 +43,23 @@ flowchart TD
     D -- no --> S["Supervisor<br/>(35.4)"]
 ```
 
-The support assistant's order is not known in advance (a question may need one specialist or two), so it starts at the second question, and the answer depends on whether conversations stay with one specialist across turns. A swarm is a network in which the handoffs are tools and the graph remembers who holds the conversation; lesson 35.5 builds one. Lesson 35.4 builds the supervisor and the hierarchy.
+The support assistant's order is not known in advance (a question may need one specialist or two), so it starts at the second question, and the answer depends on whether conversations stay with one specialist across turns. A swarm is a network in which the handoffs are tools and the graph remembers who holds the conversation. Lesson 35.5 builds one. Lesson 35.4 builds the supervisor and the hierarchy.
 
 ## Agent communication
 
-Choosing who runs next is half the design. The other half is what agents pass to each other while they run. The optional notebook builds three patterns.
+### Step 1: Choose the state agents exchange
+
+### Step 2: Choose the communication payload
+
+Choosing who runs next is half the design. The other half is what agents pass to each other while they run. The optional implementation builds three patterns.
 
 | Pattern | State | Each agent reads | Trade-off |
 |---|---|---|---|
 | Message passing | one `messages` list with the `add_messages` reducer | the whole conversation so far | simple and transparent; every agent re-reads and parses prose |
 | Typed fields | one field per stage (`raw_data`, `analysis`, `confidence_score`, `recommendations`) | only the fields it needs | structured output fills each field with a validated Pydantic object; the schema is rigid |
 | Generator and critic | running lists of `drafts` and `critiques` (`operator.add`) | the last draft and the feedback on it | iterates to a better draft; needs a cap |
+
+### Step 3: Compute the stopping verdict from checked evidence
 
 The generator and critic loop shows how to keep a model from ending its own loop. The critic does not return a yes or no. For each of three criteria it copies the sentence from the draft that meets it, or writes `none`. Code then checks that each quote really is in the draft and computes the verdict, and `MAX_ITERATIONS = 3` ends the loop whether or not the critic approves.
 
@@ -59,7 +73,18 @@ flowchart LR
     K -- no --> X[/Capped/]
 ```
 
-The notebook marks one boundary. This loop is not a blackboard: its order is fixed (draft, critique, draft), and only the exit is decided at run time. A blackboard has a controller that picks which of several specialists acts next from what is on the shared board; M36 builds one.
+The example marks one boundary. This loop is not a blackboard: its order is fixed (draft, critique, draft), and only the exit is decided at run time. A blackboard has a controller that picks which of several specialists acts next from what is on the shared board; M36 builds one.
+
+### Try it yourself
+
+Give a critic one required sentence that is absent from a draft. Check that copying an invented quote cannot satisfy the criterion because code tests membership in the draft. Then force rejection and verify the three-iteration limit. Decide whether the fixed generator-critic order qualifies as a blackboard controller.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Five multi agent architectures](../../../../course/p10_memory_and_multi_agent/m35_multi_agent_architectures/notebooks/02a_five_multi_agent_architectures.ipynb).
+- [Agent communication](../../../../course/p10_memory_and_multi_agent/m35_multi_agent_architectures/optional/02b_agent_communication.ipynb).
 
 ## Key Takeaways
 
@@ -84,7 +109,7 @@ Whether an agent should pass the conversation on, which comes down to whether co
 </details>
 
 <details>
-<summary>3. A yes-or-no critic sometimes approves drafts that miss a criterion. How does the notebook's critic design prevent that, and what ends the loop?</summary>
+<summary>3. A yes-or-no critic sometimes approves drafts that miss a criterion. How does the example's critic design prevent that, and what ends the loop?</summary>
 
 The critic never gives the verdict. For each of three criteria it quotes the sentence from the draft that meets it, or writes `none`; code checks that each quote is really in the draft and computes the verdict. `MAX_ITERATIONS = 3` ends the loop whether or not the critic approves.
 

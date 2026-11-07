@@ -4,7 +4,11 @@
 
 ## Planner, supervisor or router
 
-The three research notebooks answer one question differently: who decides which agent works next, and when. That choice sets how many model calls a request costs and what can go wrong.
+A Larkspur research reply can fail through no results, conflicting policy or a provider error. You will choose a planner, router or supervisor, preserve source identity through parallel research and prove the quality loop stops with replacement nodes.
+
+### Step 1: Choose when the controller decides
+
+The three research systems answer one question differently: who decides which agent works next, and when. That choice sets how many model calls a request costs and what can go wrong.
 
 | | Supervisor (05a) | Typed router (05b) | One-shot planner (05c) |
 |---|---|---|---|
@@ -13,6 +17,8 @@ The three research notebooks answer one question differently: who decides which 
 | Workers per request | Any number, in sequence | Exactly one, then a summarizer | One per planned query, in parallel |
 | How the choice reaches the graph | The model writes `next` into state; a pure function follows it | `with_structured_output(RouteDecision)` with `route: Literal["web_research", "rag", "llm"]` | `Send("search_agent", ...)` per query |
 | Bound in code | `MAX_SUPERVISOR_TURNS = 6` | One route per question | `NUM_QUERIES = 3`, and `MAX_DRAFTS = 2` on the revision loop |
+
+### Step 2: Compare typed routing with open-ended supervision
 
 The supervisor is the most flexible and the hardest to bound, which is why 05a proves its turn cap with a stub supervisor that never finishes. Its researcher also returns a validated `MarketData` object, numbers only, and the coder sees just the user's request and that JSON, so no web text reaches the agent that runs code. The typed router is the fix for the hotel's string routing: the choice is a field, not a word to search for in a reply. Its RAG agent answers only from chunks above a relevance floor, and when nothing clears it, it skips the model call and says so. The planner never sees a result, which is what separates it from a supervisor: it cannot adapt, but its cost is known before the first search runs.
 
@@ -24,11 +30,15 @@ The module's lab brief asks for a research team on the Larkspur Cloud handbook: 
 | Conflicting sources | The analyst lists gaps and contradictions across all findings before anyone writes | 05c |
 | Tool failure | The failing node records an error in state, a pure router picks a fallback, and a cap ends retries | 02c, 05a |
 
+### Step 3: Keep conflicts attached to sources
+
 For Larkspur, a conflict is real: a web forum post can quote an old refund window while the handbook gives the current one. The writer should cite both and say which is the policy, which it can only do if the findings keep their sources.
 
 ## A quality loop with a cap in code
 
-Notebook 05c is the module's full research pipeline. A planner splits the topic into search queries, search agents run them in parallel and append to one shared findings list, an analyst and a writer turn the findings into a report, and a quality checker sends the report back for revision until it passes or the cap is reached.
+### Step 1: Prove that a rejected draft reaches a terminal path
+
+The reference implementation is the module's full research pipeline. A planner splits the topic into search queries, search agents run them in parallel and append to one shared findings list, an analyst and a writer turn the findings into a report, and a quality checker sends the report back for revision until it passes or the cap is reached.
 
 ```mermaid
 flowchart LR
@@ -41,6 +51,8 @@ flowchart LR
     G -- yes --> R[/Report/]
 ```
 <!-- animated: diagrams/quality-loop.anim.html -->
+
+### Step 2: Enforce the plan and review caps in code
 
 The settings are in one cell and the code enforces each of them:
 
@@ -58,7 +70,21 @@ Four details carry the design:
 - **Revisions see the previous draft.** The writer runs at temperature 0.7 and, on a revision, gets its previous draft and the reviewer's feedback. At temperature 0 a revision tends to repeat the draft.
 - **The exit is code.** `quality_gate` is a pure function: approve when the minimum score reaches 0.7 and no section is missing, otherwise go back to the writer, unless `iteration` has reached `MAX_DRAFTS`. The reviewer is never asked to be lenient on a later pass.
 
-The notebook proves the wiring before it spends a token. `create_research_system(nodes=...)` takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.
+### Step 3: Run the never-passing review before a live model
+
+The example proves the wiring before it spends a token. `create_research_system(nodes=...)` takes replacement nodes, and stubs plan four queries with two findings each: all eight findings survive the parallel writes, a reviewer that always scores 0.1 stops at 2 drafts, and one that scores 0.9 stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.
+
+### Try it yourself
+
+Use four scripted search queries with two findings each and check that all eight findings survive fan-in. Make the reviewer always return 0.1 and check two drafts, then return 0.9 and check one. Compare node paths and retained findings rather than accepting the final report's claim that research was complete.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Multi agent research system](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/notebooks/05c_multi_agent_research_system.ipynb).
+- [Supervisor financial research](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/05a_supervisor_financial_research.ipynb).
+- [Multi agent research](../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/optional/05b_multi_agent_research_summarization.ipynb).
 
 ## Key Takeaways
 

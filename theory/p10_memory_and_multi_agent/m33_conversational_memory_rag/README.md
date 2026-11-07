@@ -2,7 +2,7 @@
 
 *Part X · Memory & Multi-Agent RAG · [Module README](../../../course/p10_memory_and_multi_agent/m33_conversational_memory_rag/README.md) · [All theory pages](../../README.md)*
 
-A chat model keeps nothing between calls. What looks like memory is the application sending earlier messages back with each new one, and in RAG the retriever needs that history as much as the model does. The M33 notebooks build on four ideas: the message history, the summary that keeps a long history affordable, the history-aware retriever that rewrites a follow-up before searching, and the checkpointer and `thread_id` that give a LangGraph agent the same memory per user. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+A Larkspur customer states their plan, then refers to it in a later question. You will preserve the relevant history for both the model and retriever, isolate sessions and compare full replay with trimming and summaries. The tutorials cover message history, history-aware retrieval, checkpoint threads and summary memory. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the Larkspur Cloud support assistant answering from the same twelve handbook chunks as the [M11 lab](../../p04_rag_foundations/m11_rag_lifecycle/README.md). Customers ask a first question and then follow up: *Can I get a refund on my annual plan?* then *How long until the money is back?*, or *How do I export my data?* then *How long do I have?* The [lab](#interactive-lab) runs six of these three-turn chats.
 

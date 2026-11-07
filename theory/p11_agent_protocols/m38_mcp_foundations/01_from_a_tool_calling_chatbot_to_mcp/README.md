@@ -4,11 +4,17 @@
 
 ## What moves out of the chatbot
 
-Notebook 01a builds the chatbot the rest of the module takes apart. It has two tools, `search_papers` (query arXiv and save the results to `papers_info.json` under a topic folder) and `extract_info` (look a paper up by id in those files), and every tool needs three things written by hand in the chatbot:
+Larkspur wants the same handbook tools available to a chatbot and a support console. You will identify the function, schema and dispatch entry currently copied into each host, then trace which pieces move behind an MCP server.
+
+### Step 1: Locate the three pieces of an embedded tool
+
+The reference implementation builds the chatbot the rest of the module takes apart. It has two tools, `search_papers` (query arXiv and save the results to `papers_info.json` under a topic folder) and `extract_info` (look a paper up by id in those files), and every tool needs three things written by hand in the chatbot:
 
 1. **The function** that does the work.
 2. **A schema** in the `tools` list: a name, a description and an `input_schema` that the model reads to decide when and how to call it.
 3. **An entry in `mapping_tool_function`**, so `execute_tool` can turn the name the model picked back into a Python call and the result into a string.
+
+### Step 2: Follow a request through the existing tool loop
 
 Around them sits the loop in `process_query`: send the question and the `tools` list to the model (`claude-3-7-sonnet-20250219`, `max_tokens=2024`), and while the reply contains a `tool_use` block, run the tool, append a `tool_result` with the same `tool_use_id`, and call the model again.
 
@@ -22,18 +28,33 @@ flowchart TD
     R --> L
 ```
 
-MCP keeps the loop and moves the rest. In notebook 03a the chatbot has no `tools` list and no mapping; both come from the server.
+### Step 3: Move execution and discovery behind the protocol
+
+MCP keeps the loop and moves the rest. In the reference implementation the chatbot has no `tools` list and no mapping; both come from the server.
 
 | Piece | 01a: inside the chatbot | 03a: with MCP |
 |---|---|---|
-| Tool functions | Defined in the notebook | In `research_server.py`, behind `@mcp.tool()` |
+| Tool functions | Defined in the application | In `research_server.py`, behind `@mcp.tool()` |
 | Tool schemas | Written by hand in `tools` | Fetched with `session.list_tools()` |
 | Name to function | `mapping_tool_function` and `execute_tool` | `session.call_tool(name, arguments=...)` |
 | The loop and the model | `process_query`, `chat_loop` | Unchanged, now methods of `MCP_ChatBot` |
 
+### Step 4: Check what a second host can reuse
+
 The split pays off as soon as a second chatbot, an IDE or an agent framework wants the same tools: each of them speaks MCP to the same server instead of copying three pieces per tool. For Larkspur Cloud, the M11 retriever becomes one server, `larkspur-handbook`, and every assistant the support team builds connects to it.
 
-The optional notebook 01b runs the same chatbot on OpenAI. Only the wrapper changes: each schema sits inside `{"type": "function", "function": {...}}` with `parameters` in place of `input_schema`, and the arguments arrive as a JSON string the code parses with `json.loads`. The tools and the loop are the same, which is why the server in lesson 38.2 can serve either provider.
+The optional the reference implementation runs the same chatbot on OpenAI. Only the wrapper changes: each schema sits inside `{"type": "function", "function": {...}}` with `parameters` in place of `input_schema`, and the arguments arrive as a JSON string the code parses with `json.loads`. The tools and the loop are the same, which is why the server in lesson 38.2 can serve either provider.
+
+### Try it yourself
+
+Add a hypothetical handbook search to the embedded chatbot and list the function, schema and mapping entry that change. Compare the MCP version: check that the host discovers the definition and calls through its session while the server owns execution. The model still requests work; MCP does not make the model execute functions.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Chatbot example](../../../../course/p11_agent_protocols/m38_mcp_foundations/notebooks/01a_chatbot_example.ipynb).
+- [Chatbot example openai](../../../../course/p11_agent_protocols/m38_mcp_foundations/optional/01b_chatbot_example_openai_walkthrough.ipynb).
 
 ## Key Takeaways
 

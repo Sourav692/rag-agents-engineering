@@ -4,9 +4,15 @@
 
 ## Multi-server
 
+Larkspur has a healthy handbook server beside a status server that cannot start. You will merge uniquely named tools, compare all-or-nothing loading with partial availability and distinguish discovery failures from failures during a call.
+
+### Step 1: Flatten tools without losing their owner
+
 Project 03 puts the weather server next to a second one, a task server whose `add_task` and `list_tasks` tools keep a to-do list in `tasks.txt`. The client names both in one dict and hands it to `MultiServerMCPClient` from `langchain-mcp-adapters`:
 
-```python
+Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+
+```text
 server_configs = {
     "weather": {"command": "python", "args": ["weather_server.py"], "transport": "stdio"},
     "tasks":   {"command": "python", "args": ["task_server.py"],    "transport": "stdio"},
@@ -27,17 +33,25 @@ flowchart LR
     L --> M["Model picks<br/>a tool by name"]
 ```
 
+### Step 2: Check uniqueness, state and prompt budget
+
 Three rules follow from the flat list.
 
-- **Names must be unique across servers.** `ToolNode` indexes tools in a dict by name (langgraph 1.2.18), so if two servers both offer `search`, the one loaded last answers every call and nothing warns you. `MultiServerMCPClient(..., tool_name_prefix=True)` renames each tool `<server>_<tool>`, which gives `weather_get_weather` and `tasks_add_task` here. [Lesson 38.4](../../m38_mcp_foundations/04_connecting_to_reference_servers/README.md) shows the same collision in a hand-written client.
+- **Names must be unique across servers.** `ToolNode` indexes tools in a dict by name (langgraph 1.2.18), so if two servers both offer `search`, the one loaded last answers every call and nothing warns you. `MultiServerMCPClient(..., tool_name_prefix=True)` renames each tool `<server>_<tool>`, which gives `weather_get_weather` and `tasks_add_task` here. Lesson 38.4 shows the same collision in a hand-written client.
 - **Descriptions do the routing.** The model chooses by name and description alone; server boundaries are invisible to it. For Larkspur, `search_handbook` says it searches the handbook's policies and `search_status` says it searches live status pages, so *Is there an outage right now?* lands on the status server. If both said "search Larkspur information", the model would have to guess.
-- **Every tool costs tokens on every call.** All definitions from all servers go to the model each turn, as [M38](../../m38_mcp_foundations/README.md) measures. Connect the servers an agent needs, not every server you have.
+- **Every tool costs tokens on every call.** All definitions from all servers go to the model each turn, as M38 measures. Connect the servers an agent needs, not every server you have.
+
+### Step 3: Compare the hand-built session registry
 
 Project 02 under lesson 39.4 builds the same thing by hand: a `config.json` with an `mcpServers` block, one `stdio_client` and `ClientSession` per entry on an `AsyncExitStack`, and `load_mcp_tools(session)` for each. Its two servers run in Docker. The `config.json` entries start each one with `docker run -i --rm …`, where `-i` keeps standard input open so stdio works through the container, and the client starts a fresh container for every session. `docker-compose up` only needs to build the two images: the containers it also starts sit with their input open and are not the ones the client talks to. Replace the placeholder `/ABSOLUTE/PATH/TO/…` volume path in `config.json` with your own first; as shipped, it mounts a folder that does not exist.
 
 The second server there is MCP's reference fetch server: one `fetch` tool that returns a page as Markdown, 5,000 characters at a time by default, with a `start_index` for the next slice, and a `robots.txt` check before it fetches on the model's behalf. It is the web-search half of the module's lab brief.
 
 ## When one server fails
+
+### Step 1: Choose a deliberate partial-availability policy
+
+### Step 2: Test one unavailable server
 
 `get_tools()` loads every server at once with `asyncio.gather`, so the first server that fails raises and no tools load at all. Recorded with a working `handbook` server and a `status` entry whose command does not exist:
 
@@ -46,7 +60,24 @@ The second server there is MCP's reference fetch server: one `fetch` tool that r
 
 The hand-built client in project 02 wraps each server in its own `try`, prints `Connection failed for <name>`, and starts with the tools it got. Neither is right by default. A Larkspur assistant can answer refund questions with the status server down, so it should start degraded and say which tools are missing; an agent whose every task needs both servers should refuse to start. Load per server, record which ones failed, and put that list in the system prompt and the logs.
 
+### Step 3: Handle a call failure after successful discovery
+
 Failures during a call are a separate case. A tool that raises comes back as `isError: true`, and the adapter returns it to the model as a `ToolMessage` with `status="error"` so the agent can try something else. A dead process or a dropped connection is not a tool error: the adapter raises, and the agent run stops unless your code catches it.
+
+### Try it yourself
+
+Use the healthy handbook and missing status command. Compare get_tools() for all servers with get_tools(server_name=...) for the handbook only. Check whether healthy tools remain available, then explicitly choose a fail-open or fail-closed policy instead of silently dropping the required status capability.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [Multi server MCP](../../../../course/p11_agent_protocols/m39_building_mcp_servers_and_clients/projects/03_multi_server_mcp).
+
+### Continue learning
+
+- [Lesson 38.4](../../m38_mcp_foundations/04_connecting_to_reference_servers/README.md).
+- [M38](../../m38_mcp_foundations/README.md).
 
 ## Key Takeaways
 
