@@ -1,6 +1,6 @@
 # M31.3 Theory: Exercise: LlamaIndex Wikipedia agent with Chainlit
 
-*[M31 theory](../../../mandatory/theory/README.md) · Lesson 31.3 · Notebooks: [`03a_llamaindex_wikipedia_agent`](../../notebook/03a_llamaindex_wikipedia_agent/README.md) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M31 theory](../../../mandatory/theory/README.md) · Lesson 31.3 · Notebooks: [`03a_llamaindex_wikipedia_agent`](../../notebook/03a_llamaindex_wikipedia_agent/README.md) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chat UI
 

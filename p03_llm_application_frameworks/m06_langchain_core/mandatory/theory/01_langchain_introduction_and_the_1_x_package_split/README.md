@@ -1,6 +1,6 @@
 # M07.1 Theory: LangChain introduction and the 1.x package split
 
-*[M06 theory](../README.md) · Lesson 6.1 · Notebooks: [`01a_LangChain_Introduction.ipynb`](../../notebook/01a_LangChain_Introduction.ipynb), [`01b_Package_Split_and_Imports_LangChain_v1.ipynb`](../../notebook/01b_Package_Split_and_Imports_LangChain_v1.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M06 theory](../README.md) · Lesson 6.1 · Notebooks: [`01a_LangChain_Introduction.ipynb`](../../notebook/01a_LangChain_Introduction.ipynb), [`01b_Package_Split_and_Imports_LangChain_v1.ipynb`](../../notebook/01b_Package_Split_and_Imports_LangChain_v1.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## The 1.x package split
 

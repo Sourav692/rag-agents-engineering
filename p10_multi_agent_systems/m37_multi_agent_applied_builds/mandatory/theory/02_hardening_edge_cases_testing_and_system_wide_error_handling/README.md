@@ -1,6 +1,6 @@
 # M37.2 Theory: Hardening: edge cases, testing and system-wide error handling
 
-*[M37 theory](../README.md) · Lesson 37.2 · Notebooks: [`02a_hotel_edge_cases_and_errors.ipynb`](../../notebook/02a_hotel_edge_cases_and_errors.ipynb), [`02b_hotel_testing_the_system.ipynb`](../../notebook/02b_hotel_testing_the_system.ipynb), [`02c_hotel_system_wide_error_handling.ipynb`](../../../optional/notebook/02c_hotel_system_wide_error_handling.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M37 theory](../README.md) · Lesson 37.2 · Notebooks: [`02a_hotel_edge_cases_and_errors.ipynb`](../../notebook/02a_hotel_edge_cases_and_errors.ipynb), [`02b_hotel_testing_the_system.ipynb`](../../notebook/02b_hotel_testing_the_system.ipynb), [`02c_hotel_system_wide_error_handling.ipynb`](../../../optional/notebook/02c_hotel_system_wide_error_handling.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## System testing
 

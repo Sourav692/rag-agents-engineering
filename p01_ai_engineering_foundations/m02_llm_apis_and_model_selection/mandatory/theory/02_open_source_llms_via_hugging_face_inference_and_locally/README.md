@@ -1,6 +1,6 @@
 # M02.2 Theory: Open-source LLMs via Hugging Face Inference and locally
 
-*[M02 theory](../README.md) · Lesson 2.2 · Notebooks: [`02a_open_source_llms_via_hugging_face_inference_api.ipynb`](../../notebook/02a_open_source_llms_via_hugging_face_inference_api.ipynb), [`02b_open_source_llms_locally.ipynb`](../../../optional/notebook/02b_open_source_llms_locally.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M02 theory](../README.md) · Lesson 2.2 · Notebooks: [`02a_open_source_llms_via_hugging_face_inference_api.ipynb`](../../notebook/02a_open_source_llms_via_hugging_face_inference_api.ipynb), [`02b_open_source_llms_locally.ipynb`](../../../optional/notebook/02b_open_source_llms_locally.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Inference endpoints
 

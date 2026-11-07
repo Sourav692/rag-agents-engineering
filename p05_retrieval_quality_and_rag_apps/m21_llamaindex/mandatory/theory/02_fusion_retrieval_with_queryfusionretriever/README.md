@@ -1,6 +1,6 @@
 # M21.2 Theory: Fusion retrieval with QueryFusionRetriever
 
-*[M21 theory](../README.md) · Lesson 21.2 · Notebooks: [`02a_fusion_retrieval_with_llamaindex.ipynb`](../../notebook/02a_fusion_retrieval_with_llamaindex.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M21 theory](../README.md) · Lesson 21.2 · Notebooks: [`02a_fusion_retrieval_with_llamaindex.ipynb`](../../notebook/02a_fusion_retrieval_with_llamaindex.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## QueryFusionRetriever
 
@@ -61,7 +61,7 @@ The BM25 side differs from LangChain's too. LlamaIndex's `BM25Retriever` runs `b
 
 ## Score direction
 
-Every fusion mode assumes a higher score is better. The vector retriever in `02a` comes from `VectorStoreIndex(nodes)` with the default in-memory store, which returns cosine similarity, so the assumption holds. Wire the notebook's FAISS store in properly (22.1) and it stops holding: `IndexFlatL2` returns squared L2 distances as `score`, where lower is better.
+Every fusion mode assumes a higher score is better. The vector retriever in `02a` comes from `VectorStoreIndex(nodes)` with the default in-memory store, which returns cosine similarity, so the assumption holds. Wire the notebook's FAISS store in properly (21.1) and it stops holding: `IndexFlatL2` returns squared L2 distances as `score`, where lower is better.
 
 The same three handbook sentences, retrieved for the 45-day question through two FAISS indexes:
 

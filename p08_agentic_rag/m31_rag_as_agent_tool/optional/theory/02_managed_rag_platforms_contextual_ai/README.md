@@ -1,6 +1,6 @@
 # M31.2 Theory: Managed RAG platforms: Contextual AI
 
-*[M31 theory](../../../mandatory/theory/README.md) · Lesson 31.2 · Notebooks: [`02a_agentic_rag_contextual_ai.ipynb`](../../notebook/02a_agentic_rag_contextual_ai.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M31 theory](../../../mandatory/theory/README.md) · Lesson 31.2 · Notebooks: [`02a_agentic_rag_contextual_ai.ipynb`](../../notebook/02a_agentic_rag_contextual_ai.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Managed RAG
 

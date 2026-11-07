@@ -1,6 +1,6 @@
 # M08.3 Theory: Branching, routing and merging chains
 
-*[M07 theory](../README.md) · Lesson 7.3 · Notebooks: [`03a_Branching_Routing_Merging_Chains.ipynb`](../../notebook/03a_Branching_Routing_Merging_Chains.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M07 theory](../README.md) · Lesson 7.3 · Notebooks: [`03a_Branching_Routing_Merging_Chains.ipynb`](../../notebook/03a_Branching_Routing_Merging_Chains.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## RunnableParallel / Branch
 

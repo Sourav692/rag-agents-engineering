@@ -1,6 +1,6 @@
 # M26.3 Theory: Deep agents: orchestrator, sub-agents, skills and long-term memory
 
-*[M26 theory](../README.md) · Lesson 26.3 · Notebooks: [`03a_simple_coding_agent.py`](../../notebook/03a_simple_coding_agent.py), [`03b_long_term_memory_agent.py`](../../../optional/notebook/03b_long_term_memory_agent.py) (optional), [`03c_skills`](../../../optional/notebook/03c_skills) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M26 theory](../README.md) · Lesson 26.3 · Notebooks: [`03a_simple_coding_agent.py`](../../notebook/03a_simple_coding_agent.py), [`03b_long_term_memory_agent.py`](../../../optional/notebook/03b_long_term_memory_agent.py) (optional), [`03c_skills`](../../../optional/notebook/03c_skills) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Deep-agent harness
 
@@ -78,7 +78,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [`deep_agent_overview.md`](../../../../../course/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/assets/deep_agent_overview.md).
+- [`deep_agent_overview.md`](../../../../../p10_multi_agent_systems/m37_multi_agent_applied_builds/assets/deep_agent_overview.md).
 
 ## Key Takeaways
 

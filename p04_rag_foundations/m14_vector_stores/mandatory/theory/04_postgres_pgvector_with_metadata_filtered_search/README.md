@@ -1,6 +1,6 @@
 # M14.4 Theory: Postgres + pgvector with metadata-filtered search
 
-*[M14 theory](../README.md) · Lesson 14.4 · Notebooks: [`04a_filtered_search_pgvector.ipynb`](../../notebook/04a_filtered_search_pgvector.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M14 theory](../README.md) · Lesson 14.4 · Notebooks: [`04a_filtered_search_pgvector.ipynb`](../../notebook/04a_filtered_search_pgvector.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Metadata filters
 

@@ -1,6 +1,6 @@
 # M06 Theory: LangChain Core: Models, Prompts & Parsers
 
-*Part III · LangChain & LangGraph Fundamentals · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part III · LLM Application Frameworks: LangChain & LangGraph · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Every LangChain program in this course has the same three parts: a prompt template that turns variables into messages, a chat model that turns messages into an `AIMessage`, and an output parser that turns the `AIMessage` into something your code can use. The M06 notebooks build on four ideas: chat models, messages, prompt templates and output parsers. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -46,7 +46,7 @@ The prompt template and the parser are where your code meets the model's text. T
 ## How it connects
 
 - **Before:** [M02](../../../../p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/theory/README.md) calls the provider SDKs that M06 wraps. [M04](../../../../p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/theory/README.md) writes the prompt patterns that M06 turns into templates, and [M05](../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/README.md) sends images through the same message lists.
-- **Next:** [M07](../../../m07_lcel_runnables_and_chains/mandatory/theory/README.md) pipes templates, models and parsers into LCEL chains. [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) builds the first RAG pipeline from them, and [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md) returns to structured output for agents. [M28](../../../../theory/p09_agentic_rag/m28_retrieval_grading_rewriting/README.md) grades retrieved passages with schema-bound model calls.
+- **Next:** [M07](../../../m07_lcel_runnables_and_chains/mandatory/theory/README.md) pipes templates, models and parsers into LCEL chains. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) builds the first RAG pipeline from them, and [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) returns to structured output for agents. [M28](../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md) grades retrieved passages with schema-bound model calls.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

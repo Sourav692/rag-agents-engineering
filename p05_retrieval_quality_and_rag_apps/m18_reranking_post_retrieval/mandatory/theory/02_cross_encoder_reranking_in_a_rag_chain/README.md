@@ -1,6 +1,6 @@
 # M18.2 Theory: Cross-encoder reranking in a RAG chain
 
-*[M18 theory](../README.md) · Lesson 18.2 · Notebooks: [`02a_cross_encoder_reranking.ipynb`](../../notebook/02a_cross_encoder_reranking.ipynb), [`02b_reranking_cross_encoder_walkthrough.ipynb`](../../../optional/notebook/02b_reranking_cross_encoder_walkthrough.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M18 theory](../README.md) · Lesson 18.2 · Notebooks: [`02a_cross_encoder_reranking.ipynb`](../../notebook/02a_cross_encoder_reranking.ipynb), [`02b_reranking_cross_encoder_walkthrough.ipynb`](../../../optional/notebook/02b_reranking_cross_encoder_walkthrough.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Bi-encoder vs cross-encoder
 
@@ -39,7 +39,7 @@ The two notebooks wire the cross-encoder into a chain in different ways:
 
 Three details in that code matter in production:
 
-- `02a`'s base retriever keeps LangChain's default `k`, so the reranker chooses 3 from a list barely longer than 3. Raise `k` through `search_kwargs` until stage 1 recall flattens (19.1).
+- `02a`'s base retriever keeps LangChain's default `k`, so the reranker chooses 3 from a list barely longer than 3. Raise `k` through `search_kwargs` until stage 1 recall flattens (18.1).
 - `02b`'s `rerank_documents` creates the `CrossEncoder` inside the function, so the model loads again on every question. Load it once at start-up.
 - `02b`'s chain version returns all 10 reranked chunks, so it reorders without narrowing. Slice the sorted list to the top few, as its earlier cell does with `[0:2]`.
 

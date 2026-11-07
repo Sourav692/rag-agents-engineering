@@ -8,8 +8,8 @@ Conversation and long-term memory as retrieval over the agent's own history, the
 
 | Module | Level | Time | Mandatory | Optional |
 |---|---|---|---|---|
-| [M33 Conversation Memory & Conversational RAG](../course/p10_memory_and_multi_agent/m33_conversational_memory_rag/README.md) | Advanced | ~5 h | 7 | 3 |
-| [M34 Long-Term & Agentic Memory](../course/p10_memory_and_multi_agent/m34_long_term_agentic_memory/README.md) | Advanced | ~5 h | 6 | 5 |
+| [M33 Conversation Memory & Conversational RAG](../p09_memory_layer/m33_short_term_memory_conversation_state/README.md) | Advanced | ~5 h | 7 | 3 |
+| [M34 Long-Term & Agentic Memory](../p09_memory_layer/m34_long_term_agentic_memory/README.md) | Advanced | ~5 h | 6 | 5 |
 | [M35 Multi-Agent Architectures](m35_multi_agent_architectures/README.md) | Advanced | ~5 h | 6 | 3 |
 | [M36 Collaboration, Control & Parallel Agents](m36_collaboration_parallel_agents/README.md) | Expert | ~4 h | 4 | 5 |
 | [M37 Multi-Agent Applied Builds & Deep Agents](m37_multi_agent_applied_builds/README.md) | Expert | ~6 h | 7 | 15 |

@@ -1,6 +1,6 @@
 # M40.1 Theory: Your first MCP server and a local agent
 
-*[M40 theory](../README.md) · Lesson 40.1 · Notebooks: [`01_build_your_first_mcp_server`](../../../projects/01_build_your_first_mcp_server), [`02_mcp_servers_and_local_agent`](../../../projects/02_mcp_servers_and_local_agent) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../README.md) · Lesson 40.1 · Notebooks: [`01_build_your_first_mcp_server`](../../../projects/01_build_your_first_mcp_server), [`02_mcp_servers_and_local_agent`](../../../projects/02_mcp_servers_and_local_agent) · [All theory pages](../../../../../THEORY.md)*
 
 ## A local agent over MCP
 

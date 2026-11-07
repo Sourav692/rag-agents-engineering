@@ -1,6 +1,6 @@
 # M16.4 Theory: Maximal Marginal Relevance for diversity
 
-*[M16 theory](../README.md) · Lesson 16.4 · Notebooks: [`04a_maximal_marginal_relevance.ipynb`](../../notebook/04a_maximal_marginal_relevance.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M16 theory](../README.md) · Lesson 16.4 · Notebooks: [`04a_maximal_marginal_relevance.ipynb`](../../notebook/04a_maximal_marginal_relevance.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## MMR λ
 
@@ -72,7 +72,7 @@ The question has two parts that may sit in different chunks, and plain top-k can
 <details>
 <summary>3. The Larkspur index holds this year's and last year's refund policy, and MMR keeps last year's. Why, and what should run first?</summary>
 
-MMR measures similarity, not correctness or freshness. It treats the two policies as near-copies and keeps whichever it picks first. Filter on `version` or `date` metadata before MMR runs (17.5).
+MMR measures similarity, not correctness or freshness. It treats the two policies as near-copies and keeps whichever it picks first. Filter on `version` or `date` metadata before MMR runs (16.5).
 
 </details>
 

@@ -1,6 +1,6 @@
 # M09.4 Theory: Nodes, runtime context and Command
 
-*[M08 theory](../README.md) · Lesson 8.4 · Notebooks: [`04a_Node_Patterns.ipynb`](../../notebook/04a_Node_Patterns.ipynb), [`04b_Runtime_Context.ipynb`](../../notebook/04b_Runtime_Context.ipynb), [`04c_Command_Objects.ipynb`](../../notebook/04c_Command_Objects.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M08 theory](../README.md) · Lesson 8.4 · Notebooks: [`04a_Node_Patterns.ipynb`](../../notebook/04a_Node_Patterns.ipynb), [`04b_Runtime_Context.ipynb`](../../notebook/04b_Runtime_Context.ipynb), [`04c_Command_Objects.ipynb`](../../notebook/04c_Command_Objects.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Node signatures and runtime context
 
@@ -48,7 +48,7 @@ The return annotation looks like a check, and notebook 04c calls it compile-time
 - **A `goto` to a node that does not exist is ignored.** LangGraph logs "wrote to unknown channel branch:to:nowhere, ignoring it" and the run ends with no error and no handler output.
 - **`goto` adds to static edges.** If the node also has `add_edge("check_temp_node", "success")`, a hot reading runs `warn_user` and `success` in the same step, and both write `final_action_performed`, so the run fails with `InvalidUpdateError: Can receive only one value per step`.
 
-Choose a conditional edge when routing is a pure read of state: the router is testable alone, and the graph lists every destination at build time. Choose `Command` when the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. The same object carries `resume` for a paused run in [M09](../../../../m09_langgraph_runtime/mandatory/theory/README.md) and `graph=Command.PARENT` for handoffs between agents in [M35](../../../../../theory/p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md).
+Choose a conditional edge when routing is a pure read of state: the router is testable alone, and the graph lists every destination at build time. Choose `Command` when the node that decides must also write, such as the route with the reason for it, or when the target lies outside the current graph. The same object carries `resume` for a paused run in [M09](../../../../m09_langgraph_runtime/mandatory/theory/README.md) and `graph=Command.PARENT` for handoffs between agents in [M35](../../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md).
 
 ## Key Takeaways
 

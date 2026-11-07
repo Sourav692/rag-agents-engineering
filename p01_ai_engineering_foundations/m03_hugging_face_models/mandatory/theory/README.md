@@ -1,6 +1,6 @@
 # M03 Theory: Hugging Face models and Gradio demos
 
-*Part I · AI Engineering Foundations · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part I · AI Engineering Foundations · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 M02 called models that run on someone else's servers. This module runs open models from the Hugging Face Hub on your own machine: the same kind of model that embeds chunks in M13 and reranks them in M18. The M03 notebooks build on four ideas: where a downloaded model lives and how to pin it, what a pipeline does between your string and its answer, why every limit and price is counted in tokens, and how to put a web page in front of a Python function. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -48,7 +48,7 @@ Only the first call touches the network; every later call reads the cache, and a
 ## How it connects
 
 - **Before:** [M02](../../../m02_llm_apis_and_model_selection/mandatory/theory/README.md) calls hosted models and counts their tokens on the bill; this module runs open ones locally and counts tokens against the model's limit. M01 covers the Python and NumPy the notebooks use.
-- **Next:** [M45](../../../../theory/p01_ai_engineering_foundations/m04_fine_tuning_fundamentals/README.md) trains these models instead of only running them. [M12](../../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md) sizes chunks, and the token limit here is the ceiling for that size. [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) loads `all-MiniLM-L6-v2` with sentence-transformers, and [M18](../../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/README.md) loads cross-encoder rerankers from the same cache.
+- **Next:** [M45](../../../../p13_design_decisions/m45_fine_tuning_model_adaptation/mandatory/theory/README.md) trains these models instead of only running them. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) sizes chunks, and the token limit here is the ceiling for that size. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) loads `all-MiniLM-L6-v2` with sentence-transformers, and [M18](../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/README.md) loads cross-encoder rerankers from the same cache.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

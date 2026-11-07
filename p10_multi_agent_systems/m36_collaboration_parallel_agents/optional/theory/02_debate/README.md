@@ -1,6 +1,6 @@
 # M36.2 Theory: Debate
 
-*[M36 theory](../../../mandatory/theory/README.md) · Lesson 36.2 · Notebooks: [`02a_debate.ipynb`](../../notebook/02a_debate.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M36 theory](../../../mandatory/theory/README.md) · Lesson 36.2 · Notebooks: [`02a_debate.ipynb`](../../notebook/02a_debate.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Debate
 
@@ -57,8 +57,8 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M10](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md#interview-spotlight-5-questions-you-might-get-asked).
-- [M11](../../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/README.md).
+- [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md#interview-spotlight-5-questions-you-might-get-asked).
+- [M11](../../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/README.md).
 
 ## Key Takeaways
 

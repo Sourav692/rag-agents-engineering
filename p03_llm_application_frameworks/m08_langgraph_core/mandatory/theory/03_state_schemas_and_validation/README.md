@@ -1,6 +1,6 @@
 # M09.3 Theory: State schemas and validation
 
-*[M08 theory](../README.md) · Lesson 8.3 · Notebooks: [`03a_Different_Graph_States.ipynb`](../../notebook/03a_Different_Graph_States.ipynb), [`03b_Pydantic_State_Validation.ipynb`](../../notebook/03b_Pydantic_State_Validation.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M08 theory](../README.md) · Lesson 8.3 · Notebooks: [`03a_Different_Graph_States.ipynb`](../../notebook/03a_Different_Graph_States.ipynb), [`03b_Pydantic_State_Validation.ipynb`](../../notebook/03b_Pydantic_State_Validation.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Choosing a state schema
 

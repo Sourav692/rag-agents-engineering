@@ -1,6 +1,6 @@
 # M27 Theory: Human approval and applied single-agent builds
 
-*Part VII · Advanced Agents · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VII · Advanced Agents · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur's agent has drafted an eu-west status update. A reviewer must see the text before publication, and an edit after approval must not slip through. You will build the preview-and-approval boundary, then apply explicit checks to SQL answers and fixed workflow applications. The tutorials cover dry runs, approval gates, text-to-SQL and workflow apps. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -46,7 +46,7 @@ The graph stops at Review and waits, for seconds or for hours, while the checkpo
 
 ## How it connects
 
-- **Before:** M09 teaches `interrupt()` and checkpointers, and [M23](../../../../theory/p08_agent_foundations/m24_react_agents/README.md) uses `HumanInTheLoopMiddleware`, which is built on the same mechanism. [M24](../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md)'s chaining, routing and parallel patterns are the parts the workflow apps assemble. M19 builds RAG over CSV and JSON rows, the vector side of this module's SQL-or-vectors lab. [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) shows why top-k retrieval cannot aggregate.
+- **Before:** M09 teaches `interrupt()` and checkpointers, and [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) uses `HumanInTheLoopMiddleware`, which is built on the same mechanism. [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md)'s chaining, routing and parallel patterns are the parts the workflow apps assemble. M19 builds RAG over CSV and JSON rows, the vector side of this module's SQL-or-vectors lab. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) shows why top-k retrieval cannot aggregate.
 - **Next:** [M28](../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md) to M30 grade, correct and route retrieval; sending a question to SQL or to the vector index is [M30](../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md)'s routing problem. [M31](../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md) exposes retrieval as an agent tool behind the same approval gates.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

@@ -1,6 +1,6 @@
 # M35.5 Theory: Handoffs and swarms
 
-*[M35 theory](../README.md) · Lesson 35.5 · Notebooks: [`05a_agent_handoffs.ipynb`](../../notebook/05a_agent_handoffs.ipynb), [`05b_multi_agent_swarm.ipynb`](../../notebook/05b_multi_agent_swarm.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M35 theory](../README.md) · Lesson 35.5 · Notebooks: [`05a_agent_handoffs.ipynb`](../../notebook/05a_agent_handoffs.ipynb), [`05b_multi_agent_swarm.ipynb`](../../notebook/05b_multi_agent_swarm.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Handoffs
 

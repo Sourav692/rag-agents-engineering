@@ -1,6 +1,6 @@
 # M45.7 Theory: Fine-tuning Llama 2 with AutoTrain
 
-*[M45 theory](../../../mandatory/theory/README.md) · Lesson 45.7 · Notebooks: [`07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb`](../../notebook/07_llama2_autotrain/07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../../../mandatory/theory/README.md) · Lesson 45.7 · Notebooks: [`07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb`](../../notebook/07_llama2_autotrain/07a_3_ways_fine_tuning_llama_2_with_autotrain.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## LoRA and 4-bit loading
 

@@ -1,6 +1,6 @@
 # M29.2 Theory: Self-RAG: retrieve-or-not, relevance, groundedness, utility
 
-*[M29 theory](../README.md) · Lesson 29.2 · Notebooks: [`02a_self_rag_langgraph.ipynb`](../../notebook/02a_self_rag_langgraph.ipynb), [`02b_self_rag_rag_techniques.ipynb`](../../../optional/notebook/02b_self_rag_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M29 theory](../README.md) · Lesson 29.2 · Notebooks: [`02a_self_rag_langgraph.ipynb`](../../notebook/02a_self_rag_langgraph.ipynb), [`02b_self_rag_rag_techniques.ipynb`](../../../optional/notebook/02b_self_rag_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Reflection tokens
 

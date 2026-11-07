@@ -1,6 +1,6 @@
 # M12.1 Theory: Splitter fundamentals: character, recursive, token and structure-aware
 
-*[M12 theory](../README.md) · Lesson 12.1 · Notebooks: [`01a_document_splitting_and_chunking.ipynb`](../../notebook/01a_document_splitting_and_chunking.ipynb), [`01b_document_splitters_and_chunkers.ipynb`](../../../optional/notebook/01b_document_splitters_and_chunkers.ipynb) (optional), [`01c_text_splitters_and_chunking_strategies.ipynb`](../../../optional/notebook/01c_text_splitters_and_chunking_strategies.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M12 theory](../README.md) · Lesson 12.1 · Notebooks: [`01a_document_splitting_and_chunking.ipynb`](../../notebook/01a_document_splitting_and_chunking.ipynb), [`01b_document_splitters_and_chunkers.ipynb`](../../../optional/notebook/01b_document_splitters_and_chunkers.ipynb) (optional), [`01c_text_splitters_and_chunking_strategies.ipynb`](../../../optional/notebook/01c_text_splitters_and_chunking_strategies.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chunk size and overlap
 

@@ -1,6 +1,6 @@
 # M14.2 Theory: Embedded stores: Chroma and FAISS
 
-*[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_chromadb.ipynb`](../../notebook/02a_chromadb.ipynb), [`02b_faiss.ipynb`](../../notebook/02b_faiss.ipynb), [`02c_vector_stores_in_practice.ipynb`](../../../optional/notebook/02c_vector_stores_in_practice.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_chromadb.ipynb`](../../notebook/02a_chromadb.ipynb), [`02b_faiss.ipynb`](../../notebook/02b_faiss.ipynb), [`02c_vector_stores_in_practice.ipynb`](../../../optional/notebook/02c_vector_stores_in_practice.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## ANN search
 

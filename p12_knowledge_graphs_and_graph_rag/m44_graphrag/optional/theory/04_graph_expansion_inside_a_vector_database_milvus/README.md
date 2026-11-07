@@ -1,6 +1,6 @@
 # M44.4 Theory: Graph expansion inside a vector database (Milvus)
 
-*[M44 theory](../../../mandatory/theory/README.md) · Lesson 44.4 · Notebooks: [`04a_graphrag_with_milvus.ipynb`](../../notebook/04a_graphrag_with_milvus.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M44 theory](../../../mandatory/theory/README.md) · Lesson 44.4 · Notebooks: [`04a_graphrag_with_milvus.ipynb`](../../notebook/04a_graphrag_with_milvus.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Graph expansion
 

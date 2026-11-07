@@ -1,6 +1,6 @@
 # M29.3 Theory: Trade-offs: when correction is worth the extra calls
 
-*[M29 theory](../README.md) · Lesson 29.3 · [All theory pages](../../../../../theory/README.md)*
+*[M29 theory](../README.md) · Lesson 29.3 · [All theory pages](../../../../../THEORY.md)*
 
 ## Cost per question
 

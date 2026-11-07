@@ -1,6 +1,6 @@
 # M38.3 Theory: Building an MCP client
 
-*[M38 theory](../README.md) · Lesson 38.3 · Notebooks: [`03a_creating_an_mcp_client.ipynb`](../../notebook/03a_creating_an_mcp_client.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M38 theory](../README.md) · Lesson 38.3 · Notebooks: [`03a_creating_an_mcp_client.ipynb`](../../notebook/03a_creating_an_mcp_client.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## MCP server / client
 

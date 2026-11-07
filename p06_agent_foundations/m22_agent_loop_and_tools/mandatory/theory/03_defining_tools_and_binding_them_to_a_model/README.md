@@ -1,6 +1,6 @@
 # M22.3 Theory: Defining tools and binding them to a model
 
-*[M22 theory](../README.md) · Lesson 22.3 · Notebooks: [`03a_defining_tools.ipynb`](../../notebook/03a_defining_tools.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M22 theory](../README.md) · Lesson 22.3 · Notebooks: [`03a_defining_tools.ipynb`](../../notebook/03a_defining_tools.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Tool schema
 

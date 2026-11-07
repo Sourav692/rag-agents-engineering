@@ -1,6 +1,6 @@
 # M43.3 Theory: Natural-language graph QA (text-to-Cypher)
 
-*[M43 theory](../README.md) · Lesson 43.3 · Notebooks: [`03a_query_kg_with_langchain.ipynb`](../../notebook/03a_query_kg_with_langchain.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M43 theory](../README.md) · Lesson 43.3 · Notebooks: [`03a_query_kg_with_langchain.ipynb`](../../notebook/03a_query_kg_with_langchain.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Text-to-Cypher
 

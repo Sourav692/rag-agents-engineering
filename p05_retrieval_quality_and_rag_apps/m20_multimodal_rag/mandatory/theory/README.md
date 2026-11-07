@@ -1,6 +1,6 @@
 # M20 Theory: Multimodal RAG
 
-*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A PDF loader that reads text keeps the paragraphs and drops the charts, so any fact that lives only in a figure never reaches the index. The three M20 notebooks get figures into retrieval three ways: embed the image beside the text with CLIP, have a vision model write a caption and index the caption, or embed the whole page as an image with ColPali. The M20 notebooks build on four ideas: one vector space for text and images, captions as a text stand-in for a figure, late interaction between query tokens and page patches, and retrieving whole pages instead of chunks. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -45,7 +45,7 @@ The ranks are for *Which month missed the 99.95% availability target?* in the la
 
 ## How it connects
 
-- **Before:** [M05](../../../../theory/p02_prompt_engineering/m06_multimodal_prompting/README.md) shows how to put an image or a PDF page into a prompt, which is where every route here ends. [M11](../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/README.md) covers the loaders that drop figures, and [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) the text embeddings the caption route reuses. The lab reports against the [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) habit: fixed golden questions, the rank of the evidence, the cut at `k`.
+- **Before:** [M05](../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/README.md) shows how to put an image or a PDF page into a prompt, which is where every route here ends. [M11](../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/README.md) covers the loaders that drop figures, and [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) the text embeddings the caption route reuses. The lab reports against the [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) habit: fixed golden questions, the rank of the evidence, the cut at `k`.
 - **Next:** [M21](../../../m21_llamaindex/mandatory/theory/README.md) rebuilds pipelines in LlamaIndex. A multimodal index is one more retriever in the agentic RAG designs of M28 to M31.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

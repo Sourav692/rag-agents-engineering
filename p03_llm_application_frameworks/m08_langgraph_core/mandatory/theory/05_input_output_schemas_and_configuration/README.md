@@ -1,6 +1,6 @@
 # M09.5 Theory: Input/output schemas and configuration
 
-*[M08 theory](../README.md) · Lesson 8.5 · Notebooks: [`05a_Advanced_State.ipynb`](../../notebook/05a_Advanced_State.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M08 theory](../README.md) · Lesson 8.5 · Notebooks: [`05a_Advanced_State.ipynb`](../../notebook/05a_Advanced_State.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Input, output and private state
 

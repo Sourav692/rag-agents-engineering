@@ -1,6 +1,6 @@
 # M11.1 Theory: The Document abstraction and metadata design
 
-*[M11 theory](../README.md) · Lesson 11.1 · Notebooks: [`01a_document_loading_and_metadata.ipynb`](../../notebook/01a_document_loading_and_metadata.ipynb), [`01b_document_loaders_overview.ipynb`](../../../optional/notebook/01b_document_loaders_overview.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M11 theory](../README.md) · Lesson 11.1 · Notebooks: [`01a_document_loading_and_metadata.ipynb`](../../notebook/01a_document_loading_and_metadata.ipynb), [`01b_document_loaders_overview.ipynb`](../../../optional/notebook/01b_document_loaders_overview.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Loader vs parser
 

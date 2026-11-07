@@ -1,6 +1,6 @@
 # M35 Theory: Multi-Agent Architectures
 
-*Part X · Memory & Multi-Agent RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part X · Multi-Agent Systems · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A Larkspur outage request crosses operations and billing, and later turns may remain with one specialist. You will compare fixed dependencies, supervisor decisions and handoffs, then count their costs across the conversation. The tutorials cover supervisor control, hierarchical teams, handoffs and swarms. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -51,7 +51,7 @@ Both graphs answer the outage request with the same two specialists. The supervi
 
 ## How it connects
 
-- **Before:** [M24](../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) introduced routing and orchestrator-worker as workflow patterns; here the workers are whole agents. [M27](../../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md) added human approval gates, which 35.3 puts inside a supervisor loop. [M30](../../../../theory/p09_agentic_rag/m30_adaptive_rag_routing/README.md) routed each question to one knowledge base once; the supervisor is that router run in a loop at the agent level. [M33](../../../../theory/p10_memory_and_multi_agent/m33_conversational_memory_rag/README.md)'s checkpointers and threads are what let a swarm remember its active agent.
+- **Before:** [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md) introduced routing and orchestrator-worker as workflow patterns; here the workers are whole agents. [M27](../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/README.md) added human approval gates, which 35.3 puts inside a supervisor loop. [M30](../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md) routed each question to one knowledge base once; the supervisor is that router run in a loop at the agent level. [M33](../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md)'s checkpointers and threads are what let a swarm remember its active agent.
 - **Next:** [M36](../../../m36_collaboration_parallel_agents/mandatory/theory/README.md) covers other ways agents share work: blackboards, debate, STORM and parallel agents. [M37](../../../m37_multi_agent_applied_builds/mandatory/theory/README.md) builds full multi-agent systems and hardens them against edge cases and errors.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
@@ -106,4 +106,4 @@ Both graphs answer the outage request with the same two specialists. The supervi
 - Pass `recursion_limit` on every run and add a counter cap to any graph that can cycle; test both with a stub or scripted model.
 
 ---
-*Previous: [M34 Long-Term & Agentic Memory](../../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/README.md). Next: [M36 Collaboration, Control & Parallel Agents](../../../m36_collaboration_parallel_agents/mandatory/theory/README.md).*
+*Previous: [M34 Long-Term & Agentic Memory](../../../../p09_memory_layer/m34_long_term_agentic_memory/mandatory/theory/README.md). Next: [M36 Collaboration, Control & Parallel Agents](../../../m36_collaboration_parallel_agents/mandatory/theory/README.md).*

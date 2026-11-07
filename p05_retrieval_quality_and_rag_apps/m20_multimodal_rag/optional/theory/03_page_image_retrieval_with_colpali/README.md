@@ -1,6 +1,6 @@
 # M20.3 Theory: Page-image retrieval with ColPali
 
-*[M20 theory](../../../mandatory/theory/README.md) · Lesson 20.3 · Notebooks: [`03a_multimodal_rag_with_colpali.ipynb`](../../notebook/03a_multimodal_rag_with_colpali.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M20 theory](../../../mandatory/theory/README.md) · Lesson 20.3 · Notebooks: [`03a_multimodal_rag_with_colpali.ipynb`](../../notebook/03a_multimodal_rag_with_colpali.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Late interaction
 

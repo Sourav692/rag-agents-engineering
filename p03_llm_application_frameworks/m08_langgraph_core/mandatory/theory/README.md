@@ -1,6 +1,6 @@
 # M08 Theory: LangGraph core
 
-*Part III · LangChain & LangGraph Fundamentals · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part III · LLM Application Frameworks: LangChain & LangGraph · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A LangGraph application is a state object and the functions that update it. Nodes read the state and return a partial update, a reducer per key decides how that update merges, and edges, fixed or conditional, decide which node runs next. Agentic RAG, memory and multi-agent systems later in the course are all built from these parts. The M08 notebooks build on four ideas: the graph and its state, the reducers that merge updates, conditional edges that route on state, and `Command`, which updates and routes in one return. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -47,7 +47,7 @@ Every node gets the whole state and returns only the keys it changes. Between no
 ## How it connects
 
 - **Before:** M06 introduced chat models and message types, and [M07](../../../m07_lcel_runnables_and_chains/mandatory/theory/README.md) composed them into LCEL chains. A chain runs one fixed path; a `StateGraph` adds shared state, branches and loops.
-- **Next:** [M09](../../../m09_langgraph_runtime/mandatory/theory/README.md) adds the runtime: checkpointers that save the state between steps, `interrupt()` and `Command(resume=...)` for human approval, and streaming. [M22](../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md) builds the tool loop from a model node and a conditional edge, [M24](../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) builds its workflow patterns from reducers and routers, [M30](../../../../theory/p09_agentic_rag/m30_adaptive_rag_routing/README.md) routes questions between knowledge bases, and [M35](../../../../theory/p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md) hands work between agents with `Command`.
+- **Next:** [M09](../../../m09_langgraph_runtime/mandatory/theory/README.md) adds the runtime: checkpointers that save the state between steps, `interrupt()` and `Command(resume=...)` for human approval, and streaming. [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) builds the tool loop from a model node and a conditional edge, [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md) builds its workflow patterns from reducers and routers, [M30](../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md) routes questions between knowledge bases, and [M35](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md) hands work between agents with `Command`.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

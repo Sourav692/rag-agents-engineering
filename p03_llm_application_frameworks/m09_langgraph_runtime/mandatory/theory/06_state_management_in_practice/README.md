@@ -1,6 +1,6 @@
 # M10.6 Theory: State management in practice
 
-*[M09 theory](../README.md) · Lesson 9.6 · Notebooks: [`06a_LangGraph_State_Management.ipynb`](../../notebook/06a_LangGraph_State_Management.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M09 theory](../README.md) · Lesson 9.6 · Notebooks: [`06a_LangGraph_State_Management.ipynb`](../../notebook/06a_LangGraph_State_Management.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Reducers and parallel writes
 

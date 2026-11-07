@@ -1,6 +1,6 @@
 # M05.2 Theory: Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct
 
-*[M04 theory](../README.md) · Lesson 4.2 · Notebooks: [`02a_advanced_prompt_engineering_patterns.ipynb`](../../notebook/02a_advanced_prompt_engineering_patterns.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M04 theory](../README.md) · Lesson 4.2 · Notebooks: [`02a_advanced_prompt_engineering_patterns.ipynb`](../../notebook/02a_advanced_prompt_engineering_patterns.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chain-of-thought
 
@@ -61,7 +61,7 @@ Three rules follow:
 - **Scattered errors are where voting pays.** With four distinct wrong answers, a path that is right only 40% of the time still wins the vote 78% of the time at N = 15, because no single wrong answer gathers enough votes. Numeric answers such as a prorated refund behave like this; yes/no grades never do.
 - **On two labels, use an odd N.** An even N can split evenly, and a split is a coin flip, so N = 4 scores exactly what N = 3 scores (0.648 at `p` = 0.60) for one more call.
 
-The lab's independence assumption is the best case. Paths from one model share its blind spots, so they agree on the same wrong answer more often than independent draws would, and a real vote gains less. A path at temperature 0, as in the notebook, repeats the model's most likely path rather than sampling a new one. For a measured case where the wrong answers clustered on one value, see [M25's self-consistency page](../../../../../theory/p08_agent_foundations/m26_planning_reflection_reasoning/06_self_consistency_tree_of_thoughts_and_lats/README.md#tree-of-thoughts--lats).
+The lab's independence assumption is the best case. Paths from one model share its blind spots, so they agree on the same wrong answer more often than independent draws would, and a real vote gains less. A path at temperature 0, as in the notebook, repeats the model's most likely path rather than sampling a new one. For a measured case where the wrong answers clustered on one value, see [M25's self-consistency page](../../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/06_self_consistency_tree_of_thoughts_and_lats/README.md#tree-of-thoughts--lats).
 
 ## ReAct format
 

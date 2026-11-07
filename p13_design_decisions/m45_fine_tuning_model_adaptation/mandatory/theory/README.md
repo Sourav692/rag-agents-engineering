@@ -1,6 +1,6 @@
-# M45 Theory: Fine-tuning fundamentals
+# M45 Theory: Fine-tuning and model adaptation
 
-*Part XIII · Design Decisions: Model Adaptation & Architecture · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part XIII · Design Decisions: Model Adaptation & Architecture · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Fine-tuning changes a model’s weights with your own examples, so the change travels with the model instead of sitting in every prompt. It is good at behaviour (a format, a tone, a refusal, one narrow task) and poor at facts that change. The M45 notebooks build on four ideas: how instruction data turns a text predictor into an assistant, how that data becomes token tensors, what the Hugging Face `Trainer` does with them, and how to tell whether the result is better. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -47,7 +47,7 @@ When evaluation shows a problem, the fix is usually in the examples or in how th
 
 ## How it connects
 
-- **Before:** the whole course up to M44. [M03](../../../../theory/p01_ai_engineering_foundations/m03_hugging_face_models/README.md) loads Hugging Face models and tokenizers, which every M45 notebook uses. [M04](../../../../theory/p02_prompt_engineering/m05_prompt_engineering_patterns/README.md) gets as far as prompting can go, which is the first thing to try before fine-tuning. [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) puts facts in an index instead of the weights, and its baseline is what the M45 lab compares a fine-tuned model against.
+- **Before:** the whole course up to M44. [M03](../../../../p01_ai_engineering_foundations/m03_hugging_face_models/mandatory/theory/README.md) loads Hugging Face models and tokenizers, which every M45 notebook uses. [M04](../../../../p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/theory/README.md) gets as far as prompting can go, which is the first thing to try before fine-tuning. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) puts facts in an index instead of the weights, and its baseline is what the M45 lab compares a fine-tuned model against.
 - **Next:** [M46](../../../m46_architecture_synthesis/mandatory/theory/README.md) chooses the capstone architecture, and its design document takes the RAG or fine-tune row from the M45 lab verdict.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
@@ -102,4 +102,4 @@ When evaluation shows a problem, the fix is usually in the examples or in how th
 - Evaluate the fine-tuned model on held-out questions, on the behaviour you trained for, against the baseline it is meant to replace.
 
 ---
-*Previous: [M44 GraphRAG Techniques](../../../../theory/p12_hierarchical_and_graph_rag/m44_graphrag/README.md). Next: [M46 Architecture synthesis](../../../m46_architecture_synthesis/mandatory/theory/README.md).*
+*Previous: [M44 GraphRAG Techniques](../../../../p12_knowledge_graphs_and_graph_rag/m44_graphrag/mandatory/theory/README.md). Next: [M46 Architecture synthesis](../../../m46_architecture_synthesis/mandatory/theory/README.md).*

@@ -1,6 +1,6 @@
 # M13.1 Theory: Embedding fundamentals, similarity metrics and model selection
 
-*[M13 theory](../README.md) · Lesson 13.1 · Notebooks: [`01a_embeddings_and_model_selection.ipynb`](../../notebook/01a_embeddings_and_model_selection.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M13 theory](../README.md) · Lesson 13.1 · Notebooks: [`01a_embeddings_and_model_selection.ipynb`](../../notebook/01a_embeddings_and_model_selection.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Cosine similarity
 
@@ -23,7 +23,7 @@ When both vectors have length 1, the three agree. The dot product equals the cos
 | OpenAI `text-embedding-3-*` | 1.0, give or take float rounding | Any of the three; pick the one your store computes fastest, usually dot product |
 | sentence-transformers through `HuggingFaceEmbeddings`, default settings | not 1 | Cosine, or pass `encode_kwargs={"normalize_embeddings": True}` and then any of the three |
 
-The [interactive lab](interactive/similarity-metrics-lab.html) draws ten Larkspur handbook chunks as 2D vectors so the angles are visible. The vectors are hand-placed, and every score is computed; the lab's cosine, dot and Euclidean values match scikit-learn's `cosine_similarity` and `euclidean_distances` to within 2e-15 at all 156 settings. Every chunk has length 1 except `plans-overview`, the long pricing page, whose length the slider sets, the way notebook 14.1 scales one vector by 3.0 to imitate a model that does not normalize:
+The [interactive lab](interactive/similarity-metrics-lab.html) draws ten Larkspur handbook chunks as 2D vectors so the angles are visible. The vectors are hand-placed, and every score is computed; the lab's cosine, dot and Euclidean values match scikit-learn's `cosine_similarity` and `euclidean_distances` to within 2e-15 at all 156 settings. Every chunk has length 1 except `plans-overview`, the long pricing page, whose length the slider sets, the way notebook 13.1 scales one vector by 3.0 to imitate a model that does not normalize:
 
 | `plans-overview` length | *How long does a refund take?* | *Can I export my data after I cancel?* | *What happens if my server goes down?* |
 |---|---|---|---|
@@ -38,7 +38,7 @@ The [interactive lab](interactive/similarity-metrics-lab.html) draws ten Larkspu
 
 <!-- lab: interactive/similarity-metrics-lab.html -->
 
-Two cautions. Cosine scores are not probabilities, and their range differs between models, so a threshold such as "answer only above 0.7" (notebook 14.2's optional tutorial gives bands like this) has to be re-measured after a model change. And embeddings encode topic more than truth: notebook 14.1 warns that a sentence and its negation embed close together, so "the plan is refundable" and "the plan is not refundable" can retrieve each other. Negation, numeric comparison and exact identifiers such as invoice numbers are weak spots, which is what hybrid search in M16 is for.
+Two cautions. Cosine scores are not probabilities, and their range differs between models, so a threshold such as "answer only above 0.7" (notebook 13.2's optional tutorial gives bands like this) has to be re-measured after a model change. And embeddings encode topic more than truth: notebook 13.1 warns that a sentence and its negation embed close together, so "the plan is refundable" and "the plan is not refundable" can retrieve each other. Negation, numeric comparison and exact identifiers such as invoice numbers are weak spots, which is what hybrid search in M16 is for.
 
 ## The same model on both sides
 

@@ -1,6 +1,6 @@
 # M16.2 Theory: Dense + sparse hybrid retrieval with BM25 and EnsembleRetriever
 
-*[M16 theory](../README.md) · Lesson 16.2 · Notebooks: [`02a_dense_sparse_hybrid_retrieval.ipynb`](../../notebook/02a_dense_sparse_hybrid_retrieval.ipynb), [`02b_hybrid_search_rag.ipynb`](../../../optional/notebook/02b_hybrid_search_rag.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M16 theory](../README.md) · Lesson 16.2 · Notebooks: [`02a_dense_sparse_hybrid_retrieval.ipynb`](../../notebook/02a_dense_sparse_hybrid_retrieval.ipynb), [`02b_hybrid_search_rag.ipynb`](../../../optional/notebook/02b_hybrid_search_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Dense vs sparse
 
@@ -15,7 +15,7 @@ A dense retriever turns every chunk and the question into an embedding, a vector
 | Needs | An embedding model at index and query time | A tokeniser; no model |
 | In the notebooks | FAISS (`02a`), Chroma (`02b`) | `BM25Retriever`, `k = 3` (`02a`) or `k = 5` (`02b`) |
 
-An order ID has no learned meaning for an embedding model, so its few characters move the chunk's vector very little. BM25 treats the ID as one more token, and a rare one, which is the case it weights most. The [M10 TF-IDF lab](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k) showed the sparse failure: *What happens if my server goes down?* shares no word with the outage chunks, so a token matcher ranks the `reboot` and `sizing` chunks first because they contain "server".
+An order ID has no learned meaning for an embedding model, so its few characters move the chunk's vector very little. BM25 treats the ID as one more token, and a rare one, which is the case it weights most. The [M10 TF-IDF lab](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k) showed the sparse failure: *What happens if my server goes down?* shares no word with the outage chunks, so a token matcher ranks the `reboot` and `sizing` chunks first because they contain "server".
 
 `02a` combines the two with `EnsembleRetriever`:
 

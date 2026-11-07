@@ -1,12 +1,12 @@
 # M18.3 Theory: LLM reranking vs cross-encoder reranking
 
-*[M18 theory](../README.md) · Lesson 18.3 · Notebooks: [`03a_reranking_methods.ipynb`](../../notebook/03a_reranking_methods.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M18 theory](../README.md) · Lesson 18.3 · Notebooks: [`03a_reranking_methods.ipynb`](../../notebook/03a_reranking_methods.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## LLM reranker or cross-encoder
 
 An LLM can rerank in two ways, and this module shows both. Lesson 18.1's notebook is **listwise**: one prompt holds all eight numbered candidates and asks for "comma-separated document indices" from most to least relevant. This lesson's notebook is **pointwise**: `rerank_documents` asks `gpt-4o` (temperature 0) to rate one document "on a scale of 1-10", reads the number through structured output (`RatingScore.relevance_score`), repeats for every candidate, then sorts and keeps `top_n=3`. The same notebook's `CrossEncoderRetriever` retrieves 10 and keeps 5 after one `predict` call over the 10 pairs with `cross-encoder/ms-marco-MiniLM-L-6-v2`.
 
-| | Listwise LLM (19.1) | Pointwise LLM (19.3) | Cross-encoder (19.2, 19.3) |
+| | Listwise LLM (18.1) | Pointwise LLM (18.3) | Cross-encoder (18.2, 18.3) |
 |---|---|---|---|
 | Calls per question | 1, holding every candidate | 1 per candidate: 15 in the example, up to 30 in `CustomRetriever` | 1 batched `predict` over all pairs |
 | Runs on | A hosted LLM | A hosted LLM | Your own CPU or GPU |
@@ -35,7 +35,7 @@ For Larkspur's support assistant the choice comes down to traffic and stakes. A 
 <details>
 <summary>1. How do the listwise and pointwise LLM rerankers differ in calls per question and in what the model sees?</summary>
 
-Listwise (19.1) makes one call holding every numbered candidate, so the model sees them all and returns an order as text to parse. Pointwise (19.3) makes one call per candidate, 15 in the example and up to 30 in `CustomRetriever`, and the model rates each chunk from 1 to 10 without seeing the others.
+Listwise (18.1) makes one call holding every numbered candidate, so the model sees them all and returns an order as text to parse. Pointwise (18.3) makes one call per candidate, 15 in the example and up to 30 in `CustomRetriever`, and the model rates each chunk from 1 to 10 without seeing the others.
 
 </details>
 

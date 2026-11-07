@@ -1,6 +1,6 @@
 # M27.4 Theory: Text-to-SQL: workflow vs ReAct agent
 
-*[M27 theory](../README.md) · Lesson 27.4 · Notebooks: [`04a_text2sql_workflow.ipynb`](../../notebook/04a_text2sql_workflow.ipynb), [`04b_text2sql_react_agent.ipynb`](../../notebook/04b_text2sql_react_agent.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M27 theory](../README.md) · Lesson 27.4 · Notebooks: [`04a_text2sql_workflow.ipynb`](../../notebook/04a_text2sql_workflow.ipynb), [`04b_text2sql_react_agent.ipynb`](../../notebook/04b_text2sql_react_agent.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Text-to-SQL
 
@@ -109,7 +109,7 @@ Use the implementation below to test the exercise and inspect each state update.
 
 ### Continue learning
 
-- [M10](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k).
+- [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k).
 - [lab brief](../../../lab/README.md).
 
 ## Key Takeaways

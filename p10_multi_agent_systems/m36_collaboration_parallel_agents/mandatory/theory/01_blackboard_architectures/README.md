@@ -1,6 +1,6 @@
 # M36.1 Theory: Blackboard architectures
 
-*[M36 theory](../README.md) · Lesson 36.1 · Notebooks: [`01a_blackboard_intro.ipynb`](../../notebook/01a_blackboard_intro.ipynb), [`01b_blackboard_research_team.ipynb`](../../../optional/notebook/01b_blackboard_research_team.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M36 theory](../README.md) · Lesson 36.1 · Notebooks: [`01a_blackboard_intro.ipynb`](../../notebook/01a_blackboard_intro.ipynb), [`01b_blackboard_research_team.ipynb`](../../../optional/notebook/01b_blackboard_research_team.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Blackboard
 

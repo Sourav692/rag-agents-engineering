@@ -1,6 +1,6 @@
 # M02.3 Theory: Reasoning vs non-reasoning models
 
-*[M02 theory](../README.md) · Lesson 2.3 · Notebooks: [`03a_Reasoning_vs_NonReasoning.ipynb`](../../notebook/03a_Reasoning_vs_NonReasoning.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M02 theory](../README.md) · Lesson 2.3 · Notebooks: [`03a_Reasoning_vs_NonReasoning.ipynb`](../../notebook/03a_Reasoning_vs_NonReasoning.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Reasoning models
 
@@ -64,7 +64,7 @@ For the Larkspur generator:
 - ***Can I get a refund after 45 days?*** The model has to combine the 30-day window, the plan type and the proration rule. A wrong amount turns into a support ticket, so this is Task A's shape.
 - **Benchmark both kinds.** Run your own hard case and your own easy case through both models. A benchmark of hard cases alone recommends the reasoning model for everything, including the lookups that make up most of the traffic.
 
-Sending each question to the right model at run time is routing by model tier, built in [M24 lesson 24.2](../../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/02_routing_by_handler_and_by_model_tier/README.md#routing-by-model-tier).
+Sending each question to the right model at run time is routing by model tier, built in [M24 lesson 24.2](../../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/02_routing_by_handler_and_by_model_tier/README.md#routing-by-model-tier).
 
 ## Key Takeaways
 

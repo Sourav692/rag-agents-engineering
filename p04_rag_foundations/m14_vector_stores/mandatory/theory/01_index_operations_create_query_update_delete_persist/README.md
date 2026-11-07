@@ -1,6 +1,6 @@
 # M14.1 Theory: Index operations: create, query, update, delete, persist
 
-*[M14 theory](../README.md) · Lesson 14.1 · Notebooks: [`01a_vector_stores_and_index_operations.ipynb`](../../notebook/01a_vector_stores_and_index_operations.ipynb), [`01b_vector_database_operations.ipynb`](../../../optional/notebook/01b_vector_database_operations.ipynb) (optional), [`01c_other_vector_stores.ipynb`](../../../optional/notebook/01c_other_vector_stores.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M14 theory](../README.md) · Lesson 14.1 · Notebooks: [`01a_vector_stores_and_index_operations.ipynb`](../../notebook/01a_vector_stores_and_index_operations.ipynb), [`01b_vector_database_operations.ipynb`](../../../optional/notebook/01b_vector_database_operations.ipynb) (optional), [`01c_other_vector_stores.ipynb`](../../../optional/notebook/01c_other_vector_stores.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Stable IDs and the missing update
 

@@ -1,6 +1,6 @@
 # M01 Theory: Python and data toolkit refresher
 
-*Part I · AI Engineering Foundations · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part I · AI Engineering Foundations · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Every RAG and agent notebook in this course moves data through the same few Python tools. Chunks arrive as rows in a table, become rows of a float matrix, get scored with one matrix product, and the results land back in a table you can query. The model calls in between are slow network waits, so they run concurrently. The M01 notebooks build on four ideas: NumPy arrays, pandas DataFrames, SQL from Python, and asyncio for concurrent calls. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -50,7 +50,7 @@ Each tool holds the data in the shape the next step needs. pandas keeps labelled
 ## How it connects
 
 - **Before:** nothing. M01 is the first module; skim the lessons you know.
-- **Next:** [M02](../../../m02_llm_apis_and_model_selection/mandatory/theory/README.md) makes the model calls this module runs concurrently. NumPy scoring returns in [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) (TF-IDF nearest neighbours) and [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) (embeddings). SQL becomes a retriever in [M27](../../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md) (text-to-SQL) and a memory store in [M34](../../../../theory/p10_memory_and_multi_agent/m34_long_term_agentic_memory/README.md). asyncio drives LangGraph's async nodes in M09 and the parallel agents of [M36](../../../../theory/p10_memory_and_multi_agent/m36_collaboration_parallel_agents/README.md).
+- **Next:** [M02](../../../m02_llm_apis_and_model_selection/mandatory/theory/README.md) makes the model calls this module runs concurrently. NumPy scoring returns in [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) (TF-IDF nearest neighbours) and [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) (embeddings). SQL becomes a retriever in [M27](../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/README.md) (text-to-SQL) and a memory store in [M34](../../../../p09_memory_layer/m34_long_term_agentic_memory/mandatory/theory/README.md). asyncio drives LangGraph's async nodes in M09 and the parallel agents of [M36](../../../../p10_multi_agent_systems/m36_collaboration_parallel_agents/mandatory/theory/README.md).
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

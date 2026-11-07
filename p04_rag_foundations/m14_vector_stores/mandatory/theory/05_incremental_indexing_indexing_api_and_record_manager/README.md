@@ -1,6 +1,6 @@
 # M14.5 Theory: Incremental indexing: Indexing API and record manager
 
-*[M14 theory](../README.md) · Lesson 14.5 · Notebooks: [`05a_indexing_api.ipynb`](../../notebook/05a_indexing_api.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M14 theory](../README.md) · Lesson 14.5 · Notebooks: [`05a_indexing_api.ipynb`](../../notebook/05a_indexing_api.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Idempotent re-indexing
 

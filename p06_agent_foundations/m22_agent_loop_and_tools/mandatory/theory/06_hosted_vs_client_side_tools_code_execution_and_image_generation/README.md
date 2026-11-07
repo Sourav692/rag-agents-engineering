@@ -1,6 +1,6 @@
 # M22.6 Theory: Hosted vs client-side tools: code execution and image generation
 
-*[M22 theory](../README.md) · Lesson 22.6 · Notebooks: [`06a_hosted_vs_client_side_tools.ipynb`](../../notebook/06a_hosted_vs_client_side_tools.ipynb), [`06b_hosted_code_execution.ipynb`](../../../optional/notebook/06b_hosted_code_execution.ipynb) (optional), [`06c_agentic_image_generation.ipynb`](../../../optional/notebook/06c_agentic_image_generation.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M22 theory](../README.md) · Lesson 22.6 · Notebooks: [`06a_hosted_vs_client_side_tools.ipynb`](../../notebook/06a_hosted_vs_client_side_tools.ipynb), [`06b_hosted_code_execution.ipynb`](../../../optional/notebook/06b_hosted_code_execution.ipynb) (optional), [`06c_agentic_image_generation.ipynb`](../../../optional/notebook/06c_agentic_image_generation.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Hosted vs client-side tools
 

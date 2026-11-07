@@ -1,6 +1,6 @@
 # M24 Theory: Agentic workflow patterns
 
-*Part VI · Agent Foundations · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VI · Agent Foundations · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A Larkspur support request may need a sequence of policy checks, one specialist queue or several independent lookups. Those tasks need different control paths. You will build the fixed paths first, inspect where each model decision belongs, then test joins and retry limits. The tutorials cover workflow versus agent control, quality gates, fan-out and fan-in, and bounded feedback loops. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -104,4 +104,4 @@ Real systems nest these. CRAG (M29) is an evaluator-optimizer around retrieval, 
 - Every loop has a cap in code, and hitting the cap is a metric. A fan-out costs its slowest branch, so time branches one by one before tuning any of them.
 
 ---
-*Previous: [M23 ReAct agents and LangChain create_agent](../../../m23_react_agents/mandatory/theory/README.md). Next: [M25 Planning, reflection and reasoning patterns](../../../../theory/p08_agent_foundations/m26_planning_reflection_reasoning/README.md).*
+*Previous: [M23 ReAct agents and LangChain create_agent](../../../m23_react_agents/mandatory/theory/README.md). Next: [M25 Planning, reflection and reasoning patterns](../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/README.md).*

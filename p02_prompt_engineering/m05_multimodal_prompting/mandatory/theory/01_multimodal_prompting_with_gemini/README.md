@@ -1,6 +1,6 @@
 # M06.1 Theory: Multimodal prompting with Gemini
 
-*[M05 theory](../README.md) · Lesson 5.1 · Notebooks: [`01a_multimodal_google_gemini.ipynb`](../../notebook/01a_multimodal_google_gemini.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M05 theory](../README.md) · Lesson 5.1 · Notebooks: [`01a_multimodal_google_gemini.ipynb`](../../notebook/01a_multimodal_google_gemini.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Image prompts
 

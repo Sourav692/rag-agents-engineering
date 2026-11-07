@@ -1,6 +1,6 @@
 # M31.1 Theory: RAG as a tool inside a LangGraph agent
 
-*[M31 theory](../README.md) · Lesson 31.1 · Notebooks: [`01a_rag_as_tool_in_agents.ipynb`](../../notebook/01a_rag_as_tool_in_agents.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M31 theory](../README.md) · Lesson 31.1 · Notebooks: [`01a_rag_as_tool_in_agents.ipynb`](../../notebook/01a_rag_as_tool_in_agents.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Agent-decided retrieval
 

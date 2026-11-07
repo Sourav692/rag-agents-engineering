@@ -1,6 +1,6 @@
 # M21.1 Theory: Simple PDF and CSV RAG in LlamaIndex
 
-*[M21 theory](../README.md) · Lesson 21.1 · Notebooks: [`01a_simple_rag_with_llamaindex.ipynb`](../../notebook/01a_simple_rag_with_llamaindex.ipynb), [`01b_simple_csv_rag_with_llamaindex.ipynb`](../../../optional/notebook/01b_simple_csv_rag_with_llamaindex.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M21 theory](../README.md) · Lesson 21.1 · Notebooks: [`01a_simple_rag_with_llamaindex.ipynb`](../../notebook/01a_simple_rag_with_llamaindex.ipynb), [`01b_simple_csv_rag_with_llamaindex.ipynb`](../../../optional/notebook/01b_simple_csv_rag_with_llamaindex.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Nodes
 
@@ -15,8 +15,8 @@ The concepts map onto the LangChain pieces from M10 to M18:
 | `RecursiveCharacterTextSplitter` | `SentenceSplitter` | Size in tokens, not characters |
 | Embed, then `add_documents` | `IngestionPipeline`, then `VectorStoreIndex` | Transformations run as a list |
 | `vectorstore.as_retriever(k=…)` | `index.as_retriever(similarity_top_k=…)` | Default `k` is 2 |
-| `EnsembleRetriever` | `QueryFusionRetriever` | Four fusion modes (22.2) |
-| Compressor or reranker wrapper | Node postprocessor | A list on the query engine (22.3) |
+| `EnsembleRetriever` | `QueryFusionRetriever` | Four fusion modes (21.2) |
+| Compressor or reranker wrapper | Node postprocessor | A list on the query engine (21.3) |
 | A retrieval chain | `QueryEngine` | Retrieve, postprocess, synthesise |
 
 Two differences change the chunks you get from the same numbers.

@@ -1,6 +1,6 @@
 # M17 Theory: Query transformation and routing
 
-*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Users ask short, vague or compound questions, and the retriever searches with exactly what they typed. M17 changes the query before retrieval: rewrite it, ask it several ways, ask a broader question, search with an invented answer, split it, or send it to the right place first. The M17 notebooks build on four ideas: why a question and its answer sit far apart, how to fuse rankings from several phrasings, how a hypothetical answer becomes a search key, and the two ways to route a question. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -47,7 +47,7 @@ Everything in M17 happens before the first vector search or after the last one. 
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) supplies the index, the golden questions and the baseline row (recall@2 0.50) that the lab compares against. M13 narrows the vocabulary gap with embeddings; [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) adds keyword search and teaches RRF for fusing BM25 with dense retrieval.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) supplies the index, the golden questions and the baseline row (recall@2 0.50) that the lab compares against. M13 narrows the vocabulary gap with embeddings; [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) adds keyword search and teaches RRF for fusing BM25 with dense retrieval.
 - **Next:** [M18](../../../m18_reranking_post_retrieval/mandatory/theory/README.md) reranks what the merged lists retrieve, which matters more once several queries widen the pool. M24 rebuilds decomposition as an orchestrator and workers; M28 has an agent rewrite failed queries; M30 turns routing into adaptive RAG.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

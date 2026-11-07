@@ -1,6 +1,6 @@
 # M19.5 Theory: Fully local RAG with Hugging Face and FAISS
 
-*[M19 theory](../README.md) · Lesson 19.5 · Notebooks: [`05a_local_rag_huggingface_faiss.ipynb`](../../notebook/05a_local_rag_huggingface_faiss.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M19 theory](../README.md) · Lesson 19.5 · Notebooks: [`05a_local_rag_huggingface_faiss.ipynb`](../../notebook/05a_local_rag_huggingface_faiss.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Local inference
 
@@ -52,7 +52,7 @@ Two smaller things to change when you reuse the code:
 - **`RunnableParallel(answer=rag_chain, sources=retriever)` retrieves twice**, once inside `rag_chain` and once for `sources` (a counting retriever in a scratch test was called two times). On a fixed FAISS index the two lists match, so the cost is the extra search. On an index that updates between the calls, the sources shown could differ from the context the model read. The `RunnablePassthrough.assign` pattern from [19.2](../02_answers_with_sources_and_per_claim_citations/README.md#returning-the-sources) retrieves once.
 - **`ask` keeps the text after the last `Answer:`**, to strip a prompt echoed back with the completion. The installed `HuggingFaceEndpoint` already defaults to `return_full_text=False`, so the split guards against nothing today and cuts any answer that itself contains "Answer:". Drop it, or keep `return_full_text=False` explicit if you move to `HuggingFacePipeline`.
 
-The notebook's fallback evaluation counts expected keywords in each answer ("carbon dioxide", "methane"). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from [M10](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) for decisions.
+The notebook's fallback evaluation counts expected keywords in each answer ("carbon dioxide", "methane"). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) for decisions.
 
 ## Key Takeaways
 

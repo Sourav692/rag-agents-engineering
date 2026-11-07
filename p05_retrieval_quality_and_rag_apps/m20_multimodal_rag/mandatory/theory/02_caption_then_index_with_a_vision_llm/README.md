@@ -1,6 +1,6 @@
 # M20.2 Theory: Caption-then-index with a vision LLM
 
-*[M20 theory](../README.md) · Lesson 20.2 · Notebooks: [`02a_multimodal_rag_with_captioning.ipynb`](../../notebook/02a_multimodal_rag_with_captioning.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M20 theory](../README.md) · Lesson 20.2 · Notebooks: [`02a_multimodal_rag_with_captioning.ipynb`](../../notebook/02a_multimodal_rag_with_captioning.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Captioning
 
@@ -40,7 +40,7 @@ Write the caption prompt for the questions the figure must answer:
 - **The figure's place**: document, page, figure number, so a citation can point at it.
 - **An explicit escape** for anything unreadable, as M05 does with `[NOT_EXTRACTED]`, so the captioner leaves a gap instead of guessing.
 
-A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption's metadata (`name`), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML ([M11, lesson 11.4](../../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md)) keeps rows and columns that a caption has to describe in prose.
+A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption's metadata (`name`), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML ([M11, lesson 11.4](../../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md)) keeps rows and columns that a caption has to describe in prose.
 
 ## Key Takeaways
 

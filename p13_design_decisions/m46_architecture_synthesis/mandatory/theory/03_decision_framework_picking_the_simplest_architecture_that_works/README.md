@@ -1,6 +1,6 @@
 # M46.3 Theory: Decision framework: picking the simplest architecture that works
 
-*[M46 theory](../README.md) · Lesson 46.3 · [All theory pages](../../../../../theory/README.md)*
+*[M46 theory](../README.md) · Lesson 46.3 · [All theory pages](../../../../../THEORY.md)*
 
 ## Architecture selection
 

@@ -1,6 +1,6 @@
 # M03.1 Theory: Hub setup, datasets and models
 
-*[M03 theory](../README.md) · Lesson 3.1 · Notebooks: [`01a_hf_setup.ipynb`](../../notebook/01a_hf_setup.ipynb), [`01b_hf_basics.ipynb`](../../notebook/01b_hf_basics.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M03 theory](../README.md) · Lesson 3.1 · Notebooks: [`01a_hf_setup.ipynb`](../../notebook/01a_hf_setup.ipynb), [`01b_hf_basics.ipynb`](../../notebook/01b_hf_basics.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Hub & cache
 

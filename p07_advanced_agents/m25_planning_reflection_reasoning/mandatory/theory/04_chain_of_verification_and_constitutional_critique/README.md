@@ -1,6 +1,6 @@
 # M25.4 Theory: Chain-of-verification and constitutional critique
 
-*[M25 theory](../README.md) · Lesson 25.4 · Notebooks: [`04a_chain_of_verification.ipynb`](../../notebook/04a_chain_of_verification.ipynb), [`04b_constitutional_ai_critique_loop.ipynb`](../../../optional/notebook/04b_constitutional_ai_critique_loop.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M25 theory](../README.md) · Lesson 25.4 · Notebooks: [`04a_chain_of_verification.ipynb`](../../notebook/04a_chain_of_verification.ipynb), [`04b_constitutional_ai_critique_loop.ipynb`](../../../optional/notebook/04b_constitutional_ai_critique_loop.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chain-of-verification
 

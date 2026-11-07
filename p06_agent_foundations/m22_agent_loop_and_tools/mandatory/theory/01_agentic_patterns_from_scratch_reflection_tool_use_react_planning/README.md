@@ -1,6 +1,6 @@
 # M22.1 Theory: Agentic patterns from scratch: reflection, tool use, ReAct planning
 
-*[M22 theory](../README.md) · Lesson 22.1 · Notebooks: [`01b_tool_use_pattern.ipynb`](../../notebook/01b_tool_use_pattern.ipynb), [`01c_planning_pattern_react.ipynb`](../../notebook/01c_planning_pattern_react.ipynb), [`01a_reflection_pattern.ipynb`](../../../optional/notebook/01a_reflection_pattern.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M22 theory](../README.md) · Lesson 22.1 · Notebooks: [`01b_tool_use_pattern.ipynb`](../../notebook/01b_tool_use_pattern.ipynb), [`01c_planning_pattern_react.ipynb`](../../notebook/01c_planning_pattern_react.ipynb), [`01a_reflection_pattern.ipynb`](../../../optional/notebook/01a_reflection_pattern.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Agent loop
 

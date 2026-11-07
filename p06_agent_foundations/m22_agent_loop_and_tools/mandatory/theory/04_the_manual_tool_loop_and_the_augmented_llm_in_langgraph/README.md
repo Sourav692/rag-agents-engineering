@@ -1,6 +1,6 @@
 # M22.4 Theory: The manual tool loop and the augmented LLM in LangGraph
 
-*[M22 theory](../README.md) · Lesson 22.4 · Notebooks: [`04a_tool_calling_manual_loop.ipynb`](../../notebook/04a_tool_calling_manual_loop.ipynb), [`04b_augmented_llm_with_tools_langgraph.ipynb`](../../notebook/04b_augmented_llm_with_tools_langgraph.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M22 theory](../README.md) · Lesson 22.4 · Notebooks: [`04a_tool_calling_manual_loop.ipynb`](../../notebook/04a_tool_calling_manual_loop.ipynb), [`04b_augmented_llm_with_tools_langgraph.ipynb`](../../notebook/04b_augmented_llm_with_tools_langgraph.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Native tool calls and the message trace
 

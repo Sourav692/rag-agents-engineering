@@ -1,6 +1,6 @@
 # M13.3 Theory: Open-source embeddings with Hugging Face
 
-*[M13 theory](../README.md) · Lesson 13.3 · Notebooks: [`03a_huggingface_embeddings.ipynb`](../../notebook/03a_huggingface_embeddings.ipynb), [`03b_huggingface_embeddings_tutorial.ipynb`](../../../optional/notebook/03b_huggingface_embeddings_tutorial.ipynb) (optional), [`03c_embedding_models.ipynb`](../../../optional/notebook/03c_embedding_models.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M13 theory](../README.md) · Lesson 13.3 · Notebooks: [`03a_huggingface_embeddings.ipynb`](../../notebook/03a_huggingface_embeddings.ipynb), [`03b_huggingface_embeddings_tutorial.ipynb`](../../../optional/notebook/03b_huggingface_embeddings_tutorial.ipynb) (optional), [`03c_embedding_models.ipynb`](../../../optional/notebook/03c_embedding_models.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Domain fit
 
@@ -23,7 +23,7 @@ Two settings decide whether a local model behaves like the hosted ones in lesson
 - **Normalization is off by default.** Pass `encode_kwargs={"normalize_embeddings": True}`, or score with cosine. Otherwise dot product rewards longer vectors, as the [lesson 13.1 lab](../01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html) shows.
 - **Some models are asymmetric.** They are trained so that short questions and long passages meet, and they treat the two sides differently, so `embed_query` and `embed_documents` can return different vectors for the same text. Keep the two calls separate in your code even when today's model is symmetric.
 
-Hosted or self-hosted is part of the fit, because some corpora may not leave your network. The trade, from notebook 14.1:
+Hosted or self-hosted is part of the fit, because some corpora may not leave your network. The trade, from notebook 13.1:
 
 | | Hosted API | Self-hosted |
 |---|---|---|

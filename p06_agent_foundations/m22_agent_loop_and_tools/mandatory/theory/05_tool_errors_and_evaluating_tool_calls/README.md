@@ -1,6 +1,6 @@
 # M22.5 Theory: Tool errors and evaluating tool calls
 
-*[M22 theory](../README.md) · Lesson 22.5 · Notebooks: [`05a_tool_loop_errors_and_evaluation.ipynb`](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M22 theory](../README.md) · Lesson 22.5 · Notebooks: [`05a_tool_loop_errors_and_evaluation.ipynb`](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Where tool errors go
 
@@ -312,7 +312,7 @@ The deterministic examples on this page need no model call. Running the notebook
 
 ### Continue learning
 
-- [Baseline-first optimisation](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/05_the_rag_lifecycle_and_a_measured_baseline/README.md#baseline-first-optimisation): how to compare scores across a fixed golden set before and after one change.
+- [Baseline-first optimisation](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/05_the_rag_lifecycle_and_a_measured_baseline/README.md#baseline-first-optimisation): how to compare scores across a fixed golden set before and after one change.
 - [Hosted vs client-side tools](../06_hosted_vs_client_side_tools_code_execution_and_image_generation/README.md): what changes when the provider runs the tool instead of your code.
 
 ## Key Takeaways

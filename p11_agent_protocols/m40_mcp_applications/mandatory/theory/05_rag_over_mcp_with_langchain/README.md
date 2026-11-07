@@ -1,6 +1,6 @@
 # M40.5 Theory: RAG over MCP with LangChain
 
-*[M40 theory](../README.md) · Lesson 40.5 · Notebooks: [`06_mcp_rag_with_langchain`](../../../projects/06_mcp_rag_with_langchain) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../README.md) · Lesson 40.5 · Notebooks: [`06_mcp_rag_with_langchain`](../../../projects/06_mcp_rag_with_langchain) · [All theory pages](../../../../../THEORY.md)*
 
 ## RAG over MCP
 
@@ -97,7 +97,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M12](../../../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md).
+- [M12](../../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md).
 
 ## Key Takeaways
 

@@ -1,6 +1,6 @@
 # M32.3 Theory: Dartboard RAG: relevance and diversity together
 
-*[M32 theory](../../../mandatory/theory/README.md) · Lesson 32.3 · Notebooks: [`03a_dartboard_rag.ipynb`](../../notebook/03a_dartboard_rag.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M32 theory](../../../mandatory/theory/README.md) · Lesson 32.3 · Notebooks: [`03a_dartboard_rag.ipynb`](../../notebook/03a_dartboard_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Diversity-aware selection
 
@@ -64,7 +64,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M17.4](../../../../../theory/p06_retrieval_quality/m17_retrievers_hybrid_search/04_maximal_marginal_relevance_for_diversity/README.md#mmr-λ).
+- [M17.4](../../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/04_maximal_marginal_relevance_for_diversity/README.md#mmr-λ).
 
 ## Key Takeaways
 

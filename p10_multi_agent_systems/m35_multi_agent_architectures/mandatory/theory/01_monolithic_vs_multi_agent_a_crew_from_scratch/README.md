@@ -1,6 +1,6 @@
 # M35.1 Theory: Monolithic vs multi-agent; a crew from scratch
 
-*[M35 theory](../README.md) · Lesson 35.1 · Notebooks: [`01a_multi_agent_vs_monolithic_agent.ipynb`](../../notebook/01a_multi_agent_vs_monolithic_agent.ipynb), [`01b_multiagent_pattern_from_scratch.ipynb`](../../../optional/notebook/01b_multiagent_pattern_from_scratch.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M35 theory](../README.md) · Lesson 35.1 · Notebooks: [`01a_multi_agent_vs_monolithic_agent.ipynb`](../../notebook/01a_multi_agent_vs_monolithic_agent.ipynb), [`01b_multiagent_pattern_from_scratch.ipynb`](../../../optional/notebook/01b_multiagent_pattern_from_scratch.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## When one agent becomes a team
 

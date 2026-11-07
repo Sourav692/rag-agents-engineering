@@ -1,6 +1,6 @@
 # M45.4 Theory: Data preparation
 
-*[M45 theory](../README.md) · Lesson 45.4 · Notebooks: [`04a_data_preparation_lab.ipynb`](../../notebook/04_data_preparation/04a_data_preparation_lab.ipynb), [`04b_data_preparation_lecture.ipynb`](../../../optional/notebook/04_data_preparation/04b_data_preparation_lecture.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../README.md) · Lesson 45.4 · Notebooks: [`04a_data_preparation_lab.ipynb`](../../notebook/04_data_preparation/04a_data_preparation_lab.ipynb), [`04b_data_preparation_lecture.ipynb`](../../../optional/notebook/04_data_preparation/04b_data_preparation_lecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Data preparation
 

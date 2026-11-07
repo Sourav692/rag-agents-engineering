@@ -1,6 +1,6 @@
 # M02.1 Theory: Calling commercial LLM APIs: OpenAI and Gemini
 
-*[M02 theory](../README.md) · Lesson 2.1 · Notebooks: [`01a_using_chatgpt_or_google_gemini.ipynb`](../../notebook/01a_using_chatgpt_or_google_gemini.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M02 theory](../README.md) · Lesson 2.1 · Notebooks: [`01a_using_chatgpt_or_google_gemini.ipynb`](../../notebook/01a_using_chatgpt_or_google_gemini.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chat completions
 
@@ -25,7 +25,7 @@ Four parts of the request and response matter on every call:
 
 - **Roles.** `system` sets standing instructions, `user` is the question, `assistant` is an earlier reply. For the Larkspur generator the system message says to answer only from the handbook excerpts, and the user message holds the excerpts and the customer's question.
 - **The call is stateless.** The API remembers nothing between calls. A follow-up question works only if you send the earlier turns again, so every turn of a long conversation pays for all the turns before it.
-- **Sampling parameters.** `temperature` controls randomness; the notebook uses 0.1 for repeatable answers. `max_tokens` caps the reply; lesson 2.2's notebook sets 1,000. Reasoning models are stricter: [M24's routing page](../../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/02_routing_by_handler_and_by_model_tier/README.md#routing-by-model-tier) records that o-series models reject a custom temperature.
+- **Sampling parameters.** `temperature` controls randomness; the notebook uses 0.1 for repeatable answers. `max_tokens` caps the reply; lesson 2.2's notebook sets 1,000. Reasoning models are stricter: [M24's routing page](../../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/02_routing_by_handler_and_by_model_tier/README.md#routing-by-model-tier) records that o-series models reject a custom temperature.
 - **`usage`.** `prompt_tokens` and `completion_tokens` are what the provider bills. In the installed `openai` 2.54.0, `usage.completion_tokens_details.reasoning_tokens` reports how many of the completion tokens were hidden reasoning. Lesson 2.3 is about that field.
 
 The notebook reads the key with `getpass` and sets `openai.api_key`, the SDK's module-level client. Lessons 2.3 and 2.4 create `OpenAI()` instead, which reads `OPENAI_API_KEY` from the environment loaded from `.env`. Either way the key stays out of the code and out of the notebook's saved state.
@@ -61,7 +61,7 @@ Four differences change what you build:
 - **`previous_response_id` still bills the history.** The earlier turns reach the model and are billed as input tokens, so a long conversation costs what it did under Chat Completions.
 - **Instructions do not carry over.** A call that uses `previous_response_id` must send `instructions` again; the previous response's instructions are dropped.
 - **Storage is a data-handling choice.** Responses are stored by default. For customer data under a retention policy, set `store=False` and resend the history yourself.
-- **Hosted tools need it.** Web search, code execution and image generation run only on the Responses API; [M22's hosted tools page](../../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/06_hosted_vs_client_side_tools_code_execution_and_image_generation/README.md) compares them with client-side tools.
+- **Hosted tools need it.** Web search, code execution and image generation run only on the Responses API; [M22's hosted tools page](../../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/06_hosted_vs_client_side_tools_code_execution_and_image_generation/README.md) compares them with client-side tools.
 
 The model names in this module's notebooks (`gpt-4o`, `gpt-4o-mini`, `o4-mini`) were current when the notebooks were written, and the numbers on these pages were measured with them. OpenAI has released newer families since: in November 2026 its migration guide's examples use `gpt-6-astra`. For new code, take the ID from the provider's models page and prefer a dated snapshot to an alias, so the model behind your answers changes only when your code does.
 

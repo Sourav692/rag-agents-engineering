@@ -40,8 +40,8 @@ from pathlib import Path
 
 __all__ = ["repo_root", "asset", "curriculum_root", "ASSET_ROOTS", "find_all"]
 
-# Lessons live under course/ in this repository.
-CURRICULUM_REL = "course"
+# Lessons live in the part folders (p01_... to p13_...) at the repository root.
+CURRICULUM_REL = "."
 
 # A directory is the repository root if it contains all of these.
 _ROOT_MARKERS = ("src/rag_paths.py", "pyproject.toml")
@@ -74,7 +74,7 @@ def repo_root(start: Path | str | None = None) -> Path:
 
 
 def curriculum_root(start: Path | str | None = None) -> Path:
-    """Return the ``modules/`` directory that holds the lessons."""
+    """Return the directory that holds the part folders (the repository root)."""
     return repo_root(start) / CURRICULUM_REL
 
 
@@ -83,7 +83,7 @@ def curriculum_root(start: Path | str | None = None) -> Path:
 ASSET_ROOTS: tuple[str, ...] = (
     "data/sample",
     "data/sample/rag_techniques",
-    "course/p05_ingestion_and_indexing/m13_chunking/assets",
+    "p04_rag_foundations/m12_chunking/assets",
 )
 
 

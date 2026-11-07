@@ -1,6 +1,6 @@
 # M45.2 Theory: Where fine-tuning fits
 
-*[M45 theory](../../../mandatory/theory/README.md) · Lesson 45.2 · Notebooks: [`02a_where_finetuning_fits_in_lab.ipynb`](../../notebook/02_where_finetuning_fits/02a_where_finetuning_fits_in_lab.ipynb) (optional), [`02b_where_finetuning_fits_in_lecture.ipynb`](../../notebook/02_where_finetuning_fits/02b_where_finetuning_fits_in_lecture.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../../../mandatory/theory/README.md) · Lesson 45.2 · Notebooks: [`02a_where_finetuning_fits_in_lab.ipynb`](../../notebook/02_where_finetuning_fits/02a_where_finetuning_fits_in_lab.ipynb) (optional), [`02b_where_finetuning_fits_in_lecture.ipynb`](../../notebook/02_where_finetuning_fits/02b_where_finetuning_fits_in_lecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Pre-training, then fine-tuning
 

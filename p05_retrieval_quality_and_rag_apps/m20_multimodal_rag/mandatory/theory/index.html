@@ -231,7 +231,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <header class="bar">
   <div class="container bar__in">
     <a class="wordmark" href="#top" aria-label="M20 theory, back to the top">RAG &amp; Agents Engineering</a>
-    <nav aria-label="Theory"><ul><li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/theory/README.md" target="_blank" rel="noopener">All theory pages</a></li></ul></nav>
+    <nav aria-label="Theory"><ul><li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/THEORY.md" target="_blank" rel="noopener">All theory pages</a></li></ul></nav>
   </div>
 </header>
 <main id="top">
@@ -243,7 +243,7 @@ th:last-child, td:last-child { padding-right: 0; }
       <p class="module__lede">A PDF loader that reads text keeps the paragraphs and drops the charts, so any fact that lives only in a figure never reaches the index. The three M20 notebooks get figures into retrieval three ways: embed the image beside the text with CLIP, have a vision model write a caption and index the caption, or embed the whole page as an image with ColPali. The M20 notebooks build on four ideas: one vector space for text and images, captions as a text stand-in for a figure, late interaction between query tokens and page patches, and retrieving whole pages instead of chunks.</p>
     </div>
     <dl class="module__meta">
-      <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m21_multimodal_rag/README.md" target="_blank" rel="noopener">M20 on GitHub</a></dd></div>
+      <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/README.md" target="_blank" rel="noopener">M20 on GitHub</a></dd></div>
       <div><dt>Part VII</dt><dd>Building Complete RAG Applications</dd></div>
       <div><dt>Four ways to index a chart</dt><dd><a class="btn btn--quiet" href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">Open the lab</a></dd></div>
     </dl>
@@ -369,7 +369,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </figure>
 <p>The ranks are for <em>Which month missed the 99.95% availability target?</em> in the lab. Every route ends in the same place: the top-<code>k</code> items go to a model that can read what they hold, text, a caption or an image. What differs is whether the figure survives indexing, and whether it can outscore the text around it.</p>
 <h2 id="joint-embedding-space">Joint embedding space</h2>
-<p class="lesson-of">Lesson 20.1: Shared text–image embedding space with CLIP. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m21_multimodal_rag/notebooks/01a_multimodal_rag_with_clip.ipynb" target="_blank" rel="noopener"><code>01a_multimodal_rag_with_clip.ipynb</code></a></p>
+<p class="lesson-of">Lesson 20.1: Shared text–image embedding space with CLIP. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/01a_multimodal_rag_with_clip.ipynb" target="_blank" rel="noopener"><code>01a_multimodal_rag_with_clip.ipynb</code></a></p>
 <p>CLIP has two encoders, one for text and one for images, trained together so that an image and a caption that describes it land close in the same vector space (Radford et al., <em>Learning Transferable Visual Models From Natural Language Supervision</em>, 2021). With <code>openai/clip-vit-base-patch32</code>, the notebook&rsquo;s model, both encoders end in a 512-dimension vector. The notebook normalises each one to unit length, so a dot product is a cosine:</p>
 <pre class="sheet code"><code class="language-python">def embed_text(text):
     inputs = clip_processor(text=text, return_tensors=&quot;pt&quot;, padding=True,
@@ -378,7 +378,7 @@ th:last-child, td:last-child { padding-right: 0; }
     return (features / features.norm(dim=-1, keepdim=True)).squeeze().numpy()
 </code></pre>
 <p><code>embed_image</code> does the same with <code>get_image_features</code>. Indexing walks each PDF page with PyMuPDF: <code>page.get_text()</code> goes through a <code>RecursiveCharacterTextSplitter</code> (500 characters, overlap 100) and each chunk is embedded with <code>embed_text</code>; every image from <code>page.get_images()</code> is embedded with <code>embed_image</code>, stored as base64 for the answer model, and indexed as a stub Document <code>"[Image: page_0_img_0]"</code> with <code>type: "image"</code> in its metadata. All vectors go into one FAISS index through <code>FAISS.from_embeddings(..., embedding=None)</code>. FAISS ranks by L2 distance, which on unit vectors orders results the same way as cosine.</p>
-<p>At query time the question goes through <code>embed_text</code>, <code>similarity_search_by_vector</code> returns the top 5, and <code>create_multimodal_message</code> builds one <code>HumanMessage</code> for <code>gpt-4.1</code>: the text chunks as text parts, each retrieved image as an <code>image_url</code> part with a base64 data URL (<a href="../../../../theory/p02_prompt_engineering/m06_multimodal_prompting/index.html">M05</a> covers that format).</p>
+<p>At query time the question goes through <code>embed_text</code>, <code>similarity_search_by_vector</code> returns the top 5, and <code>create_multimodal_message</code> builds one <code>HumanMessage</code> for <code>gpt-4.1</code>: the text chunks as text parts, each retrieved image as an <code>image_url</code> part with a base64 data URL (<a href="../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/index.html">M05</a> covers that format).</p>
 <p>Both encoders have hard input limits, and both matter for documents:</p>
 <ul>
 <li><strong>Text stops at 77 tokens.</strong> The splitter&rsquo;s 500-character chunks run past that. Split the same way, page 2 of the Attention paper gives 11 chunks of 81 to 116 CLIP tokens, and even the sample PDF&rsquo;s 365-character page is 79. <code>truncation=True</code> drops the tail without a warning. CLIP was trained to match images with short captions, so a long paragraph is outside what it learned.</li>
@@ -451,7 +451,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>By something else, because scores from different modalities are not comparable. Search text and images separately and send the top text chunks plus the top image; on the lab pages, the top image is the answer figure for all three questions. The alternatives are to put everything in one modality (captions or page images) or to use a text embedding model for the text.</p>
 </details>
 <h2 id="captioning">Captioning</h2>
-<p class="lesson-of">Lesson 20.2: Caption-then-index with a vision LLM. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m21_multimodal_rag/notebooks/02a_multimodal_rag_with_captioning.ipynb" target="_blank" rel="noopener"><code>02a_multimodal_rag_with_captioning.ipynb</code></a></p>
+<p class="lesson-of">Lesson 20.2: Caption-then-index with a vision LLM. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb" target="_blank" rel="noopener"><code>02a_multimodal_rag_with_captioning.ipynb</code></a></p>
 <p>Captioning moves the vision work to index time. A vision model looks at each figure once and writes text about it, and from then on the figure is a text chunk: the same embedder, the same vector store and the same retriever as the paragraphs around it.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     I[/"Figure image"/] --&gt; V["Vision LLM&lt;br/&gt;caption prompt"]
@@ -480,7 +480,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>The figure&rsquo;s place</strong>: document, page, figure number, so a citation can point at it.</li>
 <li><strong>An explicit escape</strong> for anything unreadable, as M05 does with <code>[NOT_EXTRACTED]</code>, so the captioner leaves a gap instead of guessing.</li>
 </ul>
-<p>A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption&rsquo;s metadata (<code>name</code>), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML (<a href="../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/index.html">M11, lesson 11.4</a>) keeps rows and columns that a caption has to describe in prose.</p>
+<p>A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption&rsquo;s metadata (<code>name</code>), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11, lesson 11.4</a>) keeps rows and columns that a caption has to describe in prose.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Captioning pays the vision cost once per image at index time. Captions then compete with text chunks on one scale, and hybrid search, reranking and filters all still apply.</li>
@@ -501,7 +501,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Retrieve on the caption, then send the original image to a vision model at answer time; the notebook already keeps the image file name in each caption&rsquo;s metadata (<code>name</code>). The caption then only has to be good enough to find the figure. Where the PDF has a real text layer, an element-level parser that returns tables as HTML (M11, lesson 11.4) avoids describing them in prose at all.</p>
 </details>
 <h2 id="late-interaction">Late interaction</h2>
-<p class="lesson-of">Lesson 20.3: Page-image retrieval with ColPali. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/course/p07_rag_applications/m21_multimodal_rag/optional/03a_multimodal_rag_with_colpali.ipynb" target="_blank" rel="noopener"><code>03a_multimodal_rag_with_colpali.ipynb</code></a> (optional)</p>
+<p class="lesson-of">Lesson 20.3: Page-image retrieval with ColPali. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/optional/notebook/03a_multimodal_rag_with_colpali.ipynb" target="_blank" rel="noopener"><code>03a_multimodal_rag_with_colpali.ipynb</code></a> (optional)</p>
 <p>A single-vector retriever squeezes a chunk into one vector and a question into another, and compares them once. A cross-encoder (M18) reads question and chunk together, which is accurate and too slow to run over a whole index. Late interaction sits between them. It encodes the document and the question separately, as with single vectors, so documents can be encoded ahead of time. It keeps one vector per token instead of one per text, and compares them only at the end:</p>
 <pre class="sheet code"><code>MaxSim(q, d) = sum over query vectors i of ( max over document vectors j of  q_i · d_j )
 </code></pre>
@@ -676,7 +676,7 @@ image_bytes = base64.b64decode(results[0].base64)
 <p><a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html"><strong>Four ways to index a chart</strong></a>: open the file in a browser. Start on CLIP joint space and slide <code>k</code> from 1 to 9: the figure stays below every text chunk until <code>k = 7</code>. Switch to Captions at <code>k = 1</code> and watch the first question miss, because the figure note outscores the caption, then pass at <code>k = 2</code>. Then try Page images, where <code>k = 1</code> answers all three.</p>
 <h2 id="how-it-connects">How it connects</h2>
 <ul>
-<li><strong>Before:</strong> <a href="../../../../theory/p02_prompt_engineering/m06_multimodal_prompting/index.html">M05</a> shows how to put an image or a PDF page into a prompt, which is where every route here ends. <a href="../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/index.html">M11</a> covers the loaders that drop figures, and <a href="../../../../theory/p05_ingestion_and_indexing/m14_embeddings/index.html">M13</a> the text embeddings the caption route reuses. The lab reports against the <a href="../../../../theory/p04_rag_foundations/m11_rag_lifecycle/index.html">M10</a> habit: fixed golden questions, the rank of the evidence, the cut at <code>k</code>.</li>
+<li><strong>Before:</strong> <a href="../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/index.html">M05</a> shows how to put an image or a PDF page into a prompt, which is where every route here ends. <a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11</a> covers the loaders that drop figures, and <a href="../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/index.html">M13</a> the text embeddings the caption route reuses. The lab reports against the <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> habit: fixed golden questions, the rank of the evidence, the cut at <code>k</code>.</li>
 <li><strong>Next:</strong> <a href="../../../m21_llamaindex/mandatory/theory/index.html">M21</a> rebuilds pipelines in LlamaIndex. A multimodal index is one more retriever in the agentic RAG designs of M28 to M31.</li>
 </ul>
 <h2 id="interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight: 5 Questions You Might Get Asked</h2>

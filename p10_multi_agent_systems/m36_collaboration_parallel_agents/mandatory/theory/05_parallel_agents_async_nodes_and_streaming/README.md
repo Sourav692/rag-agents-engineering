@@ -1,6 +1,6 @@
 # M36.5 Theory: Parallel agents, async nodes and streaming
 
-*[M36 theory](../README.md) · Lesson 36.5 · Notebooks: [`05a_parallel_agents.ipynb`](../../notebook/05a_parallel_agents.ipynb), [`05b_async_multi_agent_streaming.ipynb`](../../notebook/05b_async_multi_agent_streaming.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M36 theory](../README.md) · Lesson 36.5 · Notebooks: [`05a_parallel_agents.ipynb`](../../notebook/05a_parallel_agents.ipynb), [`05b_async_multi_agent_streaming.ipynb`](../../notebook/05b_async_multi_agent_streaming.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Map-reduce / async
 

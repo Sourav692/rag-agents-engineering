@@ -1,6 +1,6 @@
 # M45.3 Theory: Instruction tuning
 
-*[M45 theory](../README.md) · Lesson 45.3 · Notebooks: [`03a_instruction_tuning_lab.ipynb`](../../notebook/03_instruction_tuning/03a_instruction_tuning_lab.ipynb), [`03b_instruction_tuning_lecture.ipynb`](../../../optional/notebook/03_instruction_tuning/03b_instruction_tuning_lecture.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M45 theory](../README.md) · Lesson 45.3 · Notebooks: [`03a_instruction_tuning_lab.ipynb`](../../notebook/03_instruction_tuning/03a_instruction_tuning_lab.ipynb), [`03b_instruction_tuning_lecture.ipynb`](../../../optional/notebook/03_instruction_tuning/03b_instruction_tuning_lecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Instruction tuning
 

@@ -8,7 +8,7 @@ transformation techniques rewrite, expand, decompose, or route the query **befor
 instead of — searching with it verbatim, so the retriever pulls back more relevant, more
 complete context.
 
-Unlike the indexing techniques ([`06_indexing_strategies/`](../../../course/p05_ingestion_and_indexing/m16_advanced_indexing/README.md)), which change *what gets built
+Unlike the indexing techniques ([`06_indexing_strategies/`](../../../p04_rag_foundations/m15_advanced_indexing/README.md)), which change *what gets built
 into the index* at index time, everything here operates at **query time**, on the *same* index
 a naive pipeline would use.
 
@@ -82,7 +82,7 @@ query and each candidate route's description, and pick the route whose embedding
 
 **Retrieval stage** — every technique here transforms the *query*, before or as part of the
 similarity search, using an index that's already built. (That baseline index is built in
-[`04_rag_lifecycle_and_baseline.ipynb`](../../../course/p04_rag_foundations/m11_rag_lifecycle/notebooks/05a_rag_lifecycle_and_baseline.ipynb), which isn't itself query transformation —
+[`04_rag_lifecycle_and_baseline.ipynb`](../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/notebook/05a_rag_lifecycle_and_baseline.ipynb), which isn't itself query transformation —
 see the folder's `README.md` for the full stage breakdown.)
 
 ## Quick Decision Guide
@@ -100,7 +100,7 @@ see the folder's `README.md` for the full stage breakdown.)
 
 ## See Also
 - [`README.md`](../README.md) — where this folder sits in the RAG pipeline and its merge history.
-- [`06_indexing_strategies/`](../../../course/p05_ingestion_and_indexing/m16_advanced_indexing/README.md) — the sibling folder for
+- [`06_indexing_strategies/`](../../../p04_rag_foundations/m15_advanced_indexing/README.md) — the sibling folder for
   *indexing*-stage techniques (multi-representation indexing, parent-document retrieval),
   including its own written comparison doc.
 - [`09_post_retrieval_and_reranking/`](../../m18_reranking_post_retrieval/README.md) — cross-encoder

@@ -1,6 +1,6 @@
 # M13 Theory: Embeddings and model selection
 
-*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 An embedding model turns each chunk into a fixed-length list of numbers, and retrieval ranks chunks by how close those lists are to the question's. The model therefore decides what "similar" means for your corpus, and changing it later means re-embedding every chunk. The M13 notebooks build on four ideas: how to compare two vectors, what the number of dimensions costs, how to stop paying twice for the same vector, and how to tell whether a model fits your documents. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -44,7 +44,7 @@ A chunk becomes a vector once, at index time, and the cache makes sure it stays 
 
 ## Interactive lab
 
-[**Cosine, dot and Euclidean**](01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html): open the file in a browser. With *How long does a refund take?* selected, move the length of `plans-overview` from 1.0× to 1.2×: dot product now ranks the pricing page first while cosine still ranks `refund-timing` first. Push it to 3.0×, the scaling notebook 14.1 uses, and Euclidean distance drops the same chunk to last place. Then press **Normalize first** and watch the three rankings agree again.
+[**Cosine, dot and Euclidean**](01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html): open the file in a browser. With *How long does a refund take?* selected, move the length of `plans-overview` from 1.0× to 1.2×: dot product now ranks the pricing page first while cosine still ranks `refund-timing` first. Push it to 3.0×, the scaling notebook 13.1 uses, and Euclidean distance drops the same chunk to last place. Then press **Normalize first** and watch the three rankings agree again.
 
 ## How it connects
 

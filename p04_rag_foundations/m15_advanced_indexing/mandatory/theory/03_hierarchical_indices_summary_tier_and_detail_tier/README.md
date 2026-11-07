@@ -1,6 +1,6 @@
 # M15.3 Theory: Hierarchical indices: summary tier and detail tier
 
-*[M15 theory](../README.md) · Lesson 15.3 · Notebooks: [`03a_hierarchical_indices.ipynb`](../../notebook/03a_hierarchical_indices.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M15 theory](../README.md) · Lesson 15.3 · Notebooks: [`03a_hierarchical_indices.ipynb`](../../notebook/03a_hierarchical_indices.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Top-down search
 

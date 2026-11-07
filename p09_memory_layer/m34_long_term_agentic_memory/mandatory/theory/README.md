@@ -1,6 +1,6 @@
 # M34 Theory: Long-Term & Agentic Memory
 
-*Part IX · The Memory Layer · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IX · The Memory Layer · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Dana returns to Larkspur in a new conversation and expects the assistant to remember her plan and earlier work. You will choose the scope and writer of each memory layer, retrieve old facts and distinguish stored information from executable skills. The tutorials cover namespaces, semantic and episodic memory, procedures, tiered context and skill libraries. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -46,8 +46,8 @@ Every turn reads memory before the model runs and writes it after. The ids decid
 
 ## How it connects
 
-- **Before:** M09 teaches the checkpointer and `interrupt()` that procedural memory reuses. [M33](../../../m33_short_term_memory_conversation_state/mandatory/theory/README.md) gives an agent memory inside one thread; this module adds memory across threads. [M13](../../../../theory/p05_ingestion_and_indexing/m14_embeddings/README.md) and [M14](../../../../theory/p05_ingestion_and_indexing/m15_vector_stores/README.md) cover the embeddings and vector indexes behind recall by similarity, and the golden-set method from [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) is how you measure whether memory helps.
-- **Next:** [M35](../../../../theory/p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md) to [M37](../../../../theory/p10_memory_and_multi_agent/m37_multi_agent_builds_deep_agents/README.md) give several agents shared and private memory. [M43](../../../../theory/p12_hierarchical_and_graph_rag/m43_knowledge_graphs_neo4j/README.md) stores graph memory in Neo4j, which lesson 34.4 previews.
+- **Before:** M09 teaches the checkpointer and `interrupt()` that procedural memory reuses. [M33](../../../m33_short_term_memory_conversation_state/mandatory/theory/README.md) gives an agent memory inside one thread; this module adds memory across threads. [M13](../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md) and [M14](../../../../p04_rag_foundations/m14_vector_stores/mandatory/theory/README.md) cover the embeddings and vector indexes behind recall by similarity, and the golden-set method from [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) is how you measure whether memory helps.
+- **Next:** [M35](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md) to [M37](../../../../p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/theory/README.md) give several agents shared and private memory. [M43](../../../../p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/theory/README.md) stores graph memory in Neo4j, which lesson 34.4 previews.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
@@ -101,4 +101,4 @@ Every turn reads memory before the model runs and writes it after. The ids decid
 - Preload while memory is small; once it outgrows the prompt, recall by similarity or traversal, and measure that recall on cross-thread questions.
 
 ---
-*Previous: [M33 Conversation Memory & Conversational RAG](../../../m33_short_term_memory_conversation_state/mandatory/theory/README.md). Next: [M35 Multi-Agent Architectures](../../../../theory/p10_memory_and_multi_agent/m35_multi_agent_architectures/README.md).*
+*Previous: [M33 Conversation Memory & Conversational RAG](../../../m33_short_term_memory_conversation_state/mandatory/theory/README.md). Next: [M35 Multi-Agent Architectures](../../../../p10_multi_agent_systems/m35_multi_agent_architectures/mandatory/theory/README.md).*

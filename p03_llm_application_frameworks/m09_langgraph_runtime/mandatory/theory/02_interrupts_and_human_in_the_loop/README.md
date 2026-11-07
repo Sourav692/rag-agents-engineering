@@ -1,6 +1,6 @@
 # M10.2 Theory: Interrupts and human-in-the-loop
 
-*[M09 theory](../README.md) · Lesson 9.2 · Notebooks: [`02a_HITL_Mechanics.ipynb`](../../notebook/02a_HITL_Mechanics.ipynb), [`02b_LangGraph_Interrupt_Primitive.ipynb`](../../notebook/02b_LangGraph_Interrupt_Primitive.ipynb), [`02c_HITL_Patterns.ipynb`](../../notebook/02c_HITL_Patterns.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M09 theory](../README.md) · Lesson 9.2 · Notebooks: [`02a_HITL_Mechanics.ipynb`](../../notebook/02a_HITL_Mechanics.ipynb), [`02b_LangGraph_Interrupt_Primitive.ipynb`](../../notebook/02b_LangGraph_Interrupt_Primitive.ipynb), [`02c_HITL_Patterns.ipynb`](../../notebook/02c_HITL_Patterns.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## interrupt()
 
@@ -43,9 +43,9 @@ The 02b and 02c notebooks build four shapes on the same primitive. On the Larksp
 - **Approve or reject.** The gate returns `Command(goto="execute")` or `Command(goto="cancel")` depending on the decision, with `update={"decision": ...}`. Annotate the return type, `Command[Literal["execute", "cancel"]]`, so the graph knows the possible targets.
 - **Edit then continue.** The gate shows the draft reply to the customer and resumes with `{"edited_summary": ...}`; the node writes the edited text to state and the graph follows its one path.
 - **Edit state while paused.** With `interrupt_before`, the caller runs `update_state(cfg, {...})` on the parked thread, then `invoke(None, cfg)`. The 02c demo swaps "Multiply 2 and 3" for "No, please multiply 15 and 6" this way.
-- **Review a tool call.** `interrupt()` inside a sensitive tool, or a wrapper such as the notebook's `add_human_in_the_loop`, lets a person accept, edit or answer instead of running it. `HumanInTheLoopMiddleware` in [M23](../../../../../theory/p08_agent_foundations/m24_react_agents/README.md) packages the same idea for `create_agent`.
+- **Review a tool call.** `interrupt()` inside a sensitive tool, or a wrapper such as the notebook's `add_human_in_the_loop`, lets a person accept, edit or answer instead of running it. `HumanInTheLoopMiddleware` in [M23](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) packages the same idea for `create_agent`.
 
-Whichever shape you use, approve on an exact value and treat anything else as no. [M27](../../../../../theory/p08_agent_foundations/m27_human_approval_applied_agents/README.md) builds that fail-closed gate, with a fingerprint that catches edits made after the review. What can happen twice around the gate is the subject of the lab in [lesson 9.6](../06_state_management_in_practice/README.md#resume-and-side-effects).
+Whichever shape you use, approve on an exact value and treat anything else as no. [M27](../../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/README.md) builds that fail-closed gate, with a fingerprint that catches edits made after the review. What can happen twice around the gate is the subject of the lab in [lesson 9.6](../06_state_management_in_practice/README.md#resume-and-side-effects).
 
 ## Key Takeaways
 

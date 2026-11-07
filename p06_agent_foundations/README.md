@@ -11,5 +11,5 @@ The agent loop, tools, ReAct, the five workflow patterns, planning and reflectio
 | [M22 The Agent Loop & Tool Calling](m22_agent_loop_and_tools/README.md) | Core | ~5 h | 7 | 4 |
 | [M23 ReAct Agents & LangChain create_agent](m23_react_agents/README.md) | Core | ~5 h | 6 | 7 |
 | [M24 Agentic Workflow Patterns](m24_agentic_workflow_patterns/README.md) | Core | ~7 h | 8 | 5 |
-| [M25 Planning, Reflection & Reasoning Patterns](../course/p08_agent_foundations/m26_planning_reflection_reasoning/README.md) | Advanced | ~6 h | 8 | 9 |
-| [M27 Human Approval & Applied Single-Agent Builds](../course/p08_agent_foundations/m27_human_approval_applied_agents/README.md) | Advanced | ~5 h | 4 | 6 |
+| [M25 Planning, Reflection & Reasoning Patterns](../p07_advanced_agents/m25_planning_reflection_reasoning/README.md) | Advanced | ~6 h | 8 | 9 |
+| [M27 Human Approval & Applied Single-Agent Builds](../p07_advanced_agents/m27_human_approval_applied_agents/README.md) | Advanced | ~5 h | 4 | 6 |

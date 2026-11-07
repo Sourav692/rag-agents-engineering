@@ -1,6 +1,6 @@
 # M21 Theory: Framework fluency with LlamaIndex
 
-*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part V · Retrieval Quality & RAG Applications · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 M21 rebuilds pipelines you already know from the LangChain modules in LlamaIndex: a plain vector RAG, hybrid fusion, reranking and an enrichment window. The ideas are the same; the class names and several defaults change. The M21 notebooks build on four ideas: the Node as the unit LlamaIndex indexes, the QueryEngine that wraps retrieval and answering, the postprocessors that edit the retrieved list in between, and the sentence window that retrieves one sentence and sends its neighbours. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -47,7 +47,7 @@ The diagram is M10's lifecycle with LlamaIndex names on the boxes, plus a stage 
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) is the lifecycle this module renames. [M12](../../../../theory/p05_ingestion_and_indexing/m13_chunking/README.md) wrote the refunds section and the small-chunk trade-off the sentence window answers. [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) covers score fusion and rank fusion in LangChain, and [M18](../../../m18_reranking_post_retrieval/mandatory/theory/README.md) covers cross-encoder and LLM reranking and character-based enrichment windows.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) is the lifecycle this module renames. [M12](../../../../p04_rag_foundations/m12_chunking/mandatory/theory/README.md) wrote the refunds section and the small-chunk trade-off the sentence window answers. [M16](../../../m16_retrievers_hybrid_search/mandatory/theory/README.md) covers score fusion and rank fusion in LangChain, and [M18](../../../m18_reranking_post_retrieval/mandatory/theory/README.md) covers cross-encoder and LLM reranking and character-based enrichment windows.
 - **Next:** M22 starts Part VIII, where the retriever becomes one tool an agent can call; M31 wraps a RAG pipeline as that tool.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
@@ -102,4 +102,4 @@ The diagram is M10's lifecycle with LlamaIndex names on the boxes, plus a stage 
 - Retrieve small, send big: a sentence window keeps the retrieval scores of a sentence and gives the model the paragraph around it. Size the window per question type and watch overlap when `k` is above 1.
 
 ---
-*Previous: [M20 Multimodal RAG](../../../m20_multimodal_rag/mandatory/theory/README.md). Next: [M22 The agent loop and tool calling](../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md).*
+*Previous: [M20 Multimodal RAG](../../../m20_multimodal_rag/mandatory/theory/README.md). Next: [M22 The agent loop and tool calling](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md).*

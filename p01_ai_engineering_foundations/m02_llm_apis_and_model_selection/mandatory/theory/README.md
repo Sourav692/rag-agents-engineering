@@ -1,6 +1,6 @@
 # M02 Theory: LLM provider APIs and model selection
 
-*Part I · AI Engineering Foundations · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part I · AI Engineering Foundations · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Every RAG answer ends in a model call: a list of messages goes to an endpoint, and an answer and a token count come back. The M02 notebooks build on four ideas: the chat completion as the unit of work, the endpoints that serve hosted and open models, reasoning models that think in tokens you never see, and the trade between accuracy and what each answer costs. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -44,7 +44,7 @@ The answer is the only part you read, and it is the smallest part you pay for. A
 ## How it connects
 
 - **Before:** [M01](../../../m01_python_data_refresher/mandatory/theory/README.md) sets up the Python and data tools these notebooks run on.
-- **Next:** [M03](../../../m03_hugging_face_models/mandatory/theory/README.md) takes lesson 2.2's local pipeline further with Hugging Face models and Gradio demos. M04 turns these calls into prompt patterns; its chain-of-thought lesson is the prompt-side version of what a reasoning model does in training. M06 wraps the same provider SDKs behind one LangChain chat-model interface. [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) records cost per question in its baseline row, and [M24](../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) routes each request to a cheap or a reasoning tier at run time, which is lessons 2.3 and 2.4 applied per request.
+- **Next:** [M03](../../../m03_hugging_face_models/mandatory/theory/README.md) takes lesson 2.2's local pipeline further with Hugging Face models and Gradio demos. M04 turns these calls into prompt patterns; its chain-of-thought lesson is the prompt-side version of what a reasoning model does in training. M06 wraps the same provider SDKs behind one LangChain chat-model interface. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) records cost per question in its baseline row, and [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md) routes each request to a cheap or a reasoning tier at run time, which is lessons 2.3 and 2.4 applied per request.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

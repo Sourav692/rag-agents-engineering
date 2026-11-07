@@ -1,6 +1,6 @@
 # M07.2 Theory: Commercial LLMs natively and with LangChain
 
-*[M06 theory](../README.md) · Lesson 6.2 · Notebooks: [`02a_Commercial_LLMs_with_LangChain.ipynb`](../../notebook/02a_Commercial_LLMs_with_LangChain.ipynb), [`02b_Commercial_LLMs_Natively.ipynb`](../../../optional/notebook/02b_Commercial_LLMs_Natively.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M06 theory](../README.md) · Lesson 6.2 · Notebooks: [`02a_Commercial_LLMs_with_LangChain.ipynb`](../../notebook/02a_Commercial_LLMs_with_LangChain.ipynb), [`02b_Commercial_LLMs_Natively.ipynb`](../../../optional/notebook/02b_Commercial_LLMs_Natively.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Chat models
 
@@ -43,7 +43,7 @@ llm = init_chat_model("openai:gpt-4o-mini", temperature=0)
 reply = (prompt | llm).invoke({"topic": "AI"})   # an AIMessage
 ```
 
-The swap keeps the code running. It does not keep the replies the same: another model formats, refuses and rambles differently. For Larkspur, a provider change is a release like any other, checked against the golden questions from [M10](../../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) before it ships.
+The swap keeps the code running. It does not keep the replies the same: another model formats, refuses and rambles differently. For Larkspur, a provider change is a release like any other, checked against the golden questions from [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) before it ships.
 
 ## Key Takeaways
 

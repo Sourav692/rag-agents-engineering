@@ -1,6 +1,6 @@
 # M17.1 Theory: Query rewriting and expansion
 
-*[M17 theory](../README.md) · Lesson 17.1 · Notebooks: [`01a_query_expansion.ipynb`](../../notebook/01a_query_expansion.ipynb), [`01b_query_transformations_rag_techniques.ipynb`](../../../optional/notebook/01b_query_transformations_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M17 theory](../README.md) · Lesson 17.1 · Notebooks: [`01a_query_expansion.ipynb`](../../notebook/01a_query_expansion.ipynb), [`01b_query_transformations_rag_techniques.ipynb`](../../../optional/notebook/01b_query_transformations_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Query–document asymmetry
 

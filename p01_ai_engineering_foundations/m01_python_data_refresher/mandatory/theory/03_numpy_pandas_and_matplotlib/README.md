@@ -1,6 +1,6 @@
 # M01.3 Theory: NumPy, pandas and Matplotlib
 
-*[M01 theory](../README.md) · Lesson 1.3 · Notebooks: [`03a_numpy_basics.ipynb`](../../notebook/03a_numpy_basics.ipynb), [`03b_pandas_basics_for_data_analysis.ipynb`](../../notebook/03b_pandas_basics_for_data_analysis.ipynb), [`03c_matplotlib_basics.ipynb`](../../../optional/notebook/03c_matplotlib_basics.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M01 theory](../README.md) · Lesson 1.3 · Notebooks: [`03a_numpy_basics.ipynb`](../../notebook/03a_numpy_basics.ipynb), [`03b_pandas_basics_for_data_analysis.ipynb`](../../notebook/03b_pandas_basics_for_data_analysis.ipynb), [`03c_matplotlib_basics.ipynb`](../../../optional/notebook/03c_matplotlib_basics.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## NumPy arrays
 

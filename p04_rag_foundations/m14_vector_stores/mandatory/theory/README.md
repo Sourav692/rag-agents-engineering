@@ -1,6 +1,6 @@
 # M14 Theory: Vector stores and index operations
 
-*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part IV · RAG Foundations: Ingestion & Indexing · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A vector store is a database. Each entry holds a vector, the text it came from and that text's metadata, and you add, read, filter, delete and persist entries the way you would rows. The hard part is keeping the store in step with source files that keep changing. The M14 notebooks build on four ideas: approximate nearest-neighbour (ANN) search, collections and namespaces, metadata filters, and idempotent re-indexing. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -47,7 +47,7 @@ The store is the system of record for what retrieval can return, so every change
 ## How it connects
 
 - **Before:** [M11](../../../m11_document_ingestion/mandatory/theory/README.md) sets the `source` metadata the record manager groups by and the flat metadata types the stores accept; [M12](../../../m12_chunking/mandatory/theory/README.md) decides what a chunk is, and so what gets hashed; [M13](../../../m13_embeddings/mandatory/theory/README.md) picks the embedding model, which has to match the index for as long as the index lives.
-- **Next:** [M15](../../../m15_advanced_indexing/mandatory/theory/README.md) indexes more than one representation per document (parent documents, summaries), which needs the stable IDs from lesson 14.1; [M16](../../../../theory/p06_retrieval_quality/m17_retrievers_hybrid_search/README.md) builds retrieval strategies (MMR, thresholds, hybrid search) on top of `as_retriever()`.
+- **Next:** [M15](../../../m15_advanced_indexing/mandatory/theory/README.md) indexes more than one representation per document (parent documents, summaries), which needs the stable IDs from lesson 14.1; [M16](../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/README.md) builds retrieval strategies (MMR, thresholds, hybrid search) on top of `as_retriever()`.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

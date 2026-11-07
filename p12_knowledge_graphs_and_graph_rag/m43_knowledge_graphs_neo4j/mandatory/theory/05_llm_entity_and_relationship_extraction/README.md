@@ -1,6 +1,6 @@
 # M43.5 Theory: LLM entity and relationship extraction
 
-*[M43 theory](../README.md) · Lesson 43.5 · Notebooks: [`05a_entity_relationship_extraction.ipynb`](../../notebook/05a_entity_relationship_extraction.ipynb), [`05b_create_kg_from_text.ipynb`](../../../optional/notebook/05b_create_kg_from_text.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M43 theory](../README.md) · Lesson 43.5 · Notebooks: [`05a_entity_relationship_extraction.ipynb`](../../notebook/05a_entity_relationship_extraction.ipynb), [`05b_create_kg_from_text.ipynb`](../../../optional/notebook/05b_create_kg_from_text.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Extraction produces candidate facts
 

@@ -1,10 +1,10 @@
 # M22 Theory: The agent loop and tool calling
 
-*Part VI · Agent Foundations · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VI · Agent Foundations · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A Larkspur customer asks whether web-1 is running and whether rebooting changes its IP address. The model must request two tools, your code must execute them, and the results must return before it answers. You will build that exchange, inspect the tool schemas, and follow errors through the loop before scoring the calls. The tutorials cover the agent loop, tool schemas, tool-call evaluation and the choice between client-side and hosted execution. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
-The running example is a support agent for Larkspur Cloud, the fictional host from M10 to M12. It has two client-side tools: `search_handbook`, which ranks the twelve handbook chunks from the [M10 lab](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) with TF-IDF and returns the best two, and `get_server_status`, which looks up one of the customer's servers. The golden questions are an M10 one (*Can I export my data after I cancel my plan?*), a two-tool one (*Is my server web-1 running, and does a reboot change its IP address?*), and two that fail on purpose: a server that does not exist and a tool call with the wrong argument name.
+The running example is a support agent for Larkspur Cloud, the fictional host from M10 to M12. It has two client-side tools: `search_handbook`, which ranks the twelve handbook chunks from the [M10 lab](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) with TF-IDF and returns the best two, and `get_server_status`, which looks up one of the customer's servers. The golden questions are an M10 one (*Can I export my data after I cancel my plan?*), a two-tool one (*Is my server web-1 running, and does a reboot change its IP address?*), and two that fail on purpose: a server that does not exist and a tool call with the wrong argument name.
 
 ## TL;DR
 
@@ -45,7 +45,7 @@ The model never runs anything. It writes a request; your code decides whether to
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) built the handbook index that `search_handbook` wraps. M08 and M09 taught the LangGraph state, reducers and conditional edges the 23.4 and 23.5 graphs use. M19 is the end-to-end retriever the module lab asks you to wrap as a tool.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) built the handbook index that `search_handbook` wraps. M08 and M09 taught the LangGraph state, reducers and conditional edges the 23.4 and 23.5 graphs use. M19 is the end-to-end retriever the module lab asks you to wrap as a tool.
 - **Next:** [M23](../../../m23_react_agents/mandatory/theory/README.md) packages this loop as a ReAct agent with LangChain's `create_agent`, and M24 to M27 add workflow patterns, planning and human approval around it. M28 to M31 put the retriever inside the loop (agentic RAG), and M38 to M40 reach tools over MCP, a server you run that the model calls through a protocol.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
@@ -100,4 +100,4 @@ The model never runs anything. It writes a request; your code decides whether to
 - Run tools that touch customer data in your own process, where you can log, refuse and stub them. Hosted tools fit commodity capabilities with nothing to enforce.
 
 ---
-*Previous: [M21 Framework fluency: LlamaIndex](../../../../theory/p07_rag_applications/m22_llamaindex/README.md). Next: [M23 ReAct agents and LangChain create_agent](../../../m23_react_agents/mandatory/theory/README.md).*
+*Previous: [M21 Framework fluency: LlamaIndex](../../../../p05_retrieval_quality_and_rag_apps/m21_llamaindex/mandatory/theory/README.md). Next: [M23 ReAct agents and LangChain create_agent](../../../m23_react_agents/mandatory/theory/README.md).*

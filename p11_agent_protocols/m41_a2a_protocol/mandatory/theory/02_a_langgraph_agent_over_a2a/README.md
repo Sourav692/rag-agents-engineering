@@ -1,6 +1,6 @@
 # M41.2 Theory: A LangGraph agent over A2A
 
-*[M41 theory](../README.md) · Lesson 41.2 · Notebooks: [`02a_langgraph_agent_over_a2a.ipynb`](../../notebook/02a_langgraph_agent_over_a2a.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M41 theory](../README.md) · Lesson 41.2 · Notebooks: [`02a_langgraph_agent_over_a2a.ipynb`](../../notebook/02a_langgraph_agent_over_a2a.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Tasks & messages
 
@@ -95,7 +95,7 @@ Run the complete implementation from the practice material after checking the tr
 
 ### Continue learning
 
-- [M23](../../../../../theory/p08_agent_foundations/m24_react_agents/README.md).
+- [M23](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md).
 
 ## Key Takeaways
 

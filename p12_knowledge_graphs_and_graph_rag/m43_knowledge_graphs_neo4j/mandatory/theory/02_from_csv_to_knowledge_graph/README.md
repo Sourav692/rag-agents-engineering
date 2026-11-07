@@ -1,6 +1,6 @@
 # M43.2 Theory: From CSV to knowledge graph
 
-*[M43 theory](../README.md) · Lesson 43.2 · Notebooks: [`02a_healthcare_kg.ipynb`](../../notebook/02a_healthcare_kg.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M43 theory](../README.md) · Lesson 43.2 · Notebooks: [`02a_healthcare_kg.ipynb`](../../notebook/02a_healthcare_kg.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Identity before import
 

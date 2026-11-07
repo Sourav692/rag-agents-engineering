@@ -1,6 +1,6 @@
 # M08.5 Theory: Summarization: stuff, map-reduce, refine
 
-*[M07 theory](../README.md) · Lesson 7.5 · Notebooks: [`05a_Summarization_Essentials.ipynb`](../../notebook/05a_Summarization_Essentials.ipynb), [`05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb`](../../notebook/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M07 theory](../README.md) · Lesson 7.5 · Notebooks: [`05a_Summarization_Essentials.ipynb`](../../notebook/05a_Summarization_Essentials.ipynb), [`05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb`](../../notebook/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Map-reduce summarisation
 

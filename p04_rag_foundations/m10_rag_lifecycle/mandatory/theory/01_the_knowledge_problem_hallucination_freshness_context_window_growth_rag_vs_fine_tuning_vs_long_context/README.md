@@ -1,6 +1,6 @@
 # M10.1 Theory: The knowledge problem: hallucination, freshness, context-window growth, RAG vs fine-tuning vs long context
 
-*[M10 theory](../README.md) · Lesson 10.1 · [All theory pages](../../../../../theory/README.md)*
+*[M10 theory](../README.md) · Lesson 10.1 · [All theory pages](../../../../../THEORY.md)*
 
 ## Parametric vs non-parametric knowledge
 

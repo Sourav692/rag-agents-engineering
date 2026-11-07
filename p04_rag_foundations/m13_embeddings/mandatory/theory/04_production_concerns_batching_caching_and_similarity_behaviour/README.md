@@ -1,6 +1,6 @@
 # M13.4 Theory: Production concerns: batching, caching and similarity behaviour
 
-*[M13 theory](../README.md) · Lesson 13.4 · Notebooks: [`04a_embeddings_deep_dive.ipynb`](../../notebook/04a_embeddings_deep_dive.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M13 theory](../README.md) · Lesson 13.4 · Notebooks: [`04a_embeddings_deep_dive.ipynb`](../../notebook/04a_embeddings_deep_dive.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Embedding cache
 

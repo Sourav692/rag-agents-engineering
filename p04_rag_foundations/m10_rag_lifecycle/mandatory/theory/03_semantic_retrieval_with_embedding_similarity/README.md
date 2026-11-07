@@ -1,6 +1,6 @@
 # M10.3 Theory: Semantic retrieval with embedding similarity
 
-*[M10 theory](../README.md) · Lesson 10.3 · Notebooks: [`03a_retrieval_strategies.ipynb`](../../notebook/03a_retrieval_strategies.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M10 theory](../README.md) · Lesson 10.3 · Notebooks: [`03a_retrieval_strategies.ipynb`](../../notebook/03a_retrieval_strategies.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Embedding similarity
 

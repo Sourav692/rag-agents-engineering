@@ -1,6 +1,6 @@
 # M18.4 Theory: Contextual compression
 
-*[M18 theory](../README.md) · Lesson 18.4 · Notebooks: [`04a_contextual_compression.ipynb`](../../notebook/04a_contextual_compression.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M18 theory](../README.md) · Lesson 18.4 · Notebooks: [`04a_contextual_compression.ipynb`](../../notebook/04a_contextual_compression.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Context budget
 
@@ -21,8 +21,8 @@ Saving and spending go together. A pipeline that expands each hit to its neighbo
 ```mermaid
 flowchart LR
     R["Base retriever<br/>top k chunks"] --> S{"Compressor<br/>slot"}
-    S -- rerank --> A["CrossEncoderReranker<br/>fewer chunks, reordered<br/>(19.2)"]
-    S -- extract --> B["LLMChainExtractor<br/>shorter chunks<br/>(19.4)"]
+    S -- rerank --> A["CrossEncoderReranker<br/>fewer chunks, reordered<br/>(18.2)"]
+    S -- extract --> B["LLMChainExtractor<br/>shorter chunks<br/>(18.4)"]
     S -- filter --> C["Yes or no per chunk<br/>whole chunks dropped<br/>(02b)"]
 ```
 

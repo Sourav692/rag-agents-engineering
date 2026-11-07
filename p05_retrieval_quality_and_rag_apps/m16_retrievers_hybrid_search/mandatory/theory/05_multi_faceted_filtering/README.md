@@ -1,6 +1,6 @@
 # M16.5 Theory: Multi-faceted filtering
 
-*[M16 theory](../README.md) · Lesson 16.5 · Notebooks: [`05a_multi_faceted_filtering.ipynb`](../../notebook/05a_multi_faceted_filtering.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M16 theory](../README.md) · Lesson 16.5 · Notebooks: [`05a_multi_faceted_filtering.ipynb`](../../notebook/05a_multi_faceted_filtering.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Four filters in sequence
 
@@ -28,7 +28,7 @@ The four filters only remove. They run on the 10 chunks the similarity search re
 
 The settings are specific to this setup. A relevance threshold of 0.35 belongs to `all-MiniLM-L6-v2` on this corpus. The substring test for `chile` would also accept a longer word that contains it. The diversity filter is a hard cut at one similarity, where MMR ([16.4](../04_maximal_marginal_relevance_for_diversity/README.md)) trades redundancy against relevance with λ.
 
-For the Larkspur handbook, the useful facets come from metadata written at ingestion: the handbook section, which M12's header splitter writes, and the `version` and `date` fields of the [M11 metadata schema](../../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/01_the_document_abstraction_and_metadata_design/README.md#metadata-schema). A question about refunds on annual plans can filter to the Refunds section and the current version before ranking, which removes last year's policy without asking MMR or the reranker to notice it.
+For the Larkspur handbook, the useful facets come from metadata written at ingestion: the handbook section, which M12's header splitter writes, and the `version` and `date` fields of the [M11 metadata schema](../../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/01_the_document_abstraction_and_metadata_design/README.md#metadata-schema). A question about refunds on annual plans can filter to the Refunds section and the current version before ranking, which removes last year's policy without asking MMR or the reranker to notice it.
 
 ## Key Takeaways
 

@@ -1,6 +1,6 @@
 # M35.2 Theory: The five multi-agent architectures and agent communication
 
-*[M35 theory](../README.md) · Lesson 35.2 · Notebooks: [`02a_five_multi_agent_architectures.ipynb`](../../notebook/02a_five_multi_agent_architectures.ipynb), [`02b_agent_communication.ipynb`](../../../optional/notebook/02b_agent_communication.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M35 theory](../README.md) · Lesson 35.2 · Notebooks: [`02a_five_multi_agent_architectures.ipynb`](../../notebook/02a_five_multi_agent_architectures.ipynb), [`02b_agent_communication.ipynb`](../../../optional/notebook/02b_agent_communication.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Five architectures, one primitive
 

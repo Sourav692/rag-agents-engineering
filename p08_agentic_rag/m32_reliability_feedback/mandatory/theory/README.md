@@ -1,10 +1,10 @@
 # M32 Theory: Reliability, Feedback Loops & Diversity
 
-*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A fluent Larkspur answer can use irrelevant evidence, quote unsupported text or repeat a mistake after feedback. You will test those failure points separately, validate highlights and inspect what reranking can recover from the candidate pool. The tutorials cover support checks, source evidence, user feedback and diversity-aware selection. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
-The running example is the Larkspur Cloud handbook from M10: the same twelve chunks and the same TF-IDF index as the [M10 top-k lab](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k). The golden set keeps M10's three questions and adds two: *Is there a credit if my server plan has an outage?*, whose evidence ranks third, and *Can I still use my server after I cancel the plan?*, whose top answer carries an unrelated chunk along with the right one.
+The running example is the Larkspur Cloud handbook from M10: the same twelve chunks and the same TF-IDF index as the [M10 top-k lab](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k). The golden set keeps M10's three questions and adds two: *Is there a credit if my server plan has an outage?*, whose evidence ranks third, and *Can I still use my server after I cancel the plan?*, whose top answer carries an unrelated chunk along with the right one.
 
 ## TL;DR
 
@@ -45,7 +45,7 @@ The checks in the top row act on one answer and can only remove: a grader drops 
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) supplies the golden set and the baseline this module's lab reports against. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) introduced the document grader that 32.1 reuses, and [M29](../../../m29_crag_and_self_rag/mandatory/theory/README.md) the groundedness check. [M16](../../../../theory/p06_retrieval_quality/m17_retrievers_hybrid_search/README.md) taught MMR, the older answer to the problem Dartboard solves, and [M18](../../../../theory/p06_retrieval_quality/m19_reranking_post_retrieval/README.md) the cross-encoder reranker, a second way to reorder the same candidates.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) supplies the golden set and the baseline this module's lab reports against. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) introduced the document grader that 32.1 reuses, and [M29](../../../m29_crag_and_self_rag/mandatory/theory/README.md) the groundedness check. [M16](../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/README.md) taught MMR, the older answer to the problem Dartboard solves, and [M18](../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/README.md) the cross-encoder reranker, a second way to reorder the same candidates.
 - **Next:** [M33](../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md) adds conversation memory, where feedback and grading have to handle follow-up questions that only make sense with the turns before them.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

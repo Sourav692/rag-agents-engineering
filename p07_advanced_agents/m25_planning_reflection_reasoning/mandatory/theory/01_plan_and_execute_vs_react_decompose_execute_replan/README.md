@@ -1,6 +1,6 @@
 # M25.1 Theory: Plan-and-execute vs ReAct; decompose, execute, replan
 
-*[M25 theory](../README.md) · Lesson 25.1 · Notebooks: [`01a_planning_react_vs_plan.ipynb`](../../notebook/01a_planning_react_vs_plan.ipynb), [`01b_planning_decompose_execute_replan.ipynb`](../../notebook/01b_planning_decompose_execute_replan.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M25 theory](../README.md) · Lesson 25.1 · Notebooks: [`01a_planning_react_vs_plan.ipynb`](../../notebook/01a_planning_react_vs_plan.ipynb), [`01b_planning_decompose_execute_replan.ipynb`](../../notebook/01b_planning_decompose_execute_replan.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Plan-and-execute
 

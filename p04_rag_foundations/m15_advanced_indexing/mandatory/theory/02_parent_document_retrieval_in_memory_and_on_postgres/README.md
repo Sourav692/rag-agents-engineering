@@ -1,6 +1,6 @@
 # M15.2 Theory: Parent-document retrieval, in memory and on Postgres
 
-*[M15 theory](../README.md) · Lesson 15.2 · Notebooks: [`02a_parent_document_retrieval.ipynb`](../../notebook/02a_parent_document_retrieval.ipynb), [`02b_parent_document_retriever_postgres.ipynb`](../../../optional/notebook/02b_parent_document_retriever_postgres.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M15 theory](../README.md) · Lesson 15.2 · Notebooks: [`02a_parent_document_retrieval.ipynb`](../../notebook/02a_parent_document_retrieval.ipynb), [`02b_parent_document_retriever_postgres.ipynb`](../../../optional/notebook/02b_parent_document_retriever_postgres.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Docstore
 

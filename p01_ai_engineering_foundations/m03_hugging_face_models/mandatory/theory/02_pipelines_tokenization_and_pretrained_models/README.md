@@ -1,6 +1,6 @@
 # M03.2 Theory: Pipelines, tokenization and pretrained models
 
-*[M03 theory](../README.md) · Lesson 3.2 · Notebooks: [`02a_pipelines_for_nlp_tasks.ipynb`](../../notebook/02a_pipelines_for_nlp_tasks.ipynb), [`02b_understanding_llms.ipynb`](../../notebook/02b_understanding_llms.ipynb), [`02c_accessing_pretrained_models.ipynb`](../../../optional/notebook/02c_accessing_pretrained_models.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M03 theory](../README.md) · Lesson 3.2 · Notebooks: [`02a_pipelines_for_nlp_tasks.ipynb`](../../notebook/02a_pipelines_for_nlp_tasks.ipynb), [`02b_understanding_llms.ipynb`](../../notebook/02b_understanding_llms.ipynb), [`02c_accessing_pretrained_models.ipynb`](../../../optional/notebook/02c_accessing_pretrained_models.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Pipelines
 

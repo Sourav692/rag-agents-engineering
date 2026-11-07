@@ -1,6 +1,6 @@
 # M05 Theory: Multimodal Prompting
 
-*Part II · Prompt & Context Engineering · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part II · Prompt & Context Engineering · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 A multimodal model reads pictures, documents and sound in the same request as the question. The prompt becomes an ordered list of parts, and each part has a token price you can work out before you send it. The M05 notebooks build on three ideas: how an image goes into a prompt, how a PDF or an audio file goes in, and how a video becomes sampled frames plus a transcript. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -44,7 +44,7 @@ Whatever the provider, the request is a list of parts and the model reads every 
 ## How it connects
 
 - **Before:** [M04](../../../m04_prompt_engineering_patterns/mandatory/theory/README.md) taught prompt patterns such as few-shot and chain-of-thought on text; this module sends the same kind of instructions alongside images, documents and sound.
-- **Next:** [M06](../../../../p03_llm_application_frameworks/m06_langchain_core/mandatory/theory/README.md) wraps model calls in LangChain models, prompts and parsers. [M11](../../../../theory/p05_ingestion_and_indexing/m12_document_ingestion/README.md) turns PDFs into text for an index instead of sending the pages to a model, and M20 retrieves images and pages before a multimodal model reads them.
+- **Next:** [M06](../../../../p03_llm_application_frameworks/m06_langchain_core/mandatory/theory/README.md) wraps model calls in LangChain models, prompts and parsers. [M11](../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/README.md) turns PDFs into text for an index instead of sending the pages to a model, and M20 retrieves images and pages before a multimodal model reads them.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 

@@ -1,6 +1,6 @@
 # M42.1 Theory: RAPTOR: clustering and recursive summarisation
 
-*[M42 theory](../README.md) · Lesson 42.1 · Notebooks: [`01a_raptor.ipynb`](../../notebook/01a_raptor.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M42 theory](../README.md) · Lesson 42.1 · Notebooks: [`01a_raptor.ipynb`](../../notebook/01a_raptor.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Abstraction levels
 

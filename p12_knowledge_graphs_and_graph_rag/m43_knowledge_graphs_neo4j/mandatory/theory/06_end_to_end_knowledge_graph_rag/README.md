@@ -1,6 +1,6 @@
 # M43.6 Theory: End-to-end knowledge-graph RAG
 
-*[M43 theory](../README.md) · Lesson 43.6 · Notebooks: [`06a_roman_empire_graph_rag.ipynb`](../../notebook/06a_roman_empire_graph_rag.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M43 theory](../README.md) · Lesson 43.6 · Notebooks: [`06a_roman_empire_graph_rag.ipynb`](../../notebook/06a_roman_empire_graph_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Assemble retrieval with source evidence
 

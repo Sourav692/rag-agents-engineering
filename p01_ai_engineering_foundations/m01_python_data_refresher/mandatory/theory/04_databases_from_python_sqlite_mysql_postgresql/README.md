@@ -1,6 +1,6 @@
 # M01.4 Theory: Databases from Python: SQLite, MySQL, PostgreSQL
 
-*[M01 theory](../README.md) · Lesson 1.4 · Notebooks: [`04a_sqlite_operations.ipynb`](../../notebook/04a_sqlite_operations.ipynb), [`04b_mysql_connection.ipynb`](../../../optional/notebook/04b_mysql_connection.ipynb) (optional), [`04c_postgresdb_connection.ipynb`](../../../optional/notebook/04c_postgresdb_connection.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M01 theory](../README.md) · Lesson 1.4 · Notebooks: [`04a_sqlite_operations.ipynb`](../../notebook/04a_sqlite_operations.ipynb), [`04b_mysql_connection.ipynb`](../../../optional/notebook/04b_mysql_connection.ipynb) (optional), [`04c_postgresdb_connection.ipynb`](../../../optional/notebook/04c_postgresdb_connection.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## SQL from Python
 

@@ -1,6 +1,6 @@
 # M10.5 Theory: The RAG lifecycle and a measured baseline
 
-*[M10 theory](../README.md) · Lesson 10.5 · Notebooks: [`05a_rag_lifecycle_and_baseline.ipynb`](../../notebook/05a_rag_lifecycle_and_baseline.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M10 theory](../README.md) · Lesson 10.5 · Notebooks: [`05a_rag_lifecycle_and_baseline.ipynb`](../../notebook/05a_rag_lifecycle_and_baseline.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Indexing vs retrieval vs generation
 

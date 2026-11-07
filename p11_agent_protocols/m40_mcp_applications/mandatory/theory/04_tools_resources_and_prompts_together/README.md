@@ -1,6 +1,6 @@
 # M40.4 Theory: Tools, resources and prompts together
 
-*[M40 theory](../README.md) · Lesson 40.4 · Notebooks: [`05_mcp_tools_resources_and_prompts`](../../../projects/05_mcp_tools_resources_and_prompts) · [All theory pages](../../../../../theory/README.md)*
+*[M40 theory](../README.md) · Lesson 40.4 · Notebooks: [`05_mcp_tools_resources_and_prompts`](../../../projects/05_mcp_tools_resources_and_prompts) · [All theory pages](../../../../../THEORY.md)*
 
 ## One server, three controllers
 

@@ -1,6 +1,6 @@
 # M21.4 Theory: Sentence-window retrieval
 
-*[M21 theory](../README.md) · Lesson 21.4 · Notebooks: [`04a_context_enrichment_window_with_llamaindex.ipynb`](../../notebook/04a_context_enrichment_window_with_llamaindex.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M21 theory](../README.md) · Lesson 21.4 · Notebooks: [`04a_context_enrichment_window_with_llamaindex.ipynb`](../../notebook/04a_context_enrichment_window_with_llamaindex.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Sentence window
 

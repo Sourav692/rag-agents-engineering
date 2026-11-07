@@ -1,6 +1,6 @@
 # M09.2 Theory: Conditional edges and LLM nodes
 
-*[M08 theory](../README.md) · Lesson 8.2 · Notebooks: [`02a_Conditional_Routing.ipynb`](../../notebook/02a_Conditional_Routing.ipynb), [`02b_LLM_Powered_Chatbot.ipynb`](../../notebook/02b_LLM_Powered_Chatbot.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M08 theory](../README.md) · Lesson 8.2 · Notebooks: [`02a_Conditional_Routing.ipynb`](../../notebook/02a_Conditional_Routing.ipynb), [`02b_LLM_Powered_Chatbot.ipynb`](../../notebook/02b_LLM_Powered_Chatbot.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Conditional edges
 
@@ -27,7 +27,7 @@ Three things follow from how LangGraph runs the router.
 - **The router only reads.** It runs between nodes, and in LangGraph 1.2.18 any change it makes to `state` is thrown away. A retry counter or a "reason for the route" must be written by a node, such as `classify`, before the router runs.
 - **Rule order decides the close calls.** *Can I export my data after I cancel my plan?* is a data question, but `cancel` and `plan` match the billing rule first, so the billing node answers from the `cancel` page instead of `export`. The [M08 lab](../01_state_graphs_and_reducers/interactive/reducer-lab.html) shows the route for each question. A fallback route, as in notebook 02a's comic-book router (`node_others` for anything unknown), turns a router gap into a handoff instead of an error: *Can I pay by bank transfer?* matches no rule and goes to `human`.
 
-A model can make the decision instead of keywords: the `classify` node asks a chat model for a label, writes it to `route`, and the router stays a one-line read. That keeps the model call in a node, where it can be retried and traced, and keeps the edge testable without a model. [M24](../../../../../theory/p08_agent_foundations/m25_agentic_workflow_patterns/README.md) and [M30](../../../../../theory/p09_agentic_rag/m30_adaptive_rag_routing/README.md) build routers this way.
+A model can make the decision instead of keywords: the `classify` node asks a chat model for a label, writes it to `route`, and the router stays a one-line read. That keeps the model call in a node, where it can be retried and traced, and keeps the edge testable without a model. [M24](../../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md) and [M30](../../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md) build routers this way.
 
 ## A chat model inside a node
 

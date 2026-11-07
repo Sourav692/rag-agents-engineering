@@ -1,6 +1,6 @@
 # M28 Theory: Grading and query rewriting
 
-*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur retrieves a refund-related passage that does not answer when payment arrives. You will grade that evidence, rewrite the query and prove the retry loop stops when the handbook has no answer. The tutorials connect conditional edges, document grading, topic checks and explicit retry budgets. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -46,7 +46,7 @@ Every self-correcting design in Part IX is this loop with more branches. The gra
 
 ## How it connects
 
-- **Before:** [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md) supplies the handbook, the golden set and the baseline this loop is measured against. M08 builds LangGraph state and conditional edges, M09 adds checkpointers and bounded loops, [M22](../../../../theory/p08_agent_foundations/m23_agent_loop_and_tools/README.md) binds tools to a model, and M17 rewrites queries before retrieval.
+- **Before:** [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) supplies the handbook, the golden set and the baseline this loop is measured against. M08 builds LangGraph state and conditional edges, M09 adds checkpointers and bounded loops, [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) binds tools to a model, and M17 rewrites queries before retrieval.
 - **Next:** [M29](../../../m29_crag_and_self_rag/mandatory/theory/README.md) adds a web-search fallback when the grade fails (CRAG) and checks the answer itself (Self-RAG). M30 routes each question to a knowledge base or the web before retrieving, M31 hands the whole RAG pipeline to an agent as one tool, and M32 detects unsupported answers and learns from user feedback.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked

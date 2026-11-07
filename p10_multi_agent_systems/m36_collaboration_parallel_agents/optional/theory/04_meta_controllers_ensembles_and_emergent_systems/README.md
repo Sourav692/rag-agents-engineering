@@ -1,6 +1,6 @@
 # M36.4 Theory: Meta-controllers, ensembles and emergent systems
 
-*[M36 theory](../../../mandatory/theory/README.md) · Lesson 36.4 · Notebooks: [`04a_meta_controller.ipynb`](../../notebook/04a_meta_controller.ipynb) (optional), [`04b_ensemble_parallel_exploration.ipynb`](../../notebook/04b_ensemble_parallel_exploration.ipynb) (optional), [`04c_cellular_automata.ipynb`](../../notebook/04c_cellular_automata.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M36 theory](../../../mandatory/theory/README.md) · Lesson 36.4 · Notebooks: [`04a_meta_controller.ipynb`](../../notebook/04a_meta_controller.ipynb) (optional), [`04b_ensemble_parallel_exploration.ipynb`](../../notebook/04b_ensemble_parallel_exploration.ipynb) (optional), [`04c_cellular_automata.ipynb`](../../notebook/04c_cellular_automata.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Three kinds of controller
 

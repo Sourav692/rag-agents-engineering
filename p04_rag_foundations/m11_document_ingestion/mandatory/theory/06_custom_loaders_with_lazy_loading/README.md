@@ -1,6 +1,6 @@
 # M11.6 Theory: Custom loaders with lazy loading
 
-*[M11 theory](../README.md) · Lesson 11.6 · Notebooks: [`06a_custom_loader.ipynb`](../../notebook/06a_custom_loader.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M11 theory](../README.md) · Lesson 11.6 · Notebooks: [`06a_custom_loader.ipynb`](../../notebook/06a_custom_loader.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Lazy loading
 

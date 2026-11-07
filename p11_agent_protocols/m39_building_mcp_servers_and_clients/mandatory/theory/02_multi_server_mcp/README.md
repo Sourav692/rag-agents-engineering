@@ -1,6 +1,6 @@
 # M39.2 Theory: Multi-server MCP
 
-*[M39 theory](../README.md) · Lesson 39.2 · Notebooks: [`03_multi_server_mcp`](../../../projects/03_multi_server_mcp) · [All theory pages](../../../../../theory/README.md)*
+*[M39 theory](../README.md) · Lesson 39.2 · Notebooks: [`03_multi_server_mcp`](../../../projects/03_multi_server_mcp) · [All theory pages](../../../../../THEORY.md)*
 
 ## Multi-server
 

@@ -1,6 +1,6 @@
 # M10.2 Theory: Indexing from scratch with TF-IDF and nearest neighbours
 
-*[M10 theory](../README.md) · Lesson 10.2 · Notebooks: [`02a_indexing_from_scratch.ipynb`](../../notebook/02a_indexing_from_scratch.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M10 theory](../README.md) · Lesson 10.2 · Notebooks: [`02a_indexing_from_scratch.ipynb`](../../notebook/02a_indexing_from_scratch.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Top-k
 

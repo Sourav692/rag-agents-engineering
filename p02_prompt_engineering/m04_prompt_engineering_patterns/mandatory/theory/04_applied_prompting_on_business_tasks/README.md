@@ -1,6 +1,6 @@
 # M05.4 Theory: Applied prompting on business tasks
 
-*[M04 theory](../README.md) · Lesson 4.4 · Notebooks: [`04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb`](../../notebook/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M04 theory](../README.md) · Lesson 4.4 · Notebooks: [`04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb`](../../notebook/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## From a pattern to a production prompt
 

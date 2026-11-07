@@ -1,6 +1,6 @@
 # M34.1 Theory: Cross-thread memory with a Store
 
-*[M34 theory](../README.md) · Lesson 34.1 · Notebooks: [`01a_cross_thread_memory_store.ipynb`](../../notebook/01a_cross_thread_memory_store.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M34 theory](../README.md) · Lesson 34.1 · Notebooks: [`01a_cross_thread_memory_store.ipynb`](../../notebook/01a_cross_thread_memory_store.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Store namespaces
 

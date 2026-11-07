@@ -1,6 +1,6 @@
 # M24.4 Theory: Orchestrator–worker with the Send API
 
-*[M24 theory](../README.md) · Lesson 24.4 · Notebooks: [`04a_orchestrator_worker_send_api.ipynb`](../../notebook/04a_orchestrator_worker_send_api.ipynb), [`04b_orchestrator_worker_lcel_map.ipynb`](../../../optional/notebook/04b_orchestrator_worker_lcel_map.ipynb) (optional) · [All theory pages](../../../../../theory/README.md)*
+*[M24 theory](../README.md) · Lesson 24.4 · Notebooks: [`04a_orchestrator_worker_send_api.ipynb`](../../notebook/04a_orchestrator_worker_send_api.ipynb), [`04b_orchestrator_worker_lcel_map.ipynb`](../../../optional/notebook/04b_orchestrator_worker_lcel_map.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 
 ## Dynamic fan-out with Send
 
@@ -10,7 +10,7 @@ The Larkspur export question has two distinct information needs: how to export a
 
 Orchestrator-worker looks like parallelization: several LLM calls run at once and a final step merges them. The difference is who decides the branches. In parallelization you wrote them into the graph. Here an orchestrator LLM decides, per input, how many subtasks there are and what each one covers.
 
-| | Parallelization (25.3) | Orchestrator-worker (25.4) |
+| | Parallelization (24.3) | Orchestrator-worker (24.4) |
 |---|---|---|
 | Who decides the subtasks | you, when you build the graph | the orchestrator, at run time |
 | Number of branches | fixed | follows the input |

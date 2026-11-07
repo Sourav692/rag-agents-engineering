@@ -1,6 +1,6 @@
 # M35.4 Theory: Supervisors and hierarchical teams
 
-*[M35 theory](../README.md) · Lesson 35.4 · Notebooks: [`04a_supervisor_pattern.ipynb`](../../notebook/04a_supervisor_pattern.ipynb), [`04b_hierarchical_agents.ipynb`](../../notebook/04b_hierarchical_agents.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M35 theory](../README.md) · Lesson 35.4 · Notebooks: [`04a_supervisor_pattern.ipynb`](../../notebook/04a_supervisor_pattern.ipynb), [`04b_hierarchical_agents.ipynb`](../../notebook/04b_hierarchical_agents.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Supervisor
 

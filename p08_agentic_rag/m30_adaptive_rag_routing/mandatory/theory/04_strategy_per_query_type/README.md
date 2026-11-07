@@ -1,6 +1,6 @@
 # M30.4 Theory: Strategy per query type
 
-*[M30 theory](../README.md) · Lesson 30.4 · Notebooks: [`04a_adaptive_retrieval_rag_techniques.ipynb`](../../notebook/04a_adaptive_retrieval_rag_techniques.ipynb) · [All theory pages](../../../../../theory/README.md)*
+*[M30 theory](../README.md) · Lesson 30.4 · Notebooks: [`04a_adaptive_retrieval_rag_techniques.ipynb`](../../notebook/04a_adaptive_retrieval_rag_techniques.ipynb) · [All theory pages](../../../../../THEORY.md)*
 
 ## Per-query strategy
 

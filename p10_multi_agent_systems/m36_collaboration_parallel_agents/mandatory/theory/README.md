@@ -1,6 +1,6 @@
 # M36 Theory: Collaboration, Control & Parallel Agents
 
-*Part X · Memory & Multi-Agent RAG · [Module README](../../README.md) · [All theory pages](../../../../theory/README.md)*
+*Part X · Multi-Agent Systems · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
 Larkspur needs several specialists to contribute without repeating work or losing a branch at synthesis. You will compare a shared board, debate, multi-perspective research and parallel execution, then inspect the result each control pattern can actually guarantee. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
@@ -45,7 +45,7 @@ The patterns differ in who decides what runs next and when that decision is made
 
 ## How it connects
 
-- **Before:** [M35](../../../m35_multi_agent_architectures/mandatory/theory/README.md) builds supervisors and handoffs; this module adds shared-state collaboration and parallel execution to them. M09 covers the LangGraph runtime (streaming, retries, checkpoints) that 36.5 relies on, and [M17](../../../../theory/p06_retrieval_quality/m18_query_transformation/README.md) decomposes a question into the sub-questions the lab runs in parallel. The lab reports against the baseline from [M10](../../../../theory/p04_rag_foundations/m11_rag_lifecycle/README.md).
+- **Before:** [M35](../../../m35_multi_agent_architectures/mandatory/theory/README.md) builds supervisors and handoffs; this module adds shared-state collaboration and parallel execution to them. M09 covers the LangGraph runtime (streaming, retries, checkpoints) that 36.5 relies on, and [M17](../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/README.md) decomposes a question into the sub-questions the lab runs in parallel. The lab reports against the baseline from [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md).
 - **Next:** [M37](../../../m37_multi_agent_applied_builds/mandatory/theory/README.md) builds full multi-agent applications, including a research system that dispatches a variable number of workers with `Send` and streams the run.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
