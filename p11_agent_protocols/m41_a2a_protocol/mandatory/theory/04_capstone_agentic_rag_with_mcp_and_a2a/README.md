@@ -1,0 +1,100 @@
+# M41.4 Theory: Capstone: agentic RAG with MCP and A2A
+
+*[M41 theory](../README.md) · Lesson 41.4 · Notebooks: [`mcp_a2a_agentic_rag`](../../../projects/mcp_a2a_agentic_rag/README.md) (project) · [All theory pages](../../../../../theory/README.md)*
+
+## MCP + A2A
+
+Larkspur's host delegates handbook questions to a remote agent whose retrieval tools are exposed over MCP. You will separate those two protocol boundaries and test the capstone for silent failures before judging its final wording.
+
+### Step 1: Separate delegation from tool access
+
+The capstone project runs two Google ADK agents, each behind its own A2A server, and gives both of them MCP tools. It runs in its own environment (its `requirements.txt`), with a Gemini model (`gemini-2.0-flash-exp` in `model.py`) and a Streamlit UI.
+
+```mermaid
+flowchart TB
+    U[/"Streamlit UI"/] --> H["Host agent<br/>ADK, A2A on :10001"]
+    H -->|"A2A: message/send"| R["Agentic RAG agent<br/>ADK, A2A on :10002"]
+    H -->|"MCP over stdio"| T["web_search<br/>execute_command, list_files, read_file"]
+    R -->|"MCP over stdio"| T
+    R --> O["RAG orchestrator<br/>FAISS, 3 candidates, LLM ranking"]
+```
+
+| | MCP | A2A |
+|---|---|---|
+| Connects | An agent to tools and data | An agent to another agent |
+| In the capstone | `mcp_config.json` starts two servers as subprocesses over stdio: `web_search` (SerpAPI) and `terminal` (`execute_command` from an allow-list, `list_files`, `read_file`) | The host reads `agent_registry.json` (one URL, `http://localhost:10002`), fetches the RAG agent's card and delegates to it |
+| The caller gets | A tool result, which its own model reasons over | An answer from an agent with its own model, tools and state |
+| Lifetime | One call | A Task, with states, that can be polled, streamed or canceled |
+
+### Step 2: Follow the host and specialist toolsets
+
+The host is an orchestrator, as in 41.3, with four function tools (`_list_agents`, `_delegate_task`, `_smart_delegate_to_rag`, `_get_model_info`) next to the MCP toolsets. It does not always ask its model where to send a question. `_is_document_question` checks the text for keywords such as `resume`, `pdf`, `document` or `tell me about`, and on a match the host calls the RAG agent directly. Keyword routing is fast and predictable, and it misroutes: *tell me about today's AWS outage* goes to the document agent, though only the web can answer it.
+
+### Step 3: Inspect retrieval and answer selection
+
+The RAG agent splits a PDF into 500-token chunks (tiktoken `cl100k_base`) with 50 tokens of overlap, indexes them in a FAISS `IndexFlatL2`, and answers with multi-candidate retrieval: it adds Gaussian noise (standard deviation 0.01) to the query embedding three times, takes the top 5 chunks for each, answers all three candidate sets in parallel, and asks the model to pick the best answer. That is the agentic RAG of M28 to M32, now behind an A2A card instead of inside one graph.
+
+On Larkspur Cloud, the host is the support desk, the RAG agent holds the handbook, and the MCP web search answers what the handbook cannot. A question like *Can I export my data after I cancel my plan?* goes over A2A to the handbook agent; *Is the Frankfurt region down right now?* goes to a tool over MCP.
+
+## What the capstone needs to run
+
+### Step 1: Check both connector paths before trusting an answer
+
+### Step 2: Check the connector against its SDK version
+
+The project's A2A connector was written against an older `a2a-sdk` API and two of its paths fail without raising. Both are known bugs in the connector, listed here so the symptoms make sense:
+
+- **The A2A hop.** `utilities/a2a/agent_connect.py` builds `A2AClient(base_url=self.agent_card.base_url, ...)` and calls `client.send_request(...)`. In `a2a-sdk` 0.3.26 `AgentCard` has no `base_url`, and `A2AClient` takes `agent_card` or `url` and has `send_message` but no `send_request`. Run against 0.3.26, `send_task` returns the string `Error communicating with agent: 'AgentCard' object has no attribute 'base_url'`, and the host passes that string on as the RAG agent's answer: to its model through `_delegate_task`, or, for a keyword-routed question, straight to the user. The two-hop example's connector uses the current API; combine it with the reader from 41.3.
+- **The RAG agent's own web search.** Besides the MCP tools ADK loads, `rag_orchestrator.py` has a `WebSearchAgent` that posts a JSON-RPC request with method `search` to `http://localhost:8000` (or `MCP_ENDPOINT`). Nothing in the project listens there, and `search` is not an MCP method (MCP calls a tool with `tools/call`). When the decision prompt asks for a web search, the final prompt receives `[WebSearchAgent] Failed to obtain web data.` as its web context.
+
+Two smaller points: `pyproject.toml` lists `a2a-python` where `requirements.txt` lists `a2a-sdk>=0.3.0`, and the web search server logs the first ten characters of `SERPAPI_KEY` at startup, so its log is not safe to share.
+
+### Step 3: Verify both protocol boundaries on one golden question
+
+A smoke test that sends one golden question through the host and checks that the reply contains handbook text, not `Error communicating`, catches the first failure on the first run.
+
+### Try it yourself
+
+Send one handbook golden question through the host. Check that the reply contains handbook evidence rather than Error communicating. Then ask about today's AWS outage and inspect the keyword route: tell me about sends it to the document agent. Finally inspect the RAG agent's separate web-search endpoint. An error string in that context is not retrieved evidence.
+
+### Practice notebook
+
+Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+
+- [MCP A2A agentic RAG](../../../projects/mcp_a2a_agentic_rag/README.md).
+
+### Continue learning
+
+- [41.3](../03_cross_framework_agent_interop/README.md#reading-the-reply).
+
+## Key Takeaways
+
+- Use MCP to connect an agent to tools and data, returning one result its own model reasons over. Use A2A to delegate to another agent with its own model, tools and state.
+- Keyword routing is fast and predictable but misroutes questions that share words with another domain. Weigh that before skipping the model's routing decision.
+- Connectors that turn failures into strings pass errors on as answers. Run one golden question end to end and check for real content before trusting the system.
+
+## Check yourself
+
+<details>
+<summary>1. In the capstone, when does the host use MCP and when does it use A2A?</summary>
+
+MCP connects it to tools and data: `web_search` and `terminal`, started over stdio, return a tool result that the host's own model reasons over, and each use lasts one call. A2A connects it to another agent: the host reads `agent_registry.json`, fetches the RAG agent's card and delegates, getting an answer from an agent with its own model, tools and state, tracked as a Task that can be polled, streamed or cancelled.
+
+</details>
+
+<details>
+<summary>2. A user asks the host to tell me about today's AWS outage. Where does the question go, and is that right?</summary>
+
+To the RAG agent. `_is_document_question` matches the keyword `tell me about`, so the host calls the document agent directly, though only the web can answer. Keyword routing is fast and predictable, and it misroutes.
+
+</details>
+
+<details>
+<summary>3. Under a2a-sdk 0.3.26 every document question comes back as a reply starting Error communicating with agent. What is wrong, and what catches it early?</summary>
+
+`agent_connect.py` builds `A2AClient(base_url=self.agent_card.base_url, ...)` and calls `send_request`, but `AgentCard` has no `base_url` and `A2AClient` has `send_message`, not `send_request`. `send_task` returns the error string and the host passes it on as the answer. A smoke test that sends one golden question and checks for handbook text, not `Error communicating`, catches it on the first run.
+
+</details>
+
+---
+*Previous: [41.3 Cross-framework agent interop](../03_cross_framework_agent_interop/README.md). Next: [M41 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
