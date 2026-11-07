@@ -78,6 +78,28 @@ The v2 parts: `p01_ai_engineering_foundations`, `p02_prompt_engineering`, `p03_l
 
 Each phase runs on its own branch (`restructure/phase-<N>`) and lands as one PR. Phases can run in parallel: they write disjoint part folders, and the only shared line they edit is `DONE_PARTS` in `tests/test_labs.py`.
 
+## Status (8 Nov 2026)
+
+Phases 0 to 5 are merged into `main`: Phase 0 in #24, Phase 1 in #26, Phase 2 in #27, Phase 3 in #28, Phase 4 in #29 and Phase 5 in #25. Closing check:
+
+- 13 part folders, all 13 in `DONE_PARTS`.
+- 46 lab solutions (`lab/solution/m<NN>_solution.ipynb`), all with outputs cleared and none run yet: every lab README reports its results as *pending run*.
+- All 414 lesson items of `curriculum.v2.yaml` are present, plus M19's one lab item.
+- No change in `course/`, `theory/` or `curriculum.yaml` since the Phase 0 merge (`d42fdee`).
+- `uv run pytest -q` passes and `scripts/check_links.py` reports 0 broken links.
+- The M35 lab's `kb/` and `tickets.jsonl` are now byte-identical copies of the M30 lab's, so the two routing results compare. The M35 solution reads the M30 field name (`text`).
+
+Run-time paths left as they are, since the folders or files only exist after a notebook runs:
+
+- M15 `03a_hierarchical_indices.ipynb` and `hierarchical_indices.py` write `../vector_stores/`.
+- M31 `02a` downloads `attention-is-all-you-need.pdf`. M32 `02a` downloads `feedback_data.json` with `wget`, and its `.py` appends to it.
+- M44 `03a_microsoft_graphrag.ipynb` creates `elon.md` and `graphrag/` under `data/sample/rag_techniques/`.
+- M26 `03a_simple_coding_agent.py` loads skills from `skills/` beside itself, but they sit in `optional/notebook/03c_skills/`. v1 has the same split. The fix changes the backend root and needs a run to check.
+
+Stale until Phase 6 regenerates them: the part and module READMEs copied from v1, every copied `index.html`, module page titles in v1 wording, and lesson numbers inside parentheses in prose.
+
+Next step: the Phase 6 switch plan (see Not in this plan).
+
 ## Review Focus
 
 - A notebook path to a folder created at run time (`../vector_stores/`, `../projects/<name>/`) does not exist when a part is copied, so `repoint()` leaves it unchanged and the notebook writes to the wrong folder. Each restructure task reviews the script's unresolved-refs list (Task 0.1 adds `unresolved_refs()`).
