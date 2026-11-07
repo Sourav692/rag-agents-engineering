@@ -1,0 +1,11 @@
+# Part IV — RAG Foundations
+
+> Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
+
+**Week 6 · Foundation**
+
+Why retrieval exists, the RAG lifecycle from indexing to generation, and a baseline you will measure every later change against.
+
+| Module | Level | Time | Mandatory | Optional |
+|---|---|---|---|---|
+| [M10 Why RAG & the RAG Lifecycle](m10_rag_lifecycle/README.md) | Foundation | ~4 h | 4 | 0 |
