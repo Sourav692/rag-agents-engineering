@@ -112,4 +112,4 @@ Next step: owner review of the Phase 6 PR, then running the 46 lab solutions to 
 
 - **Phase 6, the switch** (its own plan, written when phases 1 to 5 have merged): `curriculum.v2.yaml` replaces `curriculum.yaml`; `curriculum_lib.py`, `build_curriculum.py`, `build_theory_html.py`, `export_site_curriculum.py` and the tests move to the part-folder layout; the generated READMEs and `index.html` pages regenerate from v2; and `course/` and `theory/` are deleted. Until then the website and the syllabus site keep reading the old trees.
 - Building the Production AI Engineering track ([CURRICULUM.production-ai.md](../CURRICULUM.production-ai.md)) from `Agent_Evaluation_Demystified` and repo 13.
-- Rotating the live database credentials in M01's `04b_mysql_connection.ipynb` and `04c_postgresdb_connection.ipynb`; the restructure copies them as they are.
+- The database credentials in M01's `04b_mysql_connection.ipynb` and `04c_postgresdb_connection.ipynb`: done outside this plan. Both notebooks read them from environment variables, and the old values left in git history were rotated by the owner on 8 Nov 2026.
