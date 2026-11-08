@@ -33,7 +33,7 @@ The model never runs anything itself. It writes a structured request, and your c
 | Lesson | Topic | Theory |
 |---|---|---|
 | 22.1 | Agentic patterns from scratch: reflection, tool use, ReAct planning | [Agent loop](01_agentic_patterns_from_scratch_reflection_tool_use_react_planning/README.md#agent-loop) |
-| 22.2 | A real-world agent on raw API calls (Hacker News chatbot) | *planned* |
+| 22.2 | A real-world agent on raw API calls (Hacker News chatbot) | [The project: a Hacker News chatbot](../../optional/theory/02_a_real_world_agent_on_raw_api_calls_hacker_news_chatbot/README.md#the-project-a-hacker-news-chatbot) |
 | 22.3 | Defining tools and binding them to a model | [Tool schema](03_defining_tools_and_binding_them_to_a_model/README.md#tool-schema) |
 | 22.4 | The manual tool loop and the augmented LLM in LangGraph | [Native tool calls and the message trace](04_the_manual_tool_loop_and_the_augmented_llm_in_langgraph/README.md#native-tool-calls-and-the-message-trace)<br>[The augmented LLM](04_the_manual_tool_loop_and_the_augmented_llm_in_langgraph/README.md#the-augmented-llm) |
 | 22.5 | Tool errors and evaluating tool calls | [Where tool errors go](05_tool_errors_and_evaluating_tool_calls/README.md#where-tool-errors-go)<br>[Tool-call evaluation](05_tool_errors_and_evaluating_tool_calls/README.md#tool-call-evaluation) |

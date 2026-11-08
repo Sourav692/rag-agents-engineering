@@ -54,3 +54,19 @@ Choose the order that fits the idea; most sections use most of these:
 - A concept lesson has 3 to 7 figures. One idea per figure, at most 12 nodes, labels of 4 words or fewer.
 - Callouts, at most one per ~400 words, plain bold label, no emoji: `> **Key distinction:** …`, `> **Pitfall: <name>.** …`, `> **Interview tip:** …`.
 - Comparison tables may use ✓ and ✗.
+
+## Project page
+
+A lesson whose notebook builds something (an app, a bot, a pipeline on live data) and teaches no concept of its own gets a short project page instead of a *planned* row. 600 to 1,200 words, same header line, subtitle, Key Takeaways, Check yourself and footer, no code. In order:
+
+1. **`## The project: <name>`**, opening with a `> **What you'll build**` callout (3 to 5 bullets), then two short paragraphs: what the project does with which earlier lesson's pattern, and what changes when the pattern leaves the notebook.
+2. **`## Architecture`**: one Mermaid figure of the pieces and a table *Piece · What it does · Built on* (the earlier lesson each piece reuses).
+3. **`## Following <one request>`**: one request traced through the pieces (a sequence figure or table). Live data: describe the call order, never quote values a rerun would change.
+4. **`## Design choices worth copying`**: a table *Choice · Why*, linking each to the lesson that names its risk.
+5. **`## Limits`**: what the build leaves out or gets wrong, and one sentence on what it needs to run (keys, optional dependency groups), without commands.
+
+Example: M22 lesson 22.2 (`optional/theory/02_a_real_world_agent_on_raw_api_calls_hacker_news_chatbot/`).
+
+## Notebook links
+
+Notebooks appear only in the header line. The site importer (`site/scripts/rag-theory-import.mjs` in the site repo) and `export_lesson.py` turn that line into a **Run the notebooks** section before Key Takeaways, with an *Open on GitHub* and an *Open in Colab* link per notebook. Never write that section by hand.

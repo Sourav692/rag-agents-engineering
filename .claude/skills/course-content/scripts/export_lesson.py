@@ -27,6 +27,7 @@ from curriculum_lib import load, lesson_pages  # noqa: E402
 
 GH = "https://github.com/Sourav692/rag-agents-engineering/blob/main/"
 RAW = "https://raw.githubusercontent.com/Sourav692/rag-agents-engineering/main/"
+COLAB = "https://colab.research.google.com/github/Sourav692/rag-agents-engineering/blob/main/"
 BUILD = Path(__file__).resolve().parents[1] / "standalone" / "scripts" / "build_site.py"
 LEVEL = {"foundation": "beginner", "core": "intermediate", "advanced": "advanced", "expert": "advanced"}
 
@@ -61,9 +62,22 @@ def export(page: str, cur: dict, slugs: dict, out: Path, text: str | None = None
     src = text if text is not None else (ROOT / page).read_text()
     sub = re.search(r"<!-- subtitle: (.*?) -->", src)
     body = src.split("\n", 1)[1]                                          # drop the H1
+    head = re.search(r"^\*\[M\d+ theory\].*$", body, re.M)
+    nbs = re.findall(r"\[`([^`]+)`\]\(([^)\s]+)\)( \(optional\))?", head.group(0)) if head else []
     body = re.sub(r"^\*\[M\d+ theory\].*\n", "", body, count=1, flags=re.M)  # header line
     body = re.sub(r"^<!-- (?:subtitle|animated|lab): .*?-->[ \t]*\n", "", body, flags=re.M)
     body = re.split(r"\n---\n\*Previous:", body)[0].rstrip() + "\n"
+    if nbs:  # the same "Run the notebooks" section the site's importer adds
+        rows = []
+        for file, target, opt in nbs:
+            full = os.path.normpath(os.path.join(os.path.dirname(page), target))
+            colab = f"[Open in Colab]({COLAB + full})" if file.endswith(".ipynb") else "Run locally"
+            title = re.sub(r"^\d+[a-z]?_", "", file.rsplit(".", 1)[0]).replace("_", " ")
+            rows.append(f"| {title[:1].upper() + title[1:]}{opt} | [Open on GitHub]({GH + full}) | {colab} |")
+        section = ("## Run the notebooks\n\nThe code for this lesson is in these notebooks. Colab runs one in your browser: "
+                   "install the packages its first cell imports and set the API keys it reads. To run every notebook as written, "
+                   "clone the repository and use its uv environment.\n\n| Notebook | GitHub | Colab |\n|---|---|---|\n" + "\n".join(rows) + "\n\n")
+        body = body.replace("\n## Key Takeaways\n", "\n" + section + "## Key Takeaways\n", 1)
     body = body.replace("\n## Key Takeaways\n", "\n## Summary\n")
     nxt = next((titles[k - 1] for k in sorted(lesson_pages(m)) if k > n), None)
     if nxt:

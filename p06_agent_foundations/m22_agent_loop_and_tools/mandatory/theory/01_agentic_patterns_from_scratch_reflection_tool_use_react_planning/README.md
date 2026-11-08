@@ -319,4 +319,4 @@ The round cap, the exit you own (10 rounds by default). The final-response exit 
 </details>
 
 ---
-*Previous: [M22 overview](../README.md). Next: [22.3 Defining tools and binding them to a model](../03_defining_tools_and_binding_them_to_a_model/README.md).*
+*Previous: [M22 overview](../README.md). Next: [22.2 A real-world agent on raw API calls (Hacker News chatbot)](../../../optional/theory/02_a_real_world_agent_on_raw_api_calls_hacker_news_chatbot/README.md).*
