@@ -77,7 +77,7 @@ Use the implementation below to test the exercise and inspect each state update.
 
 - [One-round tool use](../../notebook/01b_tool_use_pattern.ipynb).
 - [ReAct from scratch](../../notebook/01c_planning_pattern_react.ipynb).
-- [Reflection from scratch](../../../optional/notebook/01a_reflection_pattern.ipynb) (optional).
+- [Reflection from scratch](../../../optional/notebook/01a_reflection_pattern.ipynb) (optional). M25 lesson 25.3 covers reflection in full, in LangGraph with a bounded loop and checks on the output: [Reflection agents](../../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/notebook/03a_reflection_agents.ipynb).
 
 ## Key Takeaways
 
