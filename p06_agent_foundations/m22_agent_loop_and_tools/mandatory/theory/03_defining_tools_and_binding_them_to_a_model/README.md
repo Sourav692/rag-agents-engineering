@@ -142,4 +142,4 @@ The argument name. Wrapping changes the built-in's `query` argument to the gener
 </details>
 
 ---
-*Previous: [22.1 Agentic patterns from scratch: reflection, tool use, ReAct planning](../01_agentic_patterns_from_scratch_reflection_tool_use_react_planning/README.md). Next: [22.4 The manual tool loop and the augmented LLM in LangGraph](../04_the_manual_tool_loop_and_the_augmented_llm_in_langgraph/README.md).*
+*Previous: [22.2 A real-world agent on raw API calls (Hacker News chatbot)](../../../optional/theory/02_a_real_world_agent_on_raw_api_calls_hacker_news_chatbot/README.md). Next: [22.4 The manual tool loop and the augmented LLM in LangGraph](../04_the_manual_tool_loop_and_the_augmented_llm_in_langgraph/README.md).*

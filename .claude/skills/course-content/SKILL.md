@@ -48,7 +48,7 @@ Open every mandatory notebook the resolver lists, and the optional ones a concep
 
 State in a few lines, and wait for approval when writing a whole module:
 
-- **Concept to lesson map.** Each `concepts:` entry goes to exactly one lesson page, the one that teaches it. A lesson with nothing to say beyond its notebook stays *planned* (no folder, a `*planned*` row). A lesson page has at least one `##` section.
+- **Concept to lesson map.** Each `concepts:` entry goes to exactly one lesson page, the one that teaches it. A lesson whose notebook is a build with no concept of its own (an app, a worked project) gets a **project page** (`lesson.md` → Project page), never a *planned* row. A lesson page has at least one `##` section.
 - **Diagrams per page.** One mental-model diagram on the module page; one or two per lesson where a picture beats prose. Mermaid first; SVG only for spatial layouts and charts Mermaid cannot draw. Animate only processes over time, usually the mental model plus one more.
 - **The lab.** At most one per module unless two lessons each have a parameter worth playing with. It earns its place when one control changes a number the prose argues about. Name its lesson and section.
 - **Running example.** The handbook area and golden questions, and one concrete request or failure to follow through each lesson.
@@ -103,4 +103,4 @@ node ~/.claude/skills/hallmark/scripts/sloplint.mjs <part>/<module>/*/theory/*/i
 
 ## 8. Report
 
-Both paths of every exported pair, then what was written or changed (pages, concepts per lesson, diagrams static and animated, the lab and its verification), what stays planned and why, check results, anything unconfirmed, and in rewrite mode the flags from `rewrite.md` → Report. Do not commit unless asked. Record new gotchas in `.claude/napkin.md`.
+Both paths of every exported pair, then what was written or changed (pages, concepts per lesson, diagrams static and animated, the lab and its verification), which lessons got project pages, check results, anything unconfirmed, and in rewrite mode the flags from `rewrite.md` → Report. Do not commit unless asked. Record new gotchas in `.claude/napkin.md`.

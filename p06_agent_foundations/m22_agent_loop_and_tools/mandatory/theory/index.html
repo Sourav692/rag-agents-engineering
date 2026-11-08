@@ -705,6 +705,143 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A hand-written ReAct agent keeps calling a search tool that returns nothing useful, and the bill keeps growing. Which exit was missing?</summary>
 <p>The round cap, the exit you own (10 rounds by default). The final-response exit only fires when the model decides it is done, and a model that keeps asking for tools never decides that. With the cap the run stops and says why, and the user should get a fallback reply rather than silence.</p>
 </details>
+<h2 id="the-project-a-hacker-news-chatbot">The project: a Hacker News chatbot</h2>
+<p class="lesson-of">Lesson 22.2: A real-world agent on raw API calls (Hacker News chatbot). Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/optional/notebook/02a_real_world_agent_hacker_news_chatbot.ipynb" target="_blank" rel="noopener"><code>02a_real_world_agent_hacker_news_chatbot.ipynb</code></a> (optional)</p>
+<blockquote>
+<p><strong>What you&rsquo;ll build</strong></p>
+<ul>
+<li><strong>A ReAct agent</strong> that answers questions about Hacker News by choosing between three tools.</li>
+<li><strong>Three tools</strong> over the public Hacker News API: top stories, a story&rsquo;s comments, a story&rsquo;s page text.</li>
+<li><strong>A small library</strong> that turns the classes from lesson 22.1 into code an app can import.</li>
+<li><strong>A chat app</strong> that keeps one agent per browser session.</li>
+</ul>
+</blockquote>
+<p>Lesson 22.1 built reflection, tool use and ReAct inline, one notebook cell at a time. This project puts the ReAct loop to work on a live source. The questions are the kind a reader of Hacker News asks: <em>What are the top five stories right now?</em> or <em>What is the top story, and what are people saying about it?</em></p>
+<p>The project adds no new pattern. It shows what changes when a pattern leaves the notebook: the code has to be importable, the tools return real and changing data, and a chat app has to remember earlier turns.</p>
+<h2 id="architecture">Architecture</h2>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    U[User] --&gt; APP["Chat app&lt;br/&gt;one agent per session"]
+    APP --&gt; BOT["ReAct agent&lt;br/&gt;persona prompt"]
+    subgraph Tools
+        S[Top stories]
+        C[Story comments]
+        P[Story page text]
+    end
+    BOT --&gt;|tool calls| Tools
+    Tools --&gt;|live JSON and HTML| HN[(Hacker News API)]
+</pre></figure>
+<p><em>Figure 1: The chatbot. The agent decides which tools to call and in what order; the tools call the public API.</em></p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+<th>Built on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Agent library</strong></td>
+<td>The tool decorator, the tool class, and the tool-use, ReAct and reflection agents, packaged as importable modules</td>
+<td>The classes from lesson 22.1</td>
+</tr>
+<tr>
+<td><strong>Three tools</strong></td>
+<td>Top, new or best stories with their ids; the first few top-level comments of one story; the text of a story&rsquo;s web page</td>
+<td>The tool contract from lesson 22.1</td>
+</tr>
+<tr>
+<td><strong>Three helpers</strong></td>
+<td>Fetch one item, fetch a list of story ids, fetch a page&rsquo;s text. Plain functions, not tools</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>The bot</strong></td>
+<td>A ReAct agent with the three tools and a system prompt that sets its persona and asks for stories as a table</td>
+<td>Lesson 22.1&rsquo;s ReAct loop</td>
+</tr>
+<tr>
+<td><strong>Chat app</strong></td>
+<td>A Streamlit page that keeps one agent and the chat history per browser session</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The project&rsquo;s five pieces.</em></p>
+<p>The library comes from the open-source, MIT-licensed agentic_patterns project, adapted for the course to use the OpenAI SDK.</p>
+<h2 id="following-a-two-step-question">Following a two-step question</h2>
+<p>Ask <em>What is the current top story, and what are people saying about it in the first five comments?</em> The second tool needs an id that only the first tool can supply:</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant A as Agent
+    participant T as Tools
+    A-&gt;&gt;T: top stories, limit 1
+    T--&gt;&gt;A: title, url, score, story id
+    A-&gt;&gt;T: comments for that story id, limit 5
+    T--&gt;&gt;A: five top-level comments
+    Note over A: final response
+</pre></figure>
+<p><em>Figure 2: The dependent call. The story id travels from the first observation into the second call.</em></p>
+<p>This is the chaining that one round of tool use cannot do (lesson 22.1&rsquo;s one-shot blindness). The loop handles it with no code specific to this question: the model reads the id in the observation and writes the next call. A question that needs only the story list takes one tool call.</p>
+<p>The answers change with Hacker News, so the notebook prints no fixed result. What stays the same from run to run is the order of the calls.</p>
+<h2 id="design-choices-worth-copying">Design choices worth copying</h2>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Package the agent code</strong></td>
+<td>An app cannot import from a notebook. The same classes now serve the notebook and the chat app</td>
+</tr>
+<tr>
+<td><strong>Keep helpers out of the tool list</strong></td>
+<td>The model sees only decorated tools. Fetching ids or raw pages stays plain code the model cannot call directly</td>
+</tr>
+<tr>
+<td><strong>Cap what a tool returns</strong></td>
+<td>Comments stop at a limit and page text is cut to 4,000 characters. One long article would otherwise fill the context</td>
+</tr>
+<tr>
+<td><strong>Return failures as text</strong></td>
+<td>A page that cannot be fetched comes back as an informative message, so the model can apologise or try another story</td>
+</tr>
+<tr>
+<td><strong>One agent per browser session</strong></td>
+<td>Two people using the app never share a history</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Five choices and what each protects against.</em></p>
+<p>The fourth row has a cost lesson 22.5 names: a failure returned as text reaches the model as a normal result, so monitoring that counts errors never sees it.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Live data.</strong> Answers differ on every run, so there is no expected answer to compare against. To test the bot, check behaviour: which tools it called, in what order, with which ids.</li>
+<li><strong>Growing memory.</strong> The app puts every earlier answer in front of each new question. The prompt grows each turn (lesson 22.1&rsquo;s context creep), and the user&rsquo;s earlier questions are not kept, only the bot&rsquo;s answers.</li>
+<li><strong>No round cap in the app.</strong> The app relies on the ReAct agent&rsquo;s own default limit. A production version would set it explicitly and show a fallback reply when it is reached.</li>
+</ul>
+<p>The notebook runs with an OpenAI key; the Hacker News API needs none. It writes the tools, the bot and the app as files beside itself, and the chat app runs separately with Streamlit.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>A pattern becomes a product when its code is importable: the same agent class serves a notebook, a script and a chat app.</li>
+<li>Tools over live sources need limits on what they return and readable failure messages, or one call can flood the context or end the run.</li>
+<li>With live data there is no fixed expected answer, so test the agent&rsquo;s behaviour: the tools it chose, their order and the ids it passed.</li>
+</ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. Why can the chatbot answer what people say about the top story, when one round of tool use could not?</summary>
+<p>The comments tool needs the story&rsquo;s id, and that id exists only after the stories tool has run. The ReAct loop sends the first observation back to the model, which reads the id and writes the comments call. One round of tool use must write every argument before any tool runs.</p>
+</details>
+<details>
+<summary>2. The stories tool, the comments tool and the page-text tool all return live data. Which two guards keep a single call from flooding the agent's context?</summary>
+<p>The comments tool returns only the first few top-level comments, up to a limit, and the page-text tool cuts a page to 4,000 characters. Without them, one long thread or article could fill the context window.</p>
+</details>
+<details>
+<summary>3. You want a regression test for the chatbot, but the top stories change every hour. What can the test check?</summary>
+<p>The behaviour rather than the text: for the two-step question, that the agent called the stories tool first, then the comments tool with the id from the first observation, and then gave a final response. Replacing the tools with stubs that return fixed stories makes the answer text checkable too.</p>
+</details>
 <h2 id="tool-schema">Tool schema</h2>
 <p class="lesson-of">Lesson 22.3: Defining tools and binding them to a model. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/03a_defining_tools.ipynb" target="_blank" rel="noopener"><code>03a_defining_tools.ipynb</code></a></p>
 <blockquote>
@@ -1649,7 +1786,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Every tool failure must come back as a tool result the model can read. Set <code>handle_tool_errors</code> deliberately and test it with a tool that raises.</li>
 <li>Run tools that touch customer data in your own code, where you can log, refuse and stub them. Hosted tools fit general-purpose capabilities where you have nothing to enforce.</li>
 </ul></article>
-    <nav class="toc" aria-label="M22 sections"><details open><summary>In M22</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#why-the-model-cannot-run-the-tool">Why the model cannot run the tool</a></li><li><a href="#agent-loop">Agent loop</a></li><li><a href="#pattern-1-one-round-of-tool-use">Pattern 1</a></li><li><a href="#pattern-2-react-planning">Pattern 2</a></li><li><a href="#pattern-3-reflection">Pattern 3</a></li><li><a href="#choosing-a-pattern">Choosing a pattern</a></li><li><a href="#in-practice-the-larkspur-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tool-schema">Tool schema</a></li><li><a href="#types-do-two-jobs">Types do two jobs</a></li><li><a href="#three-versions-of-the-handbook-search">Three versions of the handbook search</a></li><li><a href="#check-a-wrapped-tool-before-you-bind-it">Check a wrapped tool before you bind it</a></li><li><a href="#in-practice-larkspurrsquos-two-tools">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#native-tool-calls-and-the-message-trace">Native tool calls and the message trace</a></li><li><a href="#the-augmented-llm">The augmented LLM</a></li><li><a href="#in-practice-the-web-1-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#where-tool-errors-go">Where tool errors go</a></li><li><a href="#tool-call-evaluation">Tool-call evaluation</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hosted-vs-client-side-tools">Hosted vs client-side tools</a></li><li><a href="#choosing-where-each-tool-runs">Choosing where each tool runs</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M22 sections"><details open><summary>In M22</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#why-the-model-cannot-run-the-tool">Why the model cannot run the tool</a></li><li><a href="#agent-loop">Agent loop</a></li><li><a href="#pattern-1-one-round-of-tool-use">Pattern 1</a></li><li><a href="#pattern-2-react-planning">Pattern 2</a></li><li><a href="#pattern-3-reflection">Pattern 3</a></li><li><a href="#choosing-a-pattern">Choosing a pattern</a></li><li><a href="#in-practice-the-larkspur-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-hacker-news-chatbot">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-two-step-question">Following a two-step question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tool-schema">Tool schema</a></li><li><a href="#types-do-two-jobs">Types do two jobs</a></li><li><a href="#three-versions-of-the-handbook-search">Three versions of the handbook search</a></li><li><a href="#check-a-wrapped-tool-before-you-bind-it">Check a wrapped tool before you bind it</a></li><li><a href="#in-practice-larkspurrsquos-two-tools">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#native-tool-calls-and-the-message-trace">Native tool calls and the message trace</a></li><li><a href="#the-augmented-llm">The augmented LLM</a></li><li><a href="#in-practice-the-web-1-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#where-tool-errors-go">Where tool errors go</a></li><li><a href="#tool-call-evaluation">Tool-call evaluation</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hosted-vs-client-side-tools">Hosted vs client-side tools</a></li><li><a href="#choosing-where-each-tool-runs">Choosing where each tool runs</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
