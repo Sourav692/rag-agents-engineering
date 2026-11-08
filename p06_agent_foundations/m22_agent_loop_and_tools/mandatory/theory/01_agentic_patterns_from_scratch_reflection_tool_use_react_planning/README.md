@@ -12,20 +12,18 @@
 > - **Compare** one-round tool use, ReAct and reflection by what repeats and what ends the loop.
 > - **Diagnose** the planted failures: bad JSON, an unknown tool, a missing argument, a runaway loop, a lenient critic.
 
-The module overview called an **agent** a model inside a loop that can act on the world. This lesson opens that loop and builds its three classic shapes by hand, with no framework in between, so every moving part is visible.
+An **agent** is a model inside a loop that can act on the world. This lesson builds the loop's three classic shapes by hand, with no framework in between.
 
-A Larkspur customer asks support *How long does a refund take?* The model does not know Larkspur's policy; the answer sits in the support handbook. So the model replies with a request, *search the handbook for "refund timeline"*, and then nothing happens.
-
-The model cannot open a file, call an API or wait for a result. It only writes text.
+A Larkspur customer asks support *How long does a refund take?* The model does not know Larkspur's policy; the answer sits in the support handbook. So the model replies with a request, *search the handbook for "refund timeline"*, and then nothing happens. The model only writes text.
 
 The model decides. Your application acts.
 
 That split leaves two jobs every agent has to do:
 
 - **Running the tool**: your code reads the request, executes the function and returns the result as an **observation**, a message telling the model what the tool returned.
-- **Stopping**: every loop needs a **stopping rule**, a condition that ends it. Leaving one out is the most common agent bug there is.
+- **Stopping**: every loop needs a **stopping rule**, a condition that ends it.
 
-The three patterns below do those two jobs differently. All of them share one shape:
+All three patterns share one shape:
 
 ```mermaid
 flowchart LR
@@ -40,7 +38,7 @@ flowchart LR
 
 ## Agent loop
 
-An **agentic pattern** is a fixed shape for repeating model calls until a task is done. The three patterns in this lesson differ in what repeats and in what ends the repetition, and that difference is the first thing to read in any agent:
+An **agentic pattern** is a fixed shape for repeating model calls until a task is done. The three patterns differ in what repeats and what ends the repetition:
 
 | Pattern | What repeats | Stops when | Model calls in our runs |
 |---|---|---|---|
@@ -50,25 +48,21 @@ An **agentic pattern** is a fixed shape for repeating model calls until a task i
 
 *Table 1: The three patterns compared by loop body and stopping rule.*
 
-The call counts come from a standard-library re-implementation of the three notebooks in which a short scripted policy stands in for the model and writes exactly what the protocol asks a model to write. The parsing, checking and looping are real; the model's choices are scripted, so the counts show what each loop allows, not how often a live model gets it right.
+The counts come from a re-implementation where a scripted policy stands in for the model. The parsing, checking and looping are real; the model's choices are not.
 
 > **Key distinction:** every pattern has two kinds of exit. One belongs to the model (an approval, an answer, a final-response tag). The other belongs to you (a round limit). A loop with only the model's exit is not finished.
 
-The contract between the model and your code comes first, because every pattern depends on it.
-
 ## Pattern 1: one round of tool use
 
-In this lesson tools are described in the system prompt and the model writes its calls as text. Doing it by hand shows exactly what the provider's native tool calling (lesson 22.4) later automates.
+Here tools are described in the system prompt and the model writes its calls as text, which shows what native tool calling (lesson 22.4) later automates.
 
 ### The contract the model reads
 
-A **tool** is a function plus a description the model can read. The description has three parts, all generated from the function itself: its name, its docstring as the description, and one entry per argument with the argument's type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format.
-
-The docstring is the description. A vague docstring makes a vague tool, because the model never sees the function body.
+A **tool** is a function plus a description the model can read: its name, its docstring, and each argument with its type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format. A vague docstring makes a vague tool, because the model never sees the function body.
 
 ### The request is only a string
 
-Asked *What's the current temperature in Madrid, in Celsius?*, the model does not answer. It writes a tagged call naming the weather tool, with Madrid as the location and celsius as the unit. Nothing has run yet. Turning that string into an action is your code's job, and the whole round looks like this:
+Asked *What's the current temperature in Madrid, in Celsius?*, the model does not answer. It writes a tagged call naming the weather tool, with Madrid as the location and celsius as the unit. Nothing has run yet. The whole round looks like this:
 
 ```mermaid
 sequenceDiagram
@@ -108,11 +102,11 @@ flowchart TD
 
 *Figure 3: Validate in this order. Each failure becomes a specific message the model can act on.*
 
-The last step converts each argument to the type its description declares. The from-scratch version covers four types (whole numbers, text, true or false, decimals), so "5" becomes the number 5 when the tool wants a number. For the Madrid call the observation is a temperature of 25 in celsius, and a second model call turns it into the sentence the user reads.
+The last step converts each argument to its declared type, so "5" becomes the number 5 when the tool wants a number. For Madrid the observation is 25 celsius, and a second model call turns it into a sentence.
 
 ### Planted failures
 
-A gatekeeper is only as good as the bad inputs it has been shown. We planted five broken calls, each a mistake models really make, and one more run with type conversion switched off:
+We planted five broken calls, each a mistake models really make, and one run with type conversion switched off:
 
 | Planted call | What the gatekeeper returned |
 |---|---|
@@ -125,15 +119,15 @@ A gatekeeper is only as good as the bad inputs it has been shown. We planted fiv
 
 *Table 2: Five planted calls and one unguarded run.*
 
-The first four never reach a tool; each comes back as an error the model can read and correct. The last row is the dangerous one. Without conversion, the language repeats the text five times and returns a confident wrong answer with no error at all. We call that a **stringly-typed answer**: the failure no exception reports.
+The first four never reach a tool; each comes back as an error the model can correct. The last row is the dangerous one: Python repeats the text five times and returns a wrong answer with no error. We call that a **stringly-typed answer**: the failure no exception reports.
 
 ### Where one round breaks
 
 Now a harder task: *sum 1234 and 5678, multiply the result by 5, then take the natural log.*
 
-Each call needs the result of the one before it, but in one round the model must write every argument before any tool has run. In the scripted run, the only call the model can fill in on round one is the sum, with zero observations in context. The multiplication needs 6,912 and the log needs 34,560, and neither number exists yet.
+Each call needs the result of the one before it, but in one round the model must write every argument before any tool has run. It can fill in the sum; the multiplication needs 6,912 and the log needs 34,560, and neither exists yet.
 
-We call this **one-shot blindness**: a single round can run independent calls side by side, but it cannot chain dependent ones. Fixing it takes a loop that feeds each result into the next decision.
+We call this **one-shot blindness**: a single round can run independent calls side by side, but it cannot chain dependent ones.
 
 ## Pattern 2: ReAct planning
 
@@ -146,7 +140,7 @@ We call this **one-shot blindness**: a single round can run independent calls si
 
 ### The loop and its two exits
 
-The loop itself is short. On each round the model gets the whole history. If its reply is a final response, the loop returns it. Otherwise your code runs every requested call through the same gatekeeper, appends one observation per call to the history, and the next round begins. The appended observations are the whole trick: by round two, 6,912 is in the model's context.
+On each round the model gets the whole history. A final response ends the loop. Otherwise your code runs every call through the same gatekeeper and appends one observation per call, so by round two 6,912 is in the model's context.
 
 ```mermaid
 stateDiagram-v2
@@ -202,25 +196,11 @@ A model that never writes a final response never stops on its own. We planted a 
 
 *Table 4: Two capped runs.*
 
-Without the cap, the stubborn run never ends. We call that a **runaway loop**, and it bills for every round. With the cap it stops after five calls and says why, so the caller can tell "no answer" apart from "an answer". Reaching the cap means the run stopped, not that the task was done, so the loop needs a fallback reply that says so.
-
-The second row shows the opposite risk: a cap below the task's depth stops the agent before it can finish.
+Without the cap, the stubborn run never ends. We call that a **runaway loop**, and it bills for every round. Reaching the cap means the run stopped, not that the task was done, so the loop needs a fallback reply that says so. The first row shows the opposite risk: a cap below the task's depth stops the agent before it can finish.
 
 ### What the loop costs
 
-Each ReAct round resends the whole history. With an *illustrative* 700-token system prompt (protocol plus three tool descriptions), a 40-token question and about 90 tokens added per round:
-
-| Call | Input tokens |
-|---|---|
-| 1 | 700 + 40 = 740 |
-| 2 | 740 + 90 = 830 |
-| 3 | 830 + 90 = 920 |
-| 4 | 920 + 90 = 1,010 |
-| **Total** | **about 3,500** |
-
-*Table 5: Input tokens resent per ReAct round (illustrative).*
-
-One round of tool use costs about 740 + 830 = 1,570 input tokens. ReAct roughly doubles that here, and the gap widens every round, because round *k* resends everything from rounds 1 to *k* minus 1. We call that **context creep**. Multiply by your provider's price per token for a cost per request.
+Each ReAct round resends the whole history, so round *k* pays again for everything in rounds 1 to *k* minus 1. Four rounds cost more than twice the input tokens of one round of tool use, and the gap widens every round. We call that **context creep**.
 
 > **Interview tip:** asked why not always use ReAct, answer with latency and cost. Each round is a full model call that waits for the last one, and the prompt grows every time. Use the smallest loop that solves the task.
 
@@ -241,7 +221,7 @@ stateDiagram-v2
 
 *Figure 6: The reflection loop. The critique becomes the next message to the writer.*
 
-It uses no tools but has the same two-exit shape: the critic's approval is the content-driven exit, and the round limit is yours. We ran it with three planted critics and a three-round limit:
+It uses no tools but has the same two exits: the critic's approval and your round limit. We ran it with three planted critics and a three-round limit:
 
 | Critic | Rounds | Model calls | How it ended |
 |---|---|---|---|
@@ -249,17 +229,17 @@ It uses no tools but has the same two-exit shape: the critic's approval is the c
 | Finds two real bugs, then approves | 3 | 6 | Critic approved |
 | Never approves | 3 | 7 | Round limit reached |
 
-*Table 6: Reflection with three planted critics.*
+*Table 5: Reflection with three planted critics.*
 
 The lenient critic ends the loop after one review, so reflection costs two calls and improves nothing. The never-satisfied critic is the reflection version of a runaway loop, and the limit stops it at 1 + 2 × 3 = 7 calls.
 
 > **Pitfall: the lenient critic.** If the reviewer prompt is soft, reflection quietly becomes a single generation that costs double. Tell the critic exactly what good means.
 
-The reflection implementation adds one more guard worth copying: each side keeps only its system prompt plus the latest exchange, three messages in all, so earlier drafts are not resent every round. M25 covers reflection in full, with a bounded loop in LangGraph and checks on the output.
+One guard worth copying: each side keeps only its system prompt plus the latest exchange, so earlier drafts are not resent. M25 covers reflection in full.
 
 ## Choosing a pattern
 
-With all three built, choosing is a short decision:
+Choosing is a short decision:
 
 ```mermaid
 flowchart TD
@@ -281,7 +261,7 @@ flowchart TD
 | Model calls | 1 + 2 × rounds | 2 | rounds + 1 |
 | Main risk | Lenient critic | One-shot blindness | Runaway loop, context creep |
 
-*Table 7: Trade-offs at a glance.*
+*Table 6: Trade-offs at a glance.*
 
 The patterns combine. A production support agent often runs ReAct to gather evidence, then a reflection pass to check the draft answer against that evidence.
 
@@ -293,14 +273,13 @@ Back to the customer. The loop is the one traced above; only the tool changes:
 2. The gatekeeper checks the call, runs the search and returns the top handbook chunks as an observation.
 3. The model writes its final response, quoting the chunks it was given.
 
-That is retrieval as a tool. The model never touched the handbook; your code did, and the observation carried the evidence back. The same round cap that stopped the stubborn policy is what stops a search that never satisfies the model. The M22 lab runs this question through LangGraph's version of the loop, including a first call that fails.
+That is retrieval as a tool: your code touched the handbook, and the observation carried the evidence back. The round cap stops a search that never satisfies the model.
 
 > **Key distinction:** native tool calling (lesson 22.4) moves the tool description into the API request and returns structured calls with ids, so most of the gatekeeper's parsing failures disappear. The loop in Figure 4 stays the same, and so does your responsibility for the round cap.
 
 ## Limits of this evidence
 
-- **No live model.** Every model reply in Tables 2 to 6 is scripted. Real models skip tags, misname tools and stop early in ways a script does not. The planted failures cover the common shapes, not how often they happen.
-- **Illustrative tokens.** Table 5 is an estimate from stated assumptions, not a measured run.
+- **No live model.** Every model reply in Tables 2 to 5 is scripted. The planted failures cover the common shapes, not how often they happen.
 - **Text protocol only.** Native tool calling changes the parsing, not the loop.
 
 Left out on purpose, and when to add it:

@@ -335,16 +335,15 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Diagnose</strong> the planted failures: bad JSON, an unknown tool, a missing argument, a runaway loop, a lenient critic.</li>
 </ul>
 </blockquote>
-<p>The module overview called an <strong>agent</strong> a model inside a loop that can act on the world. This lesson opens that loop and builds its three classic shapes by hand, with no framework in between, so every moving part is visible.</p>
-<p>A Larkspur customer asks support <em>How long does a refund take?</em> The model does not know Larkspur&rsquo;s policy; the answer sits in the support handbook. So the model replies with a request, <em>search the handbook for &ldquo;refund timeline&rdquo;</em>, and then nothing happens.</p>
-<p>The model cannot open a file, call an API or wait for a result. It only writes text.</p>
+<p>An <strong>agent</strong> is a model inside a loop that can act on the world. This lesson builds the loop&rsquo;s three classic shapes by hand, with no framework in between.</p>
+<p>A Larkspur customer asks support <em>How long does a refund take?</em> The model does not know Larkspur&rsquo;s policy; the answer sits in the support handbook. So the model replies with a request, <em>search the handbook for &ldquo;refund timeline&rdquo;</em>, and then nothing happens. The model only writes text.</p>
 <p>The model decides. Your application acts.</p>
 <p>That split leaves two jobs every agent has to do:</p>
 <ul>
 <li><strong>Running the tool</strong>: your code reads the request, executes the function and returns the result as an <strong>observation</strong>, a message telling the model what the tool returned.</li>
-<li><strong>Stopping</strong>: every loop needs a <strong>stopping rule</strong>, a condition that ends it. Leaving one out is the most common agent bug there is.</li>
+<li><strong>Stopping</strong>: every loop needs a <strong>stopping rule</strong>, a condition that ends it.</li>
 </ul>
-<p>The three patterns below do those two jobs differently. All of them share one shape:</p>
+<p>All three patterns share one shape:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     U[User task] --&gt; M[Model]
     M --&gt;|text| C{Your code inspects}
@@ -354,7 +353,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 1: The shared skeleton. The model only writes text; your code decides whether to stop or feed something back.</em></p>
 <h2 id="agent-loop">Agent loop</h2>
-<p>An <strong>agentic pattern</strong> is a fixed shape for repeating model calls until a task is done. The three patterns in this lesson differ in what repeats and in what ends the repetition, and that difference is the first thing to read in any agent:</p>
+<p>An <strong>agentic pattern</strong> is a fixed shape for repeating model calls until a task is done. The three patterns differ in what repeats and what ends the repetition:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -386,18 +385,16 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The three patterns compared by loop body and stopping rule.</em></p>
-<p>The call counts come from a standard-library re-implementation of the three notebooks in which a short scripted policy stands in for the model and writes exactly what the protocol asks a model to write. The parsing, checking and looping are real; the model&rsquo;s choices are scripted, so the counts show what each loop allows, not how often a live model gets it right.</p>
+<p>The counts come from a re-implementation where a scripted policy stands in for the model. The parsing, checking and looping are real; the model&rsquo;s choices are not.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> every pattern has two kinds of exit. One belongs to the model (an approval, an answer, a final-response tag). The other belongs to you (a round limit). A loop with only the model&rsquo;s exit is not finished.</p>
 </blockquote>
-<p>The contract between the model and your code comes first, because every pattern depends on it.</p>
 <h2 id="pattern-1-one-round-of-tool-use">Pattern 1: one round of tool use</h2>
-<p>In this lesson tools are described in the system prompt and the model writes its calls as text. Doing it by hand shows exactly what the provider&rsquo;s native tool calling (lesson 22.4) later automates.</p>
+<p>Here tools are described in the system prompt and the model writes its calls as text, which shows what native tool calling (lesson 22.4) later automates.</p>
 <h3>The contract the model reads</h3>
-<p>A <strong>tool</strong> is a function plus a description the model can read. The description has three parts, all generated from the function itself: its name, its docstring as the description, and one entry per argument with the argument&rsquo;s type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format.</p>
-<p>The docstring is the description. A vague docstring makes a vague tool, because the model never sees the function body.</p>
+<p>A <strong>tool</strong> is a function plus a description the model can read: its name, its docstring, and each argument with its type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format. A vague docstring makes a vague tool, because the model never sees the function body.</p>
 <h3>The request is only a string</h3>
-<p>Asked <em>What&rsquo;s the current temperature in Madrid, in Celsius?</em>, the model does not answer. It writes a tagged call naming the weather tool, with Madrid as the location and celsius as the unit. Nothing has run yet. Turning that string into an action is your code&rsquo;s job, and the whole round looks like this:</p>
+<p>Asked <em>What&rsquo;s the current temperature in Madrid, in Celsius?</em>, the model does not answer. It writes a tagged call naming the weather tool, with Madrid as the location and celsius as the unit. Nothing has run yet. The whole round looks like this:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant U as User
     participant A as Your code
@@ -428,9 +425,9 @@ th:last-child, td:last-child { padding-right: 0; }
     V --&gt;|yes| X[Convert types and run]
 </pre></figure>
 <p><em>Figure 3: Validate in this order. Each failure becomes a specific message the model can act on.</em></p>
-<p>The last step converts each argument to the type its description declares. The from-scratch version covers four types (whole numbers, text, true or false, decimals), so &ldquo;5&rdquo; becomes the number 5 when the tool wants a number. For the Madrid call the observation is a temperature of 25 in celsius, and a second model call turns it into the sentence the user reads.</p>
+<p>The last step converts each argument to its declared type, so &ldquo;5&rdquo; becomes the number 5 when the tool wants a number. For Madrid the observation is 25 celsius, and a second model call turns it into a sentence.</p>
 <h3>Planted failures</h3>
-<p>A gatekeeper is only as good as the bad inputs it has been shown. We planted five broken calls, each a mistake models really make, and one more run with type conversion switched off:</p>
+<p>We planted five broken calls, each a mistake models really make, and one run with type conversion switched off:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -466,11 +463,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Five planted calls and one unguarded run.</em></p>
-<p>The first four never reach a tool; each comes back as an error the model can read and correct. The last row is the dangerous one. Without conversion, the language repeats the text five times and returns a confident wrong answer with no error at all. We call that a <strong>stringly-typed answer</strong>: the failure no exception reports.</p>
+<p>The first four never reach a tool; each comes back as an error the model can correct. The last row is the dangerous one: Python repeats the text five times and returns a wrong answer with no error. We call that a <strong>stringly-typed answer</strong>: the failure no exception reports.</p>
 <h3>Where one round breaks</h3>
 <p>Now a harder task: <em>sum 1234 and 5678, multiply the result by 5, then take the natural log.</em></p>
-<p>Each call needs the result of the one before it, but in one round the model must write every argument before any tool has run. In the scripted run, the only call the model can fill in on round one is the sum, with zero observations in context. The multiplication needs 6,912 and the log needs 34,560, and neither number exists yet.</p>
-<p>We call this <strong>one-shot blindness</strong>: a single round can run independent calls side by side, but it cannot chain dependent ones. Fixing it takes a loop that feeds each result into the next decision.</p>
+<p>Each call needs the result of the one before it, but in one round the model must write every argument before any tool has run. It can fill in the sum; the multiplication needs 6,912 and the log needs 34,560, and neither exists yet.</p>
+<p>We call this <strong>one-shot blindness</strong>: a single round can run independent calls side by side, but it cannot chain dependent ones.</p>
 <h2 id="pattern-2-react-planning">Pattern 2: ReAct planning</h2>
 <p><strong>ReAct</strong> (reason plus act) interleaves reasoning and acting: the model writes a thought, takes an action, reads the observation, and repeats. In the text protocol that is four kinds of message:</p>
 <ul>
@@ -480,7 +477,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Final response</strong>: the answer, which ends the loop.</li>
 </ul>
 <h3>The loop and its two exits</h3>
-<p>The loop itself is short. On each round the model gets the whole history. If its reply is a final response, the loop returns it. Otherwise your code runs every requested call through the same gatekeeper, appends one observation per call to the history, and the next round begins. The appended observations are the whole trick: by round two, 6,912 is in the model&rsquo;s context.</p>
+<p>On each round the model gets the whole history. A final response ends the loop. Otherwise your code runs every call through the same gatekeeper and appends one observation per call, so by round two 6,912 is in the model&rsquo;s context.</p>
 <figure class="sheet chart"><pre class="mermaid">stateDiagram-v2
     [*] --&gt; Think
     Think --&gt; Act: tool call
@@ -562,42 +559,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Two capped runs.</em></p>
-<p>Without the cap, the stubborn run never ends. We call that a <strong>runaway loop</strong>, and it bills for every round. With the cap it stops after five calls and says why, so the caller can tell &ldquo;no answer&rdquo; apart from &ldquo;an answer&rdquo;. Reaching the cap means the run stopped, not that the task was done, so the loop needs a fallback reply that says so.</p>
-<p>The second row shows the opposite risk: a cap below the task&rsquo;s depth stops the agent before it can finish.</p>
+<p>Without the cap, the stubborn run never ends. We call that a <strong>runaway loop</strong>, and it bills for every round. Reaching the cap means the run stopped, not that the task was done, so the loop needs a fallback reply that says so. The first row shows the opposite risk: a cap below the task&rsquo;s depth stops the agent before it can finish.</p>
 <h3>What the loop costs</h3>
-<p>Each ReAct round resends the whole history. With an <em>illustrative</em> 700-token system prompt (protocol plus three tool descriptions), a 40-token question and about 90 tokens added per round:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Call</th>
-<th>Input tokens</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>700 + 40 = 740</td>
-</tr>
-<tr>
-<td>2</td>
-<td>740 + 90 = 830</td>
-</tr>
-<tr>
-<td>3</td>
-<td>830 + 90 = 920</td>
-</tr>
-<tr>
-<td>4</td>
-<td>920 + 90 = 1,010</td>
-</tr>
-<tr>
-<td><strong>Total</strong></td>
-<td><strong>about 3,500</strong></td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 5: Input tokens resent per ReAct round (illustrative).</em></p>
-<p>One round of tool use costs about 740 + 830 = 1,570 input tokens. ReAct roughly doubles that here, and the gap widens every round, because round <em>k</em> resends everything from rounds 1 to <em>k</em> minus 1. We call that <strong>context creep</strong>. Multiply by your provider&rsquo;s price per token for a cost per request.</p>
+<p>Each ReAct round resends the whole history, so round <em>k</em> pays again for everything in rounds 1 to <em>k</em> minus 1. Four rounds cost more than twice the input tokens of one round of tool use, and the gap widens every round. We call that <strong>context creep</strong>.</p>
 <blockquote>
 <p><strong>Interview tip:</strong> asked why not always use ReAct, answer with latency and cost. Each round is a full model call that waits for the last one, and the prompt grows every time. Use the smallest loop that solves the task.</p>
 </blockquote>
@@ -612,7 +576,7 @@ th:last-child, td:last-child { padding-right: 0; }
     Generate --&gt; [*]: round limit
 </pre></figure>
 <p><em>Figure 6: The reflection loop. The critique becomes the next message to the writer.</em></p>
-<p>It uses no tools but has the same two-exit shape: the critic&rsquo;s approval is the content-driven exit, and the round limit is yours. We ran it with three planted critics and a three-round limit:</p>
+<p>It uses no tools but has the same two exits: the critic&rsquo;s approval and your round limit. We ran it with three planted critics and a three-round limit:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -643,14 +607,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: Reflection with three planted critics.</em></p>
+<p><em>Table 5: Reflection with three planted critics.</em></p>
 <p>The lenient critic ends the loop after one review, so reflection costs two calls and improves nothing. The never-satisfied critic is the reflection version of a runaway loop, and the limit stops it at 1 + 2 × 3 = 7 calls.</p>
 <blockquote>
 <p><strong>Pitfall: the lenient critic.</strong> If the reviewer prompt is soft, reflection quietly becomes a single generation that costs double. Tell the critic exactly what good means.</p>
 </blockquote>
-<p>The reflection implementation adds one more guard worth copying: each side keeps only its system prompt plus the latest exchange, three messages in all, so earlier drafts are not resent every round. M25 covers reflection in full, with a bounded loop in LangGraph and checks on the output.</p>
+<p>One guard worth copying: each side keeps only its system prompt plus the latest exchange, so earlier drafts are not resent. M25 covers reflection in full.</p>
 <h2 id="choosing-a-pattern">Choosing a pattern</h2>
-<p>With all three built, choosing is a short decision:</p>
+<p>Choosing is a short decision:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     S[New task] --&gt; D{Needs outside data?}
     D --&gt;|no| Q{Worth a second pass?}
@@ -697,7 +661,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 7: Trade-offs at a glance.</em></p>
+<p><em>Table 6: Trade-offs at a glance.</em></p>
 <p>The patterns combine. A production support agent often runs ReAct to gather evidence, then a reflection pass to check the draft answer against that evidence.</p>
 <h2 id="in-practice-the-larkspur-refund-question">In practice: the Larkspur refund question</h2>
 <p>Back to the customer. The loop is the one traced above; only the tool changes:</p>
@@ -706,14 +670,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>The gatekeeper checks the call, runs the search and returns the top handbook chunks as an observation.</li>
 <li>The model writes its final response, quoting the chunks it was given.</li>
 </ol>
-<p>That is retrieval as a tool. The model never touched the handbook; your code did, and the observation carried the evidence back. The same round cap that stopped the stubborn policy is what stops a search that never satisfies the model. The M22 lab runs this question through LangGraph&rsquo;s version of the loop, including a first call that fails.</p>
+<p>That is retrieval as a tool: your code touched the handbook, and the observation carried the evidence back. The round cap stops a search that never satisfies the model.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> native tool calling (lesson 22.4) moves the tool description into the API request and returns structured calls with ids, so most of the gatekeeper&rsquo;s parsing failures disappear. The loop in Figure 4 stays the same, and so does your responsibility for the round cap.</p>
 </blockquote>
 <h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>No live model.</strong> Every model reply in Tables 2 to 6 is scripted. Real models skip tags, misname tools and stop early in ways a script does not. The planted failures cover the common shapes, not how often they happen.</li>
-<li><strong>Illustrative tokens.</strong> Table 5 is an estimate from stated assumptions, not a measured run.</li>
+<li><strong>No live model.</strong> Every model reply in Tables 2 to 5 is scripted. The planted failures cover the common shapes, not how often they happen.</li>
 <li><strong>Text protocol only.</strong> Native tool calling changes the parsing, not the loop.</li>
 </ul>
 <p>Left out on purpose, and when to add it:</p>
