@@ -1,6 +1,6 @@
 # M22.4 Theory: The manual tool loop and the augmented LLM in LangGraph
 
-*[M22 theory](../README.md) · Lesson 22.4 · Notebooks: [`04a_tool_calling_manual_loop.ipynb`](../../notebook/04a_tool_calling_manual_loop.ipynb), [`04b_augmented_llm_with_tools_langgraph.ipynb`](../../notebook/04b_augmented_llm_with_tools_langgraph.ipynb) · [All theory pages](../../../../../THEORY.md)*
+*[M22 theory](../README.md) · Lesson 22.4 · Notebooks: [`04a_tool_calling_manual_loop.ipynb`](../../notebook/04a_tool_calling_manual_loop.ipynb), [`05a_tool_loop_errors_and_evaluation.ipynb`](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) (Part 3.1) · [All theory pages](../../../../../THEORY.md)*
 
 ## Native tool calls and the message trace
 
@@ -63,7 +63,7 @@ The lab's two-tool question shows the shape on Larkspur's tools:
 
 Five messages, two of them tool results. The scores are real TF-IDF over the M10 chunks. The model turns are scripted.
 
-For a model without native tool calling, the alternative is a text protocol: `render_text_description(tools)` writes the signatures into the system prompt, and `JsonOutputParser` reads a `{"name": …, "arguments": …}` blob from the reply. It works on the two recorded questions, but nothing guarantees valid JSON, a real tool name or every argument. Use it only when the model leaves no choice.
+For a model without native tool calling, the alternative is a text protocol: the tool signatures go into the system prompt, and your code parses the call out of the reply. Lesson 22.1 builds one from scratch with `<tool_call>` tags. Nothing guarantees valid JSON, a real tool name or every argument, so use it only when the model leaves no choice.
 
 ## The augmented LLM
 
@@ -83,7 +83,7 @@ flowchart LR
 
 ### Step 2: Compare stopping after tools with answering
 
-Follow the solid edges in this one-shot graph. *Explain AI in 2 bullets* ends at the first `END` with a direct answer. *What is the latest news on OpenAI product releases* calls `search_web`, and the run ends on the raw Tavily JSON in a `ToolMessage`: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.
+Follow the solid edges in this one-shot graph. *Explain tool calling in one sentence* ends at the first `END` with a direct answer. *What's the weather in Tokyo?* calls `get_weather`, and the run ends on the tool's raw output in a `ToolMessage`: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.
 
 That graph is an augmented LLM. One more edge makes it an agent: `tools` back to the model instead of to `END` (the dashed line). The looping `create_tool_agent` implementation adds it with `graph.add_edge("tools", "agent")`, and the graph becomes the loop in the module's mental model.
 
@@ -96,7 +96,7 @@ Remove the return edge from `tools` to the model. For the two-tool question, nam
 Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
 
 - [Manual tool calling](../../notebook/04a_tool_calling_manual_loop.ipynb).
-- [LangGraph tool dispatch](../../notebook/04b_augmented_llm_with_tools_langgraph.ipynb).
+- [LangGraph tool dispatch](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) (Part 3.1, the opening of lesson 22.5's notebook).
 
 ## Key Takeaways
 
@@ -121,7 +121,7 @@ Five: the `HumanMessage`, one `AIMessage` with two calls (`get_server_status` an
 </details>
 
 <details>
-<summary>3. The graph from the one-shot graph example answers a news question with raw Tavily JSON and no sentence. What is missing, and which one change fixes it?</summary>
+<summary>3. The graph from the one-shot graph example answers a weather question with the tool's raw output and no sentence. What is missing, and which one change fixes it?</summary>
 
 The `tools` node goes straight to `END`, so nobody reads the result and no dependent call is possible. That graph is an augmented LLM. Adding the edge from `tools` back to the model (`graph.add_edge("tools", "agent")` in lesson 22.5's `create_tool_agent`) makes it an agent loop.
 

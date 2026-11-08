@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part VI · Agent Foundations** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 7 mandatory, 4 optional
+**Part VI · Agent Foundations** · **Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 4 optional
 
 ## Why it matters
 
@@ -30,7 +30,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | 22.1 | Agentic patterns from scratch: reflection, tool use, ReAct planning ([theory](mandatory/theory/01_agentic_patterns_from_scratch_reflection_tool_use_react_planning/README.md)) | [`01b_tool_use_pattern.ipynb`](mandatory/notebook/01b_tool_use_pattern.ipynb)<br>[`01c_planning_pattern_react.ipynb`](mandatory/notebook/01c_planning_pattern_react.ipynb) | [`01a_reflection_pattern.ipynb`](optional/notebook/01a_reflection_pattern.ipynb) *(extension)* |
 | 22.2 | A real-world agent on raw API calls (Hacker News chatbot) *(optional lesson)* | — | [`02a_real_world_agent_hacker_news_chatbot.ipynb`](optional/notebook/02a_real_world_agent_hacker_news_chatbot.ipynb) *(extension)* |
 | 22.3 | Defining tools and binding them to a model ([theory](mandatory/theory/03_defining_tools_and_binding_them_to_a_model/README.md)) | [`03a_defining_tools.ipynb`](mandatory/notebook/03a_defining_tools.ipynb) | — |
-| 22.4 | The manual tool loop and the augmented LLM in LangGraph ([theory](mandatory/theory/04_the_manual_tool_loop_and_the_augmented_llm_in_langgraph/README.md)) | [`04a_tool_calling_manual_loop.ipynb`](mandatory/notebook/04a_tool_calling_manual_loop.ipynb)<br>[`04b_augmented_llm_with_tools_langgraph.ipynb`](mandatory/notebook/04b_augmented_llm_with_tools_langgraph.ipynb) | — |
+| 22.4 | The manual tool loop and the augmented LLM in LangGraph ([theory](mandatory/theory/04_the_manual_tool_loop_and_the_augmented_llm_in_langgraph/README.md)) | [`04a_tool_calling_manual_loop.ipynb`](mandatory/notebook/04a_tool_calling_manual_loop.ipynb) | — |
 | 22.5 | Tool errors and evaluating tool calls ([theory](mandatory/theory/05_tool_errors_and_evaluating_tool_calls/README.md)) | [`05a_tool_loop_errors_and_evaluation.ipynb`](mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb) | — |
 | 22.6 | Hosted vs client-side tools: code execution and image generation ([theory](mandatory/theory/06_hosted_vs_client_side_tools_code_execution_and_image_generation/README.md)) | [`06a_hosted_vs_client_side_tools.ipynb`](mandatory/notebook/06a_hosted_vs_client_side_tools.ipynb) | [`06b_hosted_code_execution.ipynb`](optional/notebook/06b_hosted_code_execution.ipynb) *(extension)*<br>[`06c_agentic_image_generation.ipynb`](optional/notebook/06c_agentic_image_generation.ipynb) *(extension)* |
 
@@ -62,7 +62,6 @@ Retriever as a tool, by hand: wrap your Part V retriever as a tool, run it throu
 | `optional/notebook/02a_real_world_agent_hacker_news_chatbot.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/01_agents_from_scratch/notebooks/04_real_world_agent_hacker_news_chatbot.ipynb` |
 | `mandatory/notebook/03a_defining_tools.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/01_defining_tools.ipynb` |
 | `mandatory/notebook/04a_tool_calling_manual_loop.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/02_tool_calling_manual_loop.ipynb` |
-| `mandatory/notebook/04b_augmented_llm_with_tools_langgraph.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/03_augmented_llm_with_tools_langgraph.ipynb` |
 | `mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/04_tool_loop_errors_and_evaluation.ipynb` |
 | `mandatory/notebook/06a_hosted_vs_client_side_tools.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/05_hosted_vs_client_side_tools.ipynb` |
 | `optional/notebook/06b_hosted_code_execution.ipynb` | `ai-engineering-demystified-06-agent-fundamentals` | `modules/02_tools_and_function_calling/notebooks/06_hosted_code_execution.ipynb` |

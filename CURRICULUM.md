@@ -11,7 +11,7 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 | [`ai-engineering-demystified-03-langchain-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-03-langchain-fundamentals) | LangChain fundamentals | 34 |
 | [`ai-engineering-demystified-04-langgraph-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-04-langgraph-fundamentals) | LangGraph fundamentals | 19 |
 | [`ai-engineering-demystified-05-retrieval-rag`](https://github.com/Sourav692/ai-engineering-demystified-05-retrieval-rag) | Retrieval & RAG | 102 |
-| [`ai-engineering-demystified-06-agent-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals) | Agent fundamentals | 64 |
+| [`ai-engineering-demystified-06-agent-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals) | Agent fundamentals | 63 |
 | [`ai-engineering-demystified-08-advanced-agent-systems`](https://github.com/Sourav692/ai-engineering-demystified-08-advanced-agent-systems) | Advanced agent systems | 58 |
 | [`ai-engineering-demystified-09-advanced-rag`](https://github.com/Sourav692/ai-engineering-demystified-09-advanced-rag) | Advanced RAG | 32 |
 | [`ai-engineering-demystified-10-agent-protocols`](https://github.com/Sourav692/ai-engineering-demystified-10-agent-protocols) | Agent protocols | 10 |
@@ -20,7 +20,7 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 
 | Parts | Modules | Lessons | Notebooks mapped | Mandatory | Optional | Suggested effort | Pace |
 |---|---|---|---|---|---|---|---|
-| 14 | 46 + capstone | 227 | 382 | 211 | 171 | ~216 hours | 26 weeks at ~8 h/week |
+| 14 | 46 + capstone | 227 | 381 | 210 | 171 | ~216 hours | 26 weeks at ~8 h/week |
 
 ## Who this course is for
 
@@ -63,7 +63,7 @@ By the end of the course you can:
 
 ## Mandatory vs optional notebooks
 
-You do not need every notebook. **211 of 382 notebooks are mandatory**; the other 171 are optional.
+You do not need every notebook. **210 of 381 notebooks are mandatory**; the other 171 are optional.
 
 **Rule:** each lesson keeps the one notebook (two, when they teach two distinct ideas) that you need for the lesson objective and the module lab. Everything else is optional for one of three reasons:
 
@@ -731,7 +731,7 @@ flowchart LR
 
 ### Module 22 — The Agent Loop & Tool Calling
 
-**Level:** Core · **Time:** ~5 h · **Notebooks:** 7 mandatory, 4 optional · **Source:** `06/01_agents_from_scratch`, `06/02_tools_and_function_calling`
+**Level:** Core · **Time:** ~5 h · **Notebooks:** 6 mandatory, 4 optional · **Source:** `06/01_agents_from_scratch`, `06/02_tools_and_function_calling`
 
 **Why it matters.** Agentic RAG is an agent loop with a retriever as one of its tools. Writing that loop by hand first makes every framework later in the course transparent.
 
@@ -749,7 +749,7 @@ flowchart LR
 | 22.1 | Agentic patterns from scratch: reflection, tool use, ReAct planning | [`01b_tool_use_pattern`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/01b_tool_use_pattern.ipynb)<br>[`01c_planning_pattern_react`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/01c_planning_pattern_react.ipynb) | [`01a_reflection_pattern`](p06_agent_foundations/m22_agent_loop_and_tools/optional/notebook/01a_reflection_pattern.ipynb) *(extension)* |
 | 22.2 | A real-world agent on raw API calls (Hacker News chatbot) *(optional lesson)* | — | [`02a_real_world_agent_hacker_news_chatbot`](p06_agent_foundations/m22_agent_loop_and_tools/optional/notebook/02a_real_world_agent_hacker_news_chatbot.ipynb) *(extension)* |
 | 22.3 | Defining tools and binding them to a model | [`03a_defining_tools`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/03a_defining_tools.ipynb) | — |
-| 22.4 | The manual tool loop and the augmented LLM in LangGraph | [`04a_tool_calling_manual_loop`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04a_tool_calling_manual_loop.ipynb)<br>[`04b_augmented_llm_with_tools_langgraph`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04b_augmented_llm_with_tools_langgraph.ipynb) | — |
+| 22.4 | The manual tool loop and the augmented LLM in LangGraph | [`04a_tool_calling_manual_loop`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04a_tool_calling_manual_loop.ipynb) | — |
 | 22.5 | Tool errors and evaluating tool calls | [`05a_tool_loop_errors_and_evaluation`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb) | — |
 | 22.6 | Hosted vs client-side tools: code execution and image generation | [`06a_hosted_vs_client_side_tools`](p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/06a_hosted_vs_client_side_tools.ipynb) | [`06b_hosted_code_execution`](p06_agent_foundations/m22_agent_loop_and_tools/optional/notebook/06b_hosted_code_execution.ipynb) *(extension)*<br>[`06c_agentic_image_generation`](p06_agent_foundations/m22_agent_loop_and_tools/optional/notebook/06c_agentic_image_generation.ipynb) *(extension)* |
 
@@ -1592,7 +1592,7 @@ Every notebook in the source repositories, by source module, and the course modu
 | 05 | `12_langchain_rag_implementations` | 2 | 2 | M14 |
 | 05 | `13_llamaindex_rag` | 5 | 4 | M21 |
 | 06 | `01_agents_from_scratch` | 4 | 2 | M22 |
-| 06 | `02_tools_and_function_calling` | 7 | 5 | M22 |
+| 06 | `02_tools_and_function_calling` | 6 | 4 | M22 |
 | 06 | `03_react_agents` | 8 | 4 | M23, M26 |
 | 06 | `04_langchain_agents_and_middleware` | 4 | 2 | M23 |
 | 06 | `05_prompt_chaining` | 3 | 1 | M24 |
