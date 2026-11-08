@@ -1,16 +1,26 @@
 # M22.6 Theory: Hosted vs client-side tools: code execution and image generation
 
 *[M22 theory](../README.md) · Lesson 22.6 · Notebooks: [`06a_hosted_vs_client_side_tools.ipynb`](../../notebook/06a_hosted_vs_client_side_tools.ipynb), [`06b_hosted_code_execution.ipynb`](../../../optional/notebook/06b_hosted_code_execution.ipynb) (optional), [`06c_agentic_image_generation.ipynb`](../../../optional/notebook/06c_agentic_image_generation.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Where the tool runs decides what you can see, refuse, test and pay for -->
 
 ## Hosted vs client-side tools
 
-Larkspur must enforce account access before a status lookup runs. A public web search may need different controls. You will follow the same question through client-side and hosted execution, then identify what your application can inspect or refuse at each boundary.
+> **What you'll learn**
+>
+> - **Explain** the difference between a client-side tool and a hosted tool, call by call.
+> - **Compare** what each path lets you see, refuse, test and pay for.
+> - **Diagnose** where a policy check can sit, and why a hosted tool has no place for it.
+> - **Choose** where each of Larkspur's tools should run.
 
-### Step 1: Follow both execution paths
+Every tool in lessons 22.1 to 22.5 ran in your process. This lesson moves a tool to the provider's side and looks at what you give up.
 
-Every tool so far ran on your machine: the model returned a call, your code ran it, you sent the result back. A hosted tool runs on the provider's infrastructure instead, and the reply arrives with the result already folded in. The API difference is a few lines. The difference in what you can see and control is large.
+Larkspur has to confirm that a customer owns a server before showing its status. That check has to happen before the lookup runs, in code Larkspur controls. A public web search has nothing comparable to enforce. Where a tool runs decides whether such a check is even possible.
 
-The recorded comparison answers *What is the current population of Lisbon?* both ways with `gpt-4o-mini`:
+### Two execution paths
+
+A **client-side tool** is the kind built so far: the model returns a call, your code runs it, and you send the result back. A **hosted tool** runs on the provider's infrastructure instead, and the reply arrives with the result already folded in. The change in the request is small. The change in what you can see and control is large.
+
+The recorded comparison answers *What is the current population of Lisbon?* both ways with the same small model:
 
 ```mermaid
 sequenceDiagram
@@ -28,59 +38,95 @@ sequenceDiagram
     P-->>Y: answer and a web_search_call item
 ```
 
-In the recorded run the client-side path took two round trips and 1.86 s. The hosted path took one round trip and 3.16 s. One run proves little about latency, but it does show that one round trip is not automatically faster. The hosted reply carries a `web_search_call` output item with its status and the query the provider chose (`current population of Lisbon 2023`). That item is your only window into the execution: you did not choose the query, you cannot see the raw results, and nothing of yours ran between retrieval and generation.
+*Figure 1: The same question on both paths. Only the client-side path passes through your code between the call and the result.*
+
+| | Client-side | Hosted |
+|---|---|---|
+| Round trips | 2 | 1 |
+| Time in the recorded run | 1.86 s | 3.16 s |
+| Who chose the search query | Your code | The provider ("current population of Lisbon 2023") |
+| Raw results visible | Yes | No |
+
+*Table 1: One recorded run of each path.*
+
+One run proves little about latency, but it does show that one round trip is not automatically faster. The hosted reply carries a record of the search with its status and the query the provider chose. That record is your only window into the execution: you did not choose the query, you cannot see the raw results, and nothing of yours ran between retrieval and generation.
 
 | | Client-side | Hosted |
 |---|---|---|
 | Who executes | Your process | The provider's infrastructure |
 | See the arguments | Yes, before execution | Sometimes, after the fact |
 | Intercept or refuse a call | Yes, it is your code | No |
-| Deterministic tests | Yes, stub the function | No, it hits the live world |
+| Deterministic tests | Yes, replace the tool with a stub | No, it reaches the live world |
 | Failure | Your exception, your retry | A status across an API boundary; you can only re-run the whole request |
 | Cost | Tokens and your infrastructure | Tokens and a fee per tool call (code interpreter: per container session) |
 
-### Step 2: Place the policy check before execution
+*Table 2: What each path gives you.*
 
-The gap between "the model asked" and "the model sees the result" is where policy lives. The client-side `guarded_lookup` is four lines that refuse any city outside an allow-list. Asked about Pyongyang, it returns an error and the model says it cannot retrieve that population. Allow-lists, tenant scoping, PII redaction and spend caps all sit in that seam, and choosing a hosted tool means choosing not to have it.
+### The policy gap
 
-### Step 3: Compare the evidence returned by each tool
+The gap between "the model asked" and "the model sees the result" is where policy lives. We call it the **policy gap**. In the recorded example, a guarded version of the client-side lookup refuses any city outside an allow-list:
 
-Hosted tools expose different amounts of execution detail in these examples:
+| Question | Guarded client-side lookup | Hosted search |
+|---|---|---|
+| Population of Lisbon | Runs; the model answers | Runs; the model answers |
+| Population of Pyongyang | Refused with an error; the model says it cannot retrieve that population | Would run; nothing of yours sits between the call and the result |
+
+*Table 3: An allow-list in the policy gap.*
+
+Allow-lists, tenant scoping, redaction of personal data and spend caps all sit in that gap. Choosing a hosted tool means choosing not to have it.
+
+> **Key distinction:** a hosted tool can be well run and still impossible to govern. What decides the placement is whether anything must happen between the call and the result.
+
+### What each hosted tool shows you
+
+Hosted tools expose different amounts of their execution:
 
 | Hosted tool | What comes back besides the answer |
 |---|---|
-| `web_search` | The query, roughly; no raw results |
-| `code_interpreter`  | The source it ran, its output and any files, so you can audit the method |
-| `image_generation`  | The `revised_prompt` the model wrote for itself and the image as base64 |
+| Web search | Roughly the query; no raw results |
+| Code interpreter | The code it ran, its output and any files, so you can audit the method |
+| Image generation | The revised prompt the model wrote for itself, and the image |
 
-Code interpreter is also configurable: The code-execution example sets a memory ceiling and a network policy (`{"type": "disabled"}` for a sandbox that works only on data you supplied). What you still cannot do is approve the code before it runs, veto one call, or stub it in a test. The image-generation example adds a different caution: the agent narrates what it *meant* to draw, and only feeding the image back to a vision model shows what it actually drew. The model also has to leave the tool alone when a turn asks for advice; The image example checks that it does.
+*Table 4: Visibility by hosted tool.*
 
-### Step 4: Choose an execution location for each task
+Code interpreter is also configurable: the recorded example sets a memory ceiling and turns network access off, so the sandbox works only on data you supplied. What you still cannot do is approve the code before it runs, veto one call, or replace it with a stub in a test.
 
-For Larkspur's support agent the split follows the data:
+Image generation adds a different caution. The agent describes what it *meant* to draw, and only showing the image to a vision model reveals what it actually drew. We call that **narrated output**: a description of the result that nobody checked against the result. The model also has to leave the tool alone when a turn asks for advice rather than an image, and the recorded example checks that it does.
 
-- `search_handbook` and `get_server_status` stay client-side. They read the customer's account and Larkspur's own policy, need tenant scoping and logging, and must be stubbed in tests (the M22 lab runs them deterministically for this reason).
-- A hosted `web_search` fits questions the handbook cannot answer, about public software or third-party services, where there is nothing to enforce between the call and the result.
-- Hosted code execution fits arithmetic on numbers the customer pasted into the chat. The arithmetic example shows why execution matters: a model that runs three lines of Python computes, while one that answers directly samples plausible digits.
+## Choosing where each tool runs
 
-In these OpenAI examples, hosted tools use the Responses API, while Chat Completions carries the client-side function calls. The reference example uses `client.responses.create` on the raw OpenAI client to make hosted-tool configuration explicit. Check the integration and provider version before choosing a wrapper. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the seam that hosted tools remove.
+The decision follows the data the tool touches:
 
-### Try it yourself
+```mermaid
+flowchart TD
+    T[New tool] --> D{Touches customer data?}
+    D -->|yes| CS[Client-side]
+    D -->|no| P{Policy before execution?}
+    P -->|yes| CS
+    P -->|no| S{Needs stubbed tests?}
+    S -->|yes| CS
+    S -->|no| H[Hosted is an option]
+```
 
-Apply the Lisbon comparison to a lookup for a city outside the allow-list. Identify the exact place where `guarded_lookup` can refuse the call and explain why the hosted search has no equivalent client-side interception point. Then choose a path for a tenant-scoped server lookup. Check that your design enforces account scope before execution and can stub the lookup in a test.
+*Figure 2: Three yes/no questions. Any yes keeps the tool in your process.*
 
-### Practice notebook
+For Larkspur's support agent, the split is:
 
-Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+1. **The handbook search and the server-status lookup stay client-side.** They read the customer's account and Larkspur's own policy, need tenant scoping and logging, and must be replaceable with stubs in tests. The M22 lab runs them deterministically for this reason.
+2. **A hosted web search fits questions the handbook cannot answer**, about public software or third-party services, where there is nothing to enforce between the call and the result.
+3. **Hosted code execution fits arithmetic on numbers the customer pasted into the chat.** A model that runs three lines of code computes the answer; a model that answers directly produces plausible-looking digits.
 
-- [Tool execution placement](../../notebook/06a_hosted_vs_client_side_tools.ipynb).
-- [Hosted code execution](../../../optional/notebook/06b_hosted_code_execution.ipynb) (optional).
-- [Agent image generation](../../../optional/notebook/06c_agentic_image_generation.ipynb) (optional).
+In OpenAI's API, hosted tools are offered through the Responses API, while Chat Completions carries client-side function calls. Check which API your integration and provider version support before choosing a wrapper. A third placement, a tool on a server you run that the model reaches over a protocol, is MCP (M38 to M40), and it gives back much of the control that hosted tools remove.
+
+## Limits of this evidence
+
+- **One run per path.** The latencies in Table 1 come from a single recorded run each; measure on your own traffic before deciding anything on speed.
+- **One provider.** The visibility in Table 4 is what OpenAI's hosted tools returned in the recorded examples; other providers expose more or less.
 
 ## Key Takeaways
 
-- A hosted tool runs on the provider's side and returns the result folded into the reply. You lose the seam where your code can log, refuse, redact or cache a call.
-- Hosted tools vary in visibility: web search shows roughly the query, code interpreter shows the code and output, image generation shows its revised prompt. None can be stubbed in a test.
+- A hosted tool runs on the provider's side and returns the result folded into the reply. You lose the policy gap, where your code can log, refuse, redact or cache a call.
+- Hosted tools vary in visibility: web search shows roughly the query, code interpreter shows the code and output, image generation shows its revised prompt. None can be replaced with a stub in a test.
 - Keep tools that touch customer data or need tenant scoping client-side. Use hosted tools for public lookups and arithmetic on data the user supplied.
 
 ## Check yourself
@@ -88,21 +134,21 @@ Use the implementation below to test the exercise and inspect each state update.
 <details>
 <summary>1. What do you give up when you move a tool from client-side to hosted?</summary>
 
-The seam between the model asking and the model seeing the result, which is where policy lives: allow-lists, tenant scoping, PII redaction and spend caps. You also lose the chance to see arguments before execution, refuse a call, or stub the tool in a deterministic test, and a failure can only be handled by re-running the whole request.
+The gap between the model asking and the model seeing the result, which is where policy lives: allow-lists, tenant scoping, redaction and spend caps. You also lose the chance to see arguments before execution, refuse a call, or replace the tool with a stub in a deterministic test, and a failure can only be handled by re-running the whole request.
 
 </details>
 
 <details>
 <summary>2. Larkspur's support agent needs the customer's server status and an answer about a third-party service. Which should run client-side, and which suits a hosted tool?</summary>
 
-`get_server_status` stays client-side: it reads the customer's account, needs tenant scoping and logging, and must be stubbed in tests. A hosted `web_search` fits the third-party question, which the handbook cannot answer and where there is nothing to enforce between the call and the result.
+The server-status lookup stays client-side: it reads the customer's account, needs tenant scoping and logging, and must be stubbed in tests. A hosted web search fits the third-party question, which the handbook cannot answer and where there is nothing to enforce between the call and the result.
 
 </details>
 
 <details>
 <summary>3. The hosted search took one round trip and 3.16 s, the client-side path two and 1.86 s. Is hosted the way to cut latency?</summary>
 
-Not on this evidence. One round trip is not automatically faster: in that run the hosted path was the slower one. One run also proves little about latency, so measure on your own traffic. And going hosted removes the seam where your code could log, refuse or redact the call.
+Not on this evidence. One round trip is not automatically faster: in that run the hosted path was the slower one. One run also proves little about latency, so measure on your own traffic, and remember that going hosted removes the gap where your code could log, refuse or redact the call.
 
 </details>
 

@@ -1,16 +1,24 @@
 # M22.5 Theory: Tool errors and evaluating tool calls
 
 *[M22 theory](../README.md) · Lesson 22.5 · Notebooks: [`05a_tool_loop_errors_and_evaluation.ipynb`](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Where a failed tool call goes, who gets to read it, and how to score a run that finished but was wrong -->
 
 ## Where tool errors go
 
-A Larkspur Cloud customer asks the support agent *Is my server web-9 up?* The customer has no server called web-9, so the status tool raises `ValueError`. With LangGraph's default settings, `graph.invoke` raises that exception and the customer gets no answer at all.
+> **What you'll learn**
+>
+> - **Explain** the two places a tool call can fail, and what LangGraph's three error settings do with each.
+> - **Trace** an unknown-server question from a crash to a clarifying answer.
+> - **Choose** between returning an error from the tool and catching the exception in the loop.
+> - **Score** tool selection, tool input and synthesis separately from the same message trace.
 
-Below you trigger an invalid argument and an unknown server, see how the loop handles each, then score tool choice, arguments and the final answer separately. The deterministic examples use LangGraph 1.2.18, langgraph-prebuilt 1.1.1 and langchain-core 1.7.0. Run the Python blocks in order in the repository environment (`uv run python`), without an API key.
+Lesson 22.4 closed the loop from the tool node back to the model. This lesson asks what travels along that edge when a call fails.
 
-### Step 1: Close the loop and read the message count
+A Larkspur customer asks the support agent *Is my server web-9 up?* The customer has no server called web-9, so the status tool raises an error. With LangGraph's default settings, that error escapes the graph and the customer gets no answer at all.
 
-The agent loop has two nodes. The `agent` node calls the model. The `tools` node (a `ToolNode`) runs every tool call the model asked for and appends one `ToolMessage` per call. An edge from `tools` back to `agent` lets the model read the results, and a router ends the run when the last `AIMessage` has no tool calls.
+### The loop and its trace
+
+The agent loop has two nodes. The **agent node** calls the model. The **tool node** runs every tool call the model asked for and appends one tool message per call. An edge from the tool node back to the agent node lets the model read the results, and a router ends the run when the last model reply has no tool calls:
 
 ```mermaid
 flowchart LR
@@ -20,327 +28,194 @@ flowchart LR
     A -->|no tool calls| E([Answer])
 ```
 
-The message list is the run's trace. An `AIMessage` is a model reply, which can contain tool requests. A `ToolMessage` holds one tool's result and uses `tool_call_id` to match it to its request. The graph's state stores this growing list.
+*Figure 1: The agent loop. Every tool result goes back to the model before the run can end.*
 
-For the Larkspur export question, the scripted lab trace contains four messages: the question, one `AIMessage` requesting `search_handbook`, its `ToolMessage`, and the final answer. The status-and-reboot question contains five messages because one model reply requests two tools. Message count helps diagnose extra work, but it does not establish whether the answer is correct.
+The message list is the run's trace. For the Larkspur export question it holds four messages: the question, one model reply requesting the handbook search, its tool message, and the final answer. The status-and-reboot question holds five, because one reply requests two tools. Message count helps diagnose extra work, but it does not say whether the answer is correct.
 
-### Step 2: Call a tool with valid input
+### Two places a call can fail
 
-To isolate the `ToolNode`, the helper below builds a one-node graph and feeds it a hand-written `AIMessage` with one tool call, so every result is deterministic. The tool checks a customer's servers, web-1 and db-1.
+To isolate the tool node, we fed it a hand-written model reply with one call, so every result is deterministic. The tool checks a customer's servers, web-1 and db-1, and raises an error naming the real servers when asked about any other:
 
-```python
-from typing_extensions import Annotated, TypedDict
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.tools import tool
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode
+| Call | What came back |
+|---|---|
+| Status of web-1 | A tool message with status *success*: "web-1: running" |
+| Status of web-9 | No tool message. The error escaped: "Unknown server 'web-9'; your servers: ['db-1', 'web-1']" |
 
-SERVERS = {"web-1": "running", "db-1": "running"}
+*Table 1: A valid call and a controlled failure, default settings.*
 
-@tool
-def get_server_status(server_id: str) -> str:
-    """Get the status of one of the customer's servers."""
-    if server_id not in SERVERS:
-        raise ValueError(f"Unknown server {server_id!r}; your servers: {sorted(SERVERS)}")
-    return f"{server_id}: {SERVERS[server_id]}"
+In the full loop the second row means the whole run raises and the model never sees the error. Yet the error text lists the customer's real servers: a model that could read it could ask which one the customer meant.
 
-class State(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
+A tool call can fail in two places:
 
-def run_tool_node(node, args):
-    """Run one ToolNode on one hand-written tool call, with no model."""
-    g = StateGraph(State)
-    g.add_node("tools", node)
-    g.add_edge(START, "tools")
-    g.add_edge("tools", END)
-    call = AIMessage(content="", tool_calls=[
-        {"name": "get_server_status", "args": args, "id": "call_1"}])
-    try:
-        msg = g.compile().invoke({"messages": [call]})["messages"][-1]
-        return f"ToolMessage(status={msg.status!r}): {msg.content}"
-    except Exception as e:
-        return f"RAISED {type(e).__name__}: {e}"
+- **Validation error**: the model sends bad arguments, which fail the schema check before the tool runs (a call naming the argument `id` instead of `server_id`).
+- **Execution error**: the arguments are fine and the tool itself raises (web-9).
 
-print(run_tool_node(ToolNode([get_server_status]), {"server_id": "web-1"}))
+```mermaid
+flowchart TD
+    C[Tool call] --> V{Arguments match schema?}
+    V -->|no| VE[Validation error]
+    V -->|yes| R[Tool runs]
+    R --> X{Tool raises?}
+    X -->|no| OK[Success message]
+    X -->|yes| EE[Execution error]
 ```
 
-**Expected output**
+*Figure 2: The two failure points. The error setting decides what each one becomes.*
 
-```text
-ToolMessage(status='success'): web-1: running
-```
+### The three error settings
 
-A successful call becomes a `ToolMessage` with `status='success'` whose content is the tool's return value. In the full loop, that message goes back to the model as the next input.
+The tool node's `handle_tool_errors` setting decides what happens at each failure point. We ran both planted failures under each of its three values, in the LangGraph version this course pins (1.2.18):
 
-### Step 3: Trigger a controlled failure
-
-Change the server to one the customer does not have.
-
-```python
-print(run_tool_node(ToolNode([get_server_status]), {"server_id": "web-9"}))
-```
-
-**Expected output**
-
-```text
-RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
-```
-
-No `ToolMessage` came back. The exception escaped the graph, which in the real loop means `graph.invoke` raises and the model never sees the error. Yet the exception text lists the customer's real servers: a model that could read it could ask which one the customer meant.
-
-### Step 4: Compare the three `handle_tool_errors` settings
-
-A tool call can fail in two places. The model can send bad arguments, which fail schema validation before the tool runs. Or the arguments are fine and the tool itself raises, as in Step 3. `ToolNode`'s `handle_tool_errors` setting decides what happens in each case. Run both failures under each setting. The bad call names the argument `id` instead of `server_id`.
-
-```python
-settings = {
-    "default": ToolNode([get_server_status]),
-    "True": ToolNode([get_server_status], handle_tool_errors=True),
-    "False": ToolNode([get_server_status], handle_tool_errors=False),
-}
-for label, node in settings.items():
-    print(f"handle_tool_errors={label}")
-    print("  bad arguments:", run_tool_node(node, {"id": "web-1"}))
-    print("  tool raises:  ", run_tool_node(node, {"server_id": "web-9"}))
-```
-
-**Expected output**
-
-```text
-handle_tool_errors=default
-  bad arguments: ToolMessage(status='error'): Error invoking tool 'get_server_status' with kwargs {'id': 'web-1'} with error:
- server_id: Field required
- Please fix the error and try again.
-  tool raises:   RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
-handle_tool_errors=True
-  bad arguments: ToolMessage(status='error'): Error: ToolInvocationError("Error invoking tool 'get_server_status' with kwargs {'id': 'web-1'} with error:\n server_id: Field required\n Please fix the error and try again.")
- Please fix your mistakes.
-  tool raises:   ToolMessage(status='error'): Error: ValueError("Unknown server 'web-9'; your servers: ['db-1', 'web-1']")
- Please fix your mistakes.
-handle_tool_errors=False
-  bad arguments: RAISED ToolInvocationError: Error invoking tool 'get_server_status' with kwargs {'id': 'web-1'} with error:
- server_id: Field required
- Please fix the error and try again.
-  tool raises:   RAISED ValueError: Unknown server 'web-9'; your servers: ['db-1', 'web-1']
-```
-
-Read it as a table:
-
-| `handle_tool_errors` | Bad arguments from the model | Exception raised inside the tool |
+| Setting | Bad arguments from the model | Error raised inside the tool |
 |---|---|---|
-| default | Error `ToolMessage` (`Please fix the error and try again.`) | **Re-raised: the run crashes** |
-| `True` | Error `ToolMessage` (`Please fix your mistakes.`) | Error `ToolMessage` with the exception text |
+| Default | Error message: the missing field, then "Please fix the error and try again." | **Re-raised: the run crashes** |
+| `True` | Error message ending "Please fix your mistakes." | Error message with the exception text |
 | `False` | Re-raised | Re-raised |
 
-Of the three settings, only `True` turns both failures into messages the model can read. This behaviour depends on the installed version.
+*Table 2: Two failures under three settings.*
 
-### Step 5: Watch what the model does next
+Of the three, only `True` turns both failures into messages the model can read. The default catches the model's mistakes but not the tool's, which is why the web-9 question crashes under it. This behaviour depends on the installed version, so check it again after an upgrade.
 
-An error `ToolMessage` gives the model a chance to recover, not a guarantee: the model still has to read it and choose a sensible next step. Here is the web-9 run under `handle_tool_errors=True`. The tool messages are LangGraph's real output, and the model's two turns are scripted.
+### What the model does next
+
+An error message lets the model recover, but it does not make it recover: the model still has to read the message and choose a sensible next step. Here is the web-9 run under `True`. The tool message is LangGraph's real output; the model's two turns are scripted:
 
 | # | Message | Content |
 |---|---|---|
-| 0 | `HumanMessage` | Is my server web-9 up? |
-| 1 | `AIMessage` | Calls `get_server_status(server_id='web-9')` |
-| 2 | `ToolMessage`, status error | `Error: ValueError("Unknown server 'web-9'; your servers: ['db-1', 'web-1']")` `Please fix your mistakes.` |
-| 3 | `AIMessage` | I can't find a server called web-9 on your account. Your servers are db-1 and web-1. Which one did you mean? |
+| 0 | Human | Is my server web-9 up? |
+| 1 | AI | Calls the status tool for web-9 |
+| 2 | Tool, status error | The unknown-server error listing db-1 and web-1, then "Please fix your mistakes." |
+| 3 | AI | I can't find a server called web-9 on your account. Your servers are db-1 and web-1. Which one did you mean? |
 
-The scripted next reply asks for clarification using the server names in the error. A live model could choose another action, including an unhelpful retry. Under the default or `False`, the same run raises after message 1, before another model turn.
+*Table 3: The web-9 run with errors returned to the model.*
 
-The [interactive lab](interactive/tool-error-routing-lab.html) runs Larkspur's four golden questions through the full loop under each setting. Its tool results and error texts are byte for byte what LangGraph 1.2.18 produces for the same calls (12 runs, 0 mismatches). The model's turns are scripted, as in the trace above.
+The scripted reply asks for clarification using the server names in the error. A live model could choose another action, including an unhelpful retry. Under the default or `False`, the same run raises after message 1, before another model turn.
 
-| Question | default | `True` | `False` |
+### Four golden questions, three settings
+
+The [interactive lab](interactive/tool-error-routing-lab.html) runs Larkspur's four golden questions through the full loop under each setting. Its tool results and error texts match what LangGraph produces for the same calls byte for byte (12 runs, 0 mismatches); the model's turns are scripted, as in Table 3.
+
+| Question | Default | `True` | `False` |
 |---|---|---|---|
 | *Can I export my data after I cancel my plan?* | Answered, 4 messages | Answered, 4 | Answered, 4 |
 | *Is my server web-1 running, and does a reboot change its IP address?* | Answered, 5 | Answered, 5 | Answered, 5 |
-| *Is my server web-9 up?* (the tool raises `ValueError`) | **Crashed** | Answered, 4 | **Crashed** |
+| *Is my server web-9 up?* (the tool raises) | **Crashed** | Answered, 4 | **Crashed** |
 | *How long does a refund take?* (the model passes `q`, not `query`) | Answered, 6 | Answered, 6 | **Crashed** |
 | Answered | 3 of 4 | 4 of 4 | 2 of 4 |
 
+*Table 4: The lab's golden questions under each setting.*
+
 <!-- lab: interactive/tool-error-routing-lab.html -->
 
-- **The unknown server is an execution error.** Only `True` catches the tool's `ValueError`, and the model can then name the customer's real servers, because the exception text lists them.
-- **The wrong argument name is a validation error.** The default and `True` both return it as a message, the model retries with `query`, and the run costs one extra round trip (6 messages instead of 4). `False` re-raises it as `ToolInvocationError`.
-- **The two questions with no failure behave the same under every setting.** A test suite with only happy-path questions never shows the difference between the settings.
+- **The unknown server is an execution error.** Only `True` catches it, and the model can then name the customer's real servers, because the error text lists them.
+- **The wrong argument name is a validation error.** The default and `True` both return it as a message, the model retries with `query`, and the run costs one extra round trip (6 messages instead of 4). `False` re-raises it.
+- **The two questions with no failure behave the same under every setting.** We call this the **happy-path blind spot**: a test suite of questions that never fail cannot tell the three settings apart.
 
-### Step 6: Decide where each error is handled
+### Deciding where each error is handled
 
-Choose how the model will receive each failure:
+There are two ways to get a failure to the model:
 
-1. **The tool returns the error.** A `divide` tool checks for zero and returns `"Error: Division by zero"`. The model reads it like any other result and explains that division by zero is undefined. Use this when the tool knows the failure in advance: an unknown id, an empty result, an input out of range.
-2. **The tool raises and the `ToolNode` catches it.** `handle_tool_errors=True` catches the ordinary exceptions demonstrated here, including unexpected failures from a client library. A custom handler can instead catch selected exception types and return a message intended for the model.
+| Approach | How it works | Use it when | Message status |
+|---|---|---|---|
+| **The tool returns the error** | A divide tool checks for zero and returns "Error: Division by zero" as its result | The tool knows the failure in advance: an unknown id, an empty result, an input out of range | *success* |
+| **The tool raises and the tool node catches it** | `True`, or a custom handler that catches selected exception types | Failures you cannot list in advance, such as a client library's errors | *error* |
 
-`handle_tool_errors` also accepts a custom string, an exception type or a tuple of them (catch only those), or a function that formats the message. Either way, write error messages the model can act on: what was wrong and what would work, as the web-9 message lists the valid servers. Return only information the customer is allowed to see.
+*Table 5: Returning an error versus catching an exception.*
 
-Returning a string such as `"Error: Division by zero"` completes the tool normally, so its `ToolMessage.status` is `"success"`. Catching an exception in `ToolNode` produces `status="error"`. Monitoring must account for that difference if tools return failure strings. Letting an exception escape also requires application code to log the failed run and return a fallback response.
+The setting also accepts a custom message, an exception type or a group of types (catch only those), or a function that formats the message. Either way, write error messages the model can act on: what was wrong and what would work, as the web-9 message lists the valid servers. Return only information the customer is allowed to see.
 
-### Try it yourself
+> **Pitfall: the successful failure.** A tool that returns an error string completes normally, so its tool message has status *success*. Only a caught exception produces status *error*. Monitoring that counts error statuses misses every failure a tool reports as text.
 
-A customer asks *Is my server db-1 running?* and the model calls `get_server_status` with `{"server": "db-1"}`. Before running anything, predict the result under each of the three settings: a `ToolMessage` with which status, or which exception. Then check your answer with `run_tool_node` from Step 2. Hint: a wrong argument name is a validation error, like the bad-arguments column in Step 4.
+Letting an exception escape is also a choice, and it has a cost: your application code must then log the failed run and give the user a fallback reply.
 
 ## Tool-call evaluation
 
-A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first tool call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. Score each of those failures separately, from the same message trace.
+A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. Each of those is a different failure, so score them separately, from the same trace.
 
-### Step 1: Split the score into three dimensions
+### Three dimensions
 
 | Dimension | Question | How to score it |
 |---|---|---|
-| Tool selection | Did it pick the right tool or tools? | Compare called names with the golden set's expected calls |
-| Tool input | Were the arguments well formed and relevant? | Validate against the schema, compare key values with the expected ones |
-| Synthesis | Did the answer use what the tools returned, and nothing else? | An LLM judge or a reference answer |
+| **Tool selection** | Did it pick the right tool or tools? | Compare called names with the golden set's expected calls |
+| **Tool input** | Were the arguments well formed and relevant? | Check required arguments are present and pinned values match |
+| **Synthesis** | Did the answer use what the tools returned, and nothing else? | An LLM judge or a reference answer |
 
-Scoring them separately tells you what to fix: a selection drop after a description change points at the description, an input drop at the schema and the generated arguments. Confirm the cause from the failing calls before changing either.
+*Table 6: The three scores and where each comes from.*
 
-### Step 2: Write the expected calls for each golden question
+Separate scores tell you what to fix: a selection drop after a description change points at the description, an input drop at the schema and the generated arguments. Confirm the cause from the failing calls before changing either.
 
-The first two dimensions often need no model at all. Give each golden question its expected calls. *Is my server web-1 running, and does a reboot change its IP address?* expects `get_server_status` with `server_id='web-1'`, and `search_handbook` with any query. *How long does a refund take?* expects `search_handbook` alone.
+### Scoring selection and input from the trace
 
-### Step 3: Score selection and input from the trace
+The first two dimensions need no model at all. Give each golden question its expected calls:
 
-The scorer below reads every tool call from the `AIMessage`s, compares the set of called names with the expected set, and flags any call that is missing a required argument or has the wrong value for a pinned one. It is a small check for these two known tools: it does not validate types, query relevance, call order or duplicate calls. A production scorer should validate against the actual tool schemas and flag unknown tool names before looking up their required fields.
+- *Is my server web-1 running, and does a reboot change its IP address?* expects the status tool with server web-1, and the handbook search with any query.
+- *How long does a refund take?* expects the handbook search alone.
 
-```python
-from langchain_core.messages import AIMessage
+A small scorer reads every tool call from the model's replies, compares the set of called names with the expected set, and flags any call that is missing a required argument or has the wrong value for a pinned one. On two runs from the lab:
 
-# Golden set: for each question, the tools it needs and any argument values that must match
-GOLDEN = {
-    "Is my server web-1 running, and does a reboot change its IP address?":
-        {"get_server_status": {"server_id": "web-1"}, "search_handbook": {}},
-    "How long does a refund take?":
-        {"search_handbook": {}},
-}
-REQUIRED = {"get_server_status": {"server_id"}, "search_handbook": {"query"}}
+| Run | Selection | Calls | Flagged for input |
+|---|---|---|---|
+| web-1 status and reboot | Correct | 2 | None |
+| Refund (first call passed `q`) | Correct | 2 | The handbook search |
 
-def score_calls(question, messages):
-    expected = GOLDEN[question]
-    calls = [c for m in messages if isinstance(m, AIMessage) for c in m.tool_calls]
-    called = {c["name"] for c in calls}
-    bad_input = [
-        c["name"] for c in calls
-        if not REQUIRED[c["name"]] <= c["args"].keys()
-        or any(c["args"].get(k) != v for k, v in expected.get(c["name"], {}).items())
-    ]
-    return {"selection_ok": called == set(expected), "calls": len(calls), "bad_input": bad_input}
+*Table 7: The trace scorer on two lab runs.*
 
-# The model's turns from two runs in the lab
-status_run = [AIMessage(content="", tool_calls=[
-    {"name": "get_server_status", "args": {"server_id": "web-1"}, "id": "call_1_1"},
-    {"name": "search_handbook", "args": {"query": "reboot server IP address"}, "id": "call_1_2"}])]
-refund_run = [
-    AIMessage(content="", tool_calls=[{"name": "search_handbook", "args": {"q": "refund"}, "id": "call_1_1"}]),
-    AIMessage(content="", tool_calls=[{"name": "search_handbook", "args": {"query": "how long do refunds take"}, "id": "call_2_1"}])]
+Both runs chose the right tools. The refund run's first call is flagged because it passed `q` instead of `query`; the lab's trace marks the same call "right tool, missing query".
 
-print(score_calls("Is my server web-1 running, and does a reboot change its IP address?", status_run))
-print(score_calls("How long does a refund take?", refund_run))
-```
+That scorer is deliberately small. It does not check types, query relevance, call order or duplicate calls, and it assumes it knows every tool name. A production scorer validates against the real tool schemas and flags unknown tool names before looking up their required fields.
 
-**Expected output**
+### Judging synthesis
 
-```text
-{'selection_ok': True, 'calls': 2, 'bad_input': []}
-{'selection_ok': True, 'calls': 2, 'bad_input': ['search_handbook']}
-```
+**Synthesis** measures whether the final answer uses the returned facts correctly, and that needs judgement. An **LLM judge** is another model asked to grade the trace against explicit criteria: give it the question, the tool requests, the tool results and the final answer, and ask for a score from 1 to 5 on each of the three dimensions plus a short justification.
 
-Both runs chose the right tools. The refund run's first call is flagged for input because it passed `q` instead of `query`. The lab's trace column makes the same check and marks that call *Right tool, missing `query`*. In a real evaluation you pass `result["messages"]` from `graph.invoke` instead of hand-built messages.
+One recorded judgement shows the shape. The trace asks *Calculate 15% of 250 and check weather in Paris*; the agent calls a calculator (37.5) and a simulated weather tool (65°F, partly cloudy), and its answer includes both. The judge scored it 5, 5 and 5. That is one recorded judgement on a practice trace, not a Larkspur result, and a new judge call may disagree.
 
-### Step 4: Inspect a synthesis judgement
+> **Pitfall: the self-grading judge.** In that recording the judge is the agent's own model, which tends to be lenient on its own work. Use a different, ideally stronger, model, and check its scores against a few human-graded runs before you trust a trend.
 
-Synthesis measures whether the final answer uses the returned facts correctly. An LLM judge is another model asked to grade the trace against explicit criteria. Give it the question, tool requests, tool results and final answer, then compare its decisions with human grades.
+Two more cautions. The score fields there are plain whole numbers, so nothing rejects a 7 unless you add a range check. And a single trace scored 5 out of 5 proves little: scores mean something across a fixed golden set, compared before and after one change, as M10's baseline-first method does for retrieval.
 
-The schema below holds the three scores and a justification, the shape a model returns through `with_structured_output(ToolUseEvaluation)`. Here you inspect a saved evaluation instead of calling a model:
+### Counting what never finishes
 
-```python
-from pydantic import BaseModel, Field
+Per-call scores miss the runs that never produce an answer. Log three counts per run as well:
 
-class ToolUseEvaluation(BaseModel):
-    """Schema for evaluating the agent's tool use and final answer."""
-    tool_selection_score: int = Field(description="Score 1-5 on whether the agent chose the correct tools for the task.")
-    tool_input_score: int = Field(description="Score 1-5 on how well-formed and relevant the tool inputs were.")
-    synthesis_quality_score: int = Field(description="Score 1-5 on how well the final answer integrates the tool outputs.")
-    justification: str = Field(description="A brief justification for the scores.")
+- **Rounds per run**: the refund question's extra round shows as 6 messages instead of 4.
+- **Error tool messages per tool**: which tool fails, and how often.
+- **Crashed runs**: the web-9 question under the default has no answer to score at all.
 
-# Scores and justification saved with the practice trace, not a fresh model judgement.
-saved_evaluation = ToolUseEvaluation(
-    tool_selection_score=5,
-    tool_input_score=5,
-    synthesis_quality_score=5,
-    justification=(
-        "The agent effectively selected the appropriate tools for both calculations and weather "
-        "retrieval, demonstrating a clear understanding of the tasks. The inputs for both tools "
-        "were well-formed and relevant, directly addressing the user's requests. The final answer "
-        "synthesized the outputs from both tools seamlessly, providing a clear and concise response."
-    ),
-)
-print({k: v for k, v in saved_evaluation.model_dump().items() if k != "justification"})
-```
+Those counts are cheap and catch both of the lab's failures. A web-9 run where the model asks for exactly what the customer said passes selection and input; its failure belongs to the tool's error handling, and only the crashed-run count records it.
 
-**Expected output**
+## Limits of this evidence
 
-```text
-{'tool_selection_score': 5, 'tool_input_score': 5, 'synthesis_quality_score': 5}
-```
-
-The saved trace asks *Calculate 15% of 250 and check weather in Paris*. It calls `calculate(expression="0.15 * 250")`, which returns `37.5`, and `get_weather(city="Paris")`, which returns the simulated weather `65°F, Partly Cloudy`. The answer includes both results, and the judge scored it 5, 5 and 5. These are one recorded judgement, not a result from the Larkspur lab or a promise that a new judge call will agree.
-
-The schema describes scores from 1 to 5 but uses unconstrained `int` fields. If you need validation to reject out-of-range scores, add `ge=1, le=5` to each score field. Two cautions come with the recorded result:
-
-- **The judge is the agent's own model** (`gpt-4o-mini` judging `gpt-4o-mini`), which tends to be lenient on its own work. Use a different, ideally stronger, model, and check its scores against a few human-graded runs before you trust a trend.
-- **A single trace scored 5 out of 5 proves little.** The scores mean something across a fixed golden set, compared before and after one change.
-
-### Step 5: Add trace-level counts
-
-Per-call scores miss the runs that never finish. Log three counts per run as well: rounds per run, error `ToolMessage`s per tool, and crashed runs. They are cheap and catch the lab's failures: the web-9 question under the default has no answer to score, and the refund question's extra round shows as 6 messages instead of 4.
-
-### Try it yourself
-
-Add the question *Is my server web-9 up?* to `GOLDEN`, expecting `get_server_status` with `server_id='web-9'`. Score the run where the model calls `get_server_status(server_id='web-9')`. Selection and input should both pass, because the model asked for exactly what the customer said. The failure belongs to the tool's error handling, which only the crashed-run count from Step 5 records.
-
-### Practice notebook
-
-The [tool-loop errors and evaluation notebook](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) builds the full loop with three simulated tools, adds a `divide` tool that returns its own error, runs the three `handle_tool_errors` settings on a stock-price tool, and scores a trace with the judge above.
-
-Its saved arithmetic traces have 4 messages for `What's 25 * 17?` and 5 for *What's 100 / 4 and what's the weather in London?*, matching the one-tool and two-tool patterns above.
-
-The notebook's `create_tool_agent` helper explicitly defaults to `handle_tool_errors=True`, which differs from omitting that argument on `ToolNode`. It configures `llm`, then builds `judge_llm = llm.with_structured_output(ToolUseEvaluation)` and invokes the judge on the flattened trace.
-
-The notebook's live agent and judge cells need its OpenAI setup. Two experiments to try:
-
-- Build `stock_agent` with `handle_tool_errors=False` and ask for the price of NVDA. Note where the run stops.
-- Swap `judge_llm` for a different model and compare its scores on the same trace with the ones from `gpt-4o-mini`.
-
-### Continue learning
-
-- [Baseline-first optimisation](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/05_the_rag_lifecycle_and_a_measured_baseline/README.md#baseline-first-optimisation): how to compare scores across a fixed golden set before and after one change.
-- [Hosted vs client-side tools](../06_hosted_vs_client_side_tools_code_execution_and_image_generation/README.md): what changes when the provider runs the tool instead of your code.
+- **Scripted model turns.** Every model reply in Tables 3, 4 and 7 is scripted; only the tool messages and error texts are LangGraph's real output.
+- **One version.** Table 2 is the behaviour of the pinned LangGraph version; the settings have changed between releases.
+- **One judgement.** The synthesis example is a single recorded score, so it shows the method, not the judge's reliability.
 
 ## Key Takeaways
 
-- Choose error routing explicitly. In the tested version, default `ToolNode` handles the missing argument but re-raises the tool's `ValueError`; `True` returns both as error messages. Returning a failure string normally produces a success-status message.
-- Write error messages the model can act on, saying what was wrong and what would work. Happy-path tests never show the difference between settings.
-- Score tool selection, tool input and synthesis separately. The first two come straight from the trace. Judge synthesis with a different model, across a fixed golden set.
+- Choose error routing explicitly. In the tested version, the default tool node returns the missing-argument error to the model but re-raises the tool's own error; `True` returns both.
+- A tool that returns an error string produces a success-status message. Write error messages the model can act on, and remember that happy-path tests never show the difference between settings.
+- Score tool selection, tool input and synthesis separately. The first two come straight from the trace; judge synthesis with a different model, across a fixed golden set, and count crashed runs too.
 
 ## Check yourself
 
 <details>
-<summary>1. Why does it matter whether a tool failure reaches the model as a message or escapes as an exception?</summary>
+<summary>1. With the default ToolNode settings, why does the web-9 question crash while the wrong-argument refund question still gets answered?</summary>
 
-As an error `ToolMessage`, the model can explain the failure or retry with better arguments. As an exception, `graph.invoke` raises before the model can recover. Application code must handle that failure if the user is to receive a fallback response. You send it to the model either by returning the error from the tool or by letting the `ToolNode` catch it.
-
-</details>
-
-<details>
-<summary>2. A customer asks whether web-9 is up, and the server-status tool raises ValueError. Under which error-handling setting does the run still answer, and how does the model help?</summary>
-
-Only `handle_tool_errors=True`. The default re-raises exceptions raised inside the tool, and `False` re-raises everything, so both crash. With `True` the exception text reaches the model, and because it lists the customer's servers (`db-1` and `web-1`), the model can name them.
+They fail in different places. The wrong argument name is a validation error, which the default turns into an error message the model can read and retry from. The unknown server is an exception raised inside the tool, which the default re-raises, so the run crashes before the model sees it.
 
 </details>
 
 <details>
-<summary>3. After a description edit, the tool selection score drops while the input score holds. Where do you look, and why is no model needed to score it?</summary>
+<summary>2. In the lab, how many of the four golden questions does each handle_tool_errors setting answer, and which questions make the difference?</summary>
 
-Inspect the changed description and the failing calls. A selection drop suggests the model is choosing the wrong tool. An input drop suggests inspecting the schema and arguments. Both scores come from the message trace, by comparing the called names and arguments with each golden question's expected calls. Only synthesis needs an LLM judge.
+The default answers 3 of 4, `True` 4 of 4 and `False` 2 of 4. The web-9 question (the tool raises) crashes under the default and `False`, and the refund question (wrong argument name) crashes under `False`. The other two questions behave the same under every setting.
+
+</details>
+
+<details>
+<summary>3. Your error dashboard counts tool messages with status error and shows almost none, yet customers report failed lookups. What is the likely cause?</summary>
+
+The tools probably return their failures as strings, such as "Error: Division by zero". A returned string completes the tool normally, so its message has status success. Count those failures another way, or let the tool raise and have the tool node catch it, which produces status error.
 
 </details>
 

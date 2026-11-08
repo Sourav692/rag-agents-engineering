@@ -1,14 +1,24 @@
 # M22.3 Theory: Defining tools and binding them to a model
 
 *[M22 theory](../README.md) · Lesson 22.3 · Notebooks: [`03a_defining_tools.ipynb`](../../notebook/03a_defining_tools.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: The model reads a description, never your code, so the description decides the call -->
 
 ## Tool schema
 
-Larkspur's agent chooses between searching policy and checking a server. It sees tool names and argument descriptions, not the functions' bodies. You will inspect that interface, compare untyped and typed arguments, and decide where an invalid request should be rejected.
+> **What you'll learn**
+>
+> - **Explain** the three parts of a tool schema and which decision each one drives.
+> - **Compare** an untyped, a typed and a validated definition of the same tool by what the model learns from each.
+> - **Diagnose** a wrapped built-in tool whose argument name changed under you.
+> - **Choose** where a bad argument should be rejected: before the function runs, never inside it.
 
-### Step 1: Inspect what the model receives
+Lesson 22.1 described tools in a hand-written prompt and parsed the model's calls out of its text. This lesson replaces that prompt with the real thing: a schema the provider understands.
 
-A tool never reaches the model as Python. When you bind tools to a model, LangChain turns each one into a JSON schema with three parts, and that schema is all the model reads when it decides whether to call the tool and with what arguments.
+Larkspur's support agent has two tools. One searches the policy handbook, the other checks a customer's server. For every question it must pick one, both or neither, and fill in the arguments, and it makes that choice without ever seeing the code behind either tool.
+
+What it sees instead is a short description of each tool. That description decides how often the agent calls the right tool with the right arguments.
+
+A **tool schema** is the machine-readable description of a tool that travels with every model request. **Binding** tools to a model means attaching their schemas to each call. LangChain builds the schema from the function's name, its docstring and its type hints:
 
 ```mermaid
 flowchart LR
@@ -17,119 +27,117 @@ flowchart LR
     S -- bind_tools --> M["Sent with<br/>every model call"]
 ```
 
+*Figure 1: From function to schema. Only the right-hand box reaches the model.*
+
+The schema has three parts, and each drives a different decision:
+
 | Part | Comes from | What the model uses it for |
 |---|---|---|
-| `name` | The function name, or `name=` | The call it writes; your code dispatches on it (`tool_mapping[name]` in lesson 22.4) |
-| `description` | The docstring, or `description=` | Deciding *when* to call the tool, out of all the tools it holds |
-| `parameters` | Type hints, or a Pydantic `args_schema` | Deciding *what* to pass: each argument's type, its description, and which are `required` |
+| **Name** | The function name, or one you set | The call it writes; your code looks the tool up by this name when it runs the call (lesson 22.4) |
+| **Description** | The docstring, or one you set | Deciding *when* to call this tool, out of all the tools it holds |
+| **Parameters** | Type hints, or a validation model | Deciding *what* to pass: each argument's type, its description, and which arguments are required |
 
-The function body is the one part the model never sees. A vague description produces wrong or missing calls however good the code behind it is.
+*Table 1: The three parts of a tool schema.*
 
-### Step 2: Compare a permissive and a validated call
+The function body is the one part the model never sees. A vague description produces wrong or missing calls however good the code behind it is. We call that a **blind tool**: correct code behind a description that does not say when to use it.
 
-An untyped `multiply` has no type hints. Its arguments come out as `{'a': {'title': 'A'}, 'b': {'title': 'B'}}`, with no type at all, and `multiply.invoke({'a': 2, 'b': 'abc'})` returns `abcabc`, because Python multiplies a string by an integer without complaint. The Pydantic version (`StructuredTool.from_function` with an `args_schema`) declares both as `number` with a description each, and the same call fails with a `ValidationError` before the function runs.
+## Types do two jobs
 
-Run this schema inspection without a model call. The function echoes the query only to keep the example focused on its interface. It is not a retriever.
+Take a `multiply` tool with no type hints. Its schema lists two arguments, `a` and `b`, each with a title and no type at all. The model has nothing to go on, and the tool has nothing to check:
 
-```python
-from langchain_core.tools import tool
-from langchain_core.utils.function_calling import convert_to_openai_tool
+| Call | Untyped `multiply` | Validated `multiply` (both arguments declared as numbers) |
+|---|---|---|
+| 2 and 3 | 6 | 6 |
+| 2 and "abc" | "abcabc", no error | Rejected with a validation error before the function runs |
 
-@tool
-def search_handbook(query: str) -> str:
-    """Search the Larkspur Cloud handbook for policy evidence."""
-    return query
+*Table 2: The same bad call against an untyped and a validated tool.*
 
-parameters = convert_to_openai_tool(search_handbook)["function"]["parameters"]
-print(parameters["properties"]["query"]["type"])
-print(parameters["required"])
-```
+The untyped tool returns "abcabc" because Python repeats a string when you multiply it by a whole number. That is the stringly-typed answer from lesson 22.1 again: a wrong result that no exception reports.
 
-**Expected output**
+The validated version declares its arguments through a **validation model**, a Pydantic class that states each field's type and description. The schema now tells the model to send numbers, and the same bad call stops at the door.
 
-```text
-string
-['query']
-```
+> **Key distinction:** a type in the schema does two jobs. It tells the model what to send, and it lets the framework refuse what the model sends wrongly, before your code runs.
 
-The model sees a required string argument. Test the argument contract before relying on the search implementation behind it.
+## Three versions of the handbook search
 
-### Step 3: Build a schema for the handbook search
+Here is Larkspur's handbook search defined three ways, with what the parameters part of each schema tells the model about its one argument, the query:
 
-Here is Larkspur's `search_handbook` at the same three levels, as `convert_to_openai_tool` prints them with `langchain-core` 1.7. Compare the `query` field before looking at the full schema:
-
-| Definition | `parameters` the model receives |
+| Definition | What the model learns about the query |
 |---|---|
-| `@tool` on `def search_handbook(query)` | `{"properties": {"query": {}}, "required": ["query"], "type": "object"}` |
-| `@tool` on `def search_handbook(query: str) -> str` | `{"properties": {"query": {"type": "string"}}, "required": ["query"], "type": "object"}` |
-| `StructuredTool` with a Pydantic `Field(description=…)` | the typed version plus `"description": "Words to look up in the handbook, for example 'refund window'"` on `query` |
+| A function with an untyped query argument | It exists and is required. Nothing about its type or meaning |
+| The same function with the query typed as a string | It is a required string |
+| A validation model with a field description | It is a required string described as "Words to look up in the handbook, for example 'refund window'" |
 
-The full schema of the last one:
+*Table 3: Three definitions of one tool, as the model sees them.*
 
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "search_handbook",
-    "description": "Search the Larkspur Cloud handbook and return the two best-matching chunks. Use it for policy questions: billing, refunds, exports, outages, server sizing.",
-    "parameters": {
-      "properties": {
-        "query": {
-          "description": "Words to look up in the handbook, for example 'refund window'",
-          "type": "string"
-        }
-      },
-      "required": ["query"],
-      "type": "object"
-    }
-  }
-}
-```
+The full schema of the third version also carries a tool description: "Search the Larkspur Cloud handbook and return the two best-matching chunks. Use it for policy questions: billing, refunds, exports, outages, server sizing." That sentence says what the tool returns and which questions it is for, so the model can tell it apart from the server-status tool. The argument description says what a good query looks like.
 
-The description says what the tool returns and which questions it is for, so the model can tell it apart from `get_server_status`. The argument description says what a good query looks like. Passing `{"query": 3}` to this tool fails Pydantic validation (`Input should be a valid string`). A `ToolNode` can turn that validation failure into a message the model can read, depending on its error-handling setting.
+We planted one bad call against all three versions, the number 3 as the query:
 
-### Step 4: Inspect a wrapped tool before binding it
+| Definition | Query = 3 |
+|---|---|
+| Untyped | Accepted; the function runs with a number |
+| Typed as a string | Rejected: "Input should be a valid string" |
+| Validation model | Rejected: "Input should be a valid string" |
 
-LangChain's built-in tools carry their own schema: `WikipediaQueryRun` is named `wikipedia` and takes one string, `query`. Wrapping one in `Tool(name=…, func=…, description=…)` gives it your name and description, and changes its argument to the generic `tool_input`, which is worth checking before you bind it. Whatever the source, print `tool.name`, `tool.description` and `tool.args` (or the `convert_to_openai_tool` output) before you trust a tool in a loop: that printout is exactly what the model will read.
+*Table 4: One planted call against three definitions.*
 
-The from-scratch signatures in lesson 22.1 wrote Python type names (`"type": "int"`) into a prompt. The native schema uses JSON Schema types (`string`, `number`) and travels in the API request, so the provider can return structured calls against it.
+The rejection happens before the function runs, which is where it belongs. Lesson 22.5 shows how that failure can come back to the model as a message it can read and correct.
 
-### Try it yourself
+## Check a wrapped tool before you bind it
 
-Compare the three `search_handbook` definitions with `query=3`. Predict which definition rejects it before the function runs. Check the typed schema for `type: string`, then inspect the Pydantic error text, `Input should be a valid string`. For a wrapper, also check whether the argument is named `query` or `tool_input`. Using the right value under the wrong key is still an invalid call.
+LangChain's built-in tools carry their own schemas. The Wikipedia tool is named `wikipedia` and takes one string argument, `query`. Wrapping it in a generic tool with your own name and description changes that argument's name to the generic `tool_input`:
 
-### Practice notebook
+| | Built-in Wikipedia tool | Same tool, wrapped |
+|---|---|---|
+| Name | `wikipedia` | Your name |
+| Description | The built-in one | Yours |
+| Argument | `query` | `tool_input` |
 
-Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+*Table 5: What wrapping changes.*
 
-- [Tool schemas](../../notebook/03a_defining_tools.ipynb).
+The model now sends `tool_input`, and any prompt or test that expects `query` silently stops matching. We call that **argument drift**: the right value under the wrong key, which is still an invalid call.
+
+> **Pitfall: argument drift.** Whatever the source of a tool, inspect its final name, description and argument list before you trust it in a loop. That is exactly what the model will read.
+
+The from-scratch tools in lesson 22.1 described their arguments with Python type names inside a prompt. A native schema uses JSON Schema types (string, number) and travels in the API request itself, so the provider can return structured calls that match it.
+
+## In practice: Larkspur's two tools
+
+For Larkspur's agent, the schemas should leave no overlap for the model to guess about:
+
+1. **Handbook search**: described as the tool for policy questions (billing, refunds, exports, outages, server sizing), with a typed, described query.
+2. **Server status**: described as the tool for one of the customer's own servers, with a typed, required server id.
+3. **Before binding**: print each tool's name, description and arguments, and read them as the model will.
+
+A question such as *Is my server web-1 running, and does a reboot change its IP address?* then maps cleanly onto both tools, which lesson 22.4 traces message by message.
 
 ## Key Takeaways
 
-- The model reads only the schema: `name`, `description` and `parameters`, never the function body. A vague description gives wrong or missing calls however good the code is.
-- Type every argument. An untyped tool accepts anything (`multiply` turns 2 and `"abc"` into `abcabc`), while a Pydantic `args_schema` rejects bad input before the function runs.
-- Print `tool.name`, `tool.description` and `tool.args` before you bind a tool, especially a wrapped built-in, because that printout is exactly what the model sees.
+- The model reads only the schema: name, description and parameters, never the function body. A vague description gives wrong or missing calls however good the code is.
+- Type every argument. An untyped tool accepts anything (`multiply` turns 2 and "abc" into "abcabc"), while a validated schema rejects bad input before the function runs.
+- Inspect a tool's final name, description and arguments before binding it, especially a wrapped built-in, because that is exactly what the model sees.
 
 ## Check yourself
 
 <details>
 <summary>1. The model never sees a tool's function body. Which three parts of the schema does it read, and what does each one decide?</summary>
 
-`name`, `description` and `parameters`. The name is the call it writes and your code dispatches on. The description decides when to call the tool out of all the tools it holds. The parameters decide what to pass, with each argument's type, description and whether it is required. A vague description gives wrong or missing calls however good the code is.
+The name, the description and the parameters. The name is the call it writes and your code dispatches on. The description decides when to call the tool out of all the tools it holds. The parameters decide what to pass, with each argument's type, description and whether it is required.
 
 </details>
 
 <details>
-<summary>2. The untyped multiply tool gets 2 and the string abc. What comes back, and what does the Pydantic version do with the same call?</summary>
+<summary>2. The untyped multiply tool gets 2 and the string abc. What comes back, and what does the validated version do with the same call?</summary>
 
-The untyped tool returns `abcabc`, because its schema has no types and Python multiplies a string by an integer without complaint. The `StructuredTool` with an `args_schema` declares both arguments as `number`, so the same call fails with a `ValidationError` before the function runs.
+The untyped tool returns "abcabc", because its schema has no types and Python repeats a string when it is multiplied by a whole number. The validated version declares both arguments as numbers, so the same call fails validation before the function runs.
 
 </details>
 
 <details>
-<summary>3. You wrap the built-in Wikipedia tool in Tool with your own name and description, and the agent starts passing odd arguments. What should you check before binding it?</summary>
+<summary>3. You wrap the built-in Wikipedia tool with your own name and description, and the agent starts passing odd arguments. What should you check before binding it?</summary>
 
-The argument name. Wrapping changes the built-in's `query` argument to the generic `tool_input`. Print `tool.name`, `tool.description` and `tool.args`, or the `convert_to_openai_tool` output, before you trust a tool in a loop, because that printout is exactly what the model reads.
+The argument name. Wrapping changes the built-in's `query` argument to the generic `tool_input`. Inspect the tool's final name, description and arguments before you trust it in a loop, because that is exactly what the model reads.
 
 </details>
 
