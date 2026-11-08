@@ -552,7 +552,7 @@ print(parameters[&quot;required&quot;])
 <p>The argument name. Wrapping changes the built-in&rsquo;s <code>query</code> argument to the generic <code>tool_input</code>. Print <code>tool.name</code>, <code>tool.description</code> and <code>tool.args</code>, or the <code>convert_to_openai_tool</code> output, before you trust a tool in a loop, because that printout is exactly what the model reads.</p>
 </details>
 <h2 id="native-tool-calls-and-the-message-trace">Native tool calls and the message trace</h2>
-<p class="lesson-of">Lesson 22.4: The manual tool loop and the augmented LLM in LangGraph. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04a_tool_calling_manual_loop.ipynb" target="_blank" rel="noopener"><code>04a_tool_calling_manual_loop.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04b_augmented_llm_with_tools_langgraph.ipynb" target="_blank" rel="noopener"><code>04b_augmented_llm_with_tools_langgraph.ipynb</code></a></p>
+<p class="lesson-of">Lesson 22.4: The manual tool loop and the augmented LLM in LangGraph. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04a_tool_calling_manual_loop.ipynb" target="_blank" rel="noopener"><code>04a_tool_calling_manual_loop.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb" target="_blank" rel="noopener"><code>05a_tool_loop_errors_and_evaluation.ipynb</code></a> (Part 3.1)</p>
 <p>A Larkspur customer asks whether web-1 is running and whether rebooting changes its IP address. One model reply can request both lookups. You will pair each request with its result, then compare a graph that stops after tool execution with one that lets the model answer.</p>
 <h3>Step 1: Read the requested arguments</h3>
 <p><code>llm.bind_tools(tools)</code> returns a model that sends the tool schemas with every request. A tool-request reply can be an <code>AIMessage</code> with empty <code>content</code> and a <code>tool_calls</code> list. In the recorded weather example, <em>How will the weather be in Munich today?</em> comes back as one call:</p>
@@ -622,7 +622,7 @@ web-1: running
 </tbody>
 </table></div>
 <p>Five messages, two of them tool results. The scores are real TF-IDF over the M10 chunks. The model turns are scripted.</p>
-<p>For a model without native tool calling, the alternative is a text protocol: <code>render_text_description(tools)</code> writes the signatures into the system prompt, and <code>JsonOutputParser</code> reads a <code>{"name": …, "arguments": …}</code> blob from the reply. It works on the two recorded questions, but nothing guarantees valid JSON, a real tool name or every argument. Use it only when the model leaves no choice.</p>
+<p>For a model without native tool calling, the alternative is a text protocol: the tool signatures go into the system prompt, and your code parses the call out of the reply. Lesson 22.1 builds one from scratch with <code>&lt;tool_call&gt;</code> tags. Nothing guarantees valid JSON, a real tool name or every argument, so use it only when the model leaves no choice.</p>
 <h2 id="the-augmented-llm">The augmented LLM</h2>
 <h3>Step 1: Route requests to the tool node</h3>
 <p>A one-shot LangGraph implementation hands tool dispatch to the framework. A <code>tool_calling_llm</code> node calls the bound model, the prebuilt <code>tools_condition</code> routes to a <code>ToolNode</code> when the reply has <code>tool_calls</code> and to <code>END</code> when it has none, and the <code>ToolNode</code> runs every requested call and writes the <code>ToolMessage</code>s into state.</p>
@@ -635,7 +635,7 @@ web-1: running
     T -. "lesson 22.5" .-&gt; L
 </pre></figure>
 <h3>Step 2: Compare stopping after tools with answering</h3>
-<p>Follow the solid edges in this one-shot graph. <em>Explain AI in 2 bullets</em> ends at the first <code>END</code> with a direct answer. <em>What is the latest news on OpenAI product releases</em> calls <code>search_web</code>, and the run ends on the raw Tavily JSON in a <code>ToolMessage</code>: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.</p>
+<p>Follow the solid edges in this one-shot graph. <em>Explain tool calling in one sentence</em> ends at the first <code>END</code> with a direct answer. <em>What&rsquo;s the weather in Tokyo?</em> calls <code>get_weather</code>, and the run ends on the tool&rsquo;s raw output in a <code>ToolMessage</code>: nobody reads the result, the user gets no sentence, and a second, dependent call is impossible.</p>
 <p>That graph is an augmented LLM. One more edge makes it an agent: <code>tools</code> back to the model instead of to <code>END</code> (the dashed line). The looping <code>create_tool_agent</code> implementation adds it with <code>graph.add_edge("tools", "agent")</code>, and the graph becomes the loop in the module&rsquo;s mental model.</p>
 <h3>Try it yourself</h3>
 <p>Remove the return edge from <code>tools</code> to the model. For the two-tool question, name the final message type and whether a user-facing answer can exist. Check against the diagram: the solid <code>tools → END</code> path stops on a <code>ToolMessage</code>. Restore the return edge and check that the final <code>AIMessage</code> has no tool calls.</p>
@@ -643,7 +643,7 @@ web-1: running
 <p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
 <ul>
 <li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04a_tool_calling_manual_loop.ipynb" target="_blank" rel="noopener">Manual tool calling</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/04b_augmented_llm_with_tools_langgraph.ipynb" target="_blank" rel="noopener">LangGraph tool dispatch</a>.</li>
+<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m22_agent_loop_and_tools/mandatory/notebook/05a_tool_loop_errors_and_evaluation.ipynb" target="_blank" rel="noopener">LangGraph tool dispatch</a> (Part 3.1, the opening of lesson 22.5&rsquo;s notebook).</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -661,7 +661,7 @@ web-1: running
 <p>Five: the <code>HumanMessage</code>, one <code>AIMessage</code> with two calls (<code>get_server_status</code> and <code>search_handbook</code>), two <code>ToolMessage</code>s and the final <code>AIMessage</code>. Neither call depends on the other, so the model asks for both at once and saves a round trip.</p>
 </details>
 <details>
-<summary>3. The graph from the one-shot graph example answers a news question with raw Tavily JSON and no sentence. What is missing, and which one change fixes it?</summary>
+<summary>3. The graph from the one-shot graph example answers a weather question with the tool's raw output and no sentence. What is missing, and which one change fixes it?</summary>
 <p>The <code>tools</code> node goes straight to <code>END</code>, so nobody reads the result and no dependent call is possible. That graph is an augmented LLM. Adding the edge from <code>tools</code> back to the model (<code>graph.add_edge("tools", "agent")</code> in lesson 22.5&rsquo;s <code>create_tool_agent</code>) makes it an agent loop.</p>
 </details>
 <h2 id="where-tool-errors-go">Where tool errors go</h2>
