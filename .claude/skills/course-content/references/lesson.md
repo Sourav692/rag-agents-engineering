@@ -50,6 +50,7 @@ Choose the order that fits the idea; most sections use most of these:
 ## Figures, tables and callouts
 
 - Introduce each figure or table with one sentence ending in a colon, then the artefact, then a caption on its own line: `*Figure 3: Validate in this order. Each failure becomes a specific message the model can act on.*` or `*Table 2: Input tokens resent per ReAct round (illustrative).*` Number figures and tables separately, in page order, and refer to them by number.
+- Length: at most 2,500 words as the site counts them (forwarddeployedprep.com `check:content`, ENH-25, blocks the push). Aim for 1,500 to 2,300 in the exported `.md`; cut repeated caveats and illustrative tables before cutting a concept.
 - A concept lesson has 3 to 7 figures. One idea per figure, at most 12 nodes, labels of 4 words or fewer.
 - Callouts, at most one per ~400 words, plain bold label, no emoji: `> **Key distinction:** …`, `> **Pitfall: <name>.** …`, `> **Interview tip:** …`.
 - Comparison tables may use ✓ and ✗.
