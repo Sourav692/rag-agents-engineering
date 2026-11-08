@@ -1,6 +1,6 @@
-"""Resolve a module (and optionally a lesson or topic) to everything the theory-module skill needs.
+"""Resolve a module (and optionally a lesson or topic) to everything the course-content skill needs.
 
-    uv run python .claude/skills/theory-module/scripts/resolve.py <module> [<lesson or topic>]
+    uv run python .claude/skills/course-content/scripts/resolve.py <module> [<lesson or topic>]
 
 <module> is a number (10, M10, m10), a key (lifecycle) or words from the title ("rag lifecycle").
 <lesson or topic> is a lesson number (3, 10.3) or words from a lesson title or a key concept.

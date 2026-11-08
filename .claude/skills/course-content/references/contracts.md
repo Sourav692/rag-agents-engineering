@@ -1,6 +1,6 @@
 # Page formats
 
-Everything here defines the build-sensitive page structure used by M10 (`p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/`). When in doubt, copy its structural contracts, not its prose density. Apply `tutorial.md` to the learner-facing body within those contracts. `build_theory_html.py` parses some of these lines, so the marked ones are load-bearing.
+Everything here defines the build-sensitive page structure used by M10 (`p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/`). When in doubt, copy its structural contracts, not its prose density. Apply `voice.md` to the learner-facing body within those contracts. `build_theory_html.py` parses some of these lines, so the marked ones are load-bearing.
 
 ## Module page: `<part>/<module>/mandatory/theory/README.md`
 
@@ -75,14 +75,25 @@ Without a lab, drop the `## Interactive lab` section. Section anchors are GitHub
 
 *[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_x.ipynb`](../../notebook/02a_x.ipynb), [`02b_y.ipynb`](../../../optional/notebook/02b_y.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
                                                                  ← load-bearing: " · Notebooks: … · [All theory pages]"; leave out "· Notebooks: …" when the lesson has none
+<!-- subtitle: <one line naming what the page resolves> -->         ← invisible on GitHub; export_lesson.py uses it
+
+## <Descriptive heading for the problem, or the first concept>
+
+> **What you'll learn**
+>
+> - **Explain** …
+
+<Recap sentence, then the concrete failure. The rest follows references/lesson.md: figures and tables numbered and captioned, no code blocks, no `### Step N` headings. Mandatory notebooks first in the header, optional ones marked "(optional)".>
 
 ## <Concept, exact text from concepts:>
 
-<Prose, tables, diagrams. Mandatory notebooks first in the header, optional ones marked "(optional)".>
-
 <!-- lab: interactive/<name>.html -->                              ← only in the lesson that owns the lab, where it should appear
 
-## <Second concept or section>
+## <Further concepts, Choosing …, In practice: …, Limits, References>
+
+## Key Takeaways
+
+## Check yourself
 
 ---
 *Previous: [14.1 <title>](../01_<slug>/README.md). Next: [14.3 <title>](../03_<slug>/README.md).*
