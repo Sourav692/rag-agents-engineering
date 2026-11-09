@@ -1,14 +1,22 @@
 # M26.1 Theory: Applied ReAct: web research, SWE and computer-use agents
 
 *[M26 theory](../README.md) · Lesson 26.1 · Notebooks: [`01a_web_research_agent.ipynb`](../../notebook/01a_web_research_agent.ipynb), [`01b_swe_agent_applied.ipynb`](../../../optional/notebook/01b_swe_agent_applied.ipynb) (optional), [`01c_browser_agent_computer_use.ipynb`](../../../optional/notebook/01c_browser_agent_computer_use.ipynb) (optional), [`01d_vision_driven_computer_use.ipynb`](../../../optional/notebook/01d_vision_driven_computer_use.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: One agent loop, four environments: what changes is the observation, the success signal and the cap -->
 
 ## Planned pipeline vs ReAct loop
 
-You need a research report, but must decide whether its searches can be planned before seeing any results. You will compare a fixed research pipeline with a ReAct researcher on the same topic, then transfer the distinction to file edits and browser actions.
+> **What you'll learn**
+>
+> - **Compare** a planned research pipeline with a ReAct researcher on the same topic.
+> - **Choose** between predictable cost and adaptive search for a given report.
+> - **Explain** what changes when the loop moves to files, a browser and a screen.
+> - **Diagnose** a coding, browser or vision agent from what the environment shows, not what the agent says.
 
-### Step 1: Draw the two research paths
+[M23](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) built the ReAct loop with `create_agent`, and M25 weighed plan-and-execute against it. This lesson puts both to work, first on research and then in three environments where the agent's actions change things.
 
-A planned researcher writes every search up front and runs them in a fixed sequence. A ReAct researcher chooses the next search after reading the results. The comparison builds both on the same topic, *Artificial Intelligence in Healthcare*:
+Larkspur Cloud's support team wants a researcher that drafts a weekly outage summary. The first version plans three searches up front. One week the status page moved, the first search returns nothing, and the summary goes out with an empty "Root cause" section. Nothing in the run noticed, because the plan was fixed before any result came back.
+
+The notebook builds both designs on one topic, *Artificial Intelligence in Healthcare*. A **planned pipeline** writes every search before running any of them. A **ReAct researcher** chooses its next search after reading the last result:
 
 ```mermaid
 flowchart TB
@@ -23,11 +31,13 @@ flowchart TB
     end
 ```
 
-The pipeline's state carries more than messages: the topic, the planned questions, a `{question: results}` dict merged by a custom reducer, the report, and a log appended with `operator.add`. Each node returns only the keys it changes. The plan is fixed before any result comes back, and no edge goes back, so the pipeline cannot notice an empty search or follow a lead. The ReAct researcher is `create_agent` with one `web_search` tool, a prompt asking for one search per turn and 3 to 5 in all, and `ModelCallLimitMiddleware` as the bound.
+*Figure 1: The two research paths. The pipeline runs straight through. The loop goes back to the model after every search.*
 
-### Step 2: Compare a recorded run without treating it as a benchmark
+The pipeline's state carries more than messages: the topic, the planned questions, a dictionary of results per question merged by a custom reducer, the report, and a log that appends one line per node. Each node returns only the keys it changes. No edge goes back to planning. The pipeline cannot notice an empty search or follow a lead, and a failed search simply becomes an empty result.
 
-One recorded live run has the following results. Search results and model choices change, so these counts and report lengths are observations rather than repeatable performance guarantees:
+The ReAct researcher is `create_agent` with one `web_search` tool and a prompt that asks for one search per turn, 3 to 5 in all. `ModelCallLimitMiddleware` from [M23's call limits](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/02_react_with_langchain_create_agent/README.md#call-limits-and-runaway-loops) bounds the loop in code.
+
+One recorded live run produced these counts:
 
 | | Planned pipeline | ReAct agent |
 |---|---|---|
@@ -35,73 +45,165 @@ One recorded live run has the following results. Search results and model choice
 | LLM calls | 2 | 5 |
 | Report characters | 7,229 | 4,298 |
 
-### Step 3: Choose predictability or adaptive search
+*Table 1: One recorded run on the same topic. Search results and model choices change between runs. These are observations, not a benchmark.*
 
-The pipeline's three questions were written together and are broad and parallel. The agent started broad, then searched for things its results had named (AI models in surgery at Duke University, physician adoption statistics). The trade-off:
+The pipeline's three questions were written together and came out broad and parallel. The agent started broad, then searched for things its results had named: AI models in surgery at Duke University, and physician adoption statistics.
+
+## Choosing a research shape
+
+The two designs trade predictability for adaptivity:
 
 | | Planned pipeline | ReAct agent |
 |---|---|---|
 | Who chooses the searches | The plan, up front | The model, after each observation |
-| Cost | Fixed and predictable | Varies; bound it with a call cap |
-| Reacts to empty or surprising results | No | Yes |
-| Easy to test and debug | Yes, same steps every run | Harder, the path changes run to run |
+| Cost | Fixed and predictable | Varies, bound it with a call cap |
+| Reacts to empty or surprising results | ✗ | ✓ |
+| Same steps every run, testable with one fixed input | ✓ | ✗ |
 | Good for | Known-shape reports, batch jobs | Open questions, multi-hop facts |
 
-### Step 4: Combine planning with bounded exploration
+*Table 2: What each research shape gives you.*
 
-Many production researchers combine them: plan first, then let each step react. M24 treats the pipeline side as workflow patterns.
+The decision comes down to whether the report's shape is known before the first search:
+
+```mermaid
+flowchart TD
+    Q[New research task] --> S{"Report shape<br/>known up front?"}
+    S -->|yes| C{"Must cost be<br/>fixed?"}
+    C -->|yes| P[Planned pipeline]
+    C -->|no| H["Plan, then let<br/>each step react"]
+    S -->|no| R["ReAct agent<br/>with a call cap"]
+```
+
+*Figure 2: Choosing a research shape. The hybrid keeps the plan's sections and lets each step search adaptively.*
+
+Many production researchers sit in the middle: plan the sections first, then let each section's step react to what it finds. M24 treats the pipeline side as workflow patterns. Larkspur's weekly summary keeps its plan because the sections are fixed. Each section still needs a check for an empty result and a retry, or the empty "Root cause" section ships again.
+
+The same loop now leaves the web and starts changing files, pages and screens.
 
 ## The same loop in other environments
 
-### Step 1: Inspect actions and success signals
+The three applied notebooks keep the `agent ⇄ tools` graph from M23 and change only the tools and the environment. What moves is the observation, what counts as success, and how hard the cap has to work:
 
-The applied examples keep the `agent ⇄ tools` graph and change only the tools and the environment.
+| Agent | Actions | Observation | Success is graded on | Cap |
+|---|---|---|---|---|
+| Coding (SWE) agent | Read, write files, run tests | Test output | The test suite | 10 turns |
+| Browser agent | Type, click, navigate | Page text | The cart's contents | 8 turns |
+| Vision agent | Click at `(x, y)` | A PNG screenshot | The screen's state | Step cap |
 
-- **SWE agent.** The actions are file edits and the observation is a test run. Every file sits in a `tempfile.mkdtemp()` sandbox, paths are reduced to a filename inside it, and `run_tests()` runs one fixed `pytest` command, which constrains those tool interfaces. This is a teaching sandbox, not a security boundary against arbitrary adversarial code. Production execution needs isolation and resource limits. Tests are the reward signal. Diff the changes and re-run the tests yourself instead of trusting the final message.
-- **Browser agent.** `screenshot_text`, `click`, `type_text` and `navigate` are ordinary tools over a deterministic mock browser. Actions now change state, so the turn cap becomes a safety bound, and success is graded on the environment (the cart's contents), not the agent's words.
-- **Vision-driven computer use.** When the observation is pixels, locating a control is the hard part. In the example's runs `gpt-4o-mini` missed 53 of 53 clicks, even with every miss fed back; `gpt-4o` missed 15 of 26 and met the goal in 2 of 3 runs, at half the cost per screenshot. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
+*Table 3: One loop, three environments. Caps from the notebooks.*
 
-### Try it yourself
+### Coding agent: tests as the reward signal
 
-For a weekly report with fixed sections, write the planned searches before execution. Now make the first search return nothing. Check the graph for a return edge that could change the plan: the fixed pipeline has none. For the adaptive alternative, specify a search cap and an observable goal, such as evidence for each report section, rather than trusting the final claim that research is complete.
+A **SWE agent** is a ReAct agent whose tools are a developer's workflow: list, read and write files, and run the tests. The test output is its bug report.
 
-### Practice notebook
+The notebook writes a small project into a fresh temporary folder: two modules with planted bugs and a six-test suite. Running that suite before the agent starts gives this:
 
-Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+| Test | Result | Why |
+|---|---|---|
+| `test_add` | pass | |
+| `test_subtract` | fail | `subtract(10, 4)` returns 14 |
+| `test_average` | pass | |
+| `test_reverse_string` | fail | `reverse_string` returns its input unchanged |
+| `test_is_palindrome_true` | pass | "racecar" equals itself, reversed or not |
+| `test_is_palindrome_false` | fail | "python" also equals its unreversed self |
 
-- [Research agents](../../notebook/01a_web_research_agent.ipynb).
-- [A coding agent](../../../optional/notebook/01b_swe_agent_applied.ipynb) (optional).
-- [A mock browser agent](../../../optional/notebook/01c_browser_agent_computer_use.ipynb) (optional).
-- [Vision-driven actions](../../../optional/notebook/01d_vision_driven_computer_use.ipynb) (optional).
+*Table 4: The suite before the agent runs, from running the notebook's scratch project: 3 failed, 3 passed.*
+
+The tool surface is deliberately narrow. Every path is reduced to a filename inside the scratch folder, and a hallucinated absolute path cannot reach the repository. The test tool runs one fixed `pytest` command with a 30-second timeout. The model chooses *when* tests run, never *what* command runs. That constrains the tools. It does not isolate hostile code, which needs a container or a hosted sandbox.
+
+A green suite is still not proof of a good change. A common deviation with the small model is an extra edit, such as `is_palindrome` rewritten to stop calling `reverse_string`. The tests pass and the agent changed code no failing test pointed at. We call this a **silent extra edit**. Only a diff of the files before and after shows it, and only re-running the tests outside the loop confirms the agent did not just claim success.
+
+### Browser agent: grade the cart
+
+The browser notebook turns `screenshot_text`, `click`, `type_text` and `navigate` into ordinary tools over a deterministic mock shop. The agent never sees the shop's code, only the page text each action returns. Driving the shop by hand first shows the path the agent has to find:
+
+| Action | Page after it | Cart |
+|---|---|---|
+| `type_text(search_box, "wireless mouse")` | Home | 0 |
+| `click(search_button)` | Search results, two mice | 0 |
+| `click(result_0)` | Logitech M185, $14.99 | 0 |
+| `click(add_to_cart)` | Same product page | 1 |
+
+*Table 5: The manual drive, from running the notebook's mock browser. Four actions put one item in the cart.*
+
+Two things change once actions change state. The turn cap becomes a safety bound, because each extra click mutates the shop. And success is graded on `browser.cart`, never on the agent's reply. A wrong element id returns an `ERROR:` line plus the current page, which lets the agent correct itself on the next turn.
+
+### Vision agent: when the observation is pixels
+
+The vision notebook removes the text description. The agent gets a real PNG of a checkout page and must click by coordinates. Recognising a control and locating it turn out to be different abilities. Every run made while writing the notebook is in the table:
+
+| Model | Screenshot | Runs | Clicks | Missed | Goal met |
+|---|---|---|---|---|---|
+| `gpt-4o-mini` | raw | 5 | 53 | 53 | 0 |
+| `gpt-4o-mini` | with ruler, 2× | 4 | 27 | 25 | 0 |
+| `gpt-4o` | raw | 3 | 26 | 15 | 2 |
+| `gpt-4o` | with ruler, 2× | 3 | 22 | 9 | 2 |
+
+*Table 6: Vision runs recorded in the notebook. Single-digit run counts on one synthetic screen: indicative only.*
+
+The small model knew it wanted the `+` button and kept clicking the wrong row, even though every miss was fed back to it. A miss raises no error and changes nothing on screen, and the loop just repeats. We call this the **no-op loop**, and the step cap in code is the only thing that ends it.
+
+A coordinate ruler drawn over the screenshot fixed the vertical axis and broke the horizontal one. The miss count improved, but the error had moved rather than gone. Only the per-click log showed that. One ruled run also ended with "quantity set and coupon applied" when neither had happened, which is why the notebook asserts on the screen's state.
+
+Cost runs against intuition here. In the notebook's measurement a raw screenshot cost `gpt-4o-mini` 14,175 prompt tokens ($0.0021) and `gpt-4o` 433 tokens ($0.0011). The stronger model was half the price per screenshot as well as more accurate.
+
+Used as a frontend tester, the click log gives three outcomes rather than two:
+
+| Click log | Verdict | Whose problem |
+|---|---|---|
+| Hit the control, state changed | pass | nobody |
+| Hit the control, state unchanged | fail, the UI is broken | frontend |
+| Never hit the control | errored, the UI is unverified | the agent's owner |
+
+*Table 7: Three test outcomes from the click log. Reporting the third as a failure sends someone hunting a bug that may not exist.*
+
+If a selector or an accessibility tree is available, use it. Coordinates are the fallback when nothing else is exposed.
+
+## In practice: Larkspur's control-panel agent
+
+Larkspur wants an agent that resizes a customer's server from the control panel after a support ticket approves it.
+
+1. **Prefer selectors.** The panel has an accessibility tree. The agent acts on named elements, as the browser agent does, and pixels stay out of the loop.
+2. **Grade on the panel.** Success is the server's new size read back from the API, the equivalent of reading the cart, never the agent's confirmation.
+3. **Cap the loop in code.** Each click changes a live account. The cap is a safety bound sized just above a clean run.
+4. **Log every action.** The action log separates "the resize button is broken" from "the agent never found it".
+
+Lesson 26.2 adds a second agent that checks the first one's work.
+
+## Limits of this evidence
+
+- **One live research run.** Table 1 is a single recorded run, and a rerun will give different counts.
+- **A few vision runs on one screen.** Table 6 separates 100% from 41% misses clearly, but three runs cannot separate the two `gpt-4o` rows.
+- **Mock environments.** The shop and the checkout page are simulations. A real browser adds scrolling, overlays and timing, which these notebooks do not test.
 
 ## Key Takeaways
 
-- A planned pipeline fixes its searches up front. Its cost is predictable and it is easy to test, but it cannot react to an empty result or follow a lead.
-- A ReAct researcher picks each search after reading the last result, so it suits open and multi-hop questions at a variable cost that needs a call cap. Many production researchers plan first, then let each step react.
-- Moving the loop to code, browsers or screens changes only the tools. Sandbox the actions, grade success on the environment rather than the agent's words, and prefer selectors to coordinates.
+- A planned pipeline fixes its searches up front. Its cost is predictable and one fixed test covers it, but it cannot react to an empty result. A ReAct researcher picks each search after reading the last one and needs a call cap.
+- Moving the loop to code, browsers or screens changes the tools, the observation and the success signal. Grade success on the environment (the test suite, the cart, the screen) and verify with a diff, never with the agent's final message.
+- On pixels a miss raises no error, and the step cap is the only bound. Prefer selectors to coordinates, and report "never reached the control" as errored, not failed.
 
 ## Check yourself
 
 <details>
 <summary>1. Why can the planned research pipeline not follow a lead that one of its searches turns up?</summary>
 
-Its questions are fixed before any result comes back, and no edge goes back to planning, so it cannot notice an empty search or add one. The ReAct researcher chooses each search after reading the last observation, which is how it went on to search for things its results had named.
+Its questions are fixed before any result comes back, and no edge goes back to planning. It cannot notice an empty search or add one. The ReAct researcher chooses each search after reading the last observation, which is how it went on to search for things its results had named.
 
 </details>
 
 <details>
 <summary>2. You need a weekly report with the same sections on a fixed topic, at a predictable cost. Planned pipeline or ReAct agent?</summary>
 
-The planned pipeline. It suits known-shape reports and batch jobs, its cost is fixed, and it runs the same steps every time, so it is easy to test. A ReAct agent suits open questions and multi-hop facts, and its cost varies and needs a call cap.
+The planned pipeline. It suits known-shape reports and batch jobs, its cost is fixed, and it runs the same steps every time, so one fixed test covers it. A ReAct agent suits open questions and multi-hop facts, and its cost varies and needs a call cap. Each step still needs a check for an empty result.
 
 </details>
 
 <details>
 <summary>3. A vision-driven computer-use agent keeps clicking, never reaches its goal and raises no error. What is going on, and what stops it?</summary>
 
-It cannot locate the controls from pixels: in the reported experiment `gpt-4o-mini` missed 53 of 53 clicks even with every miss fed back. A miss raises no error, so the step cap is the only bound on the loop. Prefer selectors to coordinates.
+It cannot locate the controls from pixels: in the notebook's runs `gpt-4o-mini` missed 53 of 53 clicks even with every miss fed back. A miss changes nothing and raises no error. This is a no-op loop, and the step cap in code is the only bound. Prefer selectors to coordinates.
 
 </details>
 
 ---
-*Previous: [M26 overview](../README.md). Next: [26.3 Deep agents: orchestrator, sub-agents, skills and long-term memory](../03_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md).*
+*Previous: [M26 overview](../README.md). Next: [26.2 Developer vs tester agents](../../../optional/theory/02_developer_vs_tester_agents/README.md).*

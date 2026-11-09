@@ -26,7 +26,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
 | 26.1 | Applied ReAct: web research, SWE and computer-use agents ([theory](mandatory/theory/01_applied_react_web_research_swe_and_computer_use_agents/README.md)) | [`01a_web_research_agent.ipynb`](mandatory/notebook/01a_web_research_agent.ipynb) | [`01b_swe_agent_applied.ipynb`](optional/notebook/01b_swe_agent_applied.ipynb) *(extension)*<br>[`01c_browser_agent_computer_use.ipynb`](optional/notebook/01c_browser_agent_computer_use.ipynb) *(extension)*<br>[`01d_vision_driven_computer_use.ipynb`](optional/notebook/01d_vision_driven_computer_use.ipynb) *(extension)* |
-| 26.2 | Developer vs tester agents *(optional lesson)* | — | [`02a_developer_vs_tester_agents.ipynb`](optional/notebook/02a_developer_vs_tester_agents.ipynb) *(extension)* |
+| 26.2 | Developer vs tester agents *(optional lesson)* ([theory](optional/theory/02_developer_vs_tester_agents/README.md)) | — | [`02a_developer_vs_tester_agents.ipynb`](optional/notebook/02a_developer_vs_tester_agents.ipynb) *(extension)* |
 | 26.3 | Deep agents: orchestrator, sub-agents, skills and long-term memory ([theory](mandatory/theory/03_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md)) | [`03a_simple_coding_agent.py`](mandatory/notebook/03a_simple_coding_agent.py) | [`03b_long_term_memory_agent.py`](optional/notebook/03b_long_term_memory_agent.py) *(extension)*<br>[`03c_skills`](optional/notebook/03c_skills) *(extension)* |
 
 ## Hands-on lab
