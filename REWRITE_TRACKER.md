@@ -36,11 +36,11 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 10 | Why RAG & the RAG Lifecycle | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #44 | 10.1 to 10.5 rewritten; module page unchanged in shape |
-| 11 | Document Ingestion & Metadata Design | 6 | 6 | 6 / 6 | In PR | 2026-11-09 | #48 | 11.1, 11.3 to 11.6 rewritten; 11.2 page added |
-| 12 | Chunking Strategies | 4 | 4 | 4 / 4 | In PR | 2026-11-09 | #50 | 12.1 to 12.4 rewritten; module page unchanged |
-| 13 | Embeddings & Model Selection | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #52 | 13.1 to 13.4 rewritten; 13.5 project page added |
-| 14 | Vector Stores & Index Operations | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #57 | 14.1 to 14.5 rewritten in place; module page unchanged |
+| 10 | Why RAG & the RAG Lifecycle | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #44 | 10.1 to 10.5 rewritten; module page unchanged in shape; live via site PR #265 |
+| 11 | Document Ingestion & Metadata Design | 6 | 6 | 6 / 6 | Live | 2026-11-09 | #48 | 11.1, 11.3 to 11.6 rewritten; 11.2 page added; live via site PR #265 |
+| 12 | Chunking Strategies | 4 | 4 | 4 / 4 | Live | 2026-11-09 | #50 | 12.1 to 12.4 rewritten; module page unchanged; live via site PR #265 |
+| 13 | Embeddings & Model Selection | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #52 | 13.1 to 13.4 rewritten; 13.5 project page added; live via site PR #265 |
+| 14 | Vector Stores & Index Operations | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #57 | 14.1 to 14.5 rewritten in place; module page unchanged; live via site PR #265 |
 | 15 | Advanced Indexing Strategies | 5 | 5 | 0 / 5 | Not started |  |  |  |
 
 ## Part V · Retrieval Quality & RAG Applications
