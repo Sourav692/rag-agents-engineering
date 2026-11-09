@@ -74,11 +74,11 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 28 | Agentic RAG Foundations: Grading & Query Rewriting | 3 | 3 | 3 / 3 | In PR | 2026-11-09 |  | All 3 pages rewritten; 28.2 new platform page (site slug neutral) |
-| 29 | Self-Correcting RAG: CRAG & Self-RAG | 3 | 3 | 3 / 3 | In PR | 2026-11-09 |  | All 3 pages rewritten; 29.3 k=3 means fixed (4.6, 13.4) |
-| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | In PR | 2026-11-09 |  | All 4 pages rewritten; 30.2 form fields fixed |
-| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | In PR | 2026-11-09 |  | All 3 pages rewritten; lab results still pending |
-| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | In PR | 2026-11-09 |  | All 3 pages rewritten; MMR ref fixed to 16.4 |
+| 28 | Agentic RAG Foundations: Grading & Query Rewriting | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; 28.2 new platform page (site slug neutral) |
+| 29 | Self-Correcting RAG: CRAG & Self-RAG | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; 29.3 k=3 means fixed (4.6, 13.4) |
+| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | In PR | 2026-11-09 | #47 | All 4 pages rewritten; 30.2 form fields fixed |
+| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; lab results still pending |
+| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; MMR ref fixed to 16.4 |
 
 ## Part IX · The Memory Layer
 
