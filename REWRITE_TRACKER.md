@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 45 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 1
+**Modules:** Not started: 43 · Review draft: 0 · In progress: 0 · In PR: 2 · Live: 1
 
 ## Part I · AI Engineering Foundations
 
@@ -59,8 +59,8 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
 | 22 | The Agent Loop & Tool Calling | 6 | 6 | 6 / 6 | Live | 2026-11-09 | #39 #40 #41 | Rewritten; 22.1 trimmed; 22.2 is a project page |
-| 23 | ReAct Agents & LangChain create_agent | 5 | 4 | 0 / 4 | Not started |  |  |  |
-| 24 | Agentic Workflow Patterns | 5 | 5 | 0 / 5 | Not started |  |  |  |
+| 23 | ReAct Agents & LangChain create_agent | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #43 | 23.1-23.4 rewritten; 23.5 project page added |
+| 24 | Agentic Workflow Patterns | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #43 | All 5 pages rewritten |
 
 ## Part VII · Advanced Agents
 

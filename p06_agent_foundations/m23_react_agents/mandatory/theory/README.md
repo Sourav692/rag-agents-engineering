@@ -33,11 +33,11 @@ The model is the only part that decides; the graph executes and the middleware g
 
 | Lesson | Topic | Theory |
 |---|---|---|
-| 23.1 | The ReAct loop in LangGraph; tool calling vs ReAct | [Reason, act, observe](01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md#reasonactobserve)<br>[Native tool calls vs text-based ReAct](01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md#native-tool-calls-vs-text-based-react) |
+| 23.1 | The ReAct loop in LangGraph; tool calling vs ReAct | [Reason, act, observe](01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md#reasonactobserve)<br>[Measuring the loop on Larkspur](01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md#measuring-the-loop-on-larkspur)<br>[Native tool calls vs text-based ReAct](01_the_react_loop_in_langgraph_tool_calling_vs_react/README.md#native-tool-calls-vs-text-based-react) |
 | 23.2 | ReAct with LangChain `create_agent` | [create_agent](02_react_with_langchain_create_agent/README.md#create_agent)<br>[Call limits and runaway loops](02_react_with_langchain_create_agent/README.md#call-limits-and-runaway-loops) |
-| 23.3 | Models, messages and structured output in LangChain 1.x | [Structured output](03_models_messages_and_structured_output_in_langchain_1_x/README.md#structured-output) |
-| 23.4 | Middleware, including human-in-the-loop | [Middleware](04_middleware_including_human_in_the_loop/README.md#middleware) |
-| 23.5 | Exercise: intelligent travel assistant agent (with solution) | *planned* |
+| 23.3 | Models, messages and structured output in LangChain 1.x | [Messages: what the model sees](03_models_messages_and_structured_output_in_langchain_1_x/README.md#messages-what-the-model-sees)<br>[Structured output](03_models_messages_and_structured_output_in_langchain_1_x/README.md#structured-output) |
+| 23.4 | Middleware, including human-in-the-loop | [Middleware](04_middleware_including_human_in_the_loop/README.md#middleware)<br>[Human approval](04_middleware_including_human_in_the_loop/README.md#human-approval) |
+| 23.5 | Exercise: intelligent travel assistant agent (with solution) | [The project: an intelligent travel assistant](../../optional/theory/05_exercise_intelligent_travel_assistant_agent_with_solution/README.md#the-project-an-intelligent-travel-assistant) |
 
 The applied ReAct lesson (web research, SWE and computer-use agents), with its concepts *Planned pipeline vs ReAct loop* and *The same loop in other environments*, is now lesson 26.1 in `p07_advanced_agents/m26_coding_computer_use_and_deep_agents/`.
 

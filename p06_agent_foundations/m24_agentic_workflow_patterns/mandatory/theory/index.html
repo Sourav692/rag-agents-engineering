@@ -277,9 +277,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Real systems nest these. CRAG (M29) is an evaluator-optimizer around retrieval, adaptive RAG (M30) is a router, and query decomposition (M17) is orchestrator-worker. Read an architecture by asking which of the five each node belongs to, and where the model, rather than your code, makes the call.</p>
 <h2 id="workflow-vs-agent">Workflow vs agent</h2>
 <p class="lesson-of">Lesson 24.1: Prompt chaining with quality gates. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/01a_prompt_chaining_langgraph.ipynb" target="_blank" rel="noopener"><code>01a_prompt_chaining_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/01b_prompt_chaining_structured_output.ipynb" target="_blank" rel="noopener"><code>01b_prompt_chaining_structured_output.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/01c_prompt_chaining_lcel.ipynb" target="_blank" rel="noopener"><code>01c_prompt_chaining_lcel.ipynb</code></a> (optional)</p>
-<p>A Larkspur refund reply needs a plan and purchase date before it can apply policy. Drafting immediately would turn missing inputs into a polished guess. You will separate a fixed workflow from an agent, place a quality check after extraction, and follow both the pass and retry-limit paths.</p>
-<h3>Step 1: Identify who chooses the next step</h3>
-<p>The distinction used here follows Anthropic&rsquo;s <em>Building Effective Agents</em> (December 2024): who controls the next step? In a <strong>workflow</strong>, LLM calls and tools run along code paths you defined in advance. In an <strong>agent</strong>, the model directs its own process: it picks the next tool, reads the result and decides when to stop. The ReAct agent of M23 is an agent. All five M24 patterns are workflows.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the difference between a workflow and an agent by who chooses the next step.</li>
+<li><strong>Map</strong> each of the five M24 patterns to the one decision it hands the model.</li>
+<li><strong>Trace</strong> a gated chain through its pass path and its retry-limit path, call by call.</li>
+<li><strong>Diagnose</strong> why a gate leaks, loops or lets an unusable result through.</li>
+</ul>
+</blockquote>
+<p>M23 ended with an agent that picks its own tools. This module goes the other way: five patterns where your code draws the path and the model fills in one kind of decision.</p>
+<p>A Larkspur customer writes <em>I want my money back for last month</em>. A useful reply needs the plan and the purchase date before it can apply the refund-window policy. A chain that drafts straight away turns those missing inputs into a polished guess. This lesson builds the guard against that, and first separates two kinds of system.</p>
+<h3>Who picks the next step</h3>
+<p>The distinction comes from Anthropic&rsquo;s <em>Building Effective Agents</em> (December 2024). In a <strong>workflow</strong>, LLM calls and tools run along code paths you defined in advance. In an <strong>agent</strong>, the model directs its own process: it picks the next tool, reads the result and decides when to stop. The ReAct agent of M23 is an agent. All five M24 patterns are workflows.</p>
+<p>The two differ in what you can know before a request runs:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -291,7 +302,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Who picks the next step</td>
-<td>Your edges. The model at most chooses among edges you wrote</td>
+<td>Your edges; the model at most chooses among edges you wrote</td>
 <td>The model, on every turn</td>
 </tr>
 <tr>
@@ -307,7 +318,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>A failed run</td>
 <td>Ends at a node you named, with a reason</td>
-<td>Shows up in the trajectory: a repeated tool call, an early stop</td>
+<td>Shows in the trajectory: a repeated tool call, an early stop</td>
 </tr>
 <tr>
 <td>Fits</td>
@@ -316,8 +327,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Match each decision to its code path</h3>
-<p>Each workflow pattern hands the model exactly one kind of decision, and keeps the rest in code:</p>
+<p><em>Table 1: Workflow and agent, side by side.</em></p>
+<p>A Larkspur refund reply has a shape you can draw: pull out the plan and the date, check them, draft, polish. Investigating why one customer&rsquo;s servers keep rebooting has no such shape, and that is where an agent earns its extra calls.</p>
+<h3>One decision per pattern</h3>
+<p>Each workflow pattern hands the model exactly one kind of decision and keeps the rest in code:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -354,10 +367,65 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The lesson 24.1 graph shows how little the model controls. <code>get_graph()</code> prints five nodes and eight edges. Three edges are conditional, and all three leave the gate. Everything else is a fixed <code>add_edge</code>. A Larkspur refund reply has the same shape: pull the plan and the purchase date out of the ticket, check them, draft, polish. A question nobody drew a path for, such as investigating why one customer&rsquo;s servers keep rebooting, is where an agent earns its extra calls.</p>
+<p><em>Table 2: The five patterns by who decides what.</em></p>
+<p>The gated chain in this lesson shows how little the model controls. Its compiled graph has five nodes and eight edges, and only three edges are conditional:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>start</td>
+<td>extract_points</td>
+<td>fixed</td>
+</tr>
+<tr>
+<td>extract_points</td>
+<td>check_points</td>
+<td>fixed</td>
+</tr>
+<tr>
+<td>check_points</td>
+<td>write_draft</td>
+<td>conditional (pass)</td>
+</tr>
+<tr>
+<td>check_points</td>
+<td>extract_points</td>
+<td>conditional (reject, try again)</td>
+</tr>
+<tr>
+<td>check_points</td>
+<td>fail_validation</td>
+<td>conditional (retries used up)</td>
+</tr>
+<tr>
+<td>write_draft</td>
+<td>polish_final</td>
+<td>fixed</td>
+</tr>
+<tr>
+<td>polish_final</td>
+<td>end</td>
+<td>fixed</td>
+</tr>
+<tr>
+<td>fail_validation</td>
+<td>end</td>
+<td>fixed</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The recorded edge list of the gated chain. All three conditional edges leave the gate.</em></p>
+<p>Everything the model decides happens inside a node. Where the run goes next is decided by code you can read, which is what the next section relies on.</p>
 <h2 id="quality-gates">Quality gates</h2>
-<h3>Step 1: Place the gate before drafting</h3>
-<p>Prompt chaining splits one task into a fixed sequence of focused calls, each reading the previous step&rsquo;s output. The 24.1 chain turns a topic into an email: extract three key points, draft, polish. A <strong>quality gate</strong> sits between steps and decides whether the intermediate result may go on. Failing at step 1 costs one cheap check. Failing at the end costs a draft and a polish written from nothing.</p>
+<p><strong>Prompt chaining</strong> splits one task into a fixed sequence of focused calls, each reading the previous step&rsquo;s output. The lesson&rsquo;s chain turns a topic into an email in three steps: extract the key points, draft, polish. A <strong>quality gate</strong> sits between two steps and decides whether the intermediate result may go on.</p>
+<h3>Where the gate sits</h3>
+<p>The gate checks the cheapest artefact that can already be wrong. Failing after extraction costs one check. Failing at the end costs a draft and a polish written from nothing:</p>
 <figure class="anim sheet" aria-labelledby="anim-gate-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The gated chain, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 300" role="img" aria-labelledby="anim-gate-title anim-gate-desc">
@@ -413,22 +481,47 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button" data-tok="620,38">Pass</button><span>A concrete topic, the deadline-extension request, passed on attempt 1 and went on to draft and polish: four LLM calls.</span></li>
   </ol>
 </figure>
-<h3>Step 2: Separate the verdict, router and counter</h3>
-<p>The reference gate has three parts, and each choice is deliberate:</p>
-<ul>
-<li><strong>The check.</strong> A keyword rule (&ldquo;does it mention <em>request</em>, <em>deadline</em>, <em>support</em>?&rdquo;) leaks: philosophical key points mention &ldquo;support&rdquo; too. The gate is a <code>gpt-4o-mini</code> judge at temperature 0 returning a structured <code>GateVerdict</code> with <code>actionable: bool</code> and a one-sentence <code>reason</code>.</li>
-<li><strong>The split.</strong> A node, <code>check_key_points</code>, runs the judge and writes <code>gate_passed</code> to state. A pure function, <code>route_after_check</code>, reads it and returns <code>write_draft</code>, <code>regenerate</code> or <code>fail</code>. The router makes no LLM call, so it can be tested like any function.</li>
-<li><strong>The bound.</strong> <code>retry_count</code> is <code>Annotated[int, operator.add]</code>, so each extraction adds 1. At <code>MAX_VALIDATION_RETRIES = 3</code> the router takes the <code>fail</code> edge to a terminal node that writes why the chain stopped. A <code>recursion_limit</code> of 12 is the second net, in case the router itself has a bug. A temperature of 0.7 lets the extractor vary its next attempt. At temperature 0 it may repeat the same rejected key points. Lower temperature reduces variation but does not guarantee identical responses.</li>
-</ul>
-<h3>Step 3: Compare a passing and a rejected request</h3>
-<p>The two recorded runs show both exit paths:</p>
+<p><em>Figure 1: The gated chain. The gate can pass the key points on, send extraction round again, or stop the run with a reason.</em></p>
+<p>We call the failure this prevents <strong>writing from nothing</strong>: later steps spend calls polishing a result whose input was never usable.</p>
+<h3>The three parts of a gate</h3>
+<p>A gate is three separate pieces, and keeping them apart is what makes each one testable:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>In the reference chain</th>
+<th>Why it is built this way</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>The check</strong></td>
+<td>A <code>gpt-4o-mini</code> judge at temperature 0 returns a structured verdict: <code>actionable</code> (yes or no) and a one-sentence reason</td>
+<td>A keyword rule leaks; a structured verdict cannot come back as free text</td>
+</tr>
+<tr>
+<td><strong>The router</strong></td>
+<td>A pure function reads the stored verdict and the attempt count and returns <code>write_draft</code>, <code>regenerate</code> or <code>fail</code></td>
+<td>No LLM call, so it is tested like any function</td>
+</tr>
+<tr>
+<td><strong>The bound</strong></td>
+<td>Each extraction adds 1 to a counter; at <code>MAX_VALIDATION_RETRIES = 3</code> the router takes the fail edge; a recursion limit of 12 steps backs it up</td>
+<td>A rejecting judge cannot keep the chain running</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Check, router and bound.</em></p>
+<p>The counter uses a <strong>reducer</strong>, a rule for combining a node&rsquo;s update with the value already in state. Here the rule is addition, so each extraction&rsquo;s 1 accumulates into an attempt count.</p>
+<h3>Two recorded runs</h3>
+<p>The two recorded runs take the two exits of Figure 1:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Topic</th>
-<th>Extraction attempts</th>
+<th>Attempts</th>
 <th>Gate verdicts</th>
-<th>Reached the draft</th>
+<th>Ended at</th>
 <th>LLM calls</th>
 </tr>
 </thead>
@@ -436,80 +529,209 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td><em>Request for project deadline extension due to technical challenges</em></td>
 <td>1</td>
-<td>pass</td>
-<td>yes</td>
+<td>pass: the points outline a request, its reason and a new timeline</td>
+<td>the polished email</td>
 <td>4 (extract, judge, draft, polish)</td>
 </tr>
 <tr>
 <td><em>The meaning of life and happiness</em></td>
 <td>3</td>
-<td>reject, reject, reject</td>
-<td>no, ended in <code>fail_validation</code></td>
+<td>reject three times: informative points with no request, decision or next step</td>
+<td><code>fail_validation</code>, with a reason</td>
 <td>6 (three extracts, three judges)</td>
 </tr>
 </tbody>
 </table></div>
-<p>The second run spent three judge calls to avoid writing and polishing an email with no purpose, and it ended with a reason a caller can show or log.</p>
-<h3>Step 4: Compare validation with content quality</h3>
-<p>Alternative implementations move the gate around. In LCEL the gate is a <code>RunnableLambda</code> that passes the payload through or raises <code>KeyPointsRejected</code>; <code>.with_retry(stop_after_attempt=3)</code> re-runs extraction and gate together, which plays the part of the <code>regenerate</code> edge, and <code>.with_fallbacks(...)</code> plays <code>fail_validation</code>. With structured output every step returns a validated Pydantic object, so each hop performs schema validation without an additional judge call. A schema guarantees fields and types, though, and says nothing about whether the content is usable. That still needs a gate like the judge here.</p>
-<p>For Larkspur, the gate belongs right after extraction: does the ticket name a plan and a purchase date? Without them the refund-window chunk cannot be applied, and the right next step is to ask the customer, which a terminal node with a reason makes easy.</p>
-<h3>Try it yourself</h3>
-<p>Follow a refund ticket with no purchase date through the gate. Decide whether it may reach drafting and state what the terminal response should request. Check that rejection occurs before drafting. Then force every verdict to reject and verify that the third extraction leads to <code>fail_validation</code>, with six model calls and no draft or polish.</p>
-<h3>Practice notebook</h3>
-<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<p><em>Table 5: Both exit paths, from the notebook&rsquo;s recorded output.</em></p>
+<p>The second run spent three judge calls to avoid writing and polishing an email with no purpose. It also ended with a message a caller can show or log, which a crash or an empty email would not give.</p>
+<h3>Planted failures</h3>
+<p>Each piece of the gate exists because something specific goes wrong without it:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted failure</th>
+<th>What happens</th>
+<th>The guard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A keyword gate (&ldquo;mentions <em>request</em>, <em>deadline</em>, <em>support</em>&rdquo;)</td>
+<td>Philosophical key points mention &ldquo;support&rdquo; and &ldquo;progress&rdquo;, so vague topics pass</td>
+<td>An LLM judge with a yes-or-no verdict and a reason</td>
+</tr>
+<tr>
+<td>Extractor at temperature 0</td>
+<td>A regenerated attempt can repeat the rejected key points, so all three tries fail the same way</td>
+<td>Extract at 0.7, judge at 0</td>
+</tr>
+<tr>
+<td>A bug in the router that never returns <code>fail</code></td>
+<td>The reject edge loops forever</td>
+<td>The recursion limit of 12 steps stops the run</td>
+</tr>
+<tr>
+<td>Typed output with useless content</td>
+<td>Every field is present and the email still has no purpose</td>
+<td>A schema checks shape; the gate still checks content</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 6: One planted case per guard.</em></p>
+<blockquote>
+<p><strong>Pitfall: the repeating regenerator.</strong> A retry only helps when the next attempt can differ. At temperature 0 the extractor may return the same points, and lower temperature does not guarantee identical output either. Check that retries actually change the result, and that the judge grades the same text consistently.</p>
+</blockquote>
+<h3>Gates in other frameworks</h3>
+<p>The same gate appears in the two alternative builds of this lesson:</p>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/01a_prompt_chaining_langgraph.ipynb" target="_blank" rel="noopener">Gated prompt chains</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/01b_prompt_chaining_structured_output.ipynb" target="_blank" rel="noopener">Typed prompt chains</a> (optional).</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/01c_prompt_chaining_lcel.ipynb" target="_blank" rel="noopener">LCEL prompt chains</a> (optional).</li>
+<li><strong>LCEL</strong> (LangChain Expression Language, which composes runnable steps with <code>|</code>): the gate is a step that passes the payload through or raises a rejection error. A retry wrapper re-runs extraction and gate together, playing the reject edge, and a fallback plays <code>fail_validation</code>.</li>
+<li><strong>Structured output at every hop</strong>: each step returns a validated object, so shape errors are caught without an extra judge call. Shape is all it checks.</li>
+</ul>
+<h2 id="in-practice-the-larkspur-refund-ticket">In practice: the Larkspur refund ticket</h2>
+<p>The refund reply follows the same chain:</p>
+<ol>
+<li>Extract the plan, the purchase date and the request from the ticket.</li>
+<li>Gate: check that the ticket names a plan and a purchase date. Without them the refund-window chunk cannot be applied.</li>
+<li>On pass, draft from the refund policy and polish.</li>
+<li>On the third reject, end at a terminal node whose reason asks the customer for the missing date.</li>
+</ol>
+<p><em>I want my money back for last month</em> fails the gate before any drafting, and the customer is asked one precise question. In lesson 24.2 the same ticket meets a different decision: which queue, and which model, should handle it.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Two runs.</strong> Table 5 comes from one recorded run per topic; a new run can extract different points and the judge can word its reasons differently.</li>
+<li><strong>One judge.</strong> The gate&rsquo;s verdicts were not compared against human labels, so its false-pass rate is unmeasured.</li>
+<li><strong>Left out:</strong> a gate per step. Add one after drafting when the draft itself can fail a check you can state, such as a missing policy citation.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>In a workflow your code fixes the path and the model makes one kind of decision. In an agent the model picks every step. Use a workflow for any task you can draw before it runs.</li>
-<li>Gate early steps with an LLM judge that returns a structured verdict, since keyword rules leak. Keep the routing in a pure function so you can test it without an LLM call.</li>
-<li>Bound retries with a counter and end at a terminal node that records why the chain stopped. A schema guarantees fields and types, not usable content, so structured output still needs a gate.</li>
+<li>In a workflow your code fixes the path and the model makes one kind of decision; in an agent the model picks every step. Use a workflow for any task you can draw before it runs.</li>
+<li>Put the gate after the cheapest step that can already be wrong. Check with an LLM judge that returns a structured verdict, and route in a pure function you can test without a model.</li>
+<li>Bound retries with a counter and a terminal node that records why the chain stopped. A schema checks shape, never usefulness, so typed output still needs a gate.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the quality gate sit right after extraction instead of checking the finished email?</summary>
-<p>Failing at step 1 costs one cheap check, while failing at the end costs a draft and a polish written from nothing. The gate stops unusable key points before any later step spends calls on them, and the chain ends with a reason a caller can show or log.</p>
+<p>Failing after extraction costs one check, while failing at the end costs a draft and a polish written from nothing. The gate stops unusable key points before later steps spend calls on them, and the chain ends with a reason a caller can show or log.</p>
 </details>
 <details>
-<summary>2. The topic about the meaning of life is rejected by the gate three times. How many LLM calls does the run make, and where does it end?</summary>
-<p>Six: three extractions and three judge calls. At <code>MAX_VALIDATION_RETRIES = 3</code> the router takes the <code>fail</code> edge to <code>fail_validation</code>, which writes why the chain stopped. No draft or polish call runs.</p>
+<summary>2. The topic about the meaning of life is rejected three times. How many LLM calls does the run make, and where does it end?</summary>
+<p>Six: three extractions and three judge calls. At the third rejection the router takes the fail edge to <code>fail_validation</code>, which records why the chain stopped. No draft or polish call runs.</p>
 </details>
 <details>
 <summary>3. You set the extractor to temperature 0, and the gate rejects the same key points three times in a row. Why did regenerating not help?</summary>
-<p>A temperature of 0.7 lets the extractor vary its next attempt. At temperature 0 it may repeat the same rejected key points. Temperature 0 does not guarantee identical output or a stable judge verdict. The reference configuration uses 0.7 for extraction and 0 for judging. Check whether retries improve the result and whether repeated grading is sufficiently consistent.</p>
+<p>At temperature 0 the extractor may repeat the points it already produced, so each retry fails the same way. The reference chain extracts at 0.7 so a new attempt can differ, and judges at 0 so the verdict stays as consistent as possible. Neither setting guarantees identical or different output, so check that retries really change the result.</p>
 </details>
 <h2 id="routing-by-handler">Routing by handler</h2>
 <p class="lesson-of">Lesson 24.2: Routing by handler and by model tier. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/02a_routing_langgraph.ipynb" target="_blank" rel="noopener"><code>02a_routing_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/02b_routing_by_model_tier.ipynb" target="_blank" rel="noopener"><code>02b_routing_by_model_tier.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/02c_routing_lcel_runnable_branch.ipynb" target="_blank" rel="noopener"><code>02c_routing_lcel_runnable_branch.ipynb</code></a> (optional)</p>
-<p>A Larkspur refund request belongs in billing, but a refund calculation may also need a stronger model. Those are two routing decisions. You will first choose one handler from a closed set, then use the measured model-tier example to diagnose the cost of sending hard work to the cheap tier.</p>
-<h3>Step 1: Classify into a closed set</h3>
-<p>A router classifies the input once and sends it down exactly one specialist path. The model makes one small decision, a label from a fixed set, and everything after it is ordinary Python dispatch.</p>
-<p>The content router has the same two-part shape as the 24.1 gate:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>A constrained classifier.</strong> <code>with_structured_output(ContentRoute)</code>, where <code>content_type</code> is <code>Literal["story", "poem", "joke"]</code>. The model cannot return a label the graph has no edge for, which a free-text answer like &ldquo;I think they want a poem&rdquo; could.</li>
-<li><strong>A pure condition function.</strong> <code>determine_next_step</code> maps the stored label to a node name with <code>.get(..., "generate_story")</code>, so even an unexpected label lands somewhere.</li>
+<li><strong>Explain</strong> why a router asks the model for one label from a closed set and dispatches in plain code.</li>
+<li><strong>Compare</strong> all-cheap, all-reasoning and routed strategies on accuracy and reasoning calls.</li>
+<li><strong>Diagnose</strong> a router from its confusion matrix, and say which of its two errors costs more.</li>
+<li><strong>Choose</strong> the direction a router should err, and when a cheap-first fallback is safe.</li>
 </ul>
-<h3>Step 2: Inspect the chosen handler</h3>
-<p>The recorded test uses with phrasing that implies the category without naming it: <em>Tell me something funny about artificial intelligence</em>, <em>I want to hear a tale about a brave knight</em>, <em>Create something poetic about the ocean</em>. All three reached the expected handler. Each request cost two LLM calls, one to classify and one in the handler, however many handlers exist. A fourth category is one more <code>Literal</code> value, one node and one edge. The LCEL version builds the same router with <code>RunnableBranch</code> and confirms that exactly one specialist chain runs per request.</p>
-<p>For Larkspur, the closed set is the ticket queue: billing, technical, sales. The test that matters is the one the routing experiment models: check the routing decision itself, not only whether the final answer reads well.</p>
+</blockquote>
+<p>Lesson 24.1 sent every request down one chain. Larkspur&rsquo;s tickets are not all the same kind: <em>I want my money back</em> belongs in billing, <em>my server will not boot</em> in technical support. <strong>Routing</strong> classifies the input once and sends it down exactly one specialist path.</p>
+<p>This lesson routes on two axes. The first picks a handler. The second, in the next section, picks a model.</p>
+<h3>One label from a closed set</h3>
+<p>The content router in this lesson has the same two-part shape as the 24.1 gate: a model makes a small, constrained decision, and a pure function acts on it.</p>
+<ul>
+<li><strong>A constrained classifier.</strong> The model returns structured output whose only field is a content type limited to <em>story</em>, <em>poem</em> or <em>joke</em>. It cannot answer with a label the graph has no edge for.</li>
+<li><strong>A pure condition function.</strong> A dictionary maps the stored label to a node name, with <em>story</em> as the default, so even an unexpected label lands on a real node.</li>
+</ul>
+<p>Each request then costs exactly two LLM calls, one to classify and one in the chosen handler, however many handlers exist. A fourth category is one more allowed label, one node and one edge.</p>
+<h3>The recorded routes</h3>
+<p>The recorded test uses phrasing that implies a category without naming it:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Routed to</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Tell me something funny about artificial intelligence</em></td>
+<td>joke</td>
+<td>joke</td>
+</tr>
+<tr>
+<td><em>I want to hear a tale about a brave knight</em></td>
+<td>story</td>
+<td>story</td>
+</tr>
+<tr>
+<td><em>Create something poetic about the ocean</em></td>
+<td>poem</td>
+<td>poem</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Three requests, three correct routes, two LLM calls each.</em></p>
+<p>The LCEL version of the same router counts the specialist chains it invokes and confirms that exactly one runs per request.</p>
+<h3>Planted failures</h3>
+<p>Both halves of the router have one guard each:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted input</th>
+<th>Without the guard</th>
+<th>With the guard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The model answers in free text: &ldquo;I think they want a poem&rdquo;</td>
+<td>No edge matches the string, so dispatch fails</td>
+<td>The closed set makes this answer impossible to return</td>
+</tr>
+<tr>
+<td>A label slips through that the map does not know</td>
+<td>Lookup fails mid-request</td>
+<td>The default sends it to the story handler</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The constrained label and the default route.</em></p>
+<p>For Larkspur the closed set is the ticket queue: billing, technical, sales. The test that matters is the routing decision itself, measured on labelled tickets, because a fluent answer from the wrong queue still reads well.</p>
 <h2 id="routing-by-model-tier">Routing by model tier</h2>
-<h3>Step 1: Separate triage from answering</h3>
-<p>The model-tier variant routes on a different axis. The conditional edge picks a <strong>model</strong>, not a handler: a cheap model triages each request as <code>easy</code> or <code>hard</code>, easy work stays on the cheap model and hard work goes to a reasoning model. You pay reasoning prices only on the traffic that needs them.</p>
+<p>The second router picks a <strong>model</strong>, not a handler. A cheap model triages each request as <em>easy</em> or <em>hard</em>. Easy work stays on the cheap model; hard work goes to a reasoning model, so reasoning prices are paid only on the traffic that needs them:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Request/] --&gt; T{"Triage&lt;br/&gt;gpt-4o-mini"}
     T -- easy --&gt; C["Cheap tier&lt;br/&gt;gpt-4o-mini"]
     T -- hard --&gt; R["Reasoning tier&lt;br/&gt;o4-mini, effort high"]
 </pre></figure>
-<p>Both answering nodes send the same prompt. Only the model differs, so a measured difference belongs to the model. Two details bite on the first real call: o-series models reject a custom temperature, so the reasoning tier passes <code>temperature=1</code>, and <code>reasoning_effort="high"</code> only means something to a reasoning model.</p>
-<h3>Step 2: Compare the three answering strategies</h3>
-<p>The workload is mixed the way real traffic is, mostly easy: seven requests, four easy (extract an order id, a capital, a time conversion, reply &ldquo;ok&rdquo;) and three hard (a deploy-schedule puzzle, an LRU eviction, a backoff sum). A router means nothing without &ldquo;cheaper than what&rdquo;, so the recorded comparison runs all three strategies:</p>
+<p><em>Figure 1: Routing by model tier. The triage call is the only extra cost on every request.</em></p>
+<p>Both answering nodes send the same prompt, so any difference in the answers belongs to the model. Two details matter on the first real call: o-series reasoning models accept only the default temperature, so the reasoning tier runs at 1, and the reasoning-effort setting only means something to a reasoning model.</p>
+<h3>The workload and the three strategies</h3>
+<p>A router means nothing without &ldquo;cheaper than what&rdquo;. The recorded comparison runs seven requests, mixed the way real traffic is, mostly easy:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Requests</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Easy (4)</td>
+<td>extract an order id from a shipping note; name the capital of Portugal; convert 2:45 pm to 24-hour time; reply with the word <em>ok</em></td>
+</tr>
+<tr>
+<td>Hard (3)</td>
+<td>a deploy-schedule puzzle with ordering constraints; which key an LRU cache evicts; the total wait under exponential backoff</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The labelled workload. Each request carries its true difficulty and an expected answer.</em></p>
+<p>Each strategy answers all seven, and an answer counts as correct when the expected value appears as a whole word in it:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Strategy</th>
-<th>Accuracy</th>
+<th>Correct</th>
 <th>Answering time, total</th>
 <th>Reasoning calls</th>
 </tr>
@@ -517,27 +739,31 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>All cheap</td>
-<td>71%</td>
+<td>71% (5 of 7)</td>
 <td>5.2 s</td>
 <td>0 of 7</td>
 </tr>
 <tr>
 <td><strong>Routed</strong></td>
-<td><strong>86%</strong></td>
+<td><strong>86% (6 of 7)</strong></td>
 <td><strong>13.4 s</strong></td>
 <td><strong>1 of 7</strong></td>
 </tr>
 <tr>
 <td>All reasoning</td>
-<td>100%</td>
+<td>100% (7 of 7)</td>
 <td>20.1 s</td>
 <td>7 of 7</td>
 </tr>
 </tbody>
 </table></div>
-<p>Treat these as saved results on a seven-question workload, not a general ranking of models. The time column counts the answering calls only. The routed row also pays one triage call per request on top. With seven requests one question moves accuracy by 14 points, so read the table for its shape: routed accuracy should track all-reasoning while its reasoning-call count tracks all-cheap. A router that sends everything to <code>hard</code> is worse than no router, because it adds triage to the full reasoning bill.</p>
-<h3>Step 3: Inspect the costly misclassifications</h3>
-<p>The router predicts difficulty. It does not observe it. So it has a confusion matrix:</p>
+<p><em>Table 4: The recorded payoff table.</em></p>
+<p>Read the table for its shape. Routed accuracy should sit near all-reasoning while its reasoning-call count sits near all-cheap. The time column counts answering calls only; the routed strategy also pays one triage call per request, seven in all.</p>
+<blockquote>
+<p><strong>Pitfall: the nervous router.</strong> A router that sends everything to <em>hard</em> is worse than no router. It pays the full reasoning bill and adds a triage call on top of every request.</p>
+</blockquote>
+<h3>The router&rsquo;s confusion matrix</h3>
+<p>The router predicts difficulty from the question text. It never observes it, so it makes mistakes, and they show up in a <strong>confusion matrix</strong>, a table of predicted against true labels:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -549,8 +775,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Truly hard</td>
-<td>1</td>
-<td><strong>2</strong>, one answered wrong (the LRU question)</td>
+<td>1 (the deploy puzzle)</td>
+<td><strong>2</strong> (LRU: wrong answer; backoff: right)</td>
 </tr>
 <tr>
 <td>Truly easy</td>
@@ -559,77 +785,112 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The two errors are not symmetric. Easy sent to reasoning wastes money: bounded, and visible on a bill. Hard sent to cheap returns a confident wrong answer: invisible until someone acts on it. So bias the triage prompt toward <code>hard</code> on borderline cases and accept the overspend as insurance. The same asymmetry fixes the fallback direction. &ldquo;Try cheap, detect a bad answer, retry on reasoning&rdquo; needs a reliable wrong-answer detector, and the detector can itself miss the error. A measured detector may support a fallback, but the fallback is not automatic evidence of correctness. Escalate on uncertainty before answering.</p>
-<p>On Larkspur, <em>Can I get a refund after 45 days?</em> is the case to watch: it looks like a lookup and needs proration arithmetic. Put questions like it in the labelled set the router is measured on.</p>
-<h3>Try it yourself</h3>
-<p>Read the confusion matrix before the accuracy table. Count the truly hard requests sent to cheap: two, with one wrong answer. Now send all seven requests to reasoning. Check that you remove those triage misses while paying seven reasoning calls rather than one, and explain why retaining triage on that path would add cost without saving a reasoning call.</p>
-<h3>Practice notebook</h3>
-<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<p><em>Table 5: Routing decisions against ground truth.</em></p>
+<p>The two kinds of mistake cost different things:</p>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/02a_routing_langgraph.ipynb" target="_blank" rel="noopener">Specialist routing</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/02b_routing_by_model_tier.ipynb" target="_blank" rel="noopener">Model-tier routing</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/02c_routing_lcel_runnable_branch.ipynb" target="_blank" rel="noopener">LCEL routing</a> (optional).</li>
+<li><strong>Easy sent to reasoning</strong>: overspend. Bounded, and visible on the bill.</li>
+<li><strong>Hard sent to cheap</strong>: a confident wrong answer. Invisible until someone acts on it.</li>
+</ul>
+<p>We call the second one the <strong>silent downgrade</strong>. In this run it happened twice and cost one wrong answer. Because it costs more than overspend, bias the triage prompt toward <em>hard</em> on borderline cases and accept some overspend as insurance.</p>
+<h3>Which way to fall back</h3>
+<p>The same asymmetry decides the fallback direction. &ldquo;Answer on the cheap model, detect a bad answer, retry on reasoning&rdquo; only works with a reliable wrong-answer detector, and that detector can miss exactly the confident errors a silent downgrade produces:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    Q[Request] --&gt; U{Triage unsure?}
+    U --&gt;|yes| R[Reasoning tier]
+    U --&gt;|no| H{Labelled hard?}
+    H --&gt;|yes| R
+    H --&gt;|no| C[Cheap tier]
+</pre></figure>
+<p><em>Figure 2: Escalate on uncertainty before answering, not after a bad answer.</em></p>
+<p>A measured detector can support a cheap-first fallback. Without one, escalate before answering.</p>
+<h2 id="in-practice-the-45-day-refund-question">In practice: the 45-day refund question</h2>
+<p>On Larkspur, <em>Can I get a refund after 45 days?</em> is the case to watch:</p>
+<ol>
+<li>The handler router sends it to billing, correctly.</li>
+<li>The tier router sees what looks like a lookup and may label it <em>easy</em>.</li>
+<li>The answer needs proration arithmetic against the refund-window policy, so the cheap tier can return a confident wrong amount.</li>
+<li>Add questions like it to the labelled set the router is measured on, and re-read its confusion matrix after every triage-prompt change.</li>
+</ol>
+<p>Lesson 24.3 keeps all the work but runs it at once: several branches in parallel, merged into one answer.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Seven questions.</strong> One question moves accuracy by 14 points, so Table 4 shows a shape, not a ranking of models.</li>
+<li><strong>Token-match grading.</strong> An answer that states the right value in other words counts as wrong.</li>
+<li><strong>One run.</strong> Times and triage labels come from a single recorded run; a rerun can route differently.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A router makes one small decision, a label from a fixed set, and dispatches in plain code. Each request costs two calls however many handlers exist, so test the routing decision itself.</li>
-<li>Routing by model tier pays reasoning prices only on hard traffic. In the recorded run the routed strategy reached 86% accuracy with 1 of 7 reasoning calls, against 71% all cheap and 100% all reasoning.</li>
-<li>Hard work sent to the cheap tier returns confident wrong answers, while easy work sent up only costs money. Lean the triage prompt toward <code>hard</code> on borderline cases and accept the overspend.</li>
+<li>A router asks the model for one label from a closed set and dispatches in plain code, with a default route. Each request costs two calls however many handlers exist.</li>
+<li>Routing by model tier pays reasoning prices only on hard traffic: in the recorded run, 86% correct with 1 of 7 reasoning calls, against 71% all cheap and 100% all reasoning.</li>
+<li>The silent downgrade, hard work sent to the cheap tier, costs more than overspend. Lean triage toward hard on borderline cases and escalate before answering, not after.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Why does the content router classify with a structured output limited to a fixed set of labels instead of free text?</summary>
-<p>With <code>content_type</code> typed as <code>Literal["story", "poem", "joke"]</code>, the model cannot return a label the graph has no edge for, which a free-text answer like &ldquo;I think they want a poem&rdquo; could. The pure function <code>determine_next_step</code> then maps the label to a node, with a <code>.get</code> default so even an unexpected label lands somewhere.</p>
+<summary>1. Why does the content router classify into a fixed set of labels instead of free text?</summary>
+<p>With the label limited to story, poem or joke, the model cannot return a value the graph has no edge for, which a free-text answer like &ldquo;I think they want a poem&rdquo; could. A pure function then maps the label to a node, with a default so even an unexpected label lands somewhere.</p>
 </details>
 <details>
 <summary>2. A Larkspur customer asks whether they can get a refund after 45 days. Why is this a risky question for the model-tier router?</summary>
-<p>It looks like a lookup but needs proration arithmetic, so triage may label it <code>easy</code> and send it to the cheap tier, which can return a confident wrong answer. Put questions like it in the labelled set the router is measured on.</p>
+<p>It looks like a lookup but needs proration arithmetic, so triage may label it easy and send it to the cheap tier. That is a silent downgrade: the cheap model can return a confident wrong answer. Put questions like it in the labelled set the router is measured on.</p>
 </details>
 <details>
-<summary>3. A teammate proposes trying the cheap model first and retrying on the reasoning model when the answer is bad. Why does this fail?</summary>
-<p>It needs a reliable wrong-answer detector, and the detector can itself miss the error. A measured detector may support a fallback, but the fallback is not automatic evidence of correctness. A hard question answered on the cheap tier returns a confident wrong answer that stays invisible until someone acts on it. Escalate on uncertainty before answering, and bias triage toward <code>hard</code> on borderline cases.</p>
+<summary>3. A teammate proposes answering on the cheap model first and retrying on the reasoning model when the answer is bad. Why is this risky?</summary>
+<p>It needs a reliable wrong-answer detector, and the detector can miss the confident errors a cheap model makes on hard questions. A measured detector may support the fallback, but without one, escalate on uncertainty before answering and bias triage toward hard on borderline cases.</p>
 </details>
 <h2 id="fan-out--fan-in">Fan-out / fan-in</h2>
 <p class="lesson-of">Lesson 24.3: Parallelization: sectioning and voting. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/03a_parallelization_langgraph.ipynb" target="_blank" rel="noopener"><code>03a_parallelization_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/03b_parallelization_sectioning_and_voting.ipynb" target="_blank" rel="noopener"><code>03b_parallelization_sectioning_and_voting.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/03c_parallelization_lcel.ipynb" target="_blank" rel="noopener"><code>03c_parallelization_lcel.ipynb</code></a> (optional)</p>
-<p>Larkspur needs handbook, status and account evidence for one reply. Independent lookups can overlap, but the answer must wait for the required results. You will trace that join, change the concurrency cap, and distinguish splitting a task from collecting votes about the same task.</p>
-<h3>Step 1: Give parallel results a defined merge</h3>
-<p>Chaining runs steps one after another and routing runs one of several. Parallelization runs <strong>all</strong> of a fixed set of branches at once. A reducer specifies how to combine updates to a shared state key. In LangGraph the graph and its state schema define both scheduling and merging:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>Fan-out:</strong> several edges leave one node. Their targets run in the same step, concurrently.</li>
-<li><strong>Fan-in:</strong> several edges enter one node. It waits until every one of them has finished.</li>
-<li><strong>Uneven branches:</strong> when one path is longer (A to B to X, beside A to C), <code>add_edge(["x", "c"], "d")</code> is the explicit sync point.</li>
-<li><strong>Shared keys need a reducer.</strong> Two branches writing the same unreduced state key in one step can raise <code>InvalidUpdateError</code>. Declare a reducer such as <code>Annotated[list, operator.add]</code>. Branches that each own a key (<code>character_profiles</code>, <code>story_setting</code>, <code>plot_premise</code>) need none.</li>
+<li><strong>Explain</strong> how a graph starts branches together, waits for all of them and merges their writes.</li>
+<li><strong>Calculate</strong> a fan-out&rsquo;s wall time from its branch durations, with and without a concurrency cap.</li>
+<li><strong>Diagnose</strong> a lost or rejected write when two branches update the same state key.</li>
+<li><strong>Choose</strong> between sectioning and voting, and set a vote threshold knowingly.</li>
 </ul>
+</blockquote>
+<p>Chaining runs steps one after another, and routing runs one of several. <strong>Parallelization</strong> runs all of a fixed set of branches at once and merges what they return.</p>
+<p>A Larkspur reply about an outage needs three pieces of evidence: the handbook&rsquo;s outage policy, the status page, and the customer&rsquo;s account. None of the three lookups needs another&rsquo;s result, yet a chain would run them back to back. Running them together cuts the wait to the slowest one, provided the merge is defined.</p>
+<h3>Fan-out, fan-in and the sync point</h3>
+<p>In LangGraph the graph and its state schema decide both the scheduling and the merging:</p>
+<ul>
+<li><strong>Fan-out</strong>: several edges leave one node, and their targets run in the same step, concurrently.</li>
+<li><strong>Fan-in</strong>: several edges enter one node, and it waits until every one of them has finished.</li>
+<li><strong>Sync point</strong>: when one path is longer (A to B to X, beside A to C), an edge from the list of both endpoints into the next node makes it wait for the longer path explicitly.</li>
+</ul>
+<p>The lesson&rsquo;s sectioning graph writes a story&rsquo;s characters, setting and premise in parallel, then synthesizes an introduction:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S[/Topic/] --&gt; C["characters&lt;br/&gt;4.7 s"] &amp; ST["setting&lt;br/&gt;7.0 s"] &amp; P["premise&lt;br/&gt;1.6 s"]
     C &amp; ST &amp; P --&gt; Y["synthesize&lt;br/&gt;3.6 s"] --&gt; I[/Introduction/]
 </pre></figure>
-<p>Here is a model-free fan-out. Each branch returns a partial state update. The reducer combines both lists. Run it in the repository environment with <code>uv run python</code>.</p>
-<pre class="sheet code"><code class="language-python">import operator
-from typing import Annotated
-from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START, END
-
-class Evidence(TypedDict):
-    sources: Annotated[list[str], operator.add]
-
-graph = StateGraph(Evidence)
-graph.add_node(&quot;handbook&quot;, lambda state: {&quot;sources&quot;: [&quot;handbook&quot;]})
-graph.add_node(&quot;account&quot;, lambda state: {&quot;sources&quot;: [&quot;account&quot;]})
-graph.add_node(&quot;join&quot;, lambda state: {})
-graph.add_edge(START, &quot;handbook&quot;)
-graph.add_edge(START, &quot;account&quot;)
-graph.add_edge([&quot;handbook&quot;, &quot;account&quot;], &quot;join&quot;)
-graph.add_edge(&quot;join&quot;, END)
-result = graph.compile().invoke({&quot;sources&quot;: []})
-print(sorted(result[&quot;sources&quot;]))
-</code></pre>
-<p><strong>Expected output</strong></p>
-<pre class="sheet code"><code class="language-text">['account', 'handbook']
-</code></pre>
-<p>Change <code>sources</code> to an ordinary <code>list[str]</code> state field and rerun. The concurrent writes now raise <code>InvalidUpdateError</code> instead of silently dropping one result.</p>
-<h3>Step 2: Read the critical path</h3>
-<p>Wall time follows the longest path, not the sum. The recorded timing experiments measure it with nodes that sleep 0.5 s each, then with real LLM calls:</p>
+<p><em>Figure 1: The recorded sectioning run. Each branch is labelled with the time it finished.</em></p>
+<h3>Two branches, one key</h3>
+<p>The merge needs one more rule. A <strong>reducer</strong> says how to combine a node&rsquo;s update with the value already in a state key. Branches that each own a key, as the three story sections do, need none. Branches that write the same key in the same step do.</p>
+<p>We ran a model-free fan-out in which a handbook branch and an account branch each append their name to one shared list, in the LangGraph version this course pins (1.2.18):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Shared key declared as</th>
+<th>Both branches write in one step</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a list with an addition reducer</td>
+<td>yes</td>
+<td>both names kept: account, handbook</td>
+</tr>
+<tr>
+<td>a plain list, no reducer</td>
+<td>yes</td>
+<td><code>InvalidUpdateError</code>: the key &ldquo;can receive only one value per step&rdquo;</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The same two-branch graph with and without a reducer.</em></p>
+<p>We call this failure <strong>colliding writes</strong>. Here it fails loudly, which is the useful outcome; the fix is to declare the reducer on any key that more than one parallel branch writes.</p>
+<h3>The critical path</h3>
+<p>Wall time follows the longest path through the graph, not the sum of the steps. The recorded timing runs measure it first with nodes that sleep 0.5 s each, then with real LLM calls:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -657,17 +918,19 @@ print(sorted(result[&quot;sources&quot;]))
 <tr>
 <td>Three story sections, then synthesis</td>
 <td>10.6 s</td>
-<td>sections finish at 1.6, 4.7 and 7.0 s; a sequence would take about 13.4 s</td>
+<td>sections finished at 1.6, 4.7 and 7.0 s; in sequence they take about 13.4 s</td>
 </tr>
 </tbody>
 </table></div>
-<p>The synthesis step cannot overlap anything: it needs every section. That is the general shape of a fan-out&rsquo;s cost: the step before, plus the slowest branch, plus the merge.</p>
-<h3>Step 3: Change the concurrency cap and submission order</h3>
-<p>Production adds a limit the toy graphs do not have: the API behind the branches is rate-limited, so you cap how many run at once. In LCEL (LangChain Expression Language, which composes runnable steps) the cap is <code>config={"max_concurrency": n}</code> on the call, and the LCEL timing experiment records: six 0.5 s branches took 0.51 s unbounded and 1.51 s at two at a time, three rounds of two. The <a href="03_parallelization_sectioning_and_voting/interactive/fan-out-lab.html">interactive lab</a> schedules the recorded branch durations the way the thread pool does, branches submitted in order and each starting on the first free slot. On the story sections:</p>
+<p><em>Table 2: Recorded wall times.</em></p>
+<p>The synthesis step overlaps nothing, because it needs every section. So a fan-out costs the step before, plus the slowest branch, plus the merge: 7.0 s for the slowest section plus 3.6 s of synthesis gives the 10.6 s total.</p>
+<h3>Concurrency caps and submission order</h3>
+<p>Production adds a limit the toy graphs lack. The API behind the branches is rate-limited, so you cap how many branches run at once. In LCEL the cap is a setting on the call: six 0.5 s branches took 0.51 s unbounded and 1.51 s two at a time, three rounds of two.</p>
+<p>Under a cap, order starts to matter. The <a href="03_parallelization_sectioning_and_voting/interactive/fan-out-lab.html">interactive lab</a> schedules the recorded section durations the way a thread pool does: branches are submitted in order and each starts on the first free slot. On the story sections:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
-<th>Concurrency cap</th>
+<th>Cap</th>
 <th>Submitted</th>
 <th>Merge starts</th>
 <th>Wall time</th>
@@ -700,12 +963,11 @@ print(sorted(result[&quot;sources&quot;]))
 </tr>
 </tbody>
 </table></div>
-<p>A cap of 2 is free here: <code>setting</code> (7.0 s) gets a slot at once, and <code>premise</code> runs after <code>characters</code> in the other slot, finishing at 6.3 s. Submit the fast branches first and <code>setting</code> waits 1.6 s for a slot, which the whole request pays. For these known durations, starting the longest branch early avoids delaying the join. Real duration estimates may be uncertain. (The lab sums the printed one-decimal times, so its sequence shows 13.3 s where the reference example printed 13.4 s.)</p>
+<p><em>Table 3: The lab&rsquo;s schedule of the recorded durations.</em></p>
 <figure class="lab-embed"><iframe src="03_parallelization_sectioning_and_voting/interactive/fan-out-lab.html" title="Fan-out and the concurrency cap, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Fan-out and the concurrency cap. <a href="03_parallelization_sectioning_and_voting/interactive/fan-out-lab.html">Open full screen</a></figcaption></figure>
-<p>For Larkspur, the natural fan-out is retrieval from independent sources for one question: the handbook index, the status page, the customer&rsquo;s account. The answer arrives when the slowest source returns, so each branch needs a timeout and a fallback value, and each source should stay labelled in the merged context so the model can cite it.</p>
+<p>A cap of 2 costs nothing as written: the 7.0 s setting branch gets a slot at once, and the premise runs after the characters in the other slot, finishing at 6.3 s. Submit the fast branches first and the setting waits 1.6 s for a slot, which the whole request pays. We call that the <strong>queued straggler</strong>: the slowest branch held behind faster ones. Start long branches first when you know their durations. The lab adds the printed one-decimal times, so its sequential total shows 13.3 s where the recorded run printed 13.4 s.</p>
 <h2 id="sectioning-and-voting">Sectioning and voting</h2>
-<h3>Step 1: Choose what each branch contributes</h3>
-<p>The same mechanics serve two different jobs:</p>
+<p>The same fan-out mechanics serve two different jobs, and they buy different things:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -718,22 +980,22 @@ print(sorted(result[&quot;sources&quot;]))
 <tr>
 <td>Branches do</td>
 <td>different parts of one task</td>
-<td>the same kind of task, independently</td>
+<td>the same kind of check, independently</td>
 </tr>
 <tr>
-<td>25.3 example</td>
+<td>Lesson example</td>
 <td>characters, setting and premise of a story</td>
 <td>three security reviews of one function</td>
 </tr>
 <tr>
 <td>State</td>
 <td>one key per branch, no reducer</td>
-<td>one shared <code>votes</code> list, reducer required</td>
+<td>one shared list of votes, reducer required</td>
 </tr>
 <tr>
 <td>Fan-in</td>
 <td>an LLM call that weaves the parts together</td>
-<td>plain Python that counts and applies a threshold</td>
+<td>plain code that counts flags against a threshold</td>
 </tr>
 <tr>
 <td>Buys you</td>
@@ -742,64 +1004,122 @@ print(sorted(result[&quot;sources&quot;]))
 </tr>
 </tbody>
 </table></div>
-<p>The voting graph gives each reviewer one concern (injection, secrets handling, input validation), and no reviewer sees another&rsquo;s vote. Each returns a structured <code>Vote</code>. The aggregator blocks the code when at least <code>FLAG_THRESHOLD = 2</code> of 3 flag it:</p>
+<p><em>Table 4: Two uses of one mechanism.</em></p>
+<h3>The recorded security vote</h3>
+<p>The voting graph gives each reviewer one concern (injection, secrets handling, input validation), and no reviewer sees another&rsquo;s vote. Each returns a structured vote, flagged or not, with a reason. The aggregator blocks the code when at least 2 of 3 reviewers flag it:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Snippet</th>
-<th>Flags</th>
+<th>Injection</th>
+<th>Secrets</th>
+<th>Validation</th>
 <th>Verdict</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>SQL built with an f-string from user input, a hard-coded password printed to the log</td>
-<td>3 of 3</td>
-<td>BLOCK</td>
+<td>SQL built from user input by string interpolation; hard-coded password written to the log</td>
+<td>flagged</td>
+<td>flagged</td>
+<td>flagged (SQL injection)</td>
+<td>BLOCK, 3 of 3</td>
 </tr>
 <tr>
 <td>Parameterised query, validated username, password read from the environment</td>
-<td>0 of 3</td>
-<td>APPROVE</td>
+<td>clear</td>
+<td>clear</td>
+<td>clear</td>
+<td>APPROVE, 0 of 3</td>
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Test the voting threshold</h3>
-<p>Compare the threshold before changing the reviewers. It trades false alarms against misses. Raising it to 3 blocks less often: fewer false alarms, more misses. Lowering it to 1 blocks on any single flag. On the unsafe snippet the validation reviewer flagged the SQL injection too, outside its own concern, so the votes are not fully independent. Count on that when you set the threshold.</p>
-<p>For Larkspur, voting fits a check before a reply goes out: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. Three narrow reviewers and a threshold are easier to tune than one judge asked about everything.</p>
-<h3>Try it yourself</h3>
-<p>In the lab use the story branches and cap concurrency at two. Compare the original order with fastest first. Check merge start times of 7.0 s and 8.6 s, and total times of 10.6 s and 12.2 s. Then lower the voting threshold from two flags to one and explain which runs can newly be blocked. Both changes alter behaviour without adding a branch.</p>
-<h3>Practice notebook</h3>
-<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<p><em>Table 5: The two recorded reviews.</em></p>
+<h3>Setting the threshold</h3>
+<p>The threshold trades false alarms against misses. On the two recorded snippets every setting gives the same verdict, because the votes were unanimous:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Threshold</th>
+<th>Blocks when</th>
+<th>Unsafe snippet</th>
+<th>Safe snippet</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 of 3</td>
+<td>any reviewer flags</td>
+<td>BLOCK</td>
+<td>APPROVE</td>
+<td>most false alarms, fewest misses</td>
+</tr>
+<tr>
+<td>2 of 3 (reference)</td>
+<td>a majority flags</td>
+<td>BLOCK</td>
+<td>APPROVE</td>
+<td>balanced</td>
+</tr>
+<tr>
+<td>3 of 3</td>
+<td>every reviewer flags</td>
+<td>BLOCK</td>
+<td>APPROVE</td>
+<td>fewest false alarms, most misses</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 6: Thresholds on the recorded votes. Only split votes would separate them.</em></p>
+<p>The unsafe run also shows a planted weakness. The validation reviewer flagged the SQL injection, which is the injection reviewer&rsquo;s concern, so the votes are not fully independent. We call this <strong>correlated reviewers</strong>: two flags can be one finding counted twice. Allow for it before lowering the threshold, and test thresholds on snippets where the reviewers disagree.</p>
+<h2 id="in-practice-larkspurrsquos-outage-reply">In practice: Larkspur&rsquo;s outage reply</h2>
+<p>Both uses appear in one Larkspur reply:</p>
+<ol>
+<li><strong>Sectioning for evidence.</strong> Fan out to the handbook index, the status page and the account. The answer waits for the slowest source, so each branch gets a timeout and a fallback value, and each result keeps its source label so the reply can cite it.</li>
+<li><strong>Voting before sending.</strong> Three narrow reviewers check the draft: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. A threshold over three narrow checks is easier to tune than one judge asked about everything.</li>
+</ol>
+<p>Lesson 24.4 removes the last fixed piece: an orchestrator decides at run time how many branches there are.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/03a_parallelization_langgraph.ipynb" target="_blank" rel="noopener">Parallel graph branches</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/03b_parallelization_sectioning_and_voting.ipynb" target="_blank" rel="noopener">Sectioning and voting</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/03c_parallelization_lcel.ipynb" target="_blank" rel="noopener">LCEL parallel calls</a> (optional).</li>
+<li><strong>One run per graph.</strong> The LLM timings in Tables 2 and 3 come from one recorded run; another run will finish its branches at different times.</li>
+<li><strong>Unanimous votes only.</strong> Neither recorded snippet split the reviewers, so the threshold&rsquo;s effect is reasoned, not measured.</li>
+<li><strong>Left out:</strong> per-branch timeouts and fallback values. Add them when a branch calls a service that can hang.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A fan-out costs the step before, plus the slowest branch, plus the merge. Give any state key that parallel branches share a reducer, or one of the writes is lost.</li>
-<li>Rate limits force a concurrency cap, and then submission order matters. A slow branch that waits for a free slot delays the whole request, so start it first.</li>
-<li>Sectioning splits one task to cut latency. Voting repeats one check to raise confidence. Set the vote threshold knowing it trades false alarms against misses and that reviewers are not fully independent.</li>
+<li>A fan-out costs the step before, plus the slowest branch, plus the merge. Declare a reducer on any state key that parallel branches share, or the writes collide.</li>
+<li>Rate limits force a concurrency cap, and then submission order matters: a queued straggler delays the whole request, so start long branches first.</li>
+<li>Sectioning splits one task to cut latency; voting repeats one check to raise confidence. The threshold trades false alarms against misses, and correlated reviewers can count one finding twice.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does a fan-out's wall time follow its slowest branch rather than the sum of its branches?</summary>
-<p>The targets of a fan-out run in the same step, concurrently, and the fan-in node waits until all of them finish. So the cost is the step before, plus the slowest branch, plus the merge: the three story sections took 10.6 s, against about 13.4 s in sequence.</p>
+<p>The targets of a fan-out run in the same step, concurrently, and the fan-in node waits until all of them finish. So the cost is the step before, plus the slowest branch, plus the merge: the three story sections took 10.6 s in all, against about 13.4 s for the same calls in sequence.</p>
 </details>
 <details>
 <summary>2. Under a concurrency cap of 2, the story sections take 1.6, 4.7 and 7.0 seconds. Should you submit the fastest or the slowest branch first?</summary>
-<p>The slowest first. Submitted as written, <code>setting</code> (7.0 s) gets a slot at once and the request still takes 10.6 s, the same as with no cap. Submitted fastest first, <code>setting</code> waits 1.6 s for a slot, the merge starts at 8.6 s and the request takes 12.2 s.</p>
+<p>The slowest first. Submitted as written, the 7.0 s setting branch gets a slot at once and the request takes 10.6 s, the same as with no cap. Submitted fastest first, it waits 1.6 s for a slot, the merge starts at 8.6 s and the request takes 12.2 s.</p>
 </details>
 <details>
 <summary>3. The security vote blocks code at 2 of 3 flags and raises too many false alarms. Which way do you move the threshold, and what does it cost?</summary>
-<p>Raise it to 3. The aggregator then blocks less often: fewer false alarms, but more misses. Allow for the votes not being fully independent, since the validation reviewer flagged the SQL injection outside its own concern.</p>
+<p>Raise it to 3 of 3. The aggregator then blocks less often: fewer false alarms, but more misses. Allow for correlated reviewers too, since the validation reviewer flagged the SQL injection outside its own concern, and check the change on snippets where the reviewers disagree.</p>
 </details>
 <h2 id="dynamic-fan-out-with-send">Dynamic fan-out with Send</h2>
 <p class="lesson-of">Lesson 24.4: Orchestrator-worker with the Send API. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/04a_orchestrator_worker_send_api.ipynb" target="_blank" rel="noopener"><code>04a_orchestrator_worker_send_api.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/04b_orchestrator_worker_lcel_map.ipynb" target="_blank" rel="noopener"><code>04b_orchestrator_worker_lcel_map.ipynb</code></a> (optional)</p>
-<p>The Larkspur export question has two distinct information needs: how to export and how long data remains after cancellation. A refund-timing question needs only one. You will turn that difference into a variable-length plan, dispatch one worker per item, and inspect how the results return to shared state.</p>
-<h3>Step 1: Distinguish a plan from fixed branches</h3>
-<p>Orchestrator-worker looks like parallelization: several LLM calls run at once and a final step merges them. The difference is who decides the branches. In parallelization you wrote them into the graph. Here an orchestrator LLM decides, per input, how many subtasks there are and what each one covers.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how orchestrator-worker differs from parallelization: who decides the branches, and when.</li>
+<li><strong>Trace</strong> a plan from the orchestrator through one worker per item to the merged result.</li>
+<li><strong>Diagnose</strong> a padded plan, a decorative plan and an empty plan from what ran.</li>
+<li><strong>Compare</strong> LangGraph&rsquo;s <code>Send</code> with LCEL&rsquo;s map for failures and durability.</li>
+</ul>
+</blockquote>
+<p>Lesson 24.3 ran branches you wrote into the graph. Larkspur questions do not all have the same number of parts. <em>Can I export my data after I cancel my plan?</em> needs two answers: how to export, and how long data stays after cancellation. <em>How long does a refund take?</em> needs one. A fixed set of branches either wastes calls on the second question or misses half of the first.</p>
+<p><strong>Orchestrator-worker</strong> lets an orchestrator LLM decide, per input, how many subtasks there are and what each one covers. A worker runs once per subtask, and a final step merges the results.</p>
+<h3>A plan instead of fixed branches</h3>
+<p>The pattern looks like parallelization from outside. The difference is who decides the branches, and when:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -822,17 +1142,17 @@ print(sorted(result[&quot;sources&quot;]))
 <tr>
 <td>Branch identity</td>
 <td>known in advance (characters, setting, premise)</td>
-<td>generated (whatever sections this topic needs)</td>
+<td>generated (whatever sections this input needs)</td>
 </tr>
 <tr>
 <td>Graph shape</td>
-<td>static <code>add_edge</code> fan-out</td>
+<td>static fan-out edges</td>
 <td>one conditional edge returning a list of <code>Send</code></td>
 </tr>
 </tbody>
 </table></div>
-<p>A reducer combines a previous state value with a returned update. Here <code>operator.add</code> concatenates the workers&rsquo; result lists.</p>
-<p>The same graph is often called <strong>map-reduce</strong>: the plan is the list, the <code>Send</code> fan-out is the map, and the synthesizer is the reduce.</p>
+<p><em>Table 1: Fixed branches against a run-time plan.</em></p>
+<p>The same graph is often called <strong>map-reduce</strong>: the plan is the list, the fan-out maps one worker over it, and the synthesizer reduces the results to one answer:</p>
 <figure class="anim sheet" aria-labelledby="anim-send-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The Send fan-out, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 330" role="img" aria-labelledby="anim-send-title anim-send-desc">
@@ -886,38 +1206,147 @@ print(sorted(result[&quot;sources&quot;]))
     <li><button type="button" data-tok="600,258">Answer</button><span>The synthesizer reads the merged list and writes one reply.</span></li>
   </ol>
 </figure>
-<h3>Step 2: Follow a plan item into a worker</h3>
-<p>Trace the four parts of the implementation:</p>
-<ul>
-<li><strong>A plan with a variable length.</strong> The orchestrator calls <code>with_structured_output(ReportPlan)</code>, where <code>sections</code> is a <code>list[Section]</code>, each with a <code>name</code> and a <code>description</code>.</li>
-<li><strong>Dispatch from the plan.</strong> A normal conditional edge returns one node name. <code>assign_workers</code> returns a list, one <code>Send("llm_call", {"topic": ..., "section": section})</code> per planned section, and LangGraph starts that many runs of <code>llm_call</code>. The graph drawing shows the <code>orchestrator</code> to <code>llm_call</code> edge once, because the graph does not know the count until the orchestrator has run.</li>
-<li><strong>A narrow worker state.</strong> Each worker gets a <code>WorkerState</code> with the topic and its one section, and its prompt uses <code>section.description</code>. That is what makes the plan load-bearing.</li>
-<li><strong>A reducer for the results.</strong> <code>completed_sections</code> is <code>Annotated[list, operator.add]</code>, because an unknown number of workers write to it at once. The reference trace shows that the merged list follows the order the <code>Send</code>s were created, while <code>stream_mode="updates"</code> reports workers in the order they finish.</li>
-</ul>
-<p>Inspect dispatch with a hand-written plan before using a model to generate one. These <code>Send</code> objects describe worker tasks. This snippet does not execute them.</p>
-<pre class="sheet code"><code class="language-python">from langgraph.types import Send
-
-sections = [&quot;export instructions&quot;, &quot;retention after cancellation&quot;]
-workers = [Send(&quot;llm_call&quot;, {&quot;topic&quot;: &quot;cancel and export&quot;, &quot;section&quot;: section})
-           for section in sections]
-print(len(workers))
-print([worker.arg[&quot;section&quot;] for worker in workers])
-</code></pre>
-<p><strong>Expected output</strong></p>
-<pre class="sheet code"><code class="language-text">2
-['export instructions', 'retention after cancellation']
-</code></pre>
-<p>Replace the plan with <code>["refund timing"]</code> and inspect the list again. The dispatch count follows the plan rather than a fixed set of edges.</p>
-<h3>Step 3: Check that the plan drives execution</h3>
-<p>The reference implementation demonstrates two failure modes. The first is in the prompt: a planner told &ldquo;simple topics might need 2 sections, broad topics 5+&rdquo; answered with five sections, Introduction and Conclusion included, for every topic. Asking for one section per distinct question and banning padding sections let the plan size follow the input. The second is the anti-pattern of a plan nobody reads: the orchestrator runs, but five fixed workers wired with <code>add_edge</code> ignore its output. If the set of workers that ran is the same for every input while the plan changes, the plan does not drive execution. That graph is parallelization with a decorative LLM call in front.</p>
-<h3>Step 4: Choose the result and persistence model</h3>
-<p>LCEL can express the fan-out with <code>.map()</code> , with four gaps against <code>Send</code>:</p>
+<p><em>Figure 1: Orchestrator-worker. The dotted edge fires once per plan item, a number the graph learns only after the orchestrator runs.</em></p>
+<h3>From plan item to worker</h3>
+<p>Four pieces make the plan load-bearing:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A variable-length plan</strong></td>
+<td>The orchestrator returns structured output: a list of sections, each with a name and a description</td>
+<td>The list length is the number of workers</td>
+</tr>
+<tr>
+<td><strong>Dispatch from the plan</strong></td>
+<td>The conditional edge returns one <code>Send</code> per section, each naming the worker node and carrying its own payload</td>
+<td>A normal edge returns one node; this returns as many runs as the plan has items</td>
+</tr>
+<tr>
+<td><strong>A narrow worker state</strong></td>
+<td>Each worker sees the topic and its one section, and writes from that section&rsquo;s description</td>
+<td>The worker does what the plan asked, nothing else</td>
+</tr>
+<tr>
+<td><strong>A reducer for results</strong></td>
+<td>The results key concatenates lists, so any number of workers can write it in the same step</td>
+<td>Without it the parallel writes collide, as in 24.3</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The four pieces of a Send fan-out.</em></p>
+<p>A <strong><code>Send</code></strong> is an instruction to run a named node with a given input. The graph drawing shows the orchestrator-to-worker edge once, because the count is unknown until the plan exists.</p>
+<h3>Tracing dispatch</h3>
+<p>We ran a model-free graph of the same shape, with hand-written plans in place of the orchestrator&rsquo;s, in the LangGraph version this course pins (1.2.18):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Plan</th>
+<th><code>Send</code>s created</th>
+<th>Workers ran</th>
+<th>Synthesizer ran</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>export instructions; retention after cancellation</td>
+<td>2</td>
+<td>2</td>
+<td>yes</td>
+<td>both sections</td>
+</tr>
+<tr>
+<td>refund timing</td>
+<td>1</td>
+<td>1</td>
+<td>yes</td>
+<td>one section</td>
+</tr>
+<tr>
+<td>(empty)</td>
+<td>0</td>
+<td>0</td>
+<td><strong>no</strong></td>
+<td><strong>none, and no error</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Dispatch follows the plan, including when the plan is empty.</em></p>
+<p>The last row is a planted failure we call the <strong>silent empty plan</strong>. With nothing to dispatch, no worker runs, the synthesizer is never reached, and the run ends without an answer or an exception. A caller that only checks for errors sees success.</p>
+<h3>Finish order and merge order</h3>
+<p>Workers finish in whatever order their calls return, but the reducer does not merge them in that order. In the same model-free graph, an export worker took 0.3 s and a retention worker 0.05 s:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>View</th>
+<th>Order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Streamed updates, as workers finish</td>
+<td>retention, export</td>
+</tr>
+<tr>
+<td>Merged results key in the final state</td>
+<td>export, retention</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Completion order against merge order.</em></p>
+<p>The merged list follows the order the <code>Send</code>s were created, which is the plan order, so the final report reads in the planned order whichever worker finishes first. The notebook&rsquo;s own order check makes the same point.</p>
+<h3>Planted failures</h3>
+<p>Each guard answers one way the plan stops driving execution:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>What it looks like</th>
+<th>The guard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Padded plan</strong></td>
+<td>A planner told &ldquo;simple topics might need 2 sections, broad topics 5+&rdquo; returned five sections, Introduction and Conclusion included, for every topic</td>
+<td>Ask for one section per distinct question and ban padding sections</td>
+</tr>
+<tr>
+<td><strong>Decorative plan</strong></td>
+<td>The orchestrator plans, but five fixed workers wired with plain edges ignore it; the same five run for every input</td>
+<td>Dispatch one <code>Send</code> per plan item, and have each worker use its section&rsquo;s description</td>
+</tr>
+<tr>
+<td><strong>Silent empty plan</strong></td>
+<td>Table 3: no workers, no synthesizer, no answer, no error</td>
+<td>Decide in code what an empty plan returns</td>
+</tr>
+<tr>
+<td><strong>Runaway plan</strong></td>
+<td>A planner that splits one question into many sub-questions multiplies calls</td>
+<td>Cap the number of <code>Send</code>s in code, not only in the prompt</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Four ways the plan fails, and the guard for each.</em></p>
+<blockquote>
+<p><strong>Pitfall: the decorative plan.</strong> If the set of workers that ran is identical for every input while the plan changes, the plan drives nothing. That graph is parallelization with an extra LLM call in front.</p>
+</blockquote>
+<h3>Send compared with LCEL&rsquo;s map</h3>
+<p>LCEL can express the fan-out by mapping one runnable over the plan&rsquo;s list. It covers the shape, with four gaps:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th></th>
 <th>LangGraph <code>Send</code></th>
-<th>LCEL <code>.map()</code></th>
+<th>LCEL map</th>
 </tr>
 </thead>
 <tbody>
@@ -934,7 +1363,7 @@ print([worker.arg[&quot;section&quot;] for worker in workers])
 <tr>
 <td>One worker fails</td>
 <td>the graph can route around it</td>
-<td>the whole batch raises, unless you use <code>batch(..., return_exceptions=True)</code></td>
+<td>the whole batch raises and the good results are lost, unless failures are returned as values</td>
 </tr>
 <tr>
 <td>Durability</td>
@@ -943,79 +1372,202 @@ print([worker.arg[&quot;section&quot;] for worker in workers])
 </tr>
 </tbody>
 </table></div>
-<h3>Step 5: Bound the number of dispatched tasks</h3>
-<p>This is the shape of query decomposition (M17) and of the module lab: the orchestrator splits a Larkspur question into sub-questions, each worker retrieves and answers one, and the synthesizer writes the reply. <em>Can I export my data after I cancel my plan?</em> splits into &ldquo;how do I export?&rdquo; and &ldquo;what happens to my data after I cancel?&rdquo;, whose evidence is the <code>export</code> and <code>retention</code> chunks of the M10 golden set. <em>How long does a refund take?</em> should get a plan of one item. Bound the plan in code as well as in the prompt: a maximum number of <code>Send</code>s, a direct path for one-item plans, and a decision about what an empty plan returns.</p>
-<h3>Try it yourself</h3>
-<p>Write a two-item plan for exporting after cancellation and a one-item plan for refund timing. Check that <code>assign_workers</code> returns two <code>Send</code>s for the first and one for the second, and that each payload includes its own <code>section</code>. If both inputs always run five fixed workers, inspect the edges: the plan is not controlling dispatch. Also specify a maximum plan size and what an empty plan returns.</p>
-<h3>Practice notebook</h3>
-<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<p><em>Table 6: The same fan-out in two runtimes.</em></p>
+<p>The LCEL notebook plants a failing worker to show the third row: the mapped call raised and kept nothing, while a batch call that returns exceptions kept the successes and reported the failure.</p>
+<h2 id="in-practice-decomposing-the-export-question">In practice: decomposing the export question</h2>
+<p>This is the shape of query decomposition (M17) and of the module lab:</p>
+<ol>
+<li>The orchestrator splits <em>Can I export my data after I cancel my plan?</em> into &ldquo;how do I export?&rdquo; and &ldquo;what happens to my data after I cancel?&rdquo;.</li>
+<li>Two workers each retrieve and answer one sub-question. Their evidence is the <code>export</code> and <code>retention</code> chunks of the M10 golden set.</li>
+<li>The synthesizer writes one reply from both, in plan order.</li>
+<li><em>How long does a refund take?</em> gets a plan of one item; a one-item plan can skip the fan-out and answer directly.</li>
+<li>An empty plan returns a fixed reply instead of ending silently, and the plan size has a cap.</li>
+</ol>
+<p>Lesson 24.5 adds the last ingredient the patterns so far lack: a loop that goes back and tries again.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/04a_orchestrator_worker_send_api.ipynb" target="_blank" rel="noopener">Dynamic Send workers</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/optional/notebook/04b_orchestrator_worker_lcel_map.ipynb" target="_blank" rel="noopener">LCEL mapped workers</a> (optional).</li>
+<li><strong>Model-free traces.</strong> Tables 3 and 4 come from our own graph of the same shape with hand-written plans; the notebook&rsquo;s live planner was not rerun.</li>
+<li><strong>Padded plans from one model.</strong> The five-section result is the notebook&rsquo;s report for <code>gpt-4o-mini</code> with that prompt; other models pad differently.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>In orchestrator-worker an LLM decides at run time how many subtasks there are, and a conditional edge returns one <code>Send</code> per plan item. Merge the workers&rsquo; results with a reducer such as <code>operator.add</code>.</li>
-<li>Make the plan drive execution by giving each worker only its own section and using that section&rsquo;s description in its prompt. Fixed workers that ignore the plan waste the orchestrator call.</li>
-<li>Planner prompts tend to pad. One that suggested 2 to 5+ sections returned five for every topic. Ask for one section per distinct question, and cap the number of <code>Send</code>s in code.</li>
+<li>In orchestrator-worker an LLM decides at run time how many subtasks there are, and a conditional edge returns one <code>Send</code> per plan item. A reducer merges the results in plan order.</li>
+<li>Make the plan drive execution: each worker gets only its own section and writes from its description. Fixed workers that ignore the plan make it decorative.</li>
+<li>Guard the plan in code: ban padding in the prompt, cap the number of <code>Send</code>s, and decide what an empty plan returns, because it otherwise ends with no answer and no error.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Both orchestrator-worker and parallelization run several LLM calls at once and merge them. What separates them?</summary>
-<p>Who decides the branches. In parallelization you wrote them into the graph with a static <code>add_edge</code> fan-out. In orchestrator-worker an LLM decides at run time how many subtasks there are and what each covers, and one conditional edge returns a list of <code>Send</code>, one per plan item.</p>
+<p>Who decides the branches, and when. In parallelization you wrote them into the graph as fixed edges. In orchestrator-worker an LLM decides at run time how many subtasks there are and what each covers, and one conditional edge returns a list of Send, one per plan item.</p>
 </details>
 <details>
-<summary>2. How should the orchestrator plan the export-after-cancelling question and the refund-duration question?</summary>
-<p>The export question splits into &ldquo;how do I export?&rdquo; and &ldquo;what happens to my data after I cancel?&rdquo;, whose evidence is the <code>export</code> and <code>retention</code> chunks. The refund question should get a plan of one item. Bound the plan in code too: a maximum number of <code>Send</code>s, a direct path for one-item plans and a decision about what an empty plan returns.</p>
+<summary>2. The orchestrator returns an empty plan for a Larkspur question. What does the caller get, and what should you add?</summary>
+<p>No worker runs, the synthesizer is never reached, and the run ends with no answer and no error, so a caller that only checks for errors sees success. Decide in code what an empty plan returns, such as a direct answer or a fixed reply, and cap the plan size as well.</p>
 </details>
 <details>
 <summary>3. The orchestrator's plan changes with every topic, yet the same five workers run every time. What is wrong?</summary>
-<p>The plan drives nothing: five fixed workers wired with <code>add_edge</code> ignore the orchestrator&rsquo;s output, so the graph is parallelization with a decorative LLM call in front. Dispatch from the plan with one <code>Send</code> per section, and let each worker&rsquo;s prompt use its <code>section.description</code>.</p>
+<p>The plan drives nothing: five fixed workers wired with plain edges ignore the orchestrator&rsquo;s output, so the graph is parallelization with a decorative LLM call in front. Dispatch one Send per section, and have each worker write from its section&rsquo;s description.</p>
 </details>
 <h2 id="bounded-loops">Bounded loops</h2>
 <p class="lesson-of">Lesson 24.5: Evaluator-optimizer loops, always bounded: LangGraph vs LCEL. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/05a_evaluator_optimizer_langgraph.ipynb" target="_blank" rel="noopener"><code>05a_evaluator_optimizer_langgraph.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/05b_evaluator_optimizer_lcel.ipynb" target="_blank" rel="noopener"><code>05b_evaluator_optimizer_lcel.ipynb</code></a></p>
-<p>A Larkspur answer may cite the handbook but still promise a refund the policy does not allow. You want a reviewer to name that failure and let the generator revise it. You will trace this feedback, make the pass decision explicit, and prove that an always-rejecting reviewer cannot run forever.</p>
-<h3>Step 1: Define what a passing draft means</h3>
-<p>Evaluator-optimizer generates a draft, grades it against explicit criteria and feeds the critique into the next draft, until the grade passes. An extraction gate checks whether an intermediate result may proceed. This loop instead sends a critique back to the content generator. It pays off when two things hold: the criteria are clear, and feedback measurably improves the next attempt.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how an evaluator-optimizer loop feeds a critique back into the next draft.</li>
+<li><strong>Design</strong> criteria an evaluator can pass, with the verdict computed in code.</li>
+<li><strong>Prove</strong> that a loop ends when the evaluator never approves, and count its worst-case calls.</li>
+<li><strong>Choose</strong> where the loop lives: LangGraph, a Python loop around LCEL, or agent middleware.</li>
+</ul>
+</blockquote>
+<p>Lessons 24.1 to 24.4 all run forward: every step happens once, or a fixed number of times. The 24.1 gate could retry, but it only re-ran extraction blind. This lesson&rsquo;s pattern sends the reason for a rejection back to the step that can fix it.</p>
+<p>A Larkspur answer can cite the handbook and still promise a refund the policy does not allow. A reviewer that names that problem, and a generator that revises with the review in hand, can catch it. The risk is a reviewer that never says yes.</p>
+<h3>Generate, evaluate, revise</h3>
+<p><strong>Evaluator-optimizer</strong> generates a draft, grades it against explicit criteria and feeds the critique into the next draft, until the grade passes or a cap is reached. The 24.1 gate decided whether a result may proceed; this loop sends feedback to the generator. It pays off when two things hold: the criteria are clear, and feedback measurably improves the next attempt.</p>
+<p>The lesson&rsquo;s loop writes a short joke about agentic AI:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     T[/Topic/] --&gt; G["Generate&lt;br/&gt;or revise"] --&gt; E["Evaluate&lt;br/&gt;4 criteria + length"] --&gt; R{Router}
     R -- approved --&gt; F[/Final draft/]
     R -- "needs work,&lt;br/&gt;under 5 drafts" --&gt; G
     R -- "5 drafts" --&gt; C[/"Last draft,&lt;br/&gt;needs_improvement"/]
 </pre></figure>
-<p>The evaluator is only as useful as its criteria. An initial version of the experiment asked for one holistic grade against loose criteria such as &ldquo;is it genuinely funny?&rdquo;, and with <code>gpt-4o-mini</code> the loop almost never converged: the evaluator kept finding something that could be better. The bounded version changes three things:</p>
-<ul>
-<li><strong>One boolean per criterion.</strong> <code>JokeReview</code> asks four yes-or-no questions: a clear punchline, a punchline that depends on agentic AI specifically, no stock template, appropriate. A met criterion passes even if the joke could be better.</li>
-<li><strong>Code checks what code can check.</strong> Length is <code>len(joke.split()) &lt;= MAX_WORDS</code> with <code>MAX_WORDS = 40</code>, not an LLM judgement.</li>
-<li><strong>The verdict is computed.</strong> <code>approved</code> only when every criterion and the length check pass. The model never asserts the grade itself, and <code>improvement_feedback</code> names a fix for each failed criterion.</li>
-</ul>
-<h3>Step 2: Pass the critique into the next draft</h3>
-<p>The generator runs at temperature 0.7 so a revision can differ from the draft before it, and the evaluator at 0 to reduce grading variation. It can still assign different grades to the same draft, so measure that variation rather than assuming determinism. Later passes receive the previous draft plus the feedback, so they revise instead of starting over.</p>
-<h3>Step 3: Prove that rejection reaches the cap</h3>
-<p>A structured verdict does not guarantee the evaluator will ever approve. So the router checks a cap: approved ends the run, <code>iteration &gt;= MAX_ITERATIONS</code> (5) ends it too, anything else loops back. The deterministic cap test uses with a stub reviewer that rejects every draft. Without the <code>iteration_cap_reached</code> branch that cell would never finish. The cap also bounds cost: each pass is one generator call and one evaluator call, so a run makes at most ten.</p>
-<p>The router can be tested without a generator or judge. This is the reference stopping rule with a plain dictionary annotation for the small example.</p>
-<pre class="sheet code"><code class="language-python">MAX_ITERATIONS = 5
-
-def determine_next_action(state: dict) -&gt; str:
-    if state[&quot;quality_assessment&quot;] == &quot;approved&quot;:
-        return &quot;content_approved&quot;
-    if state[&quot;iteration&quot;] &gt;= MAX_ITERATIONS:
-        return &quot;iteration_cap_reached&quot;
-    return &quot;content_needs_refinement&quot;
-
-for iteration in [1, 5]:
-    print(determine_next_action({&quot;quality_assessment&quot;: &quot;needs_improvement&quot;,
-                                 &quot;iteration&quot;: iteration}))
-print(determine_next_action({&quot;quality_assessment&quot;: &quot;approved&quot;, &quot;iteration&quot;: 5}))
-</code></pre>
-<p><strong>Expected output</strong></p>
-<pre class="sheet code"><code class="language-text">content_needs_refinement
-iteration_cap_reached
-content_approved
-</code></pre>
-<p>Approval is checked first. A rejected fifth draft ends at the cap. An approved fifth draft ends as approved. Neither case starts a sixth draft.</p>
-<h3>Step 4: Compare the three loop bounds</h3>
-<p>The bound can live in three places, one per implementation:</p>
+<p><em>Figure 1: The bounded loop. Approval ends it, and so does the fifth draft.</em></p>
+<p>The generator runs at temperature 0.7, so a revision can differ from the draft before it. The evaluator runs at 0 to keep grading as consistent as possible, though the same draft can still get a different grade on another call. From the second pass on, the generator receives the previous draft and the feedback, so it revises instead of starting over.</p>
+<h3>Criteria an evaluator can pass</h3>
+<p>The evaluator is only as useful as its criteria. A first version of the notebook asked for one holistic grade against loose criteria such as &ldquo;is it genuinely funny?&rdquo;, and with <code>gpt-4o-mini</code> the loop almost never converged: the evaluator kept finding something that could be better. We call this the <strong>moving bar</strong>. The bounded version changes three things:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Change</th>
+<th>In the reference loop</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>One yes-or-no per criterion</strong></td>
+<td>clear punchline; a punchline that depends on agentic AI specifically; no stock template; appropriate</td>
+<td>A met criterion passes even when the joke could be better</td>
+</tr>
+<tr>
+<td><strong>Code checks what code can check</strong></td>
+<td>Length is a word count of at most 40, computed in code</td>
+<td>A model should not be asked to count</td>
+</tr>
+<tr>
+<td><strong>The verdict is computed</strong></td>
+<td><em>approved</em> only when every criterion and the length check pass; otherwise <em>needs improvement</em>, with one fix named per failed criterion</td>
+<td>The model never asserts the grade itself</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: From a holistic grade to computed criteria.</em></p>
+<h3>Proving the loop stops</h3>
+<p>A structured verdict does not guarantee the evaluator will ever approve. So the router checks two things in order: approval first, then the iteration count against a cap of 5. We ran the reference stopping rule on four states:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Grade</th>
+<th>Iteration</th>
+<th>Router returns</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>needs improvement</td>
+<td>1</td>
+<td>refine</td>
+<td>the generator revises with the feedback</td>
+</tr>
+<tr>
+<td>needs improvement</td>
+<td>5</td>
+<td>cap reached</td>
+<td>the run ends with the last draft, marked <em>needs improvement</em></td>
+</tr>
+<tr>
+<td>approved</td>
+<td>5</td>
+<td>approved</td>
+<td>the run ends with the draft</td>
+</tr>
+<tr>
+<td>approved</td>
+<td>2</td>
+<td>approved</td>
+<td>the run ends early</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The router&rsquo;s decisions. Approval is checked first, and no state starts a sixth draft.</em></p>
+<p>The notebook proves the cap on a live generator with a stub reviewer that rejects every draft and makes no LLM call. Without the cap branch, that cell would never finish. With it, the run ends after five drafts.</p>
+<p>The cap also bounds cost. Each pass is one generator call and one evaluator call:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Passes</th>
+<th>LLM calls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Approved on the first draft</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Approved on the third draft</td>
+<td>3</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Never approved</td>
+<td>5</td>
+<td>10, the worst case</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Calls per run under a cap of 5.</em></p>
+<h3>Planted failures</h3>
+<p>Each guard has a case that shows why it is there:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted failure</th>
+<th>What happens</th>
+<th>The guard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The moving bar: one holistic grade</td>
+<td>The loop almost never converges</td>
+<td>Yes-or-no criteria, verdict computed in code</td>
+</tr>
+<tr>
+<td>A reviewer that rejects everything</td>
+<td>Without a cap, the loop never ends</td>
+<td>The router&rsquo;s iteration cap</td>
+</tr>
+<tr>
+<td>A model asked to count words</td>
+<td>Length checks drift</td>
+<td>A word count in code</td>
+</tr>
+<tr>
+<td>A cap set only by the framework</td>
+<td>The pinned LangGraph&rsquo;s default recursion limit is 10,007 steps, about 5,000 passes</td>
+<td>The cap in the router; an explicit recursion limit as a second net, as 24.1 sets</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: One planted case per guard.</em></p>
+<blockquote>
+<p><strong>Pitfall: the capped success.</strong> A run that ends at the cap returns a draft that did not pass. Count it as a failure, and watch the share of runs that end there: it rises when criteria drift or a new evaluator model is stricter than the old one.</p>
+</blockquote>
+<h3>Where the bound lives</h3>
+<p>The bound sits in a different place in each implementation:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1027,90 +1579,131 @@ content_approved
 <tbody>
 <tr>
 <td>LangGraph</td>
-<td>a conditional edge back to <code>generate_content</code></td>
-<td><code>MAX_ITERATIONS</code> checked in the router, with LangGraph&rsquo;s <code>recursion_limit</code> as a backstop</td>
+<td>a conditional edge back to the generator</td>
+<td>the iteration cap checked in the router</td>
 </tr>
 <tr>
 <td>LCEL plus Python</td>
 <td>a <code>for</code> loop around two chains</td>
-<td><code>range(1, MAX_ITERATIONS + 1)</code></td>
+<td>the loop&rsquo;s range, 1 to the cap</td>
 </tr>
 <tr>
-<td><code>create_agent</code> middleware</td>
-<td><code>after_model</code> returning <code>jump_to="model"</code></td>
-<td><code>ModelCallLimitMiddleware(run_limit=5, exit_behavior="end")</code></td>
+<td>Agent middleware</td>
+<td>a hook after each model call that jumps back to the model</td>
+<td>a model-call limit of 5 that ends the run</td>
 </tr>
 </tbody>
 </table></div>
-<p>A run that ends at the cap returns the last draft marked <code>needs_improvement</code>, so count it as a failure. Watch the share of runs that end there. It rises when the criteria drift, or when a new evaluator model is stricter than the old one.</p>
-<p>For Larkspur, an answer-quality check is the natural evaluator, written as booleans: does the reply cite a handbook chunk, does it state the refund window the chunk states, does it avoid promising anything the handbook does not say, and is it under a length limit counted in code. CRAG (M29) applies the same loop to retrieval: grade the documents, rewrite the query, try again, within a bound.</p>
+<p><em>Table 5: Three homes for the same bound.</em></p>
+<p>For Larkspur, an answer-quality check is the natural evaluator, written as yes-or-no criteria: does the reply cite a handbook chunk, does it state the refund window the chunk states, does it avoid promising anything the handbook does not say, and is it under a length limit counted in code. CRAG (M29) applies the same loop to retrieval: grade the documents, rewrite the query, try again, within a bound.</p>
 <h2 id="where-lcel-stops">Where LCEL stops</h2>
-<h3>Step 1: Distinguish a cycle from a longer chain</h3>
-<p>LCEL, the LangChain Expression Language, composes runnable steps into a flow. Every earlier pattern is a directed acyclic flow, so each maps onto an LCEL operator. This one has a cycle, and LCEL has no operator for &ldquo;go back and try again until a predicate passes&rdquo;. <code>a | b | a</code> does not loop: it builds a three-step chain that runs <code>a</code> twice. <code>.with_retry()</code> comes close but retries blind, with no memory of why the last attempt failed, and feeding the critique forward is the point of the pattern.</p>
+<p><strong>LCEL</strong>, the LangChain Expression Language, composes runnable steps into a flow. Every earlier M24 pattern is a flow without cycles, so each maps onto an LCEL building block. This one has a cycle, and LCEL has no block for &ldquo;go back and try again until a check passes&rdquo;:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Pattern</th>
-<th>LangChain 1.x primitive</th>
+<th>LangChain 1.x building block</th>
 <th>Full coverage</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Prompt chaining</td>
-<td><code>\|</code> plus <code>.with_retry()</code> plus <code>.with_fallbacks()</code></td>
+<td>the pipe, plus retry and fallback wrappers</td>
 <td>yes</td>
 </tr>
 <tr>
 <td>Routing</td>
-<td><code>RunnableBranch</code></td>
+<td>a branch runnable</td>
 <td>yes</td>
 </tr>
 <tr>
 <td>Parallelization</td>
-<td><code>RunnableParallel</code></td>
+<td>a parallel runnable</td>
 <td>yes</td>
 </tr>
 <tr>
 <td>Orchestrator-worker</td>
-<td><code>.map()</code></td>
+<td>mapping a runnable over a list</td>
 <td>the fan-out; shared state and per-worker durability need <code>Send</code></td>
 </tr>
 <tr>
 <td>Evaluator-optimizer</td>
-<td>a Python loop, or <code>after_model</code> plus <code>jump_to</code></td>
-<td>yes</td>
+<td>a Python loop, or a middleware hook that jumps back to the model</td>
+<td>yes, outside LCEL itself</td>
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Choose the runtime around the loop</h3>
-<p>Choosing between the two LangChain loops comes down to what you need around the loop. The Python <code>for</code> loop is easy to read and returns a dict you shaped, but traces each pass as separate chain runs and has no streaming, checkpointing or interrupts. The middleware loop is one agent run with every pass nested, keeps the full message history as its state, and inherits tools, streaming and persistence from the agent runtime. Two details matter there: <code>can_jump_to=["model"]</code> on the decorator is what creates the conditional edge, and the critique reaches the next draft as an appended <code>HumanMessage</code>. When the loop needs checkpoints, interrupts or a human in it, that is the point to move to LangGraph.</p>
-<h3>Try it yourself</h3>
-<p>Replace the evaluator with a stub that rejects every draft. Check that the fifth draft terminates with <code>needs_improvement</code> and that at most ten generator-and-evaluator calls occur. Then make the evaluator approve an earlier draft. Check that approval stops the loop before the cap. Reaching the cap is a bounded failure, not a quality pass.</p>
-<h3>Practice notebook</h3>
-<p>Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.</p>
+<p><em>Table 6: The five patterns and their LCEL coverage.</em></p>
+<p>Two tempting shortcuts fail:</p>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/05a_evaluator_optimizer_langgraph.ipynb" target="_blank" rel="noopener">A bounded review graph</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/notebook/05b_evaluator_optimizer_lcel.ipynb" target="_blank" rel="noopener">Review loops in LCEL</a>.</li>
+<li><strong>Piping generator, evaluator, generator</strong> builds a three-step chain that runs the generator twice. It never loops.</li>
+<li><strong>A retry wrapper</strong> re-runs a step blind, with no memory of why the last attempt failed. Feeding the critique forward is the point of the pattern.</li>
+</ul>
+<h3>Choosing the runtime around the loop</h3>
+<p>The two LangChain loops differ in what surrounds them:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>Python loop around LCEL</th>
+<th>Agent middleware</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reads as</td>
+<td>a plain <code>for</code> loop</td>
+<td>one agent run with every pass nested</td>
+</tr>
+<tr>
+<td>State</td>
+<td>a dict you shape</td>
+<td>the full message history</td>
+</tr>
+<tr>
+<td>Tracing</td>
+<td>each pass as separate chain runs</td>
+<td>one run</td>
+</tr>
+<tr>
+<td>Streaming, persistence</td>
+<td>none</td>
+<td>inherited from the agent runtime</td>
+</tr>
+<tr>
+<td>How the critique arrives</td>
+<td>passed into the next prompt</td>
+<td>appended to the conversation as a user message</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 7: Two ways to loop without LangGraph.</em></p>
+<p>In the middleware version the hook must declare that it may jump back to the model; that declaration is what creates the conditional edge. When the loop needs checkpoints, interrupts or a human in it, move it to LangGraph.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No recorded convergence counts.</strong> The notebooks ship without outputs, so how many passes a real joke needed is not measured here; the &ldquo;almost never converged&rdquo; result is the notebook&rsquo;s own report on its first version.</li>
+<li><strong>Model-free router trace.</strong> Table 2 runs the reference stopping rule on hand-set states, not a live loop.</li>
+<li><strong>One task.</strong> Jokes are a cheap stand-in; Larkspur criteria were not run.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Evaluator-optimizer feeds a critique into the next draft until the grade passes. Use it only when the criteria are clear and feedback measurably improves the next attempt.</li>
-<li>Grade with one boolean per criterion, check length in code and compute <code>approved</code> from the checks. A single holistic grade with <code>gpt-4o-mini</code> almost never converged.</li>
-<li>Cap every loop and count a run that hits the cap as a failure. LCEL cannot express the cycle, so use a Python loop or middleware, and move to LangGraph when you need checkpoints or interrupts.</li>
+<li>Grade with one yes-or-no per criterion, check length in code and compute the verdict from the checks. A single holistic grade becomes a moving bar the loop rarely clears.</li>
+<li>Cap every loop in your own code, count a run that hits the cap as a failure, and do not rely on the framework&rsquo;s default limit. LCEL cannot express the cycle, so use a Python loop or middleware, and LangGraph when you need checkpoints or interrupts.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Why did replacing one holistic grade with one boolean per criterion make the joke loop converge?</summary>
-<p>Against a loose holistic grade the evaluator kept finding something that could be better. With four yes-or-no criteria, a met criterion passes even if the joke could improve, length is checked in code (<code>MAX_WORDS = 40</code>), and <code>approved</code> is computed only when every check passes, so the model never asserts the grade itself.</p>
+<summary>1. Why did replacing one holistic grade with one yes-or-no per criterion make the joke loop converge?</summary>
+<p>Against a loose holistic grade the evaluator kept finding something that could be better, a moving bar. With yes-or-no criteria, a met criterion passes even if the joke could improve, length is counted in code, and approval is computed only when every check passes, so the model never asserts the grade itself.</p>
 </details>
 <details>
 <summary>2. With a cap of 5 iterations, how many LLM calls can one run make at most, and how should you count a run that hits the cap?</summary>
-<p>Ten, because each pass makes one generator call and one evaluator call. A run that ends at the cap returns its last draft marked <code>needs_improvement</code>, so count it as a failure and watch the share of runs that end there.</p>
+<p>Ten, because each pass makes one generator call and one evaluator call. A run that ends at the cap returns its last draft marked needs improvement, so count it as a failure and watch the share of runs that end there.</p>
 </details>
 <details>
 <summary>3. A teammate builds the loop in LCEL by piping generator, evaluator and generator again, or by adding a retry. Why does neither work?</summary>
-<p><code>a | b | a</code> builds a three-step chain that runs <code>a</code> twice. It never loops. <code>.with_retry()</code> retries blind, with no memory of why the last attempt failed, and feeding the critique forward is the point of the pattern. Use a Python <code>for</code> loop or <code>after_model</code> with <code>jump_to</code>, and move to LangGraph when the loop needs checkpoints or interrupts.</p>
+<p>Piping builds a three-step chain that runs the generator twice; it never loops. A retry re-runs a step blind, with no memory of why the last attempt failed, while feeding the critique forward is the point of the pattern. Use a Python loop or a middleware hook that jumps back to the model, and move to LangGraph when the loop needs checkpoints or interrupts.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="03_parallelization_sectioning_and_voting/interactive/fan-out-lab.html"><strong>Fan-out and the concurrency cap</strong></a>: open the file in a browser. Keep <em>Story sections</em> and drag the cap from 3 to 1 to watch the wall time grow from 10.6 s to 16.9 s. Set it to 2: the wall time goes back to 10.6 s, because the two short branches share one slot. Then pick <em>Fastest first</em> at a cap of 2 and see it rise to 12.2 s, because the slowest branch now waits for a slot.</p>
@@ -1168,7 +1761,7 @@ content_approved
 <li>Measure a router against both of its baselines, and bias it toward the error that costs money rather than the one that costs correctness.</li>
 <li>Every loop has a cap in code, and hitting the cap is a metric. A fan-out costs its slowest branch, so time branches one by one before tuning any of them.</li>
 </ul></article>
-    <nav class="toc" aria-label="M24 sections"><details open><summary>In M24</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#workflow-vs-agent">Workflow vs agent</a></li><li><a href="#quality-gates">Quality gates</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-by-handler">Routing by handler</a></li><li><a href="#routing-by-model-tier">Routing by model tier</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#fan-out--fan-in">Fan-out / fan-in</a></li><li><a href="#sectioning-and-voting">Sectioning and voting</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dynamic-fan-out-with-send">Dynamic fan-out with Send</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bounded-loops">Bounded loops</a></li><li><a href="#where-lcel-stops">Where LCEL stops</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M24 sections"><details open><summary>In M24</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#workflow-vs-agent">Workflow vs agent</a></li><li><a href="#quality-gates">Quality gates</a></li><li><a href="#in-practice-the-larkspur-refund-ticket">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-by-handler">Routing by handler</a></li><li><a href="#routing-by-model-tier">Routing by model tier</a></li><li><a href="#in-practice-the-45-day-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#fan-out--fan-in">Fan-out / fan-in</a></li><li><a href="#sectioning-and-voting">Sectioning and voting</a></li><li><a href="#in-practice-larkspurrsquos-outage-reply">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dynamic-fan-out-with-send">Dynamic fan-out with Send</a></li><li><a href="#in-practice-decomposing-the-export-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#bounded-loops">Bounded loops</a></li><li><a href="#where-lcel-stops">Where LCEL stops</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

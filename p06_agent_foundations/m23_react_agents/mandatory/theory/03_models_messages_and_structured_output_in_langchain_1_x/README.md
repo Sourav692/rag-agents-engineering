@@ -1,14 +1,58 @@
 # M23.3 Theory: Models, messages and structured output in LangChain 1.x
 
 *[M23 theory](../README.md) · Lesson 23.3 · Notebooks: [`03c_structured_output.ipynb`](../../notebook/03c_structured_output.ipynb), [`03a_model_integration.ipynb`](../../../optional/notebook/03a_model_integration.ipynb) (optional), [`03b_messages.ipynb`](../../../optional/notebook/03b_messages.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: What crosses the model boundary in each direction, and how to get fields a program can check instead of prose -->
+
+## Messages: what the model sees
+
+> **What you'll learn**
+>
+> - **Explain** the four message types and why the message list is the model's whole context.
+> - **Read** an agent's trace, including the AI message that looks empty.
+> - **Choose** where to attach an output schema: on a model or on an agent.
+> - **Diagnose** schema styles that drop a field's description or force the model to invent a value.
+
+Lesson 23.2 handed the loop to a factory that takes message lists in and gives message lists out. This lesson looks at both sides of that boundary: the messages that go into a model, and the shape of what comes back.
+
+Larkspur's ticket queue needs three fields from every support conversation: a category, a priority and a refund amount when there is one. The agent's last message is a paragraph. Getting the fields out of it with string matching breaks the first time the model adds a preamble, and a refund question with no amount invites the model to write one anyway.
+
+### Four message types
+
+A **message** is the unit of context: one turn's content plus the metadata that says who wrote it. The list you pass is everything the model sees, and an agent run is that list growing:
+
+| Type | Written by | Carries |
+|---|---|---|
+| System message | You | The role and rules, sent first |
+| Human message | The user | The question, with optional metadata such as a name and an id |
+| AI message | The model | Text, tool calls, or both, plus token usage |
+| Tool message | Your tool node | One tool's result, tied to the call by its id |
+
+*Table 1: The message types and their jobs.*
+
+The recorded weather agent shows a trace that looks broken when printed as text:
+
+| # | Message | Content | Tool calls |
+|---|---|---|---|
+| 0 | Human | What is the weather like in New York? | |
+| 1 | AI | *(empty)* | Weather lookup for New York |
+| 2 | Tool | The weather in New York is sunny. | |
+| 3 | AI | The weather in New York is sunny. | |
+
+*Table 2: Four messages from one agent run. The empty AI message is the tool call.*
+
+Message 1 is the **empty-looking tool call**: when the model only calls a tool, its text is empty and the payload sits in the tool calls. Some providers add a short preamble beside the call, so an AI message can carry text, a call, both or neither. Print both fields when you debug a run.
+
+Every AI message also reports its token usage, split into input and output because the two are billed at different rates. A short exchange in the recorded messages notebook used 47 input and 8 output tokens.
+
+### One interface for every provider
+
+LangChain's model initializer builds a chat model from a string such as a provider prefix and a model name, so switching from OpenAI to Gemini or Groq is a one-string change and everything downstream (invoke, stream, batch, tool binding) stays the same. Provider classes remain for settings only one provider has.
+
+Streaming changes when the user sees text, not how much is generated. In one recorded run, the streamed answer showed its first words after 0.56 s and finished after 1.90 s; a separate non-streamed call returned its whole answer after 3.42 s. The two calls generated different text, so only the first-word time is a fair comparison.
 
 ## Structured output
 
-A Larkspur ticket queue needs fields it can validate, such as category and an optional refund amount. Prose alone is hard to route reliably. You will choose where to attach an output schema, inspect what it returns, and distinguish a missing value from a fabricated one.
-
-### Step 1: Choose where the schema is applied
-
-An agent's last message is prose. When the next consumer is code (a ticket queue, a database row, a judge's score), ask for a schema instead. A structured-output integration sends a machine-readable schema, using a provider-supported mechanism such as native structured output or tool calling. Confirm which mechanism your model supports and handle validation failures.
+**Structured output** means asking the model for a reply that matches a schema instead of free text. The schema goes to the provider as a machine-readable description, and the provider constrains the reply to it through native structured output or a tool call, depending on what the model supports.
 
 There are two places to attach a schema:
 
@@ -20,97 +64,97 @@ flowchart TD
     R --> O2["result['structured_response']<br/>plus result['messages']"]
 ```
 
-- **On a model.** `llm.with_structured_output(Movie)` returns a new runnable; `llm` itself is unchanged. Its `invoke()` returns a `Movie` instead of an `AIMessage`. The judge in lesson 23.1 is built this way, so its scores are fields rather than sentences.
-- **On an agent.** `create_agent(model=llm, response_format=ContactInfo)` runs the agent as usual and adds `structured_response` to the result state, next to `messages`. It selects `ProviderStrategy` where the provider supports native structured output.
+*Figure 1: The same schema on a model or on an agent.*
 
-### Step 2: Compare returned values and validation
+- **On a model.** Wrapping a model with a schema returns a new runnable whose result is an instance of the schema; the original model is unchanged. The judge in lesson 23.1 is built this way, so its scores arrive as fields.
+- **On an agent.** Passing a schema as the agent's response format runs the loop as usual and adds a structured response next to the messages in the result. The recorded contact-extraction agent returned both keys, with the name, email and phone filled in.
 
-The three schema styles differ in what they check:
+The same question asked both ways shows the difference:
 
-| Style | Returns | Validation | Optional field |
+| Call | Returned | What the program gets |
+|---|---|---|
+| Plain model call: *Provide details about the movie Inception* | An AI message | A paragraph with a plot summary to parse |
+| Same call with a four-field movie schema | A movie instance | Title Inception, year 2010, director Christopher Nolan, rating 8.8 |
+| Same, keeping the raw message | Raw message, parsed instance, parsing error | The instance, no error, and token usage: 119 input, 22 output, 141 total |
+
+*Table 3: One prompt, three return shapes, recorded runs.*
+
+Keeping the raw message costs nothing and gives two things in production: the token counts for cost tracking, and a parse failure as a value to branch on instead of an exception that ends the request.
+
+### Three schema styles
+
+| Style | Returns | Validates types | Optional field with a description |
 |---|---|---|---|
-| Pydantic `BaseModel` | an instance | yes, raises on a wrong type | `budget: float \| None = Field(None, description=...)` |
-| `TypedDict` | a plain `dict` | none | `Annotated[float \| None, None, "description"]` |
-| `@dataclass` | an instance | none | |
+| Pydantic model | An instance | Yes, raises on a wrong type | A default of none plus a field description |
+| Typed dictionary | A plain dict | No | The middle slot of an annotation holds the default |
+| Dataclass | An instance | No | |
 
-Choose Pydantic when the data crosses a trust boundary: if a provider returns a nonnumeric string where you declared an `int`, Pydantic raises and `TypedDict` hands you the string. In the tested schema conversion, there are two `TypedDict` traps: `= Field(...)` inside a `TypedDict` is silently discarded, so the field stays required and its description never reaches the model. `NotRequired[...]` is rejected by LangChain's schema converter (`TypeError: NotRequired accepts only a single type`). Use the middle slot of `Annotated` for the default.
+*Table 4: What each style checks.*
 
-### Step 3: Inspect descriptions and missing values
+Choose Pydantic when the data crosses a trust boundary. If a provider returns text where you declared a number, Pydantic raises and a typed dictionary hands you the text.
 
-Three details matter in production:
+### Planted failures in the schema
 
-- **Descriptions are prompt text.** `Field(description="The movie's rating out of 10")` tells the model the scale. Without it the model guesses one.
-- **Optional fields allow missing values.** A field the source may not contain (a budget, a refund amount on a question that has none) should be optional with a `None` default, so the schema does not require a number when the source has none. This permits abstention. It does not guarantee factual correctness.
-- **`include_raw=True`** returns `{"raw", "parsed", "parsing_error"}`. You keep the `AIMessage` with its `usage_metadata` (119 input and 22 output tokens for the recorded four-field `Movie`), and a parse failure becomes a value you can branch on instead of an exception.
+Each row was checked offline against the schema converter and validator installed in this repository:
 
-Test missing and invalid values locally. This Pydantic check needs no model and makes the optional-field behaviour observable.
+| What was declared | What happened | Why |
+|---|---|---|
+| Pydantic refund amount, optional, given nothing | Accepted as none | The default allows a missing value |
+| Pydantic refund amount, given the text "unknown" | Rejected with a float-parsing error | The value cannot be a number |
+| Pydantic refund amount, given the text "42.5" | Accepted as 42.5 | Default validation coerces compatible values unless strict types are requested |
+| Typed dictionary field with a Pydantic-style default and description | Schema lists the field as required, with no description | The assignment is silently discarded inside a typed dictionary |
+| Typed dictionary field marked not-required | Type error from the schema converter | The converter rejects that marker |
+| Typed dictionary field with the default in the annotation's middle slot | Optional, description present | The spelling the converter understands |
 
-```python
-from pydantic import BaseModel, ValidationError
+*Table 5: Six declarations and what the schema or validator did.*
 
-class Ticket(BaseModel):
-    refund_amount: float | None = None
+The fourth row is the **silent default**: the code reads as optional and documented, and the model receives a required field with no description.
 
-print(Ticket().model_dump())
-try:
-    Ticket(refund_amount="unknown")
-except ValidationError as error:
-    print(error.errors()[0]["type"])
-```
+> **Pitfall: the forced number.** A ticket schema with a required refund amount makes the model write a number for every conversation, including those that mention no refund. Make the field optional with a default of none, so zero and "no refund" stay distinct. An optional field permits abstention; it does not check that a number the model does write is true.
 
-**Expected output**
+### Descriptions and capability
 
-```text
-{'refund_amount': None}
-float_parsing
-```
+Field descriptions reach the model as part of the schema, so they are prompt text: "the movie's rating out of 10" tells the model the scale it would otherwise guess. Before switching models, check that the new one supports structured output. LangChain 1.1 added a capability profile per model, sourced from the open models.dev data; for the course's default model it reports structured output and tool calling as supported and a 128,000-token input limit.
 
-Pydantic permits the absent amount but rejects a nonnumeric string. Its default validation can coerce compatible values, such as a numeric string, unless strict types are requested.
+## In practice: Larkspur's ticket fields
 
-### Step 4: Check capability and raw parsing results
+1. Declare a Pydantic ticket schema: a category from a fixed list, a priority, and a refund amount that is optional with a default of none, each with a description written as an instruction (units, allowed values).
+2. Pass it as the support agent's response format and read the structured response, so the loop still runs its tools first.
+3. Where a model is called directly, keep the raw message, log parse failures and token usage, and branch on the error instead of catching it.
+4. Check the capability profile before swapping in a different model.
 
-Not every model supports structured output. `llm.profile` (LangChain 1.1) reports capabilities from the open `models.dev` data. For `gpt-4o-mini` it lists `structured_output: true`, `tool_calling: true` and `max_input_tokens: 128000`. Branch on it rather than guessing.
+## Limits of this evidence
 
-The underlying model and message APIs explain what travels through this boundary. `init_chat_model` builds a model for any provider behind one interface, with streaming and batching. Messages are the unit of context: `SystemMessage`, `HumanMessage`, `AIMessage` and `ToolMessage`, and the list you pass is all the model sees. An `AIMessage` that asks for a tool usually has `content=""` and carries the call in `.tool_calls`, so print both when you debug a run.
-
-### Try it yourself
-
-Compare a required `refund_amount: float` with `refund_amount: float | None = None` for a ticket that never mentions a refund. Check that `None` is allowed by the second schema. Then send a nonnumeric string and confirm that Pydantic raises a validation error. A permitted missing value and a supported factual value are different checks.
-
-### Practice notebook
-
-Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
-
-- [Structured output](../../notebook/03c_structured_output.ipynb).
-- [Model integration](../../../optional/notebook/03a_model_integration.ipynb) (optional).
-- [Message types](../../../optional/notebook/03b_messages.ipynb) (optional).
+- **One model.** The movie and contact runs used one small OpenAI model; another provider may use a different mechanism to enforce the schema.
+- **Live answers.** The movie fields and the rating come from the model's own knowledge, recorded once; the planted failures in Table 5 are deterministic.
+- **Timings from single runs.** The streaming numbers are one run each and depend on load.
 
 ## Key Takeaways
 
-- Ask for a schema when code consumes the output. `with_structured_output()` makes a model return a schema instance, and `response_format=` adds `structured_response` to an agent's result next to `messages`.
-- Use Pydantic when data crosses a trust boundary, because it validates types and `TypedDict` does not. Inside a `TypedDict`, `= Field(...)` is silently dropped.
-- Field descriptions are prompt text, and optional fields with a `None` default allow missing values. `include_raw=True` keeps token usage and turns a parse failure into a value you can branch on.
+- The message list is everything the model sees. An AI message that calls a tool usually has empty text, with the payload in its tool calls, so debug with both fields.
+- Ask for a schema when code consumes the output: on a model it returns a schema instance, on an agent it adds a structured response next to the messages. Keep the raw message for token usage and parse errors.
+- Use Pydantic when data crosses a trust boundary, write field descriptions as instructions, and make fields optional when the source may not contain them. Inside a typed dictionary, a Pydantic-style default is silently dropped.
 
 ## Check yourself
 
 <details>
-<summary>1. When should a structured-output schema be a Pydantic model rather than a TypedDict?</summary>
+<summary>1. When should a structured-output schema be a Pydantic model rather than a typed dictionary?</summary>
 
-When the data crosses a trust boundary. Pydantic returns an instance and raises if the provider sends a nonnumeric string where you declared an `int`. A `TypedDict` returns a plain `dict` with no validation and hands you the string.
-
-</details>
-
-<details>
-<summary>2. A ticket schema has a required refund amount, and the model writes a number even for questions that mention no refund. What schema change allows a missing amount?</summary>
-
-Make the field optional with a `None` default, for example `refund_amount: float | None = Field(None, description=...)`. A required field forces the model to write a value, while an optional one lets it leave a missing fact empty.
+When the data crosses a trust boundary. Pydantic returns an instance and raises if the provider sends text where you declared a number. A typed dictionary returns a plain dict with no validation and hands you the text.
 
 </details>
 
 <details>
-<summary>3. You add a field description inside a TypedDict with an equals Field call, yet the field stays required and the model never sees the description. What happened?</summary>
+<summary>2. A ticket schema has a required refund amount, and the model writes a number even for conversations that mention no refund. What schema change allows a missing amount, and what does it not guarantee?</summary>
 
-`= Field(...)` inside a `TypedDict` is silently discarded. `NotRequired[...]` will not help either, because LangChain's schema converter rejects it. Put the default and description in `Annotated[float | None, None, "description"]`, or switch to Pydantic.
+Make the field optional with a default of none, so the model can leave the amount empty and zero stays distinct from no refund. It permits abstention only: a number the model does write still needs checking against the source.
+
+</details>
+
+<details>
+<summary>3. You give a typed dictionary field a Pydantic-style default and description, yet the field stays required and the model never sees the description. What happened, and what fixes it?</summary>
+
+Inside a typed dictionary the assignment is silently discarded, so the converter sees a required field with no description. Marking it not-required fails too, because the converter rejects that marker. Put the default and description in the annotation's middle slot, or switch to a Pydantic model.
 
 </details>
 
