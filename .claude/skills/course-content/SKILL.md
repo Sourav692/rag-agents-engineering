@@ -101,6 +101,21 @@ node ~/.claude/skills/hallmark/scripts/sloplint.mjs <part>/<module>/*/theory/*/i
 
 `--render` needs `HALLMARK_PUPPETEER` pointing at a `puppeteer-core` install. Fix every FAIL; page-level waivers live in `scripts/site/theory.template.html`. Never hand-edit a generated `index.html`. Stop the server; delete `.playwright-mcp/` and screenshots in the repo. Rewrite in review mode skips this step, except the export: run it with `--out <scratchpad>` on each draft as `<draft>=<lesson README>` so the user can open the HTML.
 
-## 8. Report
+## 8. Update the tracker, then report
 
-Both paths of every exported pair, then what was written or changed (pages, concepts per lesson, diagrams static and animated, the lab and its verification), which lessons got project pages, check results, anything unconfirmed, and in rewrite mode the flags from `rewrite.md` → Report. Do not commit unless asked. Record new gotchas in `.claude/napkin.md`.
+Every course-module run (create, rewrite review, rewrite edit; not standalone) ends by updating `REWRITE_TRACKER.md` at the repo root through its script, never by hand-editing the table:
+
+```bash
+uv run python .claude/skills/course-content/scripts/tracker.py --set <module> "<status>" [--pr "#N"] [--note "<one line>"]
+```
+
+| What the run did | Status |
+|---|---|
+| Review drafts shown, no file changed | `Review draft` |
+| Pages edited or written, not yet in a PR | `In progress` |
+| PR opened | `In PR` (add `--pr`) |
+| PR merged and the page is on forwarddeployedprep.com | `Live` |
+
+The note says what is left (e.g. "22.3 to 22.6 done; 22.1 over 2,500 words"). The script recomputes the Lessons, Pages and New style columns on every run; a module is only `Live` when New style equals Pages. Show the module's tracker row in the report.
+
+Report both paths of every exported pair, then what was written or changed (pages, concepts per lesson, diagrams static and animated, the lab and its verification), which lessons got project pages, check results, anything unconfirmed, and in rewrite mode the flags from `rewrite.md` → Report. Do not commit unless asked. Record new gotchas in `.claude/napkin.md`.
