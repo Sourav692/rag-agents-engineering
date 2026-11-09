@@ -1,29 +1,36 @@
 # M32.2 Theory: Retrieval with a user-feedback loop
 
 *[M32 theory](../README.md) · Lesson 32.2 · Notebooks: [`02a_retrieval_with_feedback_loop.ipynb`](../../notebook/02a_retrieval_with_feedback_loop.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: What a thumbs-down can reorder, what it can never reach, and why the rating lands on the wrong chunks -->
 
 ## The feedback re-ranker
 
-Larkspur receives a thumbs-down, but the missing refund-timing passage was never a candidate. You will apply the rating multiplier, distinguish answer-level and source-level feedback, and test what reranking cannot recover.
+> **What you'll learn**
+>
+> - **Explain** how an average rating becomes a score multiplier, and why it stays between 1/3 and 5/3.
+> - **Trace** one thumbs-down that fixes a question, and one that changes nothing.
+> - **Compare** a rating on the whole answer with a signal on each source.
+> - **Diagnose** what goes wrong when highly rated answers are folded back into the index.
 
-### Step 1: Apply feedback only to retrieved candidates
+Lesson 32.1 checked one answer at a time and could only remove. This lesson learns across many answers.
 
-The implementation builds a `RetrievalQA` chain with `gpt-4o` over *Understanding_Climate_Change.pdf* and stores one feedback record per answer as a line of JSON:
+A Larkspur customer asks *How long does a refund take?* and gives the answer a thumbs-down. Twenty askings later the answer is still incomplete, because the chunk with the answer, `refund-timing`, was never among the candidates the ratings could touch.
 
-Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+### The feedback record and the multiplier
 
-```text
-{"query": ..., "response": ..., "relevance": 5, "quality": 5, "comments": ""}   # relevance and quality on a 1 to 5 scale
-```
+The notebook builds a question-answering chain with `gpt-4o` over a climate-change PDF and stores one **feedback record** per answer, appended to a log file as a line of JSON:
 
-On the next query, `adjust_relevance_scores` re-weights the retrieved chunks. For each chunk and each stored record it asks `gpt-4o` whether the record is relevant to the current query and that chunk. It averages the `relevance` of the records judged relevant and multiplies the chunk's score:
+| Field | What it holds |
+|---|---|
+| `query` | The question asked |
+| `response` | The answer given |
+| `relevance` | The user's 1 to 5 rating of how relevant the answer was |
+| `quality` | The user's 1 to 5 rating of its quality |
+| `comments` | Free text, often empty |
 
-Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+*Table 1: One feedback record.*
 
-```text
-doc.metadata['relevance_score'] *= (avg_relevance / 3)  # Assuming a 1-5 scale, 3 is neutral
-return sorted(docs, key=lambda x: x.metadata['relevance_score'], reverse=True)
-```
+On the next query a **feedback re-ranker** re-weights the retrieved chunks. For each chunk and each stored record, it asks `gpt-4o` whether that record is relevant to the current query and that chunk. It averages the `relevance` of the records judged relevant, multiplies the chunk's score by that average divided by 3 (3 is the neutral middle of the scale), and sorts by the new score:
 
 ```mermaid
 flowchart LR
@@ -36,16 +43,26 @@ flowchart LR
 ```
 <!-- animated: diagrams/credit-flywheel.anim.html -->
 
-### Step 2: Calculate the multiplier and pairwise cost
+*Figure 1: The feedback loop. Ratings re-weight the next retrieval's candidates; they never change which candidates come back.*
 
-Four properties of this rule decide what it can do:
+### Four properties of the rule
 
-- **Feedback sets the order on its own.** `encode_from_string` in `helper_functions.py` gives every chunk `relevance_score = 1.0`, so after the multiplication the order depends on the ratings alone. Similarity only breaks ties, because Python's `sorted` is stable and keeps the retriever's order for equal scores.
-- **The multiplier is bounded.** It uses the average, so a chunk sits between 1/3 (every rating 1) and 5/3 (every rating 5). The first rating moves a chunk as far as it will go. Later ratings only move the average.
-- **It reorders the candidates and nothing else.** The chunks come from `retriever.invoke`, which returns 4 by default. A chunk outside those 4 never receives a rating.
+The arithmetic is short:
+
+| Average rating | Multiplier | Chunk score |
+|---|---|---|
+| 1 (every rating a thumbs-down) | 1/3 | 0.333 |
+| 3 (neutral) | 1 | 1.000 |
+| 5 (every rating a thumbs-up) | 5/3 | 1.667 |
+
+*Table 2: The multiplier at the ends and the middle of the scale.*
+
+- **Feedback sets the order on its own.** Every chunk starts at a score of 1.0, so after the multiplication ratings alone decide the order. Similarity only breaks ties, because a stable sort keeps the retriever's order for equal scores.
+- **The multiplier is bounded.** It uses the average, so a chunk sits between 0.333 and 1.667. The first rating moves a chunk as far as it will go; later ratings only move the average.
+- **It reorders the candidates and nothing else.** The retriever returns 4 chunks by default, and a chunk outside those 4 never receives a rating: the **candidate ceiling** from lesson 32.1 again.
 - **It costs one model call per pair.** Every retrieved chunk is checked against every stored record, so 4 chunks and 1,000 records make 4,000 `gpt-4o` calls for one query.
 
-### Step 3: Follow one rating through the ranking
+### One hundred ratings on the handbook
 
 The [interactive lab](interactive/feedback-flywheel-lab.html) runs this rule on the Larkspur handbook with the M10 TF-IDF retriever. Five golden questions take turns, 20 times each over 100 events. Each answer uses the top 2 of the 4 candidates, and the simulated user gives a 5 when every evidence chunk is in the answer and a 1 otherwise. The lab replaces the `gpt-4o` relevance call with a fixed rule: a record counts for a chunk when it was given on the same question and its answer used that chunk. Its port of the rule matches the Python function on all 202 settings it offers.
 
@@ -58,21 +75,33 @@ The [interactive lab](interactive/feedback-flywheel-lab.html) runs this rule on 
 | *Can I still use my server after I cancel the plan?* | 1.00 | 1.00 | 0 |
 | Mean recall@2, and total wrong answers | 0.50 | 0.70 | 41 |
 
+*Table 3: The lab after 100 rated answers, ratings on the whole answer.*
+
+Three results stand out:
+
 - **The credit question is fixed by one rating.** Its candidates arrive as `sizing`, `reboot`, `sla`, `export`. At event 4 the answer uses `sizing` and `reboot`, the user gives a 1, and both drop to 0.333. `sla` and `export` move up at 1.000, the next answer contains the evidence, and the thumbs-up at event 9 lifts them to 1.667.
 - **The loop stops learning early.** No ranking changes after event 8 and no score changes after event 9. Events 10 to 100 add records and change nothing.
 - **Feedback cannot reach a missing chunk.** `refund-timing` scores 0 for the refund question, and `sla` and `incidents` score 0 for the outage question, so none of them is ever a candidate. Those two questions account for 40 of the 41 wrong answers. On the outage question, every candidate has an average of 1 by event 8, all sit at 0.333, and the order is the retriever's again.
 
 <!-- lab: interactive/feedback-flywheel-lab.html -->
 
-### Step 4: Keep reranking from mutating or losing its output
+### Three defects to fix before the loop works
 
-Three lines of the example's code need fixing before the loop runs as described. The relevance check compares the model's answer with lowercase `'yes'` while the prompt asks for `'Yes'` or `'No'`; normalise with `.strip().lower()`. A FAISS store returns its stored `Document` objects, so `*=` on their metadata persists between calls and compounds: one rating of 5 gives 1.667 on the first query and 2.778 on the second. Copy the documents before adjusting them. And `retriever.search_kwargs['docs'] = adjusted_docs` has no effect: the FAISS retriever ignores a `docs` argument and searches the index again, so the re-ranked list has to be passed to the chain directly.
+The notebook's loop does not yet behave as described. Each defect fails quietly:
+
+| Defect | What happens | Fix |
+|---|---|---|
+| The relevance check compares the model's reply with lowercase "yes", while the prompt asks for "Yes" or "No" | No record ever counts, so no score moves | Normalise case and whitespace before comparing |
+| The vector store returns its stored chunk objects, and the score is multiplied in place | The adjustment persists and compounds: one rating of 5 gives 1.667 on the first query and 2.778 on the second | Adjust copies of the chunks |
+| The re-ranked list is handed to the retriever as a search setting it ignores | The retriever searches the index again, and the re-ranked order is lost | Pass the re-ranked chunks to the answer step directly |
+
+*Table 4: Three defects in the notebook's feedback loop.*
+
+All three leave the pipeline answering, so test the order itself.
 
 ## Implicit vs explicit feedback
 
-### Step 1: Compare what a rating and a click measure
-
-Explicit feedback is a judgment the user states: a thumbs-up, a star rating, the 1 to 5 `relevance` and `quality` fields in this implementation. Implicit feedback is inferred from what the user does next.
+**Explicit feedback** is a judgment the user states: a thumbs-up, a star rating, the 1 to 5 `relevance` and `quality` fields above. **Implicit feedback** is inferred from what the user does next. The two differ on every axis that matters:
 
 | | Explicit | Implicit |
 |---|---|---|
@@ -82,43 +111,57 @@ Explicit feedback is a judgment the user states: a thumbs-up, a star rating, the
 | What it rates | The whole answer | Often one source, such as the one the user opened |
 | Bias | Raters choose themselves, so they may not be typical users | Users click what is shown first, so top-ranked chunks collect more signal |
 
-### Step 2: Change the granularity of feedback
+*Table 5: Explicit and implicit feedback compared.*
 
-The lab's second setting shows why the granularity matters. *Thumbs on the answer* gives every chunk in the answer the same rating, as the answer-level feedback implementation does. *Clicks on each source* rates each chunk on its own: 5 for an evidence chunk the user opened, 1 for one they skipped. On *Can I still use my server after I cancel the plan?*, `sizing` is not evidence but sits in every good answer next to `cancel`. Rated through the answer, it rides along to 1.667; rated per source, it falls to 0.333. On the refund question the effect runs the other way: the answer is always incomplete, so thumbs on the answer push the evidence chunk `refund-window` down to 0.333 with the distractor, while per-source ratings lift it to 1.667.
+### Where the rating lands
 
-The sharper signal does not change the lab's totals. With either setting, mean recall@2 ends at 0.70 and 41 of 100 answers are wrong, because neither signal reaches a chunk the retriever does not return. Per-source ratings keep reshuffling non-evidence chunks for longer, and the order settles at event 15 instead of event 8.
+The lab's second setting shows why granularity matters. *Thumbs on the answer* gives every chunk in the answer the same rating, as the notebook does. *Clicks on each source* rates each chunk on its own: 5 for an evidence chunk the user opened, 1 for one they skipped.
 
-In practice, use both. Implicit signals give volume and per-chunk detail, after correcting for position: compare clicks at the same rank, or occasionally shuffle the order of sources. Explicit ratings are fewer but mean what they say. Every thumbs-down is a candidate for the golden set, so the next change to retrieval is measured on the questions that failed.
+Answer-level ratings produce **ride-along credit**: a chunk that happens to sit next to the evidence collects the evidence's rating. It works in both directions, as the lab shows after 100 events:
+
+| Question | Chunk | Evidence? | Thumbs on the answer | Clicks on each source |
+|---|---|---|---|---|
+| *Can I still use my server after I cancel the plan?* | `sizing` | No | 1.667 | 0.333 |
+| *Can I still use my server after I cancel the plan?* | `cancel` | Yes | 1.667 | 1.667 |
+| *How long does a refund take?* | `refund-window` | Yes | 0.333 | 1.667 |
+| *How long does a refund take?* | `reboot` | No | 0.333 | 0.333 |
+
+*Table 6: Chunk scores after 100 events under each signal.*
+
+On the cancel question `sizing` rides up next to `cancel`. On the refund question the answer is always incomplete, so the evidence chunk `refund-window` is pushed down with the distractor it was served with.
+
+The sharper signal does not change the lab's totals: with either setting, mean recall@2 ends at 0.70 and 41 of 100 answers are wrong, because neither reaches a chunk the retriever does not return. Per-source ratings reshuffle non-evidence chunks for longer, and the order settles at event 15 instead of event 8.
+
+> **Interview tip:** Collect both signals. Implicit ones give volume and per-source detail once corrected for position (compare clicks at the same rank, or occasionally shuffle the sources). Explicit ratings are fewer but mean what they say, and every thumbs-down is a golden-set candidate.
+
+Re-ranking leaves the index alone. The notebook's second half changes the index itself.
 
 ## Folding good answers into the index
 
-### Step 1: Keep historical answers from becoming stale policy
+The notebook's second use of feedback is a periodic job, run "daily or weekly". It keeps the records rated 4 or more on both `relevance` and `quality`, joins each question and answer into one text, appends that text to the original document, and re-encodes everything (1,000-character chunks, 200 overlap) into a new vector store.
 
-The second half of The implementation uses feedback to change the index itself. `fine_tune_index` keeps records with `relevance >= 4` and `quality >= 4`, joins each question and answer into one text, appends them to the original document text and re-encodes everything with `encode_from_string` (1,000-character chunks, 200 overlap) into a new FAISS store. The example calls it a periodic job, "daily or weekly".
+```mermaid
+flowchart LR
+    L[(Feedback log)] --> F{"Relevance and<br/>quality ≥ 4?"}
+    F -- yes --> J["Question plus<br/>answer text"]
+    F -- no --> X[Ignored]
+    J --> R["Re-embed with<br/>the documents"]
+    R --> I[(New index)]
+```
 
-### Step 2: Check the consequences of indexing old answers
+*Figure 2: The fold-back job. Only answers that were already good enter the new index.*
 
-This adds chunks that are worded the way users ask, which helps future questions phrased like past ones. It has limits:
+This adds chunks worded the way users ask, which helps questions phrased like past ones. It has three limits:
 
 - **Only answers that were already good get in.** In the lab, the refund and outage questions never earn a thumbs-up, so nothing about them would be added. The questions that most need new text get none.
-- **Past answers become retrievable facts.** When Larkspur changes a policy, the stored answers still quote the old one and compete with the corrected handbook. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.
+- **Past answers become retrievable facts.** When Larkspur changes its refund rule, the stored answers still quote the old one, and they match refund questions better than the handbook because they were written as answers to them. We call this **stale-answer echo**. Tag each added chunk with its date and the handbook chunks it came from, drop it when those change, and rank feedback chunks below primary documents.
 - **It rebuilds the whole index.** Every run re-embeds the full corpus plus the feedback text. Incremental upserts (M14) avoid that.
-
-### Try it yourself
-
-In the lab follow the credit question at events four and nine, then the refund question after 100 events. Check that feedback can move a candidate but cannot add refund-timing to the candidate pool. Compare answer thumbs with source clicks: the scores differ even when mean recall remains 0.70 and 41 answers remain wrong.
-
-### Practice notebook
-
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
-
-- [Retrieval with feedback loop](../../notebook/02a_retrieval_with_feedback_loop.ipynb).
 
 ## Key Takeaways
 
-- The feedback re-ranker multiplies each chunk's score by its average rating over 3, so a chunk stays between 1/3 and 5/3 and ratings alone set the order. It costs one model call per chunk and stored record.
+- The feedback re-ranker multiplies each chunk's score by its average rating over 3, so a chunk stays between 0.333 and 1.667 and ratings alone set the order. It costs one model call per chunk and stored record.
 - Feedback only reorders the candidates retrieval returns. In the lab, mean recall@2 rose from 0.50 to 0.70, but 40 of the 41 wrong answers came from chunks that were never candidates.
-- Combine implicit and explicit feedback. Implicit signals give volume and per-source detail once corrected for position; explicit ratings are fewer but mean what they say, and each thumbs-down is a golden-set candidate.
+- Combine implicit and explicit feedback, and rate sources rather than whole answers where you can, so credit does not ride along to the chunk beside the evidence. Each thumbs-down is a golden-set candidate.
 
 ## Check yourself
 
@@ -139,7 +182,7 @@ It only reorders the 4 candidates the retriever returns. `refund-timing`, `sla` 
 <details>
 <summary>3. You plan to fold highly rated answers back into the index every week. What happens when Larkspur changes a policy, and how do you guard against it?</summary>
 
-The stored answers still quote the old policy and compete with the corrected handbook as retrievable facts. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.
+The stored answers still quote the old policy and compete with the corrected handbook as retrievable facts, often winning because they were written as answers to those questions. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.
 
 </details>
 

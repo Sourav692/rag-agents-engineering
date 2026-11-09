@@ -251,7 +251,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </section>
 <section class="module module--body" aria-label="M28 theory">
   <div class="module__body">
-    <article class="prose"><p>The notebooks run on a research paper (lesson 28.1) and a fictional company&rsquo;s support documents (lesson 28.3). These pages put the same graphs on the Larkspur Cloud handbook from M10: its twelve chunks, and five golden questions that each take a different path through the loop. <em>Can I export my data after I cancel my plan?</em> is answered on the first retrieval, <em>How long does a refund take?</em> after one rewrite, <em>What happens if my server goes down?</em> after two, <em>Do you offer a student discount?</em> has no answer in the handbook, and <em>What&rsquo;s the weather like today?</em> is off topic.</p>
+    <article class="prose"><p>The notebooks run on a research paper (lesson 28.1, and lesson 28.2, which moves the same graph onto a managed Databricks index) and a fictional company&rsquo;s support documents (lesson 28.3). These pages put the same graphs on the Larkspur Cloud handbook from M10: its twelve chunks, and five golden questions that each take a different path through the loop. <em>Can I export my data after I cancel my plan?</em> is answered on the first retrieval, <em>How long does a refund take?</em> after one rewrite, <em>What happens if my server goes down?</em> after two, <em>Do you offer a student discount?</em> has no answer in the handbook, and <em>What&rsquo;s the weather like today?</em> is off topic.</p>
 <h2 id="tldr">TL;DR</h2>
 <ul>
 <li>A document grader is an LLM call with structured output that reads retrieved text next to the question and says whether it helps answer it. A conditional edge turns that verdict into the next node: generate, or rewrite and retrieve again.</li>
@@ -368,19 +368,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Every self-correcting design in Part IX is this loop with more branches. The grader decides whether the loop runs again, and the counter decides when it must stop. Without the grader the model answers from whatever came back; without the counter an unanswerable question never ends.</p>
 <h2 id="conditional-edges">Conditional edges</h2>
 <p class="lesson-of">Lesson 28.1: Retriever as a tool; grade then rewrite in LangGraph. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/notebook/01a_simple_agentic_rag.ipynb" target="_blank" rel="noopener"><code>01a_simple_agentic_rag.ipynb</code></a></p>
-<p>Larkspur retrieves a refund-window passage when the customer asks how long payment takes. You will route from the tool result to a grader, distinguish related text from answering evidence, and inspect why a failed grade triggers a rewrite.</p>
-<h3>Step 1: Follow the retrieval decision</h3>
-<p>The reference implementation turns a plain RAG chain into a graph that can look at its own retrieval. It starts by wrapping the vector store retriever as a tool:</p>
-<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
-<pre class="sheet code"><code class="language-text">retriever_tool = create_retriever_tool(
-    retriever,
-    &quot;retrieve_info_from_papers&quot;,
-    &quot;Search and return information about a paper discussing usage of LLMs for human collaborative problem solving.&quot;,
-)
-</code></pre>
-<p>The name and the description are all the model sees of the retriever. The <code>agent</code> node binds the tool with <code>model.bind_tools(tools)</code>, so the model decides whether to call it and with what query. A Larkspur assistant describes its tool as a search over the Larkspur Cloud handbook, so the model can answer &ldquo;hello&rdquo; without calling it.</p>
-<h3>Step 2: Choose the next node from state</h3>
-<p>A LangGraph edge is either fixed or conditional. <code>add_edge("rewrite", "agent")</code> always goes the same way. <code>add_conditional_edges(source, fn, path_map)</code> calls <code>fn</code> on the state after <code>source</code> runs, and the value it returns picks the next node. The implementation has two conditional edges:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a retriever becomes a tool the model chooses to call, and what the model sees of it.</li>
+<li><strong>Trace</strong> a question through the two conditional edges that decide between retrieving, answering and rewriting.</li>
+<li><strong>Compare</strong> a grader on the edge with a grader that is a node, and say what each leaves in the state.</li>
+<li><strong>Diagnose</strong> a grader that passes related text which does not answer the question.</li>
+</ul>
+</blockquote>
+<p><a href="../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/index.html">M22</a> built the loop where a model asks for a tool and your code runs it; M10 built a RAG chain that retrieves once and answers from whatever came back. This lesson joins them: retrieval becomes a tool in a LangGraph graph that checks what the tool returned before the model answers.</p>
+<p>A Larkspur customer asks <em>How long does a refund take?</em> The handbook&rsquo;s first hit is the <code>refund-window</code> chunk. It is about refunds, and it says an annual plan can get a full refund within 30 days. It never says how long the money takes to arrive. A plain RAG chain hands that chunk to the model, and the model writes a confident answer about the wrong thing. We call this <strong>answering from a near miss</strong>: the retrieval looked fine by every number the chain had.</p>
+<p>The fix has three jobs: let the model decide when to search (the retriever tool), read the retrieved text against the question (the grader, next section), and route elsewhere when the text fails (the conditional edge).</p>
+<h3>The retriever as a tool</h3>
+<p>The graph wraps the vector store&rsquo;s retriever as a tool with a name and a description, the only things the model knows about it. The <code>agent</code> node binds the tool to the model, which decides whether to call it and with what query. For Larkspur the description says the tool searches the handbook, so a customer who writes <em>hello</em> gets a greeting with no search. The notebook does the same over a research paper.</p>
+<h3>Fixed and conditional edges</h3>
+<p>A <strong>conditional edge</strong> is an edge whose destination is chosen at run time: after its source node runs, LangGraph calls a routing function on the state, and the value it returns names the next node. A fixed edge always goes the same way, as the edge from <code>rewrite</code> back to <code>agent</code> does. The graph has two conditional edges:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -393,18 +396,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td><code>agent</code></td>
-<td><code>tools_condition</code> (from <code>langgraph.prebuilt</code>)</td>
-<td><code>"tools"</code> if the last AI message has tool calls, otherwise <code>END</code></td>
-<td><code>retrieve</code> through the path map <code>{"tools": "retrieve", END: END}</code>, or the end</td>
+<td><code>tools_condition</code>, prebuilt in LangGraph</td>
+<td><code>"tools"</code> if the model&rsquo;s last reply has a tool call, otherwise the end marker</td>
+<td><code>retrieve</code> through a path map that translates <code>"tools"</code>, or the end</td>
 </tr>
 <tr>
 <td><code>retrieve</code></td>
 <td><code>grade_documents</code></td>
-<td><code>Literal["generate", "rewrite"]</code></td>
-<td>The node with that name; no path map is needed when the function returns node names</td>
+<td><code>"generate"</code> or <code>"rewrite"</code></td>
+<td>The node with that name, with no path map, because the function returns node names</td>
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: The two routing decisions and how each return value becomes a node.</em></p>
+<p>Put together, the edges form this graph:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S([START]) --&gt; A[agent&lt;br/&gt;model with the tool bound]
     A -- tool call --&gt; R[retrieve&lt;br/&gt;ToolNode]
@@ -414,18 +419,39 @@ th:last-child, td:last-child { padding-right: 0; }
     W --&gt; A
     G --&gt; E2([END])
 </pre></figure>
-<h3>Step 3: Make the verdict observable</h3>
-<p>The grader in this implementation is the routing function itself, so it is not a node. It writes nothing to the state: after a run, the message history shows a rewrite but not the verdict that caused it, and the only record is the <code>---DECISION: DOCS NOT RELEVANT---</code> line the function prints. The node-based variant splits the same job in two. <code>assess_relevance</code> is a node that writes <code>retrieved_documents</code> and <code>should_generate</code> to the state, and <code>route_by_document_quality</code> is a small routing function that reads them. That costs one extra step per retrieval and makes every decision visible in the state and in a checkpointer.</p>
-<p><code>rewrite</code> sends the new question back to <code>agent</code>, not straight to <code>retrieve</code>. The model reads the rewritten question as the last message and decides again whether to call the tool, and with what query. Nothing on this path counts the trips: the loop ends only when the grader says yes, which lesson 28.3 fixes with bounded retries.</p>
+<p><em>Figure 1: The grade-then-rewrite graph. Two edges branch; the rest are fixed.</em></p>
+<h3>Following the refund question</h3>
+<p>Here is the refund question through the graph, with the retrievals the <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">M28 lab</a> shows for it: the first one fails the grade and one rewrite finds the timing chunk.</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant A as agent
+    participant R as retrieve
+    participant G as grader
+    participant W as rewrite
+    A-&gt;&gt;R: the refund question
+    R-&gt;&gt;G: refund-window, reboot
+    G-&gt;&gt;W: no
+    W-&gt;&gt;A: reworded question
+    A-&gt;&gt;R: business days until refunds appear
+    R-&gt;&gt;G: refund-timing, support
+    Note over G: yes, so generate
+</pre></figure>
+<p><em>Figure 2: One failed grade and one rewrite. The retrieved chunks are the lab&rsquo;s; the reworded question is the lab&rsquo;s hand-written rewrite.</em></p>
+<p>The first search misses <code>refund-timing</code> for a reason worth knowing. TF-IDF matches exact words, and the question says &ldquo;refund&rdquo; while the chunk says &ldquo;Refunds&rdquo;. The reworded question uses &ldquo;refunds&rdquo; and &ldquo;business days&rdquo;, the chunk&rsquo;s own words, and scores 0.720.</p>
+<p>The rewrite goes back to <code>agent</code>, not straight to <code>retrieve</code>, so the model reads the reworded question and decides again whether and how to search. That keeps the model in charge of the search, at one more model call per round.</p>
+<h3>Where the verdict lives</h3>
+<p>Here the grader is the routing function itself, not a node, so it writes nothing to the state. The history shows a rewrite but not the verdict behind it; the only record is a printed line. We call this the <strong>invisible verdict</strong>. Lesson 28.3 splits the job: a grading node writes the passing chunks and a should-generate flag to the state, and a small router reads them. That costs one graph step per retrieval and makes every decision visible in the state, a checkpointer and a trace.</p>
+<blockquote>
+<p><strong>Pitfall: the unbounded rewrite loop.</strong> Nothing on the <code>rewrite</code> path counts the trips. The loop ends only when the grader says yes. For a question the handbook cannot answer, that never happens, and lesson 28.3 adds the counter that stops it.</p>
+</blockquote>
+<p>The routing is only as good as the verdict it reads, so the next section looks at the call that produces it.</p>
 <h2 id="document-grader">Document grader</h2>
-<h3>Step 1: Decide whether the text answers the question</h3>
-<p>A document grader is one LLM call that reads retrieved text next to the question and says whether the text helps answer it. The call uses <code>with_structured_output(&lt;Pydantic model&gt;)</code>, so the reply is a typed field the router can compare, not free text to parse. The two implementations in this module grade differently:</p>
+<p>A <strong>document grader</strong> is one LLM call that reads retrieved text next to the question and says whether the text helps answer it. It uses structured output: the reply must match a declared schema, so the router compares a typed field instead of parsing free text. This module has two graders:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th></th>
-<th>Edge-grader variant: <code>grade_documents</code></th>
-<th>Node-grader variant: <code>assess_document_relevance</code></th>
+<th>Edge grader (this lesson)</th>
+<th>Node grader (lesson 28.3)</th>
 </tr>
 </thead>
 <tbody>
@@ -441,13 +467,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Output schema</td>
-<td><code>binary_score: str</code>, described as <code>'yes'</code> or <code>'no'</code></td>
-<td><code>relevance: str</code> (<code>RELEVANT</code> or <code>IRRELEVANT</code>) and <code>reasoning: str</code></td>
+<td>A score field described as <code>'yes'</code> or <code>'no'</code></td>
+<td>A relevance label (<code>RELEVANT</code> or <code>IRRELEVANT</code>) and a reasoning field</td>
 </tr>
 <tr>
 <td>Decision</td>
-<td><code>score == "yes"</code></td>
-<td><code>relevance.strip().upper() == "RELEVANT"</code></td>
+<td>Exact match with <code>"yes"</code></td>
+<td>Match with <code>"RELEVANT"</code> after trimming and upper-casing</td>
 </tr>
 <tr>
 <td>What reaches the answer</td>
@@ -457,60 +483,285 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>Grader calls per retrieval</td>
 <td>1</td>
-<td><code>k</code> (the implementation retrieves <code>k = 2</code>)</td>
+<td><code>k</code>, the number of chunks retrieved (2 in lesson 28.3)</td>
 </tr>
 </tbody>
 </table></div>
-<p>Grading the block is cheap, but one relevant chunk carries the irrelevant ones into the prompt with it. Grading each chunk costs <code>k</code> calls per retrieval and filters what the model reads.</p>
-<h3>Step 2: Test the label contract</h3>
-<p>The schema decides what the router can trust. <code>binary_score</code> is a plain <code>str</code>, and the comparison is exact, so a model that answers <code>"Yes"</code> sends a relevant retrieval to <code>rewrite</code>. The implementation normalises with <code>.strip().upper()</code> before comparing, and its topic classifier goes further with <code>Literal["RELEVANT", "IRRELEVANT"]</code>, which makes Pydantic reject any other value.</p>
-<p>Test the label comparison without a model. This is a controlled input, not a new grader measurement.</p>
-<pre class="sheet code"><code class="language-python">score = &quot;Yes&quot;
-print(&quot;generate&quot; if score == &quot;yes&quot; else &quot;rewrite&quot;)
-print(&quot;generate&quot; if score.strip().lower() == &quot;yes&quot; else &quot;rewrite&quot;)
-</code></pre>
-<p><strong>Expected output</strong></p>
-<pre class="sheet code"><code class="language-text">rewrite
-generate
-</code></pre>
-<h3>Step 3: Distinguish related text from an answer</h3>
-<p>The prompt sets the bar. The implementation grades a document relevant if it &ldquo;contains keyword(s) or semantic meaning related to the user question&rdquo;. The implementation also accepts &ldquo;context that helps understand the topic&rdquo;. On the Larkspur handbook, <em>How long does a refund take?</em> retrieves <code>refund-window</code> first: it is about refunds, and it says an annual plan can get a full refund within 30 days. It does not say how long a refund takes. A grader that accepts &ldquo;related&rdquo; passes it, and the model answers from a chunk without the answer. A grader that asks &ldquo;does this answer the question?&rdquo; fails it and sends the query to rewrite, which in the <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">lab</a> finds <code>refund-timing</code> at 0.720.</p>
-<p>The grader reads text because a similarity score cannot do its job. A retriever returns <code>k</code> chunks for every query, whatever they score. In the lab, <em>Do you offer a student discount?</em> shares no word with the handbook and still retrieves <code>billing</code> and <code>cancel</code> at 0.000. Its rewrite <em>Student discount pricing for plans</em> retrieves <code>support</code> at 0.503 and <code>billing</code> at 0.461, both above the 0.227 that <code>refund-window</code> scores for the refund question, and neither mentions a discount. No score threshold separates those cases; reading the chunk does.</p>
-<h3>Try it yourself</h3>
-<p>For the refund-timing question, compare a grader that accepts any refund-related passage with one that requires timing evidence. Check that refund-window can pass the first rule but not the second. Then trace the no branch through rewrite and back to the agent. The agent must still request the retriever.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p><em>Table 2: The two graders side by side.</em></p>
+<p>Grading the block is cheap, but one relevant chunk carries the irrelevant ones into the prompt. Grading each chunk costs <code>k</code> calls per retrieval and filters what the model reads.</p>
+<h3>The label contract</h3>
+<p>The schema decides what the router can trust. In this lesson&rsquo;s grader the score is a plain string and the router compares it exactly with <code>"yes"</code>. Here is what each label does under three ways of reading it:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Model&rsquo;s label</th>
+<th>Exact match with <code>"yes"</code></th>
+<th>Trimmed and lower-cased first</th>
+<th>Field typed as a fixed set of values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>yes</code></td>
+<td>generate</td>
+<td>generate</td>
+<td>accepted</td>
+</tr>
+<tr>
+<td><code>Yes</code></td>
+<td><strong>rewrite</strong></td>
+<td>generate</td>
+<td>rejected by validation</td>
+</tr>
+<tr>
+<td><code>yes</code> (leading space)</td>
+<td><strong>rewrite</strong></td>
+<td>generate</td>
+<td>rejected by validation</td>
+</tr>
+<tr>
+<td><code>maybe</code></td>
+<td>rewrite</td>
+<td>rewrite</td>
+<td>rejected by validation</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Planted labels under three contracts. The bold rows are relevant retrievals sent to rewrite.</em></p>
+<p>We call the bold rows the <strong>capital-Y rewrite</strong>: the grader agreed, and the graph still discarded the evidence. Normalising fixes those rows. Typing the field as a fixed set of values (a <code>Literal</code> in Pydantic) goes further: any other label fails loudly as a validation error instead of quietly choosing a branch, as in lesson 28.3&rsquo;s topic check.</p>
+<h3>Related text or an answer</h3>
+<p>The prompt sets the bar. This lesson&rsquo;s grader calls a document relevant if it &ldquo;contains keyword(s) or semantic meaning related to the user question&rdquo;; lesson 28.3&rsquo;s also accepts &ldquo;context that helps understand the topic&rdquo;. Both pass <code>refund-window</code> for <em>How long does a refund take?</em>, because it is about refunds: the near miss, now approved by the grader. A grader that asks &ldquo;does this text answer the question?&rdquo; fails it and sends the query to rewrite. &ldquo;Related&rdquo; maximises recall into the prompt; &ldquo;answers&rdquo; protects what the model reads.</p>
+<h3>Why a score cannot do the grader&rsquo;s job</h3>
+<p>A retriever returns <code>k</code> chunks for every query, whatever they score. The lab&rsquo;s TF-IDF scores over the M10 handbook chunks show that no score threshold can replace the grader:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Top chunk and score</th>
+<th>Answers the question?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>How long does a refund take?</em></td>
+<td><code>refund-window</code>, 0.227</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Its rewrite</td>
+<td><code>refund-timing</code>, 0.720</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><em>Do you offer a student discount?</em></td>
+<td><code>billing</code> and <code>cancel</code>, both 0.000</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Its rewrite <em>Student discount pricing for plans</em></td>
+<td><code>support</code> 0.503, then <code>billing</code> 0.461</td>
+<td>No</td>
+</tr>
+<tr>
+<td><em>Larkspur outage availability guarantee and incident updates</em></td>
+<td><code>sla</code> 0.470, then <code>incidents</code> 0.253</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Retrieval scores from the M28 lab. A non-answer at 0.503 outscores a real answer at 0.470.</em></p>
+<p>The discount question shares no word with the handbook and still retrieves two chunks, and its rewrite scores 0.503 without either chunk mentioning a discount. A threshold above 0.503 would reject the outage answer at 0.470; one below it lets the discount non-answer through. Only reading the chunk next to the question separates them.</p>
+<h2 id="in-practice-the-refund-question-at-larkspur">In practice: the refund question at Larkspur</h2>
+<p>Put the graph on the Larkspur support assistant and follow the refund question once more:</p>
+<ol>
+<li>The model reads the handbook tool&rsquo;s description, sees a policy question and calls the tool.</li>
+<li>The tool returns <code>refund-window</code> first. An &ldquo;answers the question&rdquo; grader says no.</li>
+<li>The conditional edge sends the run to <code>rewrite</code>, which rewords the question and hands it back to the model.</li>
+<li>The model searches again, the tool returns <code>refund-timing</code> at 0.720, the grader says yes and <code>generate</code> answers from it.</li>
+</ol>
+<blockquote>
+<p><strong>Key distinction:</strong> this graph corrects a bad retrieval but cannot give up, and its verdicts leave no record. Lesson 28.3 adds the counter that ends the loop, a node that records each verdict, and a topic check before retrieval.</p>
+</blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/notebook/01a_simple_agentic_rag.ipynb" target="_blank" rel="noopener">Simple agentic RAG</a>.</li>
-</ul>
-<h3>Continue learning</h3>
-<ul>
-<li><a href="#bounded-retries">bounded retries</a>.</li>
+<li><strong>Notebook corpus.</strong> The notebook runs on a research paper; the Larkspur paths and scores come from the M28 lab.</li>
+<li><strong>TF-IDF scores.</strong> Table 4 uses exact-word TF-IDF. Embedding scores differ, though an embedding retriever still returns <code>k</code> chunks for every query.</li>
+<li><strong>Planted labels.</strong> Table 3 tests the comparison, not how often a model writes <code>Yes</code>.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Wrap the retriever as a tool whose name and description tell the model when to call it. A conditional edge after retrieval then sends the run to <code>generate</code> or <code>rewrite</code> on the grader&rsquo;s verdict.</li>
-<li>Make the grader a node that writes its verdict to state, with a small router that reads it, so every decision is visible. Type the verdict as a <code>Literal</code> rather than comparing free strings.</li>
+<li>Wrap the retriever as a tool whose name and description tell the model when to call it, then put a conditional edge after retrieval that sends the run to <code>generate</code> or <code>rewrite</code> on the grader&rsquo;s verdict.</li>
+<li>Make the verdict a typed field with a fixed set of values, and prefer a grading node that writes it to the state, so a wrong label fails loudly and every decision can be traced.</li>
 <li>Ask the grader whether a chunk answers the question, not whether it is related. A similarity score cannot do this, because the retriever returns <code>k</code> chunks for every query whatever they score.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the rewrite node send the new question back to the agent instead of straight to the retriever?</summary>
-<p>The model reads the rewritten question as the last message and decides again whether to call the tool, and with what query. Nothing on this path counts the trips, so the loop ends only when the grader says yes, which lesson 28.3 fixes with bounded retries.</p>
+<p>The model reads the reworded question as the newest message and decides again whether to call the tool and with what query, so it stays in charge of the search. Nothing on this path counts the trips, so the loop ends only when the grader says yes, which lesson 28.3 fixes with a counter in the state.</p>
 </details>
 <details>
 <summary>2. The refund-duration question retrieves the refund-window chunk first. Does a grader that accepts related text pass it, and what follows?</summary>
-<p>Yes: the chunk is about refunds, but it only says an annual plan can get a full refund within 30 days, not how long a refund takes. The model then answers from a chunk without the answer. A grader that asks &ldquo;does this answer the question?&rdquo; fails it and sends the query to rewrite, which finds <code>refund-timing</code> at 0.720.</p>
+<p>Yes. The chunk is about refunds, but it only says an annual plan can get a full refund within 30 days, not how long a refund takes, so the model answers from a near miss. A grader that asks whether the text answers the question fails it and sends the query to rewrite, which finds <code>refund-timing</code> at 0.720.</p>
 </details>
 <details>
-<summary>3. The first notebook's grader sends a clearly relevant retrieval to rewrite, and the model's verdict was Yes with a capital letter. Why?</summary>
-<p><code>binary_score</code> is a plain <code>str</code> and the router compares it exactly with <code>"yes"</code>, so <code>"Yes"</code> fails. Normalise before comparing, as <code>03a</code> does with <code>.strip().upper()</code>, or type the field as a <code>Literal</code> so Pydantic rejects any other value.</p>
+<summary>3. The grader sends a clearly relevant retrieval to rewrite, and its label was Yes with a capital letter. Why, and what are two fixes?</summary>
+<p>The score is a plain string compared exactly with <code>"yes"</code>, so <code>"Yes"</code> takes the rewrite branch: the capital-Y rewrite. Trim and lower-case the label before comparing, or type the field as a fixed set of values so any other label fails validation instead of silently choosing a branch.</p>
+</details>
+<h2 id="the-project-the-same-agent-on-databricks-vector-search">The project: the same agent on Databricks Vector Search</h2>
+<p class="lesson-of">Lesson 28.2: The same agent on Databricks Vector Search. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m28_retrieval_grading_rewriting/optional/notebook/02a_simple_agentic_rag_databricks.ipynb" target="_blank" rel="noopener"><code>02a_simple_agentic_rag_databricks.ipynb</code></a> (optional)</p>
+<blockquote>
+<p><strong>What you&rsquo;ll build</strong></p>
+<ul>
+<li><strong>A Delta table of chunks</strong> with a primary key, the source the index is built from.</li>
+<li><strong>A Vector Search endpoint and index</strong> that embed the table&rsquo;s text for you and stay in sync with it.</li>
+<li><strong>A retriever tool</strong> over that index that returns two chunks per call.</li>
+<li><strong>Lesson 28.1&rsquo;s graph</strong>, unchanged: agent, retrieve, grade, rewrite, generate, with models served on Databricks.</li>
+</ul>
+</blockquote>
+<p>Lesson 28.1 kept its chunks in an in-memory vector store that the notebook rebuilt on every run. This project moves the retriever behind a managed index on Databricks. The graph, grader, rewrite and generate nodes stay the same; only the tool points somewhere new.</p>
+<p>What changes is who owns the index. The chunks live in a governed table, the platform computes the embeddings and serves the search, and the agent sees only a tool. That suits a Larkspur team: the support writers update a table, and the assistant searches the latest handbook without anyone rebuilding a vector store.</p>
+<h2 id="architecture">Architecture</h2>
+<p>The pieces, from document to answer:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    PDF[/Paper PDF/] --&gt; T["Delta table&lt;br/&gt;chunk_id, content"]
+    T -- sync --&gt; IX["Vector Search index&lt;br/&gt;managed embeddings"]
+    EP[Endpoint] --- IX
+    IX --&gt; TOOL["Retriever tool&lt;br/&gt;2 results"]
+    TOOL --&gt; G["28.1 graph&lt;br/&gt;grade, rewrite"]
+</pre></figure>
+<p><em>Figure 1: The managed retrieval path. The graph talks only to the tool; the table and index sit behind it.</em></p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+<th>Built on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chunk table</strong></td>
+<td>One row per chunk with an integer id and its text, saved as a Delta table with change data feed on, so the index can see which rows changed</td>
+<td>M10&rsquo;s load and chunk stages</td>
+</tr>
+<tr>
+<td><strong>Endpoint</strong></td>
+<td>The serving resource that hosts indexes and answers search requests</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Delta Sync index</strong></td>
+<td>Built on the table&rsquo;s text column with an embedding model the platform calls for you; refreshed when a sync is triggered</td>
+<td>M14&rsquo;s embeddings and M15&rsquo;s vector stores</td>
+</tr>
+<tr>
+<td><strong>Retriever tool</strong></td>
+<td>Wraps the index as a tool with a name, a description and a fixed number of results</td>
+<td>Lesson 28.1&rsquo;s retriever tool</td>
+</tr>
+<tr>
+<td><strong>The graph</strong></td>
+<td>Agent, retrieve, edge grader, rewrite, generate, wired as in lesson 28.1</td>
+<td>Lesson 28.1</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The project&rsquo;s five pieces and the earlier lesson each one reuses.</em></p>
+<p>Databricks offers three kinds of index, and the notebook uses the first:</p>
+<ul>
+<li><strong>Managed embeddings</strong>: the platform embeds a text column and keeps the index in sync with the table.</li>
+<li><strong>Self-managed embeddings</strong>: you compute the vectors, store them in the table, and the platform syncs them.</li>
+<li><strong>Direct access</strong>: no table; you write vectors to the index yourself.</li>
+</ul>
+<h2 id="following-one-question">Following one question</h2>
+<p>The notebook asks how the paper&rsquo;s authors set up the collaboration between the human and the LLMs. It travels lesson 28.1&rsquo;s graph, with the search now a call to the platform:</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant A as agent
+    participant T as retriever tool
+    participant V as Vector Search
+    participant G as grader
+    A-&gt;&gt;T: search query
+    T-&gt;&gt;V: similarity search, 2 results
+    V--&gt;&gt;T: top two chunks
+    T--&gt;&gt;G: chunks as one message
+    G--&gt;&gt;A: yes to generate, no to rewrite
+</pre></figure>
+<p><em>Figure 2: One retrieval. The platform embeds the query with the index&rsquo;s model; the graph never sees a vector.</em></p>
+<p>The answer depends on the served models, so the notebook prints no fixed result; the order of the steps is what stays the same. Before building the agent, the notebook queries the index directly once, a check that it answers before the graph depends on it.</p>
+<h2 id="design-choices-worth-copying">Design choices worth copying</h2>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A table as the source of truth</strong></td>
+<td>Chunks are rows with ids, so an edit to one policy updates one row, and the index follows on the next sync</td>
+</tr>
+<tr>
+<td><strong>Change data feed on the table</strong></td>
+<td>The sync reads only the rows that changed instead of re-embedding the whole corpus</td>
+</tr>
+<tr>
+<td><strong>Managed embeddings</strong></td>
+<td>The same embedding model indexes the chunks and the queries, so they cannot drift apart. Lesson 28.1&rsquo;s notebook used the same model, computed by the notebook</td>
+</tr>
+<tr>
+<td><strong>Create only if missing, then wait</strong></td>
+<td>The setup waits until the endpoint and index report online, and a rerun neither fails nor duplicates them</td>
+</tr>
+<tr>
+<td><strong>A small, fixed result count</strong></td>
+<td>Two chunks per call keeps the grader&rsquo;s block small (lesson 28.1&rsquo;s block-grade risk)</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Five choices and what each protects against.</em></p>
+<p>The graph code did not change, which is the point of the tool boundary from <a href="../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/index.html">M22</a>: the model sees a name and a description, so the backend behind them can move.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>A misleading tool name.</strong> The description talks about the paper, but the name refers to a company policy document. A name that contradicts the description can make the model skip the tool or call it for the wrong questions.</li>
+<li><strong>Lesson 28.1&rsquo;s flaws come along.</strong> The grader still compares its label exactly with <code>"yes"</code> (the capital-Y rewrite), still grades the block, and nothing counts rewrites.</li>
+<li><strong>Mixed providers.</strong> The rewrite node calls an OpenAI model while every other node uses a model served on Databricks, so one run needs two providers&rsquo; credentials.</li>
+<li><strong>A triggered sync.</strong> A table edit is invisible to the agent until a sync runs, so whatever writes the table must also trigger the sync.</li>
+<li><strong>Standing cost.</strong> The endpoint is billed while it exists, whether or not anyone asks a question.</li>
+</ul>
+<p>The notebook runs only inside a Databricks workspace, with permission to create a catalog, a schema and a Vector Search endpoint. The rewrite node also needs an OpenAI key, and the generate node pulls a public RAG prompt from LangSmith.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Behind the tool boundary the retriever can move from an in-memory store to a managed index without touching the graph: the model sees only the tool&rsquo;s name and description.</li>
+<li>A managed index makes the chunk table the source of truth. Turn on change data feed and trigger a sync after every write, or the agent searches yesterday&rsquo;s handbook.</li>
+<li>Moving platforms carries the graph&rsquo;s flaws with it. The exact-match label, the block grade and the missing rewrite counter need the same fixes as in lessons 28.1 and 28.3.</li>
+</ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. The project swaps an in-memory vector store for Databricks Vector Search. Which parts of lesson 28.1's graph had to change, and why so few?</summary>
+<p>Only the retriever tool: the agent, grader, rewrite and generate nodes are the same. The model knows the retriever only through the tool&rsquo;s name and description, so the store behind the tool can change without the graph noticing.</p>
+</details>
+<details>
+<summary>2. A Larkspur writer fixes the refund-timing row in the chunk table, but the assistant keeps quoting the old text an hour later. What is the likely cause?</summary>
+<p>The index uses a triggered sync, so it refreshes only when a sync is started. Until then it serves the embeddings of the old row. The pipeline that writes the table should trigger the sync, and change data feed lets that sync re-embed only the changed row.</p>
+</details>
+<details>
+<summary>3. The retriever tool is named for a policy document but described as a search over a research paper. What can go wrong, and what is the fix?</summary>
+<p>The model reads both strings to decide when to call the tool, so a contradiction can make it skip the search for paper questions or call it for policy questions it cannot answer. Name the tool for what it actually searches, and make the description agree.</p>
 </details>
 <h2 id="topic-guardrails">Topic guardrails</h2>
 <p class="lesson-of">Lesson 28.3: Guardrails, query optimisation and a retry loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/notebook/03a_advanced_rag_agent.ipynb" target="_blank" rel="noopener"><code>03a_advanced_rag_agent.ipynb</code></a></p>
-<p>Larkspur can answer handbook questions but has no student-discount policy. You will distinguish an off-topic request from missing evidence, follow the retry counter, and calculate the cost of allowing another rewrite.</p>
-<h3>Step 1: Classify the request before retrieving</h3>
-<p>The reference implementation builds an eight-node support agent. Before it retrieves anything, it asks whether the question belongs to the assistant at all:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Distinguish</strong> an off-topic question from one the handbook cannot answer, and the check that catches each.</li>
+<li><strong>Calculate</strong> what a question costs in LLM calls for any rewrite bound.</li>
+<li><strong>Choose</strong> a rewrite bound from the golden set.</li>
+</ul>
+</blockquote>
+<p>Lesson 28.1&rsquo;s graph rewrites when the grade fails, but it cannot stop. Two Larkspur questions show the cost. <em>Do you offer a student discount?</em> is about pricing, but the handbook has no discount policy. <em>What&rsquo;s the weather like today?</em> has nothing to do with Larkspur. In lesson 28.1&rsquo;s graph both rewrite again and again and never get a reply. Even with a counter, both would end in the same &ldquo;I couldn&rsquo;t find that&rdquo; message, which is wrong for the weather question.</p>
+<h3>The eight-node support agent</h3>
+<p>The notebook builds this agent for a fictional company&rsquo;s support documents; these pages run it on the Larkspur handbook. Before retrieving, it asks whether the question belongs to the assistant at all:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     E[enhance_query] --&gt; V{validate_topic}
     V -- IRRELEVANT --&gt; OT[handle_off_topic]
@@ -521,10 +772,10 @@ generate
     AR -- 2 rewrites used --&gt; NR[handle_no_results]
     OQ --&gt; F
 </pre></figure>
-<p><code>generate_response</code>, <code>handle_off_topic</code> and <code>handle_no_results</code> each end the turn. The two handlers reply with fixed text and make no LLM call.</p>
-<p><code>validate_topic</code> is one structured-output call. Its schema is <code>TopicRelevance</code>, with <code>classification: Literal["RELEVANT", "IRRELEVANT"]</code> and <code>confidence: Literal["HIGH", "MEDIUM", "LOW"]</code>, and its system prompt lists what counts as on topic (the company&rsquo;s services, pricing, support procedures, company information) and what does not (general technology questions, other companies, weather and news). <code>route_by_topic</code> sends <code>RELEVANT</code> to retrieval and anything else to <code>handle_off_topic</code>, which replies with a list of what the assistant can help with.</p>
-<h3>Step 2: Compare off-topic and unanswered requests</h3>
-<p>The check has to run before retrieval because the grader cannot tell &ldquo;off topic&rdquo; from &ldquo;not in the handbook&rdquo;. Both look like a retrieval where nothing passes, both spend the retry budget, and both end in the same no-results reply. The <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">lab</a> shows the difference on the Larkspur golden set with two rewrites allowed:</p>
+<p><em>Figure 1: The support agent. Three nodes end the turn; the two handlers reply with fixed text and make no LLM call.</em></p>
+<p>A <strong>topic guardrail</strong> is a classification step before retrieval that decides whether a question is in scope. Here it is one structured-output call whose schema has a classification (<code>RELEVANT</code> or <code>IRRELEVANT</code>) and a confidence (<code>HIGH</code>, <code>MEDIUM</code> or <code>LOW</code>), both typed as fixed sets of values. Its prompt lists what is on topic (services, pricing, support procedures, company information) and what is not (general technology, other companies, weather and news). <code>RELEVANT</code> goes to retrieval; anything else goes to the off-topic handler, which lists what the assistant can help with.</p>
+<h3>Off topic or unanswered</h3>
+<p>The check comes before retrieval because the grader cannot tell &ldquo;off topic&rdquo; from &ldquo;not in the handbook&rdquo;: both look like a retrieval where nothing passes. The <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">lab</a> shows the difference with two rewrites allowed:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -566,28 +817,66 @@ generate
 </tr>
 </tbody>
 </table></div>
-<p>The guardrail and the grader catch different failures. The student-discount question is about pricing, so it passes the topic check. Only the grader and the bound stop it.</p>
-<p>The check costs one call on every question, on-topic ones included. Over the lab&rsquo;s five questions it saves 3 calls at two rewrites (31 with the check, 34 without), breaks even at one rewrite (24 and 24) and costs 3 at zero rewrites (14 and 11). It pays when off-topic traffic times the cost of a full retry loop is more than one call per question. It also changes what the customer reads: &ldquo;I can help with pricing, refunds and servers&rdquo; instead of &ldquo;I couldn&rsquo;t find that in the handbook&rdquo;.</p>
-<h3>Step 3: Inspect the classification boundary</h3>
-<p>Three details in this implementation matter in production:</p>
+<p><em>Table 1: Three golden questions, two rewrites allowed. The guardrail and the grader catch different failures.</em></p>
+<p>The student-discount question passes the topic check, so only the grader and the bound stop it. The weather question stops for 1 call instead of 8, and the customer reads &ldquo;I can help with pricing, refunds and servers&rdquo; instead of &ldquo;I couldn&rsquo;t find that in the handbook&rdquo;.</p>
+<h3>What the check costs</h3>
+<p>The check costs one call on every question, so it does not always pay. Over the lab&rsquo;s five golden questions it costs 3 calls at zero rewrites (14 with the check, 11 without), breaks even at one (24 and 24) and saves 3 at two (31 and 34). The check pays when the off-topic share of traffic times the cost of a full retry loop exceeds one call per question, and it pays in reply quality at any bound.</p>
+<h3>The classification boundary</h3>
+<p>Three details matter in production:</p>
 <ul>
-<li><strong>It classifies the enhanced query.</strong> <code>enhance_user_query</code> runs first and folds the conversation history into a standalone question. A follow-up such as <em>What about annual plans?</em> names nothing the classifier can place; after enhancement it carries the refund question it follows.</li>
-<li><strong>Confidence is computed and ignored.</strong> <code>route_by_topic</code> reads only <code>classification</code>, so a <code>LOW</code>-confidence <code>RELEVANT</code> goes to retrieval exactly like a <code>HIGH</code> one. Asking a clarifying question on low confidence needs a third branch in the router.</li>
-<li><strong>A false rejection is silent.</strong> An on-topic question classified <code>IRRELEVANT</code> never reaches retrieval, so no grader and no retrieval log sees it. Track the off-topic rate and sample those replies.</li>
+<li><strong>It classifies the enhanced query.</strong> The enhancement node first folds the conversation history into a standalone question, so a follow-up such as <em>What about annual plans?</em> carries the refund question it follows.</li>
+<li><strong>Confidence is computed and ignored.</strong> The router reads only the classification. Asking a clarifying question on <code>LOW</code> confidence needs a third branch.</li>
+<li><strong>A false rejection is silent.</strong> An on-topic question classified <code>IRRELEVANT</code> never reaches retrieval or its logs. We call this the <strong>silent rejection</strong>: track the off-topic rate and sample those replies.</li>
 </ul>
+<p>The guardrail keeps one kind of question out of the loop; the next section bounds the loop for the rest.</p>
 <h2 id="bounded-retries">Bounded retries</h2>
-<h3>Step 1: Persist and enforce the retry count</h3>
-<h3>Step 2: Find the loop without a business bound</h3>
-<p>Lesson 28.1&rsquo;s graph has no counter. <code>rewrite</code> feeds <code>agent</code>, <code>agent</code> calls the retriever, and the loop ends only when the grader says yes. When the handbook has no answer, LangGraph&rsquo;s recursion limit is the only stop. In the version this course pins (<code>langgraph</code> 1.2.18), the default <code>recursion_limit</code> is 10,007 steps. Run with stub nodes and a grader that always says no, the Edge-grader variant graph made 3,336 retrievals and 10,007 LLM calls before it raised <code>GraphRecursionError</code>. With <code>{"recursion_limit": 25}</code> in the config it stopped after 8 retrievals and 25 LLM calls.</p>
-<p>The implementation bounds the loop in the state:</p>
+<p><strong>Bounded retries</strong> means the graph counts its rewrites in the state and takes a different exit when the count reaches a limit. Lesson 28.1&rsquo;s graph has no counter, so when the handbook has no answer, LangGraph&rsquo;s recursion limit (a cap on graph steps per run) is the only stop.</p>
+<h3>The runaway rewrite loop</h3>
+<p>In the pinned <code>langgraph</code> 1.2.18 the default recursion limit is 10,007 steps. Lesson 28.1&rsquo;s graph, run with stub nodes and a grader that always says no:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Recursion limit</th>
+<th>Retrievals</th>
+<th>LLM calls</th>
+<th>How it ended</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Default, 10,007</td>
+<td>3,336</td>
+<td>10,007</td>
+<td><code>GraphRecursionError</code></td>
+</tr>
+<tr>
+<td>25, set in the run&rsquo;s config</td>
+<td>8</td>
+<td>25</td>
+<td><code>GraphRecursionError</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Lesson 28.1&rsquo;s graph on a question nothing can answer, with stub nodes.</em></p>
+<p>We call this the <strong>runaway rewrite loop</strong>. Each round costs three LLM calls (agent, grader, rewrite) and three graph steps, so calls track the step limit, and the run still ends in an error, not a reply.</p>
+<h3>A counter in the state</h3>
+<p>This lesson&rsquo;s graph bounds the loop in the state:</p>
 <ul>
-<li><code>optimization_attempts</code> counts rewrites, and <code>enhance_user_query</code> resets it to 0 at the start of every turn, so the bound is per question, not per conversation.</li>
-<li><code>route_by_document_quality</code> checks in order: any chunk passed, go to <code>generate_response</code>; 2 rewrites used, go to <code>handle_no_results</code>; otherwise go to <code>optimize_query</code>. A turn therefore makes at most 3 retrievals.</li>
-<li><code>optimize_search_query</code> repeats the <code>&gt;= 2</code> check and returns the state unchanged, a guard in case another edge ever reaches it.</li>
+<li><strong>The count</strong>: a rewrite counter that the enhancement node resets to 0 at the start of every turn, so the bound is per question, not per conversation.</li>
+<li><strong>The router</strong>: after grading, it picks one of three exits in a fixed order, shown in Figure 2.</li>
+<li><strong>The guard</strong>: the rewrite node repeats the limit check and does nothing if it is reached, in case a later edge reaches it directly.</li>
 </ul>
-<h3>Step 3: Calculate the maximum work</h3>
-<p>The bound also caps the cost. With the implementation&rsquo;s call pattern and <code>k = 2</code>, a question costs one call for the topic check, two grader calls per retrieval, one call per rewrite and one call for the answer if there is one. Answered on the first retrieval, that is 4. Never answered with two rewrites allowed, it is 1 + 6 + 2 = 9.</p>
-<p>The <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">interactive lab</a> runs this loop on five Larkspur golden questions, with real TF-IDF retrieval over the M10 handbook chunks and the bound as its slider. Its totals for the golden set with the topic check on:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    G[Chunks graded] --&gt; P{"Any chunk&lt;br/&gt;passed?"}
+    P -- yes --&gt; A[generate_response]
+    P -- no --&gt; C{"2 rewrites&lt;br/&gt;used?"}
+    C -- yes --&gt; N[handle_no_results]
+    C -- no --&gt; O[optimize_query]
+</pre></figure>
+<p><em>Figure 2: The router&rsquo;s check order. Evidence is checked before the budget, so a hit on the last retrieval is still answered.</em></p>
+<p>With a limit of 2 rewrites, a turn makes at most 3 retrievals. Swapping the two checks would discard a passing chunk on the third retrieval and reply &ldquo;not found&rdquo; to a question the graph had just answered.</p>
+<h3>The cost of each attempt</h3>
+<p>The bound also caps the cost. With <code>k = 2</code> chunks per retrieval, a question costs one call for the topic check, two grader calls per retrieval, one per rewrite and one for the answer if there is one; the handlers and a first-turn enhancement make none. Answered on the first retrieval, a question costs 1 + 2 + 1 = 4. Never answered with a bound of <code>m</code>, it costs <code>1 + 2(m + 1) + m</code>: 9 at a bound of 2. The <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">interactive lab</a> runs the loop on the five golden questions with real TF-IDF retrieval over the M10 handbook chunks and the bound as its slider:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -634,13 +923,16 @@ generate
 </tr>
 </tbody>
 </table></div>
-<h3>Step 4: Change the rewrite allowance</h3>
-<p>Each step up the bound reaches one more question until 2, where the outage question is answered on its second rewrite. Going to 3 answers nothing new: the extra retrieval and three calls all go to the student-discount question, which the handbook cannot answer at any bound. Questions without an answer always pay the full bound, <code>1 + 2(m + 1) + m</code> calls for a bound of <code>m</code>, so the bound is set by how far the golden set&rsquo;s answered count keeps rising, and no further.</p>
+<p><em>Table 3: The golden set at each bound. The bold row is the notebook&rsquo;s bound.</em></p>
 <figure class="lab-embed"><iframe src="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html" title="Grade, rewrite, retry, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Grade, rewrite, retry. <a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html">Open full screen</a></figcaption></figure>
-<p>Keep <code>recursion_limit</code> as a backstop even with a counter in the state. The counter bounds the loop you designed; the recursion limit bounds the one a later edit creates by accident.</p>
+<h3>Choosing the bound</h3>
+<p>Each step up the bound reaches one more question until 2, where the outage question is answered on its second rewrite. Going to 3 answers nothing new: the extra retrieval and three calls all go to the student-discount question, which no bound can answer. Unanswerable questions always pay the full bound, so set it where the answered count stops rising.</p>
+<blockquote>
+<p><strong>Pitfall: the counter as the only stop.</strong> Keep the recursion limit as a backstop under the counter. The counter bounds the loop you designed; the recursion limit bounds the one a later edit creates by accident.</p>
+</blockquote>
+<p>The counter decides how many rewrites a question gets; what they say decides whether they help.</p>
 <h2 id="two-rewrites-two-jobs">Two rewrites, two jobs</h2>
-<h3>Step 1: Separate conversational context from retrieval repair</h3>
-<p>The implementation rewrites the query in two places, for different reasons:</p>
+<p>The graph rewrites the query in two places, for different reasons:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -672,34 +964,78 @@ generate
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Check whether the rewrite preserves intent</h3>
-<p>Each <code>optimize_query</code> call rewrites the previous rewrite, since it reads <code>enhanced_query</code> and writes the result back to it. Two rounds can drift from what the customer asked. The implementation rewrites <code>messages[0]</code>, the original question, every time.</p>
-<p>A rewrite helps only if it moves toward the documents&rsquo; words. In the lab, the outage question&rsquo;s first rewrite, <em>What happens when my server is unavailable?</em>, swaps one everyday phrase for another. TF-IDF matches exact tokens, so it retrieves <code>reboot</code> at 0.416 and <code>sizing</code> at 0.389 again, the same as the original. The second rewrite uses the handbook&rsquo;s vocabulary, &ldquo;outage&rdquo; and &ldquo;availability&rdquo;, and retrieves <code>sla</code> at 0.470 and <code>incidents</code> at 0.253. M17 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.</p>
-<h3>Try it yourself</h3>
-<p>In the lab compare two and three allowed rewrites with the topic check on. Check that answered questions stay at three while retrievals rise from nine to ten and model calls from 31 to 34. Identify which unanswered question spends the extra budget and explain why another attempt cannot create a missing policy.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p><em>Table 4: Enhancement repairs the conversation; optimisation repairs the retrieval.</em></p>
+<h3>When a rewrite helps</h3>
+<p>A rewrite helps only if it moves toward the documents&rsquo; words. The outage question shows both cases:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Attempt</th>
+<th>Query</th>
+<th>Top two chunks</th>
+<th>Passes?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Original</td>
+<td><em>What happens if my server goes down?</em></td>
+<td><code>reboot</code> 0.416, <code>sizing</code> 0.389</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Rewrite 1</td>
+<td><em>What happens when my server is unavailable?</em></td>
+<td><code>reboot</code> 0.416, <code>sizing</code> 0.389</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Rewrite 2</td>
+<td><em>Larkspur outage availability guarantee and incident updates</em></td>
+<td><code>sla</code> 0.470, <code>incidents</code> 0.253</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: The outage question&rsquo;s three retrievals. The rewrites are the lab&rsquo;s hand-written ones.</em></p>
+<p>TF-IDF matches exact words, and &ldquo;unavailable&rdquo; is not in the handbook (only &ldquo;availability&rdquo; is), so the first rewrite retrieves the same chunks at the same scores. We call this the <strong>synonym swap</strong>: new wording that never reaches the documents&rsquo; vocabulary. The second rewrite uses the handbook&rsquo;s words, &ldquo;outage&rdquo; and &ldquo;availability&rdquo;.</p>
+<h3>Drift across rewrites</h3>
+<p>Each optimisation reads the current query and writes back to the same field, so the second rewrite rewrites the first, and two rounds can drift from what the customer asked. Lesson 28.1&rsquo;s rewrite node rewords the original question every time instead, at the cost of never building on a near miss. M17 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.</p>
+<h2 id="in-practice-the-student-discount-question-at-larkspur">In practice: the student-discount question at Larkspur</h2>
+<p>Follow <em>Do you offer a student discount?</em> with a bound of 2:</p>
+<ol>
+<li>The topic check says <code>RELEVANT</code>: 1 call.</li>
+<li>Three retrievals, the first scoring 0.000 on both chunks, and all six chunks fail: 6 calls.</li>
+<li>Two rewrites between them, then the fixed no-results reply: 2 calls, 9 in all.</li>
+</ol>
+<p>This question needs new handbook content, which no rewrite can supply. The no-results rate lists the handbook&rsquo;s gaps, and a jump after a change points at the index or the grader.</p>
+<blockquote>
+<p><strong>Key distinction:</strong> this graph knows when to stop, but it never checks its own answer. M29 adds a web-search fallback when grading fails and a check on the generated answer.</p>
+</blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/notebook/03a_advanced_rag_agent.ipynb" target="_blank" rel="noopener">Advanced RAG agent</a>.</li>
+<li><strong>Stand-ins in the lab.</strong> Retrieval is real TF-IDF, but the grader passes only the golden set&rsquo;s answer chunks, the topic check reads the golden label and the rewrites are hand-written. Real LLMs make mistakes these do not.</li>
+<li><strong>Five questions.</strong> A larger golden set may keep gaining answers past a bound of 2.</li>
+<li><strong>Stub nodes.</strong> Table 2 measures graph steps, not a model&rsquo;s behaviour.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A topic check before retrieval costs one call per question and stops off-topic traffic from spending the retry budget. Track the off-topic rate, because a false rejection never reaches retrieval or its logs.</li>
-<li>Bound rewrites with a per-question counter in the state and keep <code>recursion_limit</code> as a backstop. Without a counter, the default limit let a stub graph make 10,007 LLM calls.</li>
-<li>Enhancement makes a follow-up standalone; optimisation looks for words that retrieve better. A rewrite helps only when it moves toward the documents&rsquo; vocabulary, and rewriting a rewrite can drift from the question.</li>
+<li>A topic check before retrieval costs one call per question and keeps off-topic questions out of the retry loop. Track the off-topic rate, because a silent rejection leaves no retrieval log.</li>
+<li>Bound rewrites with a per-question counter in the state, check evidence before the budget, and keep the recursion limit as a backstop. Unanswerable questions always pay the full bound, so set it where the golden set&rsquo;s answered count stops rising.</li>
+<li>Enhancement makes a follow-up standalone; optimisation looks for words that retrieve better. A rewrite helps only when it reaches the documents&rsquo; vocabulary, and rewriting a rewrite can drift from the question.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the topic check run before retrieval instead of leaving off-topic questions to the document grader?</summary>
-<p>The grader cannot tell &ldquo;off topic&rdquo; from &ldquo;not in the handbook&rdquo;: both look like a retrieval where nothing passes, both spend the retry budget and both end in the same no-results reply. In the lab the weather question costs 1 call with the check and 8 without.</p>
+<p>The grader cannot tell &ldquo;off topic&rdquo; from &ldquo;not in the handbook&rdquo;: both look like a retrieval where nothing passes, spend the retry budget and end in the same no-results reply. In the lab the weather question costs 1 call with the check and 8 without.</p>
 </details>
 <details>
 <summary>2. With two rewrites allowed and two chunks per retrieval, how many LLM calls does a question the handbook cannot answer cost?</summary>
 <p>Nine: 1 for the topic check, 6 grader calls (2 per retrieval over 3 retrievals) and 2 rewrites, with no answer call. In general it is <code>1 + 2(m + 1) + m</code> for a bound of <code>m</code>, because unanswerable questions always pay the full bound.</p>
 </details>
 <details>
-<summary>3. Raising the bound from two rewrites to three costs three more calls on the golden set. What does it buy?</summary>
-<p>Nothing: the answered count stays at 3. The extra retrieval and calls all go to the student-discount question, which the handbook cannot answer at any bound. Set the bound where the golden set&rsquo;s answered count stops rising, and keep <code>recursion_limit</code> as a backstop.</p>
+<summary>3. The outage question's first rewrite retrieves exactly the same two chunks as the original. What went wrong, and should you raise the bound to compensate?</summary>
+<p>It is a synonym swap: &ldquo;unavailable&rdquo; is no more a handbook word than &ldquo;goes down&rdquo;, so TF-IDF returns the same chunks at the same scores. A higher bound only buys more attempts; the fix is a rewriter that reaches the documents&rsquo; vocabulary, as the second rewrite does with &ldquo;outage&rdquo; and &ldquo;availability&rdquo;.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html"><strong>Grade, rewrite, retry</strong></a>: open the file in a browser. Pick <em>What happens if my server goes down?</em> and lower the bound from 2 to 1: the evidence is one rewrite out of reach. Pick <em>Do you offer a student discount?</em> and raise the bound to 3: three more calls and no answer. Then switch the topic check off and pick the weather question.</p>
@@ -757,7 +1093,7 @@ generate
 <li>Bound every retry loop with a counter in the state that resets each turn, and set the bound where the golden set stops gaining answers.</li>
 <li>Check the topic before retrieval when off-topic traffic is real, and watch the no-results rate it leaves behind: those questions are gaps in the handbook.</li>
 </ul></article>
-    <nav class="toc" aria-label="M28 sections"><details open><summary>In M28</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#document-grader">Document grader</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#topic-guardrails">Topic guardrails</a></li><li><a href="#bounded-retries">Bounded retries</a></li><li><a href="#two-rewrites-two-jobs">Two rewrites, two jobs</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M28 sections"><details open><summary>In M28</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#document-grader">Document grader</a></li><li><a href="#in-practice-the-refund-question-at-larkspur">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-the-same-agent-on-databricks-vector-search">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-question">Following one question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#topic-guardrails">Topic guardrails</a></li><li><a href="#bounded-retries">Bounded retries</a></li><li><a href="#two-rewrites-two-jobs">Two rewrites, two jobs</a></li><li><a href="#in-practice-the-student-discount-question-at-larkspur">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

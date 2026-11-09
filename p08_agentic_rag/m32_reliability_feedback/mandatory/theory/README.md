@@ -2,17 +2,17 @@
 
 *Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
-A fluent Larkspur answer can use irrelevant evidence, quote unsupported text or repeat a mistake after feedback. You will test those failure points separately, validate highlights and inspect what reranking can recover from the candidate pool. The tutorials cover support checks, source evidence, user feedback and diversity-aware selection. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+A RAG answer can read well and still be wrong in three separate ways. It can rest on a chunk that has nothing to do with the question, it can state something no chunk says, and it can keep failing after users have said so. This module adds a check for each: graders before and after generation, quoted sources the user can verify, a feedback loop that re-weights retrieval, and a selector that stops duplicate chunks from crowding out the evidence. The M32 notebooks build on four ideas: catching unsupported answers, proving each quote, learning from user signals, and choosing diverse chunks. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
-The running example is the Larkspur Cloud handbook from M10: the same twelve chunks and the same TF-IDF index as the [M10 top-k lab](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k). The golden set keeps M10's three questions and adds two: *Is there a credit if my server plan has an outage?*, whose evidence ranks third, and *Can I still use my server after I cancel the plan?*, whose top answer carries an unrelated chunk along with the right one.
+The running example is the Larkspur Cloud handbook from M10: the same twelve chunks and the same TF-IDF index as the [M10 top-k lab](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/README.md#top-k). The golden set keeps M10's three questions and adds two: *Is there a credit if my server plan has an outage?*, whose evidence ranks third, and *Can I still use my server after I cancel the plan?*, whose top answer carries an unrelated chunk along with the right one. The refund question, *How long does a refund take?*, runs through the whole module, because its answer sits in a chunk the retriever never returns.
 
 ## TL;DR
 
-- `01a` wraps generation in two LLM graders: one answers yes or no for each retrieved chunk before generation, the other answers yes or no for whether the answer is grounded in the kept chunks. Both run `llama-3.1-8b-instant` on Groq at temperature 0 with structured output.
-- Source highlighting asks the model for verbatim segments of the chunks it used. Nothing in the parser enforces "verbatim", so check every segment against its chunk in code.
-- `02a` re-ranks with `relevance_score *= average rating / 3`, which keeps every chunk between 0.333 and 1.667. In the lab, 100 rated answers lift mean recall@2 on the golden set from 0.50 to 0.70, the order stops changing after event 8, and 40 of the 41 wrong answers go to two questions whose evidence the retriever never returns.
-- A thumbs-up or thumbs-down on the answer lands on every chunk in it. In the lab an unrelated chunk rides a good answer up to 1.667, and an evidence chunk is pushed down to 0.333 next to the distractor it was served with.
-- With the handbook stored five times, plain top-3 for the export question returns the `export` chunk three times. The notebook's dartboard search returns `export`, `retention`, `export` at its default oversampling of 3, and `export`, `retention`, `cancel` at 4.
+- Lesson 32.1 wraps generation in two LLM graders. One answers yes or no for each retrieved chunk before generation, the other for whether the answer is grounded in the kept chunks. Grading removes noise but cannot add a chunk retrieval missed, and with source highlighting the three checks add 6 model calls per answer at k = 4.
+- Source highlighting asks the model for verbatim quotes of the chunks it used. The parser checks only their shape, so find every quote in its chunk in code and fall back to citing the whole chunk when it is missing.
+- The feedback re-ranker in lesson 32.2 multiplies each chunk's score by its average rating over 3, which keeps it between 0.333 and 1.667. In the lab, 100 rated answers lift mean recall@2 on the golden set from 0.50 to 0.70, the order stops changing after event 8, and 40 of the 41 wrong answers go to two questions whose evidence the retriever never returns.
+- A rating on the whole answer lands on every chunk in it. In the lab an unrelated chunk rides a good answer up to 1.667, and an evidence chunk is pushed down to 0.333 next to the distractor it was served with.
+- With the handbook stored five times, plain top-3 for the export question returns the `export` chunk three times. Dartboard selection returns `export`, `retention`, `export` at its default oversampling of 3, and `export`, `retention`, `cancel` at 4, once the pool holds three distinct chunks.
 
 ## Mental model
 
@@ -37,7 +37,7 @@ The checks in the top row act on one answer and can only remove: a grader drops 
 |---|---|---|
 | 32.1 | Reliable RAG: relevance checks, hallucination checks, source highlighting | [Relevance grading](01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#relevance-grading)<br>[Hallucination detection](01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#hallucination-detection)<br>[Source highlighting](01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#source-highlighting) |
 | 32.2 | Retrieval with a user-feedback loop | [The feedback re-ranker](02_retrieval_with_a_user_feedback_loop/README.md#the-feedback-re-ranker)<br>[Implicit vs explicit feedback](02_retrieval_with_a_user_feedback_loop/README.md#implicit-vs-explicit-feedback)<br>[Folding good answers into the index](02_retrieval_with_a_user_feedback_loop/README.md#folding-good-answers-into-the-index) |
-| 32.3 | Dartboard RAG: relevance and diversity together | [Diversity-aware selection](../../optional/theory/03_dartboard_rag_relevance_and_diversity_together/README.md#diversity-aware-selection) |
+| 32.3 | Dartboard RAG: relevance and diversity together | [Diversity-aware selection](../../optional/theory/03_dartboard_rag_relevance_and_diversity_together/README.md#diversity-aware-selection)<br>[Where the pool runs out](../../optional/theory/03_dartboard_rag_relevance_and_diversity_together/README.md#where-the-pool-runs-out)<br>[Dartboard or MMR](../../optional/theory/03_dartboard_rag_relevance_and_diversity_together/README.md#dartboard-or-mmr) |
 
 ## Interactive lab
 
@@ -57,10 +57,10 @@ The checks in the top row act on one answer and can only remove: a grader drops 
 **What a strong answer covers:**
 - Pulls the trace: the retrieved chunks, the grader's verdict on each, the kept set, the answer and the hallucination grader's input
 - Checks retrieval first: on the M10 TF-IDF index `refund-timing` scores 0 for this question, so the kept set may hold only `refund-window`, which gives no duration at all
-- Checks the generation prompt: `01a` tells the model to answer "based upon your knowledge", which invites a remembered number; a grounded system says "only from the documents"
+- Checks the generation prompt: the lesson's example tells the model to answer "based upon your knowledge", which invites a remembered number; a grounded system says "only from the documents"
 - Treats the grader as a model with an error rate: labels a sample of answers by hand, measures how often the grader agrees, and adds this case to that set
 
-### 2. Product wants a thumbs-up and thumbs-down on every answer, feeding a re-ranker like the one in `02a`. What do you tell them it will and will not fix?
+### 2. Product wants a thumbs-up and thumbs-down on every answer, feeding a re-ranker like the one in lesson 32.2. What do you tell them it will and will not fix?
 
 **What a strong answer covers:**
 - It reorders the candidates retrieval returns, so it fixes questions whose evidence is retrieved but ranked low (the lab's credit question goes from recall@2 0.00 to 1.00 after one thumbs-down)
@@ -74,9 +74,9 @@ The checks in the top row act on one answer and can only remove: a grader drops 
 - Logs every verdict with the question, chunk ids and answer, so rates can be tracked per question type and per document
 - Watches the share of questions where every chunk is graded irrelevant, and the share of answers graded not grounded; a jump after an index or prompt change points at the change
 - Samples graded traffic for human labels each week and tracks the graders' agreement with them, separately for "yes" and "no", since a lenient grader fails in one direction
-- Counts the cost: `01a` makes five grader calls per answer (one per chunk at `k = 4`, plus one grounding call) and a sixth for highlighting, and the latency they add belongs on the same dashboard
+- Counts the cost: five grader calls per answer (one per chunk at k = 4, plus one grounding call) and a sixth for highlighting, and the latency they add belongs on the same dashboard
 
-### 4. `fine_tune_index` has been folding highly rated question and answer pairs into the index every week. Larkspur then changes its refund rule. What goes wrong, and how do you guard against it?
+### 4. A weekly job has been folding highly rated question and answer pairs into the index. Larkspur then changes its refund rule. What goes wrong, and how do you guard against it?
 
 **What a strong answer covers:**
 - Old answers that quote the old rule are now chunks in the index, and they match refund questions better than the handbook does because they were written as answers to those questions
