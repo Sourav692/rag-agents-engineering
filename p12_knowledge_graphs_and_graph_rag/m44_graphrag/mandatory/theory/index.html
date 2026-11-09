@@ -289,44 +289,284 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Both routes must return evidence that the answer can cite. The graph supplies candidate connections; the source passages establish what the handbook actually says. Community reports add a summary layer whose omissions need checking against those passages.</p>
 <h2 id="chunk-graphs-and-traversal">Chunk graphs and traversal</h2>
 <p class="lesson-of">Lesson 44.1: Concept-graph traversal. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m44_graphrag/mandatory/notebook/01a_graph_rag.ipynb" target="_blank" rel="noopener"><code>01a_graph_rag.ipynb</code></a></p>
-<p>The first notebook represents each chunk as a node in an undirected NetworkX graph. It splits documents with <code>chunk_size=1000</code> and <code>chunk_overlap=200</code>, extracts concepts with a structured LLM response and named entities with spaCy, then compares chunk embeddings. An edge exists when cosine similarity is strictly greater than <code>0.8</code>. Shared concepts influence the edge weight after that threshold has passed.</p>
-<p>For chunks A and B, the code weights an edge as <code>0.7 × cosine + 0.3 × shared_fraction</code>. The denominator of <code>shared_fraction</code> is the smaller concept-set size, with zero when that size is zero. This weight combines two signals chosen by the notebook author. It has no calibrated meaning as a probability that either chunk proves the other.</p>
-<p>A Larkspur cancellation chunk and export chunk could share a product name while describing different dates or account states. The similarity edge is a retrieval lead. Read the passages before turning that lead into a policy statement.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a chunk graph is built from cosine similarity and shared concepts, and what its edge weight means.</li>
+<li><strong>Trace</strong> the notebook&rsquo;s priority-queue traversal and the completeness check that stops it.</li>
+<li><strong>Diagnose</strong> two traversal faults: an inverted seed priority and neighbours that are discovered but never expanded.</li>
+<li><strong>Choose</strong> the budgets and logs that make a traversal auditable.</li>
+</ul>
+</blockquote>
+<p><a href="../../../m43_knowledge_graphs_neo4j/mandatory/theory/index.html">M43</a> stored facts as typed nodes and relationships and queried them with Cypher. This module asks a different question: how can graph structure decide which passages reach the answer model?</p>
+<p>Take a Larkspur Cloud customer who asks which export mechanism remains available after cancellation. The answer depends on three passages: the cancellation policy, the export options and the snapshot retention rule. Flat top-k retrieval scores each chunk against the question on its own, and the retention passage barely mentions cancellation. It can rank below a billing chunk that shares more words with the question.</p>
+<p>A <strong>chunk graph</strong> is a graph whose nodes are text chunks and whose edges join chunks that are similar enough to be read together. Retrieval finds a few seed chunks, then walks the edges to collect neighbours that the question alone would not rank. The first notebook builds one over the first 10 pages of a climate-change PDF and walks it to answer a question.</p>
+<p>The build runs in four stages:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What the notebook does</th>
+<th>What it produces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Split</td>
+<td>Recursive splitter, 1,000 characters with 200 of overlap</td>
+<td>30 chunks from the 10 pages</td>
+</tr>
+<tr>
+<td>Concepts</td>
+<td>A structured LLM call per chunk, plus spaCy named entities (people, organisations, places, works)</td>
+<td>A concept list per node</td>
+</tr>
+<tr>
+<td>Embed and compare</td>
+<td>One embedding per chunk, cosine similarity for every pair</td>
+<td>435 pair scores (30 × 29 / 2)</td>
+</tr>
+<tr>
+<td>Link</td>
+<td>An edge when cosine is strictly above 0.8</td>
+<td>Weighted, undirected edges</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The chunk-graph build. Chunk and pair counts come from running the notebook&rsquo;s loader and splitter in the scratchpad; no model was called.</em></p>
+<p>The comparison is quadratic. Doubling the corpus to 60 chunks would mean 1,770 pairs, and the concept stage costs one model call per chunk on top of the embeddings.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     S[Similar chunks] --&gt; T{Cosine above threshold?}
     T --&gt;|Yes| W[Weight by similarity&lt;br/&gt;and shared concepts]
     T --&gt;|No| X[No edge]
     W --&gt; N[Expand toward new concepts]
 </pre></figure>
-<p>The query path retrieves <code>k=5</code> chunks from FAISS, compresses them with <code>LLMChainExtractor</code>, then tries to map their text back to graph nodes. Compression can change the text, so equality against the original chunk is fragile. Stable chunk IDs and an explicit mapping between compressed spans and original passages remove that ambiguity.</p>
-<p>The traversal uses a heap, inverse edge weights and a model-based completeness check. Its implementation also appends neighbours immediately when discovered. It should not be described as an unmodified shortest-path algorithm. The initial seed priority uses <code>1 / similarity_score</code> on a value returned by <code>similarity_search_with_score</code>; verify the backend&rsquo;s score convention and zero handling before using it as a relevance priority.</p>
+<p><em>Figure 1: Edge creation. The threshold decides whether an edge exists; shared concepts only change its weight.</em></p>
+<p>Once a pair passes the threshold, the notebook weights the edge as 0.7 × cosine + 0.3 × the shared-concept fraction. The fraction divides the number of shared concepts by the size of the smaller concept set, and is zero when that set is empty. We ran the notebook&rsquo;s own weight function on four illustrative Larkspur chunk pairs:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Edge</th>
+<th>Cosine</th>
+<th>Shared concepts</th>
+<th>Smaller set</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cancellation policy, Export options</td>
+<td>0.86</td>
+<td>1</td>
+<td>3</td>
+<td>0.702</td>
+</tr>
+<tr>
+<td>Cancellation policy, Billing cycle</td>
+<td>0.84</td>
+<td>1</td>
+<td>2</td>
+<td>0.738</td>
+</tr>
+<tr>
+<td>Export options, Snapshot retention</td>
+<td>0.88</td>
+<td>1</td>
+<td>2</td>
+<td>0.766</td>
+</tr>
+<tr>
+<td>Billing cycle, Outage status</td>
+<td>0.82</td>
+<td>0</td>
+<td>2</td>
+<td>0.574</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Edge weights from the notebook&rsquo;s weight function. Cosine scores and concept lists are illustrative inputs.</em></p>
+<p>The billing edge outweighs the export edge despite a lower cosine, because the billing chunk has a smaller concept list. The weight mixes two signals the notebook author chose. It has no calibrated meaning as a probability that one chunk supports the other.</p>
+<blockquote>
+<p><strong>Pitfall: the edge as evidence.</strong> A cancellation chunk and an export chunk can share a product name while describing different dates or account states. An edge is a retrieval lead; read both passages before turning it into a policy statement.</p>
+</blockquote>
+<p>At query time the notebook retrieves 5 chunks from FAISS and compresses each with an LLM extractor that keeps only the question-relevant sentences. To find each compressed span&rsquo;s place in the graph, it runs a second nearest-neighbour search with the compressed text and takes the closest stored chunk. That chunk may not be the one the span came from, and two chunks with identical text map to whichever node comes first. Stable chunk IDs carried through compression remove the guess.</p>
+<h2 id="how-the-traversal-runs">How the traversal runs</h2>
+<p>The notebook describes its walk as Dijkstra-like. Each seed enters a min-heap with priority 1 / score, where the score comes from the seed lookup. Popping a node adds its text to the context and asks the model whether the context now answers the question. If not, and the node brings concepts not seen yet, each neighbour gets a distance of the current priority plus 1 / edge weight.</p>
+<p>The loop has one detail that changes its reach:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    P[Pop lowest priority] --&gt; V{Already in path?}
+    V --&gt;|yes| P
+    V --&gt;|no| A[Add text, check answer]
+    A --&gt; C{New concepts?}
+    C --&gt;|no| P
+    C --&gt;|yes| N["Neighbour closer:&lt;br/&gt;push, add text, check"]
+    N --&gt; P
+</pre></figure>
+<p><em>Figure 2: The traversal loop. A neighbour joins the path when it is discovered, so the pop that later reaches it is skipped.</em></p>
+<p>Read the right-hand branch closely. A neighbour&rsquo;s text is added, and the neighbour is recorded as visited, at the moment it is discovered. When the heap later pops that neighbour, the &ldquo;already in path&rdquo; test skips it, and its own neighbours are never examined. We call this <strong>discovered but never expanded</strong>: the walk reaches the seeds and their direct neighbours, and stops.</p>
+<p>The seed priority has a second problem. LangChain&rsquo;s FAISS store returns L2 distance by default, where a lower score means a closer match. Dividing 1 by a distance gives the closest seed the largest priority, and the min-heap pops it last. We call this the <strong>inverted seed priority</strong>. A distance of exactly zero would also divide by zero.</p>
+<p>We ran the notebook&rsquo;s traversal code on the five illustrative chunks from Table 2, with a stub vector store and a stub completeness check that answers &ldquo;complete&rdquo; once cancellation, export and retention are all in context:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Node</th>
+<th>How it entered</th>
+<th>Completeness check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Billing cycle</td>
+<td>Seed at L2 0.70, priority 1.43</td>
+<td>incomplete</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Outage status</td>
+<td>Neighbour of billing</td>
+<td>incomplete</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Cancellation policy</td>
+<td>Seed at L2 0.40, priority 2.50</td>
+<td>incomplete</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Export options</td>
+<td>Neighbour of cancellation</td>
+<td>incomplete</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The notebook&rsquo;s traversal on a hand-built graph (scratchpad run, stub retrieval and stub answer check).</em></p>
+<p>The farther seed went first. Export options was added as a neighbour and later skipped when popped. Snapshot retention, two hops from the cancellation seed, never entered the context. The loop ended after four completeness calls and fell through to generating an answer from incomplete context. With the cancellation chunk as the only seed, the path was cancellation, export, billing: the same one-hop limit.</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted case</th>
+<th>What the traversal did</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two seeds at L2 0.40 and 0.70</td>
+<td>Expanded the farther seed first</td>
+<td>1 / distance inverts the order</td>
+</tr>
+<tr>
+<td>Retention two hops from the seed</td>
+<td>Never reached</td>
+<td>Discovered neighbours are never expanded</td>
+</tr>
+<tr>
+<td>A node whose concepts were all seen</td>
+<td>No neighbours pushed</td>
+<td>The new-concept test gates expansion</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Planted cases and their causes. The first two come from Table 3&rsquo;s run; the third is the gate in Figure 2.</em></p>
+<p>None of this makes the notebook useless as a teaching build. It shows the moving parts of graph-guided retrieval. It should not be described as an unmodified shortest-path search, and its reach should be measured before it is trusted with multi-hop questions.</p>
 <h2 id="budgets-and-stopping">Budgets and stopping</h2>
-<p>The code sets <code>max_context_length=4000</code>, but the traversal does not enforce that attribute. A variable named as a budget supplies no protection until a branch checks it. Count the accumulated context with the answer model&rsquo;s tokenizer and stop before exceeding an explicit budget. Cap visited nodes and completeness-check calls separately.</p>
-<p>An LLM saying “complete” is a stopping heuristic. For the cancellation question, check that the context contains the cancellation condition, available export mechanism and applicable retention condition. If the graph has no path to one of those passages, report the missing evidence. Increasing context cannot create a relation absent from the index.</p>
-<p>For each query, log seed IDs, selected edges, retrieved source spans, context size and stopping reason. Compare against flat retrieval on the same golden questions. A longer traversal can increase work while leaving the answer&rsquo;s supporting evidence unchanged.</p>
+<p>The query engine sets a maximum context length of 4,000, but no branch of the traversal reads it. A variable named as a budget supplies no protection until code checks it. Count the accumulated context with the answer model&rsquo;s tokenizer and stop before an explicit limit. Cap visited nodes and completeness calls separately, since each check is a model call over the whole context so far.</p>
+<p>The cost of checking grows with the walk:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Nodes added</th>
+<th>Completeness calls</th>
+<th>Context sent per call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>1 chunk</td>
+</tr>
+<tr>
+<td>4</td>
+<td>4</td>
+<td>1, 2, 3, then 4 chunks</td>
+</tr>
+<tr>
+<td>n</td>
+<td>n</td>
+<td>1 + 2 + … + n chunks in total</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Completeness calls in the notebook&rsquo;s loop. Table 3&rsquo;s run made four calls over contexts of 1, 2, 3 and 4 chunks.</em></p>
+<p>At 1,000-character chunks, a walk that adds 10 nodes resends 55 chunks of text across its checks. That is the price of asking after every node.</p>
+<p>An LLM saying &ldquo;complete&rdquo; is a stopping heuristic. For the cancellation question, check that the context holds the cancellation condition, the available export mechanism and the retention condition. If the graph has no path to one of those passages, report the missing evidence. More context cannot create a relation absent from the index.</p>
+<p>For each query, log the seed IDs, the edges followed, the source spans retrieved, the context size and the stopping reason. Then compare against flat retrieval on the same golden questions. A longer traversal can add work while leaving the answer&rsquo;s supporting evidence unchanged, and lesson 44.2 turns that evidence into explicit citations.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A chunk graph links chunks whose cosine similarity passes a threshold and weights edges by similarity and shared concepts. The weight is a retrieval lead, not a calibrated probability.</li>
-<li>A variable named as a budget protects nothing until code checks it. Count context with the answer model&rsquo;s tokenizer and cap visited nodes and completeness checks separately.</li>
-<li>Treat the model&rsquo;s &ldquo;complete&rdquo; verdict as a heuristic. Check the required evidence is present, and log seeds, edges, context size and stopping reason against flat retrieval.</li>
+<li>A chunk graph joins chunks whose cosine passes a threshold and weights each edge by similarity and shared concepts. The weight is a retrieval lead, never a calibrated probability.</li>
+<li>Measure a traversal&rsquo;s reach before trusting it: the notebook&rsquo;s walk inverts its seed order on L2 distances and never expands the neighbours it discovers; it stops one hop out.</li>
+<li>A budget variable protects nothing until code checks it. Count context with the answer model&rsquo;s tokenizer, cap nodes and completeness calls separately, and treat &ldquo;complete&rdquo; as a heuristic.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Two chunks have cosine similarity 0.85 and share 2 concepts, with 4 in the smaller concept set. What weight does their edge get, and what does that weight mean?</summary>
-<p>The edge exists because 0.85 is above the <code>0.8</code> threshold, and its weight is 0.7 × 0.85 + 0.3 × 0.5 = 0.745. The weight combines two signals the notebook author chose; it is not a calibrated probability that either chunk proves the other. Treat the edge as a retrieval lead and read both passages.</p>
+<p>The edge exists because 0.85 is above the 0.8 threshold, and its weight is 0.7 × 0.85 + 0.3 × 0.5 = 0.745. The weight combines two signals the notebook author chose and is not a calibrated probability that either chunk supports the other. Treat the edge as a retrieval lead and read both passages.</p>
 </details>
 <details>
 <summary>2. The traversal sets max_context_length=4000. Does that stop the context from growing past 4000?</summary>
-<p>No. The traversal never checks that attribute, so it supplies no protection. Count the accumulated context with the answer model&rsquo;s tokenizer and stop before an explicit budget, and cap visited nodes and completeness-check calls separately.</p>
+<p>No. No branch of the traversal checks that attribute, so it supplies no protection. Count the accumulated context with the answer model&rsquo;s tokenizer and stop before an explicit budget, and cap visited nodes and completeness-check calls separately.</p>
 </details>
 <details>
-<summary>3. For the Larkspur cancellation question, the model's completeness check says the context is complete. How do you confirm that?</summary>
-<p>An LLM saying &ldquo;complete&rdquo; is only a stopping heuristic. Check that the context holds the cancellation condition, the available export mechanism and the applicable retention condition. If the graph has no path to one of those passages, report the missing evidence; more context cannot create a relation absent from the index.</p>
+<summary>3. The snapshot retention chunk sits two edges from the cancellation seed, yet it never reaches the context. What in the traversal explains that?</summary>
+<p>The loop adds a neighbour to the path the moment it discovers it, and later skips that neighbour when it is popped, so its own neighbours are never examined. The walk reaches the seeds and their direct neighbours only. Log the path and measure reach on a question whose evidence is two hops away before relying on the traversal.</p>
 </details>
 <h2 id="source-attribution">Source attribution</h2>
 <p class="lesson-of">Lesson 44.2: Local GraphRAG with source attribution. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m44_graphrag/optional/notebook/02a_graph_rag_local_attribution.ipynb" target="_blank" rel="noopener"><code>02a_graph_rag_local_attribution.ipynb</code></a> (optional)</p>
-<p>The optional local notebook uses Ollama for extraction and generation, <code>all-MiniLM-L6-v2</code> for entity embeddings, and a directed NetworkX graph for relationships. Its <code>Entity</code> and <code>Relationship</code> records store <code>source_doc</code> and <code>source_sentence</code>. Query-time vector search finds entity entry points, then breadth-first traversal follows outgoing edges up to <code>max_hops</code>.</p>
-<p>For Larkspur, a graph path might connect Cancellation to Export, then Export to Snapshot. The path explains why retrieval reached the snapshot document. The cancellation policy still needs a passage stating the conditions under which that snapshot export remains available.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the difference between the route that found evidence and the passage that supports a claim.</li>
+<li><strong>Trace</strong> how the notebook turns <code>[N]</code> markers into citations, and what that check leaves out.</li>
+<li><strong>Diagnose</strong> provenance lost to overwrites and results hidden by a shared visited set.</li>
+<li><strong>Choose</strong> what to report when a local extraction model fails.</li>
+</ul>
+</blockquote>
+<p>Lesson 44.1 walked a graph of similar chunks and ended on a log of seeds, edges and source spans. This lesson makes the last item explicit: every claim in the answer should point at the sentence that supports it.</p>
+<p>Suppose the Larkspur assistant answers that exports stay available for 30 days after cancellation, and tags the claim <code>[1]</code>. Marker 1 resolves to a real handbook sentence. The sentence says that cancelling ends billing at the end of the period, which says nothing about exports. The answer looks cited and is unsupported. We call this <strong>citation without support</strong>.</p>
+<p><strong>Source attribution</strong> links each generated claim to the exact source span that supports it, and keeps that link separate from the graph path that found the span. The optional notebook builds a local version: Ollama runs extraction and generation, <code>all-MiniLM-L6-v2</code> embeds entities, and a directed NetworkX graph holds the relationships.</p>
+<p>Each record the notebook stores carries its provenance:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Record</th>
+<th>Fields that carry provenance</th>
+<th>What it decides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entity</td>
+<td>source document, source sentence</td>
+<td>Which sentence a node description came from</td>
+</tr>
+<tr>
+<td>Relationship</td>
+<td>relation type, source document, source sentence</td>
+<td>Which sentence asserted the edge</td>
+</tr>
+<tr>
+<td>Citation</td>
+<td>claim, source document, source sentence, confidence, graph path</td>
+<td>What the answer points at</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The notebook&rsquo;s data model, read from its dataclasses.</em></p>
+<p>At query time the notebook embeds the question, takes the 3 most similar entities as entry points, and follows outgoing edges breadth-first for up to 2 hops. For Larkspur, a path might run from Cancellation to Export to Snapshot. That path explains why retrieval reached the snapshot document. The policy claim still needs a passage that states when a snapshot export remains available.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     E[Entity match] --&gt; P[Relationship path]
     P --&gt; S[Original source span]
@@ -334,19 +574,106 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt;|Yes| A[Answer with reference]
     C --&gt;|No| R[Retrieve or qualify]
 </pre></figure>
-<p>Keep two records for each generated claim: the route by which retrieval found evidence, and the exact passage used to support the claim. A traversable relation can be stale, incorrectly extracted or disconnected from the conditions in the original text. Inspecting the source is how a reviewer can reject that relation.</p>
+<p><em>Figure 1: Route and support are separate checks. The path finds a span; only the span can support the claim.</em></p>
+<p>Keep two records for each generated claim: the route by which retrieval found evidence, and the exact passage used to support the claim. A traversable relation can be stale, wrongly extracted, or cut off from the conditions in the original text. Inspecting the source is how a reviewer rejects that relation.</p>
 <h2 id="what-the-notebook-verifies">What the notebook verifies</h2>
-<p>The example prompt asks for <code>[N]</code> references. The code finds those markers with a regular expression and maps valid IDs back to source records. It assigns each resulting <code>Citation</code> a fixed <code>confidence=0.9</code>, and its <code>claim</code> field contains a reference label rather than the extracted answer claim. That value is an example constant, not a measured confidence estimate.</p>
-<p>The context supplied to generation contains entity names and descriptions. The stored source sentence is attached afterwards through the source map. The code therefore demonstrates provenance storage and citation resolution; it does not check entailment between every answer claim and the quoted sentence. Add a claim-to-span review before treating an answer as verified.</p>
-<p>The graph also uses a single source record per entity ID. Re-ingesting the same lowercased name can overwrite its description and source. A <code>DiGraph</code> allows one edge for a given ordered node pair, so distinct relation evidence between the same pair can overwrite as well. Preserve multiple source spans and relation types when they carry separate claims.</p>
+<p>The answer prompt lists the retrieved entities as numbered lines of name and description, and asks the model to cite with <code>[N]</code>. After generation, a regular expression finds the markers, and each valid number is mapped back to the stored source document and sentence. The source sentence never enters the prompt; it is attached afterwards from the map.</p>
+<p>We ran the notebook&rsquo;s ingestion, traversal and citation code with a scripted extraction (four Larkspur entities, four relations) and a scripted answer, so no model was called:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Claim in the answer</th>
+<th>Resolved sentence</th>
+<th>Supports the claim</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[1]</code></td>
+<td>Exports stay available for 30 days</td>
+<td>Cancelling ends billing at period end.</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>[3]</code></td>
+<td>Snapshots last 30 days</td>
+<td>Exports use the latest snapshot.</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>[9]</code></td>
+<td>(see also)</td>
+<td>none: dropped without a warning</td>
+<td>not checked</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Citation resolution on a scripted run. Both resolved markers become citations with confidence 0.9.</em></p>
+<p>Both valid markers became citation records. Each has a confidence of 0.9, a fixed constant in the code, and a claim field that holds the label &ldquo;Reference [N]&rdquo; rather than the sentence of the answer it supports. Marker 9 pointed past the three context items and vanished. Nothing in the run noticed that neither resolved sentence supports its claim.</p>
+<p>The code therefore demonstrates provenance storage and citation resolution. It does not check entailment, that is, whether the cited sentence actually implies the claim. A useful check splits the answer into claims, resolves each marker to a span, and asks whether the span supports the claim with its conditions and dates intact. Until that check passes, call the answer cited, not verified.</p>
+<h2 id="where-provenance-is-lost">Where provenance is lost</h2>
+<p>The graph keeps one source record per entity and one edge per ordered pair of entities. Both rules overwrite data silently. We call the pattern <strong>last write wins</strong>, and the same scripted run planted two cases:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted case</th>
+<th>What the graph kept</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An old FAQ re-extracts &ldquo;export&rdquo; after the policy page</td>
+<td>The node now cites the old FAQ: &ldquo;Exports are removed at cancellation.&rdquo;</td>
+<td>Entity IDs hash the lowercased name, and a later write replaces the node&rsquo;s fields</td>
+</tr>
+<tr>
+<td>Two relations from Export to Snapshot (uses, related to)</td>
+<td>One edge, typed &ldquo;related to&rdquo;; 4 relations extracted, 3 edges stored</td>
+<td>A directed graph allows one edge per ordered pair</td>
+</tr>
+<tr>
+<td>A relation whose endpoint was never extracted as an entity</td>
+<td>No edge</td>
+<td>Edges are added only when both endpoints exist</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Overwrites and drops in the notebook&rsquo;s graph. The first two rows come from a scratchpad run of its ingestion code; the third is the guard in that code.</em></p>
+<p>The first row is the dangerous one. A stale FAQ sentence now contradicts the policy, and the traversal will cite it as the export node&rsquo;s source. Keep a list of source spans per entity, and a multigraph or a relation list when distinct relations between the same pair carry separate claims.</p>
 <h2 id="local-execution-boundaries">Local execution boundaries</h2>
-<p>The notebook falls back to empty extraction results if Ollama is unavailable. An empty graph from that branch does not establish that the documents contain no relationships. Report model availability and extraction failures separately from a legitimate zero-result retrieval.</p>
-<p>When using several seeds, verify distance budgets per seed. A single shared visited set can let an earlier seed suppress a shorter path from a later seed. Store the best depth or run a true multi-source breadth-first traversal when the required semantics are “within this many hops of any seed”. Retain source access filters during traversal and again when constructing context.</p>
+<p>When Ollama is not installed, the notebook&rsquo;s extraction helper returns an empty result rather than an error. An empty graph from that branch does not show that the documents contain no relationships. Report model availability and extraction failures separately from a legitimate zero-result retrieval.</p>
+<p>The traversal has a subtler boundary. It shares one visited set across all seeds and processes them in order. A node already reached from an earlier seed is skipped when a later seed starts from it, along with everything beyond it. We ran the notebook&rsquo;s traversal over the same four entities with 2 hops:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Seeds, in order</th>
+<th>Entities returned (depth)</th>
+<th>Retention returned</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cancellation, then Snapshot</td>
+<td>Cancellation 0, Export 1, Snapshot 2</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Snapshot, then Cancellation</td>
+<td>Snapshot 0, Retention 1, Cancellation 0, Export 1</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Seed order changes the result of the notebook&rsquo;s multi-seed traversal (scratchpad run).</em></p>
+<p>Retention is one hop from the Snapshot seed, well inside the budget, and still missing in the first row. We call this <strong>seed-order shadowing</strong>. When the required meaning is &ldquo;within this many hops of any seed&rdquo;, store the best depth per node or run a true multi-source breadth-first search, which starts every seed at depth 0 together. Apply source access filters during traversal and again when building the context.</p>
+<p>Lesson 44.3 moves from entity neighbourhoods to the whole corpus, where the evidence for an answer is a set of community summaries rather than a path.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Keep two records per claim: the graph route that found the evidence, and the exact passage that supports the claim. A traversable relation can be stale or wrongly extracted.</li>
-<li>Resolving <code>[N]</code> markers to sources proves provenance storage, not entailment. A fixed confidence value is a constant; add a claim-to-span review before calling an answer verified.</li>
-<li>Report extraction failures separately from legitimate empty results, and keep multiple source spans and relation types when one node or edge would overwrite them.</li>
+<li>Resolving <code>[N]</code> markers to sources proves provenance storage, not entailment. A fixed confidence of 0.9 is a constant; add a claim-to-span review before calling an answer verified.</li>
+<li>Report extraction failures separately from empty results, keep every source span and relation the graph would otherwise overwrite, and check that seed order cannot hide a result.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -355,25 +682,72 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>2. Each citation the notebook produces carries confidence 0.9. What does that number tell you about the answer?</summary>
-<p>Nothing measured: it is a fixed example constant, and the <code>claim</code> field holds a reference label rather than the answer&rsquo;s claim. The code finds <code>[N]</code> markers and maps valid IDs back to source records, but it never checks that the cited sentence supports the claim. Add a claim-to-span review before treating an answer as verified.</p>
+<p>Nothing measured: it is a fixed constant, and the claim field holds a reference label rather than the answer&rsquo;s claim. The code finds <code>[N]</code> markers and maps valid IDs back to source records, but it never checks that the cited sentence supports the claim. Add a claim-to-span review before treating an answer as verified.</p>
 </details>
 <details>
-<summary>3. Ollama was unavailable during ingestion and the graph came out empty. Can you conclude that the documents contain no relationships?</summary>
-<p>No. The notebook falls back to empty extraction results when Ollama is unavailable, so an empty graph from that branch says nothing about the documents. Report model availability and extraction failures separately from a legitimate zero-result retrieval.</p>
+<summary>3. After an old FAQ is ingested, answers about exports start citing it instead of the current policy. What in the graph caused that?</summary>
+<p>Entity IDs come from the lowercased name, so the FAQ&rsquo;s &ldquo;export&rdquo; maps to the same node as the policy&rsquo;s Export, and the later write replaces its description and source. This is last write wins. Keep a list of source spans per entity, with document versions, so a stale source can be filtered rather than silently substituted.</p>
 </details>
 <h2 id="community-detection">Community detection</h2>
 <p class="lesson-of">Lesson 44.3: Microsoft GraphRAG: communities, global vs local search. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m44_graphrag/mandatory/notebook/03a_microsoft_graphrag.ipynb" target="_blank" rel="noopener"><code>03a_microsoft_graphrag.ipynb</code></a></p>
-<p>An entity graph can group related regions before a question arrives. Community detection derives groups from graph connectivity. A community report then summarises the extracted material in a group. The grouping and its generated report are separate artifacts: changing the summary prompt changes the report without changing the graph partition.</p>
-<p>For Larkspur, cancellation and export relations may form one region, while outage recovery relations form another. These are illustrative groups, not results of running a community detector on the handbook. Review extracted edges and group membership before interpreting a report as a reliable account of a product area.</p>
-<p>Microsoft GraphRAG&rsquo;s indexing pipeline extracts graph information, detects communities, builds reports at multiple levels and embeds text. That pipeline supplies reusable artifacts for query time. <a href="https://microsoft.github.io/graphrag/index/overview/" target="_blank" rel="noopener">Microsoft indexing overview</a>.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the difference between a community, which comes from graph structure, and its report, which a model writes.</li>
+<li><strong>Compare</strong> global search over community reports with local search around entities.</li>
+<li><strong>Diagnose</strong> an overview answer that omits a region of the corpus or repeats an extraction mistake.</li>
+<li><strong>Count</strong> the indexing and query calls a graph pipeline adds before you compare it with flat retrieval.</li>
+</ul>
+</blockquote>
+<p>Lessons 44.1 and 44.2 started from a few seeds and walked outwards. That works when a question names something. A Larkspur support lead asks a different kind of question: which operational dependencies recur across cancellation, exports and outages? No single seed holds the answer. A walk from the cancellation node returns cancellation&rsquo;s neighbours and nothing about outage recovery.</p>
+<p><strong>Community detection</strong> partitions a graph into groups of nodes that are more densely connected to each other than to the rest. A <strong>community report</strong> is a summary a model writes for one group, from the entities and relations inside it. The two are separate artifacts. Changing the summary prompt changes the report without changing the partition, and a bad partition produces a fluent report about the wrong grouping.</p>
+<p>Microsoft GraphRAG builds both during indexing. Its pipeline extracts entities and relations from text chunks, detects communities with the hierarchical Leiden algorithm (clustering recursively until communities fall under a size threshold), writes a report per community at each level, and embeds text for later lookup (<a href="https://microsoft.github.io/graphrag/index/default_dataflow/" target="_blank" rel="noopener">Microsoft GraphRAG indexing dataflow</a>, read November 2026). Those artifacts are reused by every later query.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     E[Extracted entity graph] --&gt; C[Detect communities]
     C --&gt; R[Generate reports]
     R --&gt; Q[Select report evidence]
 </pre></figure>
+<p><em>Figure 1: The community half of indexing. Detection is a graph algorithm; report generation is a model call per community.</em></p>
+<p>A partition is only as stable as the structure underneath it. We ran NetworkX&rsquo;s Louvain algorithm, a close relative of Leiden and the one this module&rsquo;s lab uses, on the eight-entity Larkspur fixture from lesson 44.4&rsquo;s lab. That fixture is a single ring of eight relations, with no dense region:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Random seed</th>
+<th>Communities found</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0, 2, 3</td>
+<td>{Cancellation, Export}, {Billing, Refund}, {Snapshot, Storage}, {Account, Outage}</td>
+</tr>
+<tr>
+<td>1</td>
+<td>{Billing, Cancellation}, {Export, Snapshot}, {Account, Refund}, {Outage, Storage}</td>
+</tr>
+<tr>
+<td>4</td>
+<td>{Billing, Cancellation, Export}, {Outage, Snapshot, Storage}, {Account, Refund}</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Louvain partitions of the lab fixture across five random seeds (NetworkX 3.7, scratchpad run). Three seeds agree; two give different groupings.</em></p>
+<p>Whether Cancellation and Export share a community, and therefore a report, depends on the random seed. We call this the <strong>unstable partition</strong>. Real handbooks have denser regions than a ring, which helps, but the lesson holds: review extracted edges and group membership before reading a report as a reliable account of a product area. Fix the seed in evaluation runs, so that a change in the answers traces back to a change in the data.</p>
 <h2 id="global-vs-local-search">Global vs local search</h2>
-<p>Local search combines entity-related graph material with source text. Use it for “Which export mechanism remains available after cancellation?”: the evidence centres on specific entities and their conditions. Check that the selected context includes the original policy spans. <a href="https://microsoft.github.io/graphrag/query/local_search/" target="_blank" rel="noopener">Microsoft local search</a>.</p>
-<p>Global search addresses questions spread across the corpus by using community reports. The standard approach processes report context into partial responses, then combines useful results. Use it for “What operational dependencies recur across the handbook?” and inspect which report regions contributed. A fluent answer can still omit a small community or repeat an extraction mistake. <a href="https://microsoft.github.io/graphrag/query/global_search/" target="_blank" rel="noopener">Microsoft global search</a>.</p>
+<p>Microsoft GraphRAG answers from the same index in two ways.</p>
+<ul>
+<li><strong>Local search</strong>: starts from entities related to the question and combines their relations, nearby graph material and the source text units they came from (<a href="https://microsoft.github.io/graphrag/query/local_search/" target="_blank" rel="noopener">Microsoft local search</a>).</li>
+<li><strong>Global search</strong>: answers from community reports at a chosen level of the hierarchy, in a map and reduce pass over all of them (<a href="https://microsoft.github.io/graphrag/query/global_search/" target="_blank" rel="noopener">Microsoft global search</a>).</li>
+</ul>
+<p>Global search works in two stages:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[Question] --&gt; M["Map: each report&lt;br/&gt;chunk gives rated points"]
+    M --&gt; F[Keep top-rated points]
+    F --&gt; A[Reduce: final answer]
+</pre></figure>
+<p><em>Figure 2: Global search as map and reduce. Every report chunk costs a model call before any point is filtered out.</em></p>
+<p>The map stage splits the reports into chunks of a set size, and each chunk yields a list of points, each with an importance rating. The reduce stage keeps the most important points and writes the answer from them. Lower levels of the hierarchy hold more, smaller reports: answers get more thorough and the map stage makes more calls.</p>
+<p>For the cancellation and export question, local search fits: the evidence centres on specific entities and their conditions. Check that the context includes the original policy spans. For the recurring-dependencies question, global search fits, and you inspect which reports contributed. A fluent answer can still omit a small community or repeat an extraction mistake. We call the first failure the <strong>missing community</strong>.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -400,68 +774,276 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The notebook asks both local and global questions against one indexed input. Its <code>python -m graphrag.index</code>, query flags and <code>llm</code> settings structure belong to the interface shown in that notebook. Check the installed package&rsquo;s CLI and configuration schema before adapting those commands. The theory concerns retrieval behavior rather than promising those commands work unchanged on another release.</p>
-<p>Its <code>remove_data()</code> function strips <code>[Data: ...]</code> annotations from the displayed answer. Keep the unmodified response and the underlying artifact IDs in an evidence record if you need to trace an answer back through reports to sources.</p>
+<p><em>Table 2: Route each question by the evidence it needs, and inspect the failure that route invites.</em></p>
+<p>The notebook indexes one article and asks one local question and one global question against it, through the package&rsquo;s command-line interface. Its command names and settings structure match the release it was written for. Check the installed package&rsquo;s interface and configuration schema before adapting them; this page concerns retrieval behaviour, which outlasts any one release.</p>
+<p>Answers from the package carry inline annotations that name the reports, entities and sources behind each statement. The notebook strips them before display with a small helper. Here is its effect on an illustrative response:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Text</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Raw answer</td>
+<td>Exports remain available after cancellation [Data: Reports (3, 7); Entities (12)]. Snapshots are kept for 30 days [Data: Sources (4)].</td>
+</tr>
+<tr>
+<td>Displayed</td>
+<td>Exports remain available after cancellation . Snapshots are kept for 30 days .</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The notebook&rsquo;s annotation-stripping helper, run on an illustrative answer.</em></p>
+<p>The displayed text reads better and has lost its only route back to evidence. Keep the unmodified response and the artifact IDs in an evidence record whenever an answer has to be traced through reports to sources.</p>
 <h2 id="indexing-cost">Indexing cost</h2>
-<p>Flat RAG pays to split, embed and store passages. A graph pipeline adds extraction, identity resolution and relation storage. Community retrieval adds detection and report generation. Changes to source material can require rebuilding derived records, including reports that depend on the changed entities.</p>
-<p>Record each stage separately. Useful fields include model and prompt version, input and output tokens, call count, retries, elapsed time, stored artifact size and changed source IDs. At query time record report selections, expansion candidates, reranking calls and answer context. The notebook configures a <code>10000</code> maximum context token setting for global search; that configured value is neither a measured bill nor proof that every execution uses the whole allowance.</p>
-<p>Use the module lab brief&rsquo;s shared global and multi-hop question set to compare GraphRAG, RAPTOR and hybrid retrieval. Hold source versions, answer model and evaluation criteria constant. Report indexing and update work alongside retrieval and answer quality. Derive any amortised cost from measured indexing work, measured query work and the actual expected query volume; no break-even figure follows from the architecture alone.</p>
+<p>Flat RAG pays to split, embed and store passages. A graph pipeline adds entity and relation extraction, identity resolution and relation storage. Community retrieval adds detection and one report per community. When a source page changes, the derived records change too, including every report whose community contains an affected entity.</p>
+<p>The module lab makes the arithmetic concrete. Its GraphRAG build indexes 20 documents split into 38 chunks, and answers 10 global and 5 multi-hop questions. Counting model calls from its code:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Work</th>
+<th>Model calls</th>
+<th>Count in the lab</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Extraction</td>
+<td>1 per chunk</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Community reports</td>
+<td>1 per community</td>
+<td>known only after a run</td>
+</tr>
+<tr>
+<td>Global question</td>
+<td>8 report maps + 1 answer</td>
+<td>10 × 9 = 90</td>
+</tr>
+<tr>
+<td>Local question</td>
+<td>1 answer</td>
+<td>5 × 1 = 5</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Model calls in the lab&rsquo;s GraphRAG build. Chunk and question counts come from running its loader and splitter in the scratchpad; the per-question calls are read from its search functions.</em></p>
+<p>Before any report is written, indexing already costs 38 extraction calls, against zero model calls for a flat index. Each global question makes nine times the model calls of a local one. Those ratios are what amortisation has to beat.</p>
+<p>Record each stage separately: model and prompt version, input and output tokens, call count, retries, elapsed time, stored artifact size and changed source IDs. At query time record report selections, expansion candidates, reranking calls and answer context. The notebook sets a maximum of 10,000 context tokens for global search and asks for answers of at most 300 tokens. The first is a configured ceiling, not a measured bill. The second is an instruction in the prompt, which nothing enforces.</p>
+<p>The lab brief compares GraphRAG, RAPTOR and a hybrid on that shared question set. Hold source versions, answer model and evaluation criteria constant. Report indexing and update work beside answer quality, and derive any break-even point from measured indexing work, measured query work and the expected query volume. The architecture alone implies no break-even figure. Lesson 44.4 keeps the entity graph but moves it into a vector database, where expansion is a matrix product.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A community comes from graph connectivity and its report is a generated summary of it. Review edges and membership before trusting a report about a product area.</li>
-<li>Use local search for questions about specific entities and their conditions, and global search for themes spread across the corpus. Inspect which reports contributed.</li>
-<li>Graph pipelines add extraction, identity resolution, community detection and report generation to indexing. Record each stage&rsquo;s tokens, calls and time, and derive cost from measurements.</li>
+<li>A community comes from graph structure and its report is a generated summary of it. Partitions can change with the random seed, so review edges and membership before trusting a report about a product area.</li>
+<li>Route questions about named entities to local search and corpus-wide themes to global search, then inspect which reports contributed; a fluent overview can miss a community.</li>
+<li>Count the work a graph pipeline adds (an extraction call per chunk, a report per community, a map call per report at query time) and derive cost from measured runs.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does a community differ from its community report, and why does the difference matter when you debug?</summary>
-<p>The community is a group derived from graph connectivity; the report is a generated summary of the material in that group. They are separate artifacts: changing the summary prompt changes the report without changing the partition. Review the extracted edges and the group membership before trusting a report as an account of a product area.</p>
+<p>The community is a group derived from graph structure; the report is a generated summary of the material in that group. Changing the summary prompt changes the report without changing the partition, and on the lab&rsquo;s ring fixture the partition itself changed with the Louvain random seed. Review the extracted edges and the group membership before trusting a report as an account of a product area.</p>
 </details>
 <details>
 <summary>2. Which search mode fits a question about the export mechanism left after cancellation, and which fits one about dependencies that recur across the handbook?</summary>
-<p>Local search fits the first: the evidence centres on specific entities and their conditions, so check that the context includes the original policy spans. Global search fits the second, because it is spread across the corpus and answered from community reports; inspect which report regions contributed, since a fluent answer can omit a small community.</p>
+<p>Local search fits the first: the evidence centres on specific entities and their conditions, so check that the context includes the original policy spans. Global search fits the second, because the evidence is spread across the corpus and answered from community reports. Inspect which reports contributed, since a fluent answer can omit a small community.</p>
 </details>
 <details>
 <summary>3. A teammate says global search costs at most 10000 tokens per query because that is what the notebook configures. Is that a sound cost figure?</summary>
-<p>No. <code>10000</code> is a configured maximum context setting, neither a measured bill nor proof that every run uses the whole allowance. Record each stage separately, including tokens, call counts, retries and elapsed time, and derive any cost from measured indexing and query work.</p>
+<p>No. 10,000 is a configured maximum context setting, neither a measured bill nor proof that every run uses the whole allowance. Global search also makes a map call per report chunk before the final answer. Record each stage&rsquo;s tokens, calls, retries and time, and derive cost from measured indexing and query work.</p>
 </details>
 <h2 id="graph-expansion">Graph expansion</h2>
 <p class="lesson-of">Lesson 44.4: Graph expansion inside a vector database (Milvus). Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m44_graphrag/optional/notebook/04a_graphrag_with_milvus.ipynb" target="_blank" rel="noopener"><code>04a_graphrag_with_milvus.ipynb</code></a> (optional)</p>
-<p>The Milvus notebook stores entity, relationship and passage embeddings in separate collections. Vector retrieval chooses initial entity and relationship IDs. Adjacency mappings connect those IDs back to candidate relations and then to the passages that mention them. The graph traversal in this design runs in application memory; Milvus supplies vector retrieval and stored records.</p>
-<p>Let <code>B</code> be the entity-by-relation incidence matrix. <code>B[e,r]=1</code> when entity <code>e</code> participates in relation <code>r</code>. Then <code>B Bᵀ</code> connects entities that share a relation, while <code>Bᵀ B</code> connects relations sharing an entity. The notebook uses powers of these matrices to expand the seed sets, takes nonzero entries, and merges the entity and relationship retrieval paths. <a href="https://milvus.io/docs/graph_rag_with_milvus.md" target="_blank" rel="noopener">Milvus Graph RAG tutorial</a>.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how powers of an incidence matrix expand vector-search seeds into candidate relations.</li>
+<li><strong>Trace</strong> the candidate set and source passages at each expansion degree.</li>
+<li><strong>Diagnose</strong> a hub that floods the candidates, and an entity split across spellings.</li>
+<li><strong>Choose</strong> separate budgets for seeds, degree, reranking and final passages.</li>
+</ul>
+</blockquote>
+<p>Lesson 44.3 answered corpus-wide questions from community reports. This lesson goes back to multi-hop questions, with no graph database at all: the graph lives in a few arrays beside a vector store.</p>
+<p>The notebook&rsquo;s question is &ldquo;What contribution did the son of Euler&rsquo;s teacher make?&rdquo; Answering it takes three hops: Euler&rsquo;s teacher was Johann Bernoulli, Johann&rsquo;s son was Daniel, and Daniel&rsquo;s contributions are in a passage that never mentions Euler. A flat search on the question scores passages against Euler and contributions, and the Daniel passage has little reason to rank. Larkspur has the same shape: cancellation leads to export, export to snapshot, and the snapshot passage holds the retention rule.</p>
+<p><strong>Graph expansion</strong> grows a set of retrieved entities or relations into their graph neighbourhood, a fixed number of steps at a time, before reranking picks what reaches the answer. The Milvus notebook stores three collections and two adjacency maps:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Store</th>
+<th>What it holds</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entity collection</td>
+<td>One vector per entity name</td>
+<td>Seeds from entities named in the question</td>
+</tr>
+<tr>
+<td>Relation collection</td>
+<td>One vector per relation sentence (subject, predicate and object joined)</td>
+<td>Seeds from the whole question</td>
+</tr>
+<tr>
+<td>Passage collection</td>
+<td>One vector per passage</td>
+<td>The flat baseline</td>
+</tr>
+<tr>
+<td>Entity to relations map</td>
+<td>Which relations each entity takes part in</td>
+<td>Building the incidence matrix</td>
+</tr>
+<tr>
+<td>Relation to passages map</td>
+<td>Which passages each relation came from</td>
+<td>Resolving relations to text</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The notebook&rsquo;s stores. Traversal runs in application memory; Milvus supplies vector search and stored records.</em></p>
+<p>Its four-passage Bernoulli dataset yields 26 entities and 22 relations, counted by running the notebook&rsquo;s preparation cells in the scratchpad.</p>
+<p>Let <code>B</code> be the entity-by-relation incidence matrix: <code>B[e,r]=1</code> when entity <code>e</code> takes part in relation <code>r</code>. Then <code>B Bᵀ</code> connects entities that share a relation, and <code>Bᵀ B</code> connects relations that share an entity. The notebook raises these to the target degree, multiplies the entity side by <code>B</code> to land on relations, takes the nonzero entries, and merges the candidates from the entity and relation seeds (<a href="https://milvus.io/docs/graph_rag_with_milvus.md" target="_blank" rel="noopener">Milvus Graph RAG tutorial</a>).</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     V[Vector seed IDs] --&gt; X[Expand adjacency]
     X --&gt; R[Deduplicate relations]
     R --&gt; P[Resolve source passages]
     P --&gt; F[Rerank and limit context]
 </pre></figure>
-<p>Matrix products count walks. They do not certify that a relation supports the user&rsquo;s question. Their diagonal entries also permit a walk to remain at the same entity, so increasing the degree can retain previously reached candidates. Direction and relation type require separate handling: an undirected incidence matrix does not preserve a predicate&rsquo;s direction.</p>
-<p>The <a href="../../optional/theory/04_graph_expansion_inside_a_vector_database_milvus/interactive/expansion-lab.html">interactive lab</a> computes the entity-side candidate row of <code>(B Bᵀ)^d B</code>. Degree 0 shows direct incident relations and is a teaching baseline; the notebook&rsquo;s configured <code>target_degree</code> starts at 1. The explicit fictional fixture has no embedding or LLM output. Choosing a seed stands in for the preceding vector search.</p>
+<p><em>Figure 1: Expansion inside the retrieval pipeline. Only the first step touches the vector store.</em></p>
+<p>Matrix products count walks. A nonzero entry says a path exists, and does not certify that the relation helps answer the question. The diagonal of <code>B Bᵀ</code> is nonzero too (each entity shares a relation with itself). A higher degree therefore keeps every earlier candidate and adds new ones. Direction and relation type need separate handling: an undirected incidence matrix forgets which way a predicate points.</p>
+<p>The <a href="../../optional/theory/04_graph_expansion_inside_a_vector_database_milvus/interactive/expansion-lab.html">interactive lab</a> computes the entity-side row of <code>(B Bᵀ)^d B</code> on an eight-entity Larkspur fixture. Degree 0 shows the relations touching the seed and serves as a teaching baseline; the notebook&rsquo;s target degree starts at 1. The fixture has no embedding or model output, and choosing a seed stands in for the vector search.</p>
 <figure class="lab-embed"><iframe src="../../optional/theory/04_graph_expansion_inside_a_vector_database_milvus/interactive/expansion-lab.html" title="Expansion and the evidence set, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Expansion and the evidence set. <a href="../../optional/theory/04_graph_expansion_inside_a_vector_database_milvus/interactive/expansion-lab.html">Open full screen</a></figcaption></figure>
-<p>With Cancellation selected, degree 0 reaches the cancellation-to-export and cancellation-to-billing relations. Degree 1 also reaches the export-to-snapshot and billing-to-refund relations. Those are 4 candidate relations across 3 distinct source passages. At degree 2 the set has 6 relations across 4 passages; degree 3 has all 8 relations across 5 passages. The lab labels every relation with its source so that expansion has a visible evidence cost.</p>
-<p>The additional billing branch is reachable and can still be irrelevant to an export question. Rerank relations using the question, then fetch and deduplicate their source passages. Preserve the retrieval route for debugging, but cite the actual passage used by the answer. Compare the candidate set before and after reranking against the golden evidence set.</p>
+<p>With Cancellation selected, degree 0 reaches the cancellation-to-export and cancellation-to-billing relations. Each degree then adds two:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Degree</th>
+<th>Candidate relations</th>
+<th>Distinct passages</th>
+<th>Relations added</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>2</td>
+<td>2</td>
+<td>Cancellation enables Export; Cancellation stops Billing</td>
+</tr>
+<tr>
+<td>1</td>
+<td>4</td>
+<td>3</td>
+<td>Export uses Snapshot; Billing links Refund</td>
+</tr>
+<tr>
+<td>2</td>
+<td>6</td>
+<td>4</td>
+<td>Snapshot needs Storage; Refund needs Account</td>
+</tr>
+<tr>
+<td>3</td>
+<td>8</td>
+<td>5</td>
+<td>Storage restored after Outage; Account affected by Outage</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Expansion from the Cancellation seed, as the lab prints it.</em></p>
+<p>Starting from Outage gives the same relation counts and different passages: 1, 2, 4 and then all 5. The export question needs the degree 1 snapshot relation. The billing branch arrives at the same degree, reachable and irrelevant. Rerank relations against the question, then fetch and deduplicate their passages, and compare the candidate set before and after reranking against the golden evidence set. Keep the route for debugging; cite the passage.</p>
+<p>The notebook&rsquo;s own data shows how fast a hub fills the set. We ran its expansion cells from three seed entities:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Seed entity</th>
+<th>Degree 1 relations</th>
+<th>Degree 2 relations</th>
+<th>Passages at degree 1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Leonhard Euler</td>
+<td>10</td>
+<td>18 of 22</td>
+<td>all 4</td>
+</tr>
+<tr>
+<td>Euler</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>leonhard Euler</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Expansion on the notebook&rsquo;s Bernoulli data (scratchpad run of its pure cells; no embedding calls).</em></p>
+<p>From &ldquo;Leonhard Euler&rdquo;, one degree passes through Johann Bernoulli, who takes part in nine relations, and pulls in all four passages. We call this the <strong>hub flood</strong>. The candidate set now holds every passage in the corpus, and only the reranker and the final limit decide what the model reads.</p>
 <h2 id="keeping-expansion-bounded">Keeping expansion bounded</h2>
-<p>The notebook retrieves <code>top_k=3</code> entity and relationship hits, merges expanded candidates, uses an LLM to select relations and limits final passages with <code>final_top_k=2</code>. Those parameters control different stages. Increasing the first value can enlarge work even when the final context limit stays fixed.</p>
-<p>Bound expansion degree, candidate relation count and source-passage count before an expensive reranker runs. If a hub connects many unrelated policies, filter by product, relation type, version and access rights before following it. Record which budget stopped the expansion so a missing passage can be attributed to a specific stage.</p>
-<p>Treat identity mapping as part of retrieval correctness. Different casing, aliases and repeated names can split one entity or merge different entities. The notebook&rsquo;s IDs come from string lists; an operational index needs stable IDs and explicit updates to both vectors and adjacency mappings. A fresh vector record with stale adjacency can retrieve the right entity and still traverse the wrong policy graph.</p>
+<p>The notebook&rsquo;s budgets sit at different stages:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Setting</th>
+<th>What it bounds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seeds</td>
+<td>3 entity hits and 3 relation hits</td>
+<td>Where expansion starts</td>
+</tr>
+<tr>
+<td>Expansion</td>
+<td>target degree 1</td>
+<td>How far it reaches</td>
+</tr>
+<tr>
+<td>Rerank</td>
+<td>One model call; its one-shot example selects 3 relations</td>
+<td>Which relations survive</td>
+</tr>
+<tr>
+<td>Context</td>
+<td>2 final passages</td>
+<td>What the answer model reads</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: The notebook&rsquo;s budgets, read from its code.</em></p>
+<p>These control different things. Raising the seed count can enlarge the candidate set and the reranker&rsquo;s prompt while the final context stays at two passages. Bound the degree, the candidate relation count and the passage count before an expensive reranker runs. When a hub connects many unrelated policies, filter by product, relation type, version and access rights before following it. Record which budget stopped the expansion, so a missing passage can be traced to a stage.</p>
+<p>Treat identity mapping as part of retrieval correctness. The notebook&rsquo;s entities are raw strings from its triplets. &ldquo;Euler&rdquo;, &ldquo;Leonhard Euler&rdquo; and &ldquo;leonhard Euler&rdquo; are three separate nodes, as are &ldquo;the Bernoulli theorem&rdquo; and &ldquo;The Bernoulli theorem&rdquo;. Table 3 shows the cost: a seed that lands on the wrong spelling reaches one relation instead of ten. We call this the <strong>split identity</strong>. Normalise names and resolve aliases to stable IDs at indexing time.</p>
+<p>The same stable IDs keep vectors and adjacency in step. An operational index needs explicit updates to both on every source change. A fresh vector record with stale adjacency retrieves the right entity and still traverses the wrong policy graph.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Vector search picks seed entities and relations; powers of the incidence matrix expand them. Products count walks and do not show that a relation answers the question.</li>
-<li>Each expansion degree adds candidate relations and source passages. Rerank relations against the question and bound degree, relation count and passages before an expensive reranker runs.</li>
-<li>Use stable IDs and update vectors and adjacency mappings together. A fresh vector with stale adjacency can find the right entity and traverse the wrong policy.</li>
+<li>Each degree adds candidates, and a hub can pull in the whole corpus at degree 1. Bound degree, relation count and passages before the reranker, and rerank against the question.</li>
+<li>Resolve entity spellings to stable IDs and update vectors and adjacency together. A split identity or stale adjacency sends a correct vector hit down the wrong path.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. With B the entity-by-relation incidence matrix, what do B Bᵀ and Bᵀ B connect, and what do their powers not tell you?</summary>
-<p><code>B Bᵀ</code> connects entities that share a relation, and <code>Bᵀ B</code> connects relations that share an entity. Their powers count walks, so they expand the seed sets, but they do not certify that a relation supports the question. An undirected incidence matrix also loses a predicate&rsquo;s direction.</p>
+<p><code>B Bᵀ</code> connects entities that share a relation, and <code>Bᵀ B</code> connects relations that share an entity. Their powers count walks and expand the seed sets, but they do not certify that a relation supports the question. An undirected incidence matrix also loses a predicate&rsquo;s direction.</p>
 </details>
 <details>
 <summary>2. In the expansion lab with Cancellation as the seed, how many candidate relations and source passages do degrees 1 and 2 reach?</summary>
-<p>Degree 1 reaches 4 relations across 3 distinct passages, adding export-to-snapshot and billing-to-refund. Degree 2 reaches 6 relations across 4 passages, and degree 3 all 8 across 5. The billing branch is reachable but can be irrelevant to an export question, so rerank relations against the question before fetching passages.</p>
+<p>Degree 1 reaches 4 relations across 3 distinct passages, adding export-to-snapshot and billing-to-refund. Degree 2 reaches 6 relations across 4 passages, and degree 3 all 8 across 5. The billing branch is reachable but irrelevant to an export question. Rerank relations against the question before fetching passages.</p>
 </details>
 <details>
-<summary>3. Vector search returns the right entity, yet the expansion follows relations from the wrong policy. What should you suspect?</summary>
-<p>Stale adjacency: a fresh vector record with an out-of-date adjacency mapping retrieves the right entity and still traverses the wrong policy graph. The notebook builds its IDs from string lists; an operational index needs stable IDs and explicit updates to both the vectors and the adjacency mappings.</p>
+<summary>3. Entity search for Euler returns the node spelled "leonhard Euler", and expansion finds one relation instead of ten. What went wrong, and how do you prevent it?</summary>
+<p>The notebook stores entities as raw strings, so three spellings of Euler became three nodes, and only one of them is linked to Johann Bernoulli. This is a split identity. Normalise names and resolve aliases to stable IDs at indexing time, and update vectors and adjacency mappings together.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="../../optional/theory/04_graph_expansion_inside_a_vector_database_milvus/interactive/expansion-lab.html"><strong>Expansion and the evidence set</strong></a>: open the file in a browser. Start with Cancellation and compare degrees 0 and 1. Increase the degree until the source set stops growing. Switch to Outage to see that the same expansion budget reaches different passages from a different seed.</p>
@@ -519,7 +1101,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Preserve passage provenance through both graph and community retrieval.</li>
 <li>Re-evaluate source coverage, update work and answer quality whenever extraction or routing changes.</li>
 </ul></article>
-    <nav class="toc" aria-label="M44 sections"><details open><summary>In M44</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chunk-graphs-and-traversal">Chunk graphs and traversal</a></li><li><a href="#budgets-and-stopping">Budgets and stopping</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#source-attribution">Source attribution</a></li><li><a href="#what-the-notebook-verifies">What the notebook verifies</a></li><li><a href="#local-execution-boundaries">Local execution boundaries</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#community-detection">Community detection</a></li><li><a href="#global-vs-local-search">Global vs local search</a></li><li><a href="#indexing-cost">Indexing cost</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#graph-expansion">Graph expansion</a></li><li><a href="#keeping-expansion-bounded">Keeping expansion bounded</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M44 sections"><details open><summary>In M44</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chunk-graphs-and-traversal">Chunk graphs and traversal</a></li><li><a href="#how-the-traversal-runs">How the traversal runs</a></li><li><a href="#budgets-and-stopping">Budgets and stopping</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#source-attribution">Source attribution</a></li><li><a href="#what-the-notebook-verifies">What the notebook verifies</a></li><li><a href="#where-provenance-is-lost">Where provenance is lost</a></li><li><a href="#local-execution-boundaries">Local execution boundaries</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#community-detection">Community detection</a></li><li><a href="#global-vs-local-search">Global vs local search</a></li><li><a href="#indexing-cost">Indexing cost</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#graph-expansion">Graph expansion</a></li><li><a href="#keeping-expansion-bounded">Keeping expansion bounded</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
