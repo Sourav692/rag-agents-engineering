@@ -1,8 +1,20 @@
 # M14.3 Theory: Managed stores: Astra DB and Pinecone
 
 *[M14 theory](../README.md) · Lesson 14.3 · Notebooks: [`03b_pinecone.ipynb`](../../notebook/03b_pinecone.ipynb), [`03a_astra_db.ipynb`](../../../optional/notebook/03a_astra_db.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: The container decides what one query can see, and its dimension and metric are fixed at creation -->
 
 ## Collections and namespaces
+
+> **What you'll learn**
+>
+> - **Explain** collections, indexes and namespaces across four stores, and what each fixes at creation.
+> - **Compare** a namespace boundary with a metadata filter as a way to isolate tenants.
+> - **Diagnose** a cleanup run that deletes another collection's keys.
+> - **Choose** when a managed store earns its cost over an embedded one.
+
+Lesson 14.2 kept the index on one machine. Managed stores run it as a service, and they make you decide up front how entries are grouped.
+
+Larkspur adds customer-specific runbooks to the same collection as the public handbook, tagged with a tenant field. One support tool builds its query without the tenant filter, and a customer's question can now retrieve another customer's runbook. Nothing raises an error. We call this a **leaky filter boundary**.
 
 Every store groups its entries, and the grouping decides what one query can see. The names differ:
 
@@ -13,6 +25,10 @@ Every store groups its entries, and the grouping decides what one query can see.
 | Pinecone | Index (`pc.create_index(name, dimension, metric, spec)`) | Namespace | Dimension and metric |
 | Astra DB | Collection (`collection_name`) inside a namespace, also called a keyspace | none | Vector dimension and metric |
 
+*Table 1: Containers and partitions in four stores.*
+
+In Pinecone, namespaces sit inside an index:
+
 ```mermaid
 flowchart TD
     P["Pinecone project"] --> I["Index: rag<br/>dimension 1024, cosine"]
@@ -22,19 +38,32 @@ flowchart TD
     N2 --> R2["Records<br/>id + vector + metadata"]
 ```
 
+*Figure 1: A Pinecone index with two namespaces. Every read and write targets one namespace.*
+
 The Pinecone notebook creates a serverless index named `rag` with `dimension=1024` and `metric="cosine"`, and asks OpenAI's `text-embedding-3-small` for 1,024 dimensions to match. The index's dimension cannot change, so the embedding model and its output size are part of the index's identity. The Astra DB notebook does the same with `dimensions=1024` and passes `namespace=None`, so the store falls back to the `ASTRA_DB_KEYSPACE` environment variable or the database's default namespace.
 
 Pinecone's [indexing overview](https://docs.pinecone.io/guides/index-data/indexing-overview) says reads and writes "always target one namespace", that namespaces are created on first upsert, and that you can isolate customers with "one namespace per customer". A query in one namespace cannot return another namespace's records, which is a stronger boundary than a metadata filter that a caller can leave out. In LangChain, `PineconeVectorStore` takes the namespace as an argument.
 
-The record manager in lesson 14.5 has a namespace too: `SQLRecordManager("pgvector/vectordb", db_url=...)`. It scopes the record manager's keys, not the vectors. Keep one record-manager namespace per collection. If two collections share one, a `full` cleanup run on either deletes the other's keys.
+The record manager in lesson 14.5 has a namespace too: `SQLRecordManager("pgvector/vectordb", db_url=...)`. It scopes the record manager's keys, not the vectors. Keep one record-manager namespace per collection. If two collections share one, a `full` cleanup run on either deletes the other's keys. We call that a **shared record-manager namespace**.
 
-For Larkspur, the public handbook goes in one collection or namespace. Customer-specific runbooks, if they arrive, go in their own namespaces, so re-indexing the handbook never touches customer data and a customer's query cannot reach another customer's text.
+For Larkspur, the public handbook goes in one collection or namespace. Customer-specific runbooks, if they arrive, go in their own namespaces. Re-indexing the handbook then never touches customer data, and a customer's query cannot reach another customer's text.
 
 ## When a managed store earns its cost
 
 The managed stores take the same LangChain calls as Chroma: `add_documents`, `similarity_search(query, k, filter=...)`, `as_retriever(...)`. The Pinecone notebook filters with `{"source": "tweet"}` and runs a retriever with `search_type="similarity_score_threshold"` and `score_threshold=0.4`, a threshold that only means something on that index's cosine scale. Switching stores changes the setup and the bill; the calls stay the same.
 
 Lesson 14.1's notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index, so the embedding model goes with you, and the IDs you derived in lesson 14.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 14.4), has no API key to manage, no network hop and no bill per query.
+
+## In practice: separating the handbook from customer data
+
+For Larkspur, the containers follow the boundaries the business needs:
+
+1. **Keep the public handbook in its own collection or namespace**, so re-indexing it never touches customer data.
+2. **Give each customer's runbooks their own namespace**, chosen by the service that builds the query, never by the caller.
+3. **Use one record-manager namespace per collection** (lesson 14.5), so a cleanup run cannot reach another collection's keys.
+4. **Stay on an embedded store or pgvector** until concurrent writers, horizontal scale or managed availability are needed.
+
+> **Next:** lesson 14.4 filters inside one container, with Postgres and pgvector.
 
 ## Key Takeaways
 

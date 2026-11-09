@@ -1,10 +1,22 @@
 # M14.1 Theory: Index operations: create, query, update, delete, persist
 
 *[M14 theory](../README.md) · Lesson 14.1 · Notebooks: [`01a_vector_stores_and_index_operations.ipynb`](../../notebook/01a_vector_stores_and_index_operations.ipynb), [`01b_vector_database_operations.ipynb`](../../../optional/notebook/01b_vector_database_operations.ipynb) (optional), [`01c_other_vector_stores.ipynb`](../../../optional/notebook/01c_other_vector_stores.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: IDs taken from the document make updates possible, and IDs minted per run make duplicates -->
 
 ## Stable IDs and the missing update
 
-Every LangChain vector store implements the same small interface, so the notebook runs one corpus through `InMemoryVectorStore`, FAISS and Chroma with the same calls:
+> **What you'll learn**
+>
+> - **Explain** the five operations every vector store supports, and why an update is a delete plus an insert.
+> - **Design** chunk IDs that make re-ingestion overwrite instead of duplicate.
+> - **Diagnose** a threshold that rejects everything, and a reopened store that silently returns nothing.
+> - **Apply** startup checks that turn silent store failures into errors.
+
+M13 chose the embedding model and its dimensions. This module stores the vectors, and a store has more jobs than search: it must add, update and delete entries without leaving copies behind.
+
+Larkspur's nightly job re-reads the handbook folder and adds every chunk under a fresh random ID. Each night adds another copy of every chunk. Soon the refund question's top `k` holds several copies of `refund-timing`, and the chunk with the other half of the answer no longer fits.
+
+Every LangChain vector store implements the same small interface. The notebook runs one corpus through `InMemoryVectorStore`, FAISS and Chroma with the same calls:
 
 | Operation | LangChain call | What it does |
 |---|---|---|
@@ -14,9 +26,19 @@ Every LangChain vector store implements the same small interface, so the noteboo
 | Delete | `delete(ids=[...])` | Removes entries by ID |
 | Update | `update_document(document_id=..., document=...)` (Chroma) | Delete, then insert under the same ID |
 
-No store edits a vector in place. Changing a chunk's text changes its embedding, and the embedding is what the index is built on, so an update has to replace the entry. Chroma's `update_document` deletes the old entry and inserts a new one under the same ID, and the notebook shows the entry count unchanged afterwards.
+*Table 1: The five index operations, through LangChain's common interface.*
 
-That only works when you know the ID. Re-adding the same text under a new ID stores it twice: on a six-document Chroma store, adding a document again under its existing ID leaves 6 entries, and adding it under a new ID makes 7. The copy then takes a top-`k` slot that a different chunk needed. Ingestion pipelines that mint a fresh UUID on every run create a duplicate for every chunk on every run.
+No store edits a vector in place. Changing a chunk's text changes its embedding, and the embedding is what the index is built on. An update has to replace the entry. Chroma's `update_document` deletes the old entry and inserts a new one under the same ID, and the notebook shows the entry count unchanged afterwards:
+
+```mermaid
+flowchart LR
+    E["Entry refunds.md::0<br/>old text, old vector"] --> D[Delete by ID]
+    D --> I["Insert under<br/>refunds.md::0"] --> N["New text,<br/>new vector"]
+```
+
+*Figure 1: An update replaces the entry under the same ID. The count stays the same.*
+
+That only works when you know the ID. Re-adding the same text under a new ID stores it twice: on a six-document Chroma store, adding a document again under its existing ID leaves 6 entries, and adding it under a new ID makes 7. The copy then takes a top-`k` slot that a different chunk needed. Ingestion pipelines that mint a fresh UUID on every run create a duplicate for every chunk on every run. We call these **run-minted IDs**, and they are the failure in the opening example.
 
 So derive IDs from the document, never from the run:
 
@@ -37,7 +59,9 @@ For Larkspur, `refunds.md::0` names the refund-window chunk no matter how often 
 | Pinecone index with `metric="cosine"` | Cosine similarity | Higher |
 | Any store, `similarity_search_with_relevance_scores` | A relevance score normalised to 0 to 1 | Higher |
 
-The notebook runs the same query against Chroma and FAISS and gets the same ranking with different numbers. Three rules follow. Never hard-code a threshold without checking what your backend returns, because `score > 0.8` can reject everything on a distance scale. Never compare scores across backends or embedding models. Use scores to rank and to compare results of one query, and set any cut-off from known-good and known-bad queries run on the store you ship.
+*Table 2: What the score means on four backends.*
+
+The notebook runs the same query against Chroma and FAISS and gets the same ranking with different numbers. Three rules follow. Never hard-code a threshold without checking what your backend returns, because `score > 0.8` can reject everything on a distance scale. We call that a **scale-blind threshold**. Never compare scores across backends or embedding models. Use scores to rank and to compare results of one query, and set any cut-off from known-good and known-bad queries run on the store you ship.
 
 `as_retriever()` hides the scores. It wraps the store in the `Retriever` interface (one method, `invoke(query)`) so chains can swap backends, and it returns documents only. When retrieval looks wrong, go back to the store and read the scores and the result count.
 
@@ -47,10 +71,21 @@ Chroma with a `persist_directory` writes as it goes. FAISS is explicit: `save_lo
 
 Reopening a store fails silently in two ways:
 
-- **Wrong collection name.** `Chroma(collection_name="typo", persist_directory=...)` creates a new, empty collection. Its count is 0, every search returns nothing, and no error is raised.
-- **Wrong embedding model.** The store opens and searches return results, but the query vector and the stored vectors come from different models, so the ranking means nothing.
+- **Silent empty collection.** A wrong collection name does it. `Chroma(collection_name="typo", persist_directory=...)` creates a new, empty collection. Its count is 0, every search returns nothing, and no error is raised.
+- **Model swap on reopen.** A wrong embedding model does it. The store opens and searches return results, but the query vector and the stored vectors come from different models, so the ranking means nothing.
 
 The notebook turns both into startup errors with an `open_store()` check: refuse an empty collection, and compare the stored vector's dimension with the live model's. The dimension check misses a model swap with equal dimensions (`text-embedding-3-large` truncated to 1,536 against `text-embedding-3-small`), so also store the model name in the collection's metadata and assert it.
+
+## In practice: a Larkspur index that survives re-runs
+
+For the handbook store, each rule on this page becomes one decision:
+
+1. **Derive every ID from the document**, such as `refunds.md::0` for the refund-window chunk, so a re-read overwrites it.
+2. **Update by ID** when a policy changes: delete and insert under the same ID.
+3. **Read the scores from the store** before setting any threshold, and set it from Larkspur's own known-good and known-bad queries.
+4. **Check at startup** that the collection is not empty, that the vector dimension matches the live model, and that the stored model name matches.
+
+> **Next:** lesson 14.2 opens the index itself: how embedded stores find nearest neighbours without comparing every vector.
 
 ## Key Takeaways
 
