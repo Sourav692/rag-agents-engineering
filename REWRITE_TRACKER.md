@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 14 · Review draft: 0 · In progress: 5 · In PR: 5 · Live: 22
+**Modules:** Not started: 14 · Review draft: 0 · In progress: 0 · In PR: 10 · Live: 22
 
 ## Part I · AI Engineering Foundations
 
@@ -108,18 +108,18 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 42 | Hierarchical & Memory-Augmented Retrieval | 3 | 3 | 3 / 3 | In progress | 2026-11-09 |  | 42.1 to 42.3 rewritten; 42.3 chunk-drop claim fixed |
-| 43 | Knowledge Graphs with Neo4j | 6 | 6 | 6 / 6 | In progress | 2026-11-09 |  | 43.1 to 43.6 rewritten; notebook import fan-out taught as planted failure |
-| 44 | GraphRAG Techniques | 4 | 4 | 4 / 4 | In progress | 2026-11-09 |  | 44.1 to 44.4 rewritten; 01a traversal bug explained |
+| 42 | Hierarchical & Memory-Augmented Retrieval | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #62 | 42.1 to 42.3 rewritten; 42.3 chunk-drop claim fixed |
+| 43 | Knowledge Graphs with Neo4j | 6 | 6 | 6 / 6 | In PR | 2026-11-09 | #62 | 43.1 to 43.6 rewritten; notebook import fan-out taught as planted failure |
+| 44 | GraphRAG Techniques | 4 | 4 | 4 / 4 | In PR | 2026-11-09 | #62 | 44.1 to 44.4 rewritten; 01a traversal bug explained |
 
 ## Part XIII · Fine-Tuning & Model Adaptation
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 45 | Fine-Tuning & Model Adaptation | 7 | 7 | 7 / 7 | In progress | 2026-11-09 |  | 45.1 to 45.7 rewritten; AutoTrain flags checked vs 0.8.36 |
+| 45 | Fine-Tuning & Model Adaptation | 7 | 7 | 7 / 7 | In PR | 2026-11-09 | #62 | 45.1 to 45.7 rewritten; AutoTrain flags checked vs 0.8.36 |
 
 ## Part XIV · Architecture Decisions
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 46 | Architecture Synthesis: Choosing a System Design | 3 | 3 | 3 / 3 | In progress | 2026-11-09 |  | 46.1 to 46.3 rewritten; counted-calls.svg has v1 module numbers |
+| 46 | Architecture Synthesis: Choosing a System Design | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #62 | 46.1 to 46.3 rewritten; counted-calls.svg has v1 module numbers |
