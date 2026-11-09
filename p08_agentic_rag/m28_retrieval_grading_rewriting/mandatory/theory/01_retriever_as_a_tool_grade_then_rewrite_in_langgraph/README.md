@@ -1,35 +1,39 @@
 # M28.1 Theory: Retriever as a tool; grade then rewrite in LangGraph
 
 *[M28 theory](../README.md) · Lesson 28.1 · Notebooks: [`01a_simple_agentic_rag.ipynb`](../../notebook/01a_simple_agentic_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Turn a RAG chain into a graph that reads what it retrieved and asks again when the evidence does not answer -->
 
 ## Conditional edges
 
-Larkspur retrieves a refund-window passage when the customer asks how long payment takes. You will route from the tool result to a grader, distinguish related text from answering evidence, and inspect why a failed grade triggers a rewrite.
+> **What you'll learn**
+>
+> - **Explain** how a retriever becomes a tool the model chooses to call, and what the model sees of it.
+> - **Trace** a question through the two conditional edges that decide between retrieving, answering and rewriting.
+> - **Compare** a grader on the edge with a grader that is a node, and say what each leaves in the state.
+> - **Diagnose** a grader that passes related text which does not answer the question.
 
-### Step 1: Follow the retrieval decision
+[M22](../../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) built the loop where a model asks for a tool and your code runs it; M10 built a RAG chain that retrieves once and answers from whatever came back. This lesson joins them: retrieval becomes a tool in a LangGraph graph that checks what the tool returned before the model answers.
 
-The reference implementation turns a plain RAG chain into a graph that can look at its own retrieval. It starts by wrapping the vector store retriever as a tool:
+A Larkspur customer asks *How long does a refund take?* The handbook's first hit is the `refund-window` chunk. It is about refunds, and it says an annual plan can get a full refund within 30 days. It never says how long the money takes to arrive. A plain RAG chain hands that chunk to the model, and the model writes a confident answer about the wrong thing. We call this **answering from a near miss**: the retrieval looked fine by every number the chain had.
 
-Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
+The fix has three jobs: let the model decide when to search (the retriever tool), read the retrieved text against the question (the grader, next section), and route elsewhere when the text fails (the conditional edge).
 
-```text
-retriever_tool = create_retriever_tool(
-    retriever,
-    "retrieve_info_from_papers",
-    "Search and return information about a paper discussing usage of LLMs for human collaborative problem solving.",
-)
-```
+### The retriever as a tool
 
-The name and the description are all the model sees of the retriever. The `agent` node binds the tool with `model.bind_tools(tools)`, so the model decides whether to call it and with what query. A Larkspur assistant describes its tool as a search over the Larkspur Cloud handbook, so the model can answer "hello" without calling it.
+The graph wraps the vector store's retriever as a tool with a name and a description, the only things the model knows about it. The `agent` node binds the tool to the model, which decides whether to call it and with what query. For Larkspur the description says the tool searches the handbook, so a customer who writes *hello* gets a greeting with no search. The notebook does the same over a research paper.
 
-### Step 2: Choose the next node from state
+### Fixed and conditional edges
 
-A LangGraph edge is either fixed or conditional. `add_edge("rewrite", "agent")` always goes the same way. `add_conditional_edges(source, fn, path_map)` calls `fn` on the state after `source` runs, and the value it returns picks the next node. The implementation has two conditional edges:
+A **conditional edge** is an edge whose destination is chosen at run time: after its source node runs, LangGraph calls a routing function on the state, and the value it returns names the next node. A fixed edge always goes the same way, as the edge from `rewrite` back to `agent` does. The graph has two conditional edges:
 
 | After node | Routing function | Returns | Goes to |
 |---|---|---|---|
-| `agent` | `tools_condition` (from `langgraph.prebuilt`) | `"tools"` if the last AI message has tool calls, otherwise `END` | `retrieve` through the path map `{"tools": "retrieve", END: END}`, or the end |
-| `retrieve` | `grade_documents` | `Literal["generate", "rewrite"]` | The node with that name; no path map is needed when the function returns node names |
+| `agent` | `tools_condition`, prebuilt in LangGraph | `"tools"` if the model's last reply has a tool call, otherwise the end marker | `retrieve` through a path map that translates `"tools"`, or the end |
+| `retrieve` | `grade_documents` | `"generate"` or `"rewrite"` | The node with that name, with no path map, because the function returns node names |
+
+*Table 1: The two routing decisions and how each return value becomes a node.*
+
+Put together, the edges form this graph:
 
 ```mermaid
 flowchart LR
@@ -42,72 +46,114 @@ flowchart LR
     G --> E2([END])
 ```
 
-### Step 3: Make the verdict observable
+*Figure 1: The grade-then-rewrite graph. Two edges branch; the rest are fixed.*
 
-The grader in this implementation is the routing function itself, so it is not a node. It writes nothing to the state: after a run, the message history shows a rewrite but not the verdict that caused it, and the only record is the `---DECISION: DOCS NOT RELEVANT---` line the function prints. The node-based variant splits the same job in two. `assess_relevance` is a node that writes `retrieved_documents` and `should_generate` to the state, and `route_by_document_quality` is a small routing function that reads them. That costs one extra step per retrieval and makes every decision visible in the state and in a checkpointer.
+### Following the refund question
 
-`rewrite` sends the new question back to `agent`, not straight to `retrieve`. The model reads the rewritten question as the last message and decides again whether to call the tool, and with what query. Nothing on this path counts the trips: the loop ends only when the grader says yes, which lesson 28.3 fixes with bounded retries.
+Here is the refund question through the graph, with the retrievals the [M28 lab](../03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html) shows for it: the first one fails the grade and one rewrite finds the timing chunk.
+
+```mermaid
+sequenceDiagram
+    participant A as agent
+    participant R as retrieve
+    participant G as grader
+    participant W as rewrite
+    A->>R: the refund question
+    R->>G: refund-window, reboot
+    G->>W: no
+    W->>A: reworded question
+    A->>R: business days until refunds appear
+    R->>G: refund-timing, support
+    Note over G: yes, so generate
+```
+
+*Figure 2: One failed grade and one rewrite. The retrieved chunks are the lab's; the reworded question is the lab's hand-written rewrite.*
+
+The first search misses `refund-timing` for a reason worth knowing. TF-IDF matches exact words, and the question says "refund" while the chunk says "Refunds". The reworded question uses "refunds" and "business days", the chunk's own words, and scores 0.720.
+
+The rewrite goes back to `agent`, not straight to `retrieve`, so the model reads the reworded question and decides again whether and how to search. That keeps the model in charge of the search, at one more model call per round.
+
+### Where the verdict lives
+
+Here the grader is the routing function itself, not a node, so it writes nothing to the state. The history shows a rewrite but not the verdict behind it; the only record is a printed line. We call this the **invisible verdict**. Lesson 28.3 splits the job: a grading node writes the passing chunks and a should-generate flag to the state, and a small router reads them. That costs one graph step per retrieval and makes every decision visible in the state, a checkpointer and a trace.
+
+> **Pitfall: the unbounded rewrite loop.** Nothing on the `rewrite` path counts the trips. The loop ends only when the grader says yes. For a question the handbook cannot answer, that never happens, and lesson 28.3 adds the counter that stops it.
+
+The routing is only as good as the verdict it reads, so the next section looks at the call that produces it.
 
 ## Document grader
 
-### Step 1: Decide whether the text answers the question
+A **document grader** is one LLM call that reads retrieved text next to the question and says whether the text helps answer it. It uses structured output: the reply must match a declared schema, so the router compares a typed field instead of parsing free text. This module has two graders:
 
-A document grader is one LLM call that reads retrieved text next to the question and says whether the text helps answer it. The call uses `with_structured_output(<Pydantic model>)`, so the reply is a typed field the router can compare, not free text to parse. The two implementations in this module grade differently:
-
-| | Edge-grader variant: `grade_documents` | Node-grader variant: `assess_document_relevance` |
+| | Edge grader (this lesson) | Node grader (lesson 28.3) |
 |---|---|---|
 | Place in the graph | Routing function on the edge after `retrieve` | Node, followed by a separate router |
 | What it reads | Everything the tool returned, as one message | One chunk per call |
-| Output schema | `binary_score: str`, described as `'yes'` or `'no'` | `relevance: str` (`RELEVANT` or `IRRELEVANT`) and `reasoning: str` |
-| Decision | `score == "yes"` | `relevance.strip().upper() == "RELEVANT"` |
+| Output schema | A score field described as `'yes'` or `'no'` | A relevance label (`RELEVANT` or `IRRELEVANT`) and a reasoning field |
+| Decision | Exact match with `"yes"` | Match with `"RELEVANT"` after trimming and upper-casing |
 | What reaches the answer | Every retrieved chunk, relevant or not | Only the chunks that pass |
-| Grader calls per retrieval | 1 | `k` (the implementation retrieves `k = 2`) |
+| Grader calls per retrieval | 1 | `k`, the number of chunks retrieved (2 in lesson 28.3) |
 
-Grading the block is cheap, but one relevant chunk carries the irrelevant ones into the prompt with it. Grading each chunk costs `k` calls per retrieval and filters what the model reads.
+*Table 2: The two graders side by side.*
 
-### Step 2: Test the label contract
+Grading the block is cheap, but one relevant chunk carries the irrelevant ones into the prompt. Grading each chunk costs `k` calls per retrieval and filters what the model reads.
 
-The schema decides what the router can trust. `binary_score` is a plain `str`, and the comparison is exact, so a model that answers `"Yes"` sends a relevant retrieval to `rewrite`. The implementation normalises with `.strip().upper()` before comparing, and its topic classifier goes further with `Literal["RELEVANT", "IRRELEVANT"]`, which makes Pydantic reject any other value.
+### The label contract
 
-Test the label comparison without a model. This is a controlled input, not a new grader measurement.
+The schema decides what the router can trust. In this lesson's grader the score is a plain string and the router compares it exactly with `"yes"`. Here is what each label does under three ways of reading it:
 
-```python
-score = "Yes"
-print("generate" if score == "yes" else "rewrite")
-print("generate" if score.strip().lower() == "yes" else "rewrite")
-```
+| Model's label | Exact match with `"yes"` | Trimmed and lower-cased first | Field typed as a fixed set of values |
+|---|---|---|---|
+| `yes` | generate | generate | accepted |
+| `Yes` | **rewrite** | generate | rejected by validation |
+| ` yes` (leading space) | **rewrite** | generate | rejected by validation |
+| `maybe` | rewrite | rewrite | rejected by validation |
 
-**Expected output**
+*Table 3: Planted labels under three contracts. The bold rows are relevant retrievals sent to rewrite.*
 
-```text
-rewrite
-generate
-```
+We call the bold rows the **capital-Y rewrite**: the grader agreed, and the graph still discarded the evidence. Normalising fixes those rows. Typing the field as a fixed set of values (a `Literal` in Pydantic) goes further: any other label fails loudly as a validation error instead of quietly choosing a branch, as in lesson 28.3's topic check.
 
-### Step 3: Distinguish related text from an answer
+### Related text or an answer
 
-The prompt sets the bar. The implementation grades a document relevant if it "contains keyword(s) or semantic meaning related to the user question". The implementation also accepts "context that helps understand the topic". On the Larkspur handbook, *How long does a refund take?* retrieves `refund-window` first: it is about refunds, and it says an annual plan can get a full refund within 30 days. It does not say how long a refund takes. A grader that accepts "related" passes it, and the model answers from a chunk without the answer. A grader that asks "does this answer the question?" fails it and sends the query to rewrite, which in the [lab](../03_guardrails_query_optimisation_and_a_retry_loop/interactive/grade-rewrite-retry-lab.html) finds `refund-timing` at 0.720.
+The prompt sets the bar. This lesson's grader calls a document relevant if it "contains keyword(s) or semantic meaning related to the user question"; lesson 28.3's also accepts "context that helps understand the topic". Both pass `refund-window` for *How long does a refund take?*, because it is about refunds: the near miss, now approved by the grader. A grader that asks "does this text answer the question?" fails it and sends the query to rewrite. "Related" maximises recall into the prompt; "answers" protects what the model reads.
 
-The grader reads text because a similarity score cannot do its job. A retriever returns `k` chunks for every query, whatever they score. In the lab, *Do you offer a student discount?* shares no word with the handbook and still retrieves `billing` and `cancel` at 0.000. Its rewrite *Student discount pricing for plans* retrieves `support` at 0.503 and `billing` at 0.461, both above the 0.227 that `refund-window` scores for the refund question, and neither mentions a discount. No score threshold separates those cases; reading the chunk does.
+### Why a score cannot do the grader's job
 
-### Try it yourself
+A retriever returns `k` chunks for every query, whatever they score. The lab's TF-IDF scores over the M10 handbook chunks show that no score threshold can replace the grader:
 
-For the refund-timing question, compare a grader that accepts any refund-related passage with one that requires timing evidence. Check that refund-window can pass the first rule but not the second. Then trace the no branch through rewrite and back to the agent. The agent must still request the retriever.
+| Query | Top chunk and score | Answers the question? |
+|---|---|---|
+| *How long does a refund take?* | `refund-window`, 0.227 | No |
+| Its rewrite | `refund-timing`, 0.720 | Yes |
+| *Do you offer a student discount?* | `billing` and `cancel`, both 0.000 | No |
+| Its rewrite *Student discount pricing for plans* | `support` 0.503, then `billing` 0.461 | No |
+| *Larkspur outage availability guarantee and incident updates* | `sla` 0.470, then `incidents` 0.253 | Yes |
 
-### Practice notebook
+*Table 4: Retrieval scores from the M28 lab. A non-answer at 0.503 outscores a real answer at 0.470.*
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+The discount question shares no word with the handbook and still retrieves two chunks, and its rewrite scores 0.503 without either chunk mentioning a discount. A threshold above 0.503 would reject the outage answer at 0.470; one below it lets the discount non-answer through. Only reading the chunk next to the question separates them.
 
-- [Simple agentic RAG](../../notebook/01a_simple_agentic_rag.ipynb).
+## In practice: the refund question at Larkspur
 
-### Continue learning
+Put the graph on the Larkspur support assistant and follow the refund question once more:
 
-- [bounded retries](../03_guardrails_query_optimisation_and_a_retry_loop/README.md#bounded-retries).
+1. The model reads the handbook tool's description, sees a policy question and calls the tool.
+2. The tool returns `refund-window` first. An "answers the question" grader says no.
+3. The conditional edge sends the run to `rewrite`, which rewords the question and hands it back to the model.
+4. The model searches again, the tool returns `refund-timing` at 0.720, the grader says yes and `generate` answers from it.
+
+> **Key distinction:** this graph corrects a bad retrieval but cannot give up, and its verdicts leave no record. Lesson 28.3 adds the counter that ends the loop, a node that records each verdict, and a topic check before retrieval.
+
+## Limits of this evidence
+
+- **Notebook corpus.** The notebook runs on a research paper; the Larkspur paths and scores come from the M28 lab.
+- **TF-IDF scores.** Table 4 uses exact-word TF-IDF. Embedding scores differ, though an embedding retriever still returns `k` chunks for every query.
+- **Planted labels.** Table 3 tests the comparison, not how often a model writes `Yes`.
 
 ## Key Takeaways
 
-- Wrap the retriever as a tool whose name and description tell the model when to call it. A conditional edge after retrieval then sends the run to `generate` or `rewrite` on the grader's verdict.
-- Make the grader a node that writes its verdict to state, with a small router that reads it, so every decision is visible. Type the verdict as a `Literal` rather than comparing free strings.
+- Wrap the retriever as a tool whose name and description tell the model when to call it, then put a conditional edge after retrieval that sends the run to `generate` or `rewrite` on the grader's verdict.
+- Make the verdict a typed field with a fixed set of values, and prefer a grading node that writes it to the state, so a wrong label fails loudly and every decision can be traced.
 - Ask the grader whether a chunk answers the question, not whether it is related. A similarity score cannot do this, because the retriever returns `k` chunks for every query whatever they score.
 
 ## Check yourself
@@ -115,23 +161,23 @@ Run the complete implementation from the practice material after checking the tr
 <details>
 <summary>1. Why does the rewrite node send the new question back to the agent instead of straight to the retriever?</summary>
 
-The model reads the rewritten question as the last message and decides again whether to call the tool, and with what query. Nothing on this path counts the trips, so the loop ends only when the grader says yes, which lesson 28.3 fixes with bounded retries.
+The model reads the reworded question as the newest message and decides again whether to call the tool and with what query, so it stays in charge of the search. Nothing on this path counts the trips, so the loop ends only when the grader says yes, which lesson 28.3 fixes with a counter in the state.
 
 </details>
 
 <details>
 <summary>2. The refund-duration question retrieves the refund-window chunk first. Does a grader that accepts related text pass it, and what follows?</summary>
 
-Yes: the chunk is about refunds, but it only says an annual plan can get a full refund within 30 days, not how long a refund takes. The model then answers from a chunk without the answer. A grader that asks "does this answer the question?" fails it and sends the query to rewrite, which finds `refund-timing` at 0.720.
+Yes. The chunk is about refunds, but it only says an annual plan can get a full refund within 30 days, not how long a refund takes, so the model answers from a near miss. A grader that asks whether the text answers the question fails it and sends the query to rewrite, which finds `refund-timing` at 0.720.
 
 </details>
 
 <details>
-<summary>3. The first notebook's grader sends a clearly relevant retrieval to rewrite, and the model's verdict was Yes with a capital letter. Why?</summary>
+<summary>3. The grader sends a clearly relevant retrieval to rewrite, and its label was Yes with a capital letter. Why, and what are two fixes?</summary>
 
-`binary_score` is a plain `str` and the router compares it exactly with `"yes"`, so `"Yes"` fails. Normalise before comparing, as `03a` does with `.strip().upper()`, or type the field as a `Literal` so Pydantic rejects any other value.
+The score is a plain string compared exactly with `"yes"`, so `"Yes"` takes the rewrite branch: the capital-Y rewrite. Trim and lower-case the label before comparing, or type the field as a fixed set of values so any other label fails validation instead of silently choosing a branch.
 
 </details>
 
 ---
-*Previous: [M28 overview](../README.md). Next: [28.3 Guardrails, query optimisation and a retry loop](../03_guardrails_query_optimisation_and_a_retry_loop/README.md).*
+*Previous: [M28 overview](../README.md). Next: [28.2 The same agent on Databricks Vector Search](../../../optional/theory/02_the_same_agent_on_databricks_vector_search/README.md).*

@@ -240,7 +240,7 @@ th:last-child, td:last-child { padding-right: 0; }
   <header class="module__head">
     <div class="module__name">
       <h1 id="module-title">M30 Adaptive RAG and query routing</h1>
-      <p class="module__lede">A Larkspur ticket may need billing policy, live incident data or a person. You will classify the request, inspect the selected filter and measure the cost of the wrong route. The tutorials cover query classification, multi-knowledge-base routing, escalation and retrieval strategy by question type.</p>
+      <p class="module__lede">A fixed RAG pipeline does the same work for every question. A support desk cannot afford that: one Larkspur ticket needs billing policy, another a technical guide, a third a person, and a fourth something the handbook does not hold. A router reads the question first and decides where it goes, and every step after it can only work with what that route returns. This module covers how a router classifies a question into a closed set of labels, how a label becomes a knowledge-base filter, when a ticket should go to a person instead, how to choose between the vector store and the web and then check the evidence and the answer, and how to pick a retrieval method per kind of question.</p>
     </div>
     <dl class="module__meta">
       <div><dt>Module</dt><dd><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/README.md" target="_blank" rel="noopener">M30 on GitHub</a></dd></div>
@@ -328,107 +328,166 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button" data-tok="800,112">Retrieve</button><span>The retriever returns at most three chunks scoring 0.2 or more, and the billing prompt answers from them.</span></li>
   </ol>
 </figure>
-<p>The router decides what retrieval is allowed to see. Each knowledge base then retrieves and the model answers from what came back. Grading and generation work only with what the chosen path returns, so a misroute surfaces as a confident wrong answer or an apology, never as an error.</p>
-<h2 id="query-classification">Query classification</h2>
+<p>The router decides what retrieval is allowed to see. Sentiment is checked first, so an unhappy customer reaches a person whatever the topic; the rest go by category to one knowledge base, which retrieves, and the model answers from what came back. Grading and generation work only with what the chosen path returns, so a misroute surfaces as a confident wrong answer or an apology, never as an error. Lesson 30.1 calls that a silent misroute, and every lesson in the module has a version of it.</p>
+<h2 id="right-answer-wrong-knowledge-base">Right answer, wrong knowledge base</h2>
 <p class="lesson-of">Lesson 30.1: Router agentic RAG over multiple knowledge bases. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/01a_router_agentic_rag.ipynb" target="_blank" rel="noopener"><code>01a_router_agentic_rag.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/optional/notebook/01b_router_agentic_rag_modular.ipynb" target="_blank" rel="noopener"><code>01b_router_agentic_rag_modular.ipynb</code></a> (optional)</p>
-<p>A cancellation ticket mentions data, but its retention policy belongs to a different knowledge base from export instructions. You will inspect the classifier labels, apply the correct metadata filter, and test the cost of abstaining from a low-confidence route.</p>
-<h3>Step 1: Make the route a closed label</h3>
-<p>A router is a classifier whose output decides where a question goes. In this implementation, <code>categorize_inquiry</code> fills the <code>route_category</code> prompt from <code>prompts.yaml</code> and calls the LLM with <code>with_structured_output(QueryCategory)</code>, where</p>
-<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
-<pre class="sheet code"><code class="language-text">class QueryCategory(BaseModel):
-    categorized_topic: Literal['Technical', 'Billing', 'General']
-</code></pre>
-<p>The <code>Literal</code> closes the label set. The parsed output can only be one of three strings, so <code>determine_route</code> can compare against them with no defensive parsing. The prompt gives each label a one-line definition (&ldquo;Billing queries will focus more on payment and purchase related aspects&rdquo;). Those definitions are the router&rsquo;s whole specification: a ticket that fits two of them gets whichever label the model leans toward that day.</p>
-<p>Every M30 implementation puts a classifier of this kind in front of something:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> why a router&rsquo;s output must come from a closed label set, and what breaks when it does not.</li>
+<li><strong>Trace</strong> a support ticket from its label to the metadata filter that limits retrieval.</li>
+<li><strong>Diagnose</strong> a silent misroute, a case mismatch and a shared-filter race.</li>
+<li><strong>Choose</strong> a confidence floor for an all-knowledge-base fallback, and say what it costs.</li>
+</ul>
+</blockquote>
+<p>M17 introduced routing as one step inside a retrieval pipeline. This module moves the router to the front of the whole graph, so its decision limits everything that runs after it.</p>
+<p>A Larkspur customer writes <em>How long do you keep my data after I cancel?</em> The retention policy sits in the general knowledge base. The router reads &ldquo;data&rdquo;, calls the ticket technical, and retrieval searches only the technical chunks. It finds the data-export chunk or nothing, and the customer gets a confident wrong answer or an apology.</p>
+<p>Nothing raised an error. The router chose where retrieval was allowed to look, and the answer was somewhere else.</p>
+<p>That one failure sets three jobs for the rest of the page:</p>
+<ul>
+<li><strong>Classify</strong>: turn free text into one label from a fixed set.</li>
+<li><strong>Filter</strong>: turn the label into the exact metadata value the index stores.</li>
+<li><strong>Hedge</strong>: decide what to do when the router is unsure.</li>
+</ul>
+<p>Every router in this module has the same skeleton:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    T[/Ticket/] --&gt; C["Classifier&lt;br/&gt;closed labels"]
+    C --&gt; L["Label to&lt;br/&gt;filter value"]
+    L --&gt; R["Filtered&lt;br/&gt;retrieval"]
+    R --&gt; A[/Answer/]
+</pre></figure>
+<p><em>Figure 1: The router skeleton. Each arrow is a place where the ticket can be sent the wrong way without an error.</em></p>
+<h2 id="query-classification">Query classification</h2>
+<p><strong>A router is a classifier whose output decides where a question goes.</strong> In the 01a notebook it is one LLM call with structured output: the model must fill a schema whose only field is the category, and the field&rsquo;s type lists the three allowed values, Technical, Billing and General.</p>
+<p>That type is what makes the label set <strong>closed</strong>. The parser accepts only those three strings, so the routing function downstream can compare against them with no defensive parsing. Here is what the schema does with two candidate outputs:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Model output</th>
+<th>What the schema does</th>
+<th>What reaches the router</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Billing</code></td>
+<td>Accepts it</td>
+<td>Billing</td>
+</tr>
+<tr>
+<td><code>billing</code></td>
+<td>Rejects it with a literal error</td>
+<td>Nothing; the call fails before routing</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: A closed label set rejects a near-miss before the router sees it.</em></p>
+<p>The prompt gives each label a one-line definition, such as &ldquo;Billing queries will focus more on payment and purchase related aspects&rdquo;. Those definitions are the router&rsquo;s whole specification. A ticket that fits two of them gets whichever label the model leans toward that day.</p>
+<h3>Six routers, one shape</h3>
+<p>Every M30 lesson puts a classifier of this kind in front of something:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Router</th>
 <th>Labels</th>
-<th>Output field</th>
+<th>Field type</th>
 <th>What the label decides</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>General support router</td>
+<td>General support (30.1)</td>
 <td>Technical, Billing, General</td>
-<td><code>Literal</code></td>
+<td>Closed</td>
 <td>Which knowledge base filter to apply</td>
 </tr>
 <tr>
-<td>General support router</td>
+<td>General support (30.1)</td>
 <td>Positive, Neutral, Negative</td>
-<td><code>Literal</code></td>
+<td>Closed</td>
 <td>Escalate to a human or answer</td>
 </tr>
 <tr>
-<td>Clinic router</td>
+<td>Clinic (30.2)</td>
 <td>Billing, Appointments, Records, Insurance</td>
-<td><code>Literal</code></td>
+<td>Closed</td>
 <td>Which department&rsquo;s documents to search</td>
 </tr>
 <tr>
-<td>Clinic router</td>
+<td>Clinic (30.2)</td>
 <td>Positive, Neutral, Negative, Distress</td>
-<td><code>Literal</code></td>
+<td>Closed</td>
 <td>Human support, on-call team or answer</td>
 </tr>
 <tr>
-<td>Source router</td>
+<td>Source (30.3)</td>
 <td>vectordb, web_search</td>
-<td><code>Literal</code></td>
+<td>Closed</td>
 <td>Vector store or web search</td>
 </tr>
 <tr>
-<td>Strategy router</td>
+<td>Strategy (30.4)</td>
 <td>Factual, Analytical, Opinion, Contextual</td>
-<td><code>str</code></td>
+<td>Free text</td>
 <td>Which retrieval strategy runs</td>
 </tr>
 </tbody>
 </table></div>
-<p>Validate a known route and an unexpected spelling locally. Pydantic enforces the closed label set before the router dispatches it.</p>
-<pre class="sheet code"><code class="language-python">from typing import Literal
-from pydantic import BaseModel, ValidationError
-
-class QueryCategory(BaseModel):
-    categorized_topic: Literal[&quot;Technical&quot;, &quot;Billing&quot;, &quot;General&quot;]
-
-print(QueryCategory(categorized_topic=&quot;Billing&quot;).categorized_topic)
-try:
-    QueryCategory(categorized_topic=&quot;billing&quot;)
-except ValidationError as error:
-    print(error.errors()[0][&quot;type&quot;])
-</code></pre>
-<p><strong>Expected output</strong></p>
-<pre class="sheet code"><code class="language-text">Billing
-literal_error
-</code></pre>
-<h3>Step 2: Test an unexpected category</h3>
-<p>The last row shows why the schema matters. The Strategy router classifier&rsquo;s field is a plain <code>str</code>, and its result indexes a dictionary of four strategies. If the model writes <code>factual</code> or <code>Factual query</code>, the lookup raises a <code>KeyError</code>. With a <code>Literal</code>, the structured-output parser rejects the value instead.</p>
-<h3>Step 3: Count classification calls</h3>
-<p>The implementation classifies category and sentiment in two sequential LLM calls. One call with a two-field schema would halve the classification cost. Two prompts are easier to evaluate and change separately. Either way, keep the labels you route on in the schema, never in free text you parse afterwards.</p>
-<p>An LLM classifier is one of two ways to route. M17 calls it logical routing. The other, semantic routing, compares the question with example text for each route and takes the closest. The lab below uses the semantic kind with TF-IDF, because it runs in the browser and its scores can be checked exactly.</p>
+<p><em>Table 2: The M30 routers. Five close their label set; one does not.</em></p>
+<h3>Planted failure: the open label set</h3>
+<p>The last row of Table 2 is the one that breaks. The strategy router&rsquo;s field is plain text, and its value is used as a key into a table of four strategies. If the model writes <code>factual</code> or <code>Factual query</code>, the lookup fails with a key error and the request crashes. We call this an <strong>open label set</strong>: the classifier is allowed to say something the code has no branch for. A closed field turns the same mistake into a rejected parse, which you can retry or default.</p>
+<h3>Two calls or one</h3>
+<p>The 01a notebook classifies category and sentiment in two sequential LLM calls. One call with a two-field schema, as in the lab solution, halves the classification cost; two prompts are easier to test and change separately. Either way, keep the labels you route on in the schema, never in free text you parse afterwards.</p>
+<h3>Logical and semantic routing</h3>
+<p>An LLM classifier is <strong>logical routing</strong> in M17&rsquo;s terms. <strong>Semantic routing</strong> instead compares the question with example text for each route and takes the closest; this page&rsquo;s lab uses it with TF-IDF, because its scores can be checked exactly.</p>
+<p>A label is only useful once it reaches the index, which is where the next set of failures hides.</p>
 <h2 id="multi-kb-routing">Multi-KB routing</h2>
-<h3>Step 1: Apply the route to a concrete filter</h3>
-<p>The implementation builds one Chroma collection, <code>knowledge_base</code>, with cosine distance (<code>collection_metadata={"hnsw:space": "cosine"}</code>). Each document carries a <code>category</code> field in its metadata. The retriever returns at most three chunks scoring 0.2 or more (<code>search_type="similarity_score_threshold"</code>, <code>k=3</code>, <code>score_threshold=0.2</code>). The knowledge bases are separate only through the filter: before retrieving, a response node sets <code>search_kwargs["filter"] = {"category": category}</code>. Clinic router notes the other design, one vector store per category.</p>
-<h3>Step 2: Inspect the filter actually used</h3>
-<p>Three details in this implementation decide whether a route works:</p>
-<ul>
-<li><strong>The label and the stored value must match exactly.</strong> The classifier returns <code>Technical</code>; the metadata says <code>technical</code>. Chroma compares metadata values exactly, so each response node lowercases the label before filtering. The example runs the refund question with the filters <code>general</code>, <code>General</code> and <code>technical</code> to show the difference; the last is what a misroute retrieves.</li>
-<li><strong>A misroute is silent.</strong> Filtered to the wrong knowledge base, the retriever returns whatever clears 0.2 there, or nothing. With no chunks, the response prompt tells the model to reply &ldquo;Apologies I was not able to answer your question&rdquo;. Nothing in the graph records that the route was wrong.</li>
-<li><strong>The filter is written onto a shared retriever.</strong> <code>retrieve_knowledge_base_content</code> mutates <code>kbase_search.search_kwargs</code>, so two requests served at once can overwrite each other&rsquo;s filter. Pass it per call instead: <code>kbase_search.invoke(query, filter={"category": category})</code>, which <code>VectorStoreRetriever</code> merges over its defaults.</li>
-</ul>
-<p>The optional shared-prompt router keeps the same graph and binds one <code>generate_support_response</code> to the three response nodes with <code>functools.partial</code>, so the three prompts become one <code>response_generation</code> template. Adding a fourth knowledge base then means a prompt entry, a node and a branch in <code>determine_route</code>.</p>
-<h3>Step 3: Give an uncertain route a fallback</h3>
-<p>The classifier in this implementation must always answer, because its schema has no &ldquo;unsure&rdquo; label. A router that can abstain needs a confidence score and a rule for what happens below it:</p>
+<p><strong>Multi-KB routing means each label selects a different knowledge base, and retrieval sees only that one.</strong> In the notebook, the three knowledge bases are not three stores. They are one Chroma collection, compared by cosine distance, where every document carries a <code>category</code> field in its metadata. A response node sets a metadata filter on that field before retrieving. The retriever then returns at most three chunks scoring 0.2 or more.</p>
+<p>The clinic notebook in lesson 30.2 notes the other design, one vector store per category. Both trust the label equally.</p>
+<h3>The label must match the stored value</h3>
+<p>Chroma compares metadata values exactly. The classifier returns <code>Technical</code> and the documents store <code>technical</code>, so each response node lowercases the label first. The notebook runs the refund question under three filters:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Filter value</th>
+<th>What the search can return</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>general</code></td>
+<td>The refund chunks</td>
+<td>Matches the stored value</td>
+</tr>
+<tr>
+<td><code>General</code></td>
+<td>Nothing</td>
+<td>Capital G matches no document</td>
+</tr>
+<tr>
+<td><code>technical</code></td>
+<td>Whatever clears 0.2 among technical chunks, or nothing</td>
+<td>This is what a misroute retrieves</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The refund question under three filters.</em></p>
+<p>Lowercasing works only while labels and stored values differ by case alone; lesson 30.2 needs an explicit mapping.</p>
+<h3>Planted failure: the silent misroute</h3>
+<p>Filtered to the wrong knowledge base, the retriever behaves correctly: it returns whatever clears the threshold there, or nothing, and with no chunks the prompt makes the model apologise. Nothing records that the route was wrong. We call this a <strong>silent misroute</strong>, the default failure of every router in this module. It shows up only downstream: empty retrievals, apology answers, reopened tickets.</p>
+<h3>Planted failure: the shared-filter race</h3>
+<p>The notebook writes the filter onto the retriever object itself, which every request shares. Two requests served at the same time can overwrite each other&rsquo;s filter, so a billing ticket can retrieve technical chunks. We call this the <strong>shared-filter race</strong>. The fix is to pass the filter with each search call, which the LangChain retriever merges over its defaults, and leave the shared object unchanged.</p>
+<p>The optional modular notebook binds one response function to all three response nodes, so three prompts become one template. A fourth knowledge base then needs one prompt entry, one node and one routing branch.</p>
+<h3>Giving an uncertain route a fallback</h3>
+<p>The notebook&rsquo;s schema has no &ldquo;unsure&rdquo; label, so its classifier must always answer. A router that can abstain needs a confidence score and a rule for what happens below it:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     T[/Ticket/] --&gt; C{"Best KB score&lt;br/&gt;at or above floor?"}
     C -- yes --&gt; F["Search one KB&lt;br/&gt;filter: category"]
     C -- no --&gt; A["Search all three&lt;br/&gt;no filter"]
 </pre></figure>
-<p>The <a href="01_router_agentic_rag_over_multiple_knowledge_bases/interactive/kb-router-lab.html">interactive lab</a> runs this rule on eighteen Larkspur tickets. Each knowledge base is scored by its best chunk under TF-IDF (scikit-learn&rsquo;s weighting, the same index as the M10 lab), and the ticket goes to the highest. A fallback searches all three knowledge bases, so it always includes the right one but costs three searches instead of one. Its numbers:</p>
+<p><em>Figure 2: The confidence floor. Below it, the ticket searches every knowledge base.</em></p>
+<p>The <a href="01_router_agentic_rag_over_multiple_knowledge_bases/interactive/kb-router-lab.html">interactive lab</a> runs this rule on eighteen Larkspur tickets. Each knowledge base is scored by its best chunk under TF-IDF (scikit-learn&rsquo;s weighting, the M10 lab&rsquo;s index), and the ticket goes to the highest. A fallback always includes the right knowledge base but costs three searches instead of one:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -470,57 +529,149 @@ literal_error
 </tr>
 </tbody>
 </table></div>
-<h3>Step 4: Diagnose a confident wrong route</h3>
-<p>The three misroutes fail for different reasons:</p>
-<ul>
-<li><strong><em>The dashboard keeps logging me out.</em></strong> shares no term with any chunk, so every knowledge base scores 0.000 and the always-route rule sends it to billing, the first in the list. Any floor above zero catches it, for 0.11 extra searches per ticket.</li>
-<li><strong><em>How long do you keep my data after I cancel?</em></strong> goes to technical at 0.320, because &ldquo;data&rdquo; matches the export chunk. The retention chunk says &ldquo;cancelled&rdquo;, not &ldquo;cancel&rdquo;, and scores 0.184. A floor of 0.32 catches it, but by then three correctly routed tickets also fall back.</li>
-<li><strong><em>My server went down for an hour. Will I be compensated?</em></strong> reduces to the single word &ldquo;server&rdquo; once stop words are removed (&ldquo;down&rdquo; is one of them), exactly like the correctly routed <em>How do I restart a server that stopped responding?</em>. Both score 0.416 for technical, so no floor can separate them. Catching it at 0.42 sends 8 correct tickets to the fallback with it.</li>
-</ul>
+<p><em>Table 4: The lab&rsquo;s eighteen tickets at four floors.</em></p>
+<p>The three misroutes at floor 0.00 fail for three different reasons:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Ticket</th>
+<th>Routed to, score</th>
+<th>Why it misroutes</th>
+<th>Smallest floor that catches it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>The dashboard keeps logging me out.</em></td>
+<td>Billing, 0.000</td>
+<td>Shares no term with any chunk; billing is first in the list</td>
+<td>Any floor above zero</td>
+</tr>
+<tr>
+<td><em>How long do you keep my data after I cancel?</em></td>
+<td>Technical, 0.320</td>
+<td>&ldquo;data&rdquo; matches the export chunk; the retention chunk says &ldquo;cancelled&rdquo;, not &ldquo;cancel&rdquo;, and scores 0.184</td>
+<td>0.32, when three correct tickets also fall back</td>
+</tr>
+<tr>
+<td><em>My server went down for an hour. Will I be compensated?</em></td>
+<td>Technical, 0.416</td>
+<td>Reduces to the single word &ldquo;server&rdquo; once stop words go (&ldquo;down&rdquo; is one), exactly like <em>How do I restart a server that stopped responding?</em></td>
+<td>None that spares the right ones: at 0.42, 8 correct tickets fall back with it</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Three misroutes, three causes.</em></p>
 <figure class="lab-embed"><iframe src="01_router_agentic_rag_over_multiple_knowledge_bases/interactive/kb-router-lab.html" title="Routing confidence and the fallback, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Routing confidence and the fallback. <a href="01_router_agentic_rag_over_multiple_knowledge_bases/interactive/kb-router-lab.html">Open full screen</a></figcaption></figure>
-<p>A floor removes the misroutes that have no signal, cheaply. Confident misroutes need a better classifier (embeddings, an LLM, or several example tickets per route) and a labelled routing set to find them, since the router&rsquo;s own score cannot.</p>
-<h3>Try it yourself</h3>
-<p>Raise the lab floor from 0.00 to 0.42. Check that the three misroutes disappear but eleven tickets now search all knowledge bases, at 2.22 searches per ticket. Explain why the two questions that reduce to server cannot be separated by this score, and label a held-out routing case rather than tuning only on these tickets.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
-<ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/01a_router_agentic_rag.ipynb" target="_blank" rel="noopener">Router agentic RAG</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/optional/notebook/01b_router_agentic_rag_modular.ipynb" target="_blank" rel="noopener">Router agentic RAG modular</a>.</li>
-</ul>
+<p>The first row is a <strong>no-signal route</strong>, and its score says so. The third is a <strong>confident misroute</strong>: it scores as high as a correct route, so the router&rsquo;s own confidence cannot find it.</p>
+<blockquote>
+<p><strong>Key distinction:</strong> a floor removes no-signal routes cheaply. Confident misroutes need a better classifier (embeddings, an LLM, or several example tickets per route) and a labelled routing set to find them.</p>
+</blockquote>
+<h2 id="choosing-a-router-and-a-floor">Choosing a router and a floor</h2>
+<p>The decisions on this page reduce to a short sequence:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    S[New router] --&gt; L{"One label&lt;br/&gt;per ticket?"}
+    L --&gt;|yes| C[Closed schema field]
+    L --&gt;|no| D["Multi-label schema&lt;br/&gt;or decompose, M17"]
+    C --&gt; F{"Can it score&lt;br/&gt;its confidence?"}
+    F --&gt;|yes| FL["Floor plus&lt;br/&gt;all-KB fallback"]
+    F --&gt;|no| LR[Labelled routing set]
+</pre></figure>
+<p><em>Figure 3: Close the labels first, then decide how to catch the misroutes.</em></p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>Always route</th>
+<th>Floor and fallback</th>
+<th>Better classifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Searches per ticket</td>
+<td>1</td>
+<td>1.11 to 2.22 in the lab</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Catches no-signal routes</td>
+<td>✗</td>
+<td>✓</td>
+<td>Sometimes</td>
+</tr>
+<tr>
+<td>Catches confident misroutes</td>
+<td>✗</td>
+<td>Only at high cost</td>
+<td>✓, if the labelled set shows it</td>
+</tr>
+<tr>
+<td>Main risk</td>
+<td>Silent misroute</td>
+<td>Fallback swallows correct routes</td>
+<td>Cost of labelling and evaluating</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 6: Three ways to live with misroutes.</em></p>
+<p>The two combine: a low floor such as 0.01 catches tickets that match nothing, and the labelled set shows which confident routes need a better classifier.</p>
+<h2 id="in-practice-the-larkspur-retention-ticket">In practice: the Larkspur retention ticket</h2>
+<p>Back to <em>How long do you keep my data after I cancel?</em>, followed through a router built from this page:</p>
+<ol>
+<li>The closed schema returns Technical, because &ldquo;data&rdquo; pulls toward exports.</li>
+<li>The label maps to the stored value <code>technical</code>, and the filter travels with this one search call.</li>
+<li>Technical scores 0.320, above a floor of 0.01, so the route stands; the router logs the label, the score and the chunks.</li>
+<li>The answer comes from the export chunk, and the reopened ticket surfaces in the per-route signals.</li>
+<li>The ticket joins the labelled routing set, and the fix goes into the classifier: an example retention ticket for the general route, or embeddings that match &ldquo;cancel&rdquo; to &ldquo;cancelled&rdquo;.</li>
+</ol>
+<blockquote>
+<p><strong>Next lesson:</strong> 30.2 adds a second check in front of the category. Some tickets should not reach any knowledge base at all.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Close the router&rsquo;s label set with a <code>Literal</code> in the schema so code never meets a value it cannot handle. The prompt&rsquo;s one-line label definitions are the router&rsquo;s whole specification.</li>
-<li>Map each label to its exact metadata value and pass the filter per call, not onto a shared retriever. A misroute leaves no trace, because the wrong knowledge base simply returns weaker chunks or none.</li>
-<li>A confidence floor with an all-KB fallback catches tickets that match nothing, in the lab for 0.11 extra searches per ticket. Confident misroutes need a better classifier and a labelled routing set.</li>
+<li>Close the router&rsquo;s label set in its output schema so code never meets a value it cannot handle. The prompt&rsquo;s one-line label definitions are the router&rsquo;s whole specification.</li>
+<li>Map each label to its exact stored metadata value and pass the filter per call, not onto a shared retriever. A silent misroute leaves no trace, because the wrong knowledge base just returns weaker chunks or none.</li>
+<li>A confidence floor with an all-KB fallback catches no-signal routes, in the lab for 0.11 extra searches per ticket. Confident misroutes need a better classifier and a labelled routing set.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can the query-type classifier crash on a label such as factual, while the knowledge-base classifier never returns a label the code cannot handle?</summary>
-<p>The knowledge-base classifier&rsquo;s field is a <code>Literal['Technical', 'Billing', 'General']</code>, so the parsed output can only be one of those three strings. The query-type classifier&rsquo;s field is a plain <code>str</code> used to index a dictionary of strategies, so <code>factual</code> or <code>Factual query</code> raises a <code>KeyError</code>. With a <code>Literal</code>, the structured-output parser rejects the value instead.</p>
+<p>The knowledge-base classifier&rsquo;s field lists the three allowed values, so the parsed output can only be Technical, Billing or General. The query-type classifier&rsquo;s field is free text used as a key into a table of strategies, so <code>factual</code> or <code>Factual query</code> fails the lookup and crashes the request. A closed field turns the same mistake into a rejected parse instead.</p>
 </details>
 <details>
 <summary>2. The outage-compensation ticket scores 0.416 for technical, the same as a genuine restart ticket. Can a confidence floor catch this misroute?</summary>
-<p>Not without heavy cost. Once stop words are removed both tickets reduce to &ldquo;server&rdquo;, so they score the same and no floor separates them; catching it at 0.42 sends 8 correct tickets to the fallback too. Confident misroutes need a better classifier and a labelled routing set, since the router&rsquo;s own score cannot find them.</p>
+<p>Not without heavy cost. Once stop words are removed both tickets reduce to &ldquo;server&rdquo;, so they score the same and no floor separates them; catching it at 0.42 sends 8 correct tickets to the fallback too. It is a confident misroute, so it needs a better classifier and a labelled routing set, since the router&rsquo;s own score cannot find it.</p>
 </details>
 <details>
 <summary>3. Under load, two requests sometimes retrieve from each other's knowledge base. What in the notebook causes this, and what is the fix?</summary>
-<p><code>retrieve_knowledge_base_content</code> writes the filter onto the shared retriever&rsquo;s <code>search_kwargs</code>, so concurrent requests overwrite each other&rsquo;s filter. Pass the filter per call instead, with <code>kbase_search.invoke(query, filter={"category": category})</code>, which <code>VectorStoreRetriever</code> merges over its defaults.</p>
+<p>The notebook writes the category filter onto the shared retriever object, so concurrent requests overwrite each other&rsquo;s filter: the shared-filter race. Pass the filter with each search call instead, which the retriever merges over its defaults, and leave the shared object unchanged.</p>
 </details>
-<h2 id="human-in-the-loop-escalation">Human-in-the-loop escalation</h2>
+<h2 id="tickets-that-need-a-person">Tickets that need a person</h2>
 <p class="lesson-of">Lesson 30.2: Customer-facing routing with sentiment and human escalation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/optional/notebook/02a_healthcare_router_agentic_rag.ipynb" target="_blank" rel="noopener"><code>02a_healthcare_router_agentic_rag.ipynb</code></a> (optional)</p>
-<p>An unhappy Larkspur customer and a customer with a production outage need different handoffs. You will apply escalation before knowledge-base routing, inspect the context sent to a person, and replace a waiting form loop with a resumable decision.</p>
-<h3>Step 1: Apply escalation before answering</h3>
-<p>Some tickets should not be answered by retrieval at all. An angry customer wants a person. A customer in an emergency needs one now. Both routers handle this by classifying sentiment as well as topic and checking sentiment first.</p>
-<p>In this implementation, <code>determine_route</code> reads:</p>
-<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
-<pre class="sheet code"><code class="language-text">if support_state[&quot;query_sentiment&quot;] == &quot;Negative&quot;:
-    return &quot;escalate_to_human_agent&quot;
-elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
-    ...
-</code></pre>
-<p>The order is the policy. A negative billing ticket never reaches the billing knowledge base, however well the router would have classified it. the implementation&rsquo;s <code>escalate_to_human_agent</code> returns a fixed apology and notifies nobody; it marks where a real handoff goes.</p>
-<h3>Step 2: Separate the handoff targets</h3>
-<p>The clinic support router builds that handoff for a clinic&rsquo;s support desk. It routes four departments (Billing, Appointments, Records, Insurance) and four sentiments, with a rule in the sentiment prompt that &ldquo;Distress&rdquo; applies &ldquo;only when the customer is facing a health emergency&rdquo;:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> why escalation is checked before the topic, and why that order is the policy.</li>
+<li><strong>Compare</strong> two escalation targets and what each handoff must carry.</li>
+<li><strong>Diagnose</strong> a form loop that blocks a worker, and replace it with a pause that survives a restart.</li>
+<li><strong>Choose</strong> escalation triggers by counting missed and needless escalations.</li>
+</ul>
+</blockquote>
+<p>Lesson 30.1 sent every ticket to a knowledge base. That assumes the right reply is always a retrieved answer.</p>
+<p>Two Larkspur tickets break the assumption. One customer writes, angrily, that they were billed twice; the billing knowledge base explains double charges perfectly, and the customer wants a person. Another writes, calmly, that their production server has been down for an hour. The technical knowledge base has a restart guide, and the customer needs the on-call engineer now.</p>
+<p>A topic router sends both to retrieval and both get a polite handbook answer. The topic was right each time. The question of who should reply was never asked.</p>
+<p>So this lesson adds four jobs in front of the topic route:</p>
+<ul>
+<li><strong>Detect</strong>: decide whether a person should handle the ticket.</li>
+<li><strong>Direct</strong>: pick which person, since an unhappy customer and an emergency need different teams.</li>
+<li><strong>Hand off</strong>: pass what the person needs to start without asking again.</li>
+<li><strong>Wait</strong>: pause the graph until the person or the customer responds, without tying anything up.</li>
+</ul>
+<h2 id="human-in-the-loop-escalation">Human-in-the-loop escalation</h2>
+<p><strong>Human-in-the-loop escalation means the graph hands a ticket to a person instead of answering it, based on a check that runs before retrieval.</strong> Both routers in this module classify sentiment as well as topic, and the routing function reads sentiment first: a Negative ticket goes to escalation, and only the rest are routed by category.</p>
+<p>The order is the policy. A negative billing ticket never reaches the billing knowledge base, however well the router would have classified it. In the 01a notebook the escalation node returns a fixed apology and notifies nobody; it marks where a real handoff goes.</p>
+<p>The optional clinic notebook builds that handoff for a clinic&rsquo;s support desk. It routes four departments (Billing, Appointments, Records, Insurance) and four sentiments, with a rule in the sentiment prompt that Distress applies &ldquo;only when the customer is facing a health emergency&rdquo;:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[/Query/] --&gt; C["Classify&lt;br/&gt;department, sentiment"]
     C --&gt; N{Negative?}
@@ -529,16 +680,160 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
     D -- yes --&gt; F2[Form] --&gt; OC[On-call team]
     D -- no --&gt; R["Department RAG&lt;br/&gt;filtered retrieval"]
 </pre></figure>
-<p>Three parts of the design carry over to any support desk:</p>
-<ul>
-<li><strong>Two escalation targets.</strong> Negative goes to the support queue; Distress goes to on-call doctors. For Larkspur the same split separates an unhappy customer (support) from a production server down right now (the on-call engineer). Each target gets its own form and its own message back to the customer.</li>
-<li><strong>Each label maps to a filter value.</strong> The classifier returns <code>Records</code>; the documents are stored under <code>medical_records</code>. <code>generate_department_response</code> holds an explicit mapping from label to filter value, which is safer than lowercasing and hoping the strings agree.</li>
-<li><strong>The handoff carries context.</strong> The form collects name, number and email into <code>escalation_cust_info</code> (or <code>oncall_cust_info</code>), and the escalation node writes them into the reply. A production handoff should also pass the query, both labels and anything already retrieved, so the person does not start from zero.</li>
-</ul>
-<h3>Step 3: Pause without holding a worker</h3>
-<p>The implementation&rsquo;s form node displays Jupyter widgets and then loops, polling UI events with a 0.3-second sleep, until the Submit button sets a flag. The node holds the graph open the whole time. That works in a notebook. In a service it ties up a worker per waiting customer, and a restart loses every form in progress.</p>
-<p>Both implementations already compile their graphs with a <code>MemorySaver</code> checkpointer and run each conversation under a <code>thread_id</code>. That is what LangGraph&rsquo;s <code>interrupt()</code> needs (M09): the node calls <code>interrupt(...)</code> with the form it wants filled, the graph saves its state and returns, and a later call with <code>Command(resume=form_values)</code> on the same thread continues from that node. Nothing waits in memory, and with a persistent checkpointer the paused ticket survives a restart.</p>
-<h3>Step 4: Test missed and needless escalation</h3>
+<p><em>Figure 1: The clinic router. Two sentiment checks come before any department is searched.</em></p>
+<p>Four tickets show how the checks resolve. The labels are what the prompts are written to produce; the run itself depends on the model:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Ticket</th>
+<th>Department</th>
+<th>Sentiment</th>
+<th>Where it goes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A complaint about a wrong bill</td>
+<td>Billing</td>
+<td>Negative</td>
+<td>Human support form</td>
+</tr>
+<tr>
+<td>Chest pain while waiting for an appointment</td>
+<td>Appointments</td>
+<td>Distress</td>
+<td>On-call form</td>
+</tr>
+<tr>
+<td>A request for test results</td>
+<td>Records</td>
+<td>Neutral</td>
+<td>Records documents</td>
+</tr>
+<tr>
+<td>A question about coverage</td>
+<td>Insurance</td>
+<td>Positive</td>
+<td>Insurance documents</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Four clinic tickets through the two checks (illustrative).</em></p>
+<h3>Two escalation targets</h3>
+<p>Negative goes to the support queue; Distress goes to on-call doctors. Each target gets its own form and its own message back to the customer. For Larkspur the same split separates an unhappy customer (support) from a production server down right now (the on-call engineer).</p>
+<h3>Each label maps to an explicit filter value</h3>
+<p>The clinic classifier returns <code>Records</code>, while the documents are stored under <code>medical_records</code>. Lowercasing the label, as in lesson 30.1, would produce <code>records</code> and match nothing. The department response node holds an explicit mapping instead:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Filter value</th>
+<th>Department named in the prompt</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Billing</td>
+<td><code>billing</code></td>
+<td>Billing</td>
+</tr>
+<tr>
+<td>Appointments</td>
+<td><code>appointments</code></td>
+<td>Appointments</td>
+</tr>
+<tr>
+<td>Records</td>
+<td><code>medical_records</code></td>
+<td>Medical Records</td>
+</tr>
+<tr>
+<td>Insurance</td>
+<td><code>insurance</code></td>
+<td>Insurance</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The clinic&rsquo;s label-to-filter mapping. Only the Records row would fail under lowercasing.</em></p>
+<p>An explicit table is safer than lowercasing and hoping the strings agree, because a new label with no row fails loudly at the mapping step.</p>
+<h3>The handoff carries context</h3>
+<p>Each form writes what the person needs into the graph state, and the escalation node writes it into the reply:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Form fields</th>
+<th>State key</th>
+<th>Reply to the customer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human support</td>
+<td>Name, number, email</td>
+<td><code>escalation_cust_info</code></td>
+<td>Someone will email, and call if needed</td>
+</tr>
+<tr>
+<td>On-call team</td>
+<td>Name, number</td>
+<td><code>oncall_cust_info</code></td>
+<td>A doctor will call shortly</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: What each escalation path collects.</em></p>
+<p>The emergency form asks for less, because the callback is the point. A production handoff should also pass the query, both labels and anything already retrieved, so the person does not start from zero.</p>
+<h3>Planted failure: the blocking form</h3>
+<p>The clinic notebook&rsquo;s form node displays Jupyter widgets and then loops, polling UI events with a 0.3-second sleep, until the Submit button sets a flag. The node holds the graph open the whole time. That works in a notebook. In a service it ties up a worker per waiting customer, and a restart loses every form in progress. We call this the <strong>blocking form</strong>.</p>
+<p>Both notebooks already compile their graphs with a <code>MemorySaver</code> checkpointer and run each conversation under a <code>thread_id</code>. That is what LangGraph&rsquo;s <code>interrupt()</code> needs (M09). The node calls it with the form it wants filled, the graph saves its state and returns, and a later call on the same thread resumes with the form values:</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant U as Customer
+    participant G as Graph
+    participant S as Checkpointer
+    U-&gt;&gt;G: angry ticket
+    G-&gt;&gt;G: classify, route to form
+    G-&gt;&gt;S: save state at interrupt
+    G--&gt;&gt;U: form to fill
+    U-&gt;&gt;G: resume with form values
+    S--&gt;&gt;G: load saved state
+    G--&gt;&gt;U: escalation reply
+</pre></figure>
+<p><em>Figure 2: The interrupt pattern. Nothing waits in memory between the two calls.</em></p>
+<p>With a persistent checkpointer in place of the in-memory one, the paused ticket survives a restart.</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>Polling loop</th>
+<th><code>interrupt()</code> and resume</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Worker held while waiting</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Survives a restart</td>
+<td>✗</td>
+<td>✓, with a persistent checkpointer</td>
+</tr>
+<tr>
+<td>Works outside a notebook</td>
+<td>✗</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Needs a <code>thread_id</code></td>
+<td>✗</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Two ways to wait for a person.</em></p>
+<h2 id="counting-missed-and-needless-escalations">Counting missed and needless escalations</h2>
 <p>Sentiment is a proxy for &ldquo;a person should handle this&rdquo;. It misses a calm customer with an urgent problem and catches a sarcastic one with a simple question. Count both errors on labelled tickets before trusting it:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -550,29 +845,44 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 </thead>
 <tbody>
 <tr>
-<td>Missed escalation</td>
+<td><strong>Missed escalation</strong></td>
 <td>A customer with a production outage gets a handbook answer</td>
 <td>Tickets reopened or escalated by the customer after an automated answer</td>
 </tr>
 <tr>
-<td>Needless escalation</td>
+<td><strong>Needless escalation</strong></td>
 <td>An agent&rsquo;s time on a question the handbook answers</td>
 <td>Escalated tickets an agent closes with a handbook link</td>
 </tr>
 </tbody>
 </table></div>
-<p>Other triggers belong beside sentiment: a router that fell back to searching every knowledge base, an answer the hallucination grader rejected (lesson 30.3), or the same customer asking the same question twice.</p>
-<h3>Try it yourself</h3>
-<p>Use a calm report of a production outage and an angry question whose answer is in the handbook. Decide what sentiment alone would miss or over-escalate. Check the design against both errors in the table, then name the query, labels and contact details a real handoff must retain.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p><em>Table 5: The two escalation errors and where each shows up.</em></p>
+<p>The two errors pull in opposite directions. A looser trigger cuts missed escalations and raises needless ones, so the threshold is a staffing decision as much as a model decision.</p>
+<h3>Triggers beside sentiment</h3>
+<p>Sentiment is one signal among several the graph already has:</p>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/optional/notebook/02a_healthcare_router_agentic_rag.ipynb" target="_blank" rel="noopener">Healthcare router agentic RAG</a>.</li>
+<li><strong>Sentiment</strong>: Negative or an emergency label, as in both notebooks.</li>
+<li><strong>Fallback search</strong>: the router fell back to searching every knowledge base (lesson 30.1), so it was unsure of the topic.</li>
+<li><strong>Rejected answer</strong>: the hallucination grader rejected the answer (lesson 30.3).</li>
+<li><strong>Repeat</strong>: the same customer asked the same question twice.</li>
 </ul>
+<p>Each extra trigger reduces missed escalations and adds some needless ones, which Table 5&rsquo;s counts will show.</p>
+<h2 id="in-practice-the-calm-outage-report">In practice: the calm outage report</h2>
+<p>A Larkspur customer writes <em>Our production server has been unreachable since 9am, can you look?</em> Followed through a router built from this page:</p>
+<ol>
+<li>The sentiment check reads a polite message and returns Neutral. A Negative-only rule would send it on to the technical knowledge base.</li>
+<li>A Larkspur version of the clinic&rsquo;s Distress label, &ldquo;a production service is down now&rdquo;, catches it and routes to the on-call engineer.</li>
+<li>The graph interrupts with a short form, name and callback number, and returns. No worker waits.</li>
+<li>The customer submits; the graph resumes on the same thread and passes the query, both labels and the contact details to on-call.</li>
+<li>If the first rule had missed it, the reopened ticket would count as a missed escalation in Table 5, and the label definition would be the thing to fix.</li>
+</ol>
+<blockquote>
+<p><strong>Next lesson:</strong> 30.3 routes between two sources instead of two audiences, and checks the evidence and the answer after retrieval.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Check sentiment before topic so an angry or distressed customer reaches a person, not the knowledge base. Give each kind of escalation its own target, such as support for unhappy customers and on-call for live outages.</li>
-<li>Pass the query, both labels and anything retrieved with the handoff. Wait for the person with <code>interrupt()</code> and a checkpointer, not a polling loop that holds a worker open.</li>
+<li>Check escalation before topic so an angry or distressed customer reaches a person, not the knowledge base. Give each kind of escalation its own target, such as support for unhappy customers and on-call for live outages.</li>
+<li>Map each label to its filter value explicitly, and pass the query, both labels and anything retrieved with the handoff. Wait for the person with <code>interrupt()</code> and a checkpointer, not a blocking form.</li>
 <li>Sentiment is only a proxy for needing a person. Count missed and needless escalations on labelled tickets, and add triggers such as a fallback search, a rejected answer or a repeated question.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -586,22 +896,43 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 </details>
 <details>
 <summary>3. The clinic notebook's form node polls widgets in a loop until Submit is pressed. Why does that fail in a service, and what replaces it?</summary>
-<p>The node holds the graph open, so it ties up a worker per waiting customer, and a restart loses every form in progress. Use <code>interrupt()</code>: the node pauses with the form it needs, the state is saved under the <code>thread_id</code>, and <code>Command(resume=form_values)</code> continues later. With a persistent checkpointer the paused ticket survives a restart.</p>
+<p>The node holds the graph open, so it ties up a worker per waiting customer, and a restart loses every form in progress. Use <code>interrupt()</code>: the node pauses with the form it needs, the state is saved under the <code>thread_id</code>, and a later call on the same thread resumes with the form values. With a persistent checkpointer the paused ticket survives a restart.</p>
 </details>
-<h2 id="vector-store-or-web">Vector store or web</h2>
+<h2 id="a-question-the-handbook-only-half-covers">A question the handbook only half covers</h2>
 <p class="lesson-of">Lesson 30.3: Adaptive RAG: vector store vs web, with hallucination grading. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/03a_adaptive_rag_langgraph.ipynb" target="_blank" rel="noopener"><code>03a_adaptive_rag_langgraph.ipynb</code></a></p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a source router decides between the vector store and the web, and what it knows about the index.</li>
+<li><strong>Trace</strong> the relevant-fraction rule that sends a weak retrieval to the web.</li>
+<li><strong>Diagnose</strong> an inverted grade and an unbounded regeneration loop.</li>
+<li><strong>Compare</strong> the LLM calls each path through the graph spends.</li>
+</ul>
+</blockquote>
+<p>Lessons 30.1 and 30.2 chose a knowledge base or a person. This lesson chooses between two sources, the vector store and the web, and then adds the two checks from M28 and M29 behind that choice.</p>
+<p>A Larkspur customer asks how to tune Postgres memory on a Larkspur server. The handbook covers server sizing and memory, so a fixed pipeline retrieves those chunks and answers from them. The chunks say how much memory each plan has, and nothing about Postgres settings. The answer sounds grounded and does not help.</p>
+<p>A fixed pipeline does the same work for every question. It has no way to say that the evidence is weak, or to look somewhere else.</p>
+<p>The graph in this lesson does four jobs a fixed pipeline cannot:</p>
+<ul>
+<li><strong>Choose a source</strong> before retrieving.</li>
+<li><strong>Check the evidence</strong> and fall back to the web when it is weak.</li>
+<li><strong>Check the answer</strong> against the evidence and regenerate when it is unsupported.</li>
+<li><strong>Stop</strong>, which the notebook&rsquo;s graph leaves out.</li>
+</ul>
+<h2 id="vector-store-or-web">Vector store or web</h2>
 <p><a id="routing-between-the-vector-store-and-the-web"></a></p>
-<p>A Larkspur policy question should reach the handbook, while a public question may need web search. You will trace both routes, apply the relevant-fraction rule, and inspect how a rejected answer returns to generation with feedback.</p>
-<h3>Step 1: Choose a source before retrieving</h3>
-<p>Adaptive-RAG (Jeong et al., NAACL 2024, <a href="https://arxiv.org/abs/2403.14403" target="_blank" rel="noopener">arXiv:2403.14403</a>) starts from the observation that a fixed pipeline does the same work for an easy question and a hard one. The paper routes by question complexity: no retrieval, one retrieval step or several, chosen by a small classifier trained for the job. The source-routing example keeps the idea of deciding up front and routes by source instead: the vector store or the web.</p>
-<p>The source classifier is one LLM call with a closed schema, <code>datasource: Literal["vectordb", "web_search"]</code>. Its system prompt lists what the vector store holds (chain-of-thought prompting, transformers and attention, DINO, diffusion models, parameter-efficient fine-tuning) and asks the model to choose <code>vectordb</code> when the question relates to any of them. That list is the router&rsquo;s only knowledge of the index. Add documents on a new topic and the router keeps sending those questions to the web until someone edits the prompt. For Larkspur, the list would be the handbook&rsquo;s sections: pricing, refunds, exports, outages and server sizing.</p>
-<h3>Step 2: Match the query to the search engine</h3>
-<p>Each route rewrites the question for its own engine before searching. The vector-store rewriter makes it concise for semantic search. The web rewriter makes it a search-engine query.</p>
+<p>Adaptive-RAG (Jeong et al., NAACL 2024, <a href="https://arxiv.org/abs/2403.14403" target="_blank" rel="noopener">arXiv:2403.14403</a>) starts from the observation that a fixed pipeline does the same work for an easy question and a hard one. The paper routes by question complexity: no retrieval, one retrieval step or several, chosen by a small classifier trained for the job. The 03a notebook keeps the idea of deciding up front and routes by source instead.</p>
+<p><strong>A source router is a classifier whose labels are data sources.</strong> Here it is one LLM call with a closed schema whose only field allows <code>vectordb</code> or <code>web_search</code>, the same closed-label pattern as lesson 30.1.</p>
+<h3>What the router knows about the index</h3>
+<p>The router&rsquo;s system prompt lists what the vector store holds: chain-of-thought prompting, transformers and attention, the DINO vision model, diffusion models and parameter-efficient fine-tuning. It asks the model to choose <code>vectordb</code> when the question relates to any of them.</p>
+<p>That list is the router&rsquo;s only knowledge of the index. Add documents on a new topic and the router keeps sending those questions to the web until someone edits the prompt. We call this the <strong>stale topic list</strong>. For Larkspur, the list would be the handbook&rsquo;s sections: pricing, refunds, exports, outages and server sizing.</p>
+<h3>Each route rewrites for its own engine</h3>
+<p>Each route rewrites the question before searching. The vector-store rewriter makes it concise for semantic search; the web rewriter makes it a search-engine query. The two paths are set up differently:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Path</th>
-<th>Settings in Source router</th>
+<th>How the notebook configures it</th>
 </tr>
 </thead>
 <tbody>
@@ -611,11 +942,12 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 </tr>
 <tr>
 <td>Web</td>
-<td>Tavily with <code>max_results=6</code>, <code>search_depth='advanced'</code> and <code>include_raw_content=True</code>; pages with no content are dropped</td>
+<td>Tavily search returning up to 6 pages with their full text, at its advanced depth; pages with no content are dropped</td>
 </tr>
 </tbody>
 </table></div>
-<p>The whole graph:</p>
+<p><em>Table 1: The two retrieval paths in the 03a notebook.</em></p>
+<p>The whole graph puts the router first and the two graders after retrieval:</p>
 <figure class="anim sheet" aria-labelledby="anim-adaptive-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The adaptive RAG graph, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 880 330" role="img" aria-labelledby="anim-adaptive-title anim-adaptive-desc">
@@ -695,11 +1027,12 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
     <li><button type="button" data-tok="560,260">Answer</button><span>This answer is grounded, so the graph ends.</span></li>
   </ol>
 </figure>
+<p><em>Figure 1: The adaptive RAG graph. A failed document grade joins the web path; a failed answer check loops back to generation.</em></p>
+<p>The router can be wrong in both directions, and the document grader is what catches the vector-store side of that.</p>
 <h2 id="grading-documents-and-answers">Grading documents and answers</h2>
-<h3>Step 1: Inspect evidence before grading the answer</h3>
-<p>The graph checks its work twice, once on the evidence and once on the answer. M28 and M29 teach each check on its own. Here they sit behind a router.</p>
-<h3>Step 2: Test the evidence threshold</h3>
-<p>asks the LLM, once per retrieved chunk, whether the chunk is relevant (<code>binary_score</code>, yes or no). <code>grade_documents</code> keeps the chunks graded yes and computes the relevant fraction. The rule is <code>relevance_frac &lt;= 0.5</code>, with <code>RELEVANCE_THRESHOLD = 0.5</code>:</p>
+<p>The graph checks its work twice, once on the evidence and once on the answer. M28 and M29 teach each check on its own; here they sit behind a router.</p>
+<h3>The relevant-fraction rule</h3>
+<p><strong>The document grader asks the LLM, once per retrieved chunk, whether the chunk is relevant</strong>, and gets a yes or no. The grading node keeps the chunks graded yes and computes the share that passed. If that share is 0.5 or less, the graph sets a web-search flag. Four cases show where the line falls:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -736,14 +1069,48 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 </tr>
 </tbody>
 </table></div>
-<p>Exactly half counts as failure. On the web route, <code>web_search</code> appends the pages to the chunks that passed, so the answer can draw on both sources.</p>
-<h3>Step 3: Read the meaning of the yes label</h3>
-<p>reads the answer and the documents and returns <code>binary_score</code> and <code>feedback</code>. The score is inverted from what the name suggests: <code>yes</code> means the answer may contain unsupported or contradicting content. On <code>yes</code>, the graph returns to <code>generate_answer</code>, which adds the feedback to the RAG prompt and tries again. On <code>no</code>, the graph ends.</p>
-<h3>Step 4: Find the unbounded regeneration path</h3>
-<p>Nothing counts the retries. The regeneration edge has no limit, so a grader that keeps saying <code>yes</code> loops until LangGraph&rsquo;s recursion limit stops the graph, and in the version this repo locks (langgraph 1.2.18) that limit is 10,007 steps by default. Each round costs two LLM calls. Add a counter to <code>GraphState</code>, stop after one or two retries, and return the best answer with a warning or escalate it (lesson 30.2).</p>
-<p>The example tests the loop by uncommenting a hard-coded wrong answer in <code>generate_answer</code>. That line sits in the first-attempt branch only, so the retry, which takes the feedback branch, runs the real chain. The test exercises one rejection and one retry with feedback.</p>
-<h3>Step 5: Budget the selected path</h3>
-<p>Counting the LLM calls per path from the graph, before any retry:</p>
+<p><em>Table 2: The relevant-fraction rule with a threshold of 0.5.</em></p>
+<p>Exactly half counts as failure. On the web route, the search node appends the pages to the chunks that passed, so the answer can draw on both sources.</p>
+<h3>Planted failure: the inverted grade</h3>
+<p>The hallucination grader reads the answer and the documents and returns a score and a line of feedback. The score is inverted from what most graders use: <code>yes</code> means the answer may contain unsupported or contradicting content, and <code>no</code> means it is grounded.</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Grader returns</th>
+<th>Meaning in this notebook</th>
+<th>What the graph does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>no</code></td>
+<td>Grounded in the documents</td>
+<td>Ends with the answer</td>
+</tr>
+<tr>
+<td><code>yes</code></td>
+<td>May be unsupported</td>
+<td>Returns to generation with the feedback added to the prompt</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The hallucination grader&rsquo;s two outcomes.</em></p>
+<p>We call this the <strong>inverted grade</strong>. Reuse this grader in a graph that expects <code>yes</code> to mean &ldquo;pass&rdquo; and every good answer loops while every bad one ships.</p>
+<h3>Planted failure: the unbounded regeneration loop</h3>
+<p>Nothing counts the retries. The regeneration edge has no limit, so a grader that keeps saying <code>yes</code> loops until LangGraph&rsquo;s recursion limit stops the graph. In the version this repo locks (langgraph 1.2.18) that limit is 10,007 steps by default. Each round costs two LLM calls, a generation and a check. We call this the <strong>unbounded regeneration loop</strong>.</p>
+<p>The fix is a counter in the graph state and a terminal branch:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    G[Generate] --&gt; H{Hallucinated?}
+    H --&gt;|no| A[/Answer/]
+    H --&gt;|yes| R{"Retries&lt;br/&gt;under 2?"}
+    R --&gt;|yes| G
+    R --&gt;|no| W["Best answer with&lt;br/&gt;warning, or escalate"]
+</pre></figure>
+<p><em>Figure 2: The bounded version. Stop after one or two retries and hand the result on.</em></p>
+<p>The escalation in the last box is lesson 30.2&rsquo;s handoff, triggered by a rejected answer.</p>
+<p>The notebook tests the loop by uncommenting a hard-coded wrong answer in the generation node. That line sits in the first-attempt branch only, so the retry, which takes the feedback branch, runs the real chain. The test exercises one rejection and one retry with feedback, never a second rejection.</p>
+<h2 id="what-each-path-costs">What each path costs</h2>
+<p>Counting the LLM calls per path from the graph, before any regeneration:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -770,45 +1137,83 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 </tr>
 </tbody>
 </table></div>
-<p>A question the router sends to the vector store and the grader then rejects is the most expensive path. If many questions take it, the router&rsquo;s topic list is wrong or the index is missing content, and both are cheaper to fix than to grade around.</p>
-<h3>Try it yourself</h3>
-<p>Use the four-chunk case with two relevant chunks. Check that exactly half triggers web fallback while retaining the two accepted chunks. Then force the hallucination grader to keep returning yes. Identify the missing retry counter and a terminal fallback. A source-routing decision does not bound answer regeneration.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
-<ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/03a_adaptive_rag_langgraph.ipynb" target="_blank" rel="noopener">Adaptive RAG langgraph</a>.</li>
-</ul>
+<p><em>Table 4: LLM calls per path, counted from the graph&rsquo;s nodes.</em></p>
+<p>Each regeneration adds 2 more. A question the router sends to the vector store and the grader then rejects is the most expensive path. We call that the <strong>store-then-web detour</strong>. If many questions take it, the router&rsquo;s topic list is wrong or the index is missing content, and both are cheaper to fix than to grade around.</p>
+<blockquote>
+<p><strong>Interview tip:</strong> asked how to cut this graph&rsquo;s cost, start with the grades. Five per-chunk grading calls are the largest single item, and one call that grades all chunks together, or skipping grading when the top score is high, removes most of them.</p>
+</blockquote>
+<h2 id="in-practice-the-postgres-memory-question">In practice: the Postgres memory question</h2>
+<p>Back to the customer tuning Postgres memory, followed through the graph with a Larkspur topic list in the router&rsquo;s prompt:</p>
+<ol>
+<li>The source router reads &ldquo;server&rdquo; and &ldquo;memory&rdquo;, which the handbook covers, and picks the vector store.</li>
+<li>The question is rewritten for semantic search, and the retriever returns up to five chunks scoring 0.35 or more.</li>
+<li>The grader passes half or fewer of them, so the graph sets the web flag and keeps only the chunks that passed.</li>
+<li>The question is rewritten for a search engine and Tavily returns up to six pages, appended to the surviving chunks.</li>
+<li>The model answers from the handbook chunks and the web pages together, and the hallucination grader checks the answer against both.</li>
+<li>On <code>no</code>, the graph ends. On <code>yes</code>, it regenerates with the feedback, and with Figure 2&rsquo;s counter it stops after two retries.</li>
+</ol>
+<p>This is the store-then-web detour, at up to 10 LLM calls. If Postgres questions are common, adding a database-tuning page to the handbook and its topic to the router&rsquo;s list is the cheaper fix.</p>
+<blockquote>
+<p><strong>Next lesson:</strong> 30.4 keeps one index and routes the question to a retrieval method instead of a source.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A source router picks the vector store or the web before retrieving. Its prompt&rsquo;s topic list is all it knows of the index, so update the prompt whenever you index a new topic.</li>
-<li>The document grader falls back to the web when half or fewer chunks pass. Many store-then-web runs mean the topic list or the index is wrong, which is cheaper to fix than to grade around.</li>
+<li>The document grader falls back to the web when half or fewer chunks pass. Frequent store-then-web detours mean the topic list or the index is wrong, which is cheaper to fix than to grade around.</li>
 <li>Bound the regeneration loop with a counter in the graph state, because each round costs two LLM calls and nothing else stops it before the recursion limit. A <code>yes</code> from this hallucination grader means unsupported.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. You index documents on a new topic, but the source router keeps sending questions about it to the web. Why?</summary>
-<p>The topic list in the router&rsquo;s system prompt is its only knowledge of the index. Until someone edits that prompt, questions on the new topic do not match the list and go to <code>web_search</code>. For Larkspur, the list would be the handbook&rsquo;s sections.</p>
+<p>The topic list in the router&rsquo;s system prompt is its only knowledge of the index: a stale topic list. Until someone edits that prompt, questions on the new topic do not match the list and go to web search. For Larkspur, the list would be the handbook&rsquo;s sections.</p>
 </details>
 <details>
 <summary>2. Four chunks are retrieved and two are graded relevant. Does the graph generate from them or search the web?</summary>
-<p>It searches the web, keeping the 2 chunks that passed. The rule is <code>relevance_frac &lt;= 0.5</code>, so exactly half counts as failure, and <code>web_search</code> appends the pages to those chunks so the answer can draw on both sources.</p>
+<p>It searches the web, keeping the 2 chunks that passed. The fraction is 0.50 and the rule sends anything at or below 0.5 to the web, so exactly half counts as failure. The web pages are appended to those 2 chunks, so the answer can draw on both sources.</p>
 </details>
 <details>
 <summary>3. The hallucination grader keeps returning yes for one question. What happens, and what should you add?</summary>
-<p>In this grader <code>yes</code> means the answer may contain unsupported content, so the graph returns to <code>generate_answer</code> every time. Nothing counts the retries, so it loops until the recursion limit (10,007 steps by default), at two LLM calls a round. Add a counter to <code>GraphState</code>, stop after one or two retries, and return the best answer with a warning or escalate it.</p>
+<p>In this grader <code>yes</code> means the answer may contain unsupported content, so the graph returns to generation every time. Nothing counts the retries, so it loops until the recursion limit (10,007 steps by default), at two LLM calls a round. Add a counter to the graph state, stop after one or two retries, and return the best answer with a warning or escalate it.</p>
 </details>
-<h2 id="per-query-strategy">Per-query strategy</h2>
+<h2 id="one-index-four-kinds-of-question">One index, four kinds of question</h2>
 <p class="lesson-of">Lesson 30.4: Strategy per query type. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/04a_adaptive_retrieval_rag_techniques.ipynb" target="_blank" rel="noopener"><code>04a_adaptive_retrieval_rag_techniques.ipynb</code></a></p>
-<p>A refund fact, a billing comparison and a server-sizing recommendation need different evidence. You will classify the request by purpose, trace the retrieval work each strategy performs, and test whether the contextual path actually receives the customer context.</p>
-<h3>Step 1: Choose a retrieval method for the question</h3>
-<p>Lessons 30.1 to 30.3 route a question to a place: a knowledge base, a person, the web. The strategy-routing example routes it to a method. A classifier labels the question Factual, Analytical, Opinion or Contextual, and each label runs a different retrieval strategy over the same index. The idea is to spend retrieval work where the question needs it: precision for a fact, coverage for an analysis, spread for an opinion, the user&rsquo;s situation for a contextual question.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a type router differs from the routers that pick a place.</li>
+<li><strong>Compare</strong> the four strategies by what they retrieve and how many LLM calls they spend.</li>
+<li><strong>Diagnose</strong> four faults in the notebook&rsquo;s code before you reuse it.</li>
+<li><strong>Choose</strong> a corpus and a baseline that can show whether the routing helps.</li>
+</ul>
+</blockquote>
+<p>Lessons 30.1 to 30.3 route a question to a place: a knowledge base, a person, the web. This lesson keeps one index and routes the question to a method.</p>
+<p>Three Larkspur questions reach the same handbook index. <em>How long does a refund take?</em> needs one chunk, found precisely. <em>Should we move from monthly to annual billing?</em> needs the billing cycle, the refund window and cancellation, three chunks a single query may not reach together. <em>Which server size do I need?</em> depends on the customer&rsquo;s peak memory use, which is not in the question at all.</p>
+<p>Plain top-k retrieval runs the same search for all three. It serves the first well, the second partly, and the third with a size table and no way to choose from it.</p>
+<p>The jobs for this page:</p>
+<ul>
+<li><strong>Classify</strong> the question by what kind of answer it wants.</li>
+<li><strong>Retrieve</strong> with a method that fits that kind.</li>
+<li><strong>Pass the user&rsquo;s situation</strong> to the method that needs it.</li>
+<li><strong>Measure</strong> whether any of this beats plain top-k.</li>
+</ul>
+<h2 id="per-query-strategy">Per-query strategy</h2>
+<p><strong>A per-query strategy router labels each question Factual, Analytical, Opinion or Contextual, and runs a different retrieval strategy for each label over the same index.</strong> The idea is to spend retrieval work where the question needs it: precision for a fact, coverage for an analysis, spread for an opinion, the user&rsquo;s situation for a contextual question.</p>
+<p>The router is one classifier call in front of four strategies:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; C["Classify&lt;br/&gt;query type"]
+    C --&gt; F["Factual&lt;br/&gt;rewrite, score, top 4"]
+    C --&gt; A["Analytical&lt;br/&gt;sub-questions, select"]
+    C --&gt; O["Opinion&lt;br/&gt;viewpoints, select"]
+    C --&gt; X["Contextual&lt;br/&gt;add context, score"]
+</pre></figure>
+<p><em>Figure 1: The type router. Every branch searches the same index; only the method changes.</em></p>
+<p>Each strategy turns the question into searches differently:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Type</th>
 <th>What the question wants</th>
-<th>How Strategy router retrieves</th>
-<th>LLM calls per question</th>
+<th>How the strategy retrieves</th>
 </tr>
 </thead>
 <tbody>
@@ -816,61 +1221,193 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 <td>Factual</td>
 <td>One verifiable fact</td>
 <td>Rewrites the query, retrieves 8 chunks, has the LLM score each from 1 to 10, keeps the top 4</td>
-<td>Up to 11</td>
 </tr>
 <tr>
 <td>Analytical</td>
 <td>An explanation that covers several aspects</td>
 <td>Generates 4 sub-questions, retrieves 2 chunks for each, has the LLM pick the 4 most diverse and relevant</td>
-<td>4</td>
 </tr>
 <tr>
 <td>Opinion</td>
 <td>Several viewpoints</td>
 <td>Has the LLM name 3 viewpoints, retrieves 2 chunks for each, has the LLM pick 3 representative ones</td>
-<td>4</td>
 </tr>
 <tr>
 <td>Contextual</td>
 <td>An answer for this user</td>
 <td>Rewrites the query with the user&rsquo;s context, retrieves 8 chunks, scores each against query and context, keeps the top 4</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The four strategies in the 04a notebook.</em></p>
+<h3>What each strategy costs</h3>
+<p>The strategies differ most in how they spend LLM calls. Counting from the code, with the classifier and the final answer included:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Classify</th>
+<th>Plan or rewrite</th>
+<th>Per-chunk scores</th>
+<th>Select</th>
+<th>Answer</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Factual</td>
+<td>1</td>
+<td>1</td>
+<td>up to 8</td>
+<td>0</td>
+<td>1</td>
+<td>Up to 11</td>
+</tr>
+<tr>
+<td>Analytical</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Opinion</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>1</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Contextual</td>
+<td>1</td>
+<td>1</td>
+<td>up to 8</td>
+<td>0</td>
+<td>1</td>
 <td>Up to 11</td>
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Account for per-chunk scoring</h3>
-<p>The call counts include the classifier and the final answer. The factual and contextual strategies score chunks one LLM call at a time, so their cost grows with the number retrieved. The analytical and opinion strategies spend one call to plan the searches and one to select.</p>
-<h3>Step 3: Classify four concrete requests</h3>
-<p>On the Larkspur handbook the four types look like this:</p>
-<ul>
-<li><strong>Factual:</strong> <em>How long does a refund take?</em> One chunk holds the answer. Precision matters more than coverage.</li>
-<li><strong>Analytical:</strong> <em>Should we move from monthly to annual billing?</em> The answer needs the billing cycle, the refund window and cancellation, three chunks a single query may not reach together.</li>
-<li><strong>Opinion:</strong> <em>Is the starter plan good enough for a small shop?</em> A handbook states policies, not opinions, so a viewpoint search finds little. The honest answer lists the facts that bear on the choice.</li>
-<li><strong>Contextual:</strong> <em>Which server size do I need?</em> The answer depends on the customer&rsquo;s peak memory use, which belongs in the context passed to the strategy.</li>
-</ul>
-<h3>Step 4: Inspect the implementation before reusing it</h3>
-<p>The example&rsquo;s code has four faults worth knowing before you reuse it:</p>
-<ul>
-<li><strong>The classifier&rsquo;s label is free text.</strong> <code>categories_options.category</code> is a <code>str</code>, and <code>AdaptiveRetriever</code> looks it up in a dictionary of four strategies. Any other spelling raises a <code>KeyError</code>. A <code>Literal</code> field, as in lesson 30.1, closes the set.</li>
-<li><strong>The opinion strategy cannot finish.</strong> The selection call returns <code>SelectedIndices</code>, whose <code>indices</code> field is already a list of integers, and the code then calls <code>.split()</code> on it, which raises an <code>AttributeError</code>. Iterating over the list fixes it.</li>
-<li><strong>The user&rsquo;s context never arrives.</strong> <code>ContextualRetrievalStrategy.retrieve</code> accepts <code>user_context</code>, but <code>AdaptiveRetriever</code> calls every strategy with the query alone, so the contextual path always runs with &ldquo;No specific context provided&rdquo;.</li>
-<li><strong>Each strategy builds its own index.</strong> All four inherit a constructor that splits the texts (800 characters, no overlap), embeds them and builds a FAISS index, so the corpus is embedded four times at start-up. One shared index serves all four.</li>
-</ul>
-<h3>Step 5: Choose a corpus that can reveal a difference</h3>
-<p>The demo corpus is one sentence about the Earth. Every search returns that one chunk, so the four strategies cannot retrieve different evidence and the demo cannot show that the routing helps. To see it, run the four sample questions over a real corpus and compare each strategy against plain top-k retrieval on the same golden set, the way M10 sets a baseline.</p>
-<p>The Adaptive-RAG paper behind lesson 30.3 routes on a different axis, question complexity: no retrieval, one step or several. The two combine. A complexity router decides how many rounds of retrieval to run. A type router decides what each round looks for.</p>
-<h3>Try it yourself</h3>
-<p>Give the contextual strategy a customer memory constraint, then inspect the call made by AdaptiveRetriever. Check that the unmodified wrapper passes only the query, so the context is lost. Separately test the opinion path: SelectedIndices.indices is already a list and must be iterated rather than split as text.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
-<ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/04a_adaptive_retrieval_rag_techniques.ipynb" target="_blank" rel="noopener">Adaptive retrieval RAG</a>.</li>
-</ul>
+<p><em>Table 2: LLM calls per question by type.</em></p>
+<p>The factual and contextual strategies score chunks one call at a time, so their cost grows with the number retrieved. The analytical and opinion strategies spend one call to plan the searches and one to select, whatever the number of chunks. We call the first pattern <strong>per-chunk scoring</strong>: it is the most precise and the most expensive, and it is the line to cut first when cost matters.</p>
+<h3>The four types on the Larkspur handbook</h3>
+<p>Applied to the running example, the labels pick these methods:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Type</th>
+<th>What the strategy needs to find</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>How long does a refund take?</em></td>
+<td>Factual</td>
+<td>The one refund-timing chunk; precision matters more than coverage</td>
+</tr>
+<tr>
+<td><em>Should we move from monthly to annual billing?</em></td>
+<td>Analytical</td>
+<td>Billing cycle, refund window and cancellation together</td>
+</tr>
+<tr>
+<td><em>Is the starter plan good enough for a small shop?</em></td>
+<td>Opinion</td>
+<td>Little: a handbook states policies, not opinions, so the honest answer lists the facts that bear on the choice</td>
+</tr>
+<tr>
+<td><em>Which server size do I need?</em></td>
+<td>Contextual</td>
+<td>The size table, read against the customer&rsquo;s peak memory use passed in as context</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Four handbook questions and the strategy each one gets.</em></p>
+<p>The opinion row is a useful warning. A strategy built to find viewpoints finds little in a corpus that has none, so the label set should match what the corpus can answer.</p>
+<h2 id="four-faults-to-fix-before-reuse">Four faults to fix before reuse</h2>
+<p>The notebook&rsquo;s code runs the idea, but four faults stop it working as written. Each is a planted failure worth knowing:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Fault</th>
+<th>What happens</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Open label set</strong></td>
+<td>The classifier&rsquo;s label is free text used as a key into the table of strategies; any other spelling raises a key error</td>
+<td>A closed field, as in lesson 30.1</td>
+</tr>
+<tr>
+<td><strong>The split crash</strong></td>
+<td>The opinion selection call already returns a list of integers, and the code then splits it as if it were text, which raises an attribute error</td>
+<td>Iterate over the list</td>
+</tr>
+<tr>
+<td><strong>Dropped context</strong></td>
+<td>The contextual strategy accepts the user&rsquo;s context, but the wrapper calls every strategy with the query alone, so it always runs with &ldquo;No specific context provided&rdquo;</td>
+<td>Pass the context through the wrapper</td>
+</tr>
+<tr>
+<td><strong>Four indexes</strong></td>
+<td>Each strategy splits the texts at 800 characters with no overlap, embeds them and builds its own FAISS index, so the corpus is embedded four times at start-up</td>
+<td>Build one index and share it</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: The four faults in the 04a code.</em></p>
+<p>The opinion strategy has one more quirk. It splits the LLM&rsquo;s viewpoint reply on line breaks, so the number of searches follows the number of lines the model writes, not the 3 it was asked for.</p>
+<p>Dropped context is the quietest of the four. The contextual path runs, returns chunks and answers, so nothing looks broken; it has simply stopped being contextual.</p>
+<h2 id="a-corpus-that-can-show-a-difference">A corpus that can show a difference</h2>
+<p>The notebook&rsquo;s demo corpus is one sentence about the Earth. Every search returns that one chunk, so the four strategies cannot retrieve different evidence and the demo cannot show that the routing helps. It also hides the cost: with one chunk, per-chunk scoring makes one call where a real corpus would make up to 8.</p>
+<p>To see a difference, run the four sample questions over a real corpus and compare each strategy against plain top-k retrieval on the same golden set, the way M10 sets a baseline. We call a test that cannot fail a <strong>flat demo</strong>: whatever the strategy, the output is the same.</p>
+<h3>Two axes of routing</h3>
+<p>The Adaptive-RAG paper behind lesson 30.3 routes on a different axis, question complexity: no retrieval, one step or several. The two combine:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Router</th>
+<th>Decides</th>
+<th>Example on the handbook</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Complexity</td>
+<td>How many rounds of retrieval to run</td>
+<td>One round for the refund question, several for the billing comparison</td>
+</tr>
+<tr>
+<td>Type</td>
+<td>What each round looks for</td>
+<td>Precision for the refund question, coverage for the billing comparison</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Complexity routing and type routing answer different questions.</em></p>
+<h2 id="in-practice-the-larkspur-server-size-question">In practice: the Larkspur server-size question</h2>
+<p>A customer asks <em>Which server size do I need?</em> and their account shows a peak of 16 GB of memory. Followed through a type router with the four faults fixed (illustrative; the notebook does not run this case):</p>
+<ol>
+<li>The closed classifier returns Contextual.</li>
+<li>The wrapper passes the question and the customer&rsquo;s context, so the rewrite reads &ldquo;which server size fits a peak memory use of 16 GB&rdquo;.</li>
+<li>The strategy retrieves 8 chunks from the shared index and scores each against the question and the context, keeping the top 4. The size table ranks first.</li>
+<li>The answer reads the table against 16 GB and names a size.</li>
+<li>The evaluation compares this answer with plain top-k on the same golden question. Top-k returns the size table too, but answers without the customer&rsquo;s memory, so it cannot pick a size.</li>
+</ol>
+<p>That comparison is the evidence the notebook&rsquo;s demo cannot give, at the price of up to 11 LLM calls against plain top-k&rsquo;s 1.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A type router sends each question to a retrieval method over the same index. Factual questions get precision, analytical ones coverage, opinions spread and contextual questions the user&rsquo;s situation.</li>
-<li>Cost follows the method. Scoring chunks one call at a time takes up to 11 LLM calls per question, while planning the searches and selecting once takes 4.</li>
-<li>Before reusing the notebook, close the label set with a <code>Literal</code>, pass the user&rsquo;s context through and share one index. Prove the routing helps by comparing each strategy with plain top-k on a golden set.</li>
+<li>Cost follows the method. Per-chunk scoring takes up to 11 LLM calls per question, while planning the searches and selecting once takes 4.</li>
+<li>Before reusing the notebook, close the label set, pass the user&rsquo;s context through and share one index. Prove the routing helps by comparing each strategy with plain top-k on a golden set.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -883,7 +1420,7 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 </details>
 <details>
 <summary>3. In the notebook's demo all four strategies return the same evidence. Does that show routing by query type does not help?</summary>
-<p>No. The demo corpus is one sentence about the Earth, so every search returns that one chunk and the strategies cannot differ. Run the four sample questions over a real corpus and compare each strategy with plain top-k retrieval on the same golden set, the way M10 sets a baseline.</p>
+<p>No. The demo corpus is one sentence about the Earth, so every search returns that one chunk and the strategies cannot differ: a flat demo. Run the four sample questions over a real corpus and compare each strategy with plain top-k retrieval on the same golden set, the way M10 sets a baseline.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_router_agentic_rag_over_multiple_knowledge_bases/interactive/kb-router-lab.html"><strong>Routing confidence and the fallback</strong></a>: open the file in a browser. Start at floor 0.00 and find the three misroutes in the ledger. Move to 0.01: the ticket that shares no word with any chunk falls back, and the cost rises only to 1.11 searches per ticket. Then push the floor to 0.42 to catch the last misroute, and read what it costs: 11 of 18 tickets now search all three knowledge bases.</p>
@@ -937,11 +1474,11 @@ elif support_state[&quot;query_category&quot;] == &quot;Technical&quot;:
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Give the router a closed label set in its output schema, and normalise the label before it becomes a filter.</li>
-<li>Plan for the misroute. A score floor with an unfiltered fallback catches routes with no signal cheaply; confident misroutes only show up on a labelled routing set.</li>
+<li>Plan for the silent misroute. A score floor with an unfiltered fallback catches no-signal routes cheaply; confident misroutes only show up on a labelled routing set.</li>
 <li>Check escalation before the category, and make the handoff a pause with saved state rather than a node that blocks while it waits.</li>
 <li>Every grader loop needs a counter, and every query type should spend only the LLM calls its question needs.</li>
 </ul></article>
-    <nav class="toc" aria-label="M30 sections"><details open><summary>In M30</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#query-classification">Query classification</a></li><li><a href="#multi-kb-routing">Multi-KB routing</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#human-in-the-loop-escalation">Human-in-the-loop escalation</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#vector-store-or-web">Vector store or web</a></li><li><a href="#grading-documents-and-answers">Grading documents and answers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#per-query-strategy">Per-query strategy</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M30 sections"><details open><summary>In M30</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#right-answer-wrong-knowledge-base">Right answer, wrong knowledge base</a></li><li><a href="#query-classification">Query classification</a></li><li><a href="#multi-kb-routing">Multi-KB routing</a></li><li><a href="#choosing-a-router-and-a-floor">Choosing a router and a floor</a></li><li><a href="#in-practice-the-larkspur-retention-ticket">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tickets-that-need-a-person">Tickets that need a person</a></li><li><a href="#human-in-the-loop-escalation">Human-in-the-loop escalation</a></li><li><a href="#counting-missed-and-needless-escalations">Counting missed and needless escalations</a></li><li><a href="#in-practice-the-calm-outage-report">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-question-the-handbook-only-half-covers">A question the handbook only half covers</a></li><li><a href="#vector-store-or-web">Vector store or web</a></li><li><a href="#grading-documents-and-answers">Grading documents and answers</a></li><li><a href="#what-each-path-costs">What each path costs</a></li><li><a href="#in-practice-the-postgres-memory-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-index-four-kinds-of-question">One index, four kinds of question</a></li><li><a href="#per-query-strategy">Per-query strategy</a></li><li><a href="#four-faults-to-fix-before-reuse">Four faults to fix before reuse</a></li><li><a href="#a-corpus-that-can-show-a-difference">A corpus that can show a difference</a></li><li><a href="#in-practice-the-larkspur-server-size-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
