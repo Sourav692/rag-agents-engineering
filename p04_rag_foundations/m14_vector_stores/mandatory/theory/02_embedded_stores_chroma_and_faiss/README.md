@@ -1,8 +1,20 @@
 # M14.2 Theory: Embedded stores: Chroma and FAISS
 
 *[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_chromadb.ipynb`](../../notebook/02a_chromadb.ipynb), [`02b_faiss.ipynb`](../../notebook/02b_faiss.ipynb), [`02c_vector_stores_in_practice.ipynb`](../../../optional/notebook/02c_vector_stores_in_practice.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Approximate search gives up a recall guarantee for speed, and its misses look like normal results -->
 
 ## ANN search
+
+> **What you'll learn**
+>
+> - **Explain** how exact search, HNSW and IVF find nearest neighbours, and what each gives up.
+> - **Tune** the HNSW and IVF settings that trade recall against speed and memory.
+> - **Diagnose** a filtered search that returns nothing although matching entries exist.
+> - **Choose** between Chroma and FAISS for an index you run in-process.
+
+Lesson 14.1 treated the store as a box that returns the nearest `k`. This lesson opens the box.
+
+Larkspur's index grows from the 12-chunk handbook to years of tickets and runbooks, and the team switches to an approximate index to keep search fast. An approximate index can hand the refund question the next-best chunk instead of `refund-timing`, with a normal-looking score and no error.
 
 Exact nearest-neighbour search compares the query with every stored vector. `FAISS.from_documents` builds exactly that, an `IndexFlatL2`: the answer is always the true top `k`, and the cost grows with every vector you add. At the size of the M14 notebooks (a handful of chunks) exact search is instant, which is why none of them shows a difference between exact and approximate results.
 
@@ -13,6 +25,8 @@ Approximate nearest-neighbour (ANN) indexes give up the guarantee to visit only 
 
 ![Three HNSW layers with a greedy search path from the entry point down to the query](diagrams/hnsw-layers.svg)
 
+*Figure 1: An HNSW search enters at the top layer, walks greedily towards the query and ends at layer 0 (schematic).*
+
 Each knob moves recall against speed or memory:
 
 | Knob | What it controls | Chroma 1.5.9 default | pgvector default |
@@ -22,9 +36,11 @@ Each knob moves recall against speed or memory:
 | `ef_search` | Candidates kept while answering a query; higher answers slower and better | 100 | 40 |
 | IVF `probes` | Lists searched per query | none (HNSW only) | 1 |
 
-The Chroma values are what `collection.configuration_json` reports for a new collection in the course environment; the pgvector values are from the [pgvector README](https://github.com/pgvector/pgvector). Defaults are a starting point. To tune them, measure recall@k of the ANN index against an exact search on your own queries, and raise `ef_search` until the misses stop mattering for the golden set.
+*Table 1: The HNSW and IVF settings, with Chroma's and pgvector's defaults.*
 
-An ANN miss raises no error. An index that skips the refund chunk returns the next-best chunk with a normal-looking score, so a recall drop after the corpus grows shows up as worse answers, not as an error.
+The Chroma values are what `collection.configuration_json` reports for a new collection in the course environment, and the pgvector values are from the [pgvector README](https://github.com/pgvector/pgvector). Defaults are a starting point. To tune them, measure recall@k of the ANN index against an exact search on your own queries, and raise `ef_search` until the misses stop mattering for the golden set.
+
+An ANN miss raises no error, and we call it a **silent ANN miss**. An index that skips the refund chunk returns the next-best chunk with a normal-looking score, so a recall drop after the corpus grows shows up as worse answers, not as an error.
 
 ## Chroma or FAISS
 
@@ -39,9 +55,30 @@ Both run inside your Python process with no server. They differ in what they do 
 | Read by ID | `get(ids=...)` | Through the docstore only |
 | Good for | Local development and small production indexes you update | Static, read-heavy corpora where search speed matters |
 
-The filter difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged `t="no"` that sat close to the query and 3 tagged `t="yes"` further away. `similarity_search(q, k=3, filter={"t": "yes"})` returned 0 results, because none of the 3 was among the 20 nearest candidates; with `fetch_k=28` it returned all 3. Chroma, asked for `k=5` with a filter only 2 entries match, returned those 2.
+*Table 2: Chroma and FAISS compared.*
+
+The filter difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged `t="no"` that sat close to the query and 3 tagged `t="yes"` further away. `similarity_search(q, k=3, filter={"t": "yes"})` returned 0 results, because none of the 3 was among the 20 nearest candidates; with `fetch_k=28` it returned all 3. Chroma, asked for `k=5` with a filter only 2 entries match, returned those 2. We call the FAISS case a **starved post-filter**: the filter runs on too few candidates. The same check in table form:
+
+| Store and query | Matching entries | Returned |
+|---|---|---|
+| FAISS, filter `t="yes"`, `k=3`, default `fetch_k=20` | 3, none among the 20 nearest | 0 |
+| FAISS, same filter, `fetch_k=28` | 3 | 3 |
+| Chroma, a filter matching 2 entries, `k=5` | 2 | 2 |
+
+*Table 3: A planted selective filter against both stores, from a check run for this page.*
 
 The notebooks' guidance: start with Chroma for anything you might keep, choose FAISS for a static corpus you search often, and move to a hosted store (lesson 14.3) when you need concurrent writers or more than one machine.
+
+## In practice: Larkspur's embedded store
+
+For the handbook on one machine, the choices follow from Tables 1 to 3:
+
+1. **Use Chroma for the handbook index**, because it is updated nightly and filters inside the store.
+2. **Measure recall@k of the HNSW index against an exact search** on the golden set once the corpus grows, and raise `ef_search` until the misses stop mattering.
+3. **Raise `fetch_k`, or filter elsewhere**, for any selective filter on a FAISS archive.
+4. **Move to a hosted store only when a second writer or machine arrives** (lesson 14.3).
+
+> **Next:** lesson 14.3 moves the index off your machine, to managed stores, and looks at what decides which entries one query can see.
 
 ## Key Takeaways
 
