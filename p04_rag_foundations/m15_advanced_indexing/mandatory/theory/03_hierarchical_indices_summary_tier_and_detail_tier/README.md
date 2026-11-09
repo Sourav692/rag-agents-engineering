@@ -1,8 +1,20 @@
 # M15.3 Theory: Hierarchical indices: summary tier and detail tier
 
 *[M15 theory](../README.md) · Lesson 15.3 · Notebooks: [`03a_hierarchical_indices.ipynb`](../../notebook/03a_hierarchical_indices.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Pick the page first and the chunk second, and a page the first tier misses hides every chunk on it -->
 
 ## Top-down search
+
+> **What you'll learn**
+>
+> - **Explain** how a two-tier index searches page summaries before chunks.
+> - **Compare** what the summary tier buys with what it costs.
+> - **Diagnose** a strong chunk that never appears because its page was not chosen.
+> - **Calculate** the most chunks a two-tier search can send to the model.
+
+Lesson 15.2 returned a larger unit around each match. A hierarchical index uses the larger unit earlier, to decide where to search at all.
+
+In a flat Larkspur index, *Do I get service credits automatically after an outage?* competes against every chunk in the handbook, including a refund chunk about "Credits from SLA breaches" that shares its words. That refund chunk can take a top slot the outage answer needed.
 
 A hierarchical index has two tiers. The **summary tier** has one entry per page or section, and the **detail tier** has the ordinary chunks. Both carry the page number. A question first picks the best pages from the summary tier, then searches the detail tier only inside those pages.
 
@@ -15,6 +27,8 @@ flowchart TD
 ```
 <!-- animated: diagrams/top-down-search.anim.html -->
 
+*Figure 1: Top-down search. The summary tier picks pages, and the detail search runs only inside them.*
+
 Notebook 03a builds both tiers from one PDF with `encode_pdf_hierarchical`:
 
 - `PyPDFLoader` gives one Document per page. Each page is summarised with `load_summarize_chain(..., chain_type="map_reduce")` on `gpt-4o-mini`, five pages at a time with a one-second pause between batches and exponential backoff on rate limits.
@@ -25,16 +39,24 @@ Notebook 03a builds both tiers from one PDF with `encode_pdf_hierarchical`:
 
 What the two tiers buy:
 
-- **Pages compete as wholes.** A page summary says what the page is about, so a broad question ("What is the greenhouse effect?") lands on the right pages before any chunk-level detail is compared.
+- **Pages compete as wholes.** A page summary says what the page is about. A broad question ("What is the greenhouse effect?") lands on the right pages before any chunk-level detail is compared.
 - **Chunks compete only with their neighbours.** A chunk with matching words on an unrelated page never enters the result.
 
 And what they cost:
 
-- **The summary tier caps recall.** If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.
-- **Summaries are an index-time LLM bill and a staleness risk.** One summarisation per page, repeated whenever the page changes.
-- **The result size is a product.** `k_summaries × k_chunks` is the number of chunks the model can receive, so changing either one changes the prompt budget.
+- **Tier-capped recall.** The summary tier caps recall. If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.
+- **Stale summaries.** Summaries are an index-time LLM bill and a staleness risk. One summarisation per page, repeated whenever the page changes.
+- **The result size is a product.** `k_summaries × k_chunks` is the number of chunks the model can receive. Changing either one changes the prompt budget.
 
-For the Larkspur handbook, each section ("Refunds and cancellations", "Outages and service credits", "Data export and retention") would be one summary. *Do I get service credits automatically after an outage?* would pick the outage summary first and then compare only that section's chunks, so a refund chunk about "Credits from SLA breaches" cannot crowd it out.
+## In practice: section summaries for the Larkspur handbook
+
+For the Larkspur handbook, each section ("Refunds and cancellations", "Outages and service credits", "Data export and retention") would be one summary. *Do I get service credits automatically after an outage?* would pick the outage summary first and then compare only that section's chunks, so a refund chunk about "Credits from SLA breaches" cannot crowd it out. Three settings keep it that way:
+
+1. **One summary per section**, regenerated whenever the section changes.
+2. **A prompt budget set by both numbers**: 3 sections × 5 chunks is up to 15 chunks per question.
+3. **A log of the sections chosen** for every question, which lets a miss be traced to the summary tier.
+
+> **Next:** lesson 15.4 changes the key again, from what a chunk says to the questions a reader would ask about it.
 
 ## Key Takeaways
 
