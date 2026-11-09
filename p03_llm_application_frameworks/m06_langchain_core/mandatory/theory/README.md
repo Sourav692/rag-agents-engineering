@@ -33,7 +33,7 @@ The prompt template and the parser are where your code meets the model's text. T
 |---|---|---|
 | 6.1 | LangChain introduction and the 1.x package split | [The 1.x package split](01_langchain_introduction_and_the_1_x_package_split/README.md#the-1x-package-split)<br>[Reading an import error](01_langchain_introduction_and_the_1_x_package_split/README.md#reading-an-import-error) |
 | 6.2 | Commercial LLMs natively and with LangChain | [Chat models](02_commercial_llms_natively_and_with_langchain/README.md#chat-models) |
-| 6.3 | Open-source LLMs: Transformers, Inference Client, Groq, LangChain | *planned* |
+| 6.3 | Open-source LLMs: Transformers, Inference Client, Groq, LangChain | [The project: three open backends](03_open_source_llms_transformers_inference_client_groq_langchain/README.md#the-project-three-open-backends) |
 | 6.4 | Inputs and outputs: messages, LLM vs chat model | [Messages](04_inputs_and_outputs_messages_llm_vs_chat_model/README.md#messages)<br>[LLM vs chat model](04_inputs_and_outputs_messages_llm_vs_chat_model/README.md#llm-vs-chat-model) |
 | 6.5 | Prompt templates and few-shot composition | [Prompt templates](05_prompt_templates_and_few_shot_composition/README.md#prompt-templates)<br>[Few-shot and composition](05_prompt_templates_and_few_shot_composition/README.md#few-shot-and-composition) |
 | 6.6 | Output parsers | [Output parsers](06_output_parsers/README.md#output-parsers)<br>[Check that the instructions arrive](06_output_parsers/README.md#check-that-the-instructions-arrive) |

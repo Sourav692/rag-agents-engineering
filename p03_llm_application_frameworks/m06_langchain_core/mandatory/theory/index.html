@@ -339,7 +339,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The prompt template and the parser are where your code meets the model&rsquo;s text. The template decides what the model reads; the parser decides what reaches the rest of your program, and whether a malformed reply arrives as an exception or as a value that looks fine.</p>
 <h2 id="the-1x-package-split">The 1.x package split</h2>
 <p class="lesson-of">Lesson 6.1: LangChain introduction and the 1.x package split. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/01a_LangChain_Introduction.ipynb" target="_blank" rel="noopener"><code>01a_LangChain_Introduction.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/01b_Package_Split_and_Imports_LangChain_v1.ipynb" target="_blank" rel="noopener"><code>01b_Package_Split_and_Imports_LangChain_v1.ipynb</code></a></p>
-<p>Through the 0.x releases, the <code>langchain</code> package held the whole ecosystem: chains, agents, memory, retrievers, every provider integration and the prompt hub. Installing it pulled in all of that, and a break in any one integration could break the import. Version 1.0 split the surface by how fast each part changes and by who owns it:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> why LangChain 1.0 split one package into four kinds of package.</li>
+<li><strong>Name</strong> the package that holds each part of a chain: template, model and parser.</li>
+<li><strong>Diagnose</strong> an old import from its exception class alone.</li>
+<li><strong>Choose</strong> between moving an old class and replacing it.</li>
+</ul>
+</blockquote>
+<p><a href="../../../../p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/theory/index.html">M02</a> called the provider SDKs directly, and M04 and M05 wrote the prompts those calls send. This module wraps both in LangChain, the framework most notebooks in this course are written in.</p>
+<p>The Larkspur Cloud support assistant has a script from an older LangChain tutorial. It imports <code>LLMChain</code> from <code>langchain.chains</code>, <code>HumanMessage</code> from <code>langchain.schema</code> and the prompt hub from <code>langchain</code>. On the course environment (<code>langchain</code> 1.4.7, <code>langchain-core</code> 1.7.0) the script stops on its first line. The old path has no shim that forwards it and no warning that names the new one.</p>
+<p>The reason is a change in where code lives. Through the 0.x releases, the <code>langchain</code> package held the whole ecosystem: chains, agents, memory, retrievers, every provider integration and the prompt hub. Installing it pulled in all of that, and a break in any one integration could break the import. Version 1.0 split the surface by <strong>how fast each part changes and who owns it</strong>:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -371,22 +382,96 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: The four kinds of package in LangChain 1.x.</em></p>
+<p>Every other package builds on <code>langchain-core</code>:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart BT
     LC["langchain&lt;br/&gt;agent loop,&lt;br/&gt;re-exports"] --&gt; CORE["langchain-core&lt;br/&gt;messages, prompts,&lt;br/&gt;parsers, Runnable"]
     PART["langchain-openai,&lt;br/&gt;langchain-groq, …"] --&gt; CORE
     CL["langchain-classic&lt;br/&gt;retired chains,&lt;br/&gt;hub, memory"] --&gt; CORE
 </pre></figure>
-<p>Everything else in this module comes from <code>langchain-core</code>: the prompt template classes, the message classes and all four output parsers. Only the model class comes from a partner package (<code>langchain_openai.ChatOpenAI</code>), or from <code>langchain.chat_models.init_chat_model</code> when the provider is named in a string.</p>
-<p>The first notebook already shows the shape every later chain keeps: <code>prompt | llm | StrOutputParser()</code>, a template, a model and a parser joined with LCEL&rsquo;s <code>|</code>. M07 covers the pipe itself; the next pages of this module cover the three parts.</p>
+<p><em>Figure 1: The dependency direction. A partner package can change at its provider&rsquo;s pace without touching the base types.</em></p>
+<h3>The three parts of every chain</h3>
+<p>The first notebook already shows the shape every later chain keeps: a template, a model and a parser joined with LCEL&rsquo;s <code>|</code>. The notebook then grows it into a pipeline of three chains (details, then a one-sentence summary, then the summary&rsquo;s sentiment), each fed by the one before. Each of the three parts comes from a known package:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    T["Prompt template&lt;br/&gt;langchain-core"] --&gt; M["Chat model&lt;br/&gt;partner package"]
+    M --&gt; P["Output parser&lt;br/&gt;langchain-core"]
+</pre></figure>
+<p><em>Figure 2: One chain, two sources. Only the model comes from outside <code>langchain-core</code>.</em></p>
+<p>The model class comes from a partner package (<code>langchain_openai.ChatOpenAI</code>), or from <code>init_chat_model</code> in <code>langchain</code> when the provider is named in a string. Everything else in this module, the template classes, the message classes and all four output parsers, imports from <code>langchain-core</code>. <a href="../../../m07_lcel_runnables_and_chains/mandatory/theory/index.html">M07</a> covers the pipe itself, and lessons 6.2 to 6.7 cover the three parts. Knowing where each class lives is half of a migration. The other half is reading the error when an old path fails.</p>
 <h2 id="reading-an-import-error">Reading an import error</h2>
-<p>Old code fails on 1.x in two different ways, and the exception class says what moved. Checked against the course environment (<code>langchain</code> 1.4.7, <code>langchain-core</code> 1.7.0):</p>
-<ul>
-<li><code>from langchain.chains import LLMChain</code> raises <code>ModuleNotFoundError: No module named 'langchain.chains'</code>. The module is gone, so the fix is a new path: <code>langchain_classic.chains</code>, or a rewrite as an LCEL chain (M07).</li>
-<li><code>from langchain import hub</code> raises <code>ImportError: cannot import name 'hub' from 'langchain'</code>. The package still exists; it no longer exports the name. Import it from <code>langchain_classic</code> instead.</li>
-<li><code>No module named 'langchain_classic'</code> is a third problem: the package is not installed in this environment. <code>uv add langchain-classic</code> declares it in <code>pyproject.toml</code> and installs it.</li>
-</ul>
-<p>The short paths that <code>langchain</code> keeps are aliases. <code>langchain.messages.HumanMessage is langchain_core.messages.HumanMessage</code> returns <code>True</code>; the notebook reads a <code>False</code> as two LangChain installs on <code>sys.path</code>.</p>
-<p>Memory is the one place where the moved class is not the recommended answer. <code>ConversationBufferMemory</code> still imports from <code>langchain_classic.memory</code>, but the 1.x replacement is a LangGraph checkpointer with a <code>thread_id</code> (M09, M33).</p>
+<p>Old code fails on 1.x in two different ways, and <strong>the exception class says what moved</strong>. We ran the notebook&rsquo;s import audit and the hub import on the course environment:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Old import</th>
+<th>Error on 1.x</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>langchain.chains</code></td>
+<td><code>ModuleNotFoundError</code></td>
+<td><code>langchain_classic.chains</code>, or rewrite as an LCEL chain (M07)</td>
+</tr>
+<tr>
+<td><code>langchain.schema</code></td>
+<td><code>ModuleNotFoundError</code></td>
+<td><code>langchain_core.messages</code>, <code>.documents</code> or <code>.output_parsers</code></td>
+</tr>
+<tr>
+<td><code>langchain.text_splitter</code></td>
+<td><code>ModuleNotFoundError</code></td>
+<td><code>langchain_text_splitters</code></td>
+</tr>
+<tr>
+<td><code>langchain.memory</code></td>
+<td><code>ModuleNotFoundError</code></td>
+<td><code>langchain_classic.memory</code>, or better a checkpointer (below)</td>
+</tr>
+<tr>
+<td><code>langchain.llms</code></td>
+<td><code>ModuleNotFoundError</code></td>
+<td>the provider&rsquo;s partner package</td>
+</tr>
+<tr>
+<td><code>langchain.retrievers</code>, <code>langchain.indexes</code></td>
+<td><code>ModuleNotFoundError</code></td>
+<td><code>langchain_classic</code></td>
+</tr>
+<tr>
+<td><code>from langchain import hub</code></td>
+<td><code>ImportError: cannot import name 'hub'</code></td>
+<td><code>langchain_classic</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The seven 0.x module paths the notebook audits, plus the hub. All seven raise <code>ModuleNotFoundError</code>; only the hub raises <code>ImportError</code>.</em></p>
+<p><code>ModuleNotFoundError</code> means the module is gone. <code>ImportError</code> means the package still exists and no longer exports the name. A third message looks similar and means something else: <code>No module named 'langchain_classic'</code> says the replacement package is not installed in this environment. Listing it in a requirements file is not the same as installing it. Declare it in the project&rsquo;s dependencies and sync.</p>
+<p>Read the three messages in order:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    A{"No module named&lt;br/&gt;'langchain.X'?"} -- yes --&gt; M["Module moved&lt;br/&gt;find its new package"]
+    A -- no --&gt; B{"cannot import name&lt;br/&gt;from 'langchain'?"}
+    B -- yes --&gt; N["Name moved&lt;br/&gt;import from langchain_classic"]
+    B -- no --&gt; C{"No module named&lt;br/&gt;'langchain_classic'?"}
+    C -- yes --&gt; I["Package missing&lt;br/&gt;add the dependency"]
+</pre></figure>
+<p><em>Figure 3: Diagnosing an old import. Each &ldquo;no&rdquo; moves one question down.</em></p>
+<p>The short paths that <code>langchain</code> keeps are aliases, not copies. <code>langchain.messages.HumanMessage is langchain_core.messages.HumanMessage</code> returns <code>True</code> on the course environment. The notebook reads a <code>False</code> as two LangChain installs on <code>sys.path</code>, a broken environment that no import change will fix.</p>
+<h3>Moved is not recommended</h3>
+<p>Memory is the one place where the moved class is the wrong answer. <code>ConversationBufferMemory</code> still imports from <code>langchain_classic.memory</code>, and the old app would run again after a one-line change. The 1.x replacement is a LangGraph checkpointer with a <code>thread_id</code> (<a href="../../../m09_langgraph_runtime/mandatory/theory/index.html">M09</a>, M33), which stores each conversation outside the process. We call the shortcut <strong>the moved-class migration</strong>: the import works, and the design it carries is the one 1.x retired. Retired chains are a milder case of the same thing. <code>langchain_classic.chains</code> still runs them, and M07 rewrites them as LCEL.</p>
+<h2 id="in-practice-the-refund-script">In practice: the refund script</h2>
+<p>For the Larkspur script, the error classes give the order of work:</p>
+<ol>
+<li><code>ModuleNotFoundError</code> on <code>langchain.schema</code>: import <code>HumanMessage</code> from <code>langchain_core.messages</code>.</li>
+<li><code>ModuleNotFoundError</code> on <code>langchain.chains</code>: rewrite <code>LLMChain</code> as template, model and parser joined with <code>|</code>, which needs no classic package.</li>
+<li><code>ImportError</code> on <code>hub</code>: import it from <code>langchain_classic</code>, and add that package to the project&rsquo;s dependencies if the next error says it is missing.</li>
+<li>Any conversation memory: move it to a checkpointer, not to <code>langchain_classic.memory</code>.</li>
+</ol>
+<blockquote>
+<p><strong>Key distinction:</strong> a <code>ModuleNotFoundError</code> names a path, an <code>ImportError</code> names a symbol. Fix the path for the first and the import source for the second.</p>
+</blockquote>
+<p>Lesson 6.2 takes the middle part of Figure 2, the chat model, and shows what stays the same when its provider changes.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Version 1.0 split LangChain by pace of change. Prompts, messages, parsers and <code>Runnable</code> live in <code>langchain-core</code>, each provider in its own package, and retired chains and the hub in the frozen <code>langchain-classic</code>.</li>
@@ -406,9 +491,57 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A 0.x app keeps chat history in ConversationBufferMemory. Is changing its import path the right migration?</summary>
 <p>It runs, but it is not the recommended answer. The class still imports from <code>langchain_classic.memory</code>; the 1.x replacement is a LangGraph checkpointer with a <code>thread_id</code> (M09, M33). Memory is the one place where moving the import is not the fix.</p>
 </details>
-<h2 id="chat-models">Chat models</h2>
+<h2 id="two-sdks-two-response-shapes">Two SDKs, two response shapes</h2>
 <p class="lesson-of">Lesson 6.2: Commercial LLMs natively and with LangChain. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/02a_Commercial_LLMs_with_LangChain.ipynb" target="_blank" rel="noopener"><code>02a_Commercial_LLMs_with_LangChain.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/02b_Commercial_LLMs_Natively.ipynb" target="_blank" rel="noopener"><code>02b_Commercial_LLMs_Natively.ipynb</code></a> (optional)</p>
-<p>A chat model is any class that implements LangChain&rsquo;s <code>BaseChatModel</code> interface. The provider SDKs in the optional notebook (and in <a href="../../../../p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/theory/index.html">M02</a>) each return their own response object; the LangChain classes return the same one for every provider. Every chat model has the same three calls:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what a LangChain chat model adds over a provider&rsquo;s own SDK.</li>
+<li><strong>Read</strong> the three parts of an <code>AIMessage</code>: content, token usage and provider metadata.</li>
+<li><strong>Diagnose</strong> a reply that stopped at the token limit from its metadata.</li>
+<li><strong>Decide</strong> when a provider swap is ready to ship.</li>
+</ul>
+</blockquote>
+<p>Lesson 6.1 placed the chat model in a partner package, the one part of a chain that lives outside <code>langchain-core</code>. This lesson looks at what that class gives you.</p>
+<p>Larkspur&rsquo;s support team wants to compare OpenAI and Gemini on the refund question. The optional notebook calls both through their own SDKs, and the two calls share almost nothing:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>OpenAI SDK</th>
+<th>Gemini SDK</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set up</td>
+<td>a key on the <code>openai</code> module</td>
+<td><code>genai.configure(api_key=...)</code></td>
+</tr>
+<tr>
+<td>Send</td>
+<td>a messages array with roles, to <code>chat.completions.create</code></td>
+<td>a prompt string, to a <code>GenerativeModel</code>&rsquo;s <code>generate_content</code></td>
+</tr>
+<tr>
+<td>Read the text</td>
+<td><code>response.choices[0].message.content</code></td>
+<td><code>response.text</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The same request in the two native SDKs, from the optional notebook.</em></p>
+<p>Every line that touches the response is provider-specific. Supporting a third provider means a third set of those lines, and every place that logs tokens or checks why a reply stopped has to know which provider answered. A common interface fixes that.</p>
+<h2 id="chat-models">Chat models</h2>
+<p><strong>A chat model is any class that implements LangChain&rsquo;s <code>BaseChatModel</code> interface: it takes messages and returns an <code>AIMessage</code>, whichever provider answers.</strong> The provider SDK still makes the call underneath; the class translates the request on the way out and the response on the way back:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    P["Prompt template&lt;br/&gt;PromptValue"] --&gt; C["ChatOpenAI or&lt;br/&gt;ChatGoogleGenerativeAI"]
+    C --&gt; S["Provider SDK&lt;br/&gt;and API"]
+    S --&gt; C
+    C --&gt; A["AIMessage&lt;br/&gt;same shape always"]
+</pre></figure>
+<p><em>Figure 1: A chat model wraps the provider&rsquo;s call. The chain sees one response type.</em></p>
+<p>Every chat model has the same three calls:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -435,12 +568,39 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The <code>AIMessage</code> carries more than the text. Lesson 6.2 reads three attributes:</p>
-<ul>
-<li><code>.content</code>: the reply text.</li>
-<li><code>.usage_metadata</code>: input, output and total token counts, under the same keys for every provider.</li>
-<li><code>.response_metadata</code>: what the provider reported, such as <code>model_name</code> and <code>finish_reason</code>. On OpenAI a <code>finish_reason</code> of <code>length</code> means the reply hit the token limit and stopped mid-sentence, or mid-JSON; <a href="#output-parsers">lesson 6.6</a> shows what the parsers make of that.</li>
-</ul>
+<p><em>Table 2: The three calls every chat model offers.</em></p>
+<h3>What comes back</h3>
+<p>The <code>AIMessage</code> carries more than the text. Notebook 02a reads three attributes:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Holds</th>
+<th>Same keys for every provider</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.content</code></td>
+<td>the reply text</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>.usage_metadata</code></td>
+<td>input, output and total token counts</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>.response_metadata</code></td>
+<td>what the provider reported, such as <code>model_name</code> and <code>finish_reason</code></td>
+<td>✗</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The three parts of an <code>AIMessage</code> that lesson 6.2 reads.</em></p>
+<p>The last row matters more than it looks. On OpenAI, a <code>finish_reason</code> of <code>length</code> means the reply hit the token limit and stopped mid-sentence, or mid-JSON. We call this <strong>the truncated reply</strong>: the text reads like an answer and ends early. <a href="#output-parsers">Lesson 6.6</a> shows what each output parser makes of one.</p>
+<p>The notebook also takes the chain apart. <code>prompt | model</code> builds a <code>RunnableSequence</code>, and so do <code>prompt.pipe(model)</code> and <code>RunnableSequence(prompt, model)</code>; we ran all three with a stub model and each gave a sequence of 2 steps. Calling the template on its own returns a <code>ChatPromptValue</code> holding one <code>HumanMessage</code> (&ldquo;Explain AI in 2 bullet points&rdquo;), which is exactly what the model then receives. Invoking each step by hand is how you debug a prompt.</p>
+<h3>Changing provider</h3>
 <p>Changing provider changes one class. In the notebooks the same <code>prompt | model</code> chain runs on all of these:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -478,18 +638,42 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The last three come from lesson 6.3&rsquo;s <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/03a_Open_Source_LLMs_with_LangChain.ipynb" target="_blank" rel="noopener"><code>03a_Open_Source_LLMs_with_LangChain.ipynb</code></a>. <code>ChatHuggingFace</code> is a wrapper: the two Hugging Face classes underneath are completion-style LLMs, and the wrapper gives them the chat interface (<a href="#llm-vs-chat-model">lesson 6.4</a>).</p>
-<p><code>init_chat_model</code> moves the choice out of the import line and into a string, which is how notebook 01b loads its model:</p>
-<pre class="sheet code"><code class="language-python">from langchain.chat_models import init_chat_model
-from langchain_core.prompts import ChatPromptTemplate
-
-prompt = ChatPromptTemplate.from_template(&quot;Explain {topic} in 2 bullet points&quot;)
-llm = init_chat_model(&quot;openai:gpt-4o-mini&quot;, temperature=0)
-# llm = init_chat_model(&quot;groq:openai/gpt-oss-120b&quot;, temperature=0)
-
-reply = (prompt | llm).invoke({&quot;topic&quot;: &quot;AI&quot;})   # an AIMessage
-</code></pre>
-<p>The swap keeps the code running. It does not keep the replies the same: another model formats, refuses and rambles differently. For Larkspur, a provider change is a release like any other, checked against the golden questions from <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> before it ships.</p>
+<p><em>Table 4: One chain, five model classes. The last three are lesson 6.3&rsquo;s open-source backends.</em></p>
+<p><a href="#">Lesson 6.3</a> runs those three. <code>ChatHuggingFace</code> is a wrapper: the two Hugging Face classes underneath are completion-style LLMs, and the wrapper gives them the chat interface (<a href="#llm-vs-chat-model">lesson 6.4</a>).</p>
+<p><code>init_chat_model</code> from <code>langchain</code> moves the choice out of the import line and into a string, which is how notebook 01b loads its model. The string names the provider and the model together:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>String</th>
+<th>Class it builds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"openai:gpt-4o-mini"</code></td>
+<td><code>ChatOpenAI</code></td>
+</tr>
+<tr>
+<td><code>"groq:openai/gpt-oss-120b"</code></td>
+<td><code>ChatGroq</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Two <code>init_chat_model</code> strings from notebook 01b. Swapping provider is an edit to the string.</em></p>
+<h3>Planted failure: the silent provider swap</h3>
+<p>The swap keeps the code running. It does not keep the replies the same: another model formats, refuses and rambles differently. We call this <strong>the silent provider swap</strong>: every call succeeds, and the answers drift. For Larkspur, the refund question might come back with the timing right and the citation format wrong, which no exception reports. A provider change is a release like any other, checked against the golden questions from <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> before it ships.</p>
+<h2 id="in-practice-comparing-two-providers">In practice: comparing two providers</h2>
+<p>For the Larkspur comparison, the chat model reduces the work to this:</p>
+<ol>
+<li>Build one chain from the answer template and a chat model named by an <code>init_chat_model</code> string.</li>
+<li>Run the golden questions through it once per provider string.</li>
+<li>Compare <code>.content</code> against the expected answers, <code>.usage_metadata</code> for cost, and <code>finish_reason</code> in <code>.response_metadata</code> for truncated replies.</li>
+<li>Ship the provider that passes, and keep the string in configuration so a rollback is one edit.</li>
+</ol>
+<blockquote>
+<p><strong>Interview tip:</strong> &ldquo;LangChain makes models interchangeable&rdquo; is half true. The call shape is interchangeable. The behaviour is not, and a strong answer says how you would measure the difference.</p>
+</blockquote>
+<p>Lesson 6.3 runs the same chain on open-source models, locally and hosted.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Every LangChain chat model offers <code>invoke</code>, <code>batch</code> and <code>stream</code> and returns an <code>AIMessage</code>, with token counts under the same keys for every provider.</li>
@@ -509,14 +693,178 @@ reply = (prompt | llm).invoke({&quot;topic&quot;: &quot;AI&quot;})   # an AIMess
 <summary>3. You change the init_chat_model string from an OpenAI model to a Groq model and the chain still runs. Can you ship the change?</summary>
 <p>Not yet. The swap keeps the code running, but another model formats, refuses and rambles differently, so the replies change. For Larkspur, a provider change is a release like any other, checked against the M10 golden questions before it ships.</p>
 </details>
+<h2 id="the-project-three-open-backends">The project: three open backends</h2>
+<p class="lesson-of">Lesson 6.3: Open-source LLMs: Transformers, Inference Client, Groq, LangChain. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/03a_Open_Source_LLMs_with_LangChain.ipynb" target="_blank" rel="noopener"><code>03a_Open_Source_LLMs_with_LangChain.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/03b_Open_Source_LLMs_HF_Transformers.ipynb" target="_blank" rel="noopener"><code>03b_Open_Source_LLMs_HF_Transformers.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/03c_Open_Source_LLMs_HF_Inference_Client.ipynb" target="_blank" rel="noopener"><code>03c_Open_Source_LLMs_HF_Inference_Client.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/03d_Open_Source_LLMs_Groq_Cloud.ipynb" target="_blank" rel="noopener"><code>03d_Open_Source_LLMs_Groq_Cloud.ipynb</code></a> (optional)</p>
+<blockquote>
+<p><strong>What you&rsquo;ll build</strong></p>
+<ul>
+<li><strong>A local backend</strong> that downloads a 1.1B-parameter model and runs it in your own process.</li>
+<li><strong>A hosted Hugging Face backend</strong> that sends the same messages to a large model on Inference Providers.</li>
+<li><strong>A Groq backend</strong> that uses Groq&rsquo;s native LangChain chat model.</li>
+<li><strong>One chain</strong> that runs unchanged on all three.</li>
+</ul>
+</blockquote>
+<p>Lesson 6.2 ran one <code>prompt | model</code> chain on commercial APIs. This project runs the same chain on open-weight models. It adds no new idea; it shows what the chat-model interface hides when the model moves to weights on your laptop, or to someone else&rsquo;s hardware.</p>
+<p>For Larkspur this is the question behind a cost or data-residency review: whether the refund assistant can run on an open model without rewriting the chain. The call shape survives each move. What changes is where the tokens are computed, what the reply reports about itself, and which messages the backend accepts.</p>
+<h2 id="architecture">Architecture</h2>
+<p>The two Hugging Face backends share one wrapper, and Groq needs none:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    T["Prompt template&lt;br/&gt;Explain topic in 2 bullets"] --&gt; W["ChatHuggingFace&lt;br/&gt;wrapper"]
+    T --&gt; G["ChatGroq&lt;br/&gt;native chat model"]
+    W --&gt; L["HuggingFacePipeline&lt;br/&gt;local weights"]
+    W --&gt; E["HuggingFaceEndpoint&lt;br/&gt;hosted model"]
+    G --&gt; GA["Groq API"]
+</pre></figure>
+<p><em>Figure 1: The three backends. <code>ChatHuggingFace</code> gives two completion-style classes the chat interface; <code>ChatGroq</code> is already a chat model.</em></p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+<th>Built on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Prompt template</strong></td>
+<td>One human message with a <code>{topic}</code> slot</td>
+<td>Lesson 6.5&rsquo;s templates</td>
+</tr>
+<tr>
+<td><strong><code>ChatHuggingFace</code></strong></td>
+<td>Turns messages into what a Hugging Face LLM class takes, and its output into an <code>AIMessage</code></td>
+<td>Lesson 6.4&rsquo;s LLM vs chat model split</td>
+</tr>
+<tr>
+<td><strong><code>HuggingFacePipeline</code></strong></td>
+<td>Loads <code>TinyLlama/TinyLlama-1.1B-Chat-v1.0</code> with <code>transformers</code> and generates on CPU, GPU or Apple silicon</td>
+<td>The optional Transformers notebook</td>
+</tr>
+<tr>
+<td><strong><code>HuggingFaceEndpoint</code></strong></td>
+<td>Calls <code>moonshotai/kimi-k2-instruct-0905</code> on Hugging Face&rsquo;s servers</td>
+<td>The optional Inference Client notebook</td>
+</tr>
+<tr>
+<td><strong><code>ChatGroq</code></strong></td>
+<td>Calls <code>llama-3.1-8b-instant</code> on Groq&rsquo;s hosted inference</td>
+<td>The optional Groq notebook</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The project&rsquo;s pieces. Each optional notebook does the same job with the backend&rsquo;s own library, without LangChain.</em></p>
+<h2 id="following-one-request">Following one request</h2>
+<p>Invoke the chain with the topic <em>AI</em>. The template produces one <code>HumanMessage</code>, and each backend takes it from there. We traced the paths in the installed <code>langchain-huggingface</code> 1.2.3 source; no model was called:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Local pipeline</th>
+<th>Hosted endpoint</th>
+<th>Groq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Messages become</td>
+<td>one string, rendered with the model&rsquo;s own chat template</td>
+<td>a list of role dicts</td>
+<td>a list of role dicts</td>
+</tr>
+<tr>
+<td>Generation</td>
+<td>in your process, greedy, up to 256 new tokens</td>
+<td>on Hugging Face&rsquo;s servers, up to 1,000 new tokens</td>
+<td>on Groq&rsquo;s servers, temperature 0, up to 1,000 tokens</td>
+</tr>
+<tr>
+<td>Reply becomes</td>
+<td>an <code>AIMessage</code> with the text only</td>
+<td>an <code>AIMessage</code> with token counts from the response</td>
+<td>an <code>AIMessage</code> with token counts</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: One request through each backend. The settings are the notebook&rsquo;s.</em></p>
+<p>The first row is the one to understand. A chat model trained on roles still reads one sequence of tokens; the roles are marked with special tokens that differ by model family. The optional Transformers notebook shows TinyLlama&rsquo;s format, a <code>&lt;|user|&gt;</code> line, the question, an end-of-turn token and an open <code>&lt;|assistant|&gt;</code> line for the model to continue. On the local path, <code>ChatHuggingFace</code> asks the tokenizer to render the messages in that format. On the hosted paths, the server does the rendering.</p>
+<p>The optional notebooks do the same without LangChain. The Transformers notebook renders the chat template, encodes, generates and decodes by hand, then repeats it with a one-call <code>pipeline</code>. The Inference Client notebook calls <code>chat_completion</code> on a hosted model and reads token usage from the response. The Groq notebook calls Groq&rsquo;s own SDK and compares two Llama 4 variants on one prompt.</p>
+<h2 id="design-choices-worth-copying">Design choices worth copying</h2>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Keep the chain, swap the model object</strong></td>
+<td>The template and everything after the model stay the same: a backend comparison changes one line (<a href="#chat-models">lesson 6.2</a>)</td>
+</tr>
+<tr>
+<td><strong>Greedy decoding for the local model</strong></td>
+<td>Sampling off makes reruns repeatable, which a comparison needs</td>
+</tr>
+<tr>
+<td><strong>A short output cap on CPU</strong></td>
+<td>256 new tokens keeps a laptop run to a reasonable wait</td>
+</tr>
+<tr>
+<td><strong>Model ids in one place</strong></td>
+<td>Hosted providers retire ids; the Groq notebook warns that they change regularly</td>
+</tr>
+<tr>
+<td><strong>The backend&rsquo;s own library first</strong></td>
+<td>Seeing encode, generate and decode by hand explains what the wrapper does for you</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Five choices and the reason for each.</em></p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>No token counts locally.</strong> The pipeline path returns the text without usage metadata. Cost and length checks that read <code>.usage_metadata</code> see nothing.</li>
+<li><strong>The last message must be human.</strong> The local wrapper raises an error when the last message is a system or AI message, and it accepts only system, human and AI messages. Tool results (M22) cannot pass through it.</li>
+<li><strong>Replies differ by backend.</strong> A 1.1B model on a laptop and a large hosted model give different answers to the same prompt. Re-run the golden questions before relying on any of them (the silent provider swap from lesson 6.2).</li>
+</ul>
+<p>To run it, the local part needs the course&rsquo;s optional Hugging Face dependency group and downloads about 2 GB of weights on first use; the hosted parts need a Hugging Face token and a Groq API key in the project&rsquo;s environment file.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>The same <code>prompt | model</code> chain runs on a local model, a hosted Hugging Face model and Groq; only the model object changes.</li>
+<li><code>ChatHuggingFace</code> gives completion-style Hugging Face classes the chat interface. Locally it renders messages with the model&rsquo;s own chat template; hosted, it sends role dicts to the server.</li>
+<li>The interface hides real differences: the local path reports no token counts and accepts only system, human and AI messages, and every backend answers differently.</li>
+</ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What does ChatHuggingFace do on the local path that the hosted path leaves to the server?</summary>
+<p>It renders the message list into one string with the model&rsquo;s own chat template, the special tokens that mark each role for that model family. The pipeline then generates from that string. On the hosted path the wrapper sends role dicts and the server does the rendering.</p>
+</details>
+<details>
+<summary>2. Larkspur logs input and output tokens from every reply. What happens to those logs when the refund chain moves to the local TinyLlama backend?</summary>
+<p>They go empty. The pipeline path returns an <code>AIMessage</code> with the text only and no usage metadata, while the hosted endpoint and Groq report token counts. Cost and length checks need another source of counts on the local path.</p>
+</details>
+<details>
+<summary>3. The chain runs on all three backends without a code change. Which backend should Larkspur pick for structured refund answers?</summary>
+<p>The chain running proves only that the call shape is the same. Re-run the golden questions and the parser test set on each backend and compare usable answers, citation validity and latency; a small local model may follow the JSON format instructions less reliably than a large hosted one.</p>
+</details>
 <h2 id="messages">Messages</h2>
 <p class="lesson-of">Lesson 6.4: Inputs and outputs: messages, LLM vs chat model. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/04a_LangChain_Inputs_and_Outputs.ipynb" target="_blank" rel="noopener"><code>04a_LangChain_Inputs_and_Outputs.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/04b_LLM_vs_ChatModel.ipynb" target="_blank" rel="noopener"><code>04b_LLM_vs_ChatModel.ipynb</code></a></p>
-<p>A chat model reads a list of messages, each with a role:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the three message roles and why a chat model keeps no state between calls.</li>
+<li><strong>Trace</strong> a conversation as the list the app resends on every turn.</li>
+<li><strong>Compare</strong> <code>invoke</code>, <code>batch</code> and <code>generate</code> by what they take and return.</li>
+<li><strong>Diagnose</strong> an ignored system rule as a completion model flattening the roles.</li>
+</ul>
+</blockquote>
+<p>Lessons 6.2 and 6.3 sent one prompt to a chat model and read one <code>AIMessage</code> back. A support conversation has more than one turn.</p>
+<p>A Larkspur customer asks <em>How long does a refund take?</em> and gets a good answer. The follow-up is <em>And for annual plans?</em> The assistant replies as if it had never seen the first question. Nothing failed: the app sent only the second question, and the model had nothing else to read.</p>
+<p><strong>A message is one turn of a conversation, tagged with the role of whoever said it.</strong> A chat model reads a list of them:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Class</th>
-<th>Role</th>
+<th>Role in an OpenAI-style dict</th>
 <th>Holds</th>
 </tr>
 </thead>
@@ -538,7 +886,9 @@ reply = (prompt | llm).invoke({&quot;topic&quot;: &quot;AI&quot;})   # an AIMess
 </tr>
 </tbody>
 </table></div>
-<p>The OpenAI-style spelling, <code>{"role": "user", "content": "..."}</code>, works too: LangChain converts each dict to the matching class before the call (<code>convert_to_messages</code> shows the result). Tool results add a fourth class, <code>ToolMessage</code>, in M22.</p>
+<p><em>Table 1: The three message classes. Tool results add a fourth, <code>ToolMessage</code>, in M22.</em></p>
+<p>The dict spelling works too. LangChain converts each dict to the matching class before the call; we ran the notebook&rsquo;s <code>convert_to_messages</code> on a system, a user and an assistant dict and got a <code>SystemMessage</code>, a <code>HumanMessage</code> and an <code>AIMessage</code>, in that order. Both spellings send the same request.</p>
+<h3>The conversation is the list</h3>
 <p>A chat model keeps no state between calls. To continue a conversation, the app appends the model&rsquo;s <code>AIMessage</code> and the next question to the list and sends the whole list again:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant App
@@ -549,16 +899,80 @@ reply = (prompt | llm).invoke({&quot;topic&quot;: &quot;AI&quot;})   # an AIMess
     App-&gt;&gt;Model: System, Human, AI, Human (annual plans?)
     Model--&gt;&gt;App: AIMessage
 </pre></figure>
-<p>In notebook 04a, &ldquo;What did we discuss so far?&rdquo; gets an answer only because the earlier turns are in the list. Two consequences follow for Larkspur&rsquo;s assistant. Every earlier turn is paid for again as input tokens on every call, so history needs a bound (M33). And the history is just data your app holds, so it can be trimmed, summarised or filtered before it is sent. In a template, history goes in a <code>MessagesPlaceholder</code> (<a href="#prompt-templates">lesson 6.5</a>).</p>
-<p>For several conversations at once, <code>.batch()</code> takes a list of inputs and returns a list of <code>AIMessage</code>. The older <code>.generate()</code> takes a list of message lists and returns an <code>LLMResult</code>, whose <code>generations</code> is a nested list (one entry per conversation) and whose <code>llm_output["token_usage"]</code> sums the batch.</p>
+<p><em>Figure 1: Two turns. The second call carries the first turn because the app put it there.</em></p>
+<p>We call the opening bug <strong>the forgotten turn</strong>: the app sent the new question without the old ones. In notebook 04a, &ldquo;What did we discuss so far?&rdquo; gets a real answer only because the earlier turns are in the list. Drop them and the model has nothing to summarise.</p>
+<p>Resending has a price. Every earlier turn is paid for again as input tokens on every call:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Turn</th>
+<th>Messages sent</th>
+<th>Earlier turns resent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>system, human</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>system, human, AI, human</td>
+<td>1</td>
+</tr>
+<tr>
+<td>5</td>
+<td>system plus 4 earlier exchanges plus the new question</td>
+<td>4</td>
+</tr>
+<tr>
+<td>20</td>
+<td>system plus 19 earlier exchanges plus the new question</td>
+<td>19</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: How the list grows. The input cost of turn n includes all n minus 1 earlier exchanges.</em></p>
+<p>History therefore needs a bound (M33). It is also just data your app holds, which can be trimmed, summarised or filtered before it is sent. In a template, history goes in a <code>MessagesPlaceholder</code> (<a href="#prompt-templates">lesson 6.5</a>).</p>
+<h3>One call or several</h3>
+<p>For several requests at once, notebook 04a uses two calls besides <code>invoke</code>:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Input</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.invoke()</code></td>
+<td>a string or one message list</td>
+<td>one <code>AIMessage</code></td>
+</tr>
+<tr>
+<td><code>.batch()</code></td>
+<td>a list of inputs</td>
+<td>a list of <code>AIMessage</code>, run concurrently</td>
+</tr>
+<tr>
+<td><code>.generate()</code></td>
+<td>a list of message lists</td>
+<td>an <code>LLMResult</code>: <code>generations</code> holds one entry per conversation, and <code>llm_output["token_usage"]</code> sums the batch</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Three ways to call a model, from notebook 04a.</em></p>
+<p>With <code>.generate()</code>, each inner list is its own conversation with its own system prompt; the notebook translates one sentence into German and Spanish in one call this way. Each conversation is still its own request to the provider. The model reads roles because it was trained on them, which raises the question of what happens with a model that was not.</p>
 <h2 id="llm-vs-chat-model">LLM vs chat model</h2>
-<p>LangChain has two model interfaces:</p>
+<p>LangChain has two model interfaces, and every model class implements one of them. We ran the notebook&rsquo;s base-class check on the installed packages:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Interface</th>
 <th>In and out</th>
-<th>Classes in notebook 04b</th>
+<th>Classes</th>
 </tr>
 </thead>
 <tbody>
@@ -570,38 +984,68 @@ reply = (prompt | llm).invoke({&quot;topic&quot;: &quot;AI&quot;})   # an AIMess
 <tr>
 <td><code>BaseChatModel</code></td>
 <td>messages in, an <code>AIMessage</code> out</td>
-<td><code>ChatOpenAI</code>, <code>ChatGoogleGenerativeAI</code>, <code>ChatHuggingFace</code></td>
+<td><code>ChatOpenAI</code>, <code>ChatGoogleGenerativeAI</code>, <code>ChatHuggingFace</code>, <code>ChatGroq</code></td>
 </tr>
 </tbody>
 </table></div>
-<p>Both accept both shapes, because LangChain first turns the input into a <code>PromptValue</code> and then asks it for the shape the model needs. With <code>langchain-core</code> 1.7.0 (empty fields left out of the printout):</p>
-<pre class="sheet code"><code class="language-python">from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.prompt_values import ChatPromptValue, StringPromptValue
-
-StringPromptValue(text=&quot;How long does a refund take?&quot;).to_messages()
-# [HumanMessage(content='How long does a refund take?')]
-
-ChatPromptValue(messages=[
-    SystemMessage(&quot;Answer only from the passages.&quot;),
-    HumanMessage(&quot;How long does a refund take?&quot;),
-]).to_string()
-# 'System: Answer only from the passages.\nHuman: How long does a refund take?'
-</code></pre>
-<p>A string sent to a chat model becomes one <code>HumanMessage</code>, so nothing is lost. A message list sent to a completion model is flattened into <code>System:</code> and <code>Human:</code> lines of plain text, which the model continues like any other text; the system instruction becomes a hint instead of a role it was trained to follow. That is why every chain in this course uses a chat model, and why a completion model appears only in notebook 04b, for contrast.</p>
+<p><em>Table 4: The two interfaces. A <strong>completion model</strong> (<code>BaseLLM</code>) continues text; a chat model answers roles.</em></p>
+<p>Both accept both input shapes, because LangChain first turns the input into a <code>PromptValue</code> and then asks it for the shape the model needs:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    I[/"String or&lt;br/&gt;message list"/] --&gt; PV["PromptValue"]
+    PV -- to_messages --&gt; C["Chat model"]
+    PV -- to_string --&gt; L["Completion model"]
+</pre></figure>
+<p><em>Figure 2: One input, two conversions. The model&rsquo;s interface decides which one runs.</em></p>
+<p>We ran both conversions with <code>langchain-core</code> 1.7.0 on Larkspur inputs:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Sent to</th>
+<th>What the model receives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the string &ldquo;How long does a refund take?&rdquo;</td>
+<td>a chat model</td>
+<td>one <code>HumanMessage</code> with that text</td>
+</tr>
+<tr>
+<td>a system message &ldquo;Answer only from the passages.&rdquo; and a human message with the refund question</td>
+<td>a completion model</td>
+<td>one string: <code>System: Answer only from the passages.</code> then a new line and <code>Human: How long does a refund take?</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: The two conversions, traced.</em></p>
+<p>A string sent to a chat model becomes one <code>HumanMessage</code>, and nothing is lost. A message list sent to a completion model is flattened into plain text lines, which the model continues like any other text. We call this <strong>the flattened role</strong>: the system instruction becomes a hint instead of a role the model was trained to follow. That is why every chain in this course uses a chat model, and why a completion model appears only in notebook 04b, for contrast.</p>
+<blockquote>
+<p><strong>Pitfall: the flattened role.</strong> A system rule that works on a chat model can be ignored by a completion model given the same messages. Check the base class before blaming the prompt.</p>
+</blockquote>
+<h2 id="in-practice-the-follow-up-question">In practice: the follow-up question</h2>
+<p>For Larkspur&rsquo;s follow-up, the fix is in the app:</p>
+<ol>
+<li>Keep the conversation as a list of messages per customer session.</li>
+<li>After each call, append the returned <code>AIMessage</code>, then the next <code>HumanMessage</code>.</li>
+<li>Send the whole list, through a chat model, so the system rules keep their role.</li>
+<li>Cap the list at a few turns, or summarise older ones, and watch input tokens per turn.</li>
+</ol>
+<p>Lesson 6.5 moves the list into a template, with the history in a placeholder and the passages and question in their own slots.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A chat model reads a list of system, human and AI messages and keeps no state. The app resends the history on every call, so bound it, and trim or summarise it as data before sending.</li>
+<li>A chat model reads a list of system, human and AI messages and keeps no state. The app resends the history on every call: bound it, and trim or summarise it as data before sending.</li>
 <li>LangChain turns any input into a <code>PromptValue</code>, so a string sent to a chat model becomes one <code>HumanMessage</code> and nothing is lost.</li>
-<li>Use chat models for chains. A completion model flattens messages into plain text lines, so a system instruction becomes a hint instead of a role.</li>
+<li>Use chat models for chains. A completion model flattens messages into plain text lines, and a system instruction becomes a hint instead of a role.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can the model answer "What did we discuss so far?" in notebook 04a, when a chat model keeps no state between calls?</summary>
-<p>Because the app sends the earlier turns again. After each call it appends the model&rsquo;s <code>AIMessage</code> and the next question to the list and sends the whole list, so the model reads the conversation from its input, not from memory.</p>
+<p>Because the app sends the earlier turns again. After each call it appends the model&rsquo;s <code>AIMessage</code> and the next question to the list and sends the whole list. The model reads the conversation from its input, not from memory.</p>
 </details>
 <details>
 <summary>2. Larkspur's assistant reaches its twentieth turn. What does each new call cost, and what can the app do about it?</summary>
-<p>Every earlier turn is paid for again as input tokens on every call, so history needs a bound (M33). The history is data the app holds, so it can trim, summarise or filter it before sending, and a template takes it through a <code>MessagesPlaceholder</code>.</p>
+<p>Every earlier turn is paid for again as input tokens on every call, so the twentieth call resends nineteen earlier exchanges and history needs a bound (M33). The app holds the history as data and can trim, summarise or filter it before sending, and a template takes it through a <code>MessagesPlaceholder</code>.</p>
 </details>
 <details>
 <summary>3. A teammate sends a system and a human message to a completion model, and the system rule is ignored. Why?</summary>
@@ -609,7 +1053,18 @@ ChatPromptValue(messages=[
 </details>
 <h2 id="prompt-templates">Prompt templates</h2>
 <p class="lesson-of">Lesson 6.5: Prompt templates and few-shot composition. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/05a_Prompt_Templates.ipynb" target="_blank" rel="noopener"><code>05a_Prompt_Templates.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/05b_Few_Shot_Composition_and_Serialization.ipynb" target="_blank" rel="noopener"><code>05b_Few_Shot_Composition_and_Serialization.ipynb</code></a> (optional)</p>
-<p>A prompt template is a function from variables to a prompt. It has <code>{slots}</code> filled with Python&rsquo;s <code>str.format</code> syntax, and it comes in two kinds:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> a prompt template as a function from variables to a <code>PromptValue</code>.</li>
+<li><strong>Build</strong> the Larkspur answer prompt from a system message, a history placeholder and a human message.</li>
+<li><strong>Diagnose</strong> the two template mistakes that raise and the two that pass silently.</li>
+<li><strong>Compose</strong> templates from examples and parts, and save them as data.</li>
+</ul>
+</blockquote>
+<p>Lesson 6.4 ended with the app holding a list of messages per conversation. Something still has to put the passages, the question and the format rules into that list on every call.</p>
+<p>The first Larkspur version builds the prompt with string concatenation. It works until someone adds an example answer, <code>{"answer": ..., "citations": [...]}</code>, to the system text, and the next refactor swaps concatenation for a format call. The prompt now fails on a key named <code>"answer"</code>, and the error points at the wrong line.</p>
+<p><strong>A prompt template is a function from named variables to a prompt.</strong> Its <code>{slots}</code> are filled with Python&rsquo;s <code>str.format</code> syntax, and it comes in two kinds:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -631,23 +1086,67 @@ ChatPromptValue(messages=[
 </tr>
 </tbody>
 </table></div>
-<p>Both work with a chat model, because a string becomes one <code>HumanMessage</code> (<a href="#llm-vs-chat-model">lesson 6.4</a>). <code>ChatPromptTemplate.from_template("Explain {topic}")</code> is exactly <code>from_messages([("human", "Explain {topic}")])</code>; the notebook compares the two and gets the same messages. Use <code>from_messages</code> whenever there is a system prompt.</p>
-<p>Three calls fill a template. <code>.format()</code> returns a plain string; <code>.format_prompt()</code> and <code>.invoke()</code> return the <code>PromptValue</code>. <code>.invoke()</code> takes a dict, and it is the call an LCEL chain makes for you.</p>
-<p>The Larkspur answer prompt, with a slot for the parser&rsquo;s format instructions and one for the conversation so far:</p>
-<pre class="sheet code"><code class="language-python">from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
-prompt = ChatPromptTemplate.from_messages([
-    (&quot;system&quot;, &quot;Answer from the Larkspur Cloud handbook passages only.\n{format_instructions}&quot;),
-    MessagesPlaceholder(&quot;history&quot;),
-    (&quot;human&quot;, &quot;Passages:\n{passages}\n\nQuestion: {question}&quot;),
-])
-prompt.input_variables
-# ['format_instructions', 'history', 'passages', 'question']
-prompt.partial(format_instructions=parser.get_format_instructions()).input_variables
-# ['history', 'passages', 'question']
-</code></pre>
-<p><code>.partial()</code> fills a slot once, at build time, so callers never pass it. <code>MessagesPlaceholder</code> takes a whole list of messages at call time, which is where the history from lesson 6.4 goes.</p>
-<p>Two of these template mistakes raise and two pass without a word. Each was checked against <code>langchain-core</code> 1.7.0:</p>
+<p><em>Table 1: The two template classes.</em></p>
+<p>Both work with a chat model, because a string becomes one <code>HumanMessage</code> (<a href="#llm-vs-chat-model">lesson 6.4</a>). <code>ChatPromptTemplate.from_template("Explain {topic}")</code> is exactly <code>from_messages([("human", "Explain {topic}")])</code>; we ran the notebook&rsquo;s comparison and the two produce the same messages. Use <code>from_messages</code> whenever there is a system prompt.</p>
+<p>Three calls fill a template:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Takes</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.format()</code></td>
+<td>keyword arguments</td>
+<td>a plain string</td>
+</tr>
+<tr>
+<td><code>.format_prompt()</code></td>
+<td>keyword arguments</td>
+<td>a <code>PromptValue</code></td>
+</tr>
+<tr>
+<td><code>.invoke()</code></td>
+<td>a dict</td>
+<td>a <code>PromptValue</code>; this is the call an LCEL chain makes for you</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Three ways to fill a template, from notebook 05a.</em></p>
+<h3>The Larkspur answer prompt</h3>
+<p>The answer prompt has three messages: a system message with the rules and a <code>{format_instructions}</code> slot for the parser&rsquo;s text, a <code>MessagesPlaceholder</code> named <code>history</code> for the conversation so far, and a human message with <code>{passages}</code> and <code>{question}</code>. Slots fill at two different times:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    B["Build time&lt;br/&gt;.partial(format_instructions)"] --&gt; T["Answer template"]
+    T --&gt; C["Call time&lt;br/&gt;history, passages,&lt;br/&gt;question"]
+    C --&gt; V[/"ChatPromptValue"/]
+</pre></figure>
+<p><em>Figure 1: <code>.partial()</code> fills a slot once when the chain is built; the rest arrive with every call.</em></p>
+<p>We built that template with <code>langchain-core</code> 1.7.0 and printed its variables:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Template</th>
+<th><code>input_variables</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>as built</td>
+<td><code>format_instructions</code>, <code>history</code>, <code>passages</code>, <code>question</code></td>
+</tr>
+<tr>
+<td>after <code>.partial(format_instructions=...)</code></td>
+<td><code>history</code>, <code>passages</code>, <code>question</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The answer prompt&rsquo;s slots before and after <code>.partial()</code>.</em></p>
+<p><code>.partial()</code> fills a slot once, so callers never pass it. <code>MessagesPlaceholder</code> takes a whole list of messages at call time, which is where the history from lesson 6.4 goes.</p>
+<h3>Planted failures: four template mistakes</h3>
+<p>Two of these mistakes raise and two pass without a word. We planted each one on the course environment:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -657,38 +1156,85 @@ prompt.partial(format_instructions=parser.get_format_instructions()).input_varia
 </thead>
 <tbody>
 <tr>
-<td>A typo in the <code>input_variables</code> you pass</td>
-<td>The list is recomputed from the template text and the typo disappears. Only <code>validate_template=True</code> raises.</td>
+<td>A typo in the <code>input_variables</code> you pass (<code>output_langauge</code>)</td>
+<td>The list is recomputed from the template text and the typo disappears. Only <code>validate_template=True</code> raises, with a Pydantic validation error.</td>
 </tr>
 <tr>
 <td>A variable left out at format time</td>
-<td><code>KeyError</code> names it. This one is loud.</td>
+<td><code>KeyError</code> names it (<code>'output_language'</code>). This one is loud.</td>
 </tr>
 <tr>
 <td>Literal JSON braces in a template, <code>{"answer": ...}</code></td>
-<td><code>"answer"</code> becomes a variable, and formatting raises <code>KeyError</code>. Double the braces: <code>{{"answer": ...}}</code>.</td>
+<td><code>"answer"</code> becomes a variable, and formatting raises <code>KeyError('"answer"')</code>. Double the braces: <code>{{"answer": ...}}</code>.</td>
 </tr>
 <tr>
 <td><code>.partial()</code> for a slot the template does not have</td>
-<td>Ignored without an error; the value never reaches the model (lesson 6.6 shows this in a course notebook).</td>
+<td>Ignored without an error: <code>input_variables</code> is unchanged and the value never reaches the model. Lesson 6.6 finds this in a course notebook.</td>
 </tr>
 </tbody>
 </table></div>
-<p>Printing <code>input_variables</code> and the formatted messages once, before the first model call, catches the silent pair.</p>
+<p><em>Table 4: Four template mistakes and what <code>langchain-core</code> 1.7.0 does with each.</em></p>
+<p>We call the quiet pair <strong>the silent slot</strong>: a value you meant to send, or a check you meant to run, that LangChain drops without telling you. Printing <code>input_variables</code> and the formatted messages once, before the first model call, catches both. The opening refactor bug is the third row: double the braces in any example JSON.</p>
 <h2 id="few-shot-and-composition">Few-shot and composition</h2>
-<p>Examples in the prompt steer both the answer and its format. Notebook 05b puts nine labelled reviews into one template string; the classes keep examples as data instead:</p>
+<p>Examples in the prompt steer both the answer and its format. The optional notebook 05b first writes nine labelled restaurant reviews (three restaurants, three sentiments each) straight into one template string, with every JSON brace doubled. The few-shot classes keep examples as data instead:</p>
 <ul>
-<li><code>FewShotPromptTemplate</code> formats a list of example dicts with an <code>example_prompt</code> and adds a <code>suffix</code> holding the real input. Adding an example is appending a dict.</li>
-<li><code>FewShotChatMessagePromptTemplate</code> (optional notebook <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/07e_prompt_templates_all.ipynb" target="_blank" rel="noopener"><code>07e_prompt_templates_all.ipynb</code></a>) turns each example into a human message and an AI reply, and slots the block into a <code>ChatPromptTemplate</code> between the system prompt and the question.</li>
+<li><strong><code>FewShotPromptTemplate</code></strong>: formats a list of example dicts with an <code>example_prompt</code> and adds a <code>suffix</code> holding the real input. Adding an example is appending a dict.</li>
+<li><strong><code>FewShotChatMessagePromptTemplate</code></strong>: turns each example into a human message and an AI reply, and slots the block into a <code>ChatPromptTemplate</code> between the system prompt and the question. Lesson 6.7&rsquo;s optional template notebook builds one.</li>
 </ul>
-<p>For Larkspur, one or two examples of a question, its passages and the exact JSON answer show the model the citation format better than a description of it. Examples written inside a template string need their braces doubled, as in notebook 05b.</p>
+<p>For Larkspur, one or two examples of a question, its passages and the exact JSON answer show the model the citation format better than a description of it. In the chat version, the block sits here:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     S["system:&lt;br/&gt;rules and format"] --&gt; F["few-shot block:&lt;br/&gt;human and AI pairs"]
     F --&gt; H["history:&lt;br/&gt;MessagesPlaceholder"]
     H --&gt; Q["human:&lt;br/&gt;passages and question"]
 </pre></figure>
-<p>Templates compose with <code>+</code>. Adding two <code>PromptTemplate</code> objects concatenates the text and merges the variables: a passages part plus a question part gives one template with <code>['passages', 'question']</code>. <code>ChatPromptTemplate</code> objects add the same way, message list to message list. <code>PipelinePromptTemplate</code>, the 0.x class for this, is in neither <code>langchain-core</code> 1.7.0 nor <code>langchain-classic</code>.</p>
-<p>A template is data, so it can be versioned like code. In 1.x, <code>dumps</code> and <code>loads</code> from <code>langchain_core.load</code> save and restore it as JSON. <code>loads</code> takes <code>allowed_objects=[PromptTemplate]</code>: deserialising rebuilds objects from the file&rsquo;s contents, so you name the classes you trust. The older <code>.save()</code> still runs and warns that it was deprecated in <code>langchain-core</code> 1.2.21 and will be removed in 2.0.0.</p>
+<p><em>Figure 2: The message order of a few-shot answer prompt. Examples come before the real conversation.</em></p>
+<p>The notebook also writes the examples as <strong>chain-of-thought</strong> pairs, where each example shows the reasoning before the JSON answer.</p>
+<h3>Composing templates</h3>
+<p>Templates compose with <code>+</code>. Adding two <code>PromptTemplate</code> objects concatenates the text and merges the variables. We ran it: a passages part plus a question part gives one <code>PromptTemplate</code> with <code>passages</code> and <code>question</code>. <code>ChatPromptTemplate</code> objects add the same way, message list to message list. The notebook builds its sentiment prompt from three parts (an introduction, a worked example and the request) and gets one template with 6 variables; <code>.partial()</code> on the five example slots leaves only <code>input</code>.</p>
+<p><code>PipelinePromptTemplate</code>, the 0.x class for this, is in neither <code>langchain-core</code> 1.7.0 nor <code>langchain-classic</code>. The one thing <code>+</code> does not do is place a part into a named slot of a larger template; for that, fill a final template with the formatted parts yourself.</p>
+<h3>Saving templates</h3>
+<p>A template is data, so it can be versioned like code. In 1.x, <code>dumps</code> and <code>loads</code> from <code>langchain_core.load</code> save and restore it as JSON:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What we saw on the course environment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dumps</code> on the joke template</td>
+<td>235 characters with the keys <code>lc</code>, <code>type</code>, <code>id</code>, <code>kwargs</code> and <code>name</code></td>
+</tr>
+<tr>
+<td><code>loads</code> with <code>allowed_objects=[PromptTemplate]</code></td>
+<td>a <code>PromptTemplate</code> back, and a warning that <code>loads</code> is in beta</td>
+</tr>
+<tr>
+<td><code>loads</code> without <code>allowed_objects</code></td>
+<td>a warning that the default will change, asking for an explicit list</td>
+</tr>
+<tr>
+<td>the older <code>.save()</code></td>
+<td>still runs, with a warning that it was deprecated in <code>langchain-core</code> 1.2.21 and will be removed in 2.0.0</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Serialising a template in <code>langchain-core</code> 1.7.0.</em></p>
+<p><code>allowed_objects</code> is a security boundary. Deserialising rebuilds objects from the file&rsquo;s contents, and you name the classes you trust.</p>
+<h2 id="in-practice-the-answer-prompt">In practice: the answer prompt</h2>
+<p>For Larkspur, the prompt comes together in this order:</p>
+<ol>
+<li>Write the system rules as a <code>ChatPromptTemplate</code> message, with <code>{format_instructions}</code> as a slot and every literal brace doubled.</li>
+<li>Add one or two worked examples as a few-shot block.</li>
+<li>Add a <code>history</code> placeholder and a human message with <code>{passages}</code> and <code>{question}</code>.</li>
+<li>Fill <code>format_instructions</code> with <code>.partial()</code>, then print <code>input_variables</code> and one formatted prompt.</li>
+<li>Save the template with <code>dumps</code> next to the code, where a prompt change shows up in review.</li>
+</ol>
+<blockquote>
+<p><strong>Key distinction:</strong> a loud mistake stops the first request; a silent slot ships. Print the formatted prompt once, before any model sees it.</p>
+</blockquote>
+<p>Lesson 6.6 fills that <code>{format_instructions}</code> slot from an output parser.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Use <code>ChatPromptTemplate.from_messages</code> whenever there is a system prompt or history. Fill fixed slots once with <code>.partial()</code> and pass history through a <code>MessagesPlaceholder</code>.</li>
@@ -710,7 +1256,26 @@ prompt.partial(format_instructions=parser.get_format_instructions()).input_varia
 </details>
 <h2 id="output-parsers">Output parsers</h2>
 <p class="lesson-of">Lesson 6.6: Output parsers. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/06a_Output_Parser.ipynb" target="_blank" rel="noopener"><code>06a_Output_Parser.ipynb</code></a></p>
-<p>An output parser is the last step of a chain, <code>prompt | llm | parser</code>. It works in two places: before the call, <code>get_format_instructions()</code> returns text that goes into the prompt; after it, <code>parse()</code> turns the reply text into a Python value or raises <code>OutputParserException</code>.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the two jobs of an output parser: format instructions before the call, parsing after it.</li>
+<li><strong>Compare</strong> four parsers on the same eight replies by what they raise and what they let through.</li>
+<li><strong>Diagnose</strong> a truncated reply that <code>JsonOutputParser</code> repaired into an ordinary dict.</li>
+<li><strong>Choose</strong> a schema that states the rule your app grades by.</li>
+</ul>
+</blockquote>
+<p>Lesson 6.5 left a <code>{format_instructions}</code> slot in the Larkspur answer prompt. An output parser fills it, and then reads what comes back.</p>
+<p>The refund assistant asks for a JSON answer with a list of cited passages. One reply stops at the token limit, mid-citation. <code>JsonOutputParser</code> returns a dict for it without an error, and the citations list ends in <code>"refund-win"</code>, a passage id that does not exist. The bad answer reaches the customer because nothing raised.</p>
+<p><strong>An output parser is the last step of a chain, <code>prompt | llm | parser</code>, and it works in two places.</strong> Before the call, <code>get_format_instructions()</code> returns text that goes into the prompt. After it, <code>parse()</code> turns the reply text into a Python value or raises <code>OutputParserException</code>:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    P["Parser"] -- format instructions --&gt; T["Prompt"]
+    T --&gt; M["Chat model"]
+    M -- reply text --&gt; R["Parser.parse"]
+    R --&gt; O[/"Value or&lt;br/&gt;exception"/]
+</pre></figure>
+<p><em>Figure 1: One parser, two jobs. The same object writes the instructions and reads the reply.</em></p>
+<p>Notebook 06a uses four parsers:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -742,8 +1307,22 @@ prompt.partial(format_instructions=parser.get_format_instructions()).input_varia
 </tr>
 </tbody>
 </table></div>
-<p><code>JsonOutputParser</code> is more forgiving than its name suggests. In <code>langchain-core</code> 1.7.0 it strips whitespace and backticks, looks inside a <code>```json</code> fence, and when the JSON is incomplete it closes open strings and brackets and drops trailing characters until something parses. <code>PydanticOutputParser</code> runs that same JSON step, then validates the result against the schema. A parser only checks what the schema states, and a reply can be valid JSON and still wrong.</p>
-<p>The <a href="06_output_parsers/interactive/parser-bench-lab.html">interactive lab</a> runs eight representative replies to the Larkspur refund question through four parsers. The replies are hand-written, since no model was called; the parsers are JavaScript ports of the library code, which agree with <code>langchain-core</code> 1.7.0 and Pydantic 2.14.1 on all 4,452 checks (1,113 reply texts, including every truncation of the eight replies, times four parsers). Its counts:</p>
+<p><em>Table 1: The four parsers in notebook 06a.</em></p>
+<h3>How the JSON parser repairs</h3>
+<p><code>JsonOutputParser</code> is more forgiving than its name suggests. In <code>langchain-core</code> 1.7.0 it tries these steps in order:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    A["Strip whitespace&lt;br/&gt;and backticks"] --&gt; B{"A json code&lt;br/&gt;fence inside?"}
+    B -- yes --&gt; C["Parse the fence&lt;br/&gt;contents"]
+    B -- no --&gt; D["Parse the text"]
+    D --&gt; E{"Incomplete?"}
+    E -- yes --&gt; F["Close strings and brackets,&lt;br/&gt;drop trailing characters"]
+    F --&gt; G{"Parses now?"}
+    G -- no --&gt; X[/"Raise"/]
+</pre></figure>
+<p><em>Figure 2: The repair path. A reply raises only when no amount of closing and trimming yields JSON.</em></p>
+<p><code>PydanticOutputParser</code> runs that same JSON step, then validates the result against the schema. A parser only checks what the schema states, and a reply can be valid JSON and still wrong.</p>
+<h3>Eight replies, four parsers</h3>
+<p>The <a href="06_output_parsers/interactive/parser-bench-lab.html">interactive lab</a> runs eight representative replies to the Larkspur refund question through four parsers. The replies are hand-written, since no model was called. The parsers are JavaScript ports of the library code; we re-checked them against <code>langchain-core</code> 1.7.0 and Pydantic 2.14.1 on every truncation of the eight replies (535 distinct texts, four parsers each) and found no disagreement. The lab&rsquo;s counts:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -780,36 +1359,168 @@ prompt.partial(format_instructions=parser.get_format_instructions()).input_varia
 </tr>
 </tbody>
 </table></div>
-<p>&ldquo;Usable&rdquo; is the lab&rsquo;s own rule: an answer string and at least one citation that names one of the three passages. The table shows four things:</p>
+<p><em>Table 2: The lab&rsquo;s counts. &ldquo;Usable&rdquo; is the lab&rsquo;s own rule: an answer string and at least one citation that names one of the three passages.</em></p>
+<p>Reply by reply, the three field-reading parsers split like this:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Reply</th>
+<th><code>JsonOutputParser</code></th>
+<th><code>list[str]</code> ids</th>
+<th><code>Literal</code> ids</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clean JSON, fenced, trailing note</td>
+<td>usable</td>
+<td>usable</td>
+<td>usable</td>
+</tr>
+<tr>
+<td>Prose before unfenced JSON</td>
+<td>raised</td>
+<td>raised</td>
+<td>raised</td>
+</tr>
+<tr>
+<td>Truncated mid-citation</td>
+<td>unusable</td>
+<td>unusable</td>
+<td>raised</td>
+</tr>
+<tr>
+<td>No <code>citations</code> key</td>
+<td>unusable</td>
+<td>raised</td>
+<td>raised</td>
+</tr>
+<tr>
+<td><code>citations</code> as a string</td>
+<td>unusable</td>
+<td>raised</td>
+<td>raised</td>
+</tr>
+<tr>
+<td>Invented id <code>handbook-p4</code></td>
+<td>unusable</td>
+<td>unusable</td>
+<td>raised</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Where each of the eight replies lands. The first row covers three replies.</em></p>
+<p>Four things follow from the two tables:</p>
 <ul>
-<li><strong>The usable count never moves.</strong> Three replies are good (clean, fenced, and one with a trailing note, which the repair step drops) and every parser that reads fields accepts them. A stricter parser does not produce more good answers; it moves bad ones from the returned column to the raised column, where a retry or a fallback can catch them.</li>
-<li><strong><code>JsonOutputParser</code> raises on one reply only</strong>: the one with prose before unfenced JSON. It returns the truncated reply, the reply with no <code>citations</code> key, the one with citations as a string and the one with an invented id, each as an ordinary dict.</li>
-<li><strong><code>list[str]</code> stops the shape errors but not the made-up ids.</strong> The missing key and the string raise; <code>"refund-win"</code> (a truncated id) and <code>"handbook-p4"</code> (an invented one) are strings, so they pass.</li>
+<li><strong>The usable count never moves.</strong> A stricter parser produces no extra good answers. It moves bad ones from the returned column to the raised column, where a retry or a fallback can catch them.</li>
+<li><strong><code>JsonOutputParser</code> raises on one reply only</strong>, the one with prose before unfenced JSON. The trailing note is dropped by the repair step, and the truncated reply comes back as an ordinary dict.</li>
+<li><strong><code>list[str]</code> stops the shape errors but not the made-up ids.</strong> <code>"refund-win"</code> (a truncated id) and <code>"handbook-p4"</code> (an invented one) are strings and pass. We call this <strong>the stringly-typed citation</strong>.</li>
 <li><strong>A <code>Literal</code> of the passage ids raises on all five.</strong> The schema now states the rule the lab grades by.</li>
 </ul>
 <figure class="lab-embed"><iframe src="06_output_parsers/interactive/parser-bench-lab.html" title="The parser bench, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The parser bench. <a href="06_output_parsers/interactive/parser-bench-lab.html">Open full screen</a></figcaption></figure>
-<p>Truncation is where the repair step matters most. Cutting the clean 124-character reply at each of its 125 lengths, as a <code>max_tokens</code> limit would: <code>JsonOutputParser</code> raises on 1 cut (the empty one) and returns a dict for the other 124, of which 4 are usable. <code>PydanticOutputParser</code> with <code>list[str]</code> raises on 107 and returns 14 unusable answers, such as a citation cut to <code>"refund-t"</code>. With <code>Literal</code> ids it raises on 120; the one unusable cut it lets through is <code>"citations": []</code>, cut just after the bracket, which no <code>Literal</code> can catch. A <code>min_length=1</code> on the list would catch it, at the cost of refusing an honest &ldquo;the handbook does not say&rdquo; with no citations.</p>
-<p>The schema behind the <code>Literal</code> row:</p>
-<pre class="sheet code"><code class="language-python">from typing import Literal
-from pydantic import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser
-
-PassageId = Literal[&quot;refund-window&quot;, &quot;refund-timing&quot;, &quot;billing&quot;]
-
-class CitedAnswer(BaseModel):
-    answer: str = Field(description=&quot;The answer, using only the passages&quot;)
-    citations: list[PassageId] = Field(description=&quot;Ids of the passages the answer uses&quot;)
-
-parser = PydanticOutputParser(pydantic_object=CitedAnswer)
-chain = prompt.partial(format_instructions=parser.get_format_instructions()) | llm | parser
-</code></pre>
-<p>The three ids are fixed here because the lab has one question. In a live pipeline the retrieved ids change per question, so either build the <code>Literal</code> per request or check the ids against the retrieved set right after parsing. The check has to exist somewhere; the lab shows what happens where it does not.</p>
+<h3>Planted failure: the repaired truncation</h3>
+<p>Truncation is where the repair step matters most. The lab cuts the clean 124-character reply at each of its 125 lengths, as a <code>max_tokens</code> limit would:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Parser</th>
+<th>Raised</th>
+<th>Unusable</th>
+<th>Usable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JsonOutputParser</code></td>
+<td>1</td>
+<td>120</td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>PydanticOutputParser</code>, <code>list[str]</code> ids</td>
+<td>107</td>
+<td>14</td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>PydanticOutputParser</code>, <code>Literal</code> ids</td>
+<td>120</td>
+<td>1</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Every cut of the clean reply, from 0 characters to all 124.</em></p>
+<p><code>JsonOutputParser</code> raises only on the empty cut and returns a dict for the other 124. We call that <strong>the repaired truncation</strong>: a reply the model never finished arrives as a value that looks complete. With <code>list[str]</code>, 14 cuts get through as unusable answers, such as a citation cut to <code>"refund-t"</code>. With <code>Literal</code> ids, the one unusable cut is <code>"citations": []</code>, cut just after the bracket, which no <code>Literal</code> can catch. A <code>min_length=1</code> on the list would catch it, at the cost of refusing an honest &ldquo;the handbook does not say&rdquo; with no citations.</p>
+<p>The schema behind the <code>Literal</code> row, <code>CitedAnswer</code>, has two fields:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description sent to the model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>answer</code></td>
+<td>string</td>
+<td>The answer, using only the passages</td>
+</tr>
+<tr>
+<td><code>citations</code></td>
+<td>list of <code>Literal["refund-window", "refund-timing", "billing"]</code></td>
+<td>Ids of the passages the answer uses</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: The <code>CitedAnswer</code> schema. The <code>list[str]</code> row of the lab differs only in the item type.</em></p>
+<p>The three ids are fixed here because the lab has one question. In a live pipeline the retrieved ids change per question. Either build the <code>Literal</code> per request or check the ids against the retrieved set right after parsing. The check has to exist somewhere; the lab shows what happens where it does not.</p>
 <h2 id="check-that-the-instructions-arrive">Check that the instructions arrive</h2>
-<p>Format instructions only help if they reach the model. The prompt needs a <code>{format_instructions}</code> slot, filled with <code>.partial()</code> or <code>partial_variables</code>, as notebook 06a does. The instructions are long: for the two-field schema, the lab measures 748 characters from <code>PydanticOutputParser</code> and 1,301 from <code>JsonOutputParser(pydantic_object=...)</code>, sent as input tokens on every call.</p>
-<p>The optional notebook <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/07f_output_parsers_demo.ipynb" target="_blank" rel="noopener"><code>07f_output_parsers_demo.ipynb</code></a> shows the silent version of this mistake. Its <code>PydanticOutputParser</code> example calls <code>.partial(format_instructions=...)</code> on a template with no <code>{format_instructions}</code> slot. LangChain ignores the value without an error, so the model never sees the schema, and the chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.</p>
+<p>Format instructions only help if they reach the model. The prompt needs a <code>{format_instructions}</code> slot, filled with <code>.partial()</code> or <code>partial_variables</code>, as notebook 06a does. The instructions are long, and they are sent as input tokens on every call. The lab prints their length for each parser:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Parser</th>
+<th>Format instructions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>StrOutputParser</code></td>
+<td>none; the prompt has to ask for JSON in its own words</td>
+</tr>
+<tr>
+<td><code>PydanticOutputParser</code>, <code>list[str]</code> ids</td>
+<td>748 characters</td>
+</tr>
+<tr>
+<td><code>PydanticOutputParser</code>, <code>Literal</code> ids</td>
+<td>803 characters</td>
+</tr>
+<tr>
+<td><code>JsonOutputParser(pydantic_object=...)</code></td>
+<td>1,301 characters</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 6: Format instruction length for the two-field schema, from the lab.</em></p>
+<p>One of lesson 6.7&rsquo;s optional recap notebooks shows the silent version of this mistake, <strong>the dropped partial</strong>. Its <code>PydanticOutputParser</code> example calls <code>.partial(format_instructions=...)</code> on a template with no <code>{format_instructions}</code> slot. LangChain ignores the value without an error (lesson 6.5&rsquo;s silent slot), and the model never sees the schema. The chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.</p>
+<h2 id="in-practice-the-refund-answer">In practice: the refund answer</h2>
+<p>For Larkspur&rsquo;s cited answers:</p>
+<ol>
+<li>Use <code>PydanticOutputParser</code> with <code>CitedAnswer</code>, building the <code>Literal</code> from the retrieved passage ids, or check the ids right after parsing.</li>
+<li>Put <code>{format_instructions}</code> in the system message and fill it with <code>.partial()</code>; print one formatted prompt.</li>
+<li>Treat <code>OutputParserException</code> as a signal: log the raw reply, retry once, then fall back.</li>
+<li>Watch <code>finish_reason</code> from lesson 6.2, since a truncated reply is the case the repair step hides best.</li>
+</ol>
+<blockquote>
+<p><strong>Key distinction:</strong> a parser decides which failures you see. It never turns a bad reply into a good one.</p>
+</blockquote>
+<p>Lesson 6.7 moves the schema out of the prompt and into the provider&rsquo;s API.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A parser adds format instructions to the prompt and turns the reply into a value or raises. <code>JsonOutputParser</code> repairs truncated JSON, so it returns broken replies as ordinary dicts.</li>
+<li>A parser adds format instructions to the prompt and turns the reply into a value or raises. <code>JsonOutputParser</code> repairs truncated JSON and returns broken replies as ordinary dicts.</li>
 <li>A stricter schema does not make more good answers. It turns bad ones into errors a retry can catch, so state every rule in the schema, such as <code>Literal</code> passage ids, or check ids against the retrieved set.</li>
 <li>Format instructions help only if they reach the model. Give the prompt a <code>{format_instructions}</code> slot and print the formatted prompt once to confirm the schema is there.</li>
 </ul>
@@ -828,7 +1539,30 @@ chain = prompt.partial(format_instructions=parser.get_format_instructions()) | l
 </details>
 <h2 id="structured-output">Structured output</h2>
 <p class="lesson-of">Lesson 6.7: LangChain 1.x recap course, ending in a structured-output Q&amp;A bot. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/mandatory/notebook/07a_smart_bot_section1.ipynb" target="_blank" rel="noopener"><code>07a_smart_bot_section1.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/07f_output_parsers_demo.ipynb" target="_blank" rel="noopener"><code>07f_output_parsers_demo.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m06_langchain_core/optional/notebook/07g_output_parsers_final.ipynb" target="_blank" rel="noopener"><code>07g_output_parsers_final.ipynb</code></a> (optional)</p>
-<p><code>llm.with_structured_output(Schema)</code> returns a new runnable that outputs an instance of the schema. Unlike a parser, it sends the schema to the provider with the request instead of writing it into the prompt, and providers that support structured output constrain the reply to it. Notebook 07g&rsquo;s advice is to prefer it over <code>PydanticOutputParser</code> for any model that supports it.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> where <code>with_structured_output</code> puts the schema, compared with an output parser.</li>
+<li><strong>Choose</strong> between structured output and the four parsers with one decision chain.</li>
+<li><strong>Diagnose</strong> a batch that loses every answer when one input fails.</li>
+<li><strong>Copy</strong> the bot design that always returns the same type to its caller.</li>
+</ul>
+</blockquote>
+<p>Lesson 6.6 put the schema in the prompt and checked the reply afterwards. The parser could refuse a bad reply; it could not stop the model from writing one.</p>
+<p>Larkspur&rsquo;s assistant still pays for that design on every call. The format instructions for <code>CitedAnswer</code> run to 803 characters of input, and a reply that opens with a sentence of prose before the JSON still raises, as the lesson 6.6 lab shows. The rule that the reply must be JSON lives only in the prompt, where the model may ignore it.</p>
+<p><strong><code>llm.with_structured_output(Schema)</code> returns a new runnable whose output is an instance of the schema.</strong> It sends the schema to the provider with the request instead of writing it into the prompt, and providers that support structured output constrain the reply to it. Notebook 07g&rsquo;s advice is to prefer it over <code>PydanticOutputParser</code> for any model that supports it:</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant App
+    participant API as Provider API
+    Note over App: parser route
+    App-&gt;&gt;API: prompt with format instructions
+    API--&gt;&gt;App: free text
+    Note over App: parser repairs or raises
+    Note over App: structured output route
+    App-&gt;&gt;API: prompt plus schema
+    API--&gt;&gt;App: reply bound to the schema
+</pre></figure>
+<p><em>Figure 1: The two routes. The parser checks the reply after the fact; structured output tells the provider the shape before it writes.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -840,7 +1574,7 @@ chain = prompt.partial(format_instructions=parser.get_format_instructions()) | l
 <tbody>
 <tr>
 <td>Where the schema goes</td>
-<td>into the prompt, as format instructions (748 characters for the lesson 6.6 schema)</td>
+<td>into the prompt, as format instructions (748 to 803 characters for the lesson 6.6 schemas)</td>
 <td>to the provider&rsquo;s API</td>
 </tr>
 <tr>
@@ -860,7 +1594,10 @@ chain = prompt.partial(format_instructions=parser.get_format_instructions()) | l
 </tr>
 </tbody>
 </table></div>
-<p>The last row is the same for both. A schema bound to the model still lets through a made-up passage id if <code>citations</code> is <code>list[str]</code>, so the lesson 6.6 rule holds: put every rule you can into the schema, with <code>Literal</code> for ids and fixed labels.</p>
+<p><em>Table 1: The two approaches side by side.</em></p>
+<p>The last row is the same for both. A schema bound to the model still lets through a made-up passage id if <code>citations</code> is <code>list[str]</code>. The lesson 6.6 rule holds: put every rule you can into the schema, with <code>Literal</code> for ids and fixed labels. We call the gap <strong>the allowed-but-wrong value</strong>: valid against the schema, wrong for the app.</p>
+<p>Notebook 07g also binds nested schemas (a company with an address object and a product list) the same way; validation covers the whole structure.</p>
+<p>Picking the tool comes down to a few questions in order:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q1{"Provider supports&lt;br/&gt;structured output?"} -- yes --&gt; W["with_structured_output"]
     Q1 -- no --&gt; Q2{"Need typed,&lt;br/&gt;validated fields?"}
@@ -869,14 +1606,87 @@ chain = prompt.partial(format_instructions=parser.get_format_instructions()) | l
     Q3 -- yes --&gt; J["JsonOutputParser"]
     Q3 -- no --&gt; S["StrOutputParser"]
 </pre></figure>
-<p>Notebook 07a builds <code>SmartQABot</code> on this: a <code>ChatPromptTemplate</code> with a system prompt and a <code>{question}</code> slot, piped into <code>ChatOpenAI(...).with_structured_output(QAResponse)</code>. <code>QAResponse</code> has five fields: <code>answer</code>, <code>confidence</code>, <code>reasoning</code>, <code>follow_up_questions</code> and <code>sources_needed</code>. Two of its choices are worth copying, and two are worth fixing before Larkspur uses the pattern:</p>
+<p><em>Figure 2: Choosing between structured output and the parsers. Each &ldquo;no&rdquo; moves one question down.</em></p>
+<h2 id="inside-smartqabot">Inside SmartQABot</h2>
+<p>Notebook 07a builds <code>SmartQABot</code> on structured output: a <code>ChatPromptTemplate</code> with a system prompt and a <code>{question}</code> slot, piped into a chat model bound to <code>QAResponse</code>. The schema has five fields:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>answer</code></td>
+<td>string</td>
+<td>the answer</td>
+</tr>
+<tr>
+<td><code>confidence</code></td>
+<td>string</td>
+<td>asked to be high, medium or low</td>
+</tr>
+<tr>
+<td><code>reasoning</code></td>
+<td>string</td>
+<td>why the bot answered as it did</td>
+</tr>
+<tr>
+<td><code>follow_up_questions</code></td>
+<td>list of strings, empty by default</td>
+<td>suggestions for the user</td>
+</tr>
+<tr>
+<td><code>sources_needed</code></td>
+<td>boolean, false by default</td>
+<td>whether external sources would help</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: <code>QAResponse</code>, the bot&rsquo;s return type.</em></p>
+<p>Two of its choices are worth copying, and two are worth fixing before Larkspur uses the pattern:</p>
 <ul>
-<li><strong>Copy: a fallback object.</strong> <code>ask()</code> catches any exception and returns a valid <code>QAResponse</code> with <code>confidence="low"</code> and the error in <code>reasoning</code>, so the caller always gets the same type back.</li>
-<li><strong>Copy: tracing.</strong> <code>@traceable</code> sends every call to LangSmith when <code>LANGSMITH_API_KEY</code> is set, so a bad answer can be traced to its exact prompt and reply.</li>
+<li><strong>Copy: a fallback object.</strong> <code>ask()</code> catches any exception and returns a valid <code>QAResponse</code> with <code>confidence="low"</code> and the error in <code>reasoning</code>. The caller always gets the same type back.</li>
+<li><strong>Copy: tracing.</strong> <code>@traceable</code> sends every call to LangSmith when a LangSmith API key is set, and a bad answer can then be traced to its exact prompt and reply.</li>
 <li><strong>Fix: <code>confidence</code> is a <code>str</code>.</strong> Its description asks for high, medium or low, but nothing enforces it; <code>Literal["high", "medium", "low"]</code> would.</li>
-<li><strong>Fix: <code>ask_batch()</code> has no fallback.</strong> It calls <code>chain.batch(inputs)</code>, and by default <code>batch</code> raises the first exception and loses every result. Checked with a three-input batch whose middle input fails: plain <code>batch</code> raises, <code>batch(..., return_exceptions=True)</code> returns the two results with the exception in place of the middle one.</li>
+<li><strong>Fix: <code>ask_batch()</code> has no fallback.</strong> It calls <code>chain.batch(inputs)</code>, and by default <code>batch</code> raises the first exception and loses every result.</li>
 </ul>
-<p>For the lab brief, the same shape answers Larkspur&rsquo;s refund question: <code>CitedAnswer</code> from lesson 6.6 as the schema, the three passages and the question in the human message, and a fallback that says the handbook could not be checked instead of guessing.</p>
+<h3>Planted failure: the all-or-nothing batch</h3>
+<p>We checked the batch behaviour with a three-input batch whose middle input fails, using a stub step in place of the model:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>batch([1, 2, 3])</code></td>
+<td>raises the middle input&rsquo;s <code>ValueError</code>; no results returned</td>
+</tr>
+<tr>
+<td><code>batch([1, 2, 3], return_exceptions=True)</code></td>
+<td>the first and third results, with the exception object in the middle slot</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: One failing input in a batch of three, run with <code>langchain-core</code> 1.7.0.</em></p>
+<p>We call the default <strong>the all-or-nothing batch</strong>: one bad question costs the answers to the good ones. With <code>return_exceptions=True</code>, the caller can replace each exception with the same fallback object <code>ask()</code> returns.</p>
+<h2 id="in-practice-larkspurrsquos-cited-answer">In practice: Larkspur&rsquo;s cited answer</h2>
+<p>For the lab brief, the same shape answers Larkspur&rsquo;s refund question:</p>
+<ol>
+<li>Use <code>CitedAnswer</code> from lesson 6.6 as the schema, with <code>Literal</code> passage ids.</li>
+<li>Put the three passages and the question in the human message; the system message holds the rules, with no format instructions.</li>
+<li>Bind the schema with <code>with_structured_output</code> if the provider supports it, and fall back to <code>PydanticOutputParser</code> if not (Figure 2).</li>
+<li>On any exception, return a <code>CitedAnswer</code>-shaped fallback that says the handbook could not be checked, instead of guessing.</li>
+<li>Batch with <code>return_exceptions=True</code> and trace every call.</li>
+</ol>
+<blockquote>
+<p><strong>Interview tip:</strong> structured output removes a class of format failures; it does not validate meaning. Name the check you still run after it.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Prefer <code>with_structured_output</code> on models that support it. It sends the schema to the provider instead of the prompt, and the provider constrains the reply to it.</li>
@@ -886,7 +1696,7 @@ chain = prompt.partial(format_instructions=parser.get_format_instructions()) | l
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does with_structured_output differ from the Pydantic output parser in where the schema goes, and what does that buy?</summary>
-<p>It sends the schema to the provider&rsquo;s API with the request instead of writing it into the prompt as format instructions (748 characters for the lesson 6.6 schema). Providers that support structured output constrain the reply to it, so prose around the JSON, fences and trailing notes are not produced.</p>
+<p>It sends the schema to the provider&rsquo;s API with the request instead of writing it into the prompt as format instructions (748 to 803 characters for the lesson 6.6 schemas). Providers that support structured output constrain the reply to it, so prose around the JSON, fences and trailing notes are not produced.</p>
 </details>
 <details>
 <summary>2. You bind CitedAnswer with citations typed as a list of strings to the model. Can it still return a made-up passage id?</summary>
@@ -952,7 +1762,7 @@ chain = prompt.partial(format_instructions=parser.get_format_instructions()) | l
 <li>Build prompts from templates with explicit slots, and check <code>input_variables</code> and the formatted messages before the first model call.</li>
 <li>Pick the parser for which failures you want to see. Put every rule you can into the schema, so a bad reply raises instead of passing.</li>
 </ul></article>
-    <nav class="toc" aria-label="M06 sections"><details open><summary>In M06</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-1x-package-split">The 1.x package split</a></li><li><a href="#reading-an-import-error">Reading an import error</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chat-models">Chat models</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#messages">Messages</a></li><li><a href="#llm-vs-chat-model">LLM vs chat model</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#prompt-templates">Prompt templates</a></li><li><a href="#few-shot-and-composition">Few-shot and composition</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#output-parsers">Output parsers</a></li><li><a href="#check-that-the-instructions-arrive">Check that the instructions arrive</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#structured-output">Structured output</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M06 sections"><details open><summary>In M06</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-1x-package-split">The 1.x package split</a></li><li><a href="#reading-an-import-error">Reading an import error</a></li><li><a href="#in-practice-the-refund-script">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#two-sdks-two-response-shapes">Two SDKs, two response shapes</a></li><li><a href="#chat-models">Chat models</a></li><li><a href="#in-practice-comparing-two-providers">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-three-open-backends">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-request">Following one request</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#messages">Messages</a></li><li><a href="#llm-vs-chat-model">LLM vs chat model</a></li><li><a href="#in-practice-the-follow-up-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#prompt-templates">Prompt templates</a></li><li><a href="#few-shot-and-composition">Few-shot and composition</a></li><li><a href="#in-practice-the-answer-prompt">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#output-parsers">Output parsers</a></li><li><a href="#check-that-the-instructions-arrive">Check that the instructions arrive</a></li><li><a href="#in-practice-the-refund-answer">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#structured-output">Structured output</a></li><li><a href="#inside-smartqabot">Inside SmartQABot</a></li><li><a href="#in-practice-larkspurrsquos-cited-answer">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

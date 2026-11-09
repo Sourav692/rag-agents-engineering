@@ -343,7 +343,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>This is the RAG chain from notebook 04a, and every box in it is a Runnable. The dict fans the question out to two branches and hands one dict to the prompt; each later step takes the previous step&rsquo;s output as its only input. Because the whole pipe is also a Runnable, the chain you build here can sit inside a bigger pipe, a <code>RunnableBranch</code> or a LangGraph node without changes.</p>
 <h2 id="runnable-interface">Runnable interface</h2>
 <p class="lesson-of">Lesson 7.1: LCEL and the Runnable interface. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/01a_LCEL_Introduction.ipynb" target="_blank" rel="noopener"><code>01a_LCEL_Introduction.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/01b_Runnables.ipynb" target="_blank" rel="noopener"><code>01b_Runnables.ipynb</code></a></p>
-<p>A Runnable is any LangChain component that takes one input and returns one output through a fixed set of methods. A prompt template, a chat model, an output parser, a retriever and a chain built from them all have the same methods, so code that runs one runs any of them.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what makes a component a Runnable and which methods every Runnable shares.</li>
+<li><strong>Pass</strong> several values through an interface that takes exactly one input.</li>
+<li><strong>Diagnose</strong> a broken pipe by invoking each step alone and reading the type it returns.</li>
+<li><strong>Predict</strong> what <code>batch</code> and <code>stream</code> do before you rely on them.</li>
+</ul>
+</blockquote>
+<p><a href="../../../m06_langchain_core/mandatory/theory/index.html">M06</a> built the pieces of a LangChain app one at a time: a chat model, a prompt template, an output parser. Each had its own way of being called. The Larkspur Cloud support assistant needs all of them at once, plus a retriever over the handbook, and the first version of its refund chain fails with <code>AttributeError: 'AIMessage' object has no attribute 'upper'</code>. Nothing in that message says which of the four steps broke. This lesson gives every step the same shape, and that shape is what lets you find the broken step in one pass.</p>
+<p><strong>A Runnable is any LangChain component that takes one input and returns one output through a fixed set of methods.</strong> A prompt template, a chat model, an output parser, a retriever and a chain built from them all have the same methods. Code that runs one of them runs any of them. <strong>LCEL</strong>, the LangChain Expression Language, is the pipe syntax that joins Runnables into a chain; lesson 7.2 opens it up. The methods every Runnable shares:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -355,19 +365,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </thead>
 <tbody>
 <tr>
-<td><code>invoke(x)</code></td>
+<td><code>invoke</code></td>
 <td>one input</td>
 <td>one output</td>
 <td>a single request</td>
 </tr>
 <tr>
-<td><code>batch([x1, x2, …])</code></td>
+<td><code>batch</code></td>
 <td>a list of inputs</td>
-<td>a list of outputs, in order</td>
+<td>a list of outputs, in input order</td>
 <td>many independent requests, run on a thread pool</td>
 </tr>
 <tr>
-<td><code>stream(x)</code></td>
+<td><code>stream</code></td>
 <td>one input</td>
 <td>an iterator of chunks</td>
 <td>showing tokens as the model writes them</td>
@@ -376,53 +386,210 @@ th:last-child, td:last-child { padding-right: 0; }
 <td><code>ainvoke</code>, <code>abatch</code>, <code>astream</code></td>
 <td>the same</td>
 <td>awaitables and async iterators</td>
-<td>async servers such as FastAPI</td>
+<td>async servers</td>
 </tr>
 </tbody>
 </table></div>
-<p>Each method also takes a <code>config</code> argument. It carries tags, metadata and callbacks for tracing, and <code>max_concurrency</code>, which caps how many <code>batch</code> calls run at once.</p>
-<p><strong>One input, always.</strong> <code>invoke</code> passes exactly one argument. Notebook 01b shows the three ways to get more than one value in: a tuple, a dict, or a lambda that unpacks a dict for an existing function (<code>RunnableLambda(lambda d: sum_values(d["a"], d["b"]))</code>). A function with two parameters fails: <code>RunnableLambda(lambda a, b: a).invoke(1)</code> raises <code>TypeError: missing 1 required positional argument: 'b'</code>. Dicts are the common choice, because prompt templates read their variables from a dict and <code>RunnableParallel</code> returns one.</p>
-<p><strong>Three helpers cover most glue code.</strong></p>
-<ul>
-<li><code>RunnablePassthrough()</code> returns its input unchanged. It keeps the original question available next to a transformed copy.</li>
-<li><code>RunnableLambda(f)</code> wraps any Python function so it can sit in a pipe: cleaning input, formatting retrieved documents, extracting a key.</li>
-<li><code>RunnableParallel(a=..., b=...)</code> runs several Runnables on the same input and returns a dict of their outputs. Lesson 7.3 covers it in depth.</li>
-</ul>
-<p><strong>Each step changes the type.</strong> Notebook 02a invokes the pieces of <code>prompt | model | parser</code> one at a time. On a Larkspur question the data changes shape at every step:</p>
+<p><em>Table 1: The Runnable methods. Every component and every chain has all of them.</em></p>
+<p>Each method also takes an optional <code>config</code>. It carries tags, metadata and callbacks for tracing, and <code>max_concurrency</code>, which caps how many <code>batch</code> calls run at once. The same <code>config</code> works on a single prompt and on a ten-step chain, which is why tracing and rate limits attach once rather than per component.</p>
+<h3>One input, always</h3>
+<p><code>invoke</code> passes exactly one argument. When a step needs two values, they travel together in one container. Notebook 01b shows three ways: a tuple the function unpacks, a dict the function reads by key, and a small lambda that takes a dict and calls an existing two-parameter function with its two keys. Dicts win in practice. Prompt templates read their variables from a dict, and <code>RunnableParallel</code> returns one, which lets a dict flow from step to step without conversion.</p>
+<p>We planted three wrong inputs and ran them against the installed <code>langchain-core</code> 1.7, with a fake chat model standing in for a real one:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted input</th>
+<th>What came back</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A lambda with two parameters, invoked with <code>1</code></td>
+<td><code>TypeError: missing 1 required positional argument: 'b'</code></td>
+<td>the Runnable passes one argument and never splits it</td>
+</tr>
+<tr>
+<td>A prompt that declares <code>{question}</code>, given <code>{"q": ...}</code></td>
+<td><code>KeyError: Input to ChatPromptTemplate is missing variables {'question'}</code></td>
+<td>the dict keys must match the template&rsquo;s variables</td>
+</tr>
+<tr>
+<td>A function that upper-cases a string, placed right after the model</td>
+<td><code>AttributeError: 'AIMessage' object has no attribute 'upper'</code></td>
+<td>the model returns a message object, not a string</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Three planted input errors and the exception each raises.</em></p>
+<p>The third row is the Larkspur refund chain&rsquo;s bug. It belongs to a family worth naming.</p>
+<h3>Each step changes the type</h3>
+<p>Notebook 02a invokes the pieces of <code>prompt | model | parser</code> one at a time before building anything. On a Larkspur question the data changes shape at every arrow:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     I[/"dict&lt;br/&gt;{question: …}"/] --&gt; P[Prompt] --&gt;|ChatPromptValue| M[Chat model] --&gt;|AIMessage| S[StrOutputParser] --&gt; O[/str/]
 </pre></figure>
-<p>Most pipe errors are a type mismatch at one of these arrows: a function that expects a string receives a dict, or a prompt receives an <code>AIMessage</code>. Invoke each step alone and print what it returns, as notebook 02a does before it builds anything else.</p>
-<p><strong><code>batch</code> and <code>stream</code> come for free, with two details.</strong> The default <code>batch</code> runs <code>invoke</code> on a thread pool, and with a single input it skips the pool and runs inline, so a one-item batch shows no speed-up. A <code>RunnableLambda</code> that wraps a generator streams each <code>yield</code>: notebook 01b&rsquo;s <code>streaming_processor</code> yields four strings for <code>"building scalable data solutions"</code>, one per word. Called with <code>invoke</code> instead, the same Runnable returns all four strings added together into one, which is rarely what you want.</p>
-<p>For the Larkspur assistant this means one test harness covers every part. The same three lines that check the refund prompt (<code>invoke</code>, print, assert) check the retriever, the parser and the finished chain.</p>
+<p><em>Figure 1: The type that crosses each arrow of a prompt, model and parser chain.</em></p>
+<p>A <strong>seam mismatch</strong> is a step that receives a different type from the one it was written for. A function that expects a string receives a dict, a prompt receives an <code>AIMessage</code>, or a string function receives the model&rsquo;s message before the parser has turned it into text. Most pipe errors are seam mismatches, and the exception names the type at the broken seam, never the step.</p>
+<p>The cure is the same three moves for every step: invoke it alone, print what it returns, check the type against what the next step expects. We traced the refund chain that way, with a fake model that always gives the same reply (<em>Illustrative</em>):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Receives</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prompt</td>
+<td><code>{"question": "How long does a refund take?"}</code></td>
+<td><code>ChatPromptValue</code> holding one human message</td>
+</tr>
+<tr>
+<td>Chat model</td>
+<td>that <code>ChatPromptValue</code></td>
+<td><code>AIMessage</code> with the reply text</td>
+</tr>
+<tr>
+<td><code>StrOutputParser</code></td>
+<td>that <code>AIMessage</code></td>
+<td>the reply as a plain <code>str</code></td>
+</tr>
+<tr>
+<td>Upper-case function</td>
+<td>a <code>str</code>, once it sits after the parser</td>
+<td>the same text in capitals</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The refund chain traced step by step. Moving the upper-case function after the parser fixes the seam mismatch from Table 2.</em></p>
+<h3>Three helpers for glue code</h3>
+<p>Most of the code between prompts and models is glue, and three Runnables cover nearly all of it:</p>
+<ul>
+<li><strong><code>RunnablePassthrough</code></strong>: returns its input unchanged. It keeps the original question available beside a transformed copy.</li>
+<li><strong><code>RunnableLambda</code></strong>: wraps any Python function so it can sit in a pipe, for cleaning input, formatting retrieved documents or pulling out one key.</li>
+<li><strong><code>RunnableParallel</code></strong>: runs several Runnables on the same input and returns a dict of their outputs, one key per branch. Lesson 7.3 covers it in depth.</li>
+</ul>
+<p>Notebook 01b combines the first two before a prompt. One branch passes the text through untouched, the other keeps the first three words longer than four characters. On &ldquo;Building scalable data platforms requires careful architecture planning&rdquo; the keyword branch returns <code>building</code>, <code>scalable</code> and <code>platforms</code>, and the prompt receives both the original sentence and that list.</p>
+<h3>Batch and stream come with it</h3>
+<p><code>batch</code> and <code>stream</code> need no extra code, but each has a detail that changes what you see.</p>
+<p>The default <code>batch</code> runs <code>invoke</code> once per input on a thread pool. With no <code>max_concurrency</code> set, the pool uses Python&rsquo;s default worker count, the smaller of 32 and the CPU count plus 4 (19 workers on the 15-core machine we ran on). With exactly one input, <code>batch</code> skips the pool and runs inline on the calling thread. The installed source checks the count before it builds an executor:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    B["batch(inputs)"] --&gt; Q{"One input?"}
+    Q --&gt;|yes| I["invoke inline&lt;br/&gt;no thread pool"]
+    Q --&gt;|no| C{"max_concurrency&lt;br/&gt;set?"}
+    C --&gt;|yes| N["pool of that size"]
+    C --&gt;|no| D["Python's default pool&lt;br/&gt;min(32, CPUs + 4)"]
+</pre></figure>
+<p><em>Figure 2: How <code>batch</code> chooses where calls run. A one-item batch shows no speed-up by design.</em></p>
+<p>A failure in one input fails the whole batch unless you pass <code>return_exceptions=True</code>. With it, a list of three inputs whose second raises returns the first result, the exception object and the third result, each in its slot.</p>
+<p>A <code>RunnableLambda</code> that wraps a generator streams each <code>yield</code>. Notebook 01b&rsquo;s word processor upper-cases one word at a time:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Call</th>
+<th>On &ldquo;building scalable data solutions&rdquo;</th>
+<th>What you get</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stream</code></td>
+<td>4 chunks</td>
+<td>&ldquo;Processed: BUILDING&rdquo;, then &ldquo;Processed: BUILDING SCALABLE&rdquo;, and so on up to all four words</td>
+</tr>
+<tr>
+<td><code>invoke</code></td>
+<td>1 string</td>
+<td>the four chunks added together end to end, with no separator</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: The same generator Runnable called two ways, from a run of the notebook&rsquo;s function.</em></p>
+<p>The <code>invoke</code> result is the <strong>concatenated stream</strong>: a Runnable combines streamed chunks by adding them, which suits token deltas and garbles cumulative snapshots. A generator that yields growing snapshots belongs behind <code>stream</code> only.</p>
+<h2 id="in-practice-testing-each-step">In practice: testing each step</h2>
+<p>For the Larkspur assistant the shared interface turns into one way of testing every part:</p>
+<ol>
+<li>Invoke the refund prompt with a sample question and check that it returns a <code>ChatPromptValue</code> with the question filled in.</li>
+<li>Invoke the retriever with the same question and check that the refund paragraph of the handbook comes back.</li>
+<li>Invoke the parser on a hand-written <code>AIMessage</code> and check that it returns a string.</li>
+<li>Invoke the finished chain and check the answer. When it fails, steps 1 to 3 have already shown which seam is wrong.</li>
+</ol>
+<p>The same three lines (invoke, print, assert) work on each of them because each is a Runnable. Lesson 7.2 shows how the pipe operator turns those separate steps into one Runnable without losing that property.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Every Runnable takes one input through the same methods: <code>invoke</code>, <code>batch</code>, <code>stream</code> and their async forms. Pass several values as a dict, which prompt templates and <code>RunnableParallel</code> already use.</li>
-<li><code>RunnablePassthrough</code>, <code>RunnableLambda</code> and <code>RunnableParallel</code> cover most glue code. A <code>RunnableLambda</code> around a generator streams each <code>yield</code>.</li>
-<li>The data changes type at every step of a pipe. When a chain fails, invoke each step alone and print what it returns.</li>
+<li>Every Runnable takes one input through the same methods: <code>invoke</code>, <code>batch</code>, <code>stream</code> and their async forms. Pass several values as a dict, which prompt templates read and <code>RunnableParallel</code> returns.</li>
+<li>Most pipe failures are seam mismatches. Invoke each step alone, print what it returns, and compare the type with what the next step expects.</li>
+<li><code>batch</code> uses a thread pool except for a single input, and fails as a whole unless <code>return_exceptions=True</code>. A generator <code>RunnableLambda</code> streams each <code>yield</code>, and <code>invoke</code> adds those chunks together.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why can the same few test lines check the Larkspur refund prompt, the retriever, the parser and the finished chain?</summary>
-<p>Each of them is a Runnable with the same fixed methods: <code>invoke</code>, <code>batch</code>, <code>stream</code> and their async forms. Code that runs one runs any of them, so the same three lines (<code>invoke</code>, print, assert) work on every part.</p>
+<p>Each of them is a Runnable with the same fixed methods: <code>invoke</code>, <code>batch</code>, <code>stream</code> and their async forms. Code that runs one runs any of them, which is why the same three lines (invoke, print, assert) work on every part.</p>
 </details>
 <details>
 <summary>2. An existing function takes two parameters, a and b. How do you put it in a pipe?</summary>
-<p>Wrap it in a lambda that unpacks a dict: <code>RunnableLambda(lambda d: sum_values(d["a"], d["b"]))</code>. <code>invoke</code> passes exactly one argument, so a two-parameter lambda raises <code>TypeError</code> for the missing <code>b</code>. Dicts are the usual choice because prompt templates read their variables from one and <code>RunnableParallel</code> returns one.</p>
+<p>Wrap it in a small lambda that takes one dict and calls the function with the dict&rsquo;s <code>a</code> and <code>b</code> values. <code>invoke</code> passes exactly one argument, and a two-parameter lambda raises <code>TypeError</code> for the missing <code>b</code>. Dicts are the usual container because prompt templates read their variables from one and <code>RunnableParallel</code> returns one.</p>
 </details>
 <details>
-<summary>3. A pipe of prompt, model and your own formatting function fails with a type error. How do you find the broken step?</summary>
-<p>Invoke each step alone and print what it returns, as notebook 02a does. The data changes shape at every arrow (dict, then <code>ChatPromptValue</code>, then <code>AIMessage</code>, then <code>str</code>), and most pipe errors are a mismatch at one of them, such as a function that expects a string receiving an <code>AIMessage</code>.</p>
+<summary>3. A pipe of prompt, model and your own string function fails with an AttributeError on AIMessage. Where is the bug, and how do you confirm it?</summary>
+<p>It is a seam mismatch: the string function sits right after the model, which returns an <code>AIMessage</code>, not a string. Invoke each step alone and print what it returns (dict, then <code>ChatPromptValue</code>, then <code>AIMessage</code>, then <code>str</code>). Moving the function after <code>StrOutputParser</code> gives it the string it expects.</p>
 </details>
 <h2 id="pipe-composition">Pipe composition</h2>
 <p class="lesson-of">Lesson 7.2: LCEL deep dive. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/02a_LCEL_Deepdive.ipynb" target="_blank" rel="noopener"><code>02a_LCEL_Deepdive.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/optional/notebook/02b_LCEL_and_Runnables.ipynb" target="_blank" rel="noopener"><code>02b_LCEL_and_Runnables.ipynb</code></a> (optional)</p>
-<p>The <code>|</code> in <code>prompt | model | parser</code> is ordinary Python. <code>a | b</code> calls <code>a.__or__(b)</code>, the same way <code>2 + 4</code> calls <code>(2).__add__(4)</code>. LangChain&rsquo;s <code>Runnable.__or__</code> returns a <code>RunnableSequence</code> that holds both sides, and the sequence&rsquo;s <code>invoke</code> runs the first step and feeds its output to the next.</p>
-<p>Notebook 02a proves this by building the mechanism from scratch. <code>CRunnable.__or__</code> returns a <code>CRunnableSequence(self, other)</code>, and its <code>invoke</code> is <code>self.second.invoke(self.first.invoke(data))</code>. Three small steps piped together give:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what Python does when two Runnables are joined with <code>|</code>, and what object comes back.</li>
+<li><strong>Predict</strong> the output of a dict placed inside a pipe, including nested pipes and plain lambdas.</li>
+<li><strong>Choose</strong> between <code>RunnableParallel</code> and <code>.assign()</code> when a later step still needs the original input.</li>
+<li><strong>Trace</strong> the Larkspur RAG chain from question string to prompt variables.</li>
+</ul>
+</blockquote>
+<p>Lesson 7.1 made every step a Runnable with one input and one output. A chain is several of them joined with <code>|</code>, and the Larkspur team&rsquo;s RAG chain looks harmless: a dict that fetches context and keeps the question, then a prompt, a model and a parser. Then someone adds a step that computes a confidence score as a <code>RunnableParallel</code>, and the next step fails with a <code>KeyError</code> for <code>question</code>. The question was there one step earlier. This page explains where it went, starting with what <code>|</code> actually does.</p>
+<h3>The pipe is a Python operator</h3>
+<p>The <code>|</code> in <code>prompt | model | parser</code> is ordinary Python. <code>a | b</code> calls <code>a.__or__(b)</code>, the same way <code>2 + 4</code> calls <code>(2).__add__(4)</code>. A class decides what its operators mean: notebook 02a&rsquo;s toy <code>StupidAdder</code> makes <code>5 + 10</code> return 57 by adding 42 on every sum. LangChain&rsquo;s <code>Runnable.__or__</code> returns a <code>RunnableSequence</code> that holds both sides, and the sequence&rsquo;s <code>invoke</code> runs the first step and feeds its output to the next.</p>
+<p>Notebook 02a proves this by building the mechanism from scratch. Its <code>CRunnable.__or__</code> returns a <code>CRunnableSequence</code> holding the two sides, and the sequence&rsquo;s <code>invoke</code> hands the first step&rsquo;s result to the second. Three small steps piped together give:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     I[/10/] --&gt; A[AddTen] --&gt;|20| B[MultiplyByTwo] --&gt;|40| C[ConvertToString] --&gt; O[/"'Result: 40'"/]
 </pre></figure>
-<p>LangChain&rsquo;s real <code>RunnableSequence</code> works the same way and adds what the toy lacks: <code>batch</code>, <code>stream</code> and async on the whole pipe, tracing of every step, and flattening, so <code>(a | b) | c</code> is one sequence of three steps rather than a sequence nested in a sequence.</p>
-<p><strong>A dict in a pipe becomes a <code>RunnableParallel</code>.</strong> When the left side of <code>|</code> is a plain dict, Python calls the Runnable&rsquo;s <code>__ror__</code> instead, and LangChain turns the dict into a <code>RunnableParallel</code>. Each value runs on the same input and the output is a dict with the same keys. Notebook 02a&rsquo;s runs, which you can repeat without an API key:</p>
+<p><em>Figure 1: The notebook&rsquo;s hand-built pipe. Each arrow carries the previous step&rsquo;s output; running it prints 10, 20 and 40 before returning &ldquo;Result: 40&rdquo;.</em></p>
+<p>LangChain&rsquo;s real <code>RunnableSequence</code> works the same way and adds what the toy lacks:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Toy <code>CRunnableSequence</code></th>
+<th>LangChain <code>RunnableSequence</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invoke</code> feeds each output forward</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>batch</code>, <code>stream</code> and async on the whole pipe</td>
+<td>✗</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>A traced child run per step</td>
+<td>✗</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Flattening: <code>(a \| b) \| c</code> is one sequence of three steps</td>
+<td>✗, it nests</td>
+<td>✓, we checked: 3 steps</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: What the library sequence adds to the bare operator.</em></p>
+<p>Flattening matters when you read traces. A chain assembled from smaller chains still shows one flat list of steps, and each step keeps its own latency.</p>
+<h3>A dict in a pipe runs in parallel</h3>
+<p>When the left side of <code>|</code> is a plain dict, Python asks the Runnable on the right through <code>__ror__</code>, and LangChain turns the dict into a <code>RunnableParallel</code>. A dict on the right side is converted the same way. Each value runs on the same input, and the output is a dict with the same keys. We reran notebook 02a&rsquo;s cells, which need no API key:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -433,43 +600,106 @@ th:last-child, td:last-child { padding-right: 0; }
 </thead>
 <tbody>
 <tr>
-<td><code>RunnableParallel({"x": RunnablePassthrough(), "y": RunnablePassthrough()})</code></td>
+<td><code>x</code> and <code>y</code> both <code>RunnablePassthrough()</code></td>
 <td><code>"hello"</code></td>
 <td><code>{'x': 'hello', 'y': 'hello'}</code></td>
 </tr>
 <tr>
-<td>same, with <code>"y": lambda z: z["input2"]</code></td>
+<td>same, with <code>y</code> a plain lambda reading <code>input2</code></td>
 <td><code>{"input": "hello", "input2": "goodbye"}</code></td>
 <td><code>{'x': {'input': 'hello', 'input2': 'goodbye'}, 'y': 'goodbye'}</code></td>
 </tr>
 <tr>
-<td><code>"x": RunnablePassthrough() \| RunnableLambda(find_keys_to_uppercase)</code></td>
+<td><code>x</code> becomes a pipe: passthrough, then a function that upper-cases <code>input</code></td>
 <td>the same dict</td>
 <td><code>{'x': 'HELLO', 'y': 'goodbye'}</code></td>
 </tr>
 <tr>
-<td><code>RunnableParallel({"x": RunnablePassthrough()}).assign(extra=RunnableLambda(lambda _: 100))</code></td>
+<td><code>x</code> a passthrough, then <code>.assign(extra=...)</code> returning 100</td>
 <td>the same dict</td>
 <td><code>{'x': {'input': 'hello', 'input2': 'goodbye'}, 'extra': 100}</code></td>
 </tr>
 </tbody>
 </table></div>
-<p>Two rules follow from the table. A plain lambda in a dict is wrapped in a <code>RunnableLambda</code> for you. A branch can be a pipe of its own, so pipes nest inside dicts and dicts inside pipes.</p>
-<p><strong><code>.assign()</code> adds keys and keeps the rest.</strong> <code>RunnableParallel</code> replaces its input with the new dict; <code>.assign(key=runnable)</code> (or <code>RunnablePassthrough.assign(...)</code>) computes the new key from the current dict and returns the old keys with it. This is how a pipe carries the question forward while later steps add <code>context</code>, then <code>answer</code>, then <code>sources</code>.</p>
-<p><strong>Finished chains compose like any step.</strong> Notebook 02a pipes the <code>.assign()</code> chain into a second chain that reads <code>extra</code> and upper-cases it; the result is the string <code>'100'</code>. Optional notebook 02b applies the same pieces to a RAG chain over a vector store.</p>
-<p>For Larkspur, the RAG chain from lesson 7.4 is the dict rule in action:</p>
-<pre class="sheet code"><code class="language-python">rag_chain = (
-    {&quot;context&quot;: retriever | format_docs, &quot;question&quot;: RunnablePassthrough()}
-    | prompt | llm | StrOutputParser()
-)
-rag_chain.invoke(&quot;How long does a refund take?&quot;)
-</code></pre>
-<p>The question string goes to both dict values. The retriever turns it into Documents and <code>format_docs</code> joins them into one string; the passthrough keeps the question as it is. The prompt receives <code>{"context": ..., "question": ...}</code>, which is exactly the pair of variables it declares.</p>
+<p><em>Table 2: The notebook&rsquo;s <code>RunnableParallel</code> runs, reproduced offline.</em></p>
+<p>Two rules follow from the table. A plain lambda in a dict is wrapped in a <code>RunnableLambda</code> for you. A branch can be a pipe of its own, which means pipes nest inside dicts and dicts inside pipes.</p>
+<h3>Adding a key, keeping the rest</h3>
+<p>Here is the bug from the opening. A <code>RunnableParallel</code> <strong>replaces</strong> its input with the dict it builds. <code>.assign(key=runnable)</code>, on <code>RunnablePassthrough</code> or on a parallel, computes the new key from the current dict and returns the old keys with it. On the input <code>{"q": "refund?"}</code> with a branch that counts characters:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RunnableParallel(n=...)</code></td>
+<td><code>{'n': 7}</code></td>
+</tr>
+<tr>
+<td><code>RunnablePassthrough.assign(n=...)</code></td>
+<td><code>{'q': 'refund?', 'n': 7}</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Parallel replaces the input; assign extends it. Both runs are from the installed library.</em></p>
+<p>We call the parallel case the <strong>lost question</strong>: a key that a later step needs is dropped because an intermediate step rebuilt the dict from scratch. <code>.assign()</code> is how a pipe carries the question forward while later steps add <code>context</code>, then <code>answer</code>, then <code>sources</code>.</p>
+<p>Finished chains compose like any step. Notebook 02a pipes the <code>.assign()</code> chain from Table 2 into a second chain that reads <code>extra</code> and upper-cases it as text; the result is the string <code>'100'</code>. Optional notebook 02b applies the same pieces to a RAG chain over a vector store.</p>
+<h2 id="in-practice-the-larkspur-rag-chain">In practice: the Larkspur RAG chain</h2>
+<p>The Larkspur RAG chain from lesson 7.4 is the dict rule in action. It starts with a dict of two branches, then a prompt, a model and a string parser:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Question string"/] --&gt; C["context branch&lt;br/&gt;retriever, then join"]
+    Q --&gt; P["question branch&lt;br/&gt;passthrough"]
+    C --&gt; PR["Prompt&lt;br/&gt;{context, question}"]
+    P --&gt; PR
+    PR --&gt; M["Model, then&lt;br/&gt;string parser"]
+</pre></figure>
+<p><em>Figure 2: The question fans out to two branches, which meet again as the prompt&rsquo;s two variables.</em></p>
+<p>We traced it with a stub retriever over two sentences of the Larkspur refunds section and a fake model (<em>Illustrative</em>):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Receives</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dict (a <code>RunnableParallel</code>)</td>
+<td>&ldquo;How long does a refund take?&rdquo;</td>
+<td><code>{context: ..., question: ...}</code></td>
+</tr>
+<tr>
+<td>Context branch</td>
+<td>the same string</td>
+<td>the retrieved paragraphs joined with blank lines into one string</td>
+</tr>
+<tr>
+<td>Question branch</td>
+<td>the same string</td>
+<td>the string unchanged</td>
+</tr>
+<tr>
+<td>Prompt</td>
+<td>that dict</td>
+<td>one message with the context and the question filled in</td>
+</tr>
+<tr>
+<td>Model and parser</td>
+<td>that message</td>
+<td>the answer as a string</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: The Larkspur RAG chain traced step by step.</em></p>
+<p>The prompt receives exactly the two variables it declares. Lesson 7.3 builds the shapes that come next: pipelines that keep every intermediate key, fan-outs that merge, and routers.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The <code>|</code> operator calls <code>__or__</code>, which returns a flattened <code>RunnableSequence</code> that feeds each step&rsquo;s output to the next and adds batch, streaming, async and tracing.</li>
 <li>A plain dict in a pipe becomes a <code>RunnableParallel</code>: every value runs on the same input, and lambdas are wrapped for you. Pipes nest inside dicts and dicts inside pipes.</li>
-<li>Use <code>.assign()</code> to add a key while keeping the rest, so the question travels forward as later steps add context, answer and sources.</li>
+<li><code>RunnableParallel</code> replaces its input. Use <code>.assign()</code> to add a key while keeping the rest, or a later step meets the lost question.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -478,7 +708,7 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
 </details>
 <details>
 <summary>2. The Larkspur RAG chain starts with a plain dict of context and question. What does each value receive, and what reaches the prompt?</summary>
-<p>The dict becomes a <code>RunnableParallel</code>, so the question string goes to both values. The retriever turns it into Documents and <code>format_docs</code> joins them into one string, while the passthrough keeps the question as it is. The prompt receives <code>{"context": ..., "question": ...}</code>, exactly the two variables it declares.</p>
+<p>The dict becomes a <code>RunnableParallel</code>, and the question string goes to both values. The retriever turns it into documents that are joined into one string, while the passthrough keeps the question as it is. The prompt receives a dict with <code>context</code> and <code>question</code>, exactly the two variables it declares.</p>
 </details>
 <details>
 <summary>3. A later step needs the original question, but the RunnableParallel before it replaced its input. What should you use instead?</summary>
@@ -486,9 +716,53 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
 </details>
 <h2 id="runnableparallel--branch">RunnableParallel / Branch</h2>
 <p class="lesson-of">Lesson 7.3: Branching, routing and merging chains. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/03a_Branching_Routing_Merging_Chains.ipynb" target="_blank" rel="noopener"><code>03a_Branching_Routing_Merging_Chains.ipynb</code></a></p>
-<p>A straight pipe runs one step after another. Notebook 03a builds the three other shapes a chain needs, each from the pieces of lessons 7.1 and 7.2: a pipeline that keeps every intermediate result, a fan-out that merges, and a router.</p>
-<p><strong>Linking: <code>RunnablePassthrough.assign</code> keeps the trail.</strong> The notebook&rsquo;s IT-support pipeline runs four LLM chains in order: detect the message&rsquo;s language, translate it to English, write a resolution, translate the resolution back. Each step is an <code>.assign()</code>, so the output dict holds <code>orig_msg</code>, <code>orig_lang</code>, <code>trans_msg</code>, <code>trans_response</code> and <code>orig_response</code>, and the last step can still read <code>orig_lang</code> from the first. <code>final_chain.map()</code> runs the pipeline over all four queued messages at once: 16 model calls, in 4 rounds rather than 16, because the four messages run side by side while each message&rsquo;s four steps stay in order. (Counted by running the notebook&rsquo;s chain shapes with a stub model in place of <code>ChatOpenAI</code>.)</p>
-<p><strong>Branching and merging: <code>RunnableParallel</code>, then one more chain.</strong></p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Build</strong> a multi-step pipeline that keeps every intermediate result with <code>.assign()</code>.</li>
+<li><strong>Count</strong> the model calls and rounds of a fan-out and merge.</li>
+<li><strong>Explain</strong> how <code>RunnableBranch</code> picks a chain, and why the order of its conditions decides ties.</li>
+<li><strong>Design</strong> a default branch that surfaces classifier drift instead of hiding it.</li>
+</ul>
+</blockquote>
+<p>Lesson 7.2 showed that a dict inside a pipe runs its values in parallel and that <code>.assign()</code> keeps old keys. A straight pipe still does one thing in one order. The Larkspur support desk needs more: tickets arrive in Spanish and French and must be answered in the customer&rsquo;s language, sales wants a plan comparison written from three angles at once, and every ticket must reach the chain that holds the right policy. On the first day of routing, a ticket labelled &ldquo;Refund or outage&rdquo; goes to the refund chain, and nobody notices that the outage was never handled. Notebook 03a builds the three shapes these jobs need, each from the pieces of lessons 7.1 and 7.2.</p>
+<h3>Linking: keep the trail</h3>
+<p>The notebook&rsquo;s IT-support pipeline runs four model chains in order. Each step is a <code>RunnablePassthrough.assign()</code>, which means each one adds a key and keeps every key before it:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Reads</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Detect the language</td>
+<td><code>orig_msg</code></td>
+<td><code>orig_lang</code></td>
+</tr>
+<tr>
+<td>Translate to English</td>
+<td><code>orig_msg</code>, <code>orig_lang</code></td>
+<td><code>trans_msg</code></td>
+</tr>
+<tr>
+<td>Write a resolution</td>
+<td><code>trans_msg</code></td>
+<td><code>trans_response</code></td>
+</tr>
+<tr>
+<td>Translate the reply back</td>
+<td><code>trans_response</code>, <code>orig_lang</code></td>
+<td><code>orig_response</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The four linked steps of notebook 03a. The last step still reads <code>orig_lang</code> from the first.</em></p>
+<p><code>final_chain.map()</code> runs the pipeline over the notebook&rsquo;s queue of four messages at once. We ran the same chain shape with a stub that sleeps in place of the model: 16 model calls in 4 rounds rather than 16, because the four messages run side by side while each message&rsquo;s four steps stay in order. A <strong>round</strong> here is one wait on the model; calls in the same round run at the same time.</p>
+<h3>Fan-out, then merge</h3>
+<p>Some jobs split into independent parts that meet again. The notebook writes a report on a topic from three branches:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
     T[/"{topic}"/] --&gt; PAR
     subgraph PAR["RunnableParallel, round 1"]
@@ -499,8 +773,9 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
     end
     PAR --&gt;|"one dict"| M["merge_chain, round 2"] --&gt; R[/Report/]
 </pre></figure>
-<p>The three LLM branches share one input and run at the same time; <code>itemgetter('topic')</code> copies the topic through without a model call. The merge prompt reads all four keys and writes the report. That is 4 model calls in 2 rounds, so the wall time is the slowest branch plus the merge. A Larkspur version compares plans: description, pros and cons of the annual plan in parallel, then one call that writes the comparison table.</p>
-<p><strong>Routing: <code>RunnableBranch</code> runs the first true condition.</strong></p>
+<p><em>Figure 1: Three model branches run at once, and one merge call reads all four keys.</em></p>
+<p>The three model branches share one input and run at the same time. <code>itemgetter('topic')</code> copies the topic through without a model call, which lets the merge prompt name it. The merge prompt reads all four keys and writes the report. That is 4 model calls in 2 rounds, confirmed with the same stub, and the wall time is the slowest branch plus the merge. A Larkspur version compares plans: description, pros and cons of the annual plan in parallel, then one call that writes the comparison table.</p>
+<h3>Routing with RunnableBranch</h3>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     I[/"{instruction, review}"/] --&gt; CL["classifier_chain&lt;br/&gt;returns one word"]
     CL --&gt; Q1{"'summarize'&lt;br/&gt;in label?"}
@@ -511,35 +786,164 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
     Q3 --&gt;|yes| E[email_chain]
     Q3 --&gt;|no| DF["default_answer&lt;br/&gt;no model call"]
 </pre></figure>
-<p><code>RunnableBranch((cond1, chain1), (cond2, chain2), …, default)</code> takes <code>(condition, Runnable)</code> pairs and a default. It tests the conditions in order, runs the first whose condition returns true, and runs the default when none does. It needs at least one pair and a default: <code>RunnableBranch(f)</code> raises <code>ValueError: RunnableBranch requires at least two branches</code>. In the notebook a dict runs the classifier and copies <code>instruction</code>, <code>review</code> and <code>sentiment</code> beside its label, then the branch picks a chain: 2 model calls per request in 2 rounds, or 1 call when the default answers.</p>
-<p>For the Larkspur support desk the same shape triages tickets: a classifier labels each ticket <code>refund</code>, <code>outage</code> or <code>export</code>, and the branch sends it to the chain whose prompt holds that policy. Two properties of this design matter in production:</p>
-<ul>
-<li><strong>Order decides ties.</strong> The conditions in 03a are substring tests on free text. A label such as &ldquo;summarize and email&rdquo; matches the first condition and never reaches the email chain.</li>
-<li><strong>Plan the default.</strong> In 03a it returns a fixed apology string. For a support desk it should usually hand the ticket to a person and be counted, because a rising default rate is an early sign that the classifier has drifted.</li>
-</ul>
-<p>The notebook ends with moderation: piping a chain into the legacy <code>OpenAIModerationChain</code> from <code>langchain_classic</code> screens its output before it reaches the caller. Any Runnable can take that last position, which is how output checks and guardrails attach to a pipe.</p>
+<p><em>Figure 2: The review router in notebook 03a. Conditions are tested top to bottom.</em></p>
+<p><strong><code>RunnableBranch</code> takes <code>(condition, Runnable)</code> pairs followed by a default, tests the conditions in order, runs the first whose condition returns true, and runs the default when none does.</strong> It needs at least one pair and a default: given a single argument, the installed library raises <code>ValueError: RunnableBranch requires at least two branches</code>. In the notebook a dict first runs the classifier and copies <code>instruction</code>, <code>review</code> and <code>sentiment</code> beside its label, and the branch then picks a chain. A routed request costs 2 model calls in 2 rounds, or 1 call when the default answers with its fixed string.</p>
+<p>We fed the notebook&rsquo;s branch a set of planted labels, with stubs in place of the three model chains:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Classifier label</th>
+<th>Chain that ran</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&ldquo;Summarize&rdquo;</td>
+<td>summary</td>
+<td>the conditions lower-case the label first</td>
+</tr>
+<tr>
+<td>&ldquo;Email.&rdquo;</td>
+<td>email</td>
+<td>a substring test ignores the trailing full stop</td>
+</tr>
+<tr>
+<td>&ldquo;summarize and email&rdquo;</td>
+<td>summary</td>
+<td>the first true condition wins; email is never tested</td>
+</tr>
+<tr>
+<td>&ldquo;translate&rdquo;</td>
+<td>default, 0 model calls</td>
+<td>no condition matches</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Planted classifier labels and where the router sent them.</em></p>
+<p>The third row is <strong>first-match capture</strong>: a request that matches two conditions goes to whichever comes first, silently. The same thing happens in the keyword router of notebook 01b, which checks machine-learning words before cloud words. A deployment question that mentions both models and a cloud provider is answered by the machine-learning handler, although the notebook&rsquo;s own comment expects the cloud one. For the Larkspur triage router the opening ticket behaves the same way: with a refund condition ahead of an outage condition, &ldquo;Refund or outage&rdquo; reaches the refund chain, and &ldquo;refunds&rdquo; matches too because &ldquo;refund&rdquo; is inside it.</p>
+<h3>Planning the default</h3>
+<p>The default is where every request the classifier cannot place lands. In notebook 03a it returns a fixed apology. We call that a <strong>silent default</strong>: the request gets an answer, nothing is logged, and a classifier that has started returning new labels looks healthy. For a support desk the default should hand the ticket to a person and be counted, because a rising default rate is an early sign that the classifier has drifted.</p>
+<p>The notebook ends with a guard of a different kind. It pipes a chain into <code>OpenAIModerationChain</code>, a chain class from the <code>langchain-classic</code> package, which screens the output before it reaches the caller. Any Runnable can take that last position, which is how output checks and guardrails attach to a pipe.</p>
+<h2 id="choosing-a-chain-shape">Choosing a chain shape</h2>
+<p>The three shapes answer different questions about the work:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>Use it when</th>
+<th>Calls and rounds (notebook examples)</th>
+<th>Main risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linked <code>.assign()</code> steps</td>
+<td>each step needs earlier results</td>
+<td>4 calls in 4 rounds per message</td>
+<td>latency adds up step by step</td>
+</tr>
+<tr>
+<td>Fan-out and merge</td>
+<td>parts are independent, then combined</td>
+<td>4 calls in 2 rounds</td>
+<td>wall time set by the slowest branch</td>
+</tr>
+<tr>
+<td>Router</td>
+<td>each input needs one of several chains</td>
+<td>2 calls in 2 rounds, 1 for the default</td>
+<td>first-match capture and a silent default</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The three shapes compared on the notebook&rsquo;s own chains.</em></p>
+<h2 id="in-practice-ticket-triage">In practice: ticket triage</h2>
+<p>A ticket triage chain for Larkspur combines all three:</p>
+<ol>
+<li>A dict runs the classifier and copies the ticket text and the customer&rsquo;s plan beside the label, as the review router does.</li>
+<li>The classifier returns one of a fixed set of labels (<code>refund</code>, <code>outage</code>, <code>export</code>), which removes most multi-label answers before they reach the branch.</li>
+<li>The branch sends each label to the chain whose prompt holds that policy. Exact matches replace substring tests: &ldquo;refunds&rdquo; no longer passes as &ldquo;refund&rdquo;.</li>
+<li>The default hands the ticket to a person, and its rate is logged per day.</li>
+<li>A non-English ticket runs through the linked translation steps around whichever chain answers it.</li>
+</ol>
+<p>Lesson 7.4 turns to older code: the chain classes that did these jobs before LCEL, and how to replace them.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Link steps with <code>.assign()</code> to keep every intermediate result, and use <code>.map()</code> to run several inputs side by side while each input&rsquo;s steps stay in order.</li>
 <li>Fan out with <code>RunnableParallel</code> and merge with one more chain. Wall time is the slowest branch plus the merge.</li>
-<li><code>RunnableBranch</code> runs the first true condition, so order decides ties. Make the default hand off to a person and count it, since a rising default rate signals classifier drift.</li>
+<li><code>RunnableBranch</code> runs the first true condition, which makes first-match capture the default behaviour. Constrain the labels, and make the default hand off to a person and count it.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. How does RunnableBranch choose a chain, and where does a label such as "summarize and email" end up in notebook 03a?</summary>
-<p>It tests the conditions in order, runs the first whose condition returns true, and runs the default when none does. The 03a conditions are substring tests, so &ldquo;summarize and email&rdquo; matches the first condition and goes to the summary chain; it never reaches the email chain. Order decides ties.</p>
+<summary>1. How does RunnableBranch choose a chain, and where does a label such as summarize and email end up in notebook 03a?</summary>
+<p>It tests the conditions in order, runs the first whose condition returns true, and runs the default when none does. The 03a conditions are substring tests, and the summary condition comes first, so &ldquo;summarize and email&rdquo; goes to the summary chain and never reaches the email chain. That is first-match capture.</p>
 </details>
 <details>
 <summary>2. The Larkspur plan comparison runs description, pros and cons in parallel, then one merge. How many model calls and rounds is that, and what sets the wall time?</summary>
-<p>4 model calls in 2 rounds. The three LLM branches run at the same time and <code>itemgetter('topic')</code> copies the topic through without a model call; the merge reads all four keys. The wall time is the slowest branch plus the merge.</p>
+<p>4 model calls in 2 rounds. The three model branches run at the same time and <code>itemgetter('topic')</code> copies the topic through without a model call; the merge reads all four keys. The wall time is the slowest branch plus the merge.</p>
 </details>
 <details>
 <summary>3. In notebook 03a the router's default returns a fixed apology. What should the default do for the Larkspur support desk, and why?</summary>
-<p>Hand the ticket to a person and count it. A default is where every ticket the classifier cannot place lands, so a rising default rate is an early sign that the classifier has drifted, and a fixed string hides that.</p>
+<p>Hand the ticket to a person and count it. The default is where every ticket the classifier cannot place lands, so a rising default rate is an early sign that the classifier has drifted, and a fixed string hides that.</p>
 </details>
 <h2 id="legacy-chains-to-lcel">Legacy chains to LCEL</h2>
 <p class="lesson-of">Lesson 7.4: Legacy chains and migration to LCEL. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/04a_Chain_Migrations.ipynb" target="_blank" rel="noopener"><code>04a_Chain_Migrations.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/optional/notebook/04b_Basics_of_Chains.ipynb" target="_blank" rel="noopener"><code>04b_Basics_of_Chains.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/optional/notebook/04c_Chains_Basics_and_OutputParsers.ipynb" target="_blank" rel="noopener"><code>04c_Chains_Basics_and_OutputParsers.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/optional/notebook/04d_Advanced_Chains.ipynb" target="_blank" rel="noopener"><code>04d_Advanced_Chains.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/optional/notebook/04e_Chain_Migration_Advanced.ipynb" target="_blank" rel="noopener"><code>04e_Chain_Migration_Advanced.ipynb</code></a> (optional)</p>
-<p>Before LCEL, LangChain packaged each pattern as a class: <code>LLMChain</code> for prompt plus model, <code>RetrievalQA</code> for retrieval plus answer, <code>load_summarize_chain</code> for summaries. In LangChain 1.x these classes left the <code>langchain</code> package. They live in the compatibility package <code>langchain-classic</code>, still run, and carry deprecation markers with removal set for 2.0.0. Older tutorials and older Larkspur services still use them, so each one is listed here with the pipe that replaces it.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> where <code>LLMChain</code>, <code>RetrievalQA</code> and <code>load_summarize_chain</code> live in LangChain 1.x and when they will be removed.</li>
+<li><strong>Map</strong> each legacy class to the LCEL pipe that replaces it, including the change in output shape.</li>
+<li><strong>Diagnose</strong> a legacy chain that runs without warnings.</li>
+<li><strong>Plan</strong> a migration that callers never notice.</li>
+</ul>
+</blockquote>
+<p>Lessons 7.1 to 7.3 built chains as pipes. Older code did not. Larkspur&rsquo;s billing FAQ service was written on LangChain 0.x with <code>RetrievalQA</code>, a prompt pulled from the prompt hub, and <code>load_summarize_chain</code> for weekly digests. After the upgrade to 1.x its first import fails with <code>ModuleNotFoundError: No module named 'langchain.chains'</code>. Repointing the imports makes it run again, and the digest job prints no warning at all. This page explains why &ldquo;it runs&rdquo; and &ldquo;it warns about nothing&rdquo; do not mean &ldquo;it is current&rdquo;, and how to finish the move.</p>
+<h3>Where the old classes went</h3>
+<p>Before LCEL, LangChain packaged each pattern as a class. In 1.x those classes left the <code>langchain</code> package. They live in the compatibility package <code>langchain-classic</code>, still run, and carry deprecation markers. We read the markers from the installed <code>langchain-classic</code> 1.0.8 source:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Legacy class or call</th>
+<th>Deprecated since</th>
+<th>Removal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LLMChain</code></td>
+<td>0.1.17</td>
+<td>2.0.0</td>
+</tr>
+<tr>
+<td><code>RetrievalQA</code></td>
+<td>0.2.13</td>
+<td>2.0.0</td>
+</tr>
+<tr>
+<td><code>StuffDocumentsChain</code> (what <code>load_summarize_chain</code> returns for stuff)</td>
+<td>0.2.13</td>
+<td>2.0.0</td>
+</tr>
+<tr>
+<td>Calling a chain directly, <code>chain({...})</code></td>
+<td>0.1.0</td>
+<td>2.0.0</td>
+</tr>
+<tr>
+<td><code>Chain.run</code></td>
+<td>0.1.0</td>
+<td>2.0.0</td>
+</tr>
+<tr>
+<td><code>hub.pull</code></td>
+<td>1.0.6</td>
+<td>2.0.0</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Deprecation markers in the installed source.</em></p>
+<p>Each class has a short pipe that replaces it. The column that matters most for a running service is the last one:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -556,13 +960,13 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
 </tr>
 <tr>
 <td><code>RetrievalQA.from_llm(llm, retriever=retriever, prompt=prompt)</code></td>
-<td><code>{"context": retriever \| format_docs, "question": RunnablePassthrough()} \| prompt \| llm \| StrOutputParser()</code></td>
+<td>a dict of <code>context</code> (retriever, then join) and <code>question</code> (passthrough), then prompt, model and parser</td>
 <td>input key <code>query</code> and output key <code>result</code> become a plain string in and a string out</td>
 </tr>
 <tr>
 <td><code>load_summarize_chain(llm, chain_type=...)</code></td>
 <td>one of three short pipes (lesson 7.5)</td>
-<td>you join the Documents into the prompt&rsquo;s <code>{text}</code> yourself</td>
+<td>you join the documents into the prompt&rsquo;s <code>{text}</code> yourself</td>
 </tr>
 <tr>
 <td><code>chain({...})</code>, <code>chain.run(...)</code></td>
@@ -571,26 +975,82 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
 </tr>
 <tr>
 <td><code>hub.pull("rlm/rag-prompt")</code></td>
-<td>the prompt written inline in <code>ChatPromptTemplate.from_messages</code></td>
+<td>the prompt written inline in a <code>ChatPromptTemplate</code></td>
 <td>no network call and no untrusted object to load</td>
 </tr>
 </tbody>
 </table></div>
-<p><strong>Two deprecations per legacy cell.</strong> Notebook 04a points out that running a legacy cell warns twice: once for the class and once for calling a chain directly with <code>chain({...})</code>. <code>RetrievalQA</code> usually warns more often, because it builds a <code>StuffDocumentsChain</code> and an <code>LLMChain</code> inside itself, and both are deprecated too.</p>
-<p><strong><code>hub.pull</code> fails outright.</strong> <code>langchain_classic.hub.pull</code> is deprecated since 1.0.6, and on the repo&rsquo;s pinned <code>langsmith</code> it raises <code>ValueError: Pulling a public prompt by owner/name is disabled by default because prompts may contain untrusted serialized LangChain objects.</code> Notebook 04a lists the three options in order: inline the prompt, call <code>langsmith.Client().pull_prompt(..., dangerously_pull_public_prompt=True)</code> and accept the risk, or keep <code>hub.pull</code>, which raises.</p>
-<p><strong>No warning at build time.</strong> Notebook 05b shows that <code>load_summarize_chain(llm, chain_type="stuff")</code> returns a deprecated <code>StuffDocumentsChain</code> and emits no warning when it is built. The only warning arrives when <code>.run()</code> is called, and it is about <code>.run()</code>, not about the class. Code built this way keeps working until 2.0 removes it, which is why audits should grep for imports from <code>langchain_classic</code> rather than wait for warnings.</p>
-<p><strong>A migration that does not break callers.</strong></p>
+<p><em>Table 2: Each legacy form and its replacement.</em></p>
+<p>We confirmed the output shapes with a fake chat model. <code>LLMChain</code> on <code>{"adjective": "funny"}</code> returned <code>{'adjective': 'funny', 'text': ...}</code>, and <code>RetrievalQA</code> on a refund question returned <code>{'query': ..., 'result': ...}</code>. A caller that reads <code>result["result"]</code> breaks the moment it receives a bare string. We call that a <strong>shape break</strong>, and it is the main thing a migration has to manage.</p>
+<h3>How loud a legacy chain is</h3>
+<p>You might expect the deprecation markers to warn on every use. We counted the warnings each legacy pattern emits on the installed versions, each in a fresh process:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted legacy code</th>
+<th>Warnings at build</th>
+<th>Warnings at call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LLMChain</code> built directly, called as <code>chain({...})</code></td>
+<td>1, for the class</td>
+<td>1, for the call style</td>
+</tr>
+<tr>
+<td><code>RetrievalQA.from_llm</code>, called as <code>qa(...)</code></td>
+<td>0</td>
+<td>1, for the call style</td>
+</tr>
+<tr>
+<td><code>load_summarize_chain(chain_type="stuff")</code>, called with <code>.run()</code></td>
+<td>0</td>
+<td>1: &ldquo;The method <code>Chain.run</code> was deprecated&rdquo;</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Deprecation warnings counted with a fake model. Classes built inside the library&rsquo;s own helpers warn about nothing.</em></p>
+<p>Notebook 05b shows the last row: the loader returns a deprecated <code>StuffDocumentsChain</code> and says nothing when it is built, and the only warning is about <code>.run()</code>, not about the class. Our run shows <code>RetrievalQA.from_llm</code> behaving the same way. A <code>RetrievalQA</code> built directly does warn, and so do the <code>LLMChain</code> and <code>StuffDocumentsChain</code> built by hand, but <code>from_llm</code> builds them inside the library, and inside the library they stay quiet. Notebook 04a&rsquo;s Markdown expects at least two warnings from its <code>RetrievalQA</code> cell; on the installed versions we saw one.</p>
+<p>This is the <strong>silent deprecation</strong>: code that keeps working until 2.0 removes it, with nothing in the logs to say so. Audits should grep for imports from <code>langchain_classic</code> rather than wait for warnings.</p>
+<h3>The prompt hub raises</h3>
+<p><code>langchain_classic.hub.pull</code> is deprecated since 1.0.6 and hands the request to the LangSmith SDK. The installed <code>langsmith</code> refuses public prompts by owner and name unless the caller opts in, raising <code>ValueError: Pulling a public prompt by owner/name is disabled by default because prompts may contain untrusted serialized LangChain objects.</code> A hub prompt is a serialized LangChain object, so loading one can configure a model&rsquo;s base URL, headers or other constructor arguments. Notebook 04a lists the options in order of preference:</p>
+<ul>
+<li><strong>Inline the prompt</strong>: write it into a <code>ChatPromptTemplate</code>. No network call and no trust decision.</li>
+<li><strong>Opt in through the SDK</strong>: pull it with <code>dangerously_pull_public_prompt=True</code> and accept the risk.</li>
+<li><strong>Keep <code>hub.pull</code></strong>: deprecated, and it raises.</li>
+</ul>
+<h3>A caller-safe migration</h3>
+<p>The order matters more than the speed. Each step leaves a service that runs:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    A["Repoint imports&lt;br/&gt;to langchain_classic"] --&gt; B["Swap one chain&lt;br/&gt;behind its function"]
+    B --&gt; C["Map the output&lt;br/&gt;shape"]
+    C --&gt; D["Compare answers&lt;br/&gt;on fixed questions"]
+    D --&gt; E["Delete the&lt;br/&gt;old class"]
+</pre></figure>
+<p><em>Figure 1: A staged migration. The service runs after every step.</em></p>
 <ol>
 <li>Repoint the imports to <code>langchain_classic</code> so the service runs on 1.x unchanged.</li>
-<li>Replace one chain with its pipe behind the same function, mapping the output shape: callers that read <code>result["result"]</code> from <code>RetrievalQA</code> now receive the string itself.</li>
+<li>Replace one chain with its pipe behind the same function.</li>
+<li>Map the output shape: callers that read <code>result["result"]</code> from <code>RetrievalQA</code> now receive the string itself. The function wraps it back into the old dict until the callers move.</li>
 <li>Replace <code>chain(...)</code> and <code>.run()</code> with <code>.invoke()</code>.</li>
 <li>Run a fixed question set through old and new versions and compare answers before you delete the old class.</li>
 </ol>
-<p>The optional notebooks show more legacy classes: 04b builds <code>LLMChain</code> and <code>SimpleSequentialChain</code>, 04c adds <code>StructuredOutputParser</code>, 04d covers <code>SequentialChain</code> and the router class <code>MultiPromptChain</code> (whose LCEL form is lesson 7.3&rsquo;s <code>RunnableBranch</code>), and 04e rewrites <code>ConversationalRetrievalChain</code> as a rephrase pipe followed by a retrieval pipe.</p>
+<p>The optional notebooks show more legacy classes and their LCEL forms. Notebook 04b builds <code>LLMChain</code> and <code>SimpleSequentialChain</code>, 04c adds <code>StructuredOutputParser</code>, 04d covers <code>SequentialChain</code> and the router class <code>MultiPromptChain</code> (whose LCEL form is lesson 7.3&rsquo;s <code>RunnableBranch</code>), and 04e rewrites <code>ConversationalRetrievalChain</code> as a rephrase pipe followed by a retrieval pipe.</p>
+<h2 id="in-practice-the-faq-service">In practice: the FAQ service</h2>
+<p>For the billing FAQ service the plan runs like this:</p>
+<ol>
+<li>Grep for <code>langchain_classic</code> imports. The service has three: <code>RetrievalQA</code>, <code>hub</code> and <code>load_summarize_chain</code>.</li>
+<li>Inline the hub prompt first, because <code>hub.pull</code> already raises and blocks every request.</li>
+<li>Replace <code>RetrievalQA</code> with the dict, prompt, model and parser pipe from lesson 7.2, keeping the function&rsquo;s dict return value until each caller reads a string.</li>
+<li>Rewrite the digest job&rsquo;s <code>load_summarize_chain</code> as one of the three summarisation pipes from lesson 7.5.</li>
+<li>Run the service&rsquo;s fixed set of billing questions through both versions, then remove the <code>langchain_classic</code> dependency.</li>
+</ol>
+<p>Lesson 7.5 writes out those three summarisation pipes and shows how to choose between them.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Legacy chain classes still run from <code>langchain-classic</code> but are set for removal in 2.0.0. Each has a short LCEL pipe that replaces it, usually with a plain string in and out.</li>
-<li>Some legacy chains warn only when called, or not at all. Find them by grepping for imports from <code>langchain_classic</code>, not by waiting for warnings.</li>
+<li>Many legacy chains warn only when called, or not at all, when a library helper built them. Find them by grepping for imports from <code>langchain_classic</code>, not by waiting for warnings.</li>
 <li>Migrate one chain at a time behind the same function: map the output shape, switch to <code>.invoke()</code>, and compare old and new answers on a fixed question set before deleting the old class.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -599,26 +1059,32 @@ rag_chain.invoke(&quot;How long does a refund take?&quot;)
 <p><code>load_summarize_chain</code> returns a deprecated <code>StuffDocumentsChain</code> and warns nothing at build time; the only warning comes from <code>.run()</code>, and it is about <code>.run()</code>, not the class. The code keeps working until 2.0 removes it, so audits should grep for imports from <code>langchain_classic</code> rather than wait for warnings.</p>
 </details>
 <details>
-<summary>2. Callers read the result key from a RetrievalQA chain's output dict. What do they receive after you swap in the LCEL pipe?</summary>
-<p>The answer string itself. <code>RetrievalQA</code> takes the key <code>query</code> and returns <code>result</code> in a dict, while the pipe takes a plain string and returns a string. Step 2 of the migration maps that output shape behind the same function so callers do not break.</p>
+<summary>2. Callers read the result key from a RetrievalQA chain's output dict. What do they receive after you swap in the LCEL pipe, and how do you avoid breaking them?</summary>
+<p>The answer string itself, a shape break. <code>RetrievalQA</code> takes the key <code>query</code> and returns <code>result</code> in a dict, while the pipe takes a plain string and returns a string. Swap the chain behind the same function and have that function wrap the string back into the old shape until every caller reads a string.</p>
 </details>
 <details>
-<summary>3. A legacy notebook pulls rlm/rag-prompt from the hub and raises a ValueError. Which of the three options should you take?</summary>
-<p>Inline the prompt in <code>ChatPromptTemplate.from_messages</code>. It makes no network call and loads no untrusted object. The other two are <code>langsmith.Client().pull_prompt(..., dangerously_pull_public_prompt=True)</code>, which accepts the risk, and keeping <code>hub.pull</code>, which raises.</p>
+<summary>3. A legacy notebook pulls rlm/rag-prompt from the hub and raises a ValueError. Which option should you take, and why?</summary>
+<p>Inline the prompt in a <code>ChatPromptTemplate</code>. It makes no network call and loads no untrusted serialized object. The other two options are pulling through the LangSmith SDK with <code>dangerously_pull_public_prompt=True</code>, which accepts the risk, and keeping <code>hub.pull</code>, which is deprecated and raises.</p>
 </details>
 <h2 id="map-reduce-summarisation">Map-reduce summarisation</h2>
 <p class="lesson-of">Lesson 7.5: Summarization: stuff, map-reduce, refine. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/05a_Summarization_Essentials.ipynb" target="_blank" rel="noopener"><code>05a_Summarization_Essentials.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p03_llm_application_frameworks/m07_lcel_runnables_and_chains/mandatory/notebook/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb" target="_blank" rel="noopener"><code>05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb</code></a></p>
-<p>A model reads a finite context window, and a handbook, a contract or a quarter of support tickets can be longer. There are three ways to get many documents through one model, and notebook 05b writes each out in a few lines of LCEL in place of the old <code>load_summarize_chain(llm, chain_type=...)</code>:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>Stuff:</strong> join the documents, fill one prompt, call once. It is the cheapest strategy and the least lossy, because nothing is summarised twice, and it works only while the text fits.</li>
-<li><strong>Map-reduce:</strong> summarise each chunk on its own (the map), then summarise the summaries (the reduce). The map calls are independent, so <code>map_chain.batch(...)</code> runs them on a thread pool.</li>
-<li><strong>Refine:</strong> summarise the first chunk, then revise that summary once per remaining chunk. Each call needs the previous answer, so the calls run one after another, and later chunks get more say than earlier ones.</li>
+<li><strong>Explain</strong> stuff, map-reduce and refine as three short LCEL patterns.</li>
+<li><strong>Count</strong> the model calls and rounds each strategy needs for a given chunk size and concurrency cap.</li>
+<li><strong>Diagnose</strong> when chunks are too small and when the reduce step itself overflows.</li>
+<li><strong>Build</strong> a router that sends short inputs to stuff and long ones to map-reduce.</li>
 </ul>
-<p>The map-reduce from notebook 05b, in full:</p>
-<pre class="sheet code"><code class="language-python">partials = map_chain.batch([{&quot;text&quot;: c} for c in chunks], config={&quot;max_concurrency&quot;: 4})
-summary = reduce_chain.invoke({&quot;text&quot;: &quot;\n\n&quot;.join(partials)})
-</code></pre>
-<p>On the whole Larkspur handbook (2,746 characters) split at <code>chunk_size=400</code> with an overlap of 20, that is 10 chunks:</p>
+</blockquote>
+<p>Lesson 7.4 left one legacy call to replace: <code>load_summarize_chain(llm, chain_type=...)</code>, which hid three strategies behind one string. Larkspur&rsquo;s weekly digest summarises handbook changes. In a quiet week that is one section of 1,111 characters; in a release week it is the whole handbook, 2,746 characters across refunds, outages, exports and server sizing, and a real handbook runs far longer than one prompt can hold. A model reads a finite context window. The digest needs a way to summarise text that does not fit, and a way to avoid paying for that when the text does fit.</p>
+<p>Notebook 05b writes each strategy out in a few lines of LCEL:</p>
+<ul>
+<li><strong>Stuff</strong>: join the documents, fill one prompt, call once. It is the cheapest strategy and the least lossy, because nothing is summarised twice, and it works only while the text fits.</li>
+<li><strong>Map-reduce</strong>: summarise each chunk on its own (the map), then summarise the summaries (the reduce). The map calls are independent, which lets <code>batch</code> run them on a thread pool.</li>
+<li><strong>Refine</strong>: summarise the first chunk, then revise that summary once per remaining chunk. Each call needs the previous answer, which forces the calls to run one after another.</li>
+</ul>
+<p>In map-reduce the map step is one summarising chain batched over every chunk with a <code>max_concurrency</code> cap, and the reduce step is a second chain invoked once on the map outputs joined with blank lines. On the whole Larkspur handbook (2,746 characters) split at <code>chunk_size=400</code> with an overlap of 20, that is 10 chunks:</p>
 <figure class="anim sheet" aria-labelledby="anim-mapreduce-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Map-reduce summarisation, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 320" role="img" aria-labelledby="anim-mapreduce-title anim-mapreduce-desc">
@@ -705,7 +1171,8 @@ summary = reduce_chain.invoke({&quot;text&quot;: &quot;\n\n&quot;.join(partials)
     <li><button type="button">Summary</button><span>Eleven calls in four rounds. Refine would need ten rounds, one per chunk.</span></li>
   </ol>
 </figure>
-<p>A round here is one wait on the model: calls in the same round run at the same time, so wall time grows with rounds, and cost grows with calls.</p>
+<p><em>Figure 1: Map-reduce on the whole handbook at chunk size 400 and <code>max_concurrency=4</code>.</em></p>
+<p>A round is one wait on the model: calls in the same round run at the same time. Wall time grows with rounds, and cost grows with calls. The three strategies on the same 10 chunks:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -740,32 +1207,100 @@ summary = reduce_chain.invoke({&quot;text&quot;: &quot;\n\n&quot;.join(partials)
 </tr>
 </tbody>
 </table></div>
-<p>Notebook 05b gives the general form: stuff is 1 call, map-reduce N + 1 calls, refine N calls. The <a href="05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html">interactive lab</a> computes all three on three handbook documents, splitting them with a port of LangChain&rsquo;s <code>RecursiveCharacterTextSplitter</code> that matches the library on every chunk size from 200 to 1200. Its numbers show where each strategy wins:</p>
+<p><em>Table 1: Calls and rounds on the whole handbook at chunk size 400, as the lab computes them.</em></p>
+<p>Notebook 05b gives the general form: stuff is 1 call, map-reduce N + 1 calls, refine N calls. The <a href="05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html">interactive lab</a> computes all three on three handbook documents, splitting them with a port of LangChain&rsquo;s <code>RecursiveCharacterTextSplitter</code> that matches the library on every chunk size from 200 to 1200. We reran the library splitter on the lab&rsquo;s three texts and got the same chunk counts. The numbers show where each strategy wins:</p>
 <ul>
 <li><strong>Chunk size sets the call count.</strong> On the whole handbook, chunk size 1200 gives 3 chunks and chunk size 200 gives 21. Refine&rsquo;s rounds climb from 3 to 21; map-reduce at <code>max_concurrency=4</code> goes from 2 rounds to 7, and at 16 it needs only 3 rounds for all 22 calls.</li>
 <li><strong>Concurrency is what makes map-reduce fast.</strong> At <code>max_concurrency=1</code> the map step is a loop, and map-reduce takes N + 1 rounds, one more than refine. Rate limits often force a low cap, so measure at the cap you can run in production.</li>
-<li><strong>Small chunks cost calls without adding much.</strong> Notebook 05a splits its 630-character sample at <code>chunk_size=100</code>: 11 chunks, two of them only 13 and 18 characters long. Map-reduce then makes 12 calls on a text that one stuff call reads whole.</li>
+<li><strong>Small chunks cost calls without adding much.</strong> Notebook 05a splits its 630-character sample at <code>chunk_size=100</code>: 11 chunks, and five of them are 31 characters or fewer, the smallest 13 and 18. Map-reduce then makes 12 calls on a text that one stuff call reads whole. We call this <strong>confetti chunking</strong>: chunks so small that the overlap fragments become calls of their own.</li>
 </ul>
 <figure class="lab-embed"><iframe src="05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html" title="Stuff, map-reduce or refine, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Stuff, map-reduce or refine. <a href="05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html">Open full screen</a></figcaption></figure>
-<p>The reduce step has a limit of its own. It reads every map summary at once, so a long enough document produces joined summaries that no longer fit. The fix is to reduce in groups and reduce the results again, the recursive summarisation that M42&rsquo;s RAPTOR builds into a tree.</p>
+<h3>Where each strategy breaks</h3>
+<p>Each strategy has one failure that the call counts do not show:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Failure</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stuff</td>
+<td>the text outgrows the context window</td>
+<td>the call fails or the input is cut, with no partial result</td>
+</tr>
+<tr>
+<td>Map-reduce</td>
+<td><strong>reduce overflow</strong>: the joined map summaries no longer fit</td>
+<td>the reduce call hits the same limit stuff did</td>
+</tr>
+<tr>
+<td>Refine</td>
+<td><strong>order bias</strong>: later chunks get more say</td>
+<td>the summary changes when the chunks are reordered</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The failure each strategy leaves behind.</em></p>
+<p>The fix for reduce overflow is to reduce in groups and reduce the results again, the recursive summarisation that <a href="../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/index.html">M42&rsquo;s RAPTOR</a> builds into a tree. Order bias is a feature only when later text should override earlier text, such as a changelog where the newest entry wins. Notebook 05b suggests running its refine loop with the documents reversed to see the effect.</p>
+<p>Writing the strategies out also opens choices the loader could not express: a smaller model for the many map calls and a larger one for the single reduce, or a retry wrapped around the map chain so one failed chunk does not sink the batch.</p>
 <h2 id="routing-by-length">Routing by length</h2>
-<p>Stuff is the best strategy whenever it fits, so the summariser should decide per input. This is the module&rsquo;s lab brief in miniature: rebuild <code>load_summarize_chain</code> as LCEL, then add a branch that routes short and long inputs differently.</p>
-<pre class="sheet code"><code class="language-python">summarise = RunnableBranch(
-    (lambda x: len(x[&quot;text&quot;]) &lt;= 1500, stuff_chain),
-    map_reduce_chain,
-)
-</code></pre>
+<p>Stuff is the best strategy whenever it fits, which means the summariser should decide per input. This is the module&rsquo;s lab brief in miniature: rebuild <code>load_summarize_chain</code> as LCEL, then add a branch that routes short and long inputs differently. The branch is a <code>RunnableBranch</code> with one condition, the text is 1,500 characters or fewer, which sends the input to the stuff chain; the default is the map-reduce chain:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     I[/"{text}"/] --&gt; Q{"1,500 characters&lt;br/&gt;or fewer?"}
     Q --&gt;|yes| S["stuff_chain&lt;br/&gt;1 call"]
     Q --&gt;|no| MR["map_reduce_chain&lt;br/&gt;N + 1 calls"]
 </pre></figure>
-<p>In the lab, the refunds section (1,111 characters) goes to stuff, and the refunds and outages sections together (1,833) and the whole handbook (2,746) go to map-reduce. The check runs a real <code>RunnableBranch</code> in Python and the lab&rsquo;s routing matches it on all three. The 1,500-character limit stands in for a context budget. In production, count tokens with the model&rsquo;s tokenizer and set the limit to the context window minus the prompt template and the room the answer needs.</p>
-<p>The two branches return the same type, a summary string, so callers never see which strategy ran. Log it anyway: when the share of map-reduce runs rises, documents have grown, and cost and latency will follow.</p>
+<p><em>Figure 2: The length router. Stuff for what fits, map-reduce for the rest.</em></p>
+<p>We ran a real <code>RunnableBranch</code> with that condition on the lab&rsquo;s three documents and on the edges of the limit:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Input length</th>
+<th>Strategy chosen</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,111 (refunds section)</td>
+<td>stuff</td>
+</tr>
+<tr>
+<td>1,500</td>
+<td>stuff</td>
+</tr>
+<tr>
+<td>1,501</td>
+<td>map-reduce</td>
+</tr>
+<tr>
+<td>1,833 (refunds and outages)</td>
+<td>map-reduce</td>
+</tr>
+<tr>
+<td>2,746 (whole handbook)</td>
+<td>map-reduce</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The length router on the lab&rsquo;s documents. The lab&rsquo;s routing matches on all three.</em></p>
+<p>The 1,500-character limit stands in for a context budget. In production, count tokens with the model&rsquo;s tokenizer and set the limit to the context window minus the prompt template and the room the answer needs.</p>
+<p>The two branches return the same type, a summary string, and callers never see which strategy ran. Log it anyway: when the share of map-reduce runs rises, documents have grown, and cost and latency will follow.</p>
+<h2 id="in-practice-the-weekly-digest">In practice: the weekly digest</h2>
+<p>The digest job puts the page together:</p>
+<ol>
+<li>Join the week&rsquo;s changed sections into one text, the step <code>load_summarize_chain</code> used to do for you.</li>
+<li>Route it by length. A quiet week (the 1,111-character refunds section) goes to stuff: 1 call.</li>
+<li>A release week (the whole handbook at chunk size 400) goes to map-reduce: 10 map calls, 4 at a time, then 1 reduce call, 11 calls in 4 rounds.</li>
+<li>If the joined map summaries exceed the budget, reduce them in groups and reduce again.</li>
+<li>Log the strategy and the call count for every run.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Stuff makes 1 call, map-reduce N + 1 and refine N. Cost grows with calls and wall time with rounds, and only map-reduce can run its calls in parallel.</li>
-<li>Chunk size sets the call count, and concurrency is what makes map-reduce fast. Measure at the concurrency cap your rate limit allows.</li>
+<li>Chunk size sets the call count, and concurrency is what makes map-reduce fast. Measure at the concurrency cap your rate limit allows, and avoid confetti chunking.</li>
 <li>Route by length: stuff whatever fits and map-reduce the rest. Set the limit from a token budget, and log which strategy ran.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -837,7 +1372,7 @@ summary = reduce_chain.invoke({&quot;text&quot;: &quot;\n\n&quot;.join(partials)
 <li>Write new chains as pipes. Treat <code>langchain_classic</code> imports as a staging post for old code, never as a destination.</li>
 <li>Choose a summarisation strategy by length and latency: stuff when it fits, map-reduce when it does not, refine only when order should matter.</li>
 </ul></article>
-    <nav class="toc" aria-label="M07 sections"><details open><summary>In M07</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#runnable-interface">Runnable interface</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipe-composition">Pipe composition</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#runnableparallel--branch">RunnableParallel / Branch</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#legacy-chains-to-lcel">Legacy chains to LCEL</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#map-reduce-summarisation">Map-reduce summarisation</a></li><li><a href="#routing-by-length">Routing by length</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M07 sections"><details open><summary>In M07</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#runnable-interface">Runnable interface</a></li><li><a href="#in-practice-testing-each-step">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipe-composition">Pipe composition</a></li><li><a href="#in-practice-the-larkspur-rag-chain">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#runnableparallel--branch">RunnableParallel / Branch</a></li><li><a href="#choosing-a-chain-shape">Choosing a chain shape</a></li><li><a href="#in-practice-ticket-triage">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#legacy-chains-to-lcel">Legacy chains to LCEL</a></li><li><a href="#in-practice-the-faq-service">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#map-reduce-summarisation">Map-reduce summarisation</a></li><li><a href="#routing-by-length">Routing by length</a></li><li><a href="#in-practice-the-weekly-digest">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
