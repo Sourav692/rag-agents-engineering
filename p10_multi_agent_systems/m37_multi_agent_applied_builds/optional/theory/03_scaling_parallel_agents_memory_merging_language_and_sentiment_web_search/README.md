@@ -1,14 +1,20 @@
 # M37.3 Theory: Scaling: parallel agents, memory merging, language and sentiment, web search
 
 *[M37 theory](../../../mandatory/theory/README.md) · Lesson 37.3 · Notebooks: [`03a_hotel_parallel_reservation_agents.ipynb`](../../notebook/03a_hotel_parallel_reservation_agents.ipynb) (optional), [`03b_hotel_merging_and_conversation_memory.ipynb`](../../notebook/03b_hotel_merging_and_conversation_memory.ipynb) (optional), [`03c_hotel_guest_language_and_sentiment.ipynb`](../../notebook/03c_hotel_guest_language_and_sentiment.ipynb) (optional), [`03d_hotel_web_search_integration.ipynb`](../../notebook/03d_hotel_web_search_integration.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Fan out to parallel agents, merge their answers into one reply, and fold old turns into a summary the thread keeps -->
 
 ## Memory merging
 
-Two hotel assistants must compare availability without sharing private tool histories or booking twice. You will merge their answers in priority order, keep concurrent state updates valid and test what remains after summarising older turns.
+> **What you'll learn**
+>
+> - **Explain** what parallel branches need before their answers can come back together: a reducer, a key per branch and a join.
+> - **Trace** two hotels' answers through a merge that writes one reply in priority order.
+> - **Compare** trimming old turns with summarizing them into state.
+> - **Diagnose** a sentiment score that reads raw foreign-language text as neutral.
 
-### Step 1: Keep parallel branch inputs and outputs separate
+Lesson 37.2 hardened the single-hotel desk. Now the chain has two hotels. Hotel 1 has rooms 101 to 104 and Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools, and a guest asking for a Deluxe room should hear about both.
 
-Once several agents work on one request, their outputs have to come back together: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. The two implementations do both on a chain with two hotels. Hotel 1 has rooms 101 to 104, Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools.
+Done naively, the guest gets two replies, the first missing a hotel, or one hotel's agent answers from the other hotel's database. **Memory merging** is the work of bringing several agents' outputs back into one state: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. The shape that works:
 
 ```mermaid
 flowchart LR
@@ -24,40 +30,56 @@ flowchart LR
     J --> R[/One reply/]
 ```
 
-The reference implementation reaches that shape in three attempts, and each failure is a LangGraph rule:
+*Figure 1: Fan-out to two hotel assistants, each with its own message key and tools, then a join and one merge.*
 
-| Attempt | What breaks | The rule |
+### Three wiring failures
+
+The build reaches that shape in three attempts, and each failure is a LangGraph rule. Its stub graphs need no model, and we ran them in the scratchpad:
+
+| Attempt | What the stub showed | The rule |
 |---|---|---|
-| Two nodes write one plain key in the same step | LangGraph raises `InvalidUpdateError` | A key written by parallel nodes needs a reducer, such as `Annotated[list, operator.add]` |
-| Both tool loops share `messages` | A `ToolNode` answers the latest tool call in its list, which may be the other branch's; with same-named tools (`run_query` in both) the wrong database answers silently | One message key per branch, with `ToolNode(..., messages_key=...)` and `partial(tools_condition, messages_key=...)` |
-| Each branch's end goes straight to the merge node | The merge runs once per branch, so the guest gets two replies and the first misses a hotel | A sync node at the end of each branch and a join, `add_edge(["hotel1_done", "hotel2_done"], "merge_answers")` |
+| Two nodes write one plain key in the same step | `InvalidUpdateError`: the key can receive only one value per step | A key written by parallel nodes needs a reducer, such as list concatenation |
+| Both tool loops share one message list | Hotel 1's call never got a result; Hotel 2's agent received both results, one from Hotel 1's database | One message key per branch, for the tool node and for the condition that routes to it |
+| Each branch's end goes straight to the merge node | The merge ran twice: first with Hotel 1 unfinished, then again | A sync node at the end of each branch and a join edge that waits for both |
 
-### Step 2: Bind each branch to its own read-only tools
+*Table 1: The three attempts and what each stub run printed.*
 
-Two more choices keep the branches honest. Both assistants come from one factory, so each is bound to its own hotel's tools; copying the first assistant to make the second is how Hotel 2's agent ends up answering from Hotel 1's database. And the branches cannot book: both run the same request at the same time, so a `book_room` in each would create two reservations. They report availability and prices, and booking waits until the guest picks a hotel.
+The shared-key failure is the dangerous one. A tool node answers the latest tool call in its list, which may belong to the other branch. With the real SQL tools both hotels have a tool called `run_query`, and the wrong database answers without any error. Call it **crossed tool results**.
 
-### Step 3: Merge checked facts in the intended order
+The merge-twice failure has a plain cause. A conditional edge fires the merge every time any branch reaches it, and the Hotel 1 branch in the stub takes two tool rounds while Hotel 2 takes one. With the sync nodes and the join, the merge ran once, after both branches finished.
 
-The reference implementation turns the merge into an agent. The merge node reads the guest's request and each hotel's final answer, listed in priority order (`PRIORITY = ["hotel1", "hotel2"]`), and writes one reply: recommend the first hotel that can help and offer the other as an alternative, ignore a hotel that cannot help unless none can, and keep room numbers, prices and dates exactly as the assistants gave them. Only the merged reply enters `messages`; each branch's tool calls stay in its own key. The two test turns:
+Two more choices keep the branches honest. Both assistants come from one factory, which binds each to its own hotel's tools; copying the first assistant to make the second is how Hotel 2's agent ends up reading Hotel 1's database. And the branches cannot book. Both run the same request at the same time, and a booking tool in each would create two reservations. They report availability and prices, and booking waits until the guest picks a hotel.
+
+### Merging by priority
+
+The merge itself is an agent. It reads the guest's request and each hotel's final answer, listed in a fixed priority order (Hotel 1, then Hotel 2), and writes one reply under three rules:
+
+1. Recommend the first hotel that can help and offer the other as an alternative.
+2. Ignore a hotel that cannot help, unless none can.
+3. Keep room numbers, prices and dates exactly as the assistants gave them.
+
+Only the merged reply enters the shared conversation; each branch's tool calls stay in its own key. The two test turns:
 
 | Guest asks | Ground truth from SQLite | The reply should |
 |---|---|---|
 | A Deluxe room in two months | Hotel 1 room 104, Hotel 2 room 108 | Name 104 before 108 |
 | The Family Suite during Bob's stay | None free: Hotel 1 has no Family Suite, Hotel 2's is booked | Say plainly that none is free |
 
-The code checks the first case by the position of the room numbers in the reply, against the ground truth from `free_rooms()`, not against the model's claim.
+*Table 2: The merge's two test turns and the ground truth each is checked against.*
 
-### Step 4: Summarise without splitting tool pairs
+Code checks the first case by the position of the room numbers in the reply, against free rooms computed from the databases, never against the model's claim.
 
-Every turn now adds several agent messages to the thread, so the second half of The implementation keeps it small by **summarizing into state**. A `summarize_conversation` node runs at `START` when the stored conversation has more than `SUMMARIZE_AFTER = 6` messages:
+### Summarizing old turns into state
 
-1. It keeps the last `KEEP_TURNS = 1` guest turn word for word; everything before it is old. The cut is always at a guest message, so no tool call is separated from its result.
-2. It asks the model to fold the old messages into the running `summary` field, keeping every concrete fact: names, room types and numbers, prices, dates, what was offered and refused.
-3. It returns `RemoveMessage(id=...)` for each old message, and the `add_messages` reducer deletes them.
+Every turn now adds several agent messages to the thread. The second half of the build keeps it small by **summarizing into state**. A summarize node runs at the start of each turn when the stored conversation has more than 6 messages:
 
-### Step 5: Test recall from the summary alone
+1. It keeps the last guest turn word for word; everything before it is old. The cut is always at a guest message, so no tool call is separated from its result.
+2. It asks the model to fold the old messages into a running `summary` field, keeping every concrete fact: names, room types and numbers, prices, dates, what was offered and refused.
+3. It returns a removal marker for each old message id, and the message reducer deletes them.
 
-The summary goes into the coordinator's and assistants' prompts as a system message, never into the guest's reply. The test turn asks *Remind me: which Deluxe room did you recommend, and at what price?* after the summarizer removed every earlier message, so the model can only answer from the summary. The new graph continues the same thread because both graphs share one checkpointer.
+The summary goes into the coordinator's and assistants' prompts as a system message, never into the guest's reply. The test turn asks *Remind me: which Deluxe room did you recommend, and at what price?* after every earlier message was removed. The model can only answer from the summary. The new graph continues the same thread because both graphs share one checkpointer.
+
+The two ways to shrink a thread differ in what they lose:
 
 | | Trimming (M33) | Summarizing into state |
 |---|---|---|
@@ -66,56 +88,86 @@ The summary goes into the coordinator's and assistants' prompts as a system mess
 | Cost | No model call | One model call when the thread passes the limit |
 | Risk | Facts outside the window are forgotten | Facts the summary leaves out are gone for good |
 
+*Table 3: Trimming compared with summarizing into state.*
+
+Call the summarizer's risk **lossy folding**: a fact it drops cannot be recovered from the thread. That is why its prompt lists the fact types to keep and why the test asks for a specific room and price. With merging in place, new capabilities can attach to the core without touching it.
+
 ## Adding agents around the core
 
-### Step 1: Keep new capabilities inside their own state boundary
+The last two builds add capabilities without changing the coordinator, the checker or the reservation agent. Each adds its capability to the core from lesson 37.1 on its own; no build composes all of them into one graph.
 
-The two implementations add capabilities without changing the coordinator, the checker or the reservation agent:
+```mermaid
+flowchart LR
+    G[/Guest message/] --> TI["translate_in<br/>to English"]
+    TI --> SA["sentiment<br/>score"]
+    SA --> C["Coordinator<br/>and specialists"]
+    C --> TO["translate_out<br/>guest language"]
+    TO --> R[/Reply/]
+```
 
-- **Language and sentiment.** `translate_in` detects the guest's language and replaces the message with an English version (one structured-output call returns the language code and the text); `sentiment_analysis` scores the English text with TextBlob's word lexicon; the coordinator adds a de-escalation instruction only when the message reads as negative; `translate_out` translates the final reply back. The language is a per-thread state field, because a global `user_language` breaks the moment two guests write at once. The lexicon is English-only and word-level: raw German scores nothing, and sarcasm still fools it.
-- **Web search.** A `web_search_assistant` with `TavilySearch(max_results=3)` answers questions about the neighbourhood, which no hotel database holds. It is one more tool loop and one more name the coordinator can route to, and the test checks which node ran for a nearby-places question and for a booking question.
+*Figure 2: The language and sentiment build. Translation wraps the core, and the coordinator reads the sentiment score.*
 
-Each implementation adds its capability to the core from 37.1 on its own. No example composes all of them into one graph.
+### Language and sentiment
 
-### Try it yourself
+The inbound node detects the guest's language and replaces the message with an English version, using one structured-output call for the language code and the text. A sentiment node then scores the English text with TextBlob's word lexicon. The coordinator adds a de-escalation instruction only when the message reads as negative, and the outbound node translates the final reply back.
 
-Ask for a Deluxe room and check room 104 before room 108 against SQLite availability. Then trigger summarisation and ask which room and price were recommended. Inspect that old messages were removed and the answer comes from the retained summary. Booking must still wait for a chosen hotel.
+The language is a per-thread state field. A global language variable breaks the moment two guests write at once, which is a form of **shared global state** across threads.
 
-### Practice notebook
+The order of translation and scoring matters, because the lexicon is English-only and word-level. We scored the build's own sample reviews with TextBlob, using its thresholds of -0.1 and +0.1:
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+| Text | Human label | Lexicon label | Polarity | Words scored |
+|---|---|---|---|---|
+| The service is terrible and the room was dirty. | negative | negative | -0.80 | terrible, dirty |
+| Die Bedienung ist schrecklich und das Zimmer war schmutzig. | negative | neutral | 0.00 | none |
+| Das Personal war wunderbar und das Frühstück war köstlich. | positive | neutral | 0.00 | personal |
+| Le personnel était merveilleux et le petit-déjeuner délicieux. | positive | neutral | 0.00 | none |
+| Great, another cold shower. Just what I needed. | negative | positive | +0.10 | great, cold |
 
-- [Hotel parallel reservation](../../notebook/03a_hotel_parallel_reservation_agents.ipynb).
-- [Hotel merging and conversation](../../notebook/03b_hotel_merging_and_conversation_memory.ipynb).
-- [Hotel guest language and](../../notebook/03c_hotel_guest_language_and_sentiment.ipynb).
-- [Hotel web search integration](../../notebook/03d_hotel_web_search_integration.ipynb).
+*Table 4: TextBlob on raw text, from the build's sample reviews.*
+
+Raw German scores nothing, so an angry German guest never triggers de-escalation. Sarcasm fools the lexicon in English too. Scoring the translation fixes the first problem and leaves the second.
+
+### Web search
+
+A web search assistant with Tavily, capped at 3 results per search, answers questions about the neighbourhood, which no hotel database holds. It is one more tool loop and one more name the coordinator can route to. The test checks which node ran for a nearby-places question and for a booking question.
+
+## In practice: Larkspur in two regions
+
+Larkspur runs billing in two regions, each with its own database:
+
+1. A question about plan prices fans out to both regional agents, each with its own message key and read-only tools.
+2. A join waits for both, and the merge answers in a fixed region order, keeping figures exactly as each agent gave them.
+3. Any refund or plan change happens once, after the customer picks a region, never inside a branch.
+4. Long support threads fold into a summary that must keep account ids, amounts and dates, and a test asks for one of them after the fold.
+
+Lesson 37.4 swaps the hotel agents for a research team and asks who decides which agent runs next.
 
 ## Key Takeaways
 
 - Parallel branches need a reducer on any key they share, a separate message key per tool loop and a join that waits for every branch. Without the join, the merge runs once per branch.
-- Keep branches read-only when they run the same request at once, and merge their answers by a fixed priority. Check the merged reply against ground truth from the database, not the model's claim.
-- Summarising into state deletes old turns and keeps a running summary, at one model call when the thread passes its limit. Facts the summary leaves out are gone for good, where trimming only hides them.
+- Keep branches read-only when they run the same request at once, and merge their answers by a fixed priority. Check the merged reply against ground truth from the database, never the model's claim.
+- Summarizing into state deletes old turns and keeps a running summary, at one model call when the thread passes its limit. Facts the summary leaves out are gone for good, where trimming only hides them.
 
 ## Check yourself
 
 <details>
-<summary>1. Why does each parallel hotel branch need its own message key instead of sharing messages?</summary>
+<summary>1. Why does each parallel hotel branch need its own message key instead of sharing one message list?</summary>
 
-A `ToolNode` answers the latest tool call in its list, which may be the other branch's. Both hotels have a tool called `run_query`, so the wrong database can answer silently. Give each branch its own key with `ToolNode(..., messages_key=...)` and `partial(tools_condition, messages_key=...)`.
+A tool node answers the latest tool call in its list, which may be the other branch's. Both hotels have a tool called `run_query`, and the wrong database can answer with no error. In the stub run one branch's call never got a result while the other branch received both.
 
 </details>
 
 <details>
 <summary>2. For a Deluxe room in two months, Hotel 1 has room 104 free and Hotel 2 has room 108. What should the merged reply say, and how is it checked?</summary>
 
-It should recommend Hotel 1 first, because `PRIORITY = ["hotel1", "hotel2"]`, so 104 appears before 108, and offer Hotel 2 as the alternative with numbers, prices and dates exactly as the assistants gave them. Code checks the position of the room numbers in the reply against the ground truth from `free_rooms()`, not against the model's claim.
+It should recommend Hotel 1 first, because Hotel 1 comes first in the priority order, and offer Hotel 2 as the alternative with numbers, prices and dates exactly as the assistants gave them. Code checks that 104 appears before 108 in the reply, against free rooms computed from the databases, never against the model's claim.
 
 </details>
 
 <details>
 <summary>3. In the two-hotel graph, the guest gets two replies and the first one misses a hotel. What is wrong with the wiring?</summary>
 
-Each branch's end goes straight to the merge node, so the merge runs once per branch. Add a sync node at the end of each branch and a join, `add_edge(["hotel1_done", "hotel2_done"], "merge_answers")`, so the merge waits for both.
+Each branch's end goes straight to the merge node, and a conditional edge fires the merge every time any branch arrives. Add a sync node at the end of each branch and a join edge from both sync nodes to the merge, which then waits for both.
 
 </details>
 

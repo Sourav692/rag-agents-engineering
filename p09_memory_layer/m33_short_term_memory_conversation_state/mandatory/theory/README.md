@@ -35,7 +35,7 @@ One history feeds two consumers. The rewrite step reads it so the retriever sear
 | 33.2 | RunnableWithMessageHistory, multi-user sessions and persistence | [One history per session](02_runnablewithmessagehistory_multi_user_sessions_and_persistence/README.md#one-history-per-session)<br>[Where the history lives](02_runnablewithmessagehistory_multi_user_sessions_and_persistence/README.md#where-the-history-lives) |
 | 33.3 | Trimming, windowing and summary memory | [Summary memory](03_trimming_windowing_and_summary_memory/README.md#summary-memory)<br>[Trim, window or summarise](03_trimming_windowing_and_summary_memory/README.md#trim-window-or-summarise) |
 | 33.4 | Conversational RAG with history-aware retrieval | [History-aware retriever](04_conversational_rag_with_history_aware_retrieval/README.md#history-aware-retriever)<br>[Rewrite, append or neither](04_conversational_rag_with_history_aware_retrieval/README.md#rewrite-append-or-neither) |
-| 33.5 | Memory apps: product recommender and research agent with SQL memory | *planned* |
+| 33.5 | Memory apps: product recommender and research agent with SQL memory | [The project: two memory apps](../../optional/theory/05_memory_apps_product_recommender_and_research_agent_with_sql_memory/README.md#the-project-two-memory-apps) |
 | 33.6 | LangGraph threads, checkpoints and memory optimisations | [Checkpointer / thread_id](06_langgraph_threads_checkpoints_and_memory_optimisations/README.md#checkpointer--thread_id)<br>[Delete or hide](06_langgraph_threads_checkpoints_and_memory_optimisations/README.md#delete-or-hide) |
 
 ## Interactive lab

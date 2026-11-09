@@ -1,22 +1,26 @@
 # M33.6 Theory: LangGraph threads, checkpoints and memory optimisations
 
 *[M33 theory](../README.md) · Lesson 33.6 · Notebooks: [`06a_memory_and_conversational_agent.ipynb`](../../notebook/06a_memory_and_conversational_agent.ipynb), [`06b_memory_optimizations.ipynb`](../../notebook/06b_memory_optimizations.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: A checkpointer saves a thread's state after every step, and a bound decides whether old turns are deleted from it or only hidden from the model -->
+
+## Forget it, but keep the log
+
+> **What you'll learn**
+>
+> - **Explain** how a checkpointer and a `thread_id` give a LangGraph graph per-conversation memory.
+> - **Trace** the checkpoints a turn writes and the messages four memory strategies send on a six-turn ticket.
+> - **Compare** deleting old messages from state with hiding them from the model.
+> - **Diagnose** a running summary that resets itself every turn.
+
+Lessons 33.2 to 33.4 kept history with `RunnableWithMessageHistory`, which is deprecated. LangGraph keeps the conversation in the graph's own state instead, and the bounding choices of lesson 33.3 become nodes.
+
+A Larkspur customer opens a ticket about a duplicate charge. Six turns later the prompt has grown on every call, and the team wants it bounded. Support leads also want the whole ticket available for review and for replaying a bad answer. A bound that deletes old turns satisfies the first request and silently breaks the second.
+
+This page first shows where a LangGraph conversation lives, then measures four strategies on one ticket and separates the two things a bound can cut: what the model reads and what the thread stores.
 
 ## Checkpointer / thread_id
 
-Larkspur must retain a conversation for debugging while limiting what the model reads. You will name a checkpoint thread, inspect the saved state, and distinguish deleting old messages from hiding them only for generation.
-
-### Step 1: Inspect the state saved under a thread id
-
-A LangGraph graph keeps the conversation in its state, typically a `messages` channel with the `add_messages` reducer, so each node returns only its new messages and the reducer appends them. Compile the graph with a **checkpointer** and LangGraph saves a snapshot of that state, a **checkpoint**, after every step. The **`thread_id`** in the config names the sequence of checkpoints a run reads and extends:
-
-Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
-
-```text
-graph = builder.compile(checkpointer=InMemorySaver())
-graph.invoke({"messages": "How long do I have?"},
-             config={"configurable": {"thread_id": "cust-4821"}})
-```
+A LangGraph graph keeps the conversation in its state, typically a `messages` channel with the `add_messages` reducer: each node returns only its new messages, and the reducer appends them. **A checkpointer saves a snapshot of that state, a checkpoint, after every step, and the `thread_id` in the call's config names the sequence of checkpoints a run reads and extends.** Compile the graph with a checkpointer once; every call then picks its conversation by thread:
 
 ```mermaid
 sequenceDiagram
@@ -30,57 +34,47 @@ sequenceDiagram
     Graph-->>App: state with the whole conversation
 ```
 
-This replaces `RunnableWithMessageHistory` and `session_id` from lesson 33.2, and LangChain recommends it for new code. The same compiled graph serves every user; the id decides which history comes back. In the recorded example, `user001` asks *Explain AI in 1 line* and then *Do the same for ML*, which only makes sense because the first turn is replayed; `user002` talks on another thread, and `user001`'s memory is untouched when the conversation switches back.
+*Figure 1: One turn on a checkpointed graph. The app sends only the new message; the thread supplies the rest.*
 
-### Step 2: Count snapshots rather than chat turns
+This replaces `RunnableWithMessageHistory` and `session_id` from lesson 33.2, and LangChain recommends it for new code. A one-node graph that answers every message with a fixed reply shows the isolation without a model call:
 
-Checkpoints are snapshots of every step, not just of the end of a turn. A turn writes one for the input, one at the start of the run and one per node step: a one-node chat graph writes 3 per turn, and the example's tool-calling agent about 5 (two model calls and a tool call). `get_state(config)` returns the latest; `get_state_history(config)` walks all of them newest first, which is what replay, forking and debugging use.
+| Call | Thread | New message | Messages in the returned state |
+|---|---|---|---|
+| 1 | `dana` | Annual plan | 2 |
+| 2 | `dana` | Which plan? | 4 |
+| 3 | `omar` | Hello | 2 |
+
+*Table 1: Three calls on one compiled graph with an in-memory checkpointer, run in the scratchpad with a scripted reply.*
+
+Call 2 returns four messages because `dana`'s first exchange was loaded from the thread. Call 3 starts from nothing, although it uses the same graph object. The notebook shows the same thing with a model: `user001` asks *Explain AI in 1 line* and then *Do the same for ML*, which only makes sense because the first turn is replayed, and `user001`'s memory is untouched after `user002` talks on another thread.
+
+### Counting checkpoints
+
+Checkpoints are snapshots of every step, not only of the end of a turn. A turn writes one for the input, one at the start of the run and one per node step:
+
+| Graph | Checkpoints per turn | After six turns |
+|---|---|---|
+| One node (answer) | 3 | 18 |
+| Two nodes (bound, then answer) | 4 | 24 |
+| The notebook's tool-calling agent (model, tool, model) | about 5 | |
+
+*Table 2: Checkpoints written per turn, counted with a stub model in the scratchpad for the first two rows.*
+
+`get_state` returns the latest checkpoint; `get_state_history` walks all of them, newest first, which is what replay, forking and debugging use. Where they are written depends on the checkpointer:
 
 | Checkpointer | Survives a restart | Use |
 |---|---|---|
 | `InMemorySaver` | No | Notebooks and tests |
-| `SqliteSaver` | Yes, a plain SQLite file with `checkpoints` and `writes` tables | One process; a context manager, so compile inside the `with` block |
+| `SqliteSaver` | Yes, a plain SQLite file with `checkpoints` and `writes` tables | One process; it is a context manager, and the graph is compiled inside its block |
 | `PostgresSaver` (`langgraph-checkpoint-postgres`) | Yes | Deployments with concurrent writers |
 
-Two rules follow from this design. *Short-term* describes scope, not lifetime: a thread on `SqliteSaver` or `PostgresSaver` stays on disk until you delete it, so it is customer data with retention rules like any other. And the `thread_id` must come from trusted server-side config, never from user text, because whoever picks the id reads that thread.
+*Table 3: Three checkpointers behind the same compile call.*
 
-Run a minimal checkpointed conversation with scripted replies. Each thread retains its own message list. There is no model call.
-
-```python
-from typing import Annotated
-from typing_extensions import TypedDict
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import InMemorySaver
-
-class State(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
-
-builder = StateGraph(State)
-builder.add_node("reply", lambda state: {"messages": [AIMessage(content="Acknowledged.")]})
-builder.add_edge(START, "reply")
-builder.add_edge("reply", END)
-graph = builder.compile(checkpointer=InMemorySaver())
-for thread, text in [("dana", "Annual plan"), ("dana", "Which plan?"), ("omar", "Hello")]:
-    result = graph.invoke({"messages": [HumanMessage(content=text)]},
-                          {"configurable": {"thread_id": thread}})
-    print(thread, len(result["messages"]))
-```
-
-**Expected output**
-
-```text
-dana 2
-dana 4
-omar 2
-```
+Two rules follow from this design. *Short-term* describes scope, not lifetime: a thread on SQLite or Postgres stays on disk until you delete it, which makes it customer data with retention rules like any other. And the `thread_id` must come from trusted server-side config, never from user text, because whoever picks the id reads that thread.
 
 ## Delete or hide
 
-### Step 1: Separate stored state from the model input
-
-A thread that keeps everything sends every earlier message on every turn. The example runs one six-turn support ticket through four graphs. Counted in messages (the token counts vary per run), the model receives:
+A thread that keeps everything sends every earlier message on every turn. The notebook runs one six-turn support ticket through four graphs. Turn 1 reports the duplicate charge and mentions in passing that the customer's favourite colour is blue; turn 3 asks for the colour back. Counted in messages, the model receives:
 
 | Turn | Sequential | Sliding window | Trim on read | Summary |
 |---|---|---|---|---|
@@ -92,20 +86,28 @@ A thread that keeps everything sends every earlier message on every turn. The ex
 | 6 | 11 | 3 | 3 | summary + 3 |
 | Stored after turn 6 | 12 | 4 | 12 | summary + 4 |
 
-### Step 2: Separate scripted graph counts from model choices
+*Table 4: Messages sent to the model per turn, not counting system messages. Counted by running the notebook's four graphs with a stub model in place of `gpt-4o-mini`; the graph logic decides these numbers, and a real model gives the same counts with different token totals.*
 
-These counts come from running the example's four graphs with a stub model in place of `gpt-4o-mini`; the graph logic decides them, not the model. Turn 3 asks *What is my favorite color?*, given in turn 1. Sequential can answer, and so can the summary graph if its summariser kept the colour; sliding window and trim on read cannot, since both send only the last `MAX_MESSAGES = 3` messages.
+Sequential can answer turn 3, and so can the summary graph if its summariser kept the colour. Sliding window and trim on read cannot, since both send only the last `MAX_MESSAGES = 3` messages: the previous exchange and the new question.
 
-### Step 3: Compare deletion with trim on read
+### Same prompt, different thread
 
 The two bounded strategies send the same prompt and differ in what they keep:
 
-- **Sliding window deletes.** A `truncate` node returns `RemoveMessage(id=...)` for every message older than the window, and the `add_messages` reducer removes them from the checkpointed state. They are gone for every later turn, for `get_state()` and for anyone auditing the ticket. The reducer is the mechanism: `operator.add` can only append, so a deleting window needs `add_messages`.
-- **Trim on read hides.** The model node calls `trim_messages` on a copy of the list and leaves state alone, so the thread still holds all 12 messages, turn 1's colour included. Trimming the prompt never trims the checkpoint: with `SqliteSaver` the full thread is written to disk on every step.
+- **Sliding window deletes.** A truncate node returns a `RemoveMessage` for every message older than the window, and the `add_messages` reducer removes them from the checkpointed state. They are gone for every later turn, for `get_state` and for anyone auditing the ticket. The reducer is the mechanism: plain list concatenation can only append. A deleting window needs `add_messages`.
+- **Trim on read hides.** The model node calls `trim_messages` on a copy of the list and leaves state alone. The thread still holds all 12 messages, turn 1's colour included. Trimming the prompt never trims the checkpoint: with `SqliteSaver` the full thread is written to disk on every step.
 
-### Step 4: Keep the summary across invocations
+Call the first one **audit loss**: the answer quality is identical, and the damage shows up only when someone needs the full ticket.
 
-The summary graph keeps a `summary` string next to a `buffer` of recent messages. Once the buffer reaches `MESSAGE_THRESHOLD = 4`, a node folds all but the newest message into the summary and removes them, so it folds every other turn (turns 3 and 5 here) and each fold is an extra LLM call. Because `summary` has no reducer, any value written to it replaces the old one: pass `{"summary": ""}` only on the first turn, or each turn wipes the memory you are building.
+### The summary graph
+
+The summary graph keeps a `summary` string next to a `buffer` of recent messages. Once the buffer reaches `MESSAGE_THRESHOLD = 4`, a node folds all but the newest message into the summary and removes them. It folds every other turn, turns 3 and 5 in Table 4, and each fold is an extra LLM call. Counting those calls, the notebook notes that on a thread this short summarisation costs about as much as the sequential baseline; it pays off on long threads.
+
+The `summary` channel has no reducer, so any value written to it replaces the old one. Pass the empty summary only on the first turn. An app that sends it on every turn wipes the memory it is building, a failure we will call the **summary reset**: the folds run, the logs look busy, and each turn starts from nothing.
+
+### Choosing a strategy
+
+Figure 2 turns Table 4 into questions:
 
 ```mermaid
 flowchart TD
@@ -117,18 +119,20 @@ flowchart TD
     C -- no --> SW["Sliding window"]
 ```
 
-For agents built with `create_agent`, LangChain 1.x ships the summary strategy as `SummarizationMiddleware`. M34 adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.
+*Figure 2: Choosing a memory strategy for a thread. Prefer hiding over deleting whenever someone may need the full ticket.*
 
-### Try it yourself
+For agents built with `create_agent`, LangChain 1.x ships the summary strategy as `SummarizationMiddleware`.
 
-Run the same short thread through sliding-window and trim-on-read policies. Check that both can send only three messages to the model while only trim on read retains all twelve in state. For the summary variant, send an empty summary only at initialisation. Repeating it on each turn overwrites the accumulated memory.
+## In practice: Larkspur's duplicate-charge ticket
 
-### Practice notebook
+Applying the page to the opening ticket:
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+1. **Thread.** The endpoint derives the `thread_id` from the authenticated customer and ticket, and compiles the graph once with `PostgresSaver`.
+2. **Bound.** Support leads need the whole ticket, which rules out the sliding window. Trim on read caps the prompt and keeps all 12 messages in the thread.
+3. **Early facts.** The billing-address change from turn 2 and the amount from turn 4 matter for the refund at the end. Long tickets switch to a summary seeded once, on the first turn.
+4. **Retention.** The thread stays in Postgres after the ticket closes and follows the same deletion rules as the rest of the customer's data.
 
-- [Memory and conversational agent](../../notebook/06a_memory_and_conversational_agent.ipynb).
-- [Memory optimizations](../../notebook/06b_memory_optimizations.ipynb).
+> **What changes next:** a thread ends with its conversation. [M34](../../../../m34_long_term_agentic_memory/mandatory/theory/README.md) adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.
 
 ## Key Takeaways
 
@@ -141,23 +145,23 @@ Run the complete implementation from the practice material after checking the tr
 <details>
 <summary>1. The sliding-window and trim-on-read graphs both send the model the last three messages. What differs between them, and when does it matter?</summary>
 
-The sliding window deletes: a `truncate` node returns `RemoveMessage` ids and the `add_messages` reducer removes them from checkpointed state. Trim on read hides: it trims a copy for the model, and the thread still holds all 12 messages. Pick trim on read when you need the full thread for audit or replay.
+The sliding window deletes: a truncate node returns `RemoveMessage` instructions and the `add_messages` reducer removes those messages from checkpointed state. Trim on read hides: it trims a copy for the model, and the thread still holds all 12 messages. Pick trim on read when you need the full thread for audit or replay.
 
 </details>
 
 <details>
 <summary>2. How many checkpoints does a one-node chat graph write per turn, and why more than one?</summary>
 
-Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn, so the notebook's tool-calling agent writes about 5. `get_state_history(config)` walks them newest first for replay, forking and debugging.
+Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn. A two-node graph writes 4 and the notebook's tool-calling agent about 5. `get_state_history` walks them newest first for replay, forking and debugging.
 
 </details>
 
 <details>
 <summary>3. A summary graph runs its folds, yet each turn starts with an empty summary. What is the likely cause?</summary>
 
-The app passes `{"summary": ""}` on every turn. The `summary` channel has no reducer, so any value written to it replaces the old one and wipes the memory being built. Pass the empty summary only on the first turn.
+The app passes an empty summary on every turn. The `summary` channel has no reducer, so any value written to it replaces the old one and wipes the memory being built. Pass the empty summary only on the first turn.
 
 </details>
 
 ---
-*Previous: [33.4 Conversational RAG with history-aware retrieval](../04_conversational_rag_with_history_aware_retrieval/README.md). Next: [M33 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
+*Previous: [33.5 Memory apps: product recommender and research agent with SQL memory](../../../optional/theory/05_memory_apps_product_recommender_and_research_agent_with_sql_memory/README.md). Next: [M33 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*
