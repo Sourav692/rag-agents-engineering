@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 13 · Review draft: 0 · In progress: 0 · In PR: 1 · Live: 32
+**Modules:** Not started: 13 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 33
 
 ## Part I · AI Engineering Foundations
 
@@ -41,7 +41,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 | 12 | Chunking Strategies | 4 | 4 | 4 / 4 | Live | 2026-11-09 | #50 | 12.1 to 12.4 rewritten; module page unchanged; live via site PR #265 |
 | 13 | Embeddings & Model Selection | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #52 | 13.1 to 13.4 rewritten; 13.5 project page added; live via site PR #265 |
 | 14 | Vector Stores & Index Operations | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #57 | 14.1 to 14.5 rewritten in place; module page unchanged; live via site PR #265 |
-| 15 | Advanced Indexing Strategies | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #61 | 15.1 to 15.5 rewritten in place; module page unchanged |
+| 15 | Advanced Indexing Strategies | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #61 | 15.1 to 15.5 rewritten in place; module page unchanged; live via site PR #266 |
 
 ## Part V · Retrieval Quality & RAG Applications
 
