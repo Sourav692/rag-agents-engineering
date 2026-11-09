@@ -31,7 +31,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | 13.2 | Hosted embeddings: OpenAI models and dimensions ([theory](mandatory/theory/02_hosted_embeddings_openai_models_and_dimensions/README.md)) | [`02a_openai_embeddings.ipynb`](mandatory/notebook/02a_openai_embeddings.ipynb) | [`02b_openai_embeddings_tutorial.ipynb`](optional/notebook/02b_openai_embeddings_tutorial.ipynb) *(alternate)* |
 | 13.3 | Open-source embeddings with Hugging Face ([theory](mandatory/theory/03_open_source_embeddings_with_hugging_face/README.md)) | [`03a_huggingface_embeddings.ipynb`](mandatory/notebook/03a_huggingface_embeddings.ipynb) | [`03b_huggingface_embeddings_tutorial.ipynb`](optional/notebook/03b_huggingface_embeddings_tutorial.ipynb) *(alternate)*<br>[`03c_embedding_models.ipynb`](optional/notebook/03c_embedding_models.ipynb) *(alternate)* |
 | 13.4 | Production concerns: batching, caching and similarity behaviour ([theory](mandatory/theory/04_production_concerns_batching_caching_and_similarity_behaviour/README.md)) | [`04a_embeddings_deep_dive.ipynb`](mandatory/notebook/04a_embeddings_deep_dive.ipynb) | — |
-| 13.5 | Benchmarking embedding models with MLflow (Databricks) *(optional lesson)* | — | [`05a_compare_embedding_models_databricks.ipynb`](optional/notebook/05a_compare_embedding_models_databricks.ipynb) *(platform-specific)* |
+| 13.5 | Benchmarking embedding models with MLflow (Databricks) *(optional lesson)* ([theory](optional/theory/05_benchmarking_embedding_models_with_mlflow_databricks/README.md)) | — | [`05a_compare_embedding_models_databricks.ipynb`](optional/notebook/05a_compare_embedding_models_databricks.ipynb) *(platform-specific)* |
 
 ## Hands-on lab
 

@@ -1,12 +1,24 @@
 # M13.3 Theory: Open-source embeddings with Hugging Face
 
 *[M13 theory](../README.md) · Lesson 13.3 · Notebooks: [`03a_huggingface_embeddings.ipynb`](../../notebook/03a_huggingface_embeddings.ipynb), [`03b_huggingface_embeddings_tutorial.ipynb`](../../../optional/notebook/03b_huggingface_embeddings_tutorial.ipynb) (optional), [`03c_embedding_models.ipynb`](../../../optional/notebook/03c_embedding_models.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: A model fits your domain when your near-duplicates land apart, and only your own golden set shows it -->
 
 ## Domain fit
 
-A model fits a domain when texts that mean the same thing in *your* documents land close together and texts that differ land apart. General-purpose models are trained on broad web text. They can place two Larkspur chunks that differ by one condition (a full refund within 30 days, a prorated one after) almost on top of each other, miss that a customer's "bandwidth" is the handbook's "outbound traffic", or fail on a language they were not trained on. None of this raises an error; it shows up as the wrong chunk ranked first.
+> **What you'll learn**
+>
+> - **Explain** what domain fit means for an embedding model, and how a poor fit shows up.
+> - **Compare** open models run locally with hosted ones by cost, data, latency and operations.
+> - **Diagnose** an open model that ranks badly because its vectors are not normalised.
+> - **Design** a golden set with hard negatives that can separate candidate models.
 
-`HuggingFaceEmbeddings` runs sentence-transformers models on your own machine, with no API key, which widens the choice. The models the lesson's notebooks load:
+Lesson 13.2 sized the hosted OpenAI models. Open models run on your own machines, which widens the choice, and makes the question of which one fits your documents harder to skip.
+
+A Larkspur customer asks *How much bandwidth does the Business plan include?* The handbook never says "bandwidth". It says "outbound traffic". If the embedding model does not place those two phrases close together, the plans page loses to whatever chunk happens to mention networks, and the answer comes from the wrong page. Nothing raises an error.
+
+A model has **domain fit** when texts that mean the same thing in *your* documents land close together and texts that differ land apart. General-purpose models are trained on broad web text. They can place two Larkspur chunks that differ by one condition (a full refund within 30 days, a prorated one after) almost on top of each other, miss a customer's synonym for a handbook term, or fail on a language they were not trained on. We call any of these a **domain miss**: it shows up only as the wrong chunk ranked first.
+
+The Hugging Face wrapper runs sentence-transformers models on your own machine, with no API key. The models the lesson's notebooks load:
 
 | Model | Dimensions | What the notebooks say it is for |
 |---|---|---|
@@ -16,12 +28,14 @@ A model fits a domain when texts that mean the same thing in *your* documents la
 | `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` | 384 | Tuned for question answering and semantic search |
 | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | More than 50 languages |
 | `BAAI/bge-large-en` | 1024 | High-accuracy applications; the slowest in 03b's table |
-| `mixedbread-ai/mxbai-embed-large-v1` | not printed in the notebook | Loaded in 03c as a second open model to compare with OpenAI |
+| `mixedbread-ai/mxbai-embed-large-v1` | Not printed in the notebook | Loaded in 03c as a second open model to compare with OpenAI |
+
+*Table 1: Open embedding models used in the lesson's notebooks.*
 
 Two settings decide whether a local model behaves like the hosted ones in lessons 13.1 and 13.2:
 
-- **Normalization is off by default.** Pass `encode_kwargs={"normalize_embeddings": True}`, or score with cosine. Otherwise dot product rewards longer vectors, as the [lesson 13.1 lab](../01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html) shows.
-- **Some models are asymmetric.** They are trained so that short questions and long passages meet, and they treat the two sides differently, so `embed_query` and `embed_documents` can return different vectors for the same text. Keep the two calls separate in your code even when today's model is symmetric.
+- **Normalisation is off by default.** Turn it on in the wrapper's encode settings, or score with cosine. Otherwise dot product rewards longer vectors, as the [lesson 13.1 lab](../01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html) shows. We call a local model left this way an **unnormalised local model**.
+- **Some models are asymmetric.** They are trained so that short questions and long passages meet, and they treat the two sides differently: `embed_query` and `embed_documents` can return different vectors for the same text. Keep the two calls separate in your code even when today's model is symmetric.
 
 Hosted or self-hosted is part of the fit, because some corpora may not leave your network. The trade, from notebook 13.1:
 
@@ -33,9 +47,11 @@ Hosted or self-hosted is part of the fit, because some corpora may not leave you
 | Ops burden | None | Versioning, serving, scaling, capacity |
 | Deprecation | The provider can retire the model, forcing a re-index | You decide when it changes |
 
-### Measuring fit
+*Table 2: Hosted against self-hosted embeddings.*
 
-Leaderboards such as MTEB average many public datasets; they are good for a shortlist. The decision comes from scoring the shortlist on your own documents and questions. A short decision chain:
+## Measuring fit
+
+Leaderboards such as MTEB (the Massive Text Embedding Benchmark) average many public datasets. They are good for a shortlist. The decision comes from scoring the shortlist on your own documents and questions, and a short decision chain narrows where to start:
 
 ```mermaid
 flowchart TD
@@ -45,22 +61,27 @@ flowchart TD
     B -- no --> H["Shortlist hosted and<br/>open models"]
 ```
 
-Every shortlist then goes through the same scoring on the golden set: recall@k, margin, cost and latency. A useful golden set for Larkspur holds the M10 questions plus **hard negatives**: chunks on the same topic that do not answer the question, such as `cancel` for *Can I export my data after I cancel my plan?* Notebook 13.1's exercise asks for exactly this, because a six-document toy set separates no models.
+*Figure 1: Building a shortlist. Every branch ends in the same scoring on your golden set.*
 
-Score more than one thing. The optional lesson 13.5 notebook, [`05a_compare_embedding_models_databricks.ipynb`](../../../optional/notebook/05a_compare_embedding_models_databricks.ipynb), indexes eight short documents with three open models in Databricks Vector Search and grades the top-5 results for 15 queries with MLflow's `RetrievalRelevance` and `RetrievalGroundedness` scorers. Its recorded result:
+Every shortlist then goes through the same scoring on the golden set: recall@k, margin, cost and latency. A useful golden set for Larkspur holds the M10 questions plus **hard negatives**: chunks on the same topic that do not answer the question, such as `cancel` for *Can I export my data after I cancel my plan?* Notebook 13.1's exercise asks for exactly this, because a six-document toy set separates no models. We call a set without them an **easy golden set**: every candidate scores well, and the comparison decides nothing.
 
-| Model | Retrieval relevance | Retrieval groundedness |
-|---|---|---|
-| `all-MiniLM-L6-v2` | 0.36 (tied best) | 0.8 |
-| `thenlper/gte-large` | 0.36 (tied best) | 0.8 |
-| `BAAI/bge-large-en-v1.5` | below 0.36 (value not given) | 0.8667 (best) |
+Score more than one thing, too. Lesson 13.5 runs three open models through two automatic judges on Databricks, and the two judges disagree about which model is best.
 
-The smallest model tied for best relevance, and the ranking reversed on the second metric. Read the second column with care: the notebook's `rag_app` returns the retrieved text itself as the response, so groundedness here grades retrieved text, not an LLM's answer. Eight documents and 15 queries cannot settle a model choice; they show the method. Run it on the full golden set, and decide which metric your product needs before you look at the results.
+## In practice: an open-model shortlist for Larkspur
+
+For the handbook, choosing an open model takes four steps:
+
+1. **Shortlist** `all-MiniLM-L6-v2`, `all-mpnet-base-v2` and `bge-large-en` from Table 1, plus the hosted model from lesson 13.2 as the baseline.
+2. **Turn on normalisation** for every open model, so the metric from lesson 13.1 behaves.
+3. **Add hard negatives** to the golden set: `cancel` for the export question, `refund-window` for the refund-timing question, and a "bandwidth" paraphrase for the plans page.
+4. **Score recall, margin, latency and cost** for each, and keep the documents on Larkspur's machines if policy requires it.
+
+> **Next:** lesson 13.4 turns to running embeddings in production: batching the calls and caching the results.
 
 ## Key Takeaways
 
 - Poor domain fit raises no error; it shows up as the wrong chunk ranked first. Use leaderboards for a shortlist and your own golden set, with hard negatives, for the decision.
-- `HuggingFaceEmbeddings` does not normalise by default. Pass `normalize_embeddings=True` or score with cosine, and keep `embed_query` and `embed_documents` separate for asymmetric models.
+- The Hugging Face wrapper does not normalise by default. Turn normalisation on or score with cosine, and keep `embed_query` and `embed_documents` separate for asymmetric models.
 - Hosted models cost per token and send data off your network; self-hosted ones cost hardware and operations. Decide which metric matters before you compare results.
 
 ## Check yourself
@@ -75,14 +96,14 @@ As the wrong chunk ranked first. A general-purpose model can place two Larkspur 
 <details>
 <summary>2. You are building a golden set for the question about exporting data after cancelling a plan. What kind of chunk should it include besides the answer, and why?</summary>
 
-A hard negative: a chunk on the same topic that does not answer the question, such as `cancel`. Hard negatives are what separate models; a six-document toy set separates none.
+A hard negative: a chunk on the same topic that does not answer the question, such as `cancel`. Hard negatives are what separate models. A six-document toy set separates none.
 
 </details>
 
 <details>
 <summary>3. You swap a hosted OpenAI model for all-MiniLM-L6-v2 with default settings and keep scoring by dot product. What goes wrong?</summary>
 
-Normalisation is off by default in `HuggingFaceEmbeddings`, so the vectors do not have length 1 and dot product rewards longer vectors. Pass `encode_kwargs={"normalize_embeddings": True}` or score with cosine.
+Normalisation is off by default in the Hugging Face wrapper, so the vectors do not have length 1 and dot product rewards longer vectors. Turn normalisation on in the encode settings, or score with cosine.
 
 </details>
 
