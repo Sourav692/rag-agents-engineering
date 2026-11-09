@@ -31,7 +31,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | 23.2 | ReAct with LangChain `create_agent` ([theory](mandatory/theory/02_react_with_langchain_create_agent/README.md)) | [`02a_react_with_create_agent.ipynb`](mandatory/notebook/02a_react_with_create_agent.ipynb) | — |
 | 23.3 | Models, messages and structured output in LangChain 1.x ([theory](mandatory/theory/03_models_messages_and_structured_output_in_langchain_1_x/README.md)) | [`03c_structured_output.ipynb`](mandatory/notebook/03c_structured_output.ipynb) | [`03a_model_integration.ipynb`](optional/notebook/03a_model_integration.ipynb) *(extension)*<br>[`03b_messages.ipynb`](optional/notebook/03b_messages.ipynb) *(extension)* |
 | 23.4 | Middleware, including human-in-the-loop ([theory](mandatory/theory/04_middleware_including_human_in_the_loop/README.md)) | [`04a_middleware.ipynb`](mandatory/notebook/04a_middleware.ipynb) | — |
-| 23.5 | Exercise: intelligent travel assistant agent (with solution) *(optional lesson)* | — | [`05a_intelligent_travel_assistant_agent.ipynb`](optional/notebook/05a_intelligent_travel_assistant_agent.ipynb) *(extension)*<br>[`05b_intelligent_travel_assistant_solution.ipynb`](optional/notebook/05b_intelligent_travel_assistant_solution.ipynb) *(extension)* |
+| 23.5 | Exercise: intelligent travel assistant agent (with solution) *(optional lesson)* ([theory](optional/theory/05_exercise_intelligent_travel_assistant_agent_with_solution/README.md)) | — | [`05a_intelligent_travel_assistant_agent.ipynb`](optional/notebook/05a_intelligent_travel_assistant_agent.ipynb) *(extension)*<br>[`05b_intelligent_travel_assistant_solution.ipynb`](optional/notebook/05b_intelligent_travel_assistant_solution.ipynb) *(extension)* |
 
 ## Hands-on lab
 

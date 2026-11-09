@@ -1,19 +1,30 @@
 # M24.3 Theory: Parallelization: sectioning and voting
 
 *[M24 theory](../README.md) · Lesson 24.3 · Notebooks: [`03a_parallelization_langgraph.ipynb`](../../notebook/03a_parallelization_langgraph.ipynb), [`03b_parallelization_sectioning_and_voting.ipynb`](../../notebook/03b_parallelization_sectioning_and_voting.ipynb), [`03c_parallelization_lcel.ipynb`](../../../optional/notebook/03c_parallelization_lcel.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Run independent branches at once, merge them safely, and know what the slowest branch and a rate limit cost you -->
 
 ## Fan-out / fan-in
 
-Larkspur needs handbook, status and account evidence for one reply. Independent lookups can overlap, but the answer must wait for the required results. You will trace that join, change the concurrency cap, and distinguish splitting a task from collecting votes about the same task.
+> **What you'll learn**
+>
+> - **Explain** how a graph starts branches together, waits for all of them and merges their writes.
+> - **Calculate** a fan-out's wall time from its branch durations, with and without a concurrency cap.
+> - **Diagnose** a lost or rejected write when two branches update the same state key.
+> - **Choose** between sectioning and voting, and set a vote threshold knowingly.
 
-### Step 1: Give parallel results a defined merge
+Chaining runs steps one after another, and routing runs one of several. **Parallelization** runs all of a fixed set of branches at once and merges what they return.
 
-Chaining runs steps one after another and routing runs one of several. Parallelization runs **all** of a fixed set of branches at once. A reducer specifies how to combine updates to a shared state key. In LangGraph the graph and its state schema define both scheduling and merging:
+A Larkspur reply about an outage needs three pieces of evidence: the handbook's outage policy, the status page, and the customer's account. None of the three lookups needs another's result, yet a chain would run them back to back. Running them together cuts the wait to the slowest one, provided the merge is defined.
 
-- **Fan-out:** several edges leave one node. Their targets run in the same step, concurrently.
-- **Fan-in:** several edges enter one node. It waits until every one of them has finished.
-- **Uneven branches:** when one path is longer (A to B to X, beside A to C), `add_edge(["x", "c"], "d")` is the explicit sync point.
-- **Shared keys need a reducer.** Two branches writing the same unreduced state key in one step can raise `InvalidUpdateError`. Declare a reducer such as `Annotated[list, operator.add]`. Branches that each own a key (`character_profiles`, `story_setting`, `plot_premise`) need none.
+### Fan-out, fan-in and the sync point
+
+In LangGraph the graph and its state schema decide both the scheduling and the merging:
+
+- **Fan-out**: several edges leave one node, and their targets run in the same step, concurrently.
+- **Fan-in**: several edges enter one node, and it waits until every one of them has finished.
+- **Sync point**: when one path is longer (A to B to X, beside A to C), an edge from the list of both endpoints into the next node makes it wait for the longer path explicitly.
+
+The lesson's sectioning graph writes a story's characters, setting and premise in parallel, then synthesizes an introduction:
 
 ```mermaid
 flowchart LR
@@ -21,132 +32,137 @@ flowchart LR
     C & ST & P --> Y["synthesize<br/>3.6 s"] --> I[/Introduction/]
 ```
 
-Here is a model-free fan-out. Each branch returns a partial state update. The reducer combines both lists. Run it in the repository environment with `uv run python`.
+*Figure 1: The recorded sectioning run. Each branch is labelled with the time it finished.*
 
-```python
-import operator
-from typing import Annotated
-from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START, END
+### Two branches, one key
 
-class Evidence(TypedDict):
-    sources: Annotated[list[str], operator.add]
+The merge needs one more rule. A **reducer** says how to combine a node's update with the value already in a state key. Branches that each own a key, as the three story sections do, need none. Branches that write the same key in the same step do.
 
-graph = StateGraph(Evidence)
-graph.add_node("handbook", lambda state: {"sources": ["handbook"]})
-graph.add_node("account", lambda state: {"sources": ["account"]})
-graph.add_node("join", lambda state: {})
-graph.add_edge(START, "handbook")
-graph.add_edge(START, "account")
-graph.add_edge(["handbook", "account"], "join")
-graph.add_edge("join", END)
-result = graph.compile().invoke({"sources": []})
-print(sorted(result["sources"]))
-```
+We ran a model-free fan-out in which a handbook branch and an account branch each append their name to one shared list, in the LangGraph version this course pins (1.2.18):
 
-**Expected output**
+| Shared key declared as | Both branches write in one step | Result |
+|---|---|---|
+| a list with an addition reducer | yes | both names kept: account, handbook |
+| a plain list, no reducer | yes | `InvalidUpdateError`: the key "can receive only one value per step" |
 
-```text
-['account', 'handbook']
-```
+*Table 1: The same two-branch graph with and without a reducer.*
 
-Change `sources` to an ordinary `list[str]` state field and rerun. The concurrent writes now raise `InvalidUpdateError` instead of silently dropping one result.
+We call this failure **colliding writes**. Here it fails loudly, which is the useful outcome; the fix is to declare the reducer on any key that more than one parallel branch writes.
 
-### Step 2: Read the critical path
+### The critical path
 
-Wall time follows the longest path, not the sum. The recorded timing experiments measure it with nodes that sleep 0.5 s each, then with real LLM calls:
+Wall time follows the longest path through the graph, not the sum of the steps. The recorded timing runs measure it first with nodes that sleep 0.5 s each, then with real LLM calls:
 
 | Graph | Wall time | Why |
 |---|---|---|
 | A, B, C, D in a line | 2.01 s | four steps, one after another |
 | A, then B and C in parallel, then D | 1.51 s | B and C overlap: three steps' worth |
 | A, then B to X beside C, then D | 2.02 s | paced by the longer path A, B, X, D |
-| Three story sections, then synthesis | 10.6 s | sections finish at 1.6, 4.7 and 7.0 s; a sequence would take about 13.4 s |
+| Three story sections, then synthesis | 10.6 s | sections finished at 1.6, 4.7 and 7.0 s; in sequence they take about 13.4 s |
 
-The synthesis step cannot overlap anything: it needs every section. That is the general shape of a fan-out's cost: the step before, plus the slowest branch, plus the merge.
+*Table 2: Recorded wall times.*
 
-### Step 3: Change the concurrency cap and submission order
+The synthesis step overlaps nothing, because it needs every section. So a fan-out costs the step before, plus the slowest branch, plus the merge: 7.0 s for the slowest section plus 3.6 s of synthesis gives the 10.6 s total.
 
-Production adds a limit the toy graphs do not have: the API behind the branches is rate-limited, so you cap how many run at once. In LCEL (LangChain Expression Language, which composes runnable steps) the cap is `config={"max_concurrency": n}` on the call, and the LCEL timing experiment records: six 0.5 s branches took 0.51 s unbounded and 1.51 s at two at a time, three rounds of two. The [interactive lab](interactive/fan-out-lab.html) schedules the recorded branch durations the way the thread pool does, branches submitted in order and each starting on the first free slot. On the story sections:
+### Concurrency caps and submission order
 
-| Concurrency cap | Submitted | Merge starts | Wall time |
+Production adds a limit the toy graphs lack. The API behind the branches is rate-limited, so you cap how many branches run at once. In LCEL the cap is a setting on the call: six 0.5 s branches took 0.51 s unbounded and 1.51 s two at a time, three rounds of two.
+
+Under a cap, order starts to matter. The [interactive lab](interactive/fan-out-lab.html) schedules the recorded section durations the way a thread pool does: branches are submitted in order and each starts on the first free slot. On the story sections:
+
+| Cap | Submitted | Merge starts | Wall time |
 |---|---|---|---|
 | 3 (all at once) | as written | 7.0 s | 10.6 s |
 | 2 | as written | 7.0 s | **10.6 s** |
 | 2 | fastest first | 8.6 s | 12.2 s |
 | 1 | any order | 13.3 s | 16.9 s |
 
-A cap of 2 is free here: `setting` (7.0 s) gets a slot at once, and `premise` runs after `characters` in the other slot, finishing at 6.3 s. Submit the fast branches first and `setting` waits 1.6 s for a slot, which the whole request pays. For these known durations, starting the longest branch early avoids delaying the join. Real duration estimates may be uncertain. (The lab sums the printed one-decimal times, so its sequence shows 13.3 s where the reference example printed 13.4 s.)
+*Table 3: The lab's schedule of the recorded durations.*
 
 <!-- lab: interactive/fan-out-lab.html -->
 
-For Larkspur, the natural fan-out is retrieval from independent sources for one question: the handbook index, the status page, the customer's account. The answer arrives when the slowest source returns, so each branch needs a timeout and a fallback value, and each source should stay labelled in the merged context so the model can cite it.
+A cap of 2 costs nothing as written: the 7.0 s setting branch gets a slot at once, and the premise runs after the characters in the other slot, finishing at 6.3 s. Submit the fast branches first and the setting waits 1.6 s for a slot, which the whole request pays. We call that the **queued straggler**: the slowest branch held behind faster ones. Start long branches first when you know their durations. The lab adds the printed one-decimal times, so its sequential total shows 13.3 s where the recorded run printed 13.4 s.
 
 ## Sectioning and voting
 
-### Step 1: Choose what each branch contributes
-
-The same mechanics serve two different jobs:
+The same fan-out mechanics serve two different jobs, and they buy different things:
 
 | | Sectioning | Voting |
 |---|---|---|
-| Branches do | different parts of one task | the same kind of task, independently |
-| 25.3 example | characters, setting and premise of a story | three security reviews of one function |
-| State | one key per branch, no reducer | one shared `votes` list, reducer required |
-| Fan-in | an LLM call that weaves the parts together | plain Python that counts and applies a threshold |
+| Branches do | different parts of one task | the same kind of check, independently |
+| Lesson example | characters, setting and premise of a story | three security reviews of one function |
+| State | one key per branch, no reducer | one shared list of votes, reducer required |
+| Fan-in | an LLM call that weaves the parts together | plain code that counts flags against a threshold |
 | Buys you | latency | confidence |
 
-The voting graph gives each reviewer one concern (injection, secrets handling, input validation), and no reviewer sees another's vote. Each returns a structured `Vote`. The aggregator blocks the code when at least `FLAG_THRESHOLD = 2` of 3 flag it:
+*Table 4: Two uses of one mechanism.*
 
-| Snippet | Flags | Verdict |
-|---|---|---|
-| SQL built with an f-string from user input, a hard-coded password printed to the log | 3 of 3 | BLOCK |
-| Parameterised query, validated username, password read from the environment | 0 of 3 | APPROVE |
+### The recorded security vote
 
-### Step 2: Test the voting threshold
+The voting graph gives each reviewer one concern (injection, secrets handling, input validation), and no reviewer sees another's vote. Each returns a structured vote, flagged or not, with a reason. The aggregator blocks the code when at least 2 of 3 reviewers flag it:
 
-Compare the threshold before changing the reviewers. It trades false alarms against misses. Raising it to 3 blocks less often: fewer false alarms, more misses. Lowering it to 1 blocks on any single flag. On the unsafe snippet the validation reviewer flagged the SQL injection too, outside its own concern, so the votes are not fully independent. Count on that when you set the threshold.
+| Snippet | Injection | Secrets | Validation | Verdict |
+|---|---|---|---|---|
+| SQL built from user input by string interpolation; hard-coded password written to the log | flagged | flagged | flagged (SQL injection) | BLOCK, 3 of 3 |
+| Parameterised query, validated username, password read from the environment | clear | clear | clear | APPROVE, 0 of 3 |
 
-For Larkspur, voting fits a check before a reply goes out: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. Three narrow reviewers and a threshold are easier to tune than one judge asked about everything.
+*Table 5: The two recorded reviews.*
 
-### Try it yourself
+### Setting the threshold
 
-In the lab use the story branches and cap concurrency at two. Compare the original order with fastest first. Check merge start times of 7.0 s and 8.6 s, and total times of 10.6 s and 12.2 s. Then lower the voting threshold from two flags to one and explain which runs can newly be blocked. Both changes alter behaviour without adding a branch.
+The threshold trades false alarms against misses. On the two recorded snippets every setting gives the same verdict, because the votes were unanimous:
 
-### Practice notebook
+| Threshold | Blocks when | Unsafe snippet | Safe snippet | Trade-off |
+|---|---|---|---|---|
+| 1 of 3 | any reviewer flags | BLOCK | APPROVE | most false alarms, fewest misses |
+| 2 of 3 (reference) | a majority flags | BLOCK | APPROVE | balanced |
+| 3 of 3 | every reviewer flags | BLOCK | APPROVE | fewest false alarms, most misses |
 
-Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+*Table 6: Thresholds on the recorded votes. Only split votes would separate them.*
 
-- [Parallel graph branches](../../notebook/03a_parallelization_langgraph.ipynb).
-- [Sectioning and voting](../../notebook/03b_parallelization_sectioning_and_voting.ipynb).
-- [LCEL parallel calls](../../../optional/notebook/03c_parallelization_lcel.ipynb) (optional).
+The unsafe run also shows a planted weakness. The validation reviewer flagged the SQL injection, which is the injection reviewer's concern, so the votes are not fully independent. We call this **correlated reviewers**: two flags can be one finding counted twice. Allow for it before lowering the threshold, and test thresholds on snippets where the reviewers disagree.
+
+## In practice: Larkspur's outage reply
+
+Both uses appear in one Larkspur reply:
+
+1. **Sectioning for evidence.** Fan out to the handbook index, the status page and the account. The answer waits for the slowest source, so each branch gets a timeout and a fallback value, and each result keeps its source label so the reply can cite it.
+2. **Voting before sending.** Three narrow reviewers check the draft: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. A threshold over three narrow checks is easier to tune than one judge asked about everything.
+
+Lesson 24.4 removes the last fixed piece: an orchestrator decides at run time how many branches there are.
+
+## Limits of this evidence
+
+- **One run per graph.** The LLM timings in Tables 2 and 3 come from one recorded run; another run will finish its branches at different times.
+- **Unanimous votes only.** Neither recorded snippet split the reviewers, so the threshold's effect is reasoned, not measured.
+- **Left out:** per-branch timeouts and fallback values. Add them when a branch calls a service that can hang.
 
 ## Key Takeaways
 
-- A fan-out costs the step before, plus the slowest branch, plus the merge. Give any state key that parallel branches share a reducer, or one of the writes is lost.
-- Rate limits force a concurrency cap, and then submission order matters. A slow branch that waits for a free slot delays the whole request, so start it first.
-- Sectioning splits one task to cut latency. Voting repeats one check to raise confidence. Set the vote threshold knowing it trades false alarms against misses and that reviewers are not fully independent.
+- A fan-out costs the step before, plus the slowest branch, plus the merge. Declare a reducer on any state key that parallel branches share, or the writes collide.
+- Rate limits force a concurrency cap, and then submission order matters: a queued straggler delays the whole request, so start long branches first.
+- Sectioning splits one task to cut latency; voting repeats one check to raise confidence. The threshold trades false alarms against misses, and correlated reviewers can count one finding twice.
 
 ## Check yourself
 
 <details>
 <summary>1. Why does a fan-out's wall time follow its slowest branch rather than the sum of its branches?</summary>
 
-The targets of a fan-out run in the same step, concurrently, and the fan-in node waits until all of them finish. So the cost is the step before, plus the slowest branch, plus the merge: the three story sections took 10.6 s, against about 13.4 s in sequence.
+The targets of a fan-out run in the same step, concurrently, and the fan-in node waits until all of them finish. So the cost is the step before, plus the slowest branch, plus the merge: the three story sections took 10.6 s in all, against about 13.4 s for the same calls in sequence.
 
 </details>
 
 <details>
 <summary>2. Under a concurrency cap of 2, the story sections take 1.6, 4.7 and 7.0 seconds. Should you submit the fastest or the slowest branch first?</summary>
 
-The slowest first. Submitted as written, `setting` (7.0 s) gets a slot at once and the request still takes 10.6 s, the same as with no cap. Submitted fastest first, `setting` waits 1.6 s for a slot, the merge starts at 8.6 s and the request takes 12.2 s.
+The slowest first. Submitted as written, the 7.0 s setting branch gets a slot at once and the request takes 10.6 s, the same as with no cap. Submitted fastest first, it waits 1.6 s for a slot, the merge starts at 8.6 s and the request takes 12.2 s.
 
 </details>
 
 <details>
 <summary>3. The security vote blocks code at 2 of 3 flags and raises too many false alarms. Which way do you move the threshold, and what does it cost?</summary>
 
-Raise it to 3. The aggregator then blocks less often: fewer false alarms, but more misses. Allow for the votes not being fully independent, since the validation reviewer flagged the SQL injection outside its own concern.
+Raise it to 3 of 3. The aggregator then blocks less often: fewer false alarms, but more misses. Allow for correlated reviewers too, since the validation reviewer flagged the SQL injection outside its own concern, and check the change on snippets where the reviewers disagree.
 
 </details>
 

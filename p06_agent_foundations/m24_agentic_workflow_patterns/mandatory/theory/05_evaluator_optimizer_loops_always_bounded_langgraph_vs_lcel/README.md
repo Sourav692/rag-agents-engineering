@@ -1,14 +1,26 @@
 # M24.5 Theory: Evaluator–optimizer loops, always bounded: LangGraph vs LCEL
 
 *[M24 theory](../README.md) · Lesson 24.5 · Notebooks: [`05a_evaluator_optimizer_langgraph.ipynb`](../../notebook/05a_evaluator_optimizer_langgraph.ipynb), [`05b_evaluator_optimizer_lcel.ipynb`](../../notebook/05b_evaluator_optimizer_lcel.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Feed a critique into the next draft until it passes, and prove the loop stops when it never does -->
 
 ## Bounded loops
 
-A Larkspur answer may cite the handbook but still promise a refund the policy does not allow. You want a reviewer to name that failure and let the generator revise it. You will trace this feedback, make the pass decision explicit, and prove that an always-rejecting reviewer cannot run forever.
+> **What you'll learn**
+>
+> - **Explain** how an evaluator-optimizer loop feeds a critique back into the next draft.
+> - **Design** criteria an evaluator can pass, with the verdict computed in code.
+> - **Prove** that a loop ends when the evaluator never approves, and count its worst-case calls.
+> - **Choose** where the loop lives: LangGraph, a Python loop around LCEL, or agent middleware.
 
-### Step 1: Define what a passing draft means
+Lessons 24.1 to 24.4 all run forward: every step happens once, or a fixed number of times. The 24.1 gate could retry, but it only re-ran extraction blind. This lesson's pattern sends the reason for a rejection back to the step that can fix it.
 
-Evaluator-optimizer generates a draft, grades it against explicit criteria and feeds the critique into the next draft, until the grade passes. An extraction gate checks whether an intermediate result may proceed. This loop instead sends a critique back to the content generator. It pays off when two things hold: the criteria are clear, and feedback measurably improves the next attempt.
+A Larkspur answer can cite the handbook and still promise a refund the policy does not allow. A reviewer that names that problem, and a generator that revises with the review in hand, can catch it. The risk is a reviewer that never says yes.
+
+### Generate, evaluate, revise
+
+**Evaluator-optimizer** generates a draft, grades it against explicit criteria and feeds the critique into the next draft, until the grade passes or a cap is reached. The 24.1 gate decided whether a result may proceed; this loop sends feedback to the generator. It pays off when two things hold: the criteria are clear, and feedback measurably improves the next attempt.
+
+The lesson's loop writes a short joke about agentic AI:
 
 ```mermaid
 flowchart LR
@@ -18,117 +30,143 @@ flowchart LR
     R -- "5 drafts" --> C[/"Last draft,<br/>needs_improvement"/]
 ```
 
-The evaluator is only as useful as its criteria. An initial version of the experiment asked for one holistic grade against loose criteria such as "is it genuinely funny?", and with `gpt-4o-mini` the loop almost never converged: the evaluator kept finding something that could be better. The bounded version changes three things:
+*Figure 1: The bounded loop. Approval ends it, and so does the fifth draft.*
 
-- **One boolean per criterion.** `JokeReview` asks four yes-or-no questions: a clear punchline, a punchline that depends on agentic AI specifically, no stock template, appropriate. A met criterion passes even if the joke could be better.
-- **Code checks what code can check.** Length is `len(joke.split()) <= MAX_WORDS` with `MAX_WORDS = 40`, not an LLM judgement.
-- **The verdict is computed.** `approved` only when every criterion and the length check pass. The model never asserts the grade itself, and `improvement_feedback` names a fix for each failed criterion.
+The generator runs at temperature 0.7, so a revision can differ from the draft before it. The evaluator runs at 0 to keep grading as consistent as possible, though the same draft can still get a different grade on another call. From the second pass on, the generator receives the previous draft and the feedback, so it revises instead of starting over.
 
-### Step 2: Pass the critique into the next draft
+### Criteria an evaluator can pass
 
-The generator runs at temperature 0.7 so a revision can differ from the draft before it, and the evaluator at 0 to reduce grading variation. It can still assign different grades to the same draft, so measure that variation rather than assuming determinism. Later passes receive the previous draft plus the feedback, so they revise instead of starting over.
+The evaluator is only as useful as its criteria. A first version of the notebook asked for one holistic grade against loose criteria such as "is it genuinely funny?", and with `gpt-4o-mini` the loop almost never converged: the evaluator kept finding something that could be better. We call this the **moving bar**. The bounded version changes three things:
 
-### Step 3: Prove that rejection reaches the cap
+| Change | In the reference loop | Why |
+|---|---|---|
+| **One yes-or-no per criterion** | clear punchline; a punchline that depends on agentic AI specifically; no stock template; appropriate | A met criterion passes even when the joke could be better |
+| **Code checks what code can check** | Length is a word count of at most 40, computed in code | A model should not be asked to count |
+| **The verdict is computed** | *approved* only when every criterion and the length check pass; otherwise *needs improvement*, with one fix named per failed criterion | The model never asserts the grade itself |
 
-A structured verdict does not guarantee the evaluator will ever approve. So the router checks a cap: approved ends the run, `iteration >= MAX_ITERATIONS` (5) ends it too, anything else loops back. The deterministic cap test uses with a stub reviewer that rejects every draft. Without the `iteration_cap_reached` branch that cell would never finish. The cap also bounds cost: each pass is one generator call and one evaluator call, so a run makes at most ten.
+*Table 1: From a holistic grade to computed criteria.*
 
-The router can be tested without a generator or judge. This is the reference stopping rule with a plain dictionary annotation for the small example.
+### Proving the loop stops
 
-```python
-MAX_ITERATIONS = 5
+A structured verdict does not guarantee the evaluator will ever approve. So the router checks two things in order: approval first, then the iteration count against a cap of 5. We ran the reference stopping rule on four states:
 
-def determine_next_action(state: dict) -> str:
-    if state["quality_assessment"] == "approved":
-        return "content_approved"
-    if state["iteration"] >= MAX_ITERATIONS:
-        return "iteration_cap_reached"
-    return "content_needs_refinement"
+| Grade | Iteration | Router returns | What happens |
+|---|---|---|---|
+| needs improvement | 1 | refine | the generator revises with the feedback |
+| needs improvement | 5 | cap reached | the run ends with the last draft, marked *needs improvement* |
+| approved | 5 | approved | the run ends with the draft |
+| approved | 2 | approved | the run ends early |
 
-for iteration in [1, 5]:
-    print(determine_next_action({"quality_assessment": "needs_improvement",
-                                 "iteration": iteration}))
-print(determine_next_action({"quality_assessment": "approved", "iteration": 5}))
-```
+*Table 2: The router's decisions. Approval is checked first, and no state starts a sixth draft.*
 
-**Expected output**
+The notebook proves the cap on a live generator with a stub reviewer that rejects every draft and makes no LLM call. Without the cap branch, that cell would never finish. With it, the run ends after five drafts.
 
-```text
-content_needs_refinement
-iteration_cap_reached
-content_approved
-```
+The cap also bounds cost. Each pass is one generator call and one evaluator call:
 
-Approval is checked first. A rejected fifth draft ends at the cap. An approved fifth draft ends as approved. Neither case starts a sixth draft.
+| Outcome | Passes | LLM calls |
+|---|---|---|
+| Approved on the first draft | 1 | 2 |
+| Approved on the third draft | 3 | 6 |
+| Never approved | 5 | 10, the worst case |
 
-### Step 4: Compare the three loop bounds
+*Table 3: Calls per run under a cap of 5.*
 
-The bound can live in three places, one per implementation:
+### Planted failures
+
+Each guard has a case that shows why it is there:
+
+| Planted failure | What happens | The guard |
+|---|---|---|
+| The moving bar: one holistic grade | The loop almost never converges | Yes-or-no criteria, verdict computed in code |
+| A reviewer that rejects everything | Without a cap, the loop never ends | The router's iteration cap |
+| A model asked to count words | Length checks drift | A word count in code |
+| A cap set only by the framework | The pinned LangGraph's default recursion limit is 10,007 steps, about 5,000 passes | The cap in the router; an explicit recursion limit as a second net, as 24.1 sets |
+
+*Table 4: One planted case per guard.*
+
+> **Pitfall: the capped success.** A run that ends at the cap returns a draft that did not pass. Count it as a failure, and watch the share of runs that end there: it rises when criteria drift or a new evaluator model is stricter than the old one.
+
+### Where the bound lives
+
+The bound sits in a different place in each implementation:
 
 | Implementation | The loop is | The bound is |
 |---|---|---|
-| LangGraph | a conditional edge back to `generate_content` | `MAX_ITERATIONS` checked in the router, with LangGraph's `recursion_limit` as a backstop |
-| LCEL plus Python | a `for` loop around two chains | `range(1, MAX_ITERATIONS + 1)` |
-| `create_agent` middleware | `after_model` returning `jump_to="model"` | `ModelCallLimitMiddleware(run_limit=5, exit_behavior="end")` |
+| LangGraph | a conditional edge back to the generator | the iteration cap checked in the router |
+| LCEL plus Python | a `for` loop around two chains | the loop's range, 1 to the cap |
+| Agent middleware | a hook after each model call that jumps back to the model | a model-call limit of 5 that ends the run |
 
-A run that ends at the cap returns the last draft marked `needs_improvement`, so count it as a failure. Watch the share of runs that end there. It rises when the criteria drift, or when a new evaluator model is stricter than the old one.
+*Table 5: Three homes for the same bound.*
 
-For Larkspur, an answer-quality check is the natural evaluator, written as booleans: does the reply cite a handbook chunk, does it state the refund window the chunk states, does it avoid promising anything the handbook does not say, and is it under a length limit counted in code. CRAG (M29) applies the same loop to retrieval: grade the documents, rewrite the query, try again, within a bound.
+For Larkspur, an answer-quality check is the natural evaluator, written as yes-or-no criteria: does the reply cite a handbook chunk, does it state the refund window the chunk states, does it avoid promising anything the handbook does not say, and is it under a length limit counted in code. CRAG (M29) applies the same loop to retrieval: grade the documents, rewrite the query, try again, within a bound.
 
 ## Where LCEL stops
 
-### Step 1: Distinguish a cycle from a longer chain
+**LCEL**, the LangChain Expression Language, composes runnable steps into a flow. Every earlier M24 pattern is a flow without cycles, so each maps onto an LCEL building block. This one has a cycle, and LCEL has no block for "go back and try again until a check passes":
 
-LCEL, the LangChain Expression Language, composes runnable steps into a flow. Every earlier pattern is a directed acyclic flow, so each maps onto an LCEL operator. This one has a cycle, and LCEL has no operator for "go back and try again until a predicate passes". `a | b | a` does not loop: it builds a three-step chain that runs `a` twice. `.with_retry()` comes close but retries blind, with no memory of why the last attempt failed, and feeding the critique forward is the point of the pattern.
-
-| Pattern | LangChain 1.x primitive | Full coverage |
+| Pattern | LangChain 1.x building block | Full coverage |
 |---|---|---|
-| Prompt chaining | `\|` plus `.with_retry()` plus `.with_fallbacks()` | yes |
-| Routing | `RunnableBranch` | yes |
-| Parallelization | `RunnableParallel` | yes |
-| Orchestrator-worker | `.map()` | the fan-out; shared state and per-worker durability need `Send` |
-| Evaluator-optimizer | a Python loop, or `after_model` plus `jump_to` | yes |
+| Prompt chaining | the pipe, plus retry and fallback wrappers | yes |
+| Routing | a branch runnable | yes |
+| Parallelization | a parallel runnable | yes |
+| Orchestrator-worker | mapping a runnable over a list | the fan-out; shared state and per-worker durability need `Send` |
+| Evaluator-optimizer | a Python loop, or a middleware hook that jumps back to the model | yes, outside LCEL itself |
 
-### Step 2: Choose the runtime around the loop
+*Table 6: The five patterns and their LCEL coverage.*
 
-Choosing between the two LangChain loops comes down to what you need around the loop. The Python `for` loop is easy to read and returns a dict you shaped, but traces each pass as separate chain runs and has no streaming, checkpointing or interrupts. The middleware loop is one agent run with every pass nested, keeps the full message history as its state, and inherits tools, streaming and persistence from the agent runtime. Two details matter there: `can_jump_to=["model"]` on the decorator is what creates the conditional edge, and the critique reaches the next draft as an appended `HumanMessage`. When the loop needs checkpoints, interrupts or a human in it, that is the point to move to LangGraph.
+Two tempting shortcuts fail:
 
-### Try it yourself
+- **Piping generator, evaluator, generator** builds a three-step chain that runs the generator twice. It never loops.
+- **A retry wrapper** re-runs a step blind, with no memory of why the last attempt failed. Feeding the critique forward is the point of the pattern.
 
-Replace the evaluator with a stub that rejects every draft. Check that the fifth draft terminates with `needs_improvement` and that at most ten generator-and-evaluator calls occur. Then make the evaluator approve an earlier draft. Check that approval stops the loop before the cap. Reaching the cap is a bounded failure, not a quality pass.
+### Choosing the runtime around the loop
 
-### Practice notebook
+The two LangChain loops differ in what surrounds them:
 
-Use the implementation below to test the exercise and inspect each state update. Follow its provider setup for live model calls. Recorded model responses and timings can change on a new run.
+| | Python loop around LCEL | Agent middleware |
+|---|---|---|
+| Reads as | a plain `for` loop | one agent run with every pass nested |
+| State | a dict you shape | the full message history |
+| Tracing | each pass as separate chain runs | one run |
+| Streaming, persistence | none | inherited from the agent runtime |
+| How the critique arrives | passed into the next prompt | appended to the conversation as a user message |
 
-- [A bounded review graph](../../notebook/05a_evaluator_optimizer_langgraph.ipynb).
-- [Review loops in LCEL](../../notebook/05b_evaluator_optimizer_lcel.ipynb).
+*Table 7: Two ways to loop without LangGraph.*
+
+In the middleware version the hook must declare that it may jump back to the model; that declaration is what creates the conditional edge. When the loop needs checkpoints, interrupts or a human in it, move it to LangGraph.
+
+## Limits of this evidence
+
+- **No recorded convergence counts.** The notebooks ship without outputs, so how many passes a real joke needed is not measured here; the "almost never converged" result is the notebook's own report on its first version.
+- **Model-free router trace.** Table 2 runs the reference stopping rule on hand-set states, not a live loop.
+- **One task.** Jokes are a cheap stand-in; Larkspur criteria were not run.
 
 ## Key Takeaways
 
 - Evaluator-optimizer feeds a critique into the next draft until the grade passes. Use it only when the criteria are clear and feedback measurably improves the next attempt.
-- Grade with one boolean per criterion, check length in code and compute `approved` from the checks. A single holistic grade with `gpt-4o-mini` almost never converged.
-- Cap every loop and count a run that hits the cap as a failure. LCEL cannot express the cycle, so use a Python loop or middleware, and move to LangGraph when you need checkpoints or interrupts.
+- Grade with one yes-or-no per criterion, check length in code and compute the verdict from the checks. A single holistic grade becomes a moving bar the loop rarely clears.
+- Cap every loop in your own code, count a run that hits the cap as a failure, and do not rely on the framework's default limit. LCEL cannot express the cycle, so use a Python loop or middleware, and LangGraph when you need checkpoints or interrupts.
 
 ## Check yourself
 
 <details>
-<summary>1. Why did replacing one holistic grade with one boolean per criterion make the joke loop converge?</summary>
+<summary>1. Why did replacing one holistic grade with one yes-or-no per criterion make the joke loop converge?</summary>
 
-Against a loose holistic grade the evaluator kept finding something that could be better. With four yes-or-no criteria, a met criterion passes even if the joke could improve, length is checked in code (`MAX_WORDS = 40`), and `approved` is computed only when every check passes, so the model never asserts the grade itself.
+Against a loose holistic grade the evaluator kept finding something that could be better, a moving bar. With yes-or-no criteria, a met criterion passes even if the joke could improve, length is counted in code, and approval is computed only when every check passes, so the model never asserts the grade itself.
 
 </details>
 
 <details>
 <summary>2. With a cap of 5 iterations, how many LLM calls can one run make at most, and how should you count a run that hits the cap?</summary>
 
-Ten, because each pass makes one generator call and one evaluator call. A run that ends at the cap returns its last draft marked `needs_improvement`, so count it as a failure and watch the share of runs that end there.
+Ten, because each pass makes one generator call and one evaluator call. A run that ends at the cap returns its last draft marked needs improvement, so count it as a failure and watch the share of runs that end there.
 
 </details>
 
 <details>
 <summary>3. A teammate builds the loop in LCEL by piping generator, evaluator and generator again, or by adding a retry. Why does neither work?</summary>
 
-`a | b | a` builds a three-step chain that runs `a` twice. It never loops. `.with_retry()` retries blind, with no memory of why the last attempt failed, and feeding the critique forward is the point of the pattern. Use a Python `for` loop or `after_model` with `jump_to`, and move to LangGraph when the loop needs checkpoints or interrupts.
+Piping builds a three-step chain that runs the generator twice; it never loops. A retry re-runs a step blind, with no memory of why the last attempt failed, while feeding the critique forward is the point of the pattern. Use a Python loop or a middleware hook that jumps back to the model, and move to LangGraph when the loop needs checkpoints or interrupts.
 
 </details>
 
