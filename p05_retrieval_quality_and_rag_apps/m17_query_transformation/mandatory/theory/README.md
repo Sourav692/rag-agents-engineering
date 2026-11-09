@@ -33,13 +33,13 @@ Everything in M17 happens before the first vector search or after the last one. 
 | Lesson | Topic | Theory |
 |---|---|---|
 | 17.1 | Query rewriting and expansion | [Query-document asymmetry](01_query_rewriting_and_expansion/README.md#querydocument-asymmetry) |
-| 17.2 | Multi-query retrieval | *planned* |
+| 17.2 | Multi-query retrieval | [Vocabulary spread](02_multi_query_retrieval/README.md#vocabulary-spread)<br>[Merging: the flat union](02_multi_query_retrieval/README.md#merging-the-flat-union) |
 | 17.3 | RAG-Fusion with Reciprocal Rank Fusion | [RRF](03_rag_fusion_with_reciprocal_rank_fusion/README.md#rrf) |
-| 17.4 | Step-back prompting | *planned* |
+| 17.4 | Step-back prompting | [Asking the broader question](04_step_back_prompting/README.md#asking-the-broader-question) |
 | 17.5 | HyDE: embed a hypothetical answer | [HyDE](05_hyde_embed_a_hypothetical_answer/README.md#hyde) |
 | 17.6 | Query decomposition for multi-hop questions | [Decomposing compound questions](06_query_decomposition_for_multi_hop_questions/README.md#decomposing-compound-questions) |
 | 17.7 | Routing: LLM classifier and semantic routing | [Logical vs semantic routing](07_routing_llm_classifier_and_semantic_routing/README.md#logical-vs-semantic-routing) |
-| 17.8 | Self-querying: natural language to metadata filter | *planned* |
+| 17.8 | Self-querying: natural language to metadata filter | [Splitting the question](08_self_querying_natural_language_to_metadata_filter/README.md#splitting-the-question) |
 
 ## Interactive lab
 

@@ -349,7 +349,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Each box adds something a reader can verify. The router keeps questions that need the whole table away from top-k retrieval; the metadata carried from retrieval to the answer is what makes a citation point somewhere; the quote check is the one step that runs as code, not as a model call.</p>
 <h2 id="grounded-generation">Grounded generation</h2>
 <p class="lesson-of">Lesson 19.1: Environment setup and a complete RAG system. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/01a_setup.ipynb" target="_blank" rel="noopener"><code>01a_setup.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/01b_build_a_simple_rag_system.ipynb" target="_blank" rel="noopener"><code>01b_build_a_simple_rag_system.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/optional/notebook/01c_simple_rag_pdf.ipynb" target="_blank" rel="noopener"><code>01c_simple_rag_pdf.ipynb</code></a> (optional)</p>
-<p>A grounded answer comes from evidence the system retrieved for this question, and the model is told to use nothing else. Lesson 19.1 builds the whole pipeline in one notebook, from two kinds of source to a chain that answers from them.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Trace</strong> a complete RAG system from two kinds of source to an answer.</li>
+<li><strong>Explain</strong> the three parts of a grounded prompt and what each one prevents.</li>
+<li><strong>Diagnose</strong> a chain whose answers cannot be checked, and an embedding call that embeds characters.</li>
+<li><strong>Test</strong> grounding with questions the corpus cannot answer.</li>
+</ul>
+</blockquote>
+<p>Lessons M16 to M18 made retrieval find more, rank better and fit the budget. M19 turns a retrieval pipeline into a system someone can rely on, and starts by building one end to end.</p>
+<p>A Larkspur customer asks <em>Does Larkspur offer a free tier?</em> The handbook says nothing about one. A chain that retrieves five chunks and asks the model to &ldquo;answer the question&rdquo; gets a fluent reply anyway, drawn from what the model knows about other hosting providers. The answer reads as policy, and it is invented.</p>
+<p><strong>Grounded generation</strong> means the answer comes from evidence the system retrieved for this question, and the model is told to use nothing else. Notebook <code>01b</code> builds the whole pipeline:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -360,31 +371,32 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Load</td>
-<td><code>JSONLoader</code> reads <code>wikidata_rag_demo.jsonl</code> one line per Document; each article&rsquo;s <code>paragraphs</code> are joined and <code>title</code>, <code>id</code> and <code>source</code> kept as metadata. <code>PyMuPDFLoader</code> reads every PDF in <code>data/sample/</code>.</td>
+<td>A JSON-lines loader reads a Wikipedia sample one article per document, keeping title, id and source as metadata; a PDF loader reads every PDF in a sample folder</td>
 </tr>
 <tr>
 <td>Split</td>
-<td><code>RecursiveCharacterTextSplitter</code>, <code>chunk_size=3500</code>, <code>chunk_overlap=200</code>, for the PDFs. Wikipedia articles stay whole.</td>
+<td>3,500-character chunks with 200 of overlap for the PDFs; Wikipedia articles stay whole</td>
 </tr>
 <tr>
 <td>Embed</td>
-<td><code>text-embedding-3-small</code>, 1,536 dimensions.</td>
+<td><code>text-embedding-3-small</code>, 1,536 dimensions</td>
 </tr>
 <tr>
 <td>Store</td>
-<td>Chroma, persisted to <code>./my_db</code>, with <code>collection_metadata={"hnsw:space": "cosine"}</code>. Without it Chroma uses Euclidean distance (<a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html#distance-not-similarity">M10.4</a>).</td>
+<td>Chroma, persisted to disk, set to cosine distance; without that setting Chroma uses Euclidean distance (<a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html#distance-not-similarity">M10.4</a>)</td>
 </tr>
 <tr>
 <td>Retrieve</td>
-<td><code>as_retriever(search_type="similarity", search_kwargs={"k": 5})</code>.</td>
+<td>Similarity search, <code>k = 5</code></td>
 </tr>
 <tr>
 <td>Generate</td>
-<td><code>gpt-4o-mini</code> at <code>temperature=0</code>, with a prompt that restricts it to the retrieved context.</td>
+<td>A small chat model at temperature 0, with a prompt that restricts it to the retrieved context</td>
 </tr>
 </tbody>
 </table></div>
-<p>The chain is three LCEL steps:</p>
+<p><em>Table 1: The pipeline in <code>01b</code>.</em></p>
+<p>The chain itself is three steps:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; R["similarity_retriever&lt;br/&gt;k = 5"]
     R --&gt; F["format_docs&lt;br/&gt;page_content only"]
@@ -393,41 +405,107 @@ th:last-child, td:last-child { padding-right: 0; }
     P --&gt; L["gpt-4o-mini&lt;br/&gt;temperature 0"]
     L --&gt; A[/AIMessage/]
 </pre></figure>
-<p>Grounding rests on three things, and the notebook&rsquo;s prompt has all three:</p>
+<p><em>Figure 1: The <code>01b</code> chain. The retrieved chunks become plain text inside the prompt.</em></p>
+<p>Grounding rests on three things, and <code>01b</code>&rsquo;s prompt has all three:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th><code>01b</code>&rsquo;s wording</th>
+<th>What it prevents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Evidence for this question</strong></td>
+<td>The five retrieved chunks</td>
+<td>The model answering from the whole of its training</td>
+</tr>
+<tr>
+<td><strong>A limit</strong></td>
+<td>&ldquo;Answer the following question using only the following pieces of retrieved context&rdquo;</td>
+<td>Blending in outside knowledge</td>
+</tr>
+<tr>
+<td><strong>A way out</strong></td>
+<td>&ldquo;If the answer is not in the context, do not make up answers, just say that you don&rsquo;t know&rdquo;</td>
+<td>A forced answer when the evidence is missing</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The three parts of a grounded prompt.</em></p>
+<p>The third part is the one most often left out. Without a permitted refusal, a model asked about something the context lacks answers from what it learned in training. We call that an <strong>ungrounded fill</strong>: the free-tier answer above.</p>
+<p>Here is what grounding should produce on two Larkspur questions (<em>Illustrative</em>: expected answers, not a recorded run):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Retrieved evidence</th>
+<th>Grounded answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Can I export my data after I cancel my plan?</em></td>
+<td><code>export</code>, <code>retention</code></td>
+<td>Yes, within 30 days, from Settings, then Data</td>
+</tr>
+<tr>
+<td><em>Does Larkspur offer a free tier?</em></td>
+<td>Nothing relevant</td>
+<td>I don&rsquo;t know</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Grounded answers, with and without evidence.</em></p>
+<p>Whether a given model complies is a property you test. Put questions with no answer in the golden set and count the refusals. The instruction does not guarantee compliance either: a model can still blend in outside knowledge or misread a chunk, and <a href="../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/index.html">M29</a> and <a href="../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/index.html">M32</a> add a second call that grades the answer against its evidence.</p>
+<h2 id="what-this-chain-throws-away">What this chain throws away</h2>
+<p><code>01b</code>&rsquo;s formatting step joins the chunks&rsquo; text and nothing else, so the title, id and source in metadata never reach the model, and the chain returns only the model&rsquo;s message. The answer may be grounded, but nobody can check it: there is no list of chunks, and no way to say which one a sentence came from. We call this <strong>formatted-away sources</strong>. Lesson 19.2 keeps both.</p>
+<h2 id="a-setup-trap">A setup trap</h2>
+<p><code>01b</code> embeds the string &ldquo;Hello, world!&rdquo; with the batch method meant for a list of documents, and gets back 13 vectors. A Python string is iterable, so each of its 13 characters is embedded on its own. The single-query method, or a one-item list, gives one 1,536-dimension vector.</p>
+<blockquote>
+<p><strong>Pitfall: character embedding.</strong> The same mistake inside an indexing loop embeds characters and stores them without an error. Check that the number of vectors equals the number of chunks after every indexing run.</p>
+</blockquote>
+<p>The optional <code>01c</code> notebook builds the same pipeline on FAISS from one climate-change PDF, with 1,000-character chunks, 200 of overlap and <code>k = 2</code>, and reconstructs the index matrix to show its shape: one row per chunk, 1,536 columns.</p>
+<h2 id="in-practice-a-grounded-larkspur-assistant">In practice: a grounded Larkspur assistant</h2>
 <ol>
-<li><strong>The evidence is retrieved for this question.</strong> The model sees five chunks, not the corpus.</li>
-<li><strong>The instruction limits the model to that evidence.</strong> &ldquo;Answer the following question using only the following pieces of retrieved context.&rdquo;</li>
-<li><strong>The model has a way out.</strong> &ldquo;If the answer is not in the context, do not make up answers, just say that you don&rsquo;t know.&rdquo; Without a permitted refusal, a model asked about something the context lacks will answer from what it learned in training.</li>
+<li><strong>Use all three parts</strong> of Table 2 in the prompt, including the way out.</li>
+<li><strong>Add unanswerable golden questions</strong> (free tier, GPU servers) and track the refusal rate.</li>
+<li><strong>Count vectors against chunks</strong> after indexing.</li>
+<li><strong>Keep the chunks in the output</strong>, which lesson 19.2 shows how to do in one retrieval.</li>
 </ol>
-<p>On the Larkspur handbook, <em>Can I export my data after I cancel my plan?</em> retrieves the <code>export</code> and <code>retention</code> chunks, and the answer should say &ldquo;within 30 days, from Settings, then Data&rdquo;. <em>Does Larkspur offer a free tier?</em> has no chunk in the handbook, so the grounded answer is &ldquo;I don&rsquo;t know&rdquo;. Whether a given model complies is a property you test: put questions with no answer in the golden set and count the refusals.</p>
-<p>The instruction does not guarantee compliance. A model can still blend in outside knowledge or misread a chunk; <a href="../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/index.html">M29</a> and <a href="../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/index.html">M32</a> add a second call that grades the answer against its evidence.</p>
-<h3>What this chain throws away</h3>
-<p><code>format_docs</code> joins <code>doc.page_content</code> and nothing else, so the title, id and source in metadata never reach the model, and the chain returns only an <code>AIMessage</code>. The answer may be grounded, but nobody can check it. There is no list of chunks and no way to say which one a sentence came from. Lesson 19.2 keeps both.</p>
-<h3>A setup trap from the notebook</h3>
-<p><code>openai_embed_model.embed_documents("Hello, world!")</code> returns 13 vectors. <code>embed_documents</code> expects a list of strings, and a Python string is iterable, so each of the 13 characters is embedded on its own. Use <code>embed_query(text)</code> for one string, or <code>embed_documents([text])</code>; either gives one 1,536-dimension vector. The same mistake inside an indexing loop embeds characters and stores garbage without an error.</p>
-<p>The optional <code>01c</code> notebook builds the same pipeline on FAISS from one PDF, <code>Understanding_Climate_Change.pdf</code>, with 1,000-character chunks, 200 overlap and <code>k=2</code>, and reconstructs the index matrix to show its shape: one row per chunk, 1,536 columns.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Grounding needs three things in the prompt: evidence retrieved for this question, an instruction to use only that evidence, and permission to say &ldquo;I don&rsquo;t know&rdquo;.</li>
+<li>Grounding needs three things in the prompt: evidence retrieved for this question, an instruction to use only that evidence, and permission to say &ldquo;I don&rsquo;t know&rdquo;. Without the last, the model fills gaps from training (an ungrounded fill).</li>
 <li>The instruction does not guarantee compliance. Put questions with no answer in the golden set and count the refusals.</li>
-<li>A chain that formats only <code>page_content</code> and returns only the answer cannot be checked. Keep the chunks and their metadata if anyone needs to verify a sentence.</li>
+<li>A chain that formats only the chunk text and returns only the answer cannot be checked (formatted-away sources). Keep the chunks and their metadata if anyone needs to verify a sentence.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. What three things in the 01b prompt keep an answer grounded?</summary>
-<p>The evidence is retrieved for this question, five chunks rather than the corpus. The instruction limits the model to that evidence. And the model has a way out: it may say it does not know, because without a permitted refusal a model asked about something the context lacks answers from training.</p>
+<summary>1. A Larkspur assistant answers "Does Larkspur offer a free tier?" with a confident description of one. Which part of a grounded prompt is missing?</summary>
+<p>Most likely the way out: permission to say &ldquo;I don&rsquo;t know&rdquo; when the answer is not in the context. Without it, a model whose evidence lacks the answer fills the gap from training. Add it, then test with unanswerable golden questions and count the refusals, because the instruction alone does not guarantee compliance.</p>
 </details>
 <details>
-<summary>2. A user asks the Larkspur system whether Larkspur offers a free tier. What should the grounded answer be, and how do you know the model complies?</summary>
-<p>&ldquo;I don&rsquo;t know&rdquo;, because no chunk in the handbook covers a free tier. The instruction does not guarantee compliance, so put questions with no answer in the golden set and count the refusals.</p>
+<summary>2. The 01b chain's answers are grounded, but a reviewer cannot tell which chunk any sentence came from. Why?</summary>
+<p>The formatting step joins only the chunks&rsquo; text, so titles, ids and sources never reach the model, and the chain returns only the model&rsquo;s message. There is no list of chunks to check against. Keeping the retrieved chunks in the output, as lesson 19.2 does, makes the answer checkable.</p>
 </details>
 <details>
-<summary>3. Embedding the string Hello, world! with embed documents returns 13 vectors. What went wrong?</summary>
-<p><code>embed_documents</code> expects a list of strings, and a Python string is iterable, so each of the 13 characters was embedded on its own. Use <code>embed_query(text)</code> or <code>embed_documents([text])</code> for one 1,536-dimension vector. Inside an indexing loop the same mistake stores garbage without an error.</p>
+<summary>3. Embedding "Hello, world!" returns 13 vectors. What went wrong, and why is it dangerous in an indexing loop?</summary>
+<p>The batch method expects a list of strings, and a Python string is iterable, so each of its 13 characters was embedded separately. In an indexing loop the same mistake stores character vectors without an error. Use the single-query method or a one-item list, and check that vectors equal chunks after indexing.</p>
 </details>
 <h2 id="returning-the-sources">Returning the sources</h2>
 <p class="lesson-of">Lesson 19.2: Answers with sources and per-claim citations. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/02a_rag_system_with_sources.ipynb" target="_blank" rel="noopener"><code>02a_rag_system_with_sources.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/02b_rag_system_with_citations.ipynb" target="_blank" rel="noopener"><code>02b_rag_system_with_citations.ipynb</code></a></p>
-<p>Both notebooks start with <code>%run</code> on the M15 contextual retrieval notebook, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/05b_contextual_retrieval_rag_system.ipynb" target="_blank" rel="noopener"><code>05b_contextual_retrieval_rag_system.ipynb</code></a> (<a href="../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/theory/index.html#contextual-retrieval">M15.5</a>). That run builds the index the citations depend on, and it writes four metadata fields on every chunk:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how to keep the retrieved chunks in a chain&rsquo;s output with one retrieval.</li>
+<li><strong>Design</strong> a citation schema whose quotes a machine can check.</li>
+<li><strong>Diagnose</strong> three things the schema does not guarantee: support, per-claim links and verbatim quotes.</li>
+<li><strong>Verify</strong> citations in code, and track the failure rate.</li>
+</ul>
+</blockquote>
+<p>Lesson 19.1&rsquo;s chain answered from five chunks and then threw them away. A Larkspur agent reading <em>Yes, annual plans are refundable within 30 days</em> has no way to see which handbook passage said so, or whether one did.</p>
+<p>Both M19.2 notebooks first run the M15 contextual retrieval notebook (<a href="../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/theory/index.html#contextual-retrieval">M15.5</a>). That run builds the index the citations depend on, and writes four metadata fields on every chunk:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -439,46 +517,70 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td><code>id</code></td>
-<td>the article&rsquo;s id from the JSONL</td>
-<td>a fresh <code>uuid4()</code> per chunk</td>
+<td>The article&rsquo;s id from the source file</td>
+<td>A fresh random id per chunk</td>
 </tr>
 <tr>
 <td><code>source</code></td>
-<td><code>"Wikipedia"</code></td>
-<td>the file path</td>
+<td>&ldquo;Wikipedia&rdquo;</td>
+<td>The file path</td>
 </tr>
 <tr>
 <td><code>title</code></td>
-<td>the article title</td>
-<td>the file name</td>
+<td>The article title</td>
+<td>The file name</td>
 </tr>
 <tr>
 <td><code>page</code></td>
-<td>always <code>1</code></td>
-<td><code>PyMuPDFLoader</code>&rsquo;s page number, which counts from 0</td>
+<td>Always 1</td>
+<td>The PDF loader&rsquo;s page number, which counts from 0</td>
 </tr>
 </tbody>
 </table></div>
-<p>Shown as stored, the 0-based page tells a reader &ldquo;page 0&rdquo; or sends them to the page before the right one. Add 1 when you display it.</p>
-<p><code>02a</code> keeps the retrieved Documents in the chain&rsquo;s output instead of formatting them away:</p>
-<pre class="sheet code"><code class="language-python">rag_chain_w_sources = (
-    {&quot;context&quot;: similarity_retriever, &quot;question&quot;: RunnablePassthrough()}
-    | RunnablePassthrough.assign(response=src_rag_response_chain)
-)
-</code></pre>
-<p><code>RunnablePassthrough.assign</code> runs the answer chain on the dict and adds its result under <code>response</code>, so the output holds <code>context</code> (the five Documents), <code>question</code> and <code>response</code>. The retriever runs once, and the chunks the user sees are the chunks the model read. This is source attribution at the answer level: the reader gets a list of five sources and has to find the supporting sentence in each.</p>
+<p><em>Table 1: The metadata every chunk carries.</em></p>
+<p>Shown as stored, a 0-based page tells a reader &ldquo;page 0&rdquo;, or sends them to the page before the right one. Add 1 when you display it. We call this the <strong>off-by-one page</strong>.</p>
+<p>Notebook <code>02a</code> keeps the retrieved documents in the chain&rsquo;s output instead of formatting them away. The retriever&rsquo;s result and the question go into a dictionary, and a pass-through step runs the answer chain on that dictionary and adds the answer beside them. The output holds three things: the five context documents, the question, and the response. The retriever runs once, so the chunks the user sees are the chunks the model read.</p>
+<p>This is source attribution at the answer level: the reader gets a list of five sources and has to find the supporting sentence in each.</p>
 <h2 id="citation-schema">Citation schema</h2>
-<p><code>02b</code> asks for more: which chunk supports the answer, and the exact sentences. A second model call, after the answer, fills a Pydantic schema through <code>with_structured_output</code>:</p>
-<pre class="sheet code"><code class="language-python">class Citation(BaseModel):
-    id: str        # the SPECIFIC context article that justifies the answer
-    source: str
-    title: str
-    page: int
-    quotes: str    # VERBATIM sentences from that article
-
-class QuotedCitations(BaseModel):
-    citations: List[Citation]
-</code></pre>
+<p>Notebook <code>02b</code> asks for more: which chunk supports the answer, and the exact sentences. A <strong>citation schema</strong> is a structured output the model fills, one record per supporting chunk:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it holds</th>
+<th>Why it earns its place</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>The id of the chunk that justifies the answer</td>
+<td>Joins a citation back to a retrieved chunk, which is what lets code check it</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>Where the chunk came from</td>
+<td>Shown to the reader</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>The document&rsquo;s title</td>
+<td>Shown to the reader</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>The page in the source</td>
+<td>Sends a reader to the right place in a long PDF</td>
+</tr>
+<tr>
+<td><code>quotes</code></td>
+<td>Verbatim sentences from that chunk</td>
+<td>The part a machine can check: a quote either appears in the chunk or it does not</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The fields of <code>02b</code>&rsquo;s citation record. The schema returns a list of these.</em></p>
+<p>The citations come from a second model call, after the answer:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant App
     participant Store as Chroma
@@ -491,71 +593,187 @@ class QuotedCitations(BaseModel):
     LLM--&gt;&gt;App: QuotedCitations
     App-&gt;&gt;App: check quotes
 </pre></figure>
-<p>The answer chain formats each chunk with <code>format_docs_with_metadata</code>, which prints <code>Context Article ID</code>, <code>Source</code>, <code>Title</code> and <code>Page</code> above its text, so the model can copy real ids into the citation. Each field earns its place:</p>
+<p><em>Figure 1: Answer first, then citations, then a check in code.</em></p>
+<p>The answer chain prints each chunk&rsquo;s id, source, title and page above its text, so the model can copy real ids into its citations. On the Larkspur handbook, <em>Can I get a refund on my annual plan?</em> should produce one citation (<em>Illustrative</em>: a representative output, not a recorded run):</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>refund-window</td>
+</tr>
+<tr>
+<td><code>source</code>, <code>title</code></td>
+<td>handbook.pdf</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>2</td>
+</tr>
+<tr>
+<td><code>quotes</code></td>
+<td>An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic.</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: A citation for the refund question (illustrative).</em></p>
+<h2 id="what-the-schema-does-not-guarantee">What the schema does not guarantee</h2>
+<p>Three gaps remain, each with a name:</p>
 <ul>
-<li><strong><code>id</code></strong> joins a citation back to a retrieved chunk, which is what lets code check it.</li>
-<li><strong><code>page</code></strong> sends a reader to the right place in a long PDF.</li>
-<li><strong><code>quotes</code></strong> is the part a machine can check. A quote either appears in the chunk or it does not.</li>
+<li><strong>Citation after the fact.</strong> The second call looks for support for text that already exists. It shows the answer can be justified from the chunks, not that the model used them. A claim with no support may get a loose citation or none, and nothing marks which.</li>
+<li><strong>The flat list.</strong> The schema is a list per answer. Nothing ties a citation to the sentence of the answer it supports. For true per-claim citations, add a claim field (the answer sentence) or have the answer call emit numbered markers that the citations reference.</li>
+<li><strong>The paraphrased quote.</strong> The schema asks for exact sentences; the model can still paraphrase or merge two. <code>02b</code>&rsquo;s display code highlights each quoted sentence in its chunk with a pattern match. A paraphrase highlights nothing and raises nothing, and a citation whose id matches no retrieved chunk comes back with no context. Both fail silently.</li>
 </ul>
-<p>On the Larkspur handbook, <em>Can I get a refund on my annual plan?</em> should produce a citation like this one (a representative output, not a recorded run):</p>
-<pre class="sheet code"><code class="language-json">{&quot;id&quot;: &quot;refund-window&quot;, &quot;source&quot;: &quot;handbook.pdf&quot;, &quot;title&quot;: &quot;handbook.pdf&quot;, &quot;page&quot;: 2,
- &quot;quotes&quot;: &quot;An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic.&quot;}
-</code></pre>
-<h3>What the schema does not guarantee</h3>
-<ul>
-<li><strong>Citations come after the answer.</strong> The second call looks for support for text that already exists. It shows the answer can be justified from the chunks, not that the model used them. A claim with no support may get a loose citation or none, and nothing marks which.</li>
-<li><strong>It is per answer, not per claim.</strong> <code>QuotedCitations</code> is a flat list. Nothing ties a citation to the sentence of the answer it supports. For true per-claim citations, add a <code>claim: str</code> field (the answer sentence) or have the answer call emit numbered markers that the citations reference.</li>
-<li><strong>The quote may not be verbatim.</strong> The schema asks for exact sentences; the model can still paraphrase or merge two. The notebook&rsquo;s display code highlights each quoted sentence in its chunk with a regex. A paraphrase highlights nothing and raises nothing, and a citation whose <code>id</code> matches no retrieved chunk comes back with its context set to <code>None</code>. Both fail silently.</li>
-</ul>
-<p>So check every citation in code before showing it:</p>
-<pre class="sheet code"><code class="language-python">import re
-
-def norm(text):
-    return re.sub(r&quot;\s+&quot;, &quot; &quot;, text).strip()
-
-def quote_found(citation, chunks_by_id):
-    chunk = chunks_by_id.get(citation.id)
-    return chunk is not None and norm(citation.quotes) in norm(chunk.page_content)
-</code></pre>
-<p>On the refund chunk, the verbatim quote above passes, the same quote broken across lines passes, and the paraphrase &ldquo;Annual plans are fully refundable for 30 days.&rdquo; fails. Drop or flag the citations that fail, and track the failure rate as a production metric: a rising rate means the prompt, the model or the chunk text changed.</p>
-<p>One bug to fix when you reuse the notebook: <code>cite_response_chain</code> passes <code>itemgetter('context')</code> straight into the prompt, so the model reads the Python repr of a list of Documents (<code>[Document(metadata={...}, page_content='...')]</code>). Run it through <code>format_docs_with_metadata</code>, as the answer chain does, so both calls see the same text.</p>
+<p>So check every citation in code before showing it: look the chunk up by id, normalise whitespace in both texts, and test whether the quote is a substring of the chunk. Here are four planted citations against the refund chunk:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted quote</th>
+<th>Check result</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The verbatim sentence</td>
+<td>Pass</td>
+<td>It is a substring of the chunk</td>
+</tr>
+<tr>
+<td>The same sentence broken across two lines</td>
+<td>Pass</td>
+<td>Whitespace is normalised before comparing</td>
+</tr>
+<tr>
+<td>&ldquo;Annual plans are fully refundable for 30 days.&rdquo;</td>
+<td>Fail</td>
+<td>A paraphrase, and it drops the 100 GB condition</td>
+</tr>
+<tr>
+<td>Any quote under an id that was not retrieved</td>
+<td>Fail</td>
+<td>No chunk to check against</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Planted citations against the quote check.</em></p>
+<p>Drop or flag the citations that fail, and track the failure rate as a production metric. A rising rate means the prompt, the model or the chunk text changed.</p>
+<blockquote>
+<p><strong>Pitfall: a citation prompt that sees a Python object.</strong> <code>02b</code>&rsquo;s citation chain passes the list of retrieved documents straight into its prompt, so the model reads the documents&rsquo; programming representation, metadata and all, rather than the formatted text the answer chain saw. Format the chunks the same way for both calls.</p>
+</blockquote>
+<h2 id="in-practice-cited-answers-for-larkspur">In practice: cited answers for Larkspur</h2>
+<ol>
+<li><strong>Keep the context in the output</strong>, one retrieval, as <code>02a</code> does.</li>
+<li><strong>Ask for the five-field schema</strong>, plus a claim field so each citation names the answer sentence it supports.</li>
+<li><strong>Check every quote in code</strong>; show only citations that pass, and display pages from 1.</li>
+<li><strong>Alert on the failure rate</strong>, per model and prompt version.</li>
+</ol>
+<p>Citations show which chunk supports an answer. Lesson 19.3 asks a related question about retrieval itself: why a chunk was retrieved at all.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li><code>RunnablePassthrough.assign</code> keeps the retrieved Documents in the output, so the retriever runs once and the sources shown are the chunks the model read.</li>
-<li>A citation schema with <code>id</code>, <code>page</code> and verbatim <code>quotes</code> makes citations checkable. It is still a flat list per answer, so add a <code>claim</code> field for true per-claim citations.</li>
+<li>Keep the retrieved documents in the chain&rsquo;s output, so the retriever runs once and the sources shown are the chunks the model read; display PDF pages from 1, not 0.</li>
+<li>A citation schema with <code>id</code>, <code>page</code> and verbatim <code>quotes</code> makes citations checkable. It is still a flat list per answer, written after the fact, so add a claim field for per-claim citations.</li>
 <li>The model can paraphrase a quote or cite an id that was never retrieved. Verify every quote against its chunk in code, drop failures, and track the failure rate.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Why does notebook 02a build its chain with RunnablePassthrough.assign instead of formatting the documents away?</summary>
-<p>The output then holds <code>context</code> (the five Documents), <code>question</code> and <code>response</code>. The retriever runs once, so the chunks the user sees are the chunks the model read. That gives source attribution at the answer level: a list of sources the reader can check.</p>
+<summary>1. Why does keeping the retrieved documents in the chain's output, rather than retrieving again for display, matter?</summary>
+<p>The retriever runs once, so the chunks shown to the user are exactly the chunks the model read. Retrieving again for display could return different chunks, and the user would check the answer against evidence the model never saw.</p>
 </details>
 <details>
-<summary>2. The model cites the refund chunk with the quote Annual plans are fully refundable for 30 days. Does the quote check accept it, and what do you do?</summary>
-<p>No. The check normalises whitespace and looks for the quote inside the chunk text, and this paraphrase is not there; a verbatim quote, even broken across lines, would pass. Drop or flag the citation, and track the failure rate as a production metric.</p>
+<summary>2. A citation for the refund question quotes "Annual plans are fully refundable for 30 days." What does the quote check do, and why is this citation dangerous?</summary>
+<p>The check fails it, because the text is not a substring of the <code>refund-window</code> chunk. It is a paraphrase that also drops the 100 GB condition, so showing it would put an incomplete rule behind a citation that looks authoritative. Drop or flag it, and count it in the failure rate.</p>
 </details>
 <details>
-<summary>3. Your product must tie each sentence of the answer to its supporting quote. Is the QuotedCitations schema enough?</summary>
-<p>No. It is a flat list per answer, and nothing ties a citation to the sentence it supports. Add a <code>claim: str</code> field holding the answer sentence, or have the answer call emit numbered markers that the citations reference. The citations also come after the answer, so they show it can be justified, not that the model used them.</p>
+<summary>3. The citation schema returns a list of records for the whole answer. What can it not tell you, and how would you change it?</summary>
+<p>Which sentence of the answer each citation supports, and whether the model actually used the cited chunk, since citations are found after the answer is written. Add a claim field holding the answer sentence, or have the answer call emit numbered markers that the citations reference.</p>
 </details>
 <h2 id="explaining-a-retrieved-chunk">Explaining a retrieved chunk</h2>
 <p class="lesson-of">Lesson 19.3: Explainable retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/03a_explainable_retrieval.ipynb" target="_blank" rel="noopener"><code>03a_explainable_retrieval.ipynb</code></a></p>
-<p><code>ExplainableRetriever</code> wraps a FAISS index (OpenAI embeddings, <code>k=5</code>) and, for every chunk it returns, makes one more <code>gpt-4o-mini</code> call that writes a paragraph on why the chunk fits the query. The output is a list of <code>{"content", "explanation"}</code> pairs.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Trace</strong> an explainable retriever: one search, then one explanation call per chunk.</li>
+<li><strong>Diagnose</strong> an explanation that rationalises a ranking error.</li>
+<li><strong>Separate</strong> explaining a chunk to a user from debugging a ranking.</li>
+<li><strong>Redesign</strong> the explainer as a relevance grader.</li>
+</ul>
+</blockquote>
+<p>Lesson 19.2 linked each answer to the chunks that support it. A user can still ask the step before that: why did the system pick these chunks at all?</p>
+<p>Notebook <code>03a</code> answers with an <strong>explainable retriever</strong>. It wraps a FAISS index with <code>k = 5</code> and, for every chunk it returns, makes one more LLM call that writes a paragraph on why the chunk fits the query. The output is a list of pairs: the chunk&rsquo;s content and its explanation.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Query/] --&gt; R["FAISS retriever&lt;br/&gt;k = 5"]
     R --&gt; C1["chunk 1"] --&gt; E1["LLM call:&lt;br/&gt;explain chunk 1"]
     R --&gt; C2["chunk 2"] --&gt; E2["LLM call:&lt;br/&gt;explain chunk 2"]
     R --&gt; CK["chunk k"] --&gt; EK["LLM call:&lt;br/&gt;explain chunk k"]
 </pre></figure>
+<p><em>Figure 1: One retrieval, then one explanation call per chunk.</em></p>
 <p>Three properties of this design decide where it is useful.</p>
-<p><strong>It costs one call per chunk.</strong> The loop calls the explanation chain <code>k</code> times, one after another. At <code>k=5</code> a single search becomes five model calls before any answer is written. Run them with <code>batch</code> to cut the wait, or explain only the chunks the answer cites.</p>
-<p><strong>The prompt assumes relevance.</strong> It says &ldquo;Explain why this context is relevant to the query&rdquo;. The model never sees the similarity score or the other chunks, and it is not offered &ldquo;this chunk is not relevant&rdquo; as an answer. In the M10 TF-IDF index of the Larkspur handbook, <em>What happens if my server goes down?</em> ranks the <code>reboot</code> chunk first, on the shared word &ldquo;server&rdquo; (<a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html#top-k">M10.2</a>). Asked why <code>reboot</code> is relevant, with no way to say it is not, the model&rsquo;s likely reply is a reason, such as &ldquo;rebooting is one way to recover a server&rdquo; (a representative output). That reads as an explanation and is a rationalisation of a ranking error.</p>
-<p><strong>It explains the text, not the ranking.</strong> The chunk was ranked by cosine similarity between two vectors. The paragraph is the model&rsquo;s reading of the query and the chunk side by side, written after the fact. It can be a good guide for a user and a poor guide for an engineer: to debug retrieval, print the scores (<code>similarity_search_with_score</code>) and the rank of the chunk you expected.</p>
-<p>A version that helps both readers changes the question it asks:</p>
+<h2 id="it-costs-one-call-per-chunk">It costs one call per chunk</h2>
+<p>The loop calls the explanation chain <code>k</code> times, one after another. At <code>k = 5</code> a single search becomes five model calls before any answer is written:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
-<th>The notebook asks</th>
+<th>Explained chunks</th>
+<th>Explanation calls</th>
+<th>With the answer call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All 5 retrieved</td>
+<td>5</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Only the 2 the answer cites</td>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Only the one a user expands</td>
+<td>1, on demand</td>
+<td>1 + 1</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Calls per question for three explanation policies.</em></p>
+<p>Run the calls as one batch to cut the wait, or explain only what a reader will look at.</p>
+<h2 id="it-explains-the-text-not-the-ranking">It explains the text, not the ranking</h2>
+<p>The prompt says &ldquo;Explain why this context is relevant to the query&rdquo;. The model never sees the similarity score or the other chunks, and it is not offered &ldquo;this chunk is not relevant&rdquo; as an answer.</p>
+<p>On the Larkspur handbook that matters. In the M10 TF-IDF index, <em>What happens if my server goes down?</em> ranks the <code>reboot</code> chunk first, on the shared word &ldquo;server&rdquo; (<a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html#top-k">M10.2</a>). Asked why <code>reboot</code> is relevant, with no way to say it is not, the model&rsquo;s likely reply is a reason:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Retrieved chunk</th>
+<th>Why it ranked first</th>
+<th>Likely explanation (<em>Illustrative</em>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>reboot</code>: &ldquo;You can reboot a server from the console…&rdquo;</td>
+<td>Shares &ldquo;server&rdquo; with the question (TF-IDF 0.416)</td>
+<td>&ldquo;Rebooting is one way to recover a server that has gone down.&rdquo;</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: An explanation for a ranking error (illustrative reply).</em></p>
+<p>That reads as an explanation and is a rationalisation of a ranking error. We call it the <strong>rationalised miss</strong>. The chunk was ranked by similarity between two vectors; the paragraph is the model&rsquo;s reading of the query and the chunk side by side, written after the fact.</p>
+<blockquote>
+<p><strong>Key distinction:</strong> an explanation can guide a user and mislead an engineer. To debug retrieval, print the scores and the rank of the chunk you expected, never the explanation.</p>
+</blockquote>
+<h2 id="ask-a-question-that-can-say-no">Ask a question that can say no</h2>
+<p>A version that helps both readers changes the question:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th><code>03a</code> asks</th>
 <th>Ask instead</th>
 </tr>
 </thead>
@@ -566,7 +784,7 @@ def quote_found(citation, chunks_by_id):
 </tr>
 <tr>
 <td>One free-text paragraph</td>
-<td>A structured result: <code>relevant: bool</code>, <code>evidence: str</code> (verbatim), the retriever&rsquo;s score</td>
+<td>A structured result: relevant or not, a verbatim evidence quote, and the retriever&rsquo;s score</td>
 </tr>
 <tr>
 <td>Every retrieved chunk</td>
@@ -574,30 +792,49 @@ def quote_found(citation, chunks_by_id):
 </tr>
 </tbody>
 </table></div>
-<p>The yes or no form is a relevance grader. <a href="../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/index.html">M28</a> uses it to filter chunks and rewrite the query, and <a href="../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/index.html#relevance-grading">M32.1</a> adds a hallucination check and source highlighting on top.</p>
-<p>Two notes on running the notebook today. <code>retrieve_and_explain</code> calls <code>self.retriever.get_relevant_documents(query)</code>, which langchain-core 1.7 no longer has, so it raises <code>AttributeError</code>; use <code>self.retriever.invoke(query)</code>. And the demo indexes three sentences with <code>k=5</code>; FAISS returns all three, so each query gets three explanations, including two for texts about photosynthesis and global warming when the question is why the sky is blue.</p>
+<p><em>Table 3: From explainer to relevance grader.</em></p>
+<p>The yes-or-no form is a <strong>relevance grader</strong>. On the <code>reboot</code> chunk it can return &ldquo;no&rdquo;, with the score beside it, which is the signal the explainer could never give. <a href="../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/index.html">M28</a> uses it to filter chunks and rewrite the query, and <a href="../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/index.html#relevance-grading">M32.1</a> adds a hallucination check and source highlighting on top.</p>
+<p>Two notes on running <code>03a</code> today. Its retriever call uses a method that the current LangChain core no longer has, so it raises an attribute error; the current call is the retriever&rsquo;s standard invoke. And the demo indexes three sentences with <code>k = 5</code>; FAISS returns all three, so each query gets three explanations, including two for texts about photosynthesis and global warming when the question is why the sky is blue. That is forced top-k (lesson 16.1) again, now with a paragraph defending each forced pick.</p>
+<h2 id="in-practice-explanations-for-larkspur-agents">In practice: explanations for Larkspur agents</h2>
+<ol>
+<li><strong>Explain on demand</strong>: a support agent clicks a source to see why it is there; no call is spent otherwise.</li>
+<li><strong>Grade, then explain</strong>: ask the yes-or-no question first, and show the verbatim evidence quote as the explanation.</li>
+<li><strong>Show the score</strong> beside every explanation, so a weak match is visible as weak.</li>
+<li><strong>Debug with ranks</strong>, logged per query, never with explanation text.</li>
+</ol>
+<p>Lesson 19.4 leaves free text: Larkspur&rsquo;s server catalogue is a table, and a table row needs its own representation before it can be retrieved.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>An explainable retriever adds one LLM call per chunk. Batch the calls, or explain only the chunks the answer cites.</li>
-<li>A prompt that asks why a chunk is relevant gets a reason even for a ranking error. The paragraph explains the text, not the cosine ranking, so debug retrieval with scores and ranks.</li>
-<li>Ask a yes or no relevance question with a verbatim quote and the retriever&rsquo;s score instead. That turns the explainer into a relevance grader.</li>
+<li>An explainable retriever adds one LLM call per chunk. Batch the calls, or explain only the chunks the answer cites or a user expands.</li>
+<li>A prompt that asks why a chunk is relevant gets a reason even for a ranking error (the rationalised miss). The paragraph explains the text, not the ranking, so debug retrieval with scores and ranks.</li>
+<li>Ask a yes-or-no relevance question with a verbatim quote and the retriever&rsquo;s score instead. That turns the explainer into a relevance grader that can say no.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. How many model calls does one search make with the explainable retriever at k of 5, and how can you reduce the cost?</summary>
-<p>Five explanation calls, one per chunk and one after another, before any answer is written. Run them with <code>batch</code> to cut the wait, or explain only the chunks the answer cites.</p>
+<summary>1. The explainable retriever runs with k = 5. How many LLM calls does one question cost before the answer, and how would you reduce them?</summary>
+<p>Five, one explanation per retrieved chunk, made one after another. Batch them to cut the wait, and explain only the chunks the answer cites, or only the one a user expands, to cut the count.</p>
 </details>
 <details>
-<summary>2. A TF-IDF index ranks the reboot chunk first for the question about a server going down. What will the explainer likely say, and what should an engineer check instead?</summary>
-<p>A reason, such as &ldquo;rebooting is one way to recover a server&rdquo;, because the prompt asks why the chunk is relevant and offers no way to say it is not. That reads as an explanation and is a rationalisation of a ranking error. To debug retrieval, print the scores with <code>similarity_search_with_score</code> and the rank of the chunk you expected.</p>
+<summary>2. For "What happens if my server goes down?", the explainer says the reboot chunk is relevant because rebooting recovers a server. Why should an engineer distrust this?</summary>
+<p>It is a rationalised miss. TF-IDF ranked <code>reboot</code> first only because it shares the word &ldquo;server&rdquo;, and the prompt asked why the chunk is relevant with no option to say it is not. The paragraph describes the text after the fact; the score and the rank of the expected chunks show what actually happened.</p>
 </details>
 <details>
-<summary>3. How would you change the explainer so it can catch an irrelevant chunk?</summary>
-<p>Ask whether the context is relevant, answered yes or no, and have the model quote the sentence that decides it. Return a structured result with <code>relevant: bool</code>, verbatim <code>evidence</code> and the retriever&rsquo;s score, and run it only on the chunks the answer used. That yes-or-no form is the relevance grader M28 uses.</p>
+<summary>3. How do you change the explainer so it can flag the reboot chunk as a bad retrieval?</summary>
+<p>Ask a yes-or-no question instead: is this context relevant, then quote the sentence that decides it. Return a structured result with the verdict, the verbatim evidence and the retriever&rsquo;s score. That relevance grader can answer &ldquo;no&rdquo; for <code>reboot</code>, which the &ldquo;why is this relevant&rdquo; prompt never could.</p>
 </details>
 <h2 id="record-representation">Record representation</h2>
 <p class="lesson-of">Lesson 19.4: RAG over structured data: CSV and JSON. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/04a_structured_data_rag.ipynb" target="_blank" rel="noopener"><code>04a_structured_data_rag.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/optional/notebook/04b_simple_csv_rag.ipynb" target="_blank" rel="noopener"><code>04b_simple_csv_rag.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/optional/notebook/04c_json_rag.ipynb" target="_blank" rel="noopener"><code>04c_json_rag.ipynb</code></a> (optional)</p>
-<p>A table row is a set of typed fields; an embedding model takes one string. Something has to turn the row into text, and that choice decides what the index can find. <code>04a</code> shows three ways to write the same row. On the Larkspur server catalogue (ten sizes, the table the lab uses), the <code>ls-mem-4</code> row becomes:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Choose</strong> which fields of a table row to embed and which to keep as metadata.</li>
+<li><strong>Flatten</strong> a nested JSON record without losing what you need to filter on.</li>
+<li><strong>Diagnose</strong> four question types that retrieval answers fluently and wrongly.</li>
+<li><strong>Route</strong> a question about a table to search, a filter, a lookup or a query engine.</li>
+</ul>
+</blockquote>
+<p>Lessons 19.1 to 19.3 worked on prose: handbook paragraphs and PDF pages. Larkspur also has a server catalogue, a table of ten sizes with vCPUs, memory, a monthly price and a one-line description. Ask <em>What is the average monthly price of a Larkspur server?</em> and a RAG chain retrieves four rows and averages those, confidently and wrongly.</p>
+<p>A table row is a set of typed fields; an embedding model takes one string. Something has to turn the row into text, and that choice, the <strong>record representation</strong>, decides what the index can find. Notebook <code>04a</code> shows three ways to write the same row. For the <code>ls-mem-4</code> row:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -607,41 +844,65 @@ def quote_found(citation, chunks_by_id):
 </thead>
 <tbody>
 <tr>
-<td>Every column (<code>CSVLoader</code> style)</td>
-<td><code>name: ls-mem-4</code> <code>vcpu: 4</code> <code>memory_gb: 32</code> <code>price_usd: 140</code> <code>notes: Memory-optimised server for large PostgreSQL databases and analytics queries.</code>, one field per line</td>
+<td>Every column (CSV-loader style)</td>
+<td>name: ls-mem-4, vcpu: 4, memory_gb: 32, price_usd: 140, notes: Memory-optimised server for large PostgreSQL databases and analytics queries, one field per line</td>
 </tr>
 <tr>
 <td>Natural language</td>
-<td><code>A 4-vCPU, 32 GB server, ls-mem-4, at $140 a month. Memory-optimised server for large PostgreSQL databases and analytics queries.</code></td>
+<td>A 4-vCPU, 32 GB server, ls-mem-4, at $140 a month. Memory-optimised server for large PostgreSQL databases and analytics queries.</td>
 </tr>
 <tr>
 <td>Description only</td>
-<td><code>Memory-optimised server for large PostgreSQL databases and analytics queries.</code></td>
+<td>Memory-optimised server for large PostgreSQL databases and analytics queries.</td>
 </tr>
 </tbody>
 </table></div>
-<p>The notebook&rsquo;s rule picks the third and moves everything else to metadata: free text carries meaning and belongs in <code>page_content</code>; identifiers, categories, numbers and dates are things you filter on and belong in <code>metadata</code>, where a filter compares them exactly.</p>
+<p><em>Table 1: Three representations of one catalogue row.</em></p>
+<p><code>04a</code>&rsquo;s rule picks the third and moves everything else to metadata. Free text carries meaning and belongs in the embedded text; identifiers, categories, numbers and dates are things you filter on, and belong in metadata, where a filter compares them exactly:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     R[/"servers.csv row"/] --&gt; T["page_content&lt;br/&gt;notes"]
     R --&gt; M["metadata&lt;br/&gt;name, vcpu,&lt;br/&gt;memory_gb, price_usd"]
     T --&gt; E["embedded&lt;br/&gt;semantic search"]
     M --&gt; F["filtered exactly&lt;br/&gt;price_usd under 50"]
 </pre></figure>
-<p>The lab measures what the choice does with real <code>all-MiniLM-L6-v2</code> scores:</p>
+<p><em>Figure 1: One row, split by job.</em></p>
+<p>The module&rsquo;s lab measures what the choice does, with real <code>all-MiniLM-L6-v2</code> scores:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Description only</th>
+<th>Every column</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>A server for a memory-hungry database</em></td>
+<td><code>ls-mem-4</code> 0.733, <code>ls-mem-2</code> 0.626, then a 0.115 gap to the third row</td>
+<td>The two still lead, but <code>ls-mem-2</code> (0.464491) beats the general-purpose <code>ls-small</code> (0.464116) by 0.0004</td>
+<td><strong>Field dilution</strong>: names and numbers in each string pull every row towards every other</td>
+</tr>
+<tr>
+<td><em>Tell me about ls-cpu-8.</em></td>
+<td>Sibling <code>ls-cpu-4</code> ranks first, 0.535 against 0.517</td>
+<td><code>ls-cpu-8</code> wins by 0.050 (0.708 against 0.659)</td>
+<td>Neither is a lookup; fetching the record by id is</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Two representations under two questions (the module&rsquo;s sample-or-population lab).</em></p>
+<p>Two details make the split work. <code>04a</code> casts every number to an integer before it goes into metadata, because a range filter compares numbers and a CSV loader returns strings (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11.3</a>). And the context sent to the model adds the metadata back after each description, so the model can quote a price it could not search on.</p>
+<p>The rule is a default. &ldquo;Built in 1962&rdquo; carries meaning a buyer might search for, in a way &ldquo;295000&rdquo; does not. Judge each field by whether its value has meaning or only magnitude.</p>
+<h2 id="nested-json">Nested JSON</h2>
+<p>JSON adds depth. A support ticket in <code>04a</code> has a nested customer object, a list of tags and a list of messages. Its conversion makes two separate decisions:</p>
 <ul>
-<li><strong>Fields dilute the vector.</strong> For <em>A server for a memory-hungry database</em>, the description-only index ranks <code>ls-mem-4</code> (0.733) and <code>ls-mem-2</code> (0.626) first, 0.115 ahead of the third row. Embed every column and the two still lead, but <code>ls-mem-2</code> (0.464491) beats the general-purpose <code>ls-small</code> (0.464116) by 0.0004. The names and numbers in each string pull every row towards every other.</li>
-<li><strong>Ids in the text make lookups a coin toss.</strong> For <em>Tell me about ls-cpu-8.</em>, the description never names the server, so similarity matches &ldquo;cpu&rdquo; to &ldquo;CPU cores&rdquo; and ranks the sibling <code>ls-cpu-4</code> first (0.535 against 0.517). With every column embedded, <code>ls-cpu-8</code> wins by 0.050 (0.708 against 0.659). Neither is a lookup; <code>store.get(ids=["ls-cpu-8"])</code> is.</li>
+<li><strong>Meaning goes to the embedded text</strong>: the subject and the conversation, one &ldquo;sender: body&rdquo; line per message.</li>
+<li><strong>Filters go to flat metadata</strong>: the customer&rsquo;s tier becomes a top-level customer-tier field, because Chroma rejects nested objects in metadata.</li>
 </ul>
-<p>Two details from the notebook make the split work. <code>row_to_document</code> casts every number with <code>int()</code> before it goes into metadata, because a range filter compares numbers and <code>CSVLoader</code> returns strings (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11.3</a>). And the context sent to the model adds the metadata back: its <code>format_docs</code> prints address, price, bedrooms and year after each description, so the model can quote a price it could not search on.</p>
-<p>The rule is a default. &ldquo;Built in 1962&rdquo; carries meaning a buyer might search for, in a way &ldquo;295000&rdquo; does not; judge each field by whether its value has meaning or only magnitude.</p>
-<h3>Nested JSON</h3>
-<p>JSON adds depth: a support ticket has a nested <code>customer</code> object, a <code>tags</code> list and a <code>messages</code> list. <code>ticket_to_document</code> in <code>04a</code> makes two separate decisions:</p>
-<ul>
-<li><strong>Meaning goes to <code>page_content</code>:</strong> the subject and the conversation, one <code>from: body</code> line per message.</li>
-<li><strong>Filters go to flat <code>metadata</code>:</strong> <code>customer.tier</code> becomes <code>customer_tier</code>, because Chroma rejects nested dicts in metadata.</li>
-</ul>
-<p>Lists are the hard case. The notebook joins <code>tags</code> into <code>"export,performance,timeout"</code>, and an <code>$eq</code> filter on that string matches only the whole string in that order. Check what your store accepts before you flatten: the chromadb 1.5.9 installed here stores a list value as metadata, and <code>{"tags": {"$contains": "export"}}</code> matches list membership (in a scratch test it returned the record whose tags were <code>["export", "performance"]</code> and not the one holding the string <code>"export,timeout"</code>). Where the store has no list type, the options are a boolean field per tag or a relational table for tags with only ids in the vector store. When filtering is that relational, the vector store is the wrong primary home for the data.</p>
-<p>The optional notebooks show the two ends. <code>04b</code> loads <code>customers-100.csv</code> with <code>CSVLoader</code> defaults (every column in the text) and asks <em>which company does Sheryl Baxter work for?</em>, an exact lookup by name. <code>04c</code> uses the <code>jrag</code> library with jsonpath expressions (<code>$.year</code>, <code>$.laureates[*].full_name</code>) to pick the fields of each Nobel Prize record that become <code>Year: …, Category: …</code> text before embedding.</p>
+<p>Lists are the hard case. <code>04a</code> joins the tags into one string, &ldquo;export,performance,timeout&rdquo;, and an equality filter on that string matches only the whole string in that order. Check what your store accepts before flattening: the Chroma version installed in this course (1.5.9) stores a list value as metadata, and its contains operator matches list membership. In a scratch test it returned the record whose tags were the list export and performance, and not the one holding the single string &ldquo;export,timeout&rdquo;.</p>
+<p>Where the store has no list type, the options are a boolean field per tag, or a relational table for tags with only ids in the vector store. When filtering is that relational, the vector store is the wrong primary home for the data.</p>
+<p>The optional notebooks show the two ends. <code>04b</code> loads a customer CSV with every column in the text and asks <em>which company does Sheryl Baxter work for?</em>, an exact lookup by name. <code>04c</code> uses JSON path expressions to pick the fields of each Nobel Prize record (year, category, laureate names) that become text before embedding.</p>
 <h2 id="retrieval-reads-a-sample">Retrieval reads a sample</h2>
 <p>Retrieval returns the <code>k</code> rows most similar to the question. Four kinds of question need something else, and on a table they look like ordinary questions:</p>
 <div class="sheet scroll"><table>
@@ -655,34 +916,58 @@ def quote_found(citation, chunks_by_id):
 <tbody>
 <tr>
 <td>Aggregation: average, count, sum</td>
-<td>every row</td>
-<td>it reads <code>k</code> rows; raising <code>k</code> only moves the cliff and fills the context</td>
+<td>Every row</td>
+<td>It reads <code>k</code> rows; raising <code>k</code> only moves the cliff and fills the context</td>
 </tr>
 <tr>
 <td>Comparison: &ldquo;under $50&rdquo;, &ldquo;since 2025&rdquo;</td>
-<td>rows that pass a test</td>
-<td>the number in the question is embedded as text and filters nothing</td>
+<td>Rows that pass a test</td>
+<td>The number in the question is embedded as text and filters nothing</td>
 </tr>
 <tr>
 <td>Exact lookup: by id, SKU, order number</td>
-<td>one known row</td>
-<td>identifiers have no useful similarity</td>
+<td>One known row</td>
+<td>Identifiers have no useful similarity</td>
 </tr>
 <tr>
 <td>Ranking: the three cheapest</td>
-<td>a total order</td>
-<td>similarity orders by meaning, not by price</td>
+<td>A total order</td>
+<td>Similarity orders by meaning, not by price</td>
 </tr>
 </tbody>
 </table></div>
-<p>The <a href="04_rag_over_structured_data_csv_and_json/interactive/sample-or-population-lab.html">interactive lab</a> runs all four on the server catalogue. With description-only text:</p>
-<ul>
-<li><em>What is the average monthly price of a Larkspur server?</em> The table&rsquo;s answer is $102.50. At <code>k = 4</code> the four retrieved rows average $36.25; at <code>k = 9</code>, $60.56. Only <code>k = 10</code>, the whole table, is right, because the most expensive server, <code>ls-gpu-1</code> ($480), ranks last for this question in both representations.</li>
-<li><em>Which servers cost less than $50 a month?</em> Four servers qualify. <code>k = 4</code> retrieves three of them plus <code>ls-large</code> at $80; <code>k = 5</code> gets all four, with <code>ls-large</code> still in the context. With every column embedded it takes <code>k = 6</code>, and two over-budget rows come along.</li>
-<li><em>Tell me about ls-cpu-8.</em> At <code>k = 1</code> the model reads only <code>ls-cpu-4</code> and would describe the wrong server.</li>
-</ul>
+<p><em>Table 3: Four question types retrieval cannot answer.</em></p>
+<p>The <a href="04_rag_over_structured_data_csv_and_json/interactive/sample-or-population-lab.html">interactive sample-or-population lab</a> runs all four on the server catalogue, with description-only text:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Right answer</th>
+<th>What retrieval gives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>What is the average monthly price of a Larkspur server?</em></td>
+<td>$102.50</td>
+<td>$36.25 at <code>k = 4</code>; $60.56 at <code>k = 9</code>. Only <code>k = 10</code>, the whole table, is right, because <code>ls-gpu-1</code> ($480) ranks last for this question in both representations</td>
+</tr>
+<tr>
+<td><em>Which servers cost less than $50 a month?</em></td>
+<td>Four servers</td>
+<td><code>k = 4</code> retrieves three of them plus <code>ls-large</code> at $80; <code>k = 5</code> gets all four, with <code>ls-large</code> still in the context. With every column embedded it takes <code>k = 6</code>, and two over-budget rows come along</td>
+</tr>
+<tr>
+<td><em>Tell me about ls-cpu-8.</em></td>
+<td>The <code>ls-cpu-8</code> row</td>
+<td>At <code>k = 1</code> the model reads only <code>ls-cpu-4</code> and would describe the wrong server</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Three questions in the lab.</em></p>
 <figure class="lab-embed"><iframe src="04_rag_over_structured_data_csv_and_json/interactive/sample-or-population-lab.html" title="Sample or population, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Sample or population. <a href="04_rag_over_structured_data_csv_and_json/interactive/sample-or-population-lab.html">Open full screen</a></figcaption></figure>
-<p>Each of these would come back as a fluent, specific answer. The notebook&rsquo;s comparison of the two approaches names the difference: query generation fails loudly (a bad query raises or returns nothing), retrieval fails quietly (it answers from whatever it retrieved).</p>
+<p>Each of these comes back as a fluent, specific answer. We call this the <strong>sample average</strong>: an answer computed over the rows retrieval happened to return, presented as a fact about the whole table. <code>04a</code>&rsquo;s comparison names the difference between the two approaches: query generation fails loudly (a bad query raises an error or returns nothing), and retrieval fails quietly (it answers from whatever it retrieved).</p>
+<h2 id="routing-a-table-question">Routing a table question</h2>
 <p>So route by the kind of question, not the kind of data:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[/Question about the table/] --&gt; A{"Needs every row?&lt;br/&gt;count, average, top 3"}
@@ -693,34 +978,56 @@ def quote_found(citation, chunks_by_id):
     C -- yes --&gt; SQ["Self-query&lt;br/&gt;filter + semantic"]
     C -- no --&gt; S["Semantic search&lt;br/&gt;top-k"]
 </pre></figure>
-<p>The notebook builds each branch in its simplest form:</p>
+<p><em>Figure 2: Route a table question by what it needs.</em></p>
+<p><code>04a</code> builds each branch in its simplest form:</p>
 <ul>
-<li><strong>Router.</strong> One prompt classifies a question as <code>AGGREGATE</code>, <code>LOOKUP</code> or <code>SEMANTIC</code>, and <code>StructuredRAG</code> refuses the first two instead of answering from a sample.</li>
-<li><strong>Self-query.</strong> <code>llm.with_structured_output(ListingQuery)</code> turns <em>Which properties cost less than $400,000?</em> into a semantic part and, when extraction works, <code>max_price=400000</code>, which becomes a Chroma filter <code>{"price": {"$lte": 400000}}</code>. (<code>$lte</code> lets a listing at exactly $400,000 through; &ldquo;less than&rdquo; is <code>$lt</code>.) The full version is <a href="../../../m17_query_transformation/mandatory/theory/index.html">M17</a>&rsquo;s self-querying lesson.</li>
-<li><strong>Query generation.</strong> The model writes one line of pandas over the schema and the notebook <code>eval</code>s it. That executes model-written code with full interpreter access, and a data field can carry a prompt injection. In production, generate SQL against a read-only connection with a timeout, or run a sandboxed executor.</li>
+<li><strong>Router</strong>: one prompt classifies a question as aggregate, lookup or semantic, and the system refuses the first two instead of answering from a sample.</li>
+<li><strong>Self-query</strong>: a structured-output call turns <em>Which properties cost less than $400,000?</em> into a semantic part and, when extraction works, a maximum price of 400,000, which becomes a store filter. The notebook&rsquo;s filter uses less-than-or-equal, which lets a listing at exactly $400,000 through; &ldquo;less than&rdquo; needs strictly-less-than. The full version is <a href="../../../m17_query_transformation/mandatory/theory/index.html">M17&rsquo;s self-querying lesson</a>.</li>
+<li><strong>Query generation</strong>: the model writes one line of pandas over the schema, and the notebook evaluates it.</li>
 </ul>
+<blockquote>
+<p><strong>Pitfall: evaluating model-written code.</strong> That last branch runs code the model wrote with full interpreter access, and a data field can carry a prompt injection. In production, generate SQL against a read-only connection with a timeout, or run a sandboxed executor.</p>
+</blockquote>
+<h2 id="in-practice-larkspurrsquos-server-catalogue">In practice: Larkspur&rsquo;s server catalogue</h2>
+<ol>
+<li><strong>Embed descriptions only</strong>; keep name, vCPUs, memory and price as typed metadata.</li>
+<li><strong>Route averages and rankings to SQL</strong> over the catalogue, read-only.</li>
+<li><strong>Route &ldquo;ls-cpu-8&rdquo; to a get by id</strong>, and price limits to a self-query filter with the right operator.</li>
+<li><strong>Send semantic search only the descriptive questions</strong>, such as a server for a memory-hungry database.</li>
+</ol>
+<p>Lesson 19.5 keeps the same pipeline and moves it onto your own hardware.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Embed fields whose values carry meaning and put identifiers, numbers and dates in metadata, cast to their real types. Embedding every column dilutes the vector.</li>
-<li>Retrieval reads a sample of <code>k</code> rows. Aggregation, numeric comparison, exact lookup and ranking need every row, a filter or an id, and retrieval fails on them quietly with a fluent answer.</li>
-<li>Route by the kind of question: a query engine for aggregates, get-by-id for lookups, self-query filters for ranges, semantic search for the rest. Never <code>eval</code> model-written code without a sandbox.</li>
+<li>Embed fields whose values carry meaning, and put identifiers, numbers and dates in metadata, cast to their real types. Embedding every column dilutes the vector (field dilution).</li>
+<li>Retrieval reads a sample of <code>k</code> rows. Aggregation, numeric comparison, exact lookup and ranking need every row, a filter or an id, and retrieval fails on them quietly: the catalogue&rsquo;s average comes back as $36.25 instead of $102.50.</li>
+<li>Route by the kind of question: a query engine for aggregates, get-by-id for lookups, self-query filters for ranges, semantic search for the rest. Never evaluate model-written code without a sandbox.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Why does the 04a rule embed only a server's description and keep its name, vCPUs, memory and price in metadata?</summary>
-<p>Free text carries meaning and belongs in <code>page_content</code>; identifiers, numbers and dates are things you filter on, and a filter compares metadata exactly. Fields also dilute the vector. With descriptions only, <code>ls-mem-4</code> and <code>ls-mem-2</code> rank first for the memory-hungry database question, 0.115 ahead of the third row; with every column embedded, <code>ls-mem-2</code> beats the general-purpose <code>ls-small</code> by 0.0004.</p>
+<summary>1. Why does embedding every column of the catalogue make the memory-hungry database question harder to answer?</summary>
+<p>Field dilution: each row&rsquo;s string now carries names and numbers, which pull every row towards every other. With descriptions only, <code>ls-mem-4</code> and <code>ls-mem-2</code> lead the third row by 0.115; with every column, <code>ls-mem-2</code> beats the general-purpose <code>ls-small</code> by 0.0004.</p>
 </details>
 <details>
-<summary>2. A user asks for the average monthly price of a Larkspur server, and the system retrieves 4 rows. What comes back, and why?</summary>
-<p>A fluent answer built on four rows that average $36.25, against the table&rsquo;s $102.50. The most expensive server, <code>ls-gpu-1</code> at $480, ranks last for this question, so only retrieving all 10 rows gets it right. Aggregation needs every row, so route it to a query engine (SQL or pandas).</p>
+<summary>2. A RAG chain answers the catalogue's average monthly price as $36.25. What happened, and what should answer it instead?</summary>
+<p>The sample average: retrieval returned four rows at <code>k = 4</code> and the model averaged those. The true average over all ten rows is $102.50, and <code>ls-gpu-1</code> at $480 ranks last for this question, so only the whole table gets it right. Route aggregation questions to a query engine over the full table.</p>
 </details>
 <details>
-<summary>3. A user asks Tell me about ls-cpu-8. Which route should handle it, and what goes wrong with semantic search?</summary>
-<p>Get by id: <code>store.get(ids=["ls-cpu-8"])</code>. With description-only text the description never names the server, so similarity ranks the sibling <code>ls-cpu-4</code> first (0.535 against 0.517). At <code>k = 1</code> the model reads only <code>ls-cpu-4</code> and would describe the wrong server.</p>
+<summary>3. A teammate wants to answer "Tell me about ls-cpu-8." by embedding every column so the name is in the text. What do you suggest?</summary>
+<p>A get by id. Embedding every column does make <code>ls-cpu-8</code> win, but only by 0.050, which is a ranking, not a lookup; with descriptions only, the sibling <code>ls-cpu-4</code> wins. A question that names one record by its id should fetch that record directly.</p>
 </details>
 <h2 id="local-inference">Local inference</h2>
 <p class="lesson-of">Lesson 19.5: Fully local RAG with Hugging Face and FAISS. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/notebook/05a_local_rag_huggingface_faiss.ipynb" target="_blank" rel="noopener"><code>05a_local_rag_huggingface_faiss.ipynb</code></a></p>
-<p>The notebook replaces every OpenAI call with open models. Its configuration:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Check</strong> a &ldquo;local&rdquo; pipeline component by component for data that leaves the machine.</li>
+<li><strong>Compare</strong> the notebook&rsquo;s pipeline with a fully offline one.</li>
+<li><strong>Explain</strong> what keeping inference local costs: hardware, re-embedding, and the risk of loading a saved index.</li>
+<li><strong>Diagnose</strong> two small reuse bugs: a double retrieval and an answer split.</li>
+</ul>
+</blockquote>
+<p>Lessons 19.1 to 19.4 called a hosted embedding model and a hosted chat model. Some Larkspur customers sign contracts that say support tickets and the handbook may not leave their network. For them, every model call is a question of where the data goes.</p>
+<p><strong>Local inference</strong> means a model runs on hardware you control, so its inputs never cross the network. Notebook <code>05a</code> replaces every OpenAI call with open models:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -731,7 +1038,7 @@ def quote_found(citation, chunks_by_id):
 <tbody>
 <tr>
 <td>Document</td>
-<td><code>Understanding_Climate_Change.pdf</code>, loaded with <code>PyPDFLoader</code></td>
+<td>A climate-change PDF</td>
 </tr>
 <tr>
 <td>Chunks</td>
@@ -739,7 +1046,7 @@ def quote_found(citation, chunks_by_id):
 </tr>
 <tr>
 <td>Embeddings</td>
-<td><code>BAAI/bge-base-en-v1.5</code> through <code>HuggingFaceEmbeddings</code>, on CPU, <code>normalize_embeddings=True</code>, 768 dimensions</td>
+<td><code>BAAI/bge-base-en-v1.5</code>, on CPU, normalised, 768 dimensions</td>
 </tr>
 <tr>
 <td>Index</td>
@@ -751,11 +1058,12 @@ def quote_found(citation, chunks_by_id):
 </tr>
 <tr>
 <td>Generation</td>
-<td><code>HuggingFaceH4/zephyr-7b-beta</code> through <code>HuggingFaceEndpoint</code>, <code>max_new_tokens=256</code></td>
+<td><code>HuggingFaceH4/zephyr-7b-beta</code> through Hugging Face&rsquo;s endpoint client, 256 new tokens at most</td>
 </tr>
 </tbody>
 </table></div>
-<p>&ldquo;Local&rdquo; has to be checked per component, because one remote call is enough to send the data out. Here the embedding model and the index run on your machine. The generator does not: <code>HuggingFaceEndpoint</code> calls the Hugging Face Inference API, and the notebook asserts that <code>HUGGINGFACEHUB_API_TOKEN</code> is set before it starts. Every prompt, with the three retrieved chunks inside it, leaves the machine.</p>
+<p><em>Table 1: <code>05a</code>&rsquo;s configuration.</em></p>
+<p>&ldquo;Local&rdquo; has to be checked per component, because one remote call is enough to send the data out. Here the embedding model and the index run on your machine. The generator does not: the endpoint client calls the Hugging Face Inference API, and the notebook checks for an API token before it starts. Every prompt, with the three retrieved chunks inside it, leaves the machine:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     subgraph local["Your machine"]
         D[/PDF/] --&gt; E["bge-base-en-v1.5&lt;br/&gt;768-dim vectors"] --&gt; F[(FAISS)]
@@ -769,7 +1077,8 @@ def quote_found(citation, chunks_by_id):
     R -- "prompt with chunks" --&gt; Z
     Z -- answer --&gt; A
 </pre></figure>
-<p>So the notebook&rsquo;s own comparison table, which lists data privacy as &ldquo;Stays local&rdquo;, is true only for indexing. Its &ldquo;Next steps&rdquo; names the fix: replace <code>HuggingFaceEndpoint</code> with <code>HuggingFacePipeline</code>, which loads the model weights and generates in your process. That is the version to offer a Larkspur customer whose contract says support tickets and the handbook may not leave their network.</p>
+<p><em>Figure 1: <code>05a</code> as written. Indexing is local; generation is not.</em></p>
+<p>We call this the <strong>half-local pipeline</strong>. The notebook&rsquo;s own comparison table lists data privacy as &ldquo;Stays local&rdquo;, which is true only for indexing. Its next steps name the fix: swap the endpoint client for a local pipeline that loads the model weights and generates in your process.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -781,56 +1090,89 @@ def quote_found(citation, chunks_by_id):
 <tbody>
 <tr>
 <td>Embeddings</td>
-<td>local, CPU</td>
-<td>local, CPU</td>
+<td>Local, CPU</td>
+<td>Local, CPU</td>
 </tr>
 <tr>
 <td>Vector index</td>
-<td>local, FAISS in memory</td>
-<td>local, FAISS saved to disk</td>
+<td>Local, FAISS in memory</td>
+<td>Local, FAISS saved to disk</td>
 </tr>
 <tr>
 <td>Generator</td>
-<td>remote, HF Inference API, needs a token</td>
-<td>local, <code>HuggingFacePipeline</code>, needs the weights and enough memory</td>
+<td>Remote: Hugging Face Inference API, needs a token</td>
+<td>Local: a pipeline that loads the weights, needs enough memory</td>
 </tr>
 <tr>
 <td>Data leaving the machine</td>
-<td>every prompt, chunks included</td>
-<td>none</td>
+<td>Every prompt, chunks included</td>
+<td>None</td>
 </tr>
 </tbody>
 </table></div>
-<p>What you trade for keeping it local:</p>
+<p><em>Table 2: Half-local against fully offline.</em></p>
+<h2 id="what-local-costs">What local costs</h2>
+<p>Keeping everything local trades the API bill for three costs:</p>
 <ul>
-<li><strong>Hardware and latency.</strong> A 7B model generating on your own CPU or GPU replaces a network call. Measure tokens per second on the target machine before you promise a latency.</li>
+<li><strong>Hardware and latency.</strong> A 7B model generating on your own CPU or GPU replaces a network call. Measure tokens per second on the target machine before promising a latency.</li>
 <li><strong>One embedding model on both sides.</strong> The query must be embedded by the model that embedded the chunks. Switching from OpenAI&rsquo;s 1,536-dimension vectors to bge&rsquo;s 768 means re-embedding the whole corpus, not only new documents.</li>
-<li><strong>Saving the index runs pickle.</strong> The notebook&rsquo;s commented <code>FAISS.load_local(..., allow_dangerous_deserialization=True)</code> needs that flag because the docstore is a pickle file, and loading a pickle can run code. Load only index files your own pipeline wrote.</li>
+<li><strong>Loading a saved index runs pickle.</strong> FAISS&rsquo;s loader needs an explicit dangerous-deserialisation flag because the docstore is saved as a pickle file, and loading a pickle can run code. Load only index files your own pipeline wrote.</li>
 </ul>
-<p>Two smaller things to change when you reuse the code:</p>
-<ul>
-<li><strong><code>RunnableParallel(answer=rag_chain, sources=retriever)</code> retrieves twice</strong>, once inside <code>rag_chain</code> and once for <code>sources</code> (a counting retriever in a scratch test was called two times). On a fixed FAISS index the two lists match, so the cost is the extra search. On an index that updates between the calls, the sources shown could differ from the context the model read. The <code>RunnablePassthrough.assign</code> pattern from <a href="#returning-the-sources">19.2</a> retrieves once.</li>
-<li><strong><code>ask</code> keeps the text after the last <code>Answer:</code></strong>, to strip a prompt echoed back with the completion. The installed <code>HuggingFaceEndpoint</code> already defaults to <code>return_full_text=False</code>, so the split guards against nothing today and cuts any answer that itself contains &ldquo;Answer:&rdquo;. Drop it, or keep <code>return_full_text=False</code> explicit if you move to <code>HuggingFacePipeline</code>.</li>
-</ul>
-<p>The notebook&rsquo;s fallback evaluation counts expected keywords in each answer (&ldquo;carbon dioxide&rdquo;, &ldquo;methane&rdquo;). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> for decisions.</p>
+<blockquote>
+<p><strong>Pitfall: a borrowed index file.</strong> A FAISS index downloaded from a shared drive or a model hub is code as well as data. Rebuild it from source documents, or load only files your pipeline wrote and stored where only it can write.</p>
+</blockquote>
+<h2 id="two-reuse-bugs">Two reuse bugs</h2>
+<p>Two smaller things to change when you reuse <code>05a</code>&rsquo;s code:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Code in <code>05a</code></th>
+<th>What it does</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A parallel step that runs the RAG chain and the retriever side by side, to return answer and sources</td>
+<td><strong>Double retrieval</strong>: retrieves twice, once inside the chain and once for the sources; a counting retriever in a scratch test was called two times</td>
+<td>Retrieve once and reuse the result, as lesson 19.2&rsquo;s pass-through pattern does</td>
+</tr>
+<tr>
+<td>The answer helper keeps only the text after the last &ldquo;Answer:&rdquo;</td>
+<td>Strips a prompt echoed back with the completion; the installed endpoint client already returns only new text, so the split guards against nothing and cuts any answer that itself contains &ldquo;Answer:&rdquo;</td>
+<td>Drop the split, or set &ldquo;return only new text&rdquo; explicitly when moving to a local pipeline</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Two reuse bugs in <code>05a</code>.</em></p>
+<p>On a fixed FAISS index the two retrievals return the same list, so the double retrieval only costs an extra search. On an index that updates between the calls, the sources shown could differ from the context the model read.</p>
+<p><code>05a</code>&rsquo;s fallback evaluation counts expected keywords in each answer, such as &ldquo;carbon dioxide&rdquo; and &ldquo;methane&rdquo;. Substring matching rewards any answer that mentions the words, right or wrong. Treat it as a smoke test, and use the golden-set metrics from <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> for decisions.</p>
+<h2 id="in-practice-an-offline-larkspur-deployment">In practice: an offline Larkspur deployment</h2>
+<ol>
+<li><strong>Audit every component</strong> with Table 2: embeddings, index, reranker (M18), generator, and any grader.</li>
+<li><strong>Generate in-process</strong> on hardware sized from a measured tokens-per-second figure.</li>
+<li><strong>Re-embed the whole handbook</strong> with the local embedding model, and evaluate it on the golden set before switching.</li>
+<li><strong>Write and load the index yourself</strong>, never from a shared location.</li>
+</ol>
+<p>This completes the M19 system: grounded, cited, explainable, table-aware and deployable where the data must stay.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Check &ldquo;local&rdquo; per component. One remote call sends the data out: <code>HuggingFaceEndpoint</code> ships every prompt, chunks included, to the Inference API, while <code>HuggingFacePipeline</code> generates in your process.</li>
+<li>Check &ldquo;local&rdquo; per component. One remote call sends the data out: <code>05a</code>&rsquo;s endpoint client ships every prompt, chunks included, to the Inference API (the half-local pipeline), while a local pipeline generates in your process.</li>
 <li>Changing embedding models means re-embedding the whole corpus. Measure tokens per second on the target hardware before promising a latency.</li>
-<li>Load only FAISS index files your own pipeline wrote, because the docstore is a pickle. Retrieve once and reuse the result so the sources shown match the context.</li>
+<li>Load only FAISS index files your own pipeline wrote, because the docstore is a pickle. Retrieve once and reuse the result, so the sources shown match the context.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. The 05a notebook embeds and indexes on your machine. Why does the data still leave it?</summary>
-<p>The generator is not local: <code>HuggingFaceEndpoint</code> calls the Hugging Face Inference API, so every prompt, with the three retrieved chunks inside it, leaves the machine. Replace it with <code>HuggingFacePipeline</code>, which loads the weights and generates in your process.</p>
+<summary>1. 05a embeds and indexes on your machine. Does a Larkspur customer's data stay on their network?</summary>
+<p>No. The generator runs through the Hugging Face Inference API, so every prompt, with the three retrieved chunks inside it, leaves the machine. Only indexing is local. Swapping the endpoint client for a local pipeline that loads the weights makes generation local too.</p>
 </details>
 <details>
-<summary>2. A Larkspur customer's contract forbids tickets and the handbook leaving their network, and your index was built with OpenAI embeddings. What must change besides the generator?</summary>
-<p>The embedding model, and with it the whole index. The query must be embedded by the model that embedded the chunks, so switching from OpenAI&rsquo;s 1,536-dimension vectors to bge&rsquo;s 768 means re-embedding the whole corpus, not only new documents. Measure tokens per second on the target machine before you promise a latency.</p>
+<summary>2. Moving Larkspur's pipeline from OpenAI embeddings to bge-base-en-v1.5, can you embed only new documents with the new model?</summary>
+<p>No. The query must be embedded by the same model that embedded the chunks, and the two models produce vectors of different sizes (1,536 against 768) in different spaces. Re-embed the whole corpus, and re-run the golden set before switching.</p>
 </details>
 <details>
-<summary>3. The sources shown beside an answer sometimes differ from the context the model read. What in the 05a chain allows that?</summary>
-<p><code>RunnableParallel(answer=rag_chain, sources=retriever)</code> retrieves twice, once inside <code>rag_chain</code> and once for <code>sources</code>. On an index that updates between the two calls, the lists can differ. The <code>RunnablePassthrough.assign</code> pattern from 19.2 retrieves once.</p>
+<summary>3. Why does loading a saved FAISS index need a dangerous-deserialisation flag, and what rule follows?</summary>
+<p>The index&rsquo;s docstore is saved as a pickle, and loading a pickle can run arbitrary code. Load only index files your own pipeline wrote and stored where only it can write; rebuild anything else from the source documents.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_rag_over_structured_data_csv_and_json/interactive/sample-or-population-lab.html"><strong>Sample or population</strong></a>: open the file in a browser. Pick <em>What is the average monthly price of a Larkspur server?</em> and slide <code>k</code> from 1 to 10: the answer from the retrieved rows stays far below $102.50 until the last row, <code>ls-gpu-1</code> at $480, comes in. Then pick <em>Tell me about ls-cpu-8.</em> at <code>k = 1</code> and switch between Description only and Every column to see the lookup flip between the wrong server and a 0.050 win. Last, pick the memory-hungry database question, the one retrieval answers well, and compare the two texts&rsquo; margins.</p>
@@ -888,7 +1230,7 @@ def quote_found(citation, chunks_by_id):
 <li>Route a question by what it needs. If it needs every row, a filter or one known record, send it to a query, a filter or a get by id, not to top-k retrieval.</li>
 <li>Call a pipeline local only after checking each component, the generator above all.</li>
 </ul></article>
-    <nav class="toc" aria-label="M19 sections"><details open><summary>In M19</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#grounded-generation">Grounded generation</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#returning-the-sources">Returning the sources</a></li><li><a href="#citation-schema">Citation schema</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#explaining-a-retrieved-chunk">Explaining a retrieved chunk</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#record-representation">Record representation</a></li><li><a href="#retrieval-reads-a-sample">Retrieval reads a sample</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#local-inference">Local inference</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M19 sections"><details open><summary>In M19</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#grounded-generation">Grounded generation</a></li><li><a href="#what-this-chain-throws-away">What this chain throws away</a></li><li><a href="#a-setup-trap">A setup trap</a></li><li><a href="#in-practice-a-grounded-larkspur-assistant">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#returning-the-sources">Returning the sources</a></li><li><a href="#citation-schema">Citation schema</a></li><li><a href="#what-the-schema-does-not-guarantee">What the schema does not guarantee</a></li><li><a href="#in-practice-cited-answers-for-larkspur">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#explaining-a-retrieved-chunk">Explaining a retrieved chunk</a></li><li><a href="#it-costs-one-call-per-chunk">It costs one call per chunk</a></li><li><a href="#it-explains-the-text-not-the-ranking">It explains the text, not the ranking</a></li><li><a href="#ask-a-question-that-can-say-no">Ask a question that can say no</a></li><li><a href="#in-practice-explanations-for-larkspur-agents">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#record-representation">Record representation</a></li><li><a href="#nested-json">Nested JSON</a></li><li><a href="#retrieval-reads-a-sample">Retrieval reads a sample</a></li><li><a href="#routing-a-table-question">Routing a table question</a></li><li><a href="#in-practice-larkspurrsquos-server-catalogue">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#local-inference">Local inference</a></li><li><a href="#what-local-costs">What local costs</a></li><li><a href="#two-reuse-bugs">Two reuse bugs</a></li><li><a href="#in-practice-an-offline-larkspur-deployment">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

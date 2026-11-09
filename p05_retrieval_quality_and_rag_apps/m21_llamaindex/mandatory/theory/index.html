@@ -363,7 +363,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The diagram is M10&rsquo;s lifecycle with LlamaIndex names on the boxes, plus a stage M10 does not have. Node postprocessors sit between retrieval and the LLM, and reranking, filtering and window replacement all plug in there. Each one takes a scored list of nodes and returns another.</p>
 <h2 id="nodes">Nodes</h2>
 <p class="lesson-of">Lesson 21.1: Simple PDF and CSV RAG in LlamaIndex. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m21_llamaindex/mandatory/notebook/01a_simple_rag_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>01a_simple_rag_with_llamaindex.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m21_llamaindex/optional/notebook/01b_simple_csv_rag_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>01b_simple_csv_rag_with_llamaindex.ipynb</code></a> (optional)</p>
-<p>LlamaIndex has two text objects where LangChain has one. A <strong>Document</strong> is what a reader loads: <code>SimpleDirectoryReader</code> turns the notebook&rsquo;s climate-change PDF into 33 Documents, one per page, and <code>PagedCSVReader</code> turns the 100-row customer CSV into 100 Documents, one per row. A <strong>Node</strong> is what the index stores: a piece of a Document with its own id, text, metadata, an optional embedding, and relationships. Every node that <code>SentenceSplitter</code> produces from the PDF carries three: <code>SOURCE</code> (its Document), <code>PREVIOUS</code> and <code>NEXT</code> (its neighbours). The neighbour links let a query engine fetch the text around a hit later; <code>PrevNextNodePostprocessor</code> follows them from the docstore.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Map</strong> LangChain&rsquo;s RAG pieces onto LlamaIndex&rsquo;s Documents, Nodes, retrievers and query engines.</li>
+<li><strong>Explain</strong> why the same chunk size gives different chunks in the two frameworks.</li>
+<li><strong>Diagnose</strong> an ingestion pipeline that crashes on its cleaner and leaves its vector store empty.</li>
+<li><strong>Trace</strong> a question through a query engine&rsquo;s three stages, and read what it returns.</li>
+</ul>
+</blockquote>
+<p>M10 to M20 built every technique in LangChain. The ideas are framework-independent, and rebuilding them in LlamaIndex is the test: if a port behaves differently, either the framework does something different or the idea was only half understood.</p>
+<p>LlamaIndex has two text objects where LangChain has one. A <strong>Document</strong> is what a reader loads: the directory reader turns <code>01a</code>&rsquo;s climate-change PDF into 33 Documents, one per page, and a paged CSV reader turns <code>01b</code>&rsquo;s 100-row customer file into 100 Documents, one per row. A <strong>Node</strong> is what the index stores: a piece of a Document with its own id, text, metadata, an optional embedding, and relationships. Every node the sentence splitter produces carries three relationships: its source Document, the previous node and the next node. The neighbour links let a query engine fetch the text around a hit later (lesson 21.4).</p>
 <p>The concepts map onto the LangChain pieces from M10 to M18:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -375,33 +385,33 @@ th:last-child, td:last-child { padding-right: 0; }
 </thead>
 <tbody>
 <tr>
-<td><code>Document</code> from a loader</td>
-<td><code>Document</code> from a reader</td>
+<td>Document from a loader</td>
+<td>Document from a reader</td>
 <td>Loaded unit; PDF readers give one per page in both</td>
 </tr>
 <tr>
-<td><code>Document</code> chunk from a text splitter</td>
-<td><code>TextNode</code> from a node parser</td>
-<td>Node has an id and neighbour links</td>
+<td>Document chunk from a text splitter</td>
+<td>Text node from a node parser</td>
+<td>A node has an id and neighbour links</td>
 </tr>
 <tr>
-<td><code>RecursiveCharacterTextSplitter</code></td>
-<td><code>SentenceSplitter</code></td>
+<td>Recursive character splitter</td>
+<td>Sentence splitter</td>
 <td>Size in tokens, not characters</td>
 </tr>
 <tr>
-<td>Embed, then <code>add_documents</code></td>
-<td><code>IngestionPipeline</code>, then <code>VectorStoreIndex</code></td>
+<td>Embed, then add to the store</td>
+<td>Ingestion pipeline, then vector store index</td>
 <td>Transformations run as a list</td>
 </tr>
 <tr>
-<td><code>vectorstore.as_retriever(k=…)</code></td>
-<td><code>index.as_retriever(similarity_top_k=…)</code></td>
+<td>Store as retriever, <code>k</code></td>
+<td>Index as retriever, <code>similarity_top_k</code></td>
 <td>Default <code>k</code> is 2</td>
 </tr>
 <tr>
-<td><code>EnsembleRetriever</code></td>
-<td><code>QueryFusionRetriever</code></td>
+<td>Ensemble retriever</td>
+<td>Query fusion retriever</td>
 <td>Four fusion modes (21.2)</td>
 </tr>
 <tr>
@@ -411,30 +421,78 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>A retrieval chain</td>
-<td><code>QueryEngine</code></td>
+<td>Query engine</td>
 <td>Retrieve, postprocess, synthesise</td>
 </tr>
 </tbody>
 </table></div>
-<p>Two differences change the chunks you get from the same numbers.</p>
-<p><strong><code>chunk_size</code> counts tokens.</strong> <code>01a</code> sets <code>CHUNK_SIZE = 200</code> and <code>CHUNK_OVERLAP = 50</code> and says so in a comment: LangChain&rsquo;s splitter measures characters by default, <code>SentenceSplitter</code> measures tokens. 200 tokens is several times longer than 200 characters, so a &ldquo;200&rdquo; ported from a LangChain notebook is not the same split.</p>
-<p><strong>Metadata counts against the chunk and goes into the embedding.</strong> <code>SentenceSplitter</code> builds the metadata string a node will carry, measures it in tokens and subtracts it from <code>chunk_size</code> before splitting. The PDF reader attaches <code>page_label</code>, <code>file_name</code>, <code>file_path</code>, <code>file_type</code>, <code>file_size</code> and two dates, and excludes all of them from the embedding and LLM text except <code>page_label</code> and <code>file_path</code>. On the checkout used for this page those two come to 38 tokens, so a 200-token chunk holds at most 162 tokens of text; the largest of the 123 nodes holds 158. The absolute file path is part of every vector. Set <code>excluded_embed_metadata_keys</code> and <code>excluded_llm_metadata_keys</code> on the Documents before splitting when a field should be stored but not embedded.</p>
-<p>Splitting never crosses a Document boundary. <code>02a</code> uses <code>SentenceSplitter()</code> with its defaults of 1,024 tokens and 200 overlap, and every PDF page fits in one chunk, so the 33 pages become exactly 33 nodes. The page, not the chunk size, decides what a chunk is.</p>
-<p>On the Larkspur handbook the two sections load as two Documents. Lesson 21.4 splits them into one node per sentence: 13 for the refunds section and 4 for exports.</p>
-<h3>What the <code>01a</code> ingestion actually builds</h3>
-<p><code>01a</code> creates a FAISS index, passes it to <code>IngestionPipeline(..., vector_store=vector_store)</code>, then builds <code>VectorStoreIndex(nodes)</code>. With <code>llama-index-core</code> 0.14.25 two things go wrong:</p>
-<ul>
-<li><strong>The cleaner runs on Documents and crashes.</strong> <code>TextCleaner</code> comes before the splitter, so it receives Documents, and <code>Document.text</code> is a read-only property: <code>AttributeError: property 'text' of 'Document' object has no setter</code>. <code>02a</code> puts the cleaner after <code>SentenceSplitter</code>, where the nodes&rsquo; text can be set; <code>01a</code> needs the same order. With that change the 33 pages become 123 nodes.</li>
-<li><strong>FAISS stays empty.</strong> The pipeline has no embedding transformation, and <code>IngestionPipeline</code> only adds nodes that already have an embedding to its vector store. After the run the FAISS index holds 0 vectors. <code>VectorStoreIndex(nodes)</code> then embeds the nodes again into the default in-memory store, and that is the index the notebook queries. The same pattern repeats in every M21 notebook.</li>
-</ul>
-<p>To keep the vectors in FAISS, embed in the pipeline and give the store to the index:</p>
-<pre class="sheet code"><code class="language-python">pipeline = IngestionPipeline(transformations=[SentenceSplitter(chunk_size=200, chunk_overlap=50), TextCleaner(), Settings.embed_model])
-nodes = pipeline.run(documents=documents)            # nodes now carry embeddings
-index = VectorStoreIndex(nodes, storage_context=StorageContext.from_defaults(vector_store=vector_store))
-</code></pre>
-<p>Run on the notebook&rsquo;s PDF with a local embedding model in place of OpenAI&rsquo;s: the pipeline makes 123 embedding calls, one per node, the index makes none, and FAISS ends with 123 vectors. <code>VectorStoreIndex.from_vector_store(vector_store)</code> does not work here, because the FAISS store keeps vectors but not text; it raises <code>Cannot initialize from a vector store that does not store text.</code></p>
+<p><em>Table 1: LangChain to LlamaIndex.</em></p>
+<h2 id="same-numbers-different-chunks">Same numbers, different chunks</h2>
+<p>Two differences change the chunks you get from the same settings.</p>
+<p><strong>Chunk size counts tokens.</strong> <code>01a</code> sets a chunk size of 200 with 50 of overlap and says so in a comment: LangChain&rsquo;s splitter measures characters by default, LlamaIndex&rsquo;s measures tokens. 200 tokens is several times longer than 200 characters, so a &ldquo;200&rdquo; ported from a LangChain notebook is not the same split. We call this the <strong>unit swap</strong>.</p>
+<p><strong>Metadata counts against the chunk and goes into the embedding.</strong> The sentence splitter builds the metadata string a node will carry, measures it in tokens and subtracts it from the chunk size before splitting. The PDF reader attaches seven fields (page label, file name, path, type, size and two dates) and excludes all but the page label and file path from the embedding and LLM text:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Value on <code>01a</code>&rsquo;s PDF</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chunk size</td>
+<td>200 tokens</td>
+</tr>
+<tr>
+<td>Metadata kept in the embedded text (page label, file path)</td>
+<td>38 tokens</td>
+</tr>
+<tr>
+<td>Room left for text</td>
+<td>162 tokens</td>
+</tr>
+<tr>
+<td>Largest of the 123 nodes</td>
+<td>158 tokens of text</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Metadata eats the chunk (measured on the checkout used for this page).</em></p>
+<p>The absolute file path is part of every vector. Exclude fields from the embedding and LLM text on the Documents, before splitting, when they should be stored but not embedded.</p>
+<p>Splitting never crosses a Document boundary. Notebook <code>02a</code> uses the splitter&rsquo;s defaults, 1,024 tokens with 200 overlap, and every PDF page fits in one chunk, so the 33 pages become exactly 33 nodes. The page, not the chunk size, decides what a chunk is. On the Larkspur handbook the two sections load as two Documents; lesson 21.4 splits them into one node per sentence, 13 for refunds and 4 for exports.</p>
+<h2 id="what-01arsquos-ingestion-actually-builds">What <code>01a</code>&rsquo;s ingestion actually builds</h2>
+<p><code>01a</code> creates a FAISS index, passes it to an ingestion pipeline, then builds a vector store index from the nodes. With the installed <code>llama-index-core</code> 0.14.25 two things go wrong:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Cause</th>
+<th>Effect</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cleaner crash</strong></td>
+<td>The text cleaner comes before the splitter, so it receives Documents, whose text is read-only</td>
+<td>An attribute error: Document&rsquo;s text has no setter</td>
+<td>Put the cleaner after the splitter, as <code>02a</code> does; the 33 pages then become 123 nodes</td>
+</tr>
+<tr>
+<td><strong>Empty store</strong></td>
+<td>The pipeline has no embedding step, and it only adds nodes that already have an embedding to its store</td>
+<td>FAISS holds 0 vectors; the index embeds the nodes again into the default in-memory store, which is what the notebook queries</td>
+<td>Add the embedding model as the pipeline&rsquo;s last step, and build the index with FAISS as its storage</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Two ingestion bugs in <code>01a</code>, repeated in every M21 notebook.</em></p>
+<p>Run on the notebook&rsquo;s PDF with a local embedding model in place of OpenAI&rsquo;s, the fixed pipeline makes 123 embedding calls, one per node, the index makes none, and FAISS ends with 123 vectors. Rebuilding an index from the FAISS store alone fails with &ldquo;Cannot initialize from a vector store that does not store text&rdquo;, because FAISS keeps vectors and no text.</p>
+<blockquote>
+<p><strong>Pitfall: the empty store.</strong> A pipeline given a vector store that it never fills raises nothing. Count the vectors in the store after ingestion, as lesson 19.1 counted vectors against chunks.</p>
+</blockquote>
 <h2 id="queryengine">QueryEngine</h2>
-<p><code>index.as_query_engine(similarity_top_k=2)</code> returns a <code>RetrieverQueryEngine</code>. Each <code>query(question)</code> call runs three stages and returns the <code>Response</code> to the caller:</p>
+<p>A <strong>query engine</strong> turns a question into an answer in three stages. <code>index.as_query_engine(similarity_top_k=2)</code> returns one, and each query runs:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant QE as QueryEngine
     participant R as Retriever
@@ -447,53 +505,94 @@ index = VectorStoreIndex(nodes, storage_context=StorageContext.from_defaults(vec
     QE-&gt;&gt;S: question + nodes
     S--&gt;&gt;QE: Response
 </pre></figure>
+<p><em>Figure 1: A query engine&rsquo;s three stages.</em></p>
 <ul>
-<li><strong>The retriever</strong> embeds the question and returns the <code>similarity_top_k</code> nearest nodes as <code>NodeWithScore</code> objects. The default is 2.</li>
-<li><strong>The postprocessors</strong> are the <code>node_postprocessors</code> list, applied in order. <code>01a</code> passes none; lessons 21.3 and 21.4 add a reranker and a window replacement here.</li>
-<li><strong>The synthesizer</strong> puts the nodes&rsquo; text into a prompt for <code>Settings.llm</code>. The default <code>response_mode</code> is <code>compact</code>: it packs the nodes&rsquo; text into as few prompts as the context window allows, then refines the answer across them.</li>
+<li><strong>The retriever</strong> embeds the question and returns the nearest nodes with their scores. The default is 2.</li>
+<li><strong>The postprocessors</strong> run in list order. <code>01a</code> passes none; lessons 21.3 and 21.4 add a reranker and a window replacement here.</li>
+<li><strong>The synthesizer</strong> puts the nodes&rsquo; text into a prompt for the configured LLM. The default mode, compact, packs the nodes into as few prompts as the context window allows, then refines the answer across them.</li>
 </ul>
-<p><code>response.response</code> is the answer; <code>response.source_nodes</code> is the list of nodes the answer was built from, with their scores. <code>01a</code>&rsquo;s <code>evaluate_rag</code> reads both: the answer goes to the correctness and faithfulness metrics, the source node texts become the retrieval context for DeepEval&rsquo;s <code>ContextualRelevancyMetric</code>. Logging <code>source_nodes</code> on every production query gives the same view without an evaluation run.</p>
-<p><code>query_engine.retrieve(QueryBundle(question))</code> runs the retriever and the postprocessors without the LLM, which is how the lab in 21.4 was checked. Building the engine still needs an LLM: <code>as_query_engine()</code> resolves <code>Settings.llm</code> when it is created, and with no model set and no OpenAI key it raises before any retrieval. Set <code>Settings.llm</code> (a <code>MockLLM</code> works for tests) or use <code>index.as_retriever()</code> when you only need nodes.</p>
-<h3>The CSV variant</h3>
-<p><code>01b</code> reads each CSV row as one Document whose text is one <code>column: value</code> line per field:</p>
-<pre class="sheet code"><code>Index: 1
-Customer Id: DD37Cf93aecA6Dc
-First Name: Sheryl
-Last Name: Baxter
-Company: Rasmussen Group
-…
-</code></pre>
-<p>It skips splitting, embeds each row, and asks <em>which company does sheryl Baxter work for?</em> with <code>similarity_top_k=2</code>. The answer is in row 1 (Rasmussen Group), and the row&rsquo;s own text names her, so one retrieved row is enough. A question about many rows (&ldquo;how many customers are in Chile?&rdquo;) gets the same two rows, and no prompt can count the other 98. Row-per-Document RAG answers lookups; counts, sums and filters belong to a query over the table, which M19 covers.</p>
+<p>The response holds the answer and the source nodes it was built from, with their scores. <code>01a</code>&rsquo;s evaluation reads both: the answer goes to correctness and faithfulness metrics, the source texts become the retrieval context for DeepEval&rsquo;s contextual relevancy metric. Logging the source nodes on every production query gives the same view without an evaluation run.</p>
+<p>The engine can also run the retriever and postprocessors without the LLM, which is how lesson 21.4&rsquo;s lab was checked. Building the engine still needs an LLM: it resolves the configured model when created, and with none set and no OpenAI key it raises before any retrieval. Set a mock LLM for tests, or take a plain retriever from the index when you only need nodes.</p>
+<h2 id="the-csv-variant">The CSV variant</h2>
+<p><code>01b</code> reads each CSV row as one Document whose text is one &ldquo;column: value&rdquo; line per field: index, customer id, first name, last name, company and so on. It skips splitting, embeds each row, and asks <em>which company does sheryl Baxter work for?</em> with two results. The answer is in row 1 (Rasmussen Group), and the row&rsquo;s own text names her, so one retrieved row is enough.</p>
+<p>A question about many rows, such as <em>how many customers are in Chile?</em>, gets the same two rows, and no prompt can count the other 98. That is lesson 19.4&rsquo;s sample average again: row-per-Document RAG answers lookups, and counts, sums and filters belong to a query over the table.</p>
+<h2 id="in-practice-porting-larkspurrsquos-pipeline">In practice: porting Larkspur&rsquo;s pipeline</h2>
+<ol>
+<li><strong>Convert the chunk size</strong>: Larkspur&rsquo;s 300-character split is about 75 tokens at a rough four characters per token, not 300; measure it with the splitter&rsquo;s own tokeniser.</li>
+<li><strong>Exclude file paths</strong> from embedded and LLM metadata before splitting.</li>
+<li><strong>Embed in the pipeline</strong> and count vectors in the store afterwards.</li>
+<li><strong>Log source nodes</strong> for every answer, as lesson 19.2 kept its context.</li>
+</ol>
+<p>Lesson 21.2 ports M16&rsquo;s hybrid retrieval, where LlamaIndex&rsquo;s defaults differ most.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A Document is what a reader loads; a Node is what the index stores, with an id, metadata and neighbour links. Splitting never crosses a Document boundary.</li>
-<li><code>SentenceSplitter</code> counts tokens, not characters, and subtracts embedded metadata from <code>chunk_size</code>. Exclude fields such as file paths from the embedding when they should only be stored.</li>
-<li>A query engine retrieves, postprocesses and synthesises; log <code>source_nodes</code> on every query. Put the embedding model in the ingestion pipeline, or the vector store you passed stays empty.</li>
+<li>The sentence splitter counts tokens, not characters (the unit swap), and subtracts embedded metadata from the chunk size: 38 tokens of page label and path leave 162 of 200 for text.</li>
+<li>A query engine retrieves, postprocesses and synthesises; log its source nodes. Put the embedding model in the ingestion pipeline, or the vector store you passed stays empty.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. You port a LangChain notebook's chunk size of 200 to SentenceSplitter unchanged. Why are the chunks different?</summary>
-<p><code>SentenceSplitter</code> counts tokens, not characters, so 200 tokens is several times longer than 200 characters. It also subtracts the node&rsquo;s metadata string from <code>chunk_size</code> before splitting: on the PDF, <code>page_label</code> and <code>file_path</code> come to 38 tokens, so a 200-token chunk holds at most 162 tokens of text.</p>
+<summary>1. A teammate ports a LangChain pipeline with chunk size 200 to LlamaIndex and keeps the number. What changes?</summary>
+<p>The unit. LangChain&rsquo;s splitter counts characters by default and LlamaIndex&rsquo;s counts tokens, so 200 tokens is several times longer than 200 characters. LlamaIndex also subtracts embedded metadata from the chunk: on <code>01a</code>&rsquo;s PDF, 38 tokens of page label and file path leave at most 162 tokens of text.</p>
 </details>
 <details>
-<summary>2. After the 01a ingestion pipeline runs with a FAISS store, how many vectors does FAISS hold, and which index does the notebook query?</summary>
-<p>None. The pipeline has no embedding transformation, and <code>IngestionPipeline</code> only adds nodes that already have an embedding to its vector store. <code>VectorStoreIndex(nodes)</code> then embeds the nodes again into the default in-memory store, and that is the index queried. Put <code>Settings.embed_model</code> in the pipeline and pass the store through <code>StorageContext</code> to end with 123 vectors in FAISS.</p>
+<summary>2. After 01a's ingestion runs, the FAISS index holds 0 vectors, yet queries return answers. How?</summary>
+<p>The pipeline has no embedding step and only adds already-embedded nodes to its store, so FAISS stays empty without an error. The vector store index then embeds the nodes again into the default in-memory store, and that is what the notebook queries. Embed in the pipeline and build the index with FAISS as its storage.</p>
 </details>
 <details>
-<summary>3. The CSV variant answers which company Sheryl Baxter works for, but gets the number of customers in Chile wrong. Why?</summary>
-<p>With <code>similarity_top_k=2</code> the engine retrieves two rows, and no prompt can count the other 98. A lookup works because one row names her. Counts, sums and filters belong to a query over the table, which M19 covers.</p>
+<summary>3. The CSV variant answers which company Sheryl Baxter works for. Why would it fail when asked how many customers are in Chile?</summary>
+<p>The first is a lookup: one row names her and holds the answer, and two retrieved rows include it. The second needs every row, and retrieval returns two, so no prompt can count the other 98. Counts, sums and filters belong to a query over the table, as in lesson 19.4.</p>
 </details>
 <h2 id="queryfusionretriever">QueryFusionRetriever</h2>
 <p class="lesson-of">Lesson 21.2: Fusion retrieval with QueryFusionRetriever. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m21_llamaindex/mandatory/notebook/02a_fusion_retrieval_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>02a_fusion_retrieval_with_llamaindex.ipynb</code></a></p>
-<p><code>QueryFusionRetriever</code> is LlamaIndex&rsquo;s <code>EnsembleRetriever</code>: it runs several retrievers and merges their lists. <code>02a</code> gives it a vector retriever and a <code>BM25Retriever</code>, both at <code>similarity_top_k=2</code>:</p>
-<pre class="sheet code"><code class="language-python">retriever = QueryFusionRetriever(
-    retrievers=[vector_retriever, bm25_retriever],
-    retriever_weights=[0.6, 0.4],
-    num_queries=1,
-    mode=&quot;dist_based_score&quot;,
-    use_async=False,
-)
-</code></pre>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Map</strong> M16&rsquo;s hybrid ensemble onto LlamaIndex&rsquo;s fusion retriever, setting by setting.</li>
+<li><strong>Explain</strong> the three defaults that change what a port does.</li>
+<li><strong>Trace</strong> a Larkspur question through all four fusion modes, and see which keep the answer.</li>
+<li><strong>Diagnose</strong> a fusion retriever fed distances where it expects similarities.</li>
+</ul>
+</blockquote>
+<p>Lesson 21.1 mapped the pieces. M16&rsquo;s hybrid retrieval is where a faithful port most often behaves differently, because the merge has several knobs and LlamaIndex sets them differently.</p>
+<p>The <strong>query fusion retriever</strong> is LlamaIndex&rsquo;s ensemble retriever: it runs several retrievers and merges their lists. Notebook <code>02a</code> gives it a vector retriever and a BM25 retriever, both returning 2 nodes:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th><code>02a</code>&rsquo;s value</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Retrievers</td>
+<td>Vector, BM25</td>
+<td></td>
+</tr>
+<tr>
+<td>Retriever weights</td>
+<td>0.6, 0.4</td>
+<td>Equal</td>
+</tr>
+<tr>
+<td>Number of queries</td>
+<td>1</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Mode</td>
+<td>Distance-based score</td>
+<td>Simple</td>
+</tr>
+<tr>
+<td>Final <code>similarity_top_k</code></td>
+<td>Not set</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: <code>02a</code>&rsquo;s fusion settings against the defaults.</em></p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; V["Vector retriever&lt;br/&gt;top 2"]
     Q --&gt; B["BM25Retriever&lt;br/&gt;top 2"]
@@ -501,11 +600,12 @@ Company: Rasmussen Group
     B --&gt; F
     F --&gt; S["Sum per node,&lt;br/&gt;sort"] --&gt; K[/"Keep&lt;br/&gt;similarity_top_k"/]
 </pre></figure>
-<p>Three of its defaults change what a port does:</p>
+<p><em>Figure 1: Fusion in <code>02a</code>.</em></p>
+<p>Three of the defaults change what a port does:</p>
 <ul>
-<li><strong><code>num_queries</code> defaults to 4.</strong> The retriever keeps your question and asks <code>Settings.llm</code> to write 3 more, then runs every query on every retriever: with two retrievers, 8 retrievals and one LLM call per question. <code>02a</code> sets <code>num_queries=1</code>, which turns query generation off. M17 covers what the extra queries buy.</li>
-<li><strong><code>similarity_top_k</code> defaults to 2.</strong> It cuts the fused list. <code>02a</code> does not set it, so two retrievers with two hits each still return two nodes.</li>
-<li><strong><code>mode</code> defaults to <code>simple</code>.</strong> The four modes, as <code>llama-index-core</code> 0.14.25 implements them:</li>
+<li><strong>The number of queries defaults to 4.</strong> The retriever keeps your question and asks the configured LLM to write 3 more, then runs every query on every retriever: with two retrievers, 8 retrievals and one LLM call per question. <code>02a</code> sets it to 1, which turns query generation off. M17 covers what the extra queries buy.</li>
+<li><strong>The final cut defaults to 2.</strong> <code>02a</code> does not set it, so two retrievers with two hits each still return two nodes.</li>
+<li><strong>The mode defaults to simple.</strong> The four modes, as the installed <code>llama-index-core</code> 0.14.25 implements them:</li>
 </ul>
 <div class="sheet scroll"><table>
 <thead>
@@ -517,29 +617,31 @@ Company: Rasmussen Group
 </thead>
 <tbody>
 <tr>
-<td><code>relative_score</code></td>
+<td>Relative score</td>
 <td>Min-max: best 1, worst 0</td>
 <td>Times weight, summed per node</td>
 </tr>
 <tr>
-<td><code>dist_based_score</code></td>
-<td>Min-max between mean ± 3 std</td>
+<td>Distance-based score</td>
+<td>Min-max between mean ± 3 standard deviations</td>
 <td>Times weight, summed per node</td>
 </tr>
 <tr>
-<td><code>reciprocal_rerank</code></td>
+<td>Reciprocal rerank</td>
 <td><code>1 / (60 + rank)</code>, rank from 0</td>
 <td>Summed per node; weights ignored</td>
 </tr>
 <tr>
-<td><code>simple</code></td>
+<td>Simple</td>
 <td>None</td>
 <td>Highest raw score per node</td>
 </tr>
 </tbody>
 </table></div>
-<p><code>retriever_weights</code> are divided by their sum, so <code>[0.6, 0.4]</code> stays as it is and <code>[3, 2]</code> becomes the same thing. Scores in the two score modes are also divided by <code>num_queries</code>.</p>
-<p>On the Larkspur handbook, split into one node per sentence, the 45-day refund question gives two short lists. The vector side (<code>all-MiniLM-L6-v2</code>, run locally in place of the notebook&rsquo;s OpenAI model) returns the 30-day rule at 0.6922 and &ldquo;Monthly plans are not refundable&rdquo; at 0.5373. BM25 returns the 30-day rule at 2.3898 and the prorated rule, the one that answers the question, at 1.9076. Fused by the real <code>QueryFusionRetriever</code> with <code>02a</code>&rsquo;s settings:</p>
+<p><em>Table 2: The four fusion modes.</em></p>
+<p>Weights are divided by their sum, so 0.6 and 0.4 stay as they are and 3 and 2 become the same thing. Scores in the two score modes are also divided by the number of queries.</p>
+<h2 id="the-45-day-question-four-ways">The 45-day question, four ways</h2>
+<p>On the Larkspur handbook, split into one node per sentence, <em>Can I get a refund on an annual plan after 45 days?</em> gives two short lists. The vector side (<code>all-MiniLM-L6-v2</code>, run locally in place of the notebook&rsquo;s OpenAI model) returns the 30-day rule at 0.6922 and &ldquo;Monthly plans are not refundable&rdquo; at 0.5373. BM25 returns the 30-day rule at 2.3898 and the prorated rule, the one that answers the question, at 1.9076. Fused by the real fusion retriever with <code>02a</code>&rsquo;s settings:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -550,44 +652,47 @@ Company: Rasmussen Group
 </thead>
 <tbody>
 <tr>
-<td><code>dist_based_score</code></td>
+<td>Distance-based score</td>
 <td>30-day rule 0.6667, monthly 0.2000</td>
 <td>3rd, 0.1333</td>
 </tr>
 <tr>
-<td><code>relative_score</code></td>
+<td>Relative score</td>
 <td>30-day rule 1.0, monthly 0.0</td>
 <td>3rd, 0.0</td>
 </tr>
 <tr>
-<td><code>reciprocal_rerank</code></td>
+<td>Reciprocal rerank</td>
 <td>30-day rule 0.0333, monthly 0.0164</td>
 <td>3rd, tied at 0.0164</td>
 </tr>
 <tr>
-<td><code>simple</code></td>
+<td>Simple</td>
 <td>30-day rule 2.3898, prorated 1.9076</td>
 <td>2nd</td>
 </tr>
 </tbody>
 </table></div>
-<p>Only <code>simple</code> keeps the answer, and for the wrong reason: it compares a BM25 score with a cosine similarity, and BM25 scores run higher. Three behaviours explain the rest of the table:</p>
+<p><em>Table 3: Four modes on one question (the real fusion retriever, <code>all-MiniLM-L6-v2</code> and LlamaIndex&rsquo;s BM25).</em></p>
+<p>Only simple keeps the answer, and for the wrong reason: it compares a BM25 score with a cosine similarity, and BM25 scores run higher. We call that <strong>scale collision</strong>. Three behaviours explain the rest of the table:</p>
 <ul>
-<li><strong>With two hits per list, <code>dist_based_score</code> ignores the gap.</strong> Two scores have a mean halfway between them and a standard deviation of half their difference, so mean ± 3 std always maps the better one to 2/3 and the worse to 1/3. In a check with fixed scores, dropping the vector runner-up from 0.80 to 0.10 left every fused score unchanged. The 0.6 and 0.4 weights then decide the order: 0.6 × 1/3 = 0.2 for the vector runner-up beats 0.4 × 1/3 = 0.1333 for the BM25 runner-up. Flip the weights to 0.4 and 0.6 and the prorated rule wins the second place at 0.2.</li>
-<li><strong><code>relative_score</code> with two hits sends every runner-up to 0.</strong> Both second places score 0 here, and the cut falls between equal scores.</li>
-<li><strong><code>reciprocal_rerank</code> drops <code>retriever_weights</code>.</strong> The constant is 60 and ranks start at 0, so a node first in one list scores 1/60. <code>EnsembleRetriever</code> in M16 multiplies each term by its weight and counts ranks from 1; the two &ldquo;RRF&rdquo; scores are not interchangeable.</li>
+<li><strong>With two hits per list, the distance-based mode ignores the gap.</strong> Two scores have a mean halfway between them and a standard deviation of half their difference, so mean ± 3 standard deviations always maps the better one to 2/3 and the worse to 1/3. In a check with fixed scores, dropping the vector runner-up from 0.80 to 0.10 left every fused score unchanged. The weights then decide the order: 0.6 × 1/3 = 0.2 for the vector runner-up beats 0.4 × 1/3 = 0.1333 for the BM25 runner-up. Flip the weights to 0.4 and 0.6 and the prorated rule takes second place at 0.2.</li>
+<li><strong>Relative score with two hits sends every runner-up to 0.</strong> Both second places score 0 here, and the cut falls between equal scores.</li>
+<li><strong>Reciprocal rerank drops the weights.</strong> The constant is 60 and ranks start at 0, so a node first in one list scores 1/60. M16&rsquo;s ensemble multiplies each term by its weight and counts ranks from 1, so the two &ldquo;RRF&rdquo; scores are not interchangeable.</li>
 </ul>
-<p><code>02a</code>&rsquo;s note on the modes says reciprocal rerank is unsuitable &ldquo;since there is no normalization&rdquo;. Rank fusion never looks at the scores, so their scales cannot hurt it; the mode where scales collide is <code>simple</code>, the default. <a href="../../../m16_retrievers_hybrid_search/mandatory/theory/index.html">M16&rsquo;s fusion lesson</a> works through score and rank fusion in general. In LlamaIndex the same mode names carry different constants.</p>
-<p>The BM25 side differs from LangChain&rsquo;s too. LlamaIndex&rsquo;s <code>BM25Retriever</code> runs <code>bm25s</code> with an English stemmer, English stop words and the token pattern <code>\b\w\w+\b</code>, so &ldquo;refund&rdquo; in the question matches &ldquo;refunds&rdquo; in the prorated rule. LangChain&rsquo;s <code>BM25Retriever</code> splits on whitespace and would not match them.</p>
+<blockquote>
+<p><strong>Pitfall: same name, different formula.</strong> <code>02a</code>&rsquo;s note says reciprocal rerank is unsuitable &ldquo;since there is no normalization&rdquo;. Rank fusion never looks at the scores, so their scales cannot hurt it; the mode where scales collide is simple, the default. <a href="../../../m16_retrievers_hybrid_search/mandatory/theory/index.html">M16&rsquo;s fusion lesson</a> works through score and rank fusion in general; in LlamaIndex the same mode names carry different constants.</p>
+</blockquote>
+<p>The BM25 side differs from LangChain&rsquo;s too. LlamaIndex&rsquo;s BM25 retriever uses an English stemmer, English stop words and a word pattern of two or more characters, so &ldquo;refund&rdquo; in the question matches &ldquo;refunds&rdquo; in the prorated rule. LangChain&rsquo;s splits on whitespace and would not match them: lesson 16.2&rsquo;s token mismatch, already fixed here.</p>
 <h2 id="score-direction">Score direction</h2>
-<p>Every fusion mode assumes a higher score is better. The vector retriever in <code>02a</code> comes from <code>VectorStoreIndex(nodes)</code> with the default in-memory store, which returns cosine similarity, so the assumption holds. Wire the notebook&rsquo;s FAISS store in properly (21.1) and it stops holding: <code>IndexFlatL2</code> returns squared L2 distances as <code>score</code>, where lower is better.</p>
+<p>Every fusion mode assumes a higher score is better. <code>02a</code>&rsquo;s vector retriever comes from the default in-memory store, which returns cosine similarity, so the assumption holds. Wire the notebook&rsquo;s FAISS store in properly (lesson 21.1) and it stops holding: a flat L2 index returns squared L2 distances as the score, where lower is better.</p>
 <p>The same three handbook sentences, retrieved for the 45-day question through two FAISS indexes:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Sentence</th>
-<th><code>IndexFlatIP</code> score</th>
-<th><code>IndexFlatL2</code> score</th>
+<th>Inner-product index score</th>
+<th>L2 index score</th>
 </tr>
 </thead>
 <tbody>
@@ -608,40 +713,99 @@ Company: Rasmussen Group
 </tr>
 </tbody>
 </table></div>
-<p>The order is the same; the scale runs the other way. On unit-length vectors the squared distance is 2 minus twice the cosine (2 - 2 × 0.6922 = 0.6156). Feed the L2 list to <code>relative_score</code> and the nearest sentence scales to 0 while the farthest gets the full weight. Use <code>IndexFlatIP</code> on normalised vectors when FAISS feeds a fusion retriever, and print each retriever&rsquo;s raw scores once before trusting the fused list.</p>
+<p><em>Table 4: One ranking, two score directions.</em></p>
+<p>The order is the same; the scale runs the other way. On unit-length vectors the squared distance is 2 minus twice the cosine (2 - 2 × 0.6922 = 0.6156). Feed the L2 list to relative score and the nearest sentence scales to 0 while the farthest gets the full weight. We call this the <strong>flipped score</strong>, the fusion cousin of lesson 16.1&rsquo;s flipped threshold.</p>
+<h2 id="in-practice-larkspurrsquos-hybrid-port">In practice: Larkspur&rsquo;s hybrid port</h2>
+<ol>
+<li><strong>Set every argument</strong>: number of queries, final <code>similarity_top_k</code>, mode and weights; never rely on the defaults.</li>
+<li><strong>Retrieve deeper than 2 per list</strong>, so min-max modes have more than two points to scale.</li>
+<li><strong>Use reciprocal rerank</strong> when the lists&rsquo; scales differ, knowing it ignores weights.</li>
+<li><strong>Use an inner-product index on normalised vectors</strong> for FAISS, and print each retriever&rsquo;s raw scores once before trusting the fused list.</li>
+</ol>
+<p>Fusion decides which nodes come back. Lesson 21.3 reorders and trims them before the model reads them.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Check the defaults before porting: <code>num_queries=4</code> adds an LLM call and multiplies retrievals, <code>similarity_top_k=2</code> cuts the fused list, and the default <code>simple</code> mode compares raw scores across retrievers.</li>
-<li>With two hits per list, the score modes flatten the gap and the weights decide the order. <code>reciprocal_rerank</code> ignores <code>retriever_weights</code> and counts ranks from 0.</li>
-<li>Every fusion mode assumes higher is better. Use inner product on normalised vectors rather than L2 distance, and print each retriever&rsquo;s raw scores once.</li>
+<li>Check the defaults before porting: four queries add an LLM call and multiply retrievals, a final cut of 2 trims the fused list, and the default simple mode compares raw scores across retrievers (scale collision).</li>
+<li>With two hits per list the score modes flatten the gap and the weights decide the order; reciprocal rerank ignores the weights and counts ranks from 0. On the 45-day question three of four modes drop the answer.</li>
+<li>Every fusion mode assumes higher is better. Use inner product on normalised vectors rather than L2 distance (the flipped score), and print each retriever&rsquo;s raw scores once.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. With its default settings and two retrievers, how much work does QueryFusionRetriever do per question?</summary>
-<p><code>num_queries</code> defaults to 4, so it keeps your question, asks <code>Settings.llm</code> for 3 more and runs every query on every retriever: 8 retrievals and one LLM call. <code>02a</code> sets <code>num_queries=1</code> to turn query generation off. The default <code>similarity_top_k</code> of 2 then cuts the fused list.</p>
+<summary>1. A port of M16's hybrid retriever to LlamaIndex sets only the retrievers and weights. What does it do differently from the original?</summary>
+<p>It generates 3 extra queries with an LLM and runs all four on both retrievers, 8 retrievals per question; it cuts the fused list to 2; and it uses the simple mode, which takes the highest raw score per node and so compares BM25 scores with cosine similarities.</p>
 </details>
 <details>
-<summary>2. Under distance-based scoring with two hits per list, the prorated rule ends third. Why, and what weight change brings it into the top two?</summary>
-<p>With two scores per list, mean ± 3 std always maps the better one to 2/3 and the worse to 1/3, whatever the gap. The weights then decide: 0.6 × 1/3 = 0.2 for the vector runner-up beats 0.4 × 1/3 = 0.1333 for the BM25 runner-up, the prorated rule. Flip the weights to 0.4 and 0.6, and the prorated rule takes second place at 0.2.</p>
+<summary>2. In distance-based mode with two hits per list, why does dropping the vector runner-up's score from 0.80 to 0.10 change nothing?</summary>
+<p>Two scores have a mean halfway between them and a standard deviation of half their difference, so scaling between mean ± 3 standard deviations always maps the better to 2/3 and the worse to 1/3. The gap disappears, and the weights decide the order: 0.6 × 1/3 beats 0.4 × 1/3.</p>
 </details>
 <details>
-<summary>3. You feed a FAISS IndexFlatL2 retriever into relative score fusion, and the nearest sentence gets the lowest fused score. What went wrong?</summary>
-<p><code>IndexFlatL2</code> returns squared L2 distances, where lower is better, and every fusion mode assumes higher is better. Min-max scaling then maps the nearest sentence to 0 and gives the farthest the full weight. Use <code>IndexFlatIP</code> on normalised vectors, and print each retriever&rsquo;s raw scores once before trusting the fused list.</p>
+<summary>3. A teammate wires FAISS with an L2 index into the fusion retriever in relative-score mode, and the worst sentence starts winning. Why?</summary>
+<p>The L2 index returns squared distances, where lower is better, but every fusion mode assumes higher is better. Min-max then scales the nearest sentence to 0 and the farthest to 1. Use an inner-product index on normalised vectors, which returns cosine similarity.</p>
 </details>
 <h2 id="postprocessors">Postprocessors</h2>
 <p class="lesson-of">Lesson 21.3: Reranking with node postprocessors. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m21_llamaindex/mandatory/notebook/03a_reranking_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>03a_reranking_with_llamaindex.ipynb</code></a></p>
-<p>A node postprocessor takes the retrieved list of <code>NodeWithScore</code> and the question, and returns a list. It can reorder the nodes, drop some, replace their scores or rewrite their text. A query engine runs its <code>node_postprocessors</code> in list order, after the retriever and before the synthesizer; outside an engine, <code>postprocess_nodes(nodes, QueryBundle(question))</code> runs one by hand, as <code>03a</code> does for its comparison.</p>
-<p><code>03a</code> uses the slot for two-stage retrieval (<a href="../../../m18_reranking_post_retrieval/mandatory/theory/index.html">M18</a>): retrieve wide with <code>similarity_top_k=10</code>, rerank, keep <code>top_n=5</code>.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what a node postprocessor may do to the retrieved list, and when it runs.</li>
+<li><strong>Compare</strong> LlamaIndex&rsquo;s LLM reranker and cross-encoder reranker by calls, scores and defaults.</li>
+<li><strong>Trace</strong> the Larkspur 45-day question through a cross-encoder, and read a negative score correctly.</li>
+<li><strong>Choose</strong> the order of postprocessors when a reranker and a window share the list.</li>
+</ul>
+</blockquote>
+<p>Lesson 21.2 fused two retrievers and, on the 45-day question, cut the answering sentence in three modes out of four. M18 handled that with a second stage. In LlamaIndex the second stage has a fixed slot.</p>
+<p>A <strong>node postprocessor</strong> takes the retrieved list of scored nodes and the question, and returns a list. It can reorder the nodes, drop some, replace their scores or rewrite their text. A query engine runs its postprocessors in list order, after the retriever and before the synthesizer; outside an engine, one can be run by hand on a list of nodes, as <code>03a</code> does for its comparison.</p>
+<p><code>03a</code> uses the slot for two-stage retrieval (<a href="../../../m18_reranking_post_retrieval/mandatory/theory/index.html">M18</a>): retrieve wide with 10 results, rerank, keep 5:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; R["Retriever&lt;br/&gt;top 10"] --&gt; RR["Reranker&lt;br/&gt;keeps top_n = 5"] --&gt; S["Synthesizer&lt;br/&gt;reads 5 nodes"]
 </pre></figure>
+<p><em>Figure 1: Two-stage retrieval in the postprocessor slot.</em></p>
 <p>The two rerankers in <code>03a</code> fill that box differently:</p>
-<ul>
-<li><strong><code>LLMRerank(top_n=5)</code></strong> sends the nodes to <code>Settings.llm</code> in batches of <code>choice_batch_size</code> (default 10), so <code>03a</code>&rsquo;s 10 nodes cost one call. The prompt numbers the documents and asks for lines like <code>Doc: 9, Relevance: 7</code>, a score from 1 to 10, and tells the model to leave out irrelevant documents. Listed nodes get that integer as their new score; unlisted nodes are dropped, and so are lines the parser cannot read, without an error. The result can be shorter than <code>top_n</code>, and integer scores tie often. The default <code>top_n</code> is 10.</li>
-<li><strong><code>SentenceTransformerRerank(model="cross-encoder/ms-marco-MiniLM-L-6-v2", top_n=5)</code></strong> scores every question and node pair with a cross-encoder and keeps the best <code>top_n</code>. It reads each node&rsquo;s embedding text, metadata included, and replaces the retrieval score with the model&rsquo;s raw output; <code>keep_retrieval_score=True</code> copies the old score into the node&rsquo;s metadata first. Its defaults are <code>cross-encoder/stsb-distilroberta-base</code> and <code>top_n=2</code>, so a port that drops the arguments changes the model and the cut.</li>
-</ul>
-<p>M18 compares the two families in depth (<a href="../../../m18_reranking_post_retrieval/mandatory/theory/index.html">LLM against cross-encoder reranking</a>). In LlamaIndex both are node postprocessors and swap in the same list.</p>
-<h3>The handbook, reranked</h3>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>LLM rerank</th>
+<th>Sentence-transformer rerank</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>How it scores</td>
+<td>Sends the nodes to the configured LLM in batches (10 by default), asking for lines like &ldquo;Doc: 9, Relevance: 7&rdquo;</td>
+<td>Scores every question-and-node pair with a cross-encoder</td>
+</tr>
+<tr>
+<td>Calls for <code>03a</code>&rsquo;s 10 nodes</td>
+<td>1</td>
+<td>1 batched pass, local</td>
+</tr>
+<tr>
+<td>New score</td>
+<td>The integer from 1 to 10</td>
+<td>The model&rsquo;s raw output; the retrieval score can be kept in metadata</td>
+</tr>
+<tr>
+<td>Dropped nodes</td>
+<td>Any the model leaves out, and any line the parser cannot read, without an error</td>
+<td>None beyond the cut</td>
+</tr>
+<tr>
+<td>Defaults</td>
+<td>Keeps 10</td>
+<td>Model <code>cross-encoder/stsb-distilroberta-base</code>, keeps 2</td>
+</tr>
+<tr>
+<td><code>03a</code>&rsquo;s settings</td>
+<td>Keeps 5</td>
+<td><code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>, keeps 5</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The two rerankers in <code>03a</code>.</em></p>
+<p>Two failures follow from the table. The LLM reranker can return fewer nodes than asked, with integer scores that tie often: lesson 18.3&rsquo;s silent drop and score ties. The cross-encoder&rsquo;s defaults name a different model and a cut of 2, so a port that drops the arguments changes both. We call that the <strong>default swap</strong>. M18 compares the two families in depth (<a href="../../../m18_reranking_post_retrieval/mandatory/theory/index.html">LLM against cross-encoder reranking</a>); in LlamaIndex both swap in the same list.</p>
+<p>The cross-encoder reads each node&rsquo;s embedding text, metadata included, so a long file path in metadata is part of every pair it scores (lesson 21.1).</p>
+<h2 id="the-handbook-reranked">The handbook, reranked</h2>
 <p>Split the Larkspur handbook into one node per sentence, ask <em>Can I get a refund on an annual plan after 45 days?</em>, retrieve 10 with <code>all-MiniLM-L6-v2</code> and rerank with <code>03a</code>&rsquo;s cross-encoder keeping 2:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -664,8 +828,12 @@ Company: Rasmussen Group
 </tr>
 </tbody>
 </table></div>
-<p>The reranker brings the sentence that answers the question into the context. It also scores that sentence below zero. <code>ms-marco-MiniLM-L-6-v2</code> returns a logit, not a probability, so its scores only rank; a filter that drops nodes under 0 would have dropped the answer. Calibrate any cut-off on the golden set.</p>
-<h3>The capital-of-France example</h3>
+<p><em>Table 2: The 45-day question before and after reranking (local run).</em></p>
+<p>The reranker brings the sentence that answers the question into the context. It also scores that sentence below zero. The ms-marco cross-encoder returns a logit, not a probability, so its scores only rank. We call a cut at zero the <strong>negative answer</strong>: a filter that drops nodes under 0 would have dropped the answer.</p>
+<blockquote>
+<p><strong>Pitfall: the negative answer.</strong> Calibrate any score cut-off on the golden set for the exact reranker you run, or cut by count.</p>
+</blockquote>
+<h2 id="the-capital-of-france-example">The capital-of-France example</h2>
 <p><code>03a</code> builds five chunks: three one-liners that repeat the question&rsquo;s words (&ldquo;The capital of France is great.&rdquo;, &ldquo;…huge.&rdquo;, &ldquo;…beautiful.&rdquo;) and two longer passages about visiting Paris. Asked <em>what is the capital of france?</em>, the embedding retriever ranks the one-liners first. Run locally with the same two models as above:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -703,32 +871,74 @@ Company: Rasmussen Group
 </tr>
 </tbody>
 </table></div>
-<p>The cross-encoder reorders the one-liners and keeps all three above the Paris passages. None of the one-liners names Paris, so neither model surfaced the passage that answers the question. The notebook runs this comparison with <code>LLMRerank</code> on GPT-3.5-turbo and ships without output, so this page does not claim what that reranker returns; an LLM that knows Paris is the capital has the knowledge the cross-encoder lacks, which is the case for paying for LLM reranking on questions like this.</p>
-<p>The cell that sets up the example also carries a port bug. It builds <code>Document(page_content=sentence)</code>, LangChain&rsquo;s keyword. LlamaIndex accepts the unknown keyword and creates a Document whose text is empty. <code>compare_rag_techniques</code> rebuilds the list with <code>Document(text=sentence)</code>, so the comparison still works, but the first list is five empty Documents, and nothing warns.</p>
-<h3>Order in the list</h3>
-<p>Postprocessors see whatever the one before them produced. With lesson 21.4&rsquo;s <code>MetadataReplacementPostProcessor</code> in the same list, putting the reranker first means it scores the single sentence that was embedded; putting it second means it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide which text the reranker should judge, and write the list in that order.</p>
+<p><em>Table 3: Five chunks under two models (local run).</em></p>
+<p>The cross-encoder reorders the one-liners and keeps all three above the Paris passages. None of the one-liners names Paris, so neither model surfaced the passage that answers the question. The notebook runs this comparison with an LLM reranker and ships without output, so this page does not claim what that reranker returns. An LLM that knows Paris is the capital has knowledge the cross-encoder lacks, which is the case for paying for LLM reranking on questions like this.</p>
+<p>The cell that sets up the example also carries a port bug. It builds each Document with LangChain&rsquo;s keyword for the text. LlamaIndex accepts the unknown keyword and creates a Document whose text is empty. The comparison function rebuilds the list with LlamaIndex&rsquo;s own keyword, so the comparison still works, but the first list is five empty Documents, and nothing warns. We call this the <strong>silent keyword</strong>.</p>
+<h2 id="order-in-the-list">Order in the list</h2>
+<p>Postprocessors see whatever the one before them produced. With lesson 21.4&rsquo;s window replacement in the same list, the order decides what the reranker judges:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Order</th>
+<th>The reranker scores</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reranker, then window</td>
+<td>The single sentence that was embedded</td>
+<td>Short inputs, fast; judges the sentence without its context</td>
+</tr>
+<tr>
+<td>Window, then reranker</td>
+<td>The whole window</td>
+<td>More context per pair; longer inputs, slower</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Two orders for a reranker and a window.</em></p>
+<p>Decide which text the reranker should judge, and write the list in that order.</p>
+<h2 id="in-practice-reranking-larkspurrsquos-sentences">In practice: reranking Larkspur&rsquo;s sentences</h2>
+<ol>
+<li><strong>Retrieve 10 sentences, rerank, keep 3</strong>, passing the model and the cut explicitly.</li>
+<li><strong>Cut by count</strong>, not at a score of zero.</li>
+<li><strong>Window after reranking</strong> for the handbook, so the cross-encoder judges sentences and the model reads windows.</li>
+<li><strong>Assert Documents have text</strong> after building them, to catch the silent keyword.</li>
+</ol>
+<p>Lesson 21.4 adds that window.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Node postprocessors run in list order between the retriever and the synthesizer, and can reorder, drop, rescore or rewrite nodes. Retrieve wide and let a reranker keep <code>top_n</code>.</li>
-<li><code>LLMRerank</code> can silently return fewer than <code>top_n</code> nodes with tied integer scores. <code>SentenceTransformerRerank</code> defaults to a different model and <code>top_n=2</code>, so always pass both arguments.</li>
-<li>Cross-encoder scores are logits that only rank; the answering sentence can score below zero. Calibrate any cut-off on the golden set.</li>
+<li>Node postprocessors run in list order between the retriever and the synthesizer, and can reorder, drop, rescore or rewrite nodes. Retrieve wide and let a reranker keep the top few.</li>
+<li>The LLM reranker can silently return fewer nodes with tied integer scores; the cross-encoder reranker defaults to a different model and a cut of 2 (the default swap), so always pass both.</li>
+<li>Cross-encoder scores are logits that only rank: the Larkspur answer scores -2.1011 and still ranks 2nd. Calibrate any cut-off on the golden set, or cut by count.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Where does a node postprocessor run, and what may it do to the retrieved list?</summary>
-<p>It runs after the retriever and before the synthesizer, in the order of the <code>node_postprocessors</code> list. It can reorder the nodes, drop some, replace their scores or rewrite their text. <code>03a</code> uses the slot for two-stage retrieval: retrieve 10, rerank, keep <code>top_n=5</code>.</p>
+<summary>1. A port of 03a's cross-encoder reranker drops the model and cut arguments. What changes?</summary>
+<p>The default swap: the reranker falls back to <code>cross-encoder/stsb-distilroberta-base</code> instead of the ms-marco model, and keeps 2 nodes instead of 5. Both the scoring and the number of nodes the synthesizer reads change, without an error. Always pass both arguments.</p>
 </details>
 <details>
-<summary>2. On the 45-day refund question, the cross-encoder gives the prorated rule a score of -2.1011. Would a filter that drops nodes below 0 be safe?</summary>
-<p>No: it would drop the sentence that answers the question. <code>ms-marco-MiniLM-L-6-v2</code> returns a logit, not a probability, so its scores only rank. Calibrate any cut-off on the golden set.</p>
+<summary>2. After reranking the 45-day question, the prorated rule scores -2.1011. Should a filter drop nodes below zero?</summary>
+<p>No. The ms-marco cross-encoder returns a logit that only ranks: the prorated rule is 2nd and is the sentence that answers the question. A cut at zero would drop the answer. Cut by count, or set any threshold from the golden set for this exact model.</p>
 </details>
 <details>
-<summary>3. A query engine runs both a reranker and the sentence-window replacement. Should the reranker come before or after the replacement?</summary>
-<p>It depends on which text you want judged. First in the list, the reranker scores the single sentence that was embedded; second, it scores the whole window, which gives a cross-encoder more context at the cost of longer inputs. Decide, then write the list in that order.</p>
+<summary>3. A query engine runs a cross-encoder reranker and a window replacement. What decides their order?</summary>
+<p>Which text the reranker should judge. Reranker first scores the single embedded sentence, with short, fast inputs; window first scores the whole window, with more context and longer inputs. Each postprocessor sees what the previous one produced, so the list order is the decision.</p>
 </details>
 <h2 id="sentence-window">Sentence window</h2>
 <p class="lesson-of">Lesson 21.4: Sentence-window retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m21_llamaindex/mandatory/notebook/04a_context_enrichment_window_with_llamaindex.ipynb" target="_blank" rel="noopener"><code>04a_context_enrichment_window_with_llamaindex.ipynb</code></a></p>
-<p>Small chunks match a question precisely and large chunks answer it completely (M12). A sentence window does both: it embeds single sentences and, once one is retrieved, sends the model the sentences around it. LlamaIndex builds it from two pieces, a node parser at indexing time and a postprocessor at query time.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a sentence window embeds one sentence and sends its neighbours to the model.</li>
+<li><strong>Trace</strong> three Larkspur questions through window sizes 0 to 3, and find each one&rsquo;s minimum.</li>
+<li><strong>Diagnose</strong> a window that cannot fix a retrieval miss, and two windows that send the same sentences.</li>
+<li><strong>Count</strong> what stored windows cost in metadata.</li>
+</ul>
+</blockquote>
+<p>Lesson 21.3 ended with a reranker that judges single sentences. Single sentences match a question precisely and answer it badly: the 45-day question retrieves the 30-day rule, and the prorated rule that answers it is the next sentence.</p>
+<p>Small chunks match a question precisely and large chunks answer it completely (M12). A <strong>sentence window</strong> does both: it embeds single sentences and, once one is retrieved, sends the model the sentences around it. LlamaIndex builds it from two pieces, a node parser at indexing time and a postprocessor at query time:</p>
 <figure class="anim sheet" aria-labelledby="anim-swin-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Sentence window retrieval, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 352" role="img" aria-labelledby="anim-swin-title anim-swin-desc">
@@ -807,10 +1017,34 @@ Company: Rasmussen Group
     <li><button type="button">Synthesize</button><span>The model reads 284 characters instead of 142, and the answer is among them.</span></li>
   </ol>
 </figure>
-<p><strong><code>SentenceWindowNodeParser</code></strong> splits each Document into sentences with NLTK&rsquo;s Punkt tokenizer and makes one node per sentence. For sentence <code>i</code> it stores two metadata fields: the sentences from <code>i - window_size</code> to <code>i + window_size</code> joined with spaces (<code>window</code>), and the sentence itself (<code>original_text</code>; <code>04a</code> renames it <code>original_sentence</code>). It adds both keys to the node&rsquo;s excluded embed and LLM metadata, so the vector is the sentence alone. <code>window_size</code> defaults to 3, seven sentences in all, as <code>04a</code>&rsquo;s comment says, and must be greater than 0: <code>window_size=0</code> fails validation. A window never crosses into another Document.</p>
-<p><strong><code>MetadataReplacementPostProcessor(target_metadata_key="window")</code></strong> runs after retrieval and sets each node&rsquo;s text to its <code>window</code> metadata (a node without that key keeps its text). The synthesizer then reads the window. The notebook&rsquo;s note that &ldquo;metadata replacement&rdquo; sounds off-topic comes from this: the neighbours travel as metadata until this step puts them in the text.</p>
+<p><em>Figure 1: Sentence-window retrieval. The window travels as metadata until the postprocessor puts it in the text.</em></p>
+<p>The two pieces do this:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>When</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sentence-window node parser</td>
+<td>Indexing</td>
+<td>Splits each Document into sentences with NLTK&rsquo;s Punkt tokenizer, one node per sentence; stores the sentences from <code>i - window_size</code> to <code>i + window_size</code> as a window field, and the sentence itself as a second field (<code>04a</code> renames it original sentence); excludes both from the embedding and LLM text</td>
+</tr>
+<tr>
+<td>Metadata replacement postprocessor</td>
+<td>After retrieval</td>
+<td>Sets each node&rsquo;s text to its window field; a node without one keeps its text</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The two pieces of a sentence window.</em></p>
+<p>The window size defaults to 3, seven sentences in all, as <code>04a</code>&rsquo;s comment says, and must be greater than 0. A window never crosses into another Document. The notebook&rsquo;s remark that &ldquo;metadata replacement&rdquo; sounds off-topic comes from this design: the neighbours travel as metadata until the postprocessor puts them in the text.</p>
 <p>On the Larkspur handbook the parser makes 17 nodes: 13 sentences in the refunds section and 4 in exports. The first sentence of each section carries the section title with it, because Punkt does not split at a blank line.</p>
-<p>The <a href="04_sentence_window_retrieval/interactive/sentence-window-lab.html">interactive lab</a> runs that index with <code>all-MiniLM-L6-v2</code> (the notebook uses OpenAI&rsquo;s <code>text-embedding-3-small</code>, which scores differently), lets you move <code>window_size</code> from 0 (postprocessor off) to 5 and <code>similarity_top_k</code> between 1 and 2, and shows what the model receives. Its windows are a port of the parser&rsquo;s join, checked against the real LlamaIndex pipeline on all 30 settings of question, window and <code>k</code>: the same retrieved sentences, the same scores and the same window text, character for character. At <code>similarity_top_k=1</code>:</p>
+<h2 id="one-window-per-question">One window per question</h2>
+<p>The <a href="04_sentence_window_retrieval/interactive/sentence-window-lab.html">interactive sentence-window lab</a> runs that index with <code>all-MiniLM-L6-v2</code> (the notebook uses OpenAI&rsquo;s <code>text-embedding-3-small</code>, which scores differently), lets you move the window size from 0 (postprocessor off) to 5 and the retrieved count between 1 and 2, and shows what the model receives. Its windows are a port of the parser&rsquo;s join, checked against the real LlamaIndex pipeline on all 30 settings of question, window and <code>k</code>: the same retrieved sentences, the same scores and the same window text, character for character. At one retrieved sentence:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -845,33 +1079,79 @@ Company: Rasmussen Group
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 2: Characters the model reads, by window size (the module&rsquo;s lab; bold is each question&rsquo;s smallest sufficient window).</em></p>
 <figure class="lab-embed"><iframe src="04_sentence_window_retrieval/interactive/sentence-window-lab.html" title="Sentence window lab, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Sentence window lab. <a href="04_sentence_window_retrieval/interactive/sentence-window-lab.html">Open full screen</a></figcaption></figure>
+<p>Four behaviours follow:</p>
 <ul>
-<li><strong>The window changes what the model reads, never what is retrieved.</strong> Every sentence scores the same at every window size, because the window is excluded from the embedding. Tuning <code>window_size</code> cannot fix a retrieval miss.</li>
-<li><strong>Each question needs a different window.</strong> The 45-day question retrieves the 30-day full-refund rule; the prorated rule that answers it is the next sentence, so a window of 1 is enough. The refund-timing sentence answers its question alone. The export question needs the &ldquo;Settings, then Data&rdquo; sentence two places back.</li>
-<li><strong>The Document boundary caps the window.</strong> The exports section has four sentences, so every window from 2 up sends the same 272 characters. A section split into its own Document limits how far a window can reach, which is useful when sections are independent and harmful when the answer spans two of them.</li>
-<li><strong>Two hits can send the same sentences twice.</strong> At <code>similarity_top_k=2</code> the refund-timing question retrieves its sentence and the 30-day rule two places before it. At <code>window_size=3</code> their windows share 5 sentences, and the model reads 1,241 characters to cover 9 distinct sentences. Merge overlapping windows before synthesis when <code>k</code> is above 1.</li>
+<li><strong>The window changes what the model reads, never what is retrieved.</strong> Every sentence scores the same at every window size, because the window is excluded from the embedding. Tuning the window size cannot fix a retrieval miss.</li>
+<li><strong>Each question needs a different window.</strong> The 45-day question needs 1, the refund-timing sentence answers alone, and the export question needs the &ldquo;Settings, then Data&rdquo; sentence two places back. One global size over-sends for some questions and under-sends for others.</li>
+<li><strong>The Document boundary caps the window.</strong> The exports section has four sentences, so every window from 2 up sends the same 272 characters. That limit helps when sections are independent and hurts when the answer spans two of them.</li>
+<li><strong>Two hits can send the same sentences twice.</strong> At 2 retrieved, the refund-timing question gets its sentence and the 30-day rule two places before it. At window 3 their windows share 5 sentences, and the model reads 1,241 characters to cover 9 distinct sentences. We call this <strong>window overlap</strong>, as in lesson 18.5; merge overlapping windows before synthesis.</li>
 </ul>
-<p>The window is stored, not computed at query time. Each node holds its window and a copy of its sentence in metadata: on the handbook that is 5,249 characters of metadata at <code>window_size=1</code>, 9,313 at 3 and 12,342 at 5, against 1,380 characters of sentence text. At the notebook&rsquo;s default the metadata is 6.75 times the text, held in the docstore or the vector store&rsquo;s payload for every node.</p>
-<p><a href="../../../m18_reranking_post_retrieval/mandatory/theory/index.html">M18&rsquo;s enrichment windows</a> do the same job with character chunks and a neighbour lookup at query time. LlamaIndex moves the work to indexing time and the unit to the sentence, and <code>04a</code> compares it against a <code>SentenceSplitter()</code> index at its 1,024-token default, both at <code>similarity_top_k=1</code>. Both of <code>04a</code>&rsquo;s pipelines are handed the same FAISS store, which stays empty for the reason in <a href="#nodes">21.1</a>; each <code>VectorStoreIndex</code> builds its own in-memory store.</p>
+<h2 id="what-stored-windows-cost">What stored windows cost</h2>
+<p>The window is stored, not computed at query time. Each node holds its window and a copy of its sentence in metadata:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Window size</th>
+<th>Metadata on the handbook&rsquo;s 17 nodes</th>
+<th>Sentence text</th>
+<th>Ratio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>5,249 characters</td>
+<td>1,380 characters</td>
+<td>3.8</td>
+</tr>
+<tr>
+<td>3 (default)</td>
+<td>9,313 characters</td>
+<td>1,380 characters</td>
+<td>6.75</td>
+</tr>
+<tr>
+<td>5</td>
+<td>12,342 characters</td>
+<td>1,380 characters</td>
+<td>8.9</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Stored window metadata against sentence text (the module&rsquo;s lab).</em></p>
+<p>We call this the <strong>stored window</strong>: at the default size, the handbook&rsquo;s metadata is 6.75 times its text, held in the docstore or the vector store&rsquo;s payload for every node.</p>
+<blockquote>
+<p><strong>Key distinction:</strong> <a href="../../../m18_reranking_post_retrieval/mandatory/theory/index.html">M18&rsquo;s enrichment windows</a> do the same job with character chunks and a neighbour lookup at query time. LlamaIndex moves the work to indexing time and the unit to the sentence, and pays in storage instead of lookups.</p>
+</blockquote>
+<p><code>04a</code> compares the sentence window against a sentence-splitter index at its 1,024-token default, both retrieving one node. Both of <code>04a</code>&rsquo;s pipelines are handed the same FAISS store, which stays empty for the reason in <a href="#nodes">21.1</a>; each index builds its own in-memory store.</p>
+<h2 id="in-practice-windows-on-the-larkspur-handbook">In practice: windows on the Larkspur handbook</h2>
+<ol>
+<li><strong>Window size 2</strong> covers all three golden questions at one retrieved sentence (Table 2).</li>
+<li><strong>Keep sections as separate Documents</strong>, so a refunds window never pulls in export sentences.</li>
+<li><strong>Merge overlapping windows</strong> whenever more than one sentence is retrieved.</li>
+<li><strong>Budget the metadata</strong>: 6.75 times the text at the default size, for every node.</li>
+</ol>
+<p>This completes M21&rsquo;s port: the same pipeline as M16 to M18, with its differences named.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A sentence window embeds single sentences and swaps in the surrounding sentences after retrieval. The window changes what the model reads, never what is retrieved.</li>
-<li>Each question needs a different window, and a Document boundary caps how far a window reaches. Merge overlapping windows when <code>similarity_top_k</code> is above 1.</li>
-<li>Windows are stored in metadata on every node. At the default <code>window_size</code> of 3, the handbook&rsquo;s metadata is 6.75 times its sentence text.</li>
+<li>Each question needs a different window (1, 0 and 2 for the three Larkspur questions), a Document boundary caps how far a window reaches, and overlapping windows send the same sentences twice.</li>
+<li>Windows are stored in metadata on every node (the stored window): at the default size of 3, the handbook&rsquo;s metadata is 6.75 times its sentence text.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Why can changing the window size never fix a retrieval miss?</summary>
-<p>The window is excluded from the embedding, so the vector is the sentence alone and every sentence scores the same at every window size. The window only changes what the model reads after retrieval, when <code>MetadataReplacementPostProcessor</code> swaps the node&rsquo;s text for its <code>window</code> metadata.</p>
+<summary>1. The 45-day question retrieves the 30-day rule at every window size. Can a larger window fix a retrieval miss?</summary>
+<p>No. The window is excluded from the embedding, so every sentence scores the same at every window size, and the same sentence is retrieved. The window only changes what the model reads. Here a window of 1 is enough, because the prorated rule that answers the question is the next sentence.</p>
 </details>
 <details>
-<summary>2. For the question about exporting data after cancelling, at top-k of 1, what window size do you need, and why does a larger one change nothing?</summary>
-<p>A window of 2, because the &ldquo;Settings, then Data&rdquo; sentence sits two places back from the retrieved one; that window holds both facts in 272 characters. The exports section is its own Document with four sentences, and a window never crosses a Document boundary, so every window from 2 up sends the same 272 characters.</p>
+<summary>2. For the export question, windows of 2, 3 and 5 all send 272 characters. Why?</summary>
+<p>The exports section has only four sentences and is its own Document, and a window never crosses a Document boundary. From a window of 2 up, the window already covers the whole section, so larger sizes add nothing.</p>
 </details>
 <details>
-<summary>3. At top-k of 2 and window size 3, the refund-timing question sends the model 1,241 characters. What is wasted, and what do you do?</summary>
-<p>The two retrieved sentences are two places apart, so their windows share 5 sentences, and 1,241 characters cover only 9 distinct sentences. Merge overlapping windows before synthesis whenever <code>k</code> is above 1.</p>
+<summary>3. At two retrieved sentences and window 3, the refund-timing question sends 1,241 characters covering 9 distinct sentences. What is wrong, and what is the fix?</summary>
+<p>Window overlap: the two retrieved sentences sit two places apart, so their seven-sentence windows share 5 sentences, and the model reads them twice. Merge overlapping windows from the same Document into one passage before synthesis.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="04_sentence_window_retrieval/interactive/sentence-window-lab.html"><strong>Sentence window lab</strong></a>: open the file in a browser. Pick <em>Can I get a refund on an annual plan after 45 days?</em> with <code>window_size</code> at 0: the model gets the 30-day rule and no answer. Move it to 1 and the prorated rule arrives in 284 characters. Then pick the export question, where the window stops growing at 2 because the exports Document has only four sentences, and set <code>similarity_top_k</code> to 2 on the refund-timing question to see neighbouring windows send the same sentences twice.</p>
@@ -929,7 +1209,7 @@ Company: Rasmussen Group
 <li>Put reranking, filtering and window replacement in <code>node_postprocessors</code>, in the order you want them applied.</li>
 <li>Retrieve small, send big: a sentence window keeps the retrieval scores of a sentence and gives the model the paragraph around it. Size the window per question type and watch overlap when <code>k</code> is above 1.</li>
 </ul></article>
-    <nav class="toc" aria-label="M21 sections"><details open><summary>In M21</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#nodes">Nodes</a></li><li><a href="#queryengine">QueryEngine</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#queryfusionretriever">QueryFusionRetriever</a></li><li><a href="#score-direction">Score direction</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#postprocessors">Postprocessors</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sentence-window">Sentence window</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M21 sections"><details open><summary>In M21</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#nodes">Nodes</a></li><li><a href="#same-numbers-different-chunks">Same numbers, different chunks</a></li><li><a href="#what-01arsquos-ingestion-actually-builds">What 01a’s ingestion actually builds</a></li><li><a href="#queryengine">QueryEngine</a></li><li><a href="#the-csv-variant">The CSV variant</a></li><li><a href="#in-practice-porting-larkspurrsquos-pipeline">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#queryfusionretriever">QueryFusionRetriever</a></li><li><a href="#the-45-day-question-four-ways">The 45-day question, four ways</a></li><li><a href="#score-direction">Score direction</a></li><li><a href="#in-practice-larkspurrsquos-hybrid-port">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#postprocessors">Postprocessors</a></li><li><a href="#the-handbook-reranked">The handbook, reranked</a></li><li><a href="#the-capital-of-france-example">The capital-of-France example</a></li><li><a href="#order-in-the-list">Order in the list</a></li><li><a href="#in-practice-reranking-larkspurrsquos-sentences">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sentence-window">Sentence window</a></li><li><a href="#one-window-per-question">One window per question</a></li><li><a href="#what-stored-windows-cost">What stored windows cost</a></li><li><a href="#in-practice-windows-on-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
