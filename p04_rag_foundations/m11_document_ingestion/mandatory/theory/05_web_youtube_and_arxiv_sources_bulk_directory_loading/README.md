@@ -1,15 +1,27 @@
 # M11.5 Theory: Web, YouTube and arXiv sources; bulk directory loading
 
 *[M11 theory](../README.md) · Lesson 11.5 · Notebooks: [`05a_url_loader.ipynb`](../../notebook/05a_url_loader.ipynb), [`05b_youtube_transcript_loader.ipynb`](../../../optional/notebook/05b_youtube_transcript_loader.ipynb) (optional), [`05c_research_paper_loader.ipynb`](../../../optional/notebook/05c_research_paper_loader.ipynb) (optional), [`05d_directory_loader.ipynb`](../../../optional/notebook/05d_directory_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Every loader names its metadata differently, so map each one onto one schema right after loading -->
 
 ## Routing a mixed folder
 
-The M11 lab asks for a mixed folder: the handbook as PDF, the onboarding guide as DOCX, release notes in Markdown, `plans.csv` and the status page from the web. `DirectoryLoader` loads a folder with one loader class per file type. The directory notebook builds one `DirectoryLoader` per extension, each with its own `glob`, `loader_cls` and `loader_kwargs`, because the default `loader_cls` is `UnstructuredFileLoader` for everything.
+> **What you'll learn**
+>
+> - **Explain** how a directory loader routes each file type in a mixed folder to its own loader.
+> - **Compare** the metadata keys and counting rules that eight loaders write.
+> - **Design** one mapping from every loader's output onto the module's five-field schema.
+> - **Diagnose** a skipped file, an indexed error page and a page that loads empty.
+
+Lessons 11.2 to 11.4 loaded one kind of file at a time. A real corpus arrives as a mixed folder, plus sources that are not files at all.
+
+Larkspur's nightly ingestion job loads a folder of handbook material and reports success. A week later, a customer's question about the onboarding guide gets no answer: the DOCX failed to parse on the first night, the job skipped it, and the only record is a line in a log nobody reads. We call this a **silent skip**.
+
+The M11 lab asks for exactly this kind of folder: the handbook as PDF, the onboarding guide as DOCX, release notes in Markdown, `plans.csv` and the status page from the web. The directory loader loads a folder with one loader class per file type. The notebook builds one directory loader per extension, each with its own file pattern, loader class and loader settings, because the default loader class is the generic Unstructured file loader for everything.
 
 Two defaults matter on a real folder:
 
-- **`silent_errors=False`** stops the whole run at the first file that fails to parse. Set it to `True` for a nightly job, and then compare the number of files with the number of distinct `source` values, because a skipped file only shows up in the log.
-- **`show_progress` and `use_multithreading`** are off. Turn them on for folders of thousands of files; `max_concurrency` defaults to 4.
+- **Stop on error, or skip.** By default the whole run stops at the first file that fails to parse. A nightly job usually turns on silent errors to keep going. Then compare the number of files with the number of distinct `source` values after every run, because a skipped file only shows up in the log.
+- **Progress and threads** are off by default. Turn them on for folders of thousands of files. The default concurrency is 4.
 
 Loading the folder is the easy half. Each loader writes its own metadata, with its own key names and counting rules. This is what each one sets, in `langchain-community` 0.4.2, run on files in this repo's `data/sample/` (the last three read from the loader source, since they need the network):
 
@@ -24,63 +36,89 @@ Loading the folder is the easy half. Each loader writes its own metadata, with i
 | `YoutubeLoader` | video, or time window | `source` (the video id); with chunks also `start_seconds`, `start_timestamp` |
 | `ArxivLoader` | paper | `Published`, `Title`, `Authors`, `Summary`; no `source` at all |
 
-None of these fill the lab's five fields (`source`, `type`, `section`, `page`, `date`) the same way. Map each loader's output onto the schema in one function, right after loading and before splitting, so every later stage sees one shape:
+*Table 1: What eight loaders put in metadata.*
 
-```python
-def to_schema(doc, kind):
-    m = doc.metadata
-    page = m.get("page")
-    fields = {
-        "source": m.get("source") or m.get("entry_id"),   # arXiv: load_all_available_meta=True
-        "type": kind,                                      # set by the route, not guessed
-        "page": page + 1 if page is not None else m.get("page_number"),
-        "date": m.get("creationdate") or m.get("Published"),
-    }
-    doc.metadata = {k: v for k, v in fields.items() if v is not None}
-    return doc
+None of these fill the lab's five fields (`source`, `type`, `section`, `page`, `date`) the same way. Map each loader's output onto the schema in one place, right after loading and before splitting, so every later stage sees one shape:
+
+```mermaid
+flowchart LR
+    A["PyPDF<br/>page from 0"] --> M["Map to schema<br/>right after load"]
+    B["CSV<br/>row from 0"] --> M
+    C["JSON<br/>seq_num from 1"] --> M
+    D["arXiv<br/>no source"] --> M
+    M --> S["One shape<br/>source, type,<br/>page, date"]
 ```
 
-The function chooses one meaning per field: `page` is always 1-based, `date` is always ISO, and `source` is always something a reader can open. It drops the fields a loader did not set instead of storing `None`, so a filter on `page` only ever meets numbers. `section` is missing on purpose: only an element-level parser can fill it (lesson 11.4), so add it on the routes that use one.
+*Figure 1: Four loaders, four conventions, one mapping step before splitting.*
+
+The mapping chooses one meaning per field:
+
+| Schema field | Rule | Where the value comes from |
+|---|---|---|
+| `source` | Always something a reader can open | The loader's `source`; for arXiv, the entry id, which the loader only returns when asked for all available metadata |
+| `type` | Set by the route, never guessed | The route that loaded the file |
+| `page` | Always 1-based | PDF loaders' `page` plus 1; Unstructured's `page_number` as it is |
+| `date` | Always ISO | The PDF's creation date; arXiv's `Published` |
+| `section` | Only on element-level routes | The `Title` that `parent_id` points to (lesson 11.4) |
+
+*Table 2: The mapping rule for each of the five schema fields.*
+
+The mapping drops the fields a loader did not set instead of storing `None`, so a filter on `page` only ever meets numbers. `section` stays missing on routes that use a page-level parser, because only an element-level parser can fill it.
 
 ## Web pages, transcripts and papers
 
 Remote sources fail more quietly than files, because the loader returns whatever the server sent.
 
-**Web pages.** `RecursiveUrlLoader` crawls from a root URL to `max_depth=2` by default and stays under that root (`prevent_outside=True`). Without an `extractor`, `page_content` is the raw HTML, so tags, scripts and navigation menus get embedded; the URL notebook passes a BeautifulSoup `bs4_extractor` to keep only the text. Two more defaults to change:
+**Web pages.** The recursive URL loader crawls from a root URL to a depth of 2 by default and stays under that root. Without an extractor, `page_content` is the raw HTML: tags, scripts and navigation menus get embedded. The URL notebook passes a BeautifulSoup extractor to keep only the text. Two failures come from its defaults:
 
-- `check_response_status=False` keeps error responses. A 404 page becomes a Document holding the error page's text, and it gets indexed. Set it to `True`.
-- The loader fetches HTML and does not run JavaScript. A page that renders its content in the browser comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.
+| Default | What gets indexed | Name | Guard |
+|---|---|---|---|
+| Response status not checked | A 404 page becomes a Document holding the error page's text | **Indexed error page** | Turn the status check on |
+| HTML fetched, JavaScript not run | A page that renders in the browser comes back as a near-empty shell | **Empty shell** | Flag Documents whose text is much shorter than the HTML they came from |
 
-**YouTube transcripts.** By default `YoutubeLoader` returns one Document per video with the video id as `source`. With `transcript_format=TranscriptFormat.CHUNKS` it returns one Document per `chunk_size_seconds` window (120 by default; the notebook uses 10 and 15), and each `source` becomes the video URL with `&t=<seconds>s`, so a citation opens the video at that moment. `add_video_info=True` adds title and author but needs another network call, which is where the notebook's SSL errors come from.
+*Table 3: Two web-loader defaults and the failure each one causes.*
 
-**arXiv papers.** `ArxivLoader` downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost, so a citation can name the paper but not the page. `Published` holds the date of the latest version, not the first submission. `load_max_docs` defaults to 100, and `get_summaries_as_docs()` returns only the abstracts, which is often enough for a "find me papers about X" index and far cheaper to embed.
+**YouTube transcripts.** By default the YouTube loader returns one Document per video, with the video id as `source`. In chunked transcript mode it returns one Document per time window (120 seconds by default; the notebook uses 10 and 15), and each `source` becomes the video URL with a start time, so a citation opens the video at that moment. Adding the video's title and author needs another network call, which is where the notebook's SSL errors come from.
+
+**arXiv papers.** The arXiv loader downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost. A citation can name the paper but not the page. `Published` holds the date of the latest version, not the first submission. The loader fetches up to 100 papers by default, and it can return only the abstracts, which is often enough for a "find me papers about X" index and far cheaper to embed.
+
+## In practice: the Larkspur nightly job
+
+For the lab's mixed folder, the nightly job runs in this order:
+
+1. **Route by extension**: PDF to the element-level parser for layout pages (lesson 11.4), DOCX to the Word loader, Markdown in element mode (lesson 11.2), CSV by row (lesson 11.3).
+2. **Load the status page** with an extractor and the status check on, and flag it if its text is much shorter than its HTML.
+3. **Map every Document onto the five-field schema** before splitting, dropping unset fields.
+4. **Count files against distinct `source` values.** Five files in, five sources out, or the run fails loudly instead of skipping silently.
+
+> **Next:** lesson 11.6 writes a loader for a source no library covers, Larkspur's ticket API, and makes it stream.
 
 ## Key Takeaways
 
-- Route each file type in a mixed folder to its own loader. With `silent_errors=True`, compare the file count with the distinct `source` values to catch skipped files.
+- Route each file type in a mixed folder to its own loader. With silent errors on, compare the file count with the distinct `source` values to catch skipped files.
 - Every loader writes different metadata keys and counting rules. Map them onto one schema right after loading, and drop unset fields instead of storing `None`.
-- Remote sources fail quietly. Pass an extractor for web pages, set `check_response_status=True`, and flag pages whose text is much shorter than their HTML.
+- Remote sources fail quietly. Pass an extractor for web pages, check the response status, and flag pages whose text is much shorter than their HTML.
 
 ## Check yourself
 
 <details>
 <summary>1. Why map every loader's metadata onto one schema right after loading, before splitting?</summary>
 
-Each loader writes its own keys with its own counting rules: `PyPDFLoader` counts `page` from 0, `CSVLoader` counts `row` from 0, `JSONLoader` counts `seq_num` from 1, and `ArxivLoader` sets no `source`. One mapping function gives every later stage one shape, with `page` always 1-based, `date` always ISO and `source` always something a reader can open. Dropping unset fields instead of storing `None` means a filter on `page` only ever meets numbers.
+Each loader writes its own keys with its own counting rules: the PyPDF loader counts `page` from 0, the CSV loader counts `row` from 0, the JSON loader counts `seq_num` from 1, and the arXiv loader sets no `source`. One mapping gives every later stage one shape, with `page` always 1-based, `date` always ISO and `source` always something a reader can open. Dropping unset fields instead of storing `None` means a filter on `page` only ever meets numbers.
 
 </details>
 
 <details>
-<summary>2. A nightly DirectoryLoader job runs with silent errors turned on and reports success. How do you check that no file was skipped?</summary>
+<summary>2. A nightly directory-loader job runs with silent errors turned on and reports success. How do you check that no file was skipped?</summary>
 
-Compare the number of files in the folder with the number of distinct `source` values in the loaded Documents. With `silent_errors=True` a file that fails to parse only shows up in the log. With the default `False`, the whole run stops at the first failure instead.
+Compare the number of files in the folder with the number of distinct `source` values in the loaded Documents. With silent errors on, a file that fails to parse only shows up in the log, which is a silent skip. With the default setting, the whole run stops at the first failure instead.
 
 </details>
 
 <details>
 <summary>3. A web crawl indexes a 404 error page, and a page that renders in the browser comes back almost empty. What causes each?</summary>
 
-`RecursiveUrlLoader` defaults to `check_response_status=False`, so error responses become Documents and get indexed; set it to `True`. The loader fetches HTML and does not run JavaScript, so a browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.
+The recursive URL loader does not check the response status by default. Error responses become Documents and get indexed. Turn the check on. The loader fetches HTML and does not run JavaScript, so a browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.
 
 </details>
 

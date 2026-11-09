@@ -34,7 +34,7 @@ Loading is lossy. A PDF parser drops layout, an HTML loader drops visual hierarc
 | Lesson | Topic | Theory |
 |---|---|---|
 | 11.1 | The Document abstraction and metadata design | [Loader vs parser](01_the_document_abstraction_and_metadata_design/README.md#loader-vs-parser)<br>[Metadata schema](01_the_document_abstraction_and_metadata_design/README.md#metadata-schema) |
-| 11.2 | Plain text and Markdown (single vs element mode) | *planned* |
+| 11.2 | Plain text and Markdown (single vs element mode) | [Single mode and element mode](../../optional/theory/02_plain_text_and_markdown_single_vs_element_mode/README.md#single-mode-and-element-mode)<br>[What element mode finds in the handbook](../../optional/theory/02_plain_text_and_markdown_single_vs_element_mode/README.md#what-element-mode-finds-in-the-handbook) |
 | 11.3 | Semi-structured sources: CSV rows and JSON / JSONL with jq schemas | [One record, one Document](../../optional/theory/03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md#one-record-one-document)<br>[Content fields and metadata fields](../../optional/theory/03_semi_structured_sources_csv_rows_and_json_jsonl_with_jq_schemas/README.md#content-fields-and-metadata-fields) |
 | 11.4 | PDF and Word: parser comparison and element-level parsing | [Element-level parsing](04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md#element-level-parsing) |
 | 11.5 | Web, YouTube and arXiv sources; bulk directory loading | [Routing a mixed folder](05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md#routing-a-mixed-folder)<br>[Web pages, transcripts and papers](05_web_youtube_and_arxiv_sources_bulk_directory_loading/README.md#web-pages-transcripts-and-papers) |
