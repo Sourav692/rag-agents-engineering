@@ -2,7 +2,7 @@
 
 *Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
-A Larkspur ticket may need billing policy, live incident data or a person. You will classify the request, inspect the selected filter and measure the cost of the wrong route. The tutorials cover query classification, multi-knowledge-base routing, escalation and retrieval strategy by question type. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+A fixed RAG pipeline does the same work for every question. A support desk cannot afford that: one Larkspur ticket needs billing policy, another a technical guide, a third a person, and a fourth something the handbook does not hold. A router reads the question first and decides where it goes, and every step after it can only work with what that route returns. This module covers how a router classifies a question into a closed set of labels, how a label becomes a knowledge-base filter, when a ticket should go to a person instead, how to choose between the vector store and the web and then check the evidence and the answer, and how to pick a retrieval method per kind of question. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the Larkspur Cloud support desk. The twelve handbook chunks from M10 are split into the three knowledge bases the 01a notebook routes between: billing (five chunks), technical (four) and general (three). The lab routes eighteen support tickets, each labelled with the knowledge base that holds its answer, such as *Why was I billed twice this month?* (billing) and *How long do you keep my data after I cancel?* (general).
 
@@ -28,7 +28,7 @@ flowchart LR
 ```
 <!-- animated: diagrams/router.anim.html -->
 
-The router decides what retrieval is allowed to see. Each knowledge base then retrieves and the model answers from what came back. Grading and generation work only with what the chosen path returns, so a misroute surfaces as a confident wrong answer or an apology, never as an error.
+The router decides what retrieval is allowed to see. Sentiment is checked first, so an unhappy customer reaches a person whatever the topic; the rest go by category to one knowledge base, which retrieves, and the model answers from what came back. Grading and generation work only with what the chosen path returns, so a misroute surfaces as a confident wrong answer or an apology, never as an error. Lesson 30.1 calls that a silent misroute, and every lesson in the module has a version of it.
 
 ## Lessons
 
@@ -95,7 +95,7 @@ The router decides what retrieval is allowed to see. Each knowledge base then re
 ## Key Takeaways
 
 - Give the router a closed label set in its output schema, and normalise the label before it becomes a filter.
-- Plan for the misroute. A score floor with an unfiltered fallback catches routes with no signal cheaply; confident misroutes only show up on a labelled routing set.
+- Plan for the silent misroute. A score floor with an unfiltered fallback catches no-signal routes cheaply; confident misroutes only show up on a labelled routing set.
 - Check escalation before the category, and make the handoff a pause with saved state rather than a node that blocks while it waits.
 - Every grader loop needs a counter, and every query type should spend only the LLM calls its question needs.
 

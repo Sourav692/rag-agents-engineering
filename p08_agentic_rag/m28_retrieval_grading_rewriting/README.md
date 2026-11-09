@@ -28,7 +28,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
 | 28.1 | Retriever as a tool; grade then rewrite in LangGraph ([theory](mandatory/theory/01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md)) | [`01a_simple_agentic_rag.ipynb`](mandatory/notebook/01a_simple_agentic_rag.ipynb) | — |
-| 28.2 | The same agent on Databricks Vector Search *(optional lesson)* | — | [`02a_simple_agentic_rag_databricks.ipynb`](optional/notebook/02a_simple_agentic_rag_databricks.ipynb) *(platform-specific)* |
+| 28.2 | The same agent on Databricks Vector Search *(optional lesson)* ([theory](optional/theory/02_the_same_agent_on_databricks_vector_search/README.md)) | — | [`02a_simple_agentic_rag_databricks.ipynb`](optional/notebook/02a_simple_agentic_rag_databricks.ipynb) *(platform-specific)* |
 | 28.3 | Guardrails, query optimisation and a retry loop ([theory](mandatory/theory/03_guardrails_query_optimisation_and_a_retry_loop/README.md)) | [`03a_advanced_rag_agent.ipynb`](mandatory/notebook/03a_advanced_rag_agent.ipynb) | — |
 
 ## Hands-on lab

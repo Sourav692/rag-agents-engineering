@@ -1,24 +1,40 @@
 # M32.3 Theory: Dartboard RAG: relevance and diversity together
 
 *[M32 theory](../../../mandatory/theory/README.md) · Lesson 32.3 · Notebooks: [`03a_dartboard_rag.ipynb`](../../notebook/03a_dartboard_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: When the index holds copies, top-k returns the same passage three times; a set score that rewards coverage fixes it, inside the pool it is given -->
 
 ## Diversity-aware selection
 
-Five copies of each handbook chunk fill the top retrieval slots with the same passage. You will build a diverse set from the candidate pool, increase oversampling, and distinguish duplicate selection from evidence that never entered the pool.
+> **What you'll learn**
+>
+> - **Explain** why top-k fills every slot with copies when the index holds duplicates.
+> - **Trace** the dartboard method's greedy choice, one chunk at a time.
+> - **Size** the candidate pool so a diverse answer is possible at all.
+> - **Choose** between deduplication, Dartboard and MMR.
 
-### Step 1: Inspect the duplicate-filled candidate pool
+Lesson 32.2 showed that feedback can only reorder the candidates retrieval returns. This lesson stays inside that limit: a better way to choose among the candidates, when many of them say the same thing.
 
-When a knowledge base holds the same passage several times, top-k retrieval fills every slot with copies of the best match. The implementation makes that happen on purpose: it loads *Understanding_Climate_Change.pdf* with `documents = documents * 5`, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for *What is the main cause of climate change?* are repetitions of one chunk.
+Larkspur ingests its handbook from three places: the help centre, the PDF export and the internal wiki. Every rule is now stored several times. A customer asks *Can I export my data after I cancel my plan?* The answer needs two chunks, `export` (how to export) and `retention` (how long data is kept after cancelling). Plain top-3 retrieval returns `export`, `export`, `export`, and the answer never mentions the 30-day deadline. The runs below store each chunk five times, so the effect is easy to see.
 
-Its fix comes from *Better RAG using Relevant Information Gain* ([arXiv 2407.12101](https://arxiv.org/abs/2407.12101)), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it. A set of chunks scores by how close its nearest member lies to where the darts land. A second copy of a chunk already in the set lies exactly where the first one does, so it adds nothing. A chunk that covers ground nearby adds the most.
+### Why top-k repeats itself
 
-### Step 2: Follow the greedy selection rule
+**Top-k** scores each chunk against the query on its own and keeps the best k. Copies of one passage score identically, so whichever passage scores best takes every slot. We call this **duplicate crowding**. The notebook creates it on purpose: it loads its climate-change PDF five times over, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for *What is the main cause of climate change?* are repetitions of one chunk.
 
-`greedy_dartsearch` builds the set one chunk at a time from a candidate pool of `num_results * oversampling_factor` nearest chunks (3 by default):
+The fix is to score the set rather than each chunk. **Diversity-aware selection** picks chunks so that the set, taken together, covers the query well, which means a chunk adds value only when it brings something the chosen ones do not.
 
-1. Turn distances (`1 - cosine similarity`) into log probabilities with a normal density of width `SIGMA = 0.1`, for query to chunk and for chunk to chunk.
+### The dartboard picture
+
+The notebook's method comes from *Better RAG using Relevant Information Gain* ([arXiv 2407.12101](https://arxiv.org/abs/2407.12101)), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it, landing more often near the centre. A set of chunks scores by how close its nearest member lies to where each dart lands.
+
+A second copy of a chunk already in the set lies exactly where the first one does, so it brings no landing place any closer and adds nothing. A chunk that covers ground nearby, close to the query but away from the chosen chunks, adds the most.
+
+### The greedy rule
+
+Finding the best set exactly is expensive, so the method builds it one chunk at a time from a candidate pool of `num_results × oversampling_factor` nearest chunks (the factor is 3 by default):
+
+1. Turn distances (1 minus cosine similarity) into log probabilities with a normal curve of width `SIGMA = 0.1`, for query to chunk and for chunk to chunk.
 2. Pick the chunk most probable under the query.
-3. Treat every candidate as a place a dart can land, weighted by how close it is to the query (`RELEVANCE_WEIGHT`). For each remaining candidate, measure how close the set would come to each landing place if that candidate joined (`DIVERSITY_WEIGHT`), and sum over the landing places with `logsumexp`. Both weights are 1.0.
+3. Treat every candidate as a place a dart can land, weighted by how close it is to the query (`RELEVANCE_WEIGHT`). For each remaining candidate, measure how close the set would come to each landing place if that candidate joined (`DIVERSITY_WEIGHT`), and sum over the landing places. Both weights are 1.0.
 4. Add the highest scorer and repeat until `num_results` are picked.
 
 ```mermaid
@@ -31,46 +47,75 @@ flowchart LR
     D -- yes --> R[/Selected chunks/]
 ```
 
-### Step 3: Compare pool sizes on the export question
+*Figure 1: Greedy dartboard selection. Every pick after the first is scored on the coverage it adds to the set so far.*
 
-Running the example's `greedy_dartsearch`, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors) shows both the gain and its limit. For *Can I export my data after I cancel my plan?*, whose evidence is `export` and `retention`, with `num_results = 3`:
+`SIGMA` sets how quickly closeness stops counting: a small width means only near neighbours of a landing place matter, so two chunks a little apart already count as covering different ground.
 
-| `oversampling_factor` | Pool | Distinct chunks in pool | Plain top-3 | Dartboard top-3 |
+## Where the pool runs out
+
+To see both the gain and its limit, we ran the notebook's selection function, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors), for the export question with `num_results = 3`:
+
+| Oversampling factor | Pool | Distinct chunks in pool | Plain top-3 | Dartboard top-3 |
 |---|---|---|---|---|
 | 1 | 3 | 1 | `export` × 3 | `export`, `export`, `export` |
 | 2 | 6 | 2 | `export` × 3 | `export`, `retention`, `export` |
 | 3 (default) | 9 | 2 | `export` × 3 | `export`, `retention`, `export` |
 | 4 | 12 | 3 | `export` × 3 | `export`, `retention`, `cancel` |
 
-### Step 4: Locate the candidate-pool limit
+*Table 1: Dartboard against plain top-3 on the handbook stored five times, export question.*
 
-Plain top-3 has recall 0.50 on this question at every pool size. Dartboard reaches 1.00 once the pool holds `retention`, from an oversampling factor of 2. At the default of 3 its third pick is still a copy of `export`, because a pool of 9 drawn from five copies of each chunk holds only two distinct chunks. A selector can only choose among the candidates it is given: make the pool larger than the number of copies, or remove the copies at indexing time.
+Plain top-3 has recall 0.50 on this question at every pool size. Dartboard reaches 1.00 once the pool holds `retention`, from an oversampling factor of 2. At the default of 3 its third pick is still a copy of `export`, because a pool of 9 drawn from five copies of each chunk holds only two distinct chunks.
 
-### Step 5: Choose the relevance and coverage trade-off
+That is the **pool ceiling**, the candidate ceiling of lessons 32.1 and 32.2 in a new form: a selector can only choose among the candidates it is given. The arithmetic for sizing the pool is direct when copies rank side by side:
 
-Dartboard and MMR (M17.4) solve the same problem the same greedy way and differ in the score. MMR subtracts a redundancy penalty with a linear λ; Dartboard adds log probabilities, so `SIGMA` sets how quickly closeness stops counting, and the two weights shift the balance between relevance and coverage. The example's notes point out that the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores.
+| Copies per chunk | Distinct chunks wanted | Smallest pool that holds them |
+|---|---|---|
+| 5 | 2 | 6 |
+| 5 | 3 | 11 |
+| 3 | 3 | 7 |
 
-Two details to know when running the dartboard implementation. The first selection score is a placeholder of 1.0, not a computed score, so it cannot be compared with the scores after it. And the final cell calls `get_context_with_dartboard(test_query, k=3)`, while the function's parameter is `num_results`; Python raises a `TypeError`, and `num_results=3` is the fix.
+*Table 2: Pool size needed when every chunk has the same number of copies, (copies × (wanted − 1)) + 1.*
 
-### Try it yourself
+The default pool of 9 sits between the first two rows, which is exactly why Table 1 shows two distinct picks at factor 3 and three at factor 4 (pool 12). Real duplication is uneven, so the reliable fix is to remove the copies before retrieval and keep oversampling for the overlap that remains.
 
-Compare oversampling factors one, two and four with three requested results. Check that recall rises only when retention enters the pool, and that factor four finally offers three distinct chunks. Fix the final example call to use num_results=3. K is not the function parameter.
+## Dartboard or MMR
 
-### Practice notebook
+Dartboard and MMR, maximal marginal relevance ([lesson 16.4](../../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/04_maximal_marginal_relevance_for_diversity/README.md#mmr-λ)), solve the same problem the same greedy way and differ in the score:
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+| | MMR | Dartboard |
+|---|---|---|
+| Score for the next pick | Relevance minus a redundancy penalty | Log probability of covering the landing places |
+| Balance control | One linear weight, λ | `SIGMA`, plus a relevance weight and a diversity weight |
+| Usually run on | Embedding similarities | Any distance: dense, hybrid or cross-encoder scores |
 
-- [Dartboard RAG](../../notebook/03a_dartboard_rag.ipynb).
+*Table 3: Two greedy selectors compared.*
 
-### Continue learning
+Because Dartboard needs only distances, the notebook's notes point out that it works the same on dense, hybrid or cross-encoder scores. Neither selector replaces deduplication: a content hash at indexing time catches exact copies cheaply, and every later step then works on fewer, distinct chunks.
 
-- [M17.4](../../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/04_maximal_marginal_relevance_for_diversity/README.md#mmr-λ).
+```mermaid
+flowchart TD
+    A{"Exact or near<br/>copies in the index?"} -- yes --> B["Deduplicate<br/>at indexing"]
+    A -- no --> C{"Questions need<br/>2+ distinct chunks?"}
+    B --> C
+    C -- yes --> D["Dartboard or MMR,<br/>pool larger than copies"]
+    C -- no --> E["Plain top-k"]
+```
+
+*Figure 2: Choosing a fix for redundant results.*
+
+Measure the choice on golden questions that need two or more distinct chunks, such as the export question, and check that single-fact questions do not lose their second supporting chunk.
+
+### Limits of the notebook
+
+- **The first score is a placeholder.** The first pick is recorded with a fixed score of 1.0, not a computed one, so it cannot be compared with the scores after it.
+- **The last example call fails.** It passes the result count under the name `k`, while the function names that parameter `num_results`, so Python raises a type error until the name is corrected.
+- **One question, one corpus.** Table 1 is one question on a twelve-chunk handbook with uniform copies. Uneven duplication and near-duplicates in other words were not tested.
 
 ## Key Takeaways
 
 - Top-k fills every slot with copies of the best match when the corpus holds duplicates. Dartboard selection scores a set by how close its nearest member lies to each landing place, so a copy adds nothing.
-- The selector only chooses among its `num_results * oversampling_factor` candidates. With five copies per chunk the default pool of 9 holds two distinct chunks, so enlarge the pool past the copy count or deduplicate at indexing.
-- Dartboard and MMR both select greedily and differ in the score. MMR subtracts a linear redundancy penalty, while dartboard adds log probabilities and needs only distances, so it works on dense, hybrid or cross-encoder scores.
+- The selector only chooses among its `num_results × oversampling_factor` candidates. With five copies per chunk the default pool of 9 holds two distinct chunks, so enlarge the pool past the copy count or deduplicate at indexing.
+- Dartboard and MMR both select greedily and differ in the score. MMR subtracts a linear redundancy penalty, while Dartboard adds log probabilities and needs only distances, so it works on dense, hybrid or cross-encoder scores.
 
 ## Check yourself
 
@@ -91,7 +136,7 @@ A set scores by how close its nearest member lies to where the darts land. The c
 <details>
 <summary>3. Your retriever scores with a cross-encoder rather than embeddings. Can you still use dartboard selection, and how does it differ from MMR?</summary>
 
-Yes: the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores. Both pick greedily; MMR subtracts a redundancy penalty with a linear λ, while dartboard adds log probabilities, with `SIGMA` setting how quickly closeness stops counting.
+Yes: the method needs only distances, so it works the same on dense, hybrid or cross-encoder scores. Both pick greedily; MMR subtracts a redundancy penalty with a linear λ, while Dartboard adds log probabilities, with `SIGMA` setting how quickly closeness stops counting.
 
 </details>
 

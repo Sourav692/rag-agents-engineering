@@ -4,7 +4,7 @@
 
 Larkspur retrieves a refund-related passage that does not answer when payment arrives. You will grade that evidence, rewrite the query and prove the retry loop stops when the handbook has no answer. The tutorials connect conditional edges, document grading, topic checks and explicit retry budgets. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
-The notebooks run on a research paper (lesson 28.1) and a fictional company's support documents (lesson 28.3). These pages put the same graphs on the Larkspur Cloud handbook from M10: its twelve chunks, and five golden questions that each take a different path through the loop. *Can I export my data after I cancel my plan?* is answered on the first retrieval, *How long does a refund take?* after one rewrite, *What happens if my server goes down?* after two, *Do you offer a student discount?* has no answer in the handbook, and *What's the weather like today?* is off topic.
+The notebooks run on a research paper (lesson 28.1, and lesson 28.2, which moves the same graph onto a managed Databricks index) and a fictional company's support documents (lesson 28.3). These pages put the same graphs on the Larkspur Cloud handbook from M10: its twelve chunks, and five golden questions that each take a different path through the loop. *Can I export my data after I cancel my plan?* is answered on the first retrieval, *How long does a refund take?* after one rewrite, *What happens if my server goes down?* after two, *Do you offer a student discount?* has no answer in the handbook, and *What's the weather like today?* is off topic.
 
 ## TL;DR
 
@@ -37,7 +37,7 @@ Every self-correcting design in Part IX is this loop with more branches. The gra
 | Lesson | Topic | Theory |
 |---|---|---|
 | 28.1 | Retriever as a tool; grade then rewrite in LangGraph | [Conditional edges](01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md#conditional-edges)<br>[Document grader](01_retriever_as_a_tool_grade_then_rewrite_in_langgraph/README.md#document-grader) |
-| 28.2 | The same agent on Databricks Vector Search | *planned* |
+| 28.2 | The same agent on Databricks Vector Search | [The project: the same agent on Databricks Vector Search](../../optional/theory/02_the_same_agent_on_databricks_vector_search/README.md#the-project-the-same-agent-on-databricks-vector-search) |
 | 28.3 | Guardrails, query optimisation and a retry loop | [Topic guardrails](03_guardrails_query_optimisation_and_a_retry_loop/README.md#topic-guardrails)<br>[Bounded retries](03_guardrails_query_optimisation_and_a_retry_loop/README.md#bounded-retries)<br>[Two rewrites, two jobs](03_guardrails_query_optimisation_and_a_retry_loop/README.md#two-rewrites-two-jobs) |
 
 ## Interactive lab

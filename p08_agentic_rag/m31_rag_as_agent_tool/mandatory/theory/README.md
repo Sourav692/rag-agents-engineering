@@ -2,13 +2,13 @@
 
 *Part VIII · Agentic RAG · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
-Larkspur needs handbook evidence for a policy answer, but small talk should not trigger a search. You will let the agent choose a retriever tool, inspect the description that controls that choice and keep source information through a managed service or a chat interface. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+Larkspur needs handbook evidence for a policy answer, but small talk should not trigger a search. This module lets the agent choose when to call a retriever tool, measures the description that drives that choice, and then moves the retriever behind a managed service and the agent behind a chat window. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
 The running example is the Larkspur Cloud support agent. It has two tools: `handbook_search`, a retriever over the handbook from M10 to M12, and `web_search` for everything outside Larkspur. The lab routes twenty mixed questions between them, ten about the handbook (*How long does a refund take?*, *Can I export my data after I cancel my plan?*), six for the web (*What does Hetzner charge for a 4 GB server?*) and four that need no tool at all (*What is 15% of 240?*).
 
 ## TL;DR
 
-- As a tool, retrieval runs inside a loop: the agent node calls the model, the model may reply with a tool call, `ToolNode` runs the retriever, and the chunks go back to the model as a `ToolMessage`. The loop ends when the model replies without a tool call.
+- As a tool, retrieval runs inside a loop: the agent node calls the model, the model may reply with a tool call, `ToolNode` runs the retriever, and the chunks go back to the model as a `ToolMessage`. The loop ends when the model replies without a tool call. The default retriever tool drops each chunk's source, so print it into the chunk text when the answer must cite.
 - All the model knows about a tool is its name, its description and its argument schema. In the lab, where TF-IDF stands in for the model, two tools both described as "Search tool." route 4 of 20 questions correctly, and only the four that needed no tool; specific descriptions route 15 of 20.
 - Tune descriptions like any retrieval setting: on a golden set, then on questions held out from it. Fitted to the lab's twenty questions they route 19 of 20 and 4 of 5 held-out questions, and they cost 133 tokens on every model call instead of 84.
 - A managed RAG platform (Contextual AI in lesson 31.2) runs the datastore, parser, reranker and grounded generator behind one API. The agent can call the whole platform as a single tool, so swapping it in leaves the agent loop unchanged.
@@ -42,8 +42,8 @@ Retrieval sits inside the loop, so the model decides whether it runs, how often,
 
 ## How it connects
 
-- **Before:** M22 and M23 teach tool calling and the ReAct loop this module puts a retriever into. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) to [M30](../../../m30_adaptive_rag_routing/mandatory/theory/README.md) make the retrieval decision inside a fixed graph; here the model makes it. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) gives the retriever and the golden-set habit the lab reuses.
-- **Next:** [M32](../../../m32_reliability_feedback/mandatory/theory/README.md) checks whether an answer is supported by what was retrieved. M33 adds conversation memory to the chat. M40 exposes retrieval as a tool over MCP, so any agent can call it.
+- **Before:** [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) and [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) teach tool calling and the ReAct loop this module puts a retriever into. [M28](../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) to [M30](../../../m30_adaptive_rag_routing/mandatory/theory/README.md) make the retrieval decision inside a fixed graph; here the model makes it. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) gives the retriever and the golden-set habit the lab reuses.
+- **Next:** [M32](../../../m32_reliability_feedback/mandatory/theory/README.md) checks whether an answer is supported by what was retrieved. [M33](../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md) adds conversation memory to the chat. [M40](../../../../p11_agent_protocols/m40_mcp_applications/mandatory/theory/README.md) exposes retrieval as a tool over MCP, so any agent can call it.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
