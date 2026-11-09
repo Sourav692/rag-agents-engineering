@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 27 · Review draft: 0 · In progress: 0 · In PR: 8 · Live: 11
+**Modules:** Not started: 27 · Review draft: 0 · In progress: 0 · In PR: 2 · Live: 17
 
 ## Part I · AI Engineering Foundations
 
@@ -47,12 +47,12 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 16 | Retrievers & Hybrid Search | 6 | 6 | 6 / 6 | In PR | 2026-11-09 | #45 | All lessons in new style |
-| 17 | Query Transformation & Routing | 8 | 8 | 8 / 8 | In PR | 2026-11-09 | #45 | All 8 lessons in new style; 17.1 diagram labels read 18.x (protected) |
-| 18 | Post-Retrieval Optimisation & Reranking | 6 | 6 | 6 / 6 | In PR | 2026-11-09 | #45 | All 6 lessons in new style; 06a KITE per-dataset table inconsistent, only averages quoted |
-| 19 | End-to-End RAG Systems | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #45 | All lessons in new style |
-| 20 | Multimodal RAG | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #45 | All lessons in new style |
-| 21 | Framework Fluency: LlamaIndex | 4 | 4 | 4 / 4 | In PR | 2026-11-09 | #45 | All lessons in new style |
+| 16 | Retrievers & Hybrid Search | 6 | 6 | 6 / 6 | Live | 2026-11-09 | #45 | All lessons in new style |
+| 17 | Query Transformation & Routing | 8 | 8 | 8 / 8 | Live | 2026-11-09 | #45 | All 8 lessons in new style; 17.1 diagram labels read 18.x (protected) |
+| 18 | Post-Retrieval Optimisation & Reranking | 6 | 6 | 6 / 6 | Live | 2026-11-09 | #45 | All 6 lessons in new style; 06a KITE per-dataset table inconsistent, only averages quoted |
+| 19 | End-to-End RAG Systems | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #45 | All lessons in new style |
+| 20 | Multimodal RAG | 3 | 3 | 3 / 3 | Live | 2026-11-09 | #45 | All lessons in new style |
+| 21 | Framework Fluency: LlamaIndex | 4 | 4 | 4 / 4 | Live | 2026-11-09 | #45 | All lessons in new style |
 
 ## Part VI · Agent Foundations
 
