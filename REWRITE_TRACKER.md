@@ -66,9 +66,9 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 7 / 7 | In PR | 2026-11-09 |  | M22-style rewrite; all lesson pages written |
-| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 3 / 3 | In PR | 2026-11-09 |  | M22-style rewrite; all lesson pages written |
-| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 5 / 5 | In PR | 2026-11-09 |  | M22-style rewrite; all lesson pages written |
+| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 7 / 7 | In PR | 2026-11-09 | #46 | M22-style rewrite; all lesson pages written |
+| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #46 | M22-style rewrite; all lesson pages written |
+| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #46 | M22-style rewrite; all lesson pages written |
 
 ## Part VIII · Agentic RAG
 
