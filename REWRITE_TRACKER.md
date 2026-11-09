@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 28 · Review draft: 0 · In progress: 0 · In PR: 15 · Live: 3
+**Modules:** Not started: 28 · Review draft: 0 · In progress: 0 · In PR: 7 · Live: 11
 
 ## Part I · AI Engineering Foundations
 
@@ -66,19 +66,19 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 7 / 7 | In PR | 2026-11-09 | #46 | M22-style rewrite; all lesson pages written |
-| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #46 | M22-style rewrite; all lesson pages written |
-| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #46 | M22-style rewrite; all lesson pages written |
+| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 7 / 7 | Live | 2026-11-09 | #46 | Live on forwarddeployedprep.com |
+| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 3 / 3 | Live | 2026-11-09 | #46 | Live on forwarddeployedprep.com |
+| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 5 / 5 | Live | 2026-11-09 | #46 | Live on forwarddeployedprep.com |
 
 ## Part VIII · Agentic RAG
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 28 | Agentic RAG Foundations: Grading & Query Rewriting | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; 28.2 new platform page (site slug neutral) |
-| 29 | Self-Correcting RAG: CRAG & Self-RAG | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; 29.3 k=3 means fixed (4.6, 13.4) |
-| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | In PR | 2026-11-09 | #47 | All 4 pages rewritten; 30.2 form fields fixed |
-| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; lab results still pending |
-| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | In PR | 2026-11-09 | #47 | All 3 pages rewritten; MMR ref fixed to 16.4 |
+| 28 | Agentic RAG Foundations: Grading & Query Rewriting | 3 | 3 | 3 / 3 | Live | 2026-11-09 | #47 | Live on forwarddeployedprep.com since site PR #263 (9 Nov 2026) |
+| 29 | Self-Correcting RAG: CRAG & Self-RAG | 3 | 3 | 3 / 3 | Live | 2026-11-09 | #47 | Live on forwarddeployedprep.com since site PR #263 (9 Nov 2026) |
+| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | Live | 2026-11-09 | #47 | Live on forwarddeployedprep.com since site PR #263 (9 Nov 2026) |
+| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | Live | 2026-11-09 | #47 | Live on forwarddeployedprep.com since site PR #263 (9 Nov 2026) |
+| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | Live | 2026-11-09 | #47 | Live on forwarddeployedprep.com since site PR #263 (9 Nov 2026) |
 
 ## Part IX · The Memory Layer
 
