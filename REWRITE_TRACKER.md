@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 24 · Review draft: 0 · In progress: 0 · In PR: 5 · Live: 17
+**Modules:** Not started: 19 · Review draft: 0 · In progress: 5 · In PR: 5 · Live: 17
 
 ## Part I · AI Engineering Foundations
 
@@ -84,16 +84,16 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 33 | Short-Term Memory & Conversation State | 6 | 5 | 0 / 5 | Not started |  |  |  |
-| 34 | Long-Term & Agentic Memory | 5 | 5 | 0 / 5 | Not started |  |  |  |
+| 33 | Short-Term Memory & Conversation State | 6 | 6 | 6 / 6 | In progress | 2026-11-09 |  | 33.1 to 33.4, 33.6 rewritten; 33.5 project page added |
+| 34 | Long-Term & Agentic Memory | 5 | 5 | 5 / 5 | In progress | 2026-11-09 |  | 34.1 to 34.5 rewritten; module page unchanged |
 
 ## Part X · Multi-Agent Systems
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 35 | Multi-Agent Architectures | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 36 | Collaboration, Control & Parallel Agents | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 37 | Multi-Agent Applied Builds | 5 | 4 | 0 / 4 | Not started |  |  |  |
+| 35 | Multi-Agent Architectures | 5 | 5 | 5 / 5 | In progress | 2026-11-09 |  | 35.1 to 35.5 rewritten; module page unchanged |
+| 36 | Collaboration, Control & Parallel Agents | 5 | 5 | 5 / 5 | In progress | 2026-11-09 |  | 36.1 to 36.5 rewritten; 36.4 CIO Literal fixed |
+| 37 | Multi-Agent Applied Builds | 5 | 4 | 4 / 4 | In progress | 2026-11-09 |  | 37.1 to 37.4 rewritten; 37.5 on hold (planned) |
 
 ## Part XI · Agent Protocols: MCP & A2A
 

@@ -1,14 +1,22 @@
 # M35.5 Theory: Handoffs and swarms
 
 *[M35 theory](../README.md) · Lesson 35.5 · Notebooks: [`05a_agent_handoffs.ipynb`](../../notebook/05a_agent_handoffs.ipynb), [`05b_multi_agent_swarm.ipynb`](../../notebook/05b_multi_agent_swarm.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: An agent passes the conversation on with a tool call, the graph remembers who holds it, and follow-ups skip routing altogether -->
 
 ## Handoffs
 
-A customer continues a billing conversation, then asks about a server outage. You will persist the active specialist across turns, transfer control through a tool result and compare that path with routing every turn through a supervisor.
+> **What you'll learn**
+>
+> - **Distinguish** a handoff from a router by who holds control after an agent finishes.
+> - **Explain** the handoff tool: a tool call that returns a command for the parent graph.
+> - **Trace** one Larkspur thread across turns with the active agent saved by a checkpointer.
+> - **Compare** the calls a swarm and a supervisor spend as follow-ups pile up.
 
-### Step 1: Track who owns the next turn
+Lesson 35.4's supervisor decides every step and takes control back each time. On a thread where the customer keeps talking to billing, it still pays a routing call before and after every answer.
 
-A router and a handoff both move a request between agents. They differ in who holds control afterwards.
+A Larkspur customer asks about an outage and credits, then follows up with *Which invoice will the credit be on?* That second message belongs to billing, and billing already has the context. A supervisor routes it again from scratch. A **handoff** lets the agent holding the conversation pass it on itself, and lets the next message go straight to whoever holds it now.
+
+A router and a handoff both move a request between agents. They differ in who holds control afterwards:
 
 | | Router or supervisor | Handoff |
 |---|---|---|
@@ -17,21 +25,28 @@ A router and a handoff both move a request between agents. They differ in who ho
 | The next user message starts at | the router | the active agent, read from `active_agent` in state |
 | What stops a loop | the router's own cap | nothing built in; only `recursion_limit` |
 
-A structured-output classifier that sends each request to one specialist is still a router. A handoff needs the agent itself to choose, by calling a tool, and the graph to remember the choice.
+*Table 1: Router against handoff.*
 
-### Step 2: Return a parent-graph command
+A structured-output classifier that sends each request to one specialist is still a router. A handoff needs three things: the agent itself chooses (a tool call), the parent graph moves control, and the choice is remembered.
 
-A handoff tool is an ordinary `@tool` that returns a `Command` instead of a string. It runs inside the calling agent's own graph, but the decision belongs to the parent graph that holds all the agents, so the `Command` is addressed there:
+### The handoff tool
 
-- `goto="billing"` names the parent node to run next.
-- `graph=Command.PARENT` applies the `Command` in the closest parent graph, which ends the calling agent's run.
-- `update={...}` writes the conversation plus a `ToolMessage` that answers the tool call, and sets `active_agent`.
+A **handoff tool** is an ordinary tool that returns a `Command` instead of a string. It runs inside the calling agent's own graph, but the decision belongs to the parent graph that holds all the agents. The `Command` is addressed there. The handoff notebook calls one directly, with no model, for a customer charged twice. We ran that cell:
 
-`InjectedState` gives the tool the agent's messages and `InjectedToolCallId` gives it the id of the call it answers, so the model fills in only one argument in the handoff implementation: `context`, a note for the next agent so the customer is not asked again. The parent's state is `MessagesState` plus `active_agent`. Its only routing of its own is at `START`: read `active_agent` and send the new message there, or to triage on a new thread.
+| Field | Value returned | What it does |
+|---|---|---|
+| `goto` | `billing` | names the parent node to run next |
+| `graph` | `__parent__` (`Command.PARENT`) | applies the command in the closest parent graph, which ends the calling agent's run |
+| `update.messages` | the conversation plus a `ToolMessage` | the `ToolMessage` answers call `call_demo` and carries the note "Customer was charged twice for this month's subscription." |
+| `update.active_agent` | `billing` | who answers the next message on this thread |
 
-### Step 3: Follow the active agent across turns
+*Table 2: The `Command` a hand-built handoff tool returns (the notebook's direct-call cell).*
 
-With a checkpointer, `active_agent` outlives the turn. Here is one Larkspur thread through triage and the three specialists:
+`InjectedState` gives the tool the agent's messages and `InjectedToolCallId` gives it the id of the call it answers. The model fills in one argument only: `context`, a note for the next agent so the customer is not asked again. The parent's state is `MessagesState` plus `active_agent`. Its only routing of its own is at `START`: read `active_agent` and send the new message there, or to triage on a new thread.
+
+### Following the active agent across turns
+
+With a checkpointer, `active_agent` outlives the turn. Here is one Larkspur thread through triage and the specialists:
 
 ```mermaid
 sequenceDiagram
@@ -51,49 +66,88 @@ sequenceDiagram
 ```
 <!-- animated: diagrams/handoff-thread.anim.html -->
 
-Turn 2 is the point of the checkpointer: triage does not run, because `START` read `active_agent = billing` from the saved thread. Turn 3 moves sideways, billing to operations, with no coordinator involved. Every move is one tool call, and each one rewrites `active_agent`.
+*Figure 1: One thread, three turns. Each handoff is one tool call that rewrites `active_agent`.*
 
-### Step 4: Test a handoff that never terminates
+Turn 2 is the point of the checkpointer: triage does not run, because `START` read `active_agent = billing` from the saved thread. Turn 3 moves sideways, billing to operations, with no coordinator involved. Billing has no incident section and has to recognise that and hand off.
 
-Nothing in this graph forces a stop. If two agents each decide the other should answer, they pass the request back and forth until `recursion_limit` raises `GraphRecursionError`; each agent run is one super-step of the parent graph. The example proves both the routes and the guard with a scripted model (LangChain's `GenericFakeChatModel` replaying fixed replies, tool calls included), so the mechanism is tested without an API call.
+The notebook proves the mechanism with a **scripted model**, LangChain's `GenericFakeChatModel` replaying fixed replies, tool calls included. We ran it:
+
+| Turn | Customer | Agents that acted | `active_agent` after |
+|---|---|---|---|
+| 1 | "I was charged twice." | triage, then billing (via `transfer_to_billing`) | billing |
+| 2 | "Will I get a confirmation?" | billing only | billing |
+
+*Table 3: Two turns on one thread with a scripted model and no API call.*
+
+### Planted failure: the handoff ping-pong
+
+Nothing in this graph forces a stop. If agents keep deciding someone else should answer, they pass the request around until `recursion_limit` raises `GraphRecursionError`. Each agent run is one super-step of the parent graph. The notebook scripts that **handoff ping-pong** (triage to support to billing to triage, forever) and caps it:
+
+| Setting | Result |
+|---|---|
+| `recursion_limit = 10` (the demo cap) | 10 handoffs, then `GraphRecursionError` |
+| `recursion_limit = 25` (every real run in the notebook) | would end the same way, after 25 super-steps |
+| No limit passed | LangGraph's default of 10,007 super-steps, each one a model call in a live run |
+
+*Table 4: The scripted handoff loop under each limit.*
+
+The fix for a real ping-pong is ownership: one agent's prompt and tool descriptions must claim the topic. The limit only makes the failure fast and visible.
 
 ## Swarm
 
-### Step 1: Persist the active agent across turns
+A **swarm** is the same mechanism packaged by the `langgraph-swarm` library. `create_handoff_tool` builds the tool, and `create_swarm` builds the parent graph with one node per agent and the `START` router. `SwarmState` is `MessagesState` plus `active_agent`, and `default_active_agent` names the agent a new thread starts at. Compile with a checkpointer and the swarm remembers, per `thread_id`, which agent holds each conversation.
 
-A swarm is the same mechanism packaged by the `langgraph-swarm` library. `create_handoff_tool` builds the tool, `create_swarm` builds the parent graph with one node per agent and the `START` router, and `SwarmState` is `MessagesState` plus `active_agent`. `default_active_agent` names the agent a new thread starts at. Compile with a checkpointer and the swarm remembers, per `thread_id`, which agent holds each conversation.
+```mermaid
+flowchart LR
+    S([START]) --> R{"active_agent<br/>saved?"}
+    R -- no --> D["default agent<br/>(general QA)"]
+    R -- yes --> A["that agent"]
+    D -- "handoff tool" --> P["peer agent"]
+    A -- "handoff tool" --> P
+```
 
-### Step 2: Inspect the packaged swarm contract
+*Figure 2: The swarm's only routing of its own. Every other move is a handoff tool call.*
 
-The music-store example builds three agents over a music store: a general QA agent that does RAG over company documents, an NL2SQL agent over the Chinook catalogue, and an invoice agent. Each gets its own tools plus handoff tools to the other two. Two details carry over to any swarm:
+The swarm notebook builds three agents for a music store: a general QA agent that does RAG over company documents, an NL2SQL agent over the Chinook catalogue, and an invoice agent. Each gets its own tools plus handoff tools to the other two. Two details carry over to any swarm.
 
-- **The library tool carries no note.** It takes no arguments, and its `ToolMessage` says only "Successfully transferred". Whatever the next agent needs must already be in the conversation. The hand-built tool's `context` argument exists to fix that.
-- **Tools that run model-written queries must be safe whatever the model writes.** The NL2SQL connection opens the file read-only, sets `PRAGMA query_only = ON`, and installs an authorizer that refuses writes, `ATTACH` and `PRAGMA`. The invoice tools bind the customer ID as a parameter and never paste it into the SQL.
+**The library tool carries no note.** It takes no arguments. Called directly, it returns the same `goto`, `graph` and update keys as the hand-built tool, and its `ToolMessage` says only "Successfully transferred to billing". Whatever the next agent needs must already be in the conversation. The hand-built tool's `context` argument exists to fix that.
 
-A swarm spends routing once per thread. On the outage request, triage hands off to operations, operations answers its part and hands off to billing: 3 model calls, one of them routing, against 5 for a supervisor. After that, each follow-up goes straight to the active agent for 1 call, where the supervisor pays 3 and a hierarchy 5. The [routing cost lab](interactive/routing-cost-lab.html) runs the same three Larkspur requests through all four architectures, with the follow-up turns on a slider.
+**Tools that run model-written queries must be safe whatever the model writes.** The NL2SQL connection reads only, three times over:
+
+| Planted query | Result | Guard that refuses it |
+|---|---|---|
+| `DELETE FROM Invoice` | not authorized | `PRAGMA query_only = ON` and the authorizer |
+| `ATTACH DATABASE ...` | not authorized | the authorizer (read-only flags alone allow `ATTACH`) |
+| `PRAGMA query_only = OFF` | not authorized | the authorizer |
+
+*Table 5: Writes and escapes sent through the query tool. The notebook checks all three on Chinook, and we reproduced the same authorizer on an in-memory database.*
+
+The file itself is opened read-only too. The invoice tools go further: they run fixed queries with the customer ID bound as a parameter, never pasted into the SQL.
+
+### What a swarm saves
+
+A swarm spends routing once per thread. On the outage request, triage hands off to operations, operations answers its part and hands off to billing: 3 model calls, one of them routing, against 5 for a supervisor. After that, each follow-up goes straight to the active agent for 1 call. The [routing cost lab](interactive/routing-cost-lab.html) runs the same three Larkspur requests through all four architectures, with the follow-up turns on a slider.
 
 <!-- lab: interactive/routing-cost-lab.html -->
 
-### Step 3: Compare cost over follow-ups
+The lab's totals for the outage request as follow-ups pile up:
 
-Over a thread of the outage request and 3 follow-ups the lab counts 6 calls for the swarm, 14 for the supervisor and 22 for the hierarchy. The router (M30) spends 8 and still never asks billing about the credits. The swarm's saving rests on the conversation staying with one specialist. When a follow-up changes topic, the active agent has to recognise that and hand off, and the routing quality now lives in every agent's prompt instead of one supervisor's.
+| Architecture | Request only | Plus 1 follow-up | Plus 3 follow-ups | Reaches billing |
+|---|---|---|---|---|
+| Router (M30) | 2 | 4 | 8 | ✗ |
+| Supervisor | 5 | 8 | 14 | ✓ |
+| Hierarchy | 7 | 12 | 22 | ✓ |
+| Swarm | 3 | 4 | 6 | ✓ |
 
-### Try it yourself
+*Table 6: Model calls on the outage thread, from the routing cost lab. Each follow-up stays with billing.*
 
-Follow the outage request and three follow-ups in the lab. Check totals of six calls for a swarm, fourteen for a supervisor and twenty-two for a hierarchy. Change the follow-up topic and explain why the saving now depends on the active agent recognising and executing a handoff.
-
-### Practice notebook
-
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
-
-- [Agent handoffs](../../notebook/05a_agent_handoffs.ipynb).
-- [Multi agent swarm](../../notebook/05b_multi_agent_swarm.ipynb).
+The swarm's saving rests on the conversation staying with one specialist. When a follow-up changes topic, the active agent has to recognise that and hand off, and routing quality now lives in every agent's prompt instead of one supervisor's. Choose the swarm when threads stay on one specialist's topic, and the supervisor when you need one decision log.
 
 ## Key Takeaways
 
 - A handoff tool returns `Command(goto=..., graph=Command.PARENT)` and sets `active_agent`. With a checkpointer, the next user message goes straight to the agent holding the conversation, with no router in between.
-- Nothing in a swarm forces a stop, so two agents can bounce a request until `recursion_limit` raises. Pass a note with each handoff, because the library tool carries none.
-- A swarm spends routing once per thread, 6 calls for the outage request and 3 follow-ups against 14 for a supervisor. The saving holds only while follow-ups stay on one specialist's topic.
+- Nothing in a swarm forces a stop, so agents can bounce a request until `recursion_limit` raises. Pass a note with each handoff, because the library tool carries none.
+- A swarm spends routing once per thread: 6 calls for the outage request and 3 follow-ups, against 14 for a supervisor. The saving holds only while follow-ups stay on one specialist's topic.
 
 ## Check yourself
 
@@ -107,7 +161,7 @@ No, it is still a router. A handoff needs the agent holding the conversation to 
 <details>
 <summary>2. In the routing cost lab, how many model calls do the swarm, the supervisor and the hierarchy spend on the outage request plus 3 follow-ups?</summary>
 
-6 for the swarm, 14 for the supervisor and 22 for the hierarchy. The swarm spends 3 calls on the first request and 1 per follow-up, because each follow-up goes straight to the active agent; the supervisor pays 3 per follow-up and the hierarchy 5. The saving holds only while the conversation stays with one specialist.
+6 for the swarm, 14 for the supervisor and 22 for the hierarchy. The swarm spends 3 calls on the first request and 1 per follow-up, because each follow-up goes straight to the active agent. The supervisor pays 3 per follow-up and the hierarchy 5.
 
 </details>
 
