@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 43 · Review draft: 0 · In progress: 0 · In PR: 2 · Live: 1
+**Modules:** Not started: 40 · Review draft: 0 · In progress: 0 · In PR: 5 · Live: 1
 
 ## Part I · AI Engineering Foundations
 
@@ -66,9 +66,9 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 25 | Planning, Reflection & Reasoning Patterns | 7 | 3 | 0 / 3 | Not started |  |  |  |
-| 26 | Coding, Computer-Use & Deep Agents | 3 | 2 | 0 / 2 | Not started |  |  |  |
-| 27 | Human Approval & Applied Single-Agent Builds | 5 | 3 | 0 / 3 | Not started |  |  |  |
+| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 7 / 7 | In PR | 2026-11-09 |  | M22-style rewrite; all lesson pages written |
+| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 3 / 3 | In PR | 2026-11-09 |  | M22-style rewrite; all lesson pages written |
+| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 5 / 5 | In PR | 2026-11-09 |  | M22-style rewrite; all lesson pages written |
 
 ## Part VIII · Agentic RAG
 

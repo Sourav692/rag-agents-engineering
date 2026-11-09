@@ -2,17 +2,17 @@
 
 *Part VII · Advanced Agents · [Module README](../../README.md) · [All theory pages](../../../../THEORY.md)*
 
-Larkspur's agent has drafted an eu-west status update. A reviewer must see the text before publication, and an edit after approval must not slip through. You will build the preview-and-approval boundary, then apply explicit checks to SQL answers and fixed workflow applications. The tutorials cover dry runs, approval gates, text-to-SQL and workflow apps. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
+Real agents take actions, and this module puts a preview and a person between an agent's decision and its effect. It then builds applied single agents: two research agents and a financial analyst over live data, a text-to-SQL workflow and agent, and fixed workflow apps over business text. The M27 notebooks build on four ideas: dry runs, approval gates, text-to-SQL and workflow apps. Each idea has a page in the folder of the lesson that teaches it, listed under [Lessons](#lessons). This page has the overview, the interview questions and the takeaways.
 
-The running example is the Larkspur Cloud handbook from M10 to M12, seen from the operations side. An agent drafts posts for the Larkspur status feed after the eu-west outage, and a person approves each one before it goes out. The text-to-SQL lesson keeps the notebooks' comic-store database, because its numbers come from that data; the interview questions move the same ideas to Larkspur's billing data.
+The running example is the Larkspur Cloud handbook from M10 to M12, seen from the operations side. After the eu-west outage an agent drafts posts for the Larkspur status feed, and a person approves each one before it goes out. The research and analyst builds keep their notebooks' live sources (the web, weather, market data), and the text-to-SQL lesson keeps the notebooks' comic-store database, because its numbers come from that data. The interview questions move the same ideas to Larkspur's billing data and support queue.
 
 ## TL;DR
 
-- A **dry run** calls the action's own code path with `dry_run=True` and returns a preview of the effect, so the reviewer judges what will happen instead of a description of it.
-- An **approval gate** pauses the graph with `interrupt()`, keeps the run in a checkpointer, and resumes it with `Command(resume=decision)`. It fails closed: only the exact answer `approve` (after stripping and lowercasing) approves.
-- The approval covers a **fingerprint**, the first 12 hex digits of SHA-256 over the previewed post. In the lab, editing "72 hours" to "48 hours" after review changes the fingerprint from `c4e9e330698e` to `11673ae3c1d4`, and the publish node refuses.
+- A **dry run** calls the action's own code path in preview mode and returns the effect without applying it, so the reviewer judges what will happen instead of a description of it.
+- An **approval gate** pauses the graph with `interrupt()`, keeps the run in a checkpointer and resumes it with the reviewer's decision. It fails closed (only the exact word `approve` approves), and the approval covers a **fingerprint** of the preview. Editing "72 hours" to "48 hours" after review changes it from `c4e9e330698e` to `11673ae3c1d4`, and the publish node refuses.
+- Agents over **live data** need budgets on tool output (three pages of 4,000 characters per search), arithmetic done in code (14 summary fields in place of about 250 daily prices) and checks against the tool data from the same run, because there is no fixed expected answer.
 - **Text-to-SQL** retrieves by computing over every row, which vectors cannot do for counts, sums and rankings. In the notebooks' database, 16 of the 20 sales disagree with their own line items, so the top salesperson is John Doe by one definition of revenue and Alice Brown by the other. A business rule in the prompt has to decide.
-- A **workflow app** keeps the LLM to fixed steps with structured output, and does the routing, checking and final rendering in code. The workflow form of text-to-SQL costs 2 LLM calls per question; the ReAct agent costs several.
+- A **workflow app** keeps the LLM to fixed steps with structured output, and does the routing, checking and rendering in code. The workflow form of text-to-SQL costs 2 LLM calls per question, and one structured call per support ticket makes a quarter of the calls of a four-step chain.
 
 ## Mental model
 
@@ -35,8 +35,8 @@ The graph stops at Review and waits, for seconds or for hours, while the checkpo
 | Lesson | Topic | Theory |
 |---|---|---|
 | 27.1 | Dry-run harness and human approval | [Dry run](01_dry_run_harness_and_human_approval/README.md#dry-run)<br>[Approval gates](01_dry_run_harness_and_human_approval/README.md#approval-gates) |
-| 27.2 | Research and competitive-intelligence agents | *planned* |
-| 27.3 | Financial analyst agent | *planned* |
+| 27.2 | Research and competitive-intelligence agents | [The project: research and market-brief agents](02_research_and_competitive_intelligence_agents/README.md#the-project-research-and-market-brief-agents) |
+| 27.3 | Financial analyst agent | [The project: a scoped financial analyst](../../optional/theory/03_financial_analyst_agent/README.md#the-project-a-scoped-financial-analyst) |
 | 27.4 | Text-to-SQL: workflow vs ReAct agent | [Text-to-SQL](04_text_to_sql_workflow_vs_react_agent/README.md#text-to-sql)<br>[Workflow or ReAct agent](04_text_to_sql_workflow_vs_react_agent/README.md#workflow-or-react-agent)<br>[SQL or vectors](04_text_to_sql_workflow_vs_react_agent/README.md#sql-or-vectors) |
 | 27.5 | LLM workflow apps: review analyst, IT support desk, tailored writer, quiz generator | [Workflow apps](../../optional/theory/05_llm_workflow_apps_review_analyst_it_support_desk_tailored_writer_quiz_generator/README.md#workflow-apps) |
 
@@ -46,8 +46,8 @@ The graph stops at Review and waits, for seconds or for hours, while the checkpo
 
 ## How it connects
 
-- **Before:** M09 teaches `interrupt()` and checkpointers, and [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) uses `HumanInTheLoopMiddleware`, which is built on the same mechanism. [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md)'s chaining, routing and parallel patterns are the parts the workflow apps assemble. M19 builds RAG over CSV and JSON rows, the vector side of this module's SQL-or-vectors lab. [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) shows why top-k retrieval cannot aggregate.
-- **Next:** [M28](../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md) to M30 grade, correct and route retrieval; sending a question to SQL or to the vector index is [M30](../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md)'s routing problem. [M31](../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md) exposes retrieval as an agent tool behind the same approval gates.
+- **Before:** [M09](../../../../p03_llm_application_frameworks/m09_langgraph_runtime/mandatory/theory/README.md) teaches `interrupt()` and checkpointers. [M22](../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/README.md) gives the tool schemas and the rule that tool failures come back as messages, which every build here follows. [M23](../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) supplies `create_agent`, structured output and `HumanInTheLoopMiddleware`, which is built on the same pause. [M24](../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/README.md)'s chaining, routing and parallel patterns are the parts the workflow apps assemble. [M19](../../../../p05_retrieval_quality_and_rag_apps/m19_end_to_end_rag_systems/mandatory/theory/README.md) builds RAG over CSV and JSON rows, the vector side of this module's SQL-or-vectors lab, and [M10](../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) shows why top-k retrieval cannot aggregate.
+- **Next:** [M28](../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md) to M30 grade, correct and route retrieval. Sending a question to SQL or to the vector index is [M30](../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/theory/README.md)'s routing problem. [M31](../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/README.md) exposes retrieval as an agent tool behind the same approval gates.
 
 ## Interview Spotlight: 5 Questions You Might Get Asked
 
@@ -97,8 +97,8 @@ The graph stops at Review and waits, for seconds or for hours, while the checkpo
 
 - Split every consequential action into a dry run and a live call that share one code path, and keep the dry run in its own node before the pause.
 - Fail closed. Only an explicit approve approves, and the approval covers the fingerprint of what was previewed, recomputed at execute time.
-- Use SQL to retrieve when the answer is a count, sum or ranking over rows, enforce read-only access in the connection, and write ambiguous business terms down as rules.
-- Let the LLM fill typed fields and keep routing, checks and the final document in code, where a test can run on every output.
+- Give agents over live data budgeted tools and do their arithmetic in code, then check every number and source against the tool data from the same run.
+- Use SQL to retrieve when the answer is a count, sum or ranking over rows, open it read-only, and write ambiguous business terms down as rules. Let the LLM fill typed fields and keep routing, checks and the final document in code.
 
 ---
 *Previous: [M26 Coding, computer-use and deep agents](../../../m26_coding_computer_use_and_deep_agents/mandatory/theory/README.md). Next: [M28 Grading and query rewriting](../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md).*
