@@ -350,6 +350,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>At index time the document is written twice: once as payloads into the docstore and once as search keys into the vector index, each key carrying its payload&rsquo;s id. At query time the question meets only the keys, and the model meets only the payloads. Every technique in M15 is a choice of key, a choice of payload, or both; the retrieval code in between stays the same.</p>
 <h2 id="search-key-vs-payload">Search key vs payload</h2>
 <p class="lesson-of">Lesson 15.1: Multi-representation indexing: search summaries, return documents. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/01a_multi_representation_indexing.ipynb" target="_blank" rel="noopener"><code>01a_multi_representation_indexing.ipynb</code></a></p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> why one text cannot serve well as both the thing you match and the thing you return.</li>
+<li><strong>Describe</strong> how a multi-vector retriever links a searched summary to a returned document.</li>
+<li><strong>Compare</strong> the five M15 techniques as choices of search key and payload.</li>
+<li><strong>Diagnose</strong> a summary key that matches topic questions and misses detail questions.</li>
+</ul>
+</blockquote>
+<p>M14 stored one vector per chunk and returned that same chunk. This module changes what gets indexed, starting with the simplest split: one text to search, another to return.</p>
+<p>Larkspur indexes each handbook page by an LLM summary and returns the full page. The summary of &ldquo;Refunds and cancellations&rdquo; covers monthly plans and cancelling. Asked <em>How long do I have to get a full refund on an annual plan?</em>, the index has nothing about annual refunds to match, though the page it would return holds the answer.</p>
 <p>A plain index stores one text per entry and uses it twice: its embedding is matched against the question, and the text itself goes into the prompt. Those two jobs pull in opposite directions. Matching works best on short, focused text, because one vector has to stand for the whole entry. Answering works best on complete text, because the model can only use what it reads.</p>
 <p>Multi-representation indexing gives each job its own text. The <strong>search key</strong> is embedded and matched; the <strong>payload</strong> is returned. Notebook 01a uses an LLM summary as the key and the full document as the payload:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -360,6 +371,7 @@ th:last-child, td:last-child { padding-right: 0; }
     Q[/"Question"/] --&gt; V
     V -- doc_id --&gt; B
 </pre></figure>
+<p><em>Figure 1: Multi-representation indexing. The summary is searched, and its <code>doc_id</code> fetches the full document.</em></p>
 <p>The pieces, as the notebook wires them:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -392,6 +404,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: The four pieces of a multi-vector retriever in notebook 01a.</em></p>
 <p>The notebook loads two LangChain blog posts, splits them at <code>chunk_size=10000</code>, which leaves three pieces (the 11,652-character LangSmith post becomes two), and summarises each piece with <code>gpt-3.5-turbo</code> and the prompt &ldquo;Summarize the following document&rdquo;. Two calls show the split. <code>vectorstore.similarity_search("What is LangSmith?")</code> returns a summary, and <code>retriever.invoke("What is LangSmith?")</code> returns the full post that summary points to.</p>
 <p>Every technique in this module is a choice of key and payload:</p>
 <div class="sheet scroll"><table>
@@ -436,7 +449,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>For the Larkspur page, a summary of &ldquo;Refunds and cancellations&rdquo; is a sharp key for <em>What is your refund policy?</em>. For <em>How long do I have to get a full refund on an annual plan?</em> it depends on what the summariser kept. If the summary mentions the 30-day refund on annual plans, the question matches and the payload brings the 100 GB condition back with it. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match. Check a summary key on questions about details as well as questions about topics.</p>
+<p><em>Table 2: Every technique in M15 as a choice of search key and payload.</em></p>
+<p>For the Larkspur page, a summary of &ldquo;Refunds and cancellations&rdquo; is a sharp key for <em>What is your refund policy?</em>. For <em>How long do I have to get a full refund on an annual plan?</em> it depends on what the summariser kept. If the summary mentions the 30-day refund on annual plans, the question matches and the payload brings the 100 GB condition back with it. If the summary covers only monthly plans and cancelling, nothing about annual refunds is left to match. Check a summary key on questions about details as well as questions about topics. A summary that dropped the detail a question needs is a <strong>lossy summary key</strong>, and it is the failure in the opening example.</p>
+<h2 id="in-practice-summary-keys-for-the-larkspur-handbook">In practice: summary keys for the Larkspur handbook</h2>
+<p>For the handbook, a summary key works only if it keeps what questions ask about:</p>
+<ol>
+<li><strong>Ask the summariser to keep conditions and numbers</strong>, such as &ldquo;30 days&rdquo; and &ldquo;100 GB&rdquo;, not only the topic.</li>
+<li><strong>Test the keys on detail questions</strong> from the golden set, such as the annual-plan refund, as well as topic questions.</li>
+<li><strong>Keep the full page as the payload</strong>, so the conditions travel back with any match.</li>
+<li><strong>Budget one LLM call per page</strong>, repeated whenever a page changes.</li>
+</ol>
+<blockquote>
+<p><strong>Next:</strong> lesson 15.2 gets the same split without an LLM, by searching small chunks and returning the larger ones they came from.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Matching works best on short, focused text and answering on complete text. Multi-representation indexing embeds a search key and returns a separate payload, linked by a <code>doc_id</code>.</li>
@@ -458,6 +483,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="docstore">Docstore</h2>
 <p class="lesson-of">Lesson 15.2: Parent-document retrieval, in memory and on Postgres. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/02a_parent_document_retrieval.ipynb" target="_blank" rel="noopener"><code>02a_parent_document_retrieval.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/optional/notebook/02b_parent_document_retriever_postgres.ipynb" target="_blank" rel="noopener"><code>02b_parent_document_retriever_postgres.ipynb</code></a> (optional)</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a parent-document retriever links small search chunks to the larger text it returns.</li>
+<li><strong>Diagnose</strong> an empty result after a restart, a misordered parent and a duplicated index.</li>
+<li><strong>Measure</strong> child and parent sizes by whole answers and tokens per question.</li>
+<li><strong>Choose</strong> a child size near the evidence and a parent size near a section.</li>
+</ul>
+</blockquote>
+<p>Lesson 15.1 wrote a summary to serve as the search key. Parent-document retrieval gets a sharp key with no LLM call, by cutting the text into pieces of two sizes.</p>
+<p>At a child size of 150 characters, the best match for the Larkspur refund question is a child that ends at &ldquo;…as long as the account has used less&rdquo;. Sent to the model alone, it gives the 30-day rule without the 100 GB condition. Parent-document retrieval keeps that sharp child as the key and sends its parent instead.</p>
 <p>Parent-document retrieval splits along size instead of meaning. Small <strong>child</strong> chunks are the search keys; the larger <strong>parent</strong> each child was cut from is the payload. The vector store holds the children. The <strong>docstore</strong> holds the parents, keyed by id, and each child carries its parent&rsquo;s id in its metadata (<code>doc_id</code> by default).</p>
 <p><code>ParentDocumentRetriever.add_documents</code> does the splitting and the bookkeeping:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -466,14 +502,15 @@ th:last-child, td:last-child { padding-right: 0; }
     P --&gt; C["child_splitter, 150&lt;br/&gt;19 children + doc_id"]
     C --&gt; V[("Vector store")]
 </pre></figure>
+<p><em>Figure 1: Indexing the Larkspur page with parent-document retrieval, at child 150 and parent 600.</em></p>
 <p>The counts are the lab&rsquo;s at child 150 and parent 600. Without a <code>parent_splitter</code>, each original document is the parent. At query time <code>invoke</code> runs a similarity search over the children, collects their parent ids in rank order without repeats, fetches those parents with <code>docstore.mget</code>, and drops any id the docstore does not return.</p>
-<p>Notebook 02a runs both shapes on two LangChain blog posts. With only <code>child_splitter</code> at 400, the parents are the two whole posts, so the docstore lists two keys and every answer arrives as a full post. With <code>parent_splitter</code> at 2000 and <code>child_splitter</code> at 400 the parents are 2,000-character sections (ten of them for these two posts), and the retriever is wired into a <code>RetrievalQA</code> &ldquo;stuff&rdquo; chain.</p>
-<p>The docstore is any <code>BaseStore</code>: four methods, <code>mget</code>, <code>mset</code>, <code>mdelete</code> and <code>yield_keys</code>. The notebooks use <code>InMemoryStore</code>, which disappears when the process stops, while a vector store such as Chroma can persist on disk. A restart then leaves children whose parents are gone, and <code>invoke</code> returns nothing for them, without an error. Optional notebook 02b moves both halves into Postgres: <code>PGVector</code> for the children and a custom <code>PostgresStore</code> that keeps each parent as JSONB in a <code>docstore</code> table.</p>
+<p>Notebook 02a runs both shapes on two LangChain blog posts. With only <code>child_splitter</code> at 400, the parents are the two whole posts: the docstore lists two keys and every answer arrives as a full post. With <code>parent_splitter</code> at 2000 and <code>child_splitter</code> at 400 the parents are 2,000-character sections (ten of them for these two posts), and the retriever is wired into a <code>RetrievalQA</code> &ldquo;stuff&rdquo; chain.</p>
+<p>The docstore is any <code>BaseStore</code>: four methods, <code>mget</code>, <code>mset</code>, <code>mdelete</code> and <code>yield_keys</code>. The notebooks use <code>InMemoryStore</code>, which disappears when the process stops, while a vector store such as Chroma can persist on disk. A restart then leaves children whose parents are gone, and <code>invoke</code> returns nothing for them, without an error. We call these <strong>orphaned children</strong>. Optional notebook 02b moves both halves into Postgres: <code>PGVector</code> for the children and a custom <code>PostgresStore</code> that keeps each parent as JSONB in a <code>docstore</code> table.</p>
 <p>Check three details in 02b&rsquo;s store before you copy it:</p>
 <ul>
-<li><strong>Order.</strong> The <code>BaseStore</code> contract says <code>mget</code> returns one value per key, in key order, with <code>None</code> for a missing key. 02b&rsquo;s <code>mget</code> returns whatever rows the query yields, in database order, and skips missing keys. <code>MultiVectorRetriever</code> relies on that order to keep the parents ranked, so the best parent can arrive second.</li>
-<li><strong>Errors.</strong> Every method logs exceptions and carries on; <code>mget</code> then returns an empty list. A database outage looks like a question with no context.</li>
-<li><strong>Ids.</strong> <code>add_documents(docs, ids=None)</code> gives every parent a fresh <code>uuid4</code> on each call. Running ingestion twice stores every parent and child twice. Pass stable ids (one per parent, after the parent splitter) and delete a document&rsquo;s children and parents together when it changes.</li>
+<li><strong>Unordered <code>mget</code>.</strong> The <code>BaseStore</code> contract says <code>mget</code> returns one value per key, in key order, with <code>None</code> for a missing key. 02b&rsquo;s <code>mget</code> returns whatever rows the query yields, in database order, and skips missing keys. <code>MultiVectorRetriever</code> relies on that order to keep the parents ranked, so the best parent can arrive second.</li>
+<li><strong>Silent store error.</strong> Every method logs exceptions and carries on; <code>mget</code> then returns an empty list. A database outage looks like a question with no context.</li>
+<li><strong>Run-minted ids</strong>, as in M14. <code>add_documents(docs, ids=None)</code> gives every parent a fresh <code>uuid4</code> on each call. Running ingestion twice stores every parent and child twice. Pass stable ids (one per parent, after the parent splitter) and delete a document&rsquo;s children and parents together when it changes.</li>
 </ul>
 <h2 id="choosing-child-and-parent-sizes">Choosing child and parent sizes</h2>
 <p>The child size decides what can be matched. The parent size decides what the model reads and what each question costs. The <a href="02_parent_document_retrieval_in_memory_and_on_postgres/interactive/search-small-return-large-lab.html">interactive lab</a> runs a port of <code>ParentDocumentRetriever</code> on the Larkspur page with TF-IDF standing in for embeddings and the top 2 children per question, as in the M10 baseline. On all 242 slider settings and all three golden questions it returns the same children, scores and parents as the real retriever (<code>InMemoryVectorStore</code> with scikit-learn TF-IDF vectors): 0 mismatches, scores within 2e-16.</p>
@@ -533,15 +570,27 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: Six child and parent sizes on the Larkspur page, from the lab.</em></p>
 <p>&ldquo;Children only&rdquo; is plain chunking at the child size: the same two matches sent as they are. Tokens use the four-characters-per-token rule.</p>
 <ul>
 <li><strong>Small children match sharply and cut answers.</strong> At 150, child #5 is the best match for the refund question and ends at &ldquo;…as long as the account has used less&rdquo;. Sent alone it gives the 30-day rule without the 100 GB condition. Its parent holds the whole sentence.</li>
-<li><strong>A parent boundary can cut an answer too.</strong> With parents of 400 characters, the outage answer (&ldquo;The credits are not added automatically. You claim them…&rdquo;) falls across two parents, and no child size gets it back whole.</li>
+<li><strong>Parent-boundary cut.</strong> A parent boundary can cut an answer too. With parents of 400 characters, the outage answer (&ldquo;The credits are not added automatically. You claim them…&rdquo;) falls across two parents, and no child size gets it back whole.</li>
 <li><strong>Parents cost tokens on every question.</strong> The notebook&rsquo;s 2,000-character parents return most of this short page: 478 tokens on average against 165 for the children. With no parent splitter, every question costs 546 tokens, the whole page.</li>
-<li><strong>Children from one parent return it once.</strong> At 200 / 800 both outage matches come from the same parent, so the model reads it once, at 196 tokens.</li>
+<li><strong>Children from one parent return it once.</strong> At 200 / 800 both outage matches come from the same parent, and the model reads it once, at 196 tokens.</li>
 <li><strong>A parent no larger than its child is plain chunking.</strong> At 400 / 400 each parent yields one child identical to itself, and the two columns match.</li>
 </ul>
 <p>Across the 217 settings where parents are larger than children, the children alone contain the whole answer in 394 of the 651 question and setting pairs; their parents contain it in 613. Size the child near the length of the evidence your questions need (the refund sentence is 141 characters) and the parent near a section, then check on the golden set that no parent boundary cuts an answer.</p>
+<h2 id="in-practice-sizing-the-larkspur-parents">In practice: sizing the Larkspur parents</h2>
+<p>Table 1 gives the handbook&rsquo;s settings directly:</p>
+<ol>
+<li><strong>Children near the evidence</strong>: the refund sentence is 141 characters, and children of 150 to 200 match it sharply.</li>
+<li><strong>Parents near a section</strong>: 600 or 800 keeps all three golden answers whole; 400 cuts the outage answer.</li>
+<li><strong>Persist both halves</strong>, and if you write your own docstore, return parents in key order and raise on errors.</li>
+<li><strong>Give parents stable ids</strong>, and delete a page&rsquo;s children and parents together when it changes.</li>
+</ol>
+<blockquote>
+<p><strong>Next:</strong> lesson 15.3 uses a larger unit earlier, to decide where to search before any chunk competes.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Parent-document retrieval searches small children and returns their larger parents from a docstore. Persist the docstore with the vectors, or a restart silently returns nothing.</li>
@@ -563,6 +612,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="top-down-search">Top-down search</h2>
 <p class="lesson-of">Lesson 15.3: Hierarchical indices: summary tier and detail tier. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/03a_hierarchical_indices.ipynb" target="_blank" rel="noopener"><code>03a_hierarchical_indices.ipynb</code></a></p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a two-tier index searches page summaries before chunks.</li>
+<li><strong>Compare</strong> what the summary tier buys with what it costs.</li>
+<li><strong>Diagnose</strong> a strong chunk that never appears because its page was not chosen.</li>
+<li><strong>Calculate</strong> the most chunks a two-tier search can send to the model.</li>
+</ul>
+</blockquote>
+<p>Lesson 15.2 returned a larger unit around each match. A hierarchical index uses the larger unit earlier, to decide where to search at all.</p>
+<p>In a flat Larkspur index, <em>Do I get service credits automatically after an outage?</em> competes against every chunk in the handbook, including a refund chunk about &ldquo;Credits from SLA breaches&rdquo; that shares its words. That refund chunk can take a top slot the outage answer needed.</p>
 <p>A hierarchical index has two tiers. The <strong>summary tier</strong> has one entry per page or section, and the <strong>detail tier</strong> has the ordinary chunks. Both carry the page number. A question first picks the best pages from the summary tier, then searches the detail tier only inside those pages.</p>
 <figure class="anim sheet" aria-labelledby="anim-td-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Top-down search, scrolls sideways on a narrow screen">
@@ -679,6 +739,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button" data-tok="350,316">Return</button><span>Up to 3 × 5 = 15 chunks reach the model. A page the summary tier skipped is never searched.</span></li>
   </ol>
 </figure>
+<p><em>Figure 1: Top-down search. The summary tier picks pages, and the detail search runs only inside them.</em></p>
 <p>Notebook 03a builds both tiers from one PDF with <code>encode_pdf_hierarchical</code>:</p>
 <ul>
 <li><code>PyPDFLoader</code> gives one Document per page. Each page is summarised with <code>load_summarize_chain(..., chain_type="map_reduce")</code> on <code>gpt-4o-mini</code>, five pages at a time with a one-second pause between batches and exponential backoff on rate limits.</li>
@@ -688,16 +749,25 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><code>retrieve_hierarchical(query, summary_store, detailed_store, k_summaries=3, k_chunks=5)</code> runs the summary search, then for each summary calls <code>similarity_search(query, k=5, filter=…)</code> with a filter that keeps only chunks whose <code>page</code> matches. The result is up to 15 chunks, grouped by page in the order the summary tier ranked the pages.</p>
 <p>What the two tiers buy:</p>
 <ul>
-<li><strong>Pages compete as wholes.</strong> A page summary says what the page is about, so a broad question (&ldquo;What is the greenhouse effect?&rdquo;) lands on the right pages before any chunk-level detail is compared.</li>
+<li><strong>Pages compete as wholes.</strong> A page summary says what the page is about. A broad question (&ldquo;What is the greenhouse effect?&rdquo;) lands on the right pages before any chunk-level detail is compared.</li>
 <li><strong>Chunks compete only with their neighbours.</strong> A chunk with matching words on an unrelated page never enters the result.</li>
 </ul>
 <p>And what they cost:</p>
 <ul>
-<li><strong>The summary tier caps recall.</strong> If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.</li>
-<li><strong>Summaries are an index-time LLM bill and a staleness risk.</strong> One summarisation per page, repeated whenever the page changes.</li>
-<li><strong>The result size is a product.</strong> <code>k_summaries × k_chunks</code> is the number of chunks the model can receive, so changing either one changes the prompt budget.</li>
+<li><strong>Tier-capped recall.</strong> The summary tier caps recall. If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.</li>
+<li><strong>Stale summaries.</strong> Summaries are an index-time LLM bill and a staleness risk. One summarisation per page, repeated whenever the page changes.</li>
+<li><strong>The result size is a product.</strong> <code>k_summaries × k_chunks</code> is the number of chunks the model can receive. Changing either one changes the prompt budget.</li>
 </ul>
-<p>For the Larkspur handbook, each section (&ldquo;Refunds and cancellations&rdquo;, &ldquo;Outages and service credits&rdquo;, &ldquo;Data export and retention&rdquo;) would be one summary. <em>Do I get service credits automatically after an outage?</em> would pick the outage summary first and then compare only that section&rsquo;s chunks, so a refund chunk about &ldquo;Credits from SLA breaches&rdquo; cannot crowd it out.</p>
+<h2 id="in-practice-section-summaries-for-the-larkspur-handbook">In practice: section summaries for the Larkspur handbook</h2>
+<p>For the Larkspur handbook, each section (&ldquo;Refunds and cancellations&rdquo;, &ldquo;Outages and service credits&rdquo;, &ldquo;Data export and retention&rdquo;) would be one summary. <em>Do I get service credits automatically after an outage?</em> would pick the outage summary first and then compare only that section&rsquo;s chunks, so a refund chunk about &ldquo;Credits from SLA breaches&rdquo; cannot crowd it out. Three settings keep it that way:</p>
+<ol>
+<li><strong>One summary per section</strong>, regenerated whenever the section changes.</li>
+<li><strong>A prompt budget set by both numbers</strong>: 3 sections × 5 chunks is up to 15 chunks per question.</li>
+<li><strong>A log of the sections chosen</strong> for every question, which lets a miss be traced to the summary tier.</li>
+</ol>
+<blockquote>
+<p><strong>Next:</strong> lesson 15.4 changes the key again, from what a chunk says to the questions a reader would ask about it.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A hierarchical index picks the best pages from a summary tier, then searches chunks only inside them. Chunks compete with their neighbours, not with look-alikes on unrelated pages.</li>
@@ -719,19 +789,30 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="hype">HyPE</h2>
 <p class="lesson-of">Lesson 15.4: Question-side indexing: HyPE and document augmentation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/04a_hypothetical_prompt_embeddings.ipynb" target="_blank" rel="noopener"><code>04a_hypothetical_prompt_embeddings.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/optional/notebook/04b_document_augmentation.ipynb" target="_blank" rel="noopener"><code>04b_document_augmentation.ipynb</code></a> (optional)</p>
-<p>A question and the passage that answers it are written differently. <em>How long do I have to get a full refund on an annual plan?</em> is short and asks; the handbook sentence is long and states. Their embeddings sit apart even when the passage is the right one. <strong>HyPE</strong> (Hypothetical Prompt Embeddings) moves the work to index time: an LLM writes the questions each chunk answers, those questions are embedded as the chunk&rsquo;s search keys, and the chunk stays the payload. Retrieval becomes question-to-question matching.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> why a question and the passage that answers it embed apart.</li>
+<li><strong>Describe</strong> how HyPE turns each chunk into several question keys at index time.</li>
+<li><strong>Compare</strong> HyPE with HyDE by when the LLM runs and how each fails.</li>
+<li><strong>Choose</strong> document augmentation when users ask in ways the generated questions miss.</li>
+</ul>
+</blockquote>
+<p>Lesson 15.3 searched summaries before chunks. This lesson changes the key from what a chunk says to what a reader would ask about it.</p>
+<p>A question and the passage that answers it are written differently. <em>How long do I have to get a full refund on an annual plan?</em> is short and asks; the handbook sentence is long and states. Their embeddings sit apart even when the passage is the right one. We call this the <strong>question-shape gap</strong>. <strong>HyPE</strong> (Hypothetical Prompt Embeddings) moves the work to index time: an LLM writes the questions each chunk answers, those questions are embedded as the chunk&rsquo;s search keys, and the chunk stays the payload. Retrieval becomes question-to-question matching.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     C["Chunk&lt;br/&gt;1,000 characters"] --&gt; G["gpt-4o-mini&lt;br/&gt;writes questions"]
     G --&gt; E["One vector&lt;br/&gt;per question"]
     E --&gt; F[("FAISS&lt;br/&gt;vector → chunk")]
     Q[/"User question"/] --&gt; F
 </pre></figure>
+<p><em>Figure 1: HyPE at index time. Every generated question becomes a key that points to the same chunk.</em></p>
 <p>Notebook 04a, step by step:</p>
 <ul>
 <li>The PDF is split at <code>chunk_size=1000</code>, <code>chunk_overlap=200</code>. The notebook keeps chunks large on purpose, since the questions, not the chunk text, carry the match.</li>
 <li>For each chunk, <code>gpt-4o-mini</code> at temperature 0 gets the prompt &ldquo;Analyze the input text and generate essential questions that, when answered, capture the main points of the text&rdquo;, one question per line. The reply is split on newlines.</li>
 <li>Each question is embedded with <code>text-embedding-3-small</code>. The FAISS store (<code>IndexFlatL2</code>) receives one entry per question vector, each holding the full chunk text, so one chunk sits in the index once per question.</li>
-<li>Chunks are processed in parallel with a <code>ThreadPoolExecutor</code>. The retriever returns the top 3 entries, and the notebook removes repeats with <code>set(context)</code>, because three question vectors from the same chunk return that chunk three times.</li>
+<li>Chunks are processed in parallel with a <code>ThreadPoolExecutor</code>. The retriever returns the top 3 entries, and the notebook removes repeats with <code>set(context)</code>, because three question vectors from the same chunk return that chunk three times. These <strong>repeat hits</strong> waste top-k slots until they are removed.</li>
 </ul>
 <p>The notebook cites the HyPE preprint for &ldquo;up to 42 percentage points improvement in retrieval precision&rdquo; and &ldquo;up to 45 percentage points improvement in claim recall&rdquo;. Those are the authors&rsquo; best cases across their datasets; the notebook does not reproduce them, so measure on your own golden set.</p>
 <p>HyPE and HyDE (M17) attack the same gap from opposite ends:</p>
@@ -766,6 +847,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: HyDE and HyPE compared.</em></p>
 <p>For the Larkspur refund paragraph, good generated questions would include ones a customer types (&ldquo;Can I get my money back on a yearly plan?&rdquo;) as well as the handbook&rsquo;s own wording. Review a sample of generated questions per document type, and regenerate a chunk&rsquo;s questions whenever its text changes.</p>
 <h2 id="document-augmentation">Document augmentation</h2>
 <p>Optional notebook 04b adds generated questions to the index as extra documents beside the original text, instead of replacing the chunk&rsquo;s key:</p>
@@ -775,7 +857,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Fragments (<code>type: ORIGINAL</code>) and questions (<code>type: AUGMENTED</code>) go into one FAISS store, and every entry carries its whole parent document in <code>metadata["text"]</code>.</li>
 <li>The retriever returns the top 1 entry. Whether it is a fragment or a question, the notebook answers from <code>metadata["text"]</code>, the document of up to 4,000 words around it.</li>
 </ul>
-<p>So 04b is the payload pattern from 15.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects questions the LLM did not anticipate, and it pays for that with a larger index and a 4,000-word document as context for every answer.</p>
+<p>So 04b is the payload pattern from 15.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects against <strong>unanticipated phrasing</strong>, questions the LLM did not foresee, and it pays for that with a larger index and a 4,000-word document as context for every answer.</p>
+<h2 id="in-practice-question-keys-for-the-larkspur-refund-paragraph">In practice: question keys for the Larkspur refund paragraph</h2>
+<p>For the refund paragraph, question-side indexing comes down to four checks:</p>
+<ol>
+<li><strong>Generate questions in customers&rsquo; words</strong> as well as the handbook&rsquo;s, such as &ldquo;Can I get my money back on a yearly plan?&rdquo;</li>
+<li><strong>Remove repeat hits by chunk</strong> before filling the top <code>k</code>.</li>
+<li><strong>Keep the original text searchable</strong> if golden-set questions slip past the generated ones.</li>
+<li><strong>Measure on the golden set</strong>, since the preprint&rsquo;s gains are the authors&rsquo; best cases and the notebook does not reproduce them.</li>
+</ol>
+<blockquote>
+<p><strong>Next:</strong> lesson 15.5 keeps the chunk as the key and puts its missing context back into the text.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>HyPE embeds LLM-written questions as each chunk&rsquo;s keys, so retrieval matches question to question with no query-time LLM call. Remove repeats, since one chunk appears once per question.</li>
@@ -797,7 +890,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="contextual-chunk-headers">Contextual chunk headers</h2>
 <p class="lesson-of">Lesson 15.5: Context-aware chunks: contextual headers and contextual retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/05a_contextual_chunk_headers.ipynb" target="_blank" rel="noopener"><code>05a_contextual_chunk_headers.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m15_advanced_indexing/mandatory/notebook/05b_contextual_retrieval_rag_system.ipynb" target="_blank" rel="noopener"><code>05b_contextual_retrieval_rag_system.ipynb</code></a></p>
-<p>Chunks lose their surroundings. A Larkspur chunk that reads &ldquo;The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident.&rdquo; never says which credits, and the section heading that would tell you, &ldquo;Outages and service credits&rdquo;, ended up in a different chunk. At child size 150 in the M15 lab, that heading becomes a 27-character child of its own and outscores the body text for the outage question, because it holds the question&rsquo;s words and nothing else.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a chunk loses its subject when it is cut from its document.</li>
+<li><strong>Describe</strong> a contextual chunk header and what notebook 05a measured with one.</li>
+<li><strong>Compare</strong> contextual chunk headers with LLM-written contextual retrieval by cost and limits.</li>
+<li><strong>Choose</strong> where to start for the Larkspur handbook, and when to move on.</li>
+</ul>
+</blockquote>
+<p>Lesson 15.4 added questions as extra keys. The last technique keeps the chunk as its own key and repairs the chunk itself.</p>
+<p>Chunks lose their surroundings. A Larkspur chunk that reads &ldquo;The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident.&rdquo; never says which credits, and the section heading that would tell you, &ldquo;Outages and service credits&rdquo;, ended up in a different chunk. At child size 150 in the M15 lab, that heading becomes a 27-character child of its own and outscores the body text for the outage question, because it holds the question&rsquo;s words and nothing else. Two failures show here: a <strong>subject-less chunk</strong> that never names what it is about, and a <strong>header-only match</strong>, a heading that wins on words and carries no answer.</p>
 <p>A <strong>contextual chunk header</strong> puts the missing context back into the chunk&rsquo;s text before embedding: the document title at minimum, and optionally a short document summary and the section path. Notebook 05a does it in three steps:</p>
 <ol>
 <li>Split the document (Nike&rsquo;s 2023 annual report) with <code>RecursiveCharacterTextSplitter</code> at <code>chunk_size=800</code>, no overlap.</li>
@@ -807,6 +910,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The notebook measures one chunk, number 86, against the query &ldquo;Nike climate change impact&rdquo; with Cohere&rsquo;s <code>rerank-english-v3.0</code>. The chunk is about the effects of climate change but never says &ldquo;Nike&rdquo;. The notebook reports a relevance of about 0.1 without the header and 0.92 with it.</p>
 <p>It also reports results on KITE, an end-to-end benchmark of 50 questions over four document sets, graded 0 to 10 by an LLM, with the header made of the document title and a document summary:</p>
 <figure class="diagram"><img src="05_context_aware_chunks_contextual_headers_and_contextual_retrieval/diagrams/kite-results.svg" width="760" height="420" alt="Paired bars of the mean answer grade, 0 to 10, without and with contextual chunk headers, as reported in notebook 05a. AI Papers 4.5 and 4.7; BVP Cloud 10-Ks 2.6 and 6.3; Sourcegraph handbook 5.7 and 5.8; Supreme Court opinions 6.1 and 7.4; average 4.72 and 6.04."></figure>
+<p><em>Figure 1: Answer grade on KITE without and with contextual chunk headers, as notebook 05a reports it.</em></p>
 <p>The average rises from 4.72 to 6.04, a 27.9% increase by the notebook&rsquo;s figure. The gain is largest on the BVP Cloud 10-Ks (2.6 to 6.3) and smallest on the Sourcegraph handbook (5.7 to 5.8). On FinanceBench the notebook reports 83% against a 19% baseline, but for CCH and relevant segment extraction together, so the share due to headers is unknown.</p>
 <p>Two rules from the notebook: use the same header-plus-chunk text in the reranker that you embedded, and show the header to the LLM with each result so it reads the chunk in context. For the handbook, the header can come from structure you already have: M12&rsquo;s <code>MarkdownHeaderTextSplitter</code> puts the section path in metadata, and M11 keeps titles in metadata, which is not embedded until you copy it into the text.</p>
 <h2 id="contextual-retrieval">Contextual retrieval</h2>
@@ -818,6 +922,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt; J
     J --&gt; V[("Chroma&lt;br/&gt;cosine")]
 </pre></figure>
+<p><em>Figure 2: Contextual retrieval. An LLM reads the whole document and writes a context for each chunk.</em></p>
 <p>Notebook 05b builds a small RAG system this way. PDF pages are loaded with <code>PyMuPDFLoader</code> and split at <code>chunk_size=3500</code> with no overlap. For every chunk, <code>generate_chunk_context</code> sends the full document and the chunk to <code>gpt-4o-mini</code> with instructions to &ldquo;Provide a concise context (3-4 sentences max) for this chunk&rdquo;, phrased as &ldquo;Focuses on …&rdquo;. The context and chunk go into Chroma with <code>hnsw:space</code> set to cosine, next to Wikipedia documents indexed without context, and a <code>k=5</code> similarity retriever feeds a &ldquo;stuff&rdquo; prompt. The notebook gives context to only two of the twelve sample PDFs (the file names must contain &ldquo;attention&rdquo;, &ldquo;transformer&rdquo; or &ldquo;vision&rdquo;), because the whole document has to fit in the prompt; its note says this is &ldquo;to handle GPT4 out of context error&rdquo;.</p>
 <p>Anthropic introduced the technique in <a href="https://www.anthropic.com/news/contextual-retrieval" target="_blank" rel="noopener">Introducing Contextual Retrieval</a> (September 2024). Its example adds &ldquo;This chunk is from an SEC filing on ACME corp&rsquo;s performance in Q2 2023; the previous quarter&rsquo;s revenue was $314 million.&rdquo; before the chunk &ldquo;The company&rsquo;s revenue grew by 3% over the previous quarter.&rdquo; Its reported results, on its own datasets:</p>
 <ul>
@@ -857,6 +962,18 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: Contextual chunk headers and contextual retrieval compared.</em></p>
+<h2 id="in-practice-context-for-the-larkspur-outage-chunk">In practice: context for the Larkspur outage chunk</h2>
+<p>For the chunk about claiming credits, start with the cheaper fix:</p>
+<ol>
+<li><strong>Prepend the title and section path</strong>, &ldquo;Larkspur Cloud handbook &gt; Outages and service credits&rdquo;, taken from the metadata M11 and M12 already keep.</li>
+<li><strong>Use the same header-plus-chunk text</strong> in the reranker, and show it to the LLM with each result.</li>
+<li><strong>Re-run the golden set.</strong> Move to contextual retrieval only if headers fall short.</li>
+<li><strong>Check the document fits the prompt</strong> before contextual retrieval: each handbook page is short enough, a long report may not be.</li>
+</ol>
+<blockquote>
+<p><strong>Next:</strong> M16 searches these chunks with keywords as well as vectors, and combines the two rankings.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Chunks lose their subject. A contextual chunk header prepends the document title, and optionally a summary and section path, to the text before embedding.</li>
@@ -932,7 +1049,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Treat the docstore as production storage: persistent, keyed by stable ids, updated and deleted together with the vector index.</li>
 <li>Keys written by an LLM (summaries, questions, context) are paid for at index time and can omit facts. Measure them against the plain index before you pay for them on every document.</li>
 </ul></article>
-    <nav class="toc" aria-label="M15 sections"><details open><summary>In M15</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-key-vs-payload">Search key vs payload</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#docstore">Docstore</a></li><li><a href="#choosing-child-and-parent-sizes">Choosing child and parent sizes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-down-search">Top-down search</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hype">HyPE</a></li><li><a href="#document-augmentation">Document augmentation</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#contextual-chunk-headers">Contextual chunk headers</a></li><li><a href="#contextual-retrieval">Contextual retrieval</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M15 sections"><details open><summary>In M15</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-key-vs-payload">Search key vs payload</a></li><li><a href="#in-practice-summary-keys-for-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#docstore">Docstore</a></li><li><a href="#choosing-child-and-parent-sizes">Choosing child and parent sizes</a></li><li><a href="#in-practice-sizing-the-larkspur-parents">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-down-search">Top-down search</a></li><li><a href="#in-practice-section-summaries-for-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hype">HyPE</a></li><li><a href="#document-augmentation">Document augmentation</a></li><li><a href="#in-practice-question-keys-for-the-larkspur-refund-paragraph">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#contextual-chunk-headers">Contextual chunk headers</a></li><li><a href="#contextual-retrieval">Contextual retrieval</a></li><li><a href="#in-practice-context-for-the-larkspur-outage-chunk">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

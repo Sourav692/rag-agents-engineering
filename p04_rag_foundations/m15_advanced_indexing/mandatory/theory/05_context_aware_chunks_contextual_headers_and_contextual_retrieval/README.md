@@ -1,10 +1,20 @@
 # M15.5 Theory: Context-aware chunks: contextual headers and contextual retrieval
 
 *[M15 theory](../README.md) · Lesson 15.5 · Notebooks: [`05a_contextual_chunk_headers.ipynb`](../../notebook/05a_contextual_chunk_headers.ipynb), [`05b_contextual_retrieval_rag_system.ipynb`](../../notebook/05b_contextual_retrieval_rag_system.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Put the context a chunk lost back into its text before it is embedded -->
 
 ## Contextual chunk headers
 
-Chunks lose their surroundings. A Larkspur chunk that reads "The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident." never says which credits, and the section heading that would tell you, "Outages and service credits", ended up in a different chunk. At child size 150 in the M15 lab, that heading becomes a 27-character child of its own and outscores the body text for the outage question, because it holds the question's words and nothing else.
+> **What you'll learn**
+>
+> - **Explain** how a chunk loses its subject when it is cut from its document.
+> - **Describe** a contextual chunk header and what notebook 05a measured with one.
+> - **Compare** contextual chunk headers with LLM-written contextual retrieval by cost and limits.
+> - **Choose** where to start for the Larkspur handbook, and when to move on.
+
+Lesson 15.4 added questions as extra keys. The last technique keeps the chunk as its own key and repairs the chunk itself.
+
+Chunks lose their surroundings. A Larkspur chunk that reads "The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident." never says which credits, and the section heading that would tell you, "Outages and service credits", ended up in a different chunk. At child size 150 in the M15 lab, that heading becomes a 27-character child of its own and outscores the body text for the outage question, because it holds the question's words and nothing else. Two failures show here: a **subject-less chunk** that never names what it is about, and a **header-only match**, a heading that wins on words and carries no answer.
 
 A **contextual chunk header** puts the missing context back into the chunk's text before embedding: the document title at minimum, and optionally a short document summary and the section path. Notebook 05a does it in three steps:
 
@@ -17,6 +27,8 @@ The notebook measures one chunk, number 86, against the query "Nike climate chan
 It also reports results on KITE, an end-to-end benchmark of 50 questions over four document sets, graded 0 to 10 by an LLM, with the header made of the document title and a document summary:
 
 ![Answer grade on KITE without and with contextual chunk headers](diagrams/kite-results.svg)
+
+*Figure 1: Answer grade on KITE without and with contextual chunk headers, as notebook 05a reports it.*
 
 The average rises from 4.72 to 6.04, a 27.9% increase by the notebook's figure. The gain is largest on the BVP Cloud 10-Ks (2.6 to 6.3) and smallest on the Sourcegraph handbook (5.7 to 5.8). On FinanceBench the notebook reports 83% against a 19% baseline, but for CCH and relevant segment extraction together, so the share due to headers is unknown.
 
@@ -35,6 +47,8 @@ flowchart LR
     J --> V[("Chroma<br/>cosine")]
 ```
 
+*Figure 2: Contextual retrieval. An LLM reads the whole document and writes a context for each chunk.*
+
 Notebook 05b builds a small RAG system this way. PDF pages are loaded with `PyMuPDFLoader` and split at `chunk_size=3500` with no overlap. For every chunk, `generate_chunk_context` sends the full document and the chunk to `gpt-4o-mini` with instructions to "Provide a concise context (3-4 sentences max) for this chunk", phrased as "Focuses on …". The context and chunk go into Chroma with `hnsw:space` set to cosine, next to Wikipedia documents indexed without context, and a `k=5` similarity retriever feeds a "stuff" prompt. The notebook gives context to only two of the twelve sample PDFs (the file names must contain "attention", "transformer" or "vision"), because the whole document has to fit in the prompt; its note says this is "to handle GPT4 out of context error".
 
 Anthropic introduced the technique in [Introducing Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) (September 2024). Its example adds "This chunk is from an SEC filing on ACME corp's performance in Q2 2023; the previous quarter's revenue was $314 million." before the chunk "The company's revenue grew by 3% over the previous quarter." Its reported results, on its own datasets:
@@ -51,6 +65,19 @@ The post says the context is "usually 50-100 tokens" and is prepended "before em
 | LLM calls at index time | One per document, or none if titles exist | One per chunk, with the document in the prompt |
 | Limit | Cannot say where in the document a chunk sits | The document must fit the model's context window |
 | Start here when | Chunks lose their subject (company, product, section) | Headers are not enough on the golden set |
+
+*Table 1: Contextual chunk headers and contextual retrieval compared.*
+
+## In practice: context for the Larkspur outage chunk
+
+For the chunk about claiming credits, start with the cheaper fix:
+
+1. **Prepend the title and section path**, "Larkspur Cloud handbook > Outages and service credits", taken from the metadata M11 and M12 already keep.
+2. **Use the same header-plus-chunk text** in the reranker, and show it to the LLM with each result.
+3. **Re-run the golden set.** Move to contextual retrieval only if headers fall short.
+4. **Check the document fits the prompt** before contextual retrieval: each handbook page is short enough, a long report may not be.
+
+> **Next:** M16 searches these chunks with keywords as well as vectors, and combines the two rankings.
 
 ## Key Takeaways
 
