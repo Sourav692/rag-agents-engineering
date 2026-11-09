@@ -40,7 +40,7 @@ A chunk becomes a vector once, at index time, and the cache makes sure it stays 
 | 13.2 | Hosted embeddings: OpenAI models and dimensions | [Vector dimensionality](02_hosted_embeddings_openai_models_and_dimensions/README.md#vector-dimensionality) |
 | 13.3 | Open-source embeddings with Hugging Face | [Domain fit](03_open_source_embeddings_with_hugging_face/README.md#domain-fit) |
 | 13.4 | Production concerns: batching, caching and similarity behaviour | [Embedding cache](04_production_concerns_batching_caching_and_similarity_behaviour/README.md#embedding-cache)<br>[Batching](04_production_concerns_batching_caching_and_similarity_behaviour/README.md#batching) |
-| 13.5 | Benchmarking embedding models with MLflow (Databricks) | *planned* |
+| 13.5 | Benchmarking embedding models with MLflow (Databricks) | [The project: an embedding model bake-off on Databricks](../../optional/theory/05_benchmarking_embedding_models_with_mlflow_databricks/README.md#the-project-an-embedding-model-bake-off-on-databricks) |
 
 ## Interactive lab
 
