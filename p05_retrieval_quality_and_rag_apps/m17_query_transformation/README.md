@@ -29,13 +29,13 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
 | 17.1 | Query rewriting and expansion ([theory](mandatory/theory/01_query_rewriting_and_expansion/README.md)) | [`01a_query_expansion.ipynb`](mandatory/notebook/01a_query_expansion.ipynb) | [`01b_query_transformations_rag_techniques.ipynb`](optional/notebook/01b_query_transformations_rag_techniques.ipynb) *(alternate)* |
-| 17.2 | Multi-query retrieval | [`02a_multi_query_retrieval.ipynb`](mandatory/notebook/02a_multi_query_retrieval.ipynb) | [`02b_multiquery_retrieval_walkthrough.ipynb`](optional/notebook/02b_multiquery_retrieval_walkthrough.ipynb) *(alternate)*<br>[`02c_better_queries.ipynb`](optional/notebook/02c_better_queries.ipynb) *(alternate)* |
+| 17.2 | Multi-query retrieval ([theory](mandatory/theory/02_multi_query_retrieval/README.md)) | [`02a_multi_query_retrieval.ipynb`](mandatory/notebook/02a_multi_query_retrieval.ipynb) | [`02b_multiquery_retrieval_walkthrough.ipynb`](optional/notebook/02b_multiquery_retrieval_walkthrough.ipynb) *(alternate)*<br>[`02c_better_queries.ipynb`](optional/notebook/02c_better_queries.ipynb) *(alternate)* |
 | 17.3 | RAG-Fusion with Reciprocal Rank Fusion ([theory](mandatory/theory/03_rag_fusion_with_reciprocal_rank_fusion/README.md)) | [`03a_rag_fusion.ipynb`](mandatory/notebook/03a_rag_fusion.ipynb) | — |
-| 17.4 | Step-back prompting | [`04a_step_back_prompting.ipynb`](mandatory/notebook/04a_step_back_prompting.ipynb) | — |
+| 17.4 | Step-back prompting ([theory](mandatory/theory/04_step_back_prompting/README.md)) | [`04a_step_back_prompting.ipynb`](mandatory/notebook/04a_step_back_prompting.ipynb) | — |
 | 17.5 | HyDE: embed a hypothetical answer ([theory](mandatory/theory/05_hyde_embed_a_hypothetical_answer/README.md)) | [`05a_hyde.ipynb`](mandatory/notebook/05a_hyde.ipynb) | [`05b_hyde_walkthrough.ipynb`](optional/notebook/05b_hyde_walkthrough.ipynb) *(alternate)*<br>[`05c_hyde_rag_techniques.ipynb`](optional/notebook/05c_hyde_rag_techniques.ipynb) *(alternate)* |
 | 17.6 | Query decomposition for multi-hop questions ([theory](mandatory/theory/06_query_decomposition_for_multi_hop_questions/README.md)) | [`06a_query_decomposition.ipynb`](mandatory/notebook/06a_query_decomposition.ipynb) | [`06b_query_decomposition_walkthrough.ipynb`](optional/notebook/06b_query_decomposition_walkthrough.ipynb) *(alternate)* |
 | 17.7 | Routing: LLM classifier and semantic routing ([theory](mandatory/theory/07_routing_llm_classifier_and_semantic_routing/README.md)) | [`07a_routing_with_llm_classifier.ipynb`](mandatory/notebook/07a_routing_with_llm_classifier.ipynb)<br>[`07b_semantic_routing.ipynb`](mandatory/notebook/07b_semantic_routing.ipynb) | — |
-| 17.8 | Self-querying: natural language to metadata filter | [`08a_self_querying_retrieval.ipynb`](mandatory/notebook/08a_self_querying_retrieval.ipynb) | — |
+| 17.8 | Self-querying: natural language to metadata filter ([theory](mandatory/theory/08_self_querying_natural_language_to_metadata_filter/README.md)) | [`08a_self_querying_retrieval.ipynb`](mandatory/notebook/08a_self_querying_retrieval.ipynb) | — |
 
 ## Hands-on lab
 

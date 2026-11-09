@@ -1,21 +1,33 @@
 # M19.5 Theory: Fully local RAG with Hugging Face and FAISS
 
 *[M19 theory](../README.md) · Lesson 19.5 · Notebooks: [`05a_local_rag_huggingface_faiss.ipynb`](../../notebook/05a_local_rag_huggingface_faiss.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Local is a property of every component, and one remote call is enough to send the data out -->
 
 ## Local inference
 
-The notebook replaces every OpenAI call with open models. Its configuration:
+> **What you'll learn**
+>
+> - **Check** a "local" pipeline component by component for data that leaves the machine.
+> - **Compare** the notebook's pipeline with a fully offline one.
+> - **Explain** what keeping inference local costs: hardware, re-embedding, and the risk of loading a saved index.
+> - **Diagnose** two small reuse bugs: a double retrieval and an answer split.
+
+Lessons 19.1 to 19.4 called a hosted embedding model and a hosted chat model. Some Larkspur customers sign contracts that say support tickets and the handbook may not leave their network. For them, every model call is a question of where the data goes.
+
+**Local inference** means a model runs on hardware you control, so its inputs never cross the network. Notebook `05a` replaces every OpenAI call with open models:
 
 | Setting | Value |
 |---|---|
-| Document | `Understanding_Climate_Change.pdf`, loaded with `PyPDFLoader` |
+| Document | A climate-change PDF |
 | Chunks | 1,000 characters, 200 overlap |
-| Embeddings | `BAAI/bge-base-en-v1.5` through `HuggingFaceEmbeddings`, on CPU, `normalize_embeddings=True`, 768 dimensions |
+| Embeddings | `BAAI/bge-base-en-v1.5`, on CPU, normalised, 768 dimensions |
 | Index | FAISS, in memory |
 | Retrieval | `k = 3` |
-| Generation | `HuggingFaceH4/zephyr-7b-beta` through `HuggingFaceEndpoint`, `max_new_tokens=256` |
+| Generation | `HuggingFaceH4/zephyr-7b-beta` through Hugging Face's endpoint client, 256 new tokens at most |
 
-"Local" has to be checked per component, because one remote call is enough to send the data out. Here the embedding model and the index run on your machine. The generator does not: `HuggingFaceEndpoint` calls the Hugging Face Inference API, and the notebook asserts that `HUGGINGFACEHUB_API_TOKEN` is set before it starts. Every prompt, with the three retrieved chunks inside it, leaves the machine.
+*Table 1: `05a`'s configuration.*
+
+"Local" has to be checked per component, because one remote call is enough to send the data out. Here the embedding model and the index run on your machine. The generator does not: the endpoint client calls the Hugging Face Inference API, and the notebook checks for an API token before it starts. Every prompt, with the three retrieved chunks inside it, leaves the machine:
 
 ```mermaid
 flowchart LR
@@ -32,54 +44,79 @@ flowchart LR
     Z -- answer --> A
 ```
 
-So the notebook's own comparison table, which lists data privacy as "Stays local", is true only for indexing. Its "Next steps" names the fix: replace `HuggingFaceEndpoint` with `HuggingFacePipeline`, which loads the model weights and generates in your process. That is the version to offer a Larkspur customer whose contract says support tickets and the handbook may not leave their network.
+*Figure 1: `05a` as written. Indexing is local; generation is not.*
+
+We call this the **half-local pipeline**. The notebook's own comparison table lists data privacy as "Stays local", which is true only for indexing. Its next steps name the fix: swap the endpoint client for a local pipeline that loads the model weights and generates in your process.
 
 | Component | `05a` as written | Fully offline |
 |---|---|---|
-| Embeddings | local, CPU | local, CPU |
-| Vector index | local, FAISS in memory | local, FAISS saved to disk |
-| Generator | remote, HF Inference API, needs a token | local, `HuggingFacePipeline`, needs the weights and enough memory |
-| Data leaving the machine | every prompt, chunks included | none |
+| Embeddings | Local, CPU | Local, CPU |
+| Vector index | Local, FAISS in memory | Local, FAISS saved to disk |
+| Generator | Remote: Hugging Face Inference API, needs a token | Local: a pipeline that loads the weights, needs enough memory |
+| Data leaving the machine | Every prompt, chunks included | None |
 
-What you trade for keeping it local:
+*Table 2: Half-local against fully offline.*
 
-- **Hardware and latency.** A 7B model generating on your own CPU or GPU replaces a network call. Measure tokens per second on the target machine before you promise a latency.
+## What local costs
+
+Keeping everything local trades the API bill for three costs:
+
+- **Hardware and latency.** A 7B model generating on your own CPU or GPU replaces a network call. Measure tokens per second on the target machine before promising a latency.
 - **One embedding model on both sides.** The query must be embedded by the model that embedded the chunks. Switching from OpenAI's 1,536-dimension vectors to bge's 768 means re-embedding the whole corpus, not only new documents.
-- **Saving the index runs pickle.** The notebook's commented `FAISS.load_local(..., allow_dangerous_deserialization=True)` needs that flag because the docstore is a pickle file, and loading a pickle can run code. Load only index files your own pipeline wrote.
+- **Loading a saved index runs pickle.** FAISS's loader needs an explicit dangerous-deserialisation flag because the docstore is saved as a pickle file, and loading a pickle can run code. Load only index files your own pipeline wrote.
 
-Two smaller things to change when you reuse the code:
+> **Pitfall: a borrowed index file.** A FAISS index downloaded from a shared drive or a model hub is code as well as data. Rebuild it from source documents, or load only files your pipeline wrote and stored where only it can write.
 
-- **`RunnableParallel(answer=rag_chain, sources=retriever)` retrieves twice**, once inside `rag_chain` and once for `sources` (a counting retriever in a scratch test was called two times). On a fixed FAISS index the two lists match, so the cost is the extra search. On an index that updates between the calls, the sources shown could differ from the context the model read. The `RunnablePassthrough.assign` pattern from [19.2](../02_answers_with_sources_and_per_claim_citations/README.md#returning-the-sources) retrieves once.
-- **`ask` keeps the text after the last `Answer:`**, to strip a prompt echoed back with the completion. The installed `HuggingFaceEndpoint` already defaults to `return_full_text=False`, so the split guards against nothing today and cuts any answer that itself contains "Answer:". Drop it, or keep `return_full_text=False` explicit if you move to `HuggingFacePipeline`.
+## Two reuse bugs
 
-The notebook's fallback evaluation counts expected keywords in each answer ("carbon dioxide", "methane"). Substring matching rewards any answer that mentions the words, right or wrong; treat it as a smoke test and use the golden-set metrics from [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) for decisions.
+Two smaller things to change when you reuse `05a`'s code:
+
+| Code in `05a` | What it does | Fix |
+|---|---|---|
+| A parallel step that runs the RAG chain and the retriever side by side, to return answer and sources | **Double retrieval**: retrieves twice, once inside the chain and once for the sources; a counting retriever in a scratch test was called two times | Retrieve once and reuse the result, as lesson 19.2's pass-through pattern does |
+| The answer helper keeps only the text after the last "Answer:" | Strips a prompt echoed back with the completion; the installed endpoint client already returns only new text, so the split guards against nothing and cuts any answer that itself contains "Answer:" | Drop the split, or set "return only new text" explicitly when moving to a local pipeline |
+
+*Table 3: Two reuse bugs in `05a`.*
+
+On a fixed FAISS index the two retrievals return the same list, so the double retrieval only costs an extra search. On an index that updates between the calls, the sources shown could differ from the context the model read.
+
+`05a`'s fallback evaluation counts expected keywords in each answer, such as "carbon dioxide" and "methane". Substring matching rewards any answer that mentions the words, right or wrong. Treat it as a smoke test, and use the golden-set metrics from [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) for decisions.
+
+## In practice: an offline Larkspur deployment
+
+1. **Audit every component** with Table 2: embeddings, index, reranker (M18), generator, and any grader.
+2. **Generate in-process** on hardware sized from a measured tokens-per-second figure.
+3. **Re-embed the whole handbook** with the local embedding model, and evaluate it on the golden set before switching.
+4. **Write and load the index yourself**, never from a shared location.
+
+This completes the M19 system: grounded, cited, explainable, table-aware and deployable where the data must stay.
 
 ## Key Takeaways
 
-- Check "local" per component. One remote call sends the data out: `HuggingFaceEndpoint` ships every prompt, chunks included, to the Inference API, while `HuggingFacePipeline` generates in your process.
+- Check "local" per component. One remote call sends the data out: `05a`'s endpoint client ships every prompt, chunks included, to the Inference API (the half-local pipeline), while a local pipeline generates in your process.
 - Changing embedding models means re-embedding the whole corpus. Measure tokens per second on the target hardware before promising a latency.
-- Load only FAISS index files your own pipeline wrote, because the docstore is a pickle. Retrieve once and reuse the result so the sources shown match the context.
+- Load only FAISS index files your own pipeline wrote, because the docstore is a pickle. Retrieve once and reuse the result, so the sources shown match the context.
 
 ## Check yourself
 
 <details>
-<summary>1. The 05a notebook embeds and indexes on your machine. Why does the data still leave it?</summary>
+<summary>1. 05a embeds and indexes on your machine. Does a Larkspur customer's data stay on their network?</summary>
 
-The generator is not local: `HuggingFaceEndpoint` calls the Hugging Face Inference API, so every prompt, with the three retrieved chunks inside it, leaves the machine. Replace it with `HuggingFacePipeline`, which loads the weights and generates in your process.
-
-</details>
-
-<details>
-<summary>2. A Larkspur customer's contract forbids tickets and the handbook leaving their network, and your index was built with OpenAI embeddings. What must change besides the generator?</summary>
-
-The embedding model, and with it the whole index. The query must be embedded by the model that embedded the chunks, so switching from OpenAI's 1,536-dimension vectors to bge's 768 means re-embedding the whole corpus, not only new documents. Measure tokens per second on the target machine before you promise a latency.
+No. The generator runs through the Hugging Face Inference API, so every prompt, with the three retrieved chunks inside it, leaves the machine. Only indexing is local. Swapping the endpoint client for a local pipeline that loads the weights makes generation local too.
 
 </details>
 
 <details>
-<summary>3. The sources shown beside an answer sometimes differ from the context the model read. What in the 05a chain allows that?</summary>
+<summary>2. Moving Larkspur's pipeline from OpenAI embeddings to bge-base-en-v1.5, can you embed only new documents with the new model?</summary>
 
-`RunnableParallel(answer=rag_chain, sources=retriever)` retrieves twice, once inside `rag_chain` and once for `sources`. On an index that updates between the two calls, the lists can differ. The `RunnablePassthrough.assign` pattern from 19.2 retrieves once.
+No. The query must be embedded by the same model that embedded the chunks, and the two models produce vectors of different sizes (1,536 against 768) in different spaces. Re-embed the whole corpus, and re-run the golden set before switching.
+
+</details>
+
+<details>
+<summary>3. Why does loading a saved FAISS index need a dangerous-deserialisation flag, and what rule follows?</summary>
+
+The index's docstore is saved as a pickle, and loading a pickle can run arbitrary code. Load only index files your own pipeline wrote and stored where only it can write; rebuild anything else from the source documents.
 
 </details>
 
