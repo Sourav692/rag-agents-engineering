@@ -370,25 +370,83 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The ranks are for <em>Which month missed the 99.95% availability target?</em> in the lab. Every route ends in the same place: the top-<code>k</code> items go to a model that can read what they hold, text, a caption or an image. What differs is whether the figure survives indexing, and whether it can outscore the text around it.</p>
 <h2 id="joint-embedding-space">Joint embedding space</h2>
 <p class="lesson-of">Lesson 20.1: Shared text–image embedding space with CLIP. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/01a_multimodal_rag_with_clip.ipynb" target="_blank" rel="noopener"><code>01a_multimodal_rag_with_clip.ipynb</code></a></p>
-<p>CLIP has two encoders, one for text and one for images, trained together so that an image and a caption that describes it land close in the same vector space (Radford et al., <em>Learning Transferable Visual Models From Natural Language Supervision</em>, 2021). With <code>openai/clip-vit-base-patch32</code>, the notebook&rsquo;s model, both encoders end in a 512-dimension vector. The notebook normalises each one to unit length, so a dot product is a cosine:</p>
-<pre class="sheet code"><code class="language-python">def embed_text(text):
-    inputs = clip_processor(text=text, return_tensors=&quot;pt&quot;, padding=True,
-                            truncation=True, max_length=77)   # CLIP's max token length
-    features = clip_model.get_text_features(**inputs)
-    return (features / features.norm(dim=-1, keepdim=True)).squeeze().numpy()
-</code></pre>
-<p><code>embed_image</code> does the same with <code>get_image_features</code>. Indexing walks each PDF page with PyMuPDF: <code>page.get_text()</code> goes through a <code>RecursiveCharacterTextSplitter</code> (500 characters, overlap 100) and each chunk is embedded with <code>embed_text</code>; every image from <code>page.get_images()</code> is embedded with <code>embed_image</code>, stored as base64 for the answer model, and indexed as a stub Document <code>"[Image: page_0_img_0]"</code> with <code>type: "image"</code> in its metadata. All vectors go into one FAISS index through <code>FAISS.from_embeddings(..., embedding=None)</code>. FAISS ranks by L2 distance, which on unit vectors orders results the same way as cosine.</p>
-<p>At query time the question goes through <code>embed_text</code>, <code>similarity_search_by_vector</code> returns the top 5, and <code>create_multimodal_message</code> builds one <code>HumanMessage</code> for <code>gpt-4.1</code>: the text chunks as text parts, each retrieved image as an <code>image_url</code> part with a base64 data URL (<a href="../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/index.html">M05</a> covers that format).</p>
-<p>Both encoders have hard input limits, and both matter for documents:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>Text stops at 77 tokens.</strong> The splitter&rsquo;s 500-character chunks run past that. Split the same way, page 2 of the Attention paper gives 11 chunks of 81 to 116 CLIP tokens, and even the sample PDF&rsquo;s 365-character page is 79. <code>truncation=True</code> drops the tail without a warning. CLIP was trained to match images with short captions, so a long paragraph is outside what it learned.</li>
-<li><strong>Images become 224 by 224.</strong> The processor scales the shortest side to 224 and crops the centre square. A 400 by 300 chart is scaled to 299 by 224 and loses about a quarter of its width, then the encoder reads it as 7 by 7 patches of 32 pixels. Small axis labels and printed values rarely survive that.</li>
+<li><strong>Explain</strong> how CLIP places text and images in one vector space.</li>
+<li><strong>Trace</strong> a PDF through CLIP indexing: text chunks and page images in one index.</li>
+<li><strong>Diagnose</strong> the two input limits that cut long chunks and small chart labels.</li>
+<li><strong>Explain</strong> the modality gap, and why one shared ranking hides the right figure.</li>
+<li><strong>Choose</strong> between separate quotas, one modality and a text model for text.</li>
 </ul>
-<p>On the notebook&rsquo;s own <code>multimodal_sample.pdf</code> the test cannot fail. The page holds one 365-character text chunk and one 400 by 300 image of three unlabelled bars, so the index has two items and <code>k = 5</code> returns both for any question. The CLIP scores still show the pattern the next section is about: for <em>What does the chart on page 1 show about revenue trends?</em> the text chunk scores 0.651 and the chart 0.270.</p>
-<figure class="diagram"><img src="01_shared_text_image_embedding_space_with_clip/diagrams/modality-gap.svg" width="800" height="330" alt="For each of three questions, CLIP cosine scores of the six text chunks sit between 0.692 and 0.912, and the three figure images between 0.200 and 0.382. The figure that holds the answer is the top image every time, but it still ranks seventh of nine, below every text chunk."></figure>
+</blockquote>
+<p>M19 built a system over text and tables. Larkspur&rsquo;s status reports also carry charts: monthly availability as bars, refund times by month, a server table as an image. A text-only pipeline drops them at load time, so <em>Which month missed the 99.95% availability target?</em> has no evidence in the index at all.</p>
+<p><strong>CLIP</strong> has two encoders, one for text and one for images, trained together so that an image and a caption describing it land close in the same vector space (Radford et al., <em>Learning Transferable Visual Models From Natural Language Supervision</em>, 2021). That shared space is a <strong>joint embedding space</strong>: a text question can retrieve an image directly. With <code>openai/clip-vit-base-patch32</code>, notebook <code>01a</code>&rsquo;s model, both encoders end in a 512-dimension vector. The notebook normalises each to unit length, so a dot product is a cosine.</p>
+<p>Here is what <code>01a</code> does with a PDF:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Text</th>
+<th>Images</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Extract</td>
+<td>Each page&rsquo;s text, split into 500-character chunks with 100 of overlap</td>
+<td>Every embedded image on the page</td>
+</tr>
+<tr>
+<td>Embed</td>
+<td>CLIP&rsquo;s text encoder</td>
+<td>CLIP&rsquo;s image encoder</td>
+</tr>
+<tr>
+<td>Store</td>
+<td>One FAISS index for both, ranked by L2 distance, which on unit vectors orders results like cosine</td>
+<td>Same index; each image is a stub document marked as an image, with the image kept as base64 for the answer model</td>
+</tr>
+<tr>
+<td>Answer</td>
+<td>The question goes through the text encoder; the top 5 come back</td>
+<td>Retrieved images go to a vision-capable chat model as image parts of one message (<a href="../../../../p02_prompt_engineering/m05_multimodal_prompting/mandatory/theory/index.html">M05</a> covers that format)</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: CLIP indexing and retrieval in <code>01a</code>.</em></p>
+<h2 id="two-input-limits">Two input limits</h2>
+<p>Both encoders have hard input limits, and both matter for documents:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>What CLIP does</th>
+<th>What a document loses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Text stops at 77 tokens</strong></td>
+<td>Truncates the rest, without a warning</td>
+<td><code>01a</code>&rsquo;s 500-character chunks run past 77: split the same way, page 2 of the Attention paper gives 11 chunks of 81 to 116 CLIP tokens, and even the sample PDF&rsquo;s 365-character page is 79</td>
+</tr>
+<tr>
+<td><strong>Images become 224 by 224</strong></td>
+<td>Scales the shortest side to 224 and crops the centre square, then reads 7 by 7 patches of 32 pixels</td>
+<td>A 400 by 300 chart becomes 299 by 224 and loses about a quarter of its width; small axis labels and printed values rarely survive</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: CLIP&rsquo;s input limits and what they cut.</em></p>
+<p>CLIP was trained to match images with short captions, so a long paragraph is outside what it learned. We call the first row the <strong>silent truncation</strong>: the tail of every chunk is gone, and nothing in the output says so.</p>
+<p><code>01a</code>&rsquo;s own sample cannot show a failure. Its PDF holds one 365-character text chunk and one 400 by 300 image of three unlabelled bars, so the index has two items and <code>k = 5</code> returns both for any question. The scores still show the pattern of the next section: for <em>What does the chart on page 1 show about revenue trends?</em> the text chunk scores 0.651 and the chart 0.270.</p>
 <h2 id="one-ranking-two-modalities">One ranking, two modalities</h2>
-<p>The <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive lab</a> indexes the three Larkspur pages with the notebook&rsquo;s <code>embed_text</code> and <code>embed_image</code>: six text chunks and three figure images in one index, nine items. The scores split into two bands. Every text chunk scores between 0.692 and 0.912 against every question; every image scores between 0.200 and 0.382. Liang et al. measured this split across contrastive models and named it the modality gap (<em>Mind the Gap</em>, NeurIPS 2022).</p>
-<p>Inside the image band, CLIP does its job. For each question the image with the answer is the best image:</p>
+<p>The <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive chart retrieval lab</a> indexes three Larkspur status-report pages with <code>01a</code>&rsquo;s own embedding functions: six text chunks and three figure images in one index, nine items. The scores split into two bands:</p>
+<figure class="diagram"><img src="01_shared_text_image_embedding_space_with_clip/diagrams/modality-gap.svg" width="800" height="330" alt="For each of three questions, CLIP cosine scores of the six text chunks sit between 0.692 and 0.912, and the three figure images between 0.200 and 0.382. The figure that holds the answer is the top image every time, but it still ranks seventh of nine, below every text chunk."></figure>
+<p><em>Figure 1: CLIP scores on the lab pages. Every text chunk outscores every image.</em></p>
+<p>Every text chunk scores between 0.692 and 0.912 against every question; every image scores between 0.200 and 0.382. Liang et al. measured this split across contrastive models and named it the <strong>modality gap</strong> (<em>Mind the Gap</em>, NeurIPS 2022).</p>
+<p>Inside the image band, CLIP does its job. For each question, the image with the answer is the best image:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -396,7 +454,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <th>Answer figure</th>
 <th>Score</th>
 <th>Best other image</th>
-<th>Answer figure&rsquo;s rank</th>
+<th>Answer figure&rsquo;s rank in the shared index</th>
 </tr>
 </thead>
 <tbody>
@@ -423,36 +481,81 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>In the shared ranking that does not help. Each answer figure sits behind all six text chunks, so the notebook&rsquo;s <code>k = 5</code> sends five text chunks and no image, and the model never sees a bar. It takes <code>k = 7</code> to reach the figure, and then the model reads six chunks of text to use one picture.</p>
+<p><em>Table 3: The answer figure is the best image and the seventh item (the module&rsquo;s chart retrieval lab).</em></p>
+<p>In the shared ranking that does not help. Each answer figure sits behind all six text chunks, so <code>01a</code>&rsquo;s <code>k = 5</code> sends five text chunks and no image, and the model never sees a bar. It takes <code>k = 7</code> to reach the figure, and then the model reads six chunks of text to use one picture. We call this the <strong>buried figure</strong>.</p>
 <figure class="lab-embed"><iframe src="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html" title="Four ways to index a chart, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Four ways to index a chart. <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">Open full screen</a></figcaption></figure>
-<p>Scores from different modalities are not comparable, so do not rank them together:</p>
-<ul>
-<li><strong>Separate quotas.</strong> Search text and images separately and send the top text chunks plus the top image. On the lab pages, top-1 image is the answer figure for all three questions.</li>
-<li><strong>One modality.</strong> Turn figures into text (<a href="#">lesson 20.2</a>) or text into images (<a href="#">lesson 20.3</a>), so every score comes from the same comparison.</li>
-<li><strong>A text model for text.</strong> Use a text embedding model (M13) for the chunks and keep CLIP for image search only; its 77-token text side is a weak paragraph retriever.</li>
-</ul>
+<blockquote>
+<p><strong>Key distinction:</strong> CLIP&rsquo;s scores are comparable within a modality and not across modalities. A figure at 0.306 is a strong image match; a text chunk at 0.692 may be a weak text match.</p>
+</blockquote>
+<h2 id="choosing-around-the-gap">Choosing around the gap</h2>
+<p>Since scores from different modalities are not comparable, do not rank them together:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>How</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Separate quotas</strong></td>
+<td>Search text and images separately; send the top text chunks plus the top image</td>
+<td>On the lab pages the top-1 image is the answer figure for all three questions; costs one more search</td>
+</tr>
+<tr>
+<td><strong>One modality</strong></td>
+<td>Turn figures into text (lesson 20.2) or text into page images (lesson 20.3)</td>
+<td>Every score comes from one comparison; captioning costs a vision call per image, page images cost a large index</td>
+</tr>
+<tr>
+<td><strong>A text model for text</strong></td>
+<td>Embed chunks with a text embedding model (M13); keep CLIP for image search</td>
+<td>Fixes the 77-token cut; the two searches still need separate quotas</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Three ways around the modality gap.</em></p>
+<h2 id="in-practice-larkspurrsquos-status-reports">In practice: Larkspur&rsquo;s status reports</h2>
+<ol>
+<li><strong>Index figures and text separately</strong>, with a text embedding model for the chunks and CLIP for the images.</li>
+<li><strong>Send a quota</strong>: the top 4 text chunks and the top 1 image.</li>
+<li><strong>Check figure resolution</strong>: a chart whose values are small printed labels may need captioning (lesson 20.2) rather than CLIP.</li>
+<li><strong>Add a chart-only golden question</strong> per report, such as the availability month, so a buried figure shows up as a miss.</li>
+</ol>
+<p>Lesson 20.2 removes the gap the other way: it turns every figure into text before indexing.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>CLIP puts text and images in one 512-dimension space, but its text side stops at 77 tokens and its image side crops to 224 by 224, so long chunks and small chart labels are lost.</li>
-<li>Text and image scores sit in separate bands (0.692 to 0.912 against 0.200 to 0.382 on the lab pages). In one shared ranking the right figure falls behind every text chunk.</li>
-<li>Do not rank modalities together. Use separate quotas for text and images, convert everything to one modality, or embed text with a text model.</li>
+<li>CLIP puts text and images in one 512-dimension space, but its text side stops at 77 tokens (the silent truncation) and its image side crops to 224 by 224, so long chunks and small chart labels are lost.</li>
+<li>Text and image scores sit in separate bands (0.692 to 0.912 against 0.200 to 0.382 on the lab pages). In one shared ranking the right figure falls behind every text chunk (the buried figure).</li>
+<li>Do not rank modalities together: use separate quotas, convert everything to one modality, or embed text with a text model.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Which two input limits make CLIP a weak retriever for document text and charts?</summary>
-<p>Text stops at 77 tokens, and the notebook&rsquo;s 500-character chunks run past that; <code>truncation=True</code> drops the tail without a warning. Images become 224 by 224: a 400 by 300 chart loses about a quarter of its width to the centre crop and is read as 7 by 7 patches of 32 pixels, so small labels and printed values rarely survive.</p>
+<summary>1. Notebook 01a splits pages into 500-character chunks before embedding them with CLIP. What happens to each chunk?</summary>
+<p>CLIP&rsquo;s text encoder stops at 77 tokens and truncates the rest without a warning. Split that way, page 2 of the Attention paper gives chunks of 81 to 116 CLIP tokens, so every chunk loses its tail. CLIP was trained on short captions, so a text embedding model is the better retriever for paragraphs.</p>
 </details>
 <details>
-<summary>2. For the availability question, the answer figure is the best image at 0.306, yet the notebook's k of 5 sends no image. Why?</summary>
-<p>Every text chunk scores between 0.692 and 0.912 and every image between 0.200 and 0.382, the modality gap. The answer figure ranks 7 of 9, behind all six text chunks. It takes <code>k = 7</code> to reach it, and then the model reads six chunks of text to use one picture.</p>
+<summary>2. For the availability question, Figure 1 is the best-scoring image at 0.306, yet with k = 5 the model never sees it. Why?</summary>
+<p>The modality gap: every text chunk scores between 0.692 and 0.912 and every image between 0.200 and 0.382, so in one shared ranking all six text chunks come before any image. Figure 1 ranks 7th of 9, and <code>k = 5</code> sends only text. It is the buried figure.</p>
 </details>
 <details>
-<summary>3. Should you fix the missing figure by raising k, or by something else?</summary>
-<p>By something else, because scores from different modalities are not comparable. Search text and images separately and send the top text chunks plus the top image; on the lab pages, the top image is the answer figure for all three questions. The alternatives are to put everything in one modality (captions or page images) or to use a text embedding model for the text.</p>
+<summary>3. How would you change the retrieval so the answer figure reaches the model for all three lab questions?</summary>
+<p>Search text and images separately and send a quota, such as the top text chunks plus the top image: on the lab pages the top-1 image is the answer figure for all three questions. Alternatively convert everything to one modality, by captioning figures (20.2) or retrieving page images (20.3).</p>
 </details>
 <h2 id="captioning">Captioning</h2>
 <p class="lesson-of">Lesson 20.2: Caption-then-index with a vision LLM. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb" target="_blank" rel="noopener"><code>02a_multimodal_rag_with_captioning.ipynb</code></a></p>
-<p>Captioning moves the vision work to index time. A vision model looks at each figure once and writes text about it, and from then on the figure is a text chunk: the same embedder, the same vector store and the same retriever as the paragraphs around it.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how captioning moves the vision work from query time to index time.</li>
+<li><strong>Trace</strong> captions competing with text chunks on one scale.</li>
+<li><strong>Diagnose</strong> a test question that never reaches a caption, and a caption that is found but cannot answer.</li>
+<li><strong>Write</strong> a caption prompt that holds every value a question needs.</li>
+</ul>
+</blockquote>
+<p>Lesson 20.1 found the right Larkspur chart and then ranked it behind every paragraph, because CLIP scores images and text on different scales. Captioning removes the second scale.</p>
+<p><strong>Captioning</strong> moves the vision work to index time. A vision model looks at each figure once and writes text about it, and from then on the figure is a text chunk: the same embedder, the same vector store and the same retriever as the paragraphs around it:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     I[/"Figure image"/] --&gt; V["Vision LLM&lt;br/&gt;caption prompt"]
     V --&gt; C["Caption text"]
@@ -461,51 +564,170 @@ th:last-child, td:last-child { padding-right: 0; }
     Q[/Question/] --&gt; E2["Same embedder"]
     E2 --&gt; X
 </pre></figure>
-<p>The notebook builds it on the Attention paper (<code>1706.03762v7.pdf</code>):</p>
-<ol>
-<li><strong>Extract.</strong> PyMuPDF reads each page&rsquo;s text into one Document per page and saves every embedded image to <code>extracted_images/</code>.</li>
-<li><strong>Caption.</strong> <code>gemini-1.5-flash</code>, through <code>google.generativeai</code>, gets each image with the prompt <em>&ldquo;You are an assistant tasked with summarizing tables, images and text for retrieval. These summaries will be embedded and used to retrieve the raw text or table elements. Give a concise summary of the table or text that is well optimized for retrieval.&rdquo;</em></li>
-<li><strong>Index.</strong> Page texts and captions both go through <code>RecursiveCharacterTextSplitter.from_tiktoken_encoder(chunk_size=400, chunk_overlap=50)</code>, are embedded with Cohere <code>embed-english-v3.0</code>, and share one Chroma collection.</li>
-<li><strong>Answer.</strong> The retriever returns <code>k = 1</code> item, and <code>command-r-plus</code> at temperature 0 answers from it.</li>
-</ol>
+<p><em>Figure 1: Caption-then-index. After indexing, a figure is a text chunk.</em></p>
+<p>Notebook <code>02a</code> builds it on the Attention paper:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What <code>02a</code> does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Extract</td>
+<td>PyMuPDF reads each page&rsquo;s text into one document per page and saves every embedded image to disk</td>
+</tr>
+<tr>
+<td>Caption</td>
+<td>A fast Gemini vision model gets each image with a prompt asking for &ldquo;a concise summary of the table or text that is well optimized for retrieval&rdquo;</td>
+</tr>
+<tr>
+<td>Index</td>
+<td>Page texts and captions are both split into 400-token chunks with 50 of overlap, embedded with Cohere&rsquo;s English embedding model, and share one Chroma collection</td>
+</tr>
+<tr>
+<td>Answer</td>
+<td>The retriever returns <code>k = 1</code> item, and a Cohere chat model at temperature 0 answers from it</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The captioning pipeline in <code>02a</code>.</em></p>
 <p>The cost lands once per image, at index time, and never per question. The index holds only text, so every tool from M13 to M18 still applies to captions: hybrid search, reranking, metadata filters.</p>
-<p>The test question in the notebook never reaches a caption. PyMuPDF finds three raster images in the paper: Figure 1 on page 3 and the two images that make up Figure 2 on page 4. Figures 3 to 5 are not stored as images, so <code>get_images()</code> returns nothing for them. <em>What is the BLEU score of the Transformer (base model)?</em> is answered by Table 2 on page 8, which is text. <code>get_text()</code> returns it with the rows flattened, one cell per line (<code>Transformer (base model)</code>, <code>27.3</code>, <code>38.1</code>, <code>3.3 · 1018</code>), and the training cost 3.3 × 10^18 comes out as &ldquo;1018&rdquo;. The notebook&rsquo;s system prompt also says <em>&ldquo;Answer the question based upon your knowledge&rdquo;</em>, which invites the model to answer from memory rather than from the retrieved chunk. To test captioning, ask about something only a figure shows.</p>
-<p>On the Larkspur pages the <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive lab</a> embeds the captions with <code>all-MiniLM-L6-v2</code>, the same model as the text chunks. The captions are representative, written the way a vision model following the notebook&rsquo;s prompt would write them. Captions rank 2, 1 and 1 for the three questions. The first misses at <code>k = 1</code> because the paragraph <em>&ldquo;Figure 1 shows monthly availability for April, May and June against the 99.95% target&rdquo;</em> repeats the question&rsquo;s words and scores 0.747, against 0.693 for the caption. Captions compete with text chunks on one scale, so the ranking is fair, and a <code>k</code> of 2 or 3 sends both.</p>
+<h2 id="a-test-that-never-reaches-a-caption">A test that never reaches a caption</h2>
+<p><code>02a</code>&rsquo;s test question does not exercise the captions. PyMuPDF finds three raster images in the paper: Figure 1 on page 3 and the two images that make up Figure 2 on page 4. Figures 3 to 5 are not stored as images, so the extractor returns nothing for them.</p>
+<p>The test question, <em>What is the BLEU score of the Transformer (base model)?</em>, is answered by Table 2 on page 8, which is text. The text extractor returns it with the rows flattened, one cell per line, and the training cost 3.3 × 10^18 comes out as &ldquo;1018&rdquo;. The system prompt also says &ldquo;Answer the question based upon your knowledge&rdquo;, which invites the model to answer from memory rather than from the retrieved chunk.</p>
+<p>We call this the <strong>text-only test</strong>: a multimodal pipeline judged on a question that text retrieval already answers. To test captioning, ask about something only a figure shows.</p>
+<h2 id="captions-on-the-larkspur-pages">Captions on the Larkspur pages</h2>
+<p>The module&rsquo;s <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive chart retrieval lab</a> embeds captions with <code>all-MiniLM-L6-v2</code>, the same model as the text chunks. The captions are representative, written the way a vision model following <code>02a</code>&rsquo;s prompt would write them:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Caption&rsquo;s rank</th>
+<th>What outranks it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Which month missed the 99.95% availability target?</em></td>
+<td>2</td>
+<td>The paragraph &ldquo;Figure 1 shows monthly availability for April, May and June against the 99.95% target&rdquo;, 0.747 against 0.693</td>
+</tr>
+<tr>
+<td><em>How many business days did a refund take in May?</em></td>
+<td>1</td>
+<td></td>
+</tr>
+<tr>
+<td><em>How much memory does the Medium server have?</em></td>
+<td>1</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Detailed captions among text chunks (the module&rsquo;s lab; captions illustrative, scores real).</em></p>
+<p>The first misses at <code>k = 1</code> because the paragraph repeats the question&rsquo;s words. Captions compete with text chunks on one scale, so the ranking is fair, and a <code>k</code> of 2 or 3 sends both.</p>
 <h2 id="what-a-caption-must-hold">What a caption must hold</h2>
-<p>The notebook&rsquo;s prompt asks for a summary &ldquo;well optimized for retrieval&rdquo;. Retrieval needs less than the answer does. With a short caption that names the chart and leaves out the values, such as <em>&ldquo;Bar chart of monthly availability in Q2 against a target line.&rdquo;</em>, the lab&rsquo;s embedder still ranks it 2, 3 and 2 for the three questions. It is found, and it cannot answer: nothing in it says May or 99.91%.</p>
+<p><code>02a</code>&rsquo;s prompt asks for a summary &ldquo;well optimized for retrieval&rdquo;. Retrieval needs less than the answer does. A short caption that names the chart and leaves out the values, such as &ldquo;Bar chart of monthly availability in Q2 against a target line.&rdquo;, still ranks 2, 3 and 2 for the three lab questions. It is found, and it cannot answer: nothing in it says May or 99.91%. We call this the <strong>findable but empty</strong> caption.</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Caption</th>
+<th>Rank for the availability question</th>
+<th>Can it answer?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&ldquo;Bar chart of monthly availability in Q2 against a target line.&rdquo;</td>
+<td>2</td>
+<td>✗ No month, no value</td>
+</tr>
+<tr>
+<td>&ldquo;Bar chart, Figure 1: monthly availability in Q2. April 99.98%, May 99.91%, June 99.97%. A dashed line marks the 99.95% target, and May falls below it.&rdquo;</td>
+<td>2</td>
+<td>✓ May, 99.91%</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Two captions for Figure 1 (the module&rsquo;s lab; captions illustrative).</em></p>
 <p>Write the caption prompt for the questions the figure must answer:</p>
 <ul>
 <li><strong>Every printed value</strong>, with its label and unit: &ldquo;April 99.98%, May 99.91%, June 99.97%&rdquo;.</li>
 <li><strong>The title, axes and legend</strong>, and any reference line (&ldquo;a dashed line marks the 99.95% target&rdquo;).</li>
 <li><strong>The figure&rsquo;s place</strong>: document, page, figure number, so a citation can point at it.</li>
-<li><strong>An explicit escape</strong> for anything unreadable, as M05 does with <code>[NOT_EXTRACTED]</code>, so the captioner leaves a gap instead of guessing.</li>
+<li><strong>An explicit escape</strong> for anything unreadable, as M05 does with a not-extracted marker, so the captioner leaves a gap instead of guessing.</li>
 </ul>
-<p>A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval will find the wrong number with full confidence. The notebook already keeps the image file name in each caption&rsquo;s metadata (<code>name</code>), which is enough to retrieve on the caption and then send the original image to a vision model at answer time. The caption then only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11, lesson 11.4</a>) keeps rows and columns that a caption has to describe in prose.</p>
+<blockquote>
+<p><strong>Pitfall: a misread caption, trusted forever.</strong> A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval finds the wrong number with full confidence.</p>
+</blockquote>
+<p><code>02a</code> already keeps each image&rsquo;s file name in its caption&rsquo;s metadata. That is enough to retrieve on the caption and then send the original image to a vision model at answer time, so the caption only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11, lesson 11.4</a>) keeps rows and columns that a caption would have to describe in prose.</p>
+<h2 id="in-practice-captioning-larkspurrsquos-reports">In practice: captioning Larkspur&rsquo;s reports</h2>
+<ol>
+<li><strong>Caption with a values-first prompt</strong>: every value with label and unit, axes, reference lines, figure number, and an escape.</li>
+<li><strong>Index captions beside text</strong>, with the image file in metadata.</li>
+<li><strong>Retrieve on captions, answer from images</strong>: send the original figure to the vision model with the question.</li>
+<li><strong>Test with chart-only questions</strong>, such as the May availability, never with a question the text answers.</li>
+</ol>
+<p>Lesson 20.3 skips extraction altogether and retrieves the page as an image.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Captioning pays the vision cost once per image at index time. Captions then compete with text chunks on one scale, and hybrid search, reranking and filters all still apply.</li>
-<li>A caption that names the chart is found but cannot answer. Prompt for every printed value with its label and unit, the axes and reference lines, the figure&rsquo;s place, and an escape for unreadable parts.</li>
-<li>A caption is model output trusted on every query. Keep the image reference in metadata and send the original image to a vision model at answer time.</li>
+<li>A caption that names the chart is found but cannot answer (findable but empty). Prompt for every printed value with its label and unit, the axes and reference lines, the figure&rsquo;s place, and an escape for unreadable parts.</li>
+<li>A caption is model output trusted on every query. Keep the image reference in metadata, send the original image at answer time, and test with questions only a figure can answer.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. What does captioning move to index time, and what does that buy at query time?</summary>
-<p>A vision model looks at each figure once and writes text about it, so the cost lands once per image and never per question. From then on the figure is a text chunk with the same embedder, vector store and retriever as the paragraphs around it. Every tool from M13 to M18 still applies: hybrid search, reranking, metadata filters.</p>
+<summary>1. Notebook 02a tests its captioning pipeline with a question about a BLEU score. Why does that test say little about captioning?</summary>
+<p>The answer is in Table 2 on page 8, which is text, not one of the three raster images the extractor captioned. Text retrieval already answers it, and the system prompt invites the model to answer from memory. A captioning test needs a question that only a figure can answer.</p>
 </details>
 <details>
-<summary>2. The caption Bar chart of monthly availability in Q2 against a target line ranks well for the availability question. Can it answer which month missed the target?</summary>
-<p>No. It is found but cannot answer, because nothing in it says May or 99.91%. Write the caption prompt for the questions the figure must answer: every printed value with its label and unit, the title, axes, legend and reference line, the figure&rsquo;s place, and an explicit escape for anything unreadable.</p>
+<summary>2. The caption "Bar chart of monthly availability in Q2 against a target line." ranks 2nd for the availability question. Is that good enough?</summary>
+<p>It is found and cannot answer: it names neither May nor 99.91%, so the model reading it learns only that a chart exists. Prompt for every printed value with its label and unit and the reference line, or retrieve on the caption and send the original image to a vision model at answer time.</p>
 </details>
 <details>
-<summary>3. The vision model reads 8 GB as 16 GB in a caption. How do you keep that wrong value out of answers?</summary>
-<p>Retrieve on the caption, then send the original image to a vision model at answer time; the notebook already keeps the image file name in each caption&rsquo;s metadata (<code>name</code>). The caption then only has to be good enough to find the figure. Where the PDF has a real text layer, an element-level parser that returns tables as HTML (M11, lesson 11.4) avoids describing them in prose at all.</p>
+<summary>3. A vision model captioned a server table and wrote 16 GB where the image says 8 GB. What does the system do from then on, and how do you limit the damage?</summary>
+<p>It retrieves and repeats the wrong number on every query, with full confidence, because the caption is trusted text. Keep the image file in the caption&rsquo;s metadata and send the original image to a vision model at answer time, so the caption only has to find the figure. Spot-check captions against their images.</p>
 </details>
 <h2 id="late-interaction">Late interaction</h2>
 <p class="lesson-of">Lesson 20.3: Page-image retrieval with ColPali. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/optional/notebook/03a_multimodal_rag_with_colpali.ipynb" target="_blank" rel="noopener"><code>03a_multimodal_rag_with_colpali.ipynb</code></a> (optional)</p>
-<p>A single-vector retriever squeezes a chunk into one vector and a question into another, and compares them once. A cross-encoder (M18) reads question and chunk together, which is accurate and too slow to run over a whole index. Late interaction sits between them. It encodes the document and the question separately, as with single vectors, so documents can be encoded ahead of time. It keeps one vector per token instead of one per text, and compares them only at the end:</p>
-<pre class="sheet code"><code>MaxSim(q, d) = sum over query vectors i of ( max over document vectors j of  q_i · d_j )
-</code></pre>
-<p>Each query token finds the document vector it matches best, and the page score is the sum of those best matches. ColBERT introduced this for text passages (Khattab and Zaharia, SIGIR 2020). ColPali applies it to page images (Faysse et al., <em>ColPali: Efficient Document Retrieval with Vision Language Models</em>, 2024): a vision language model reads the rendered page, and every image patch gets its own vector.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> late interaction: one vector per token and per patch, compared only at query time.</li>
+<li><strong>Trace</strong> a Larkspur question through MaxSim, token by token, to a page score.</li>
+<li><strong>Explain</strong> what page-level retrieval sends to the answer model, and what it skips.</li>
+<li><strong>Weigh</strong> the storage, generation and citation costs of retrieving pages.</li>
+</ul>
+</blockquote>
+<p>Lesson 20.1 ranked figures on a different scale from text; lesson 20.2 turned figures into text and trusted a vision model&rsquo;s reading forever. Both start by taking the page apart. ColPali keeps the page whole.</p>
+<p>Retrieval so far has used two kinds of model. A single-vector retriever squeezes a chunk into one vector and a question into another, and compares them once. A cross-encoder (M18) reads question and chunk together, which is accurate and too slow to run over a whole index.</p>
+<p><strong>Late interaction</strong> sits between them. It encodes the document and the question separately, as with single vectors, so documents can be encoded ahead of time. It keeps one vector per token instead of one per text, and compares them only at the end. The comparison is called <strong>MaxSim</strong>:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Each query vector is compared with every document vector by dot product</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Each query vector keeps only its best match: the maximum over the document&rsquo;s vectors</td>
+</tr>
+<tr>
+<td>3</td>
+<td>The page score is the sum of those maxima, one per query vector</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: MaxSim, step by step.</em></p>
+<p>ColBERT introduced this for text passages (Khattab and Zaharia, SIGIR 2020). ColPali applies it to page images (Faysse et al., <em>ColPali: Efficient Document Retrieval with Vision Language Models</em>, 2024): a vision language model reads the rendered page, and every image patch gets its own vector:</p>
 <figure class="anim sheet" aria-labelledby="anim-maxsim-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Late interaction scoring, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 360" role="img" aria-labelledby="anim-maxsim-title anim-maxsim-desc">
@@ -573,8 +795,9 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button">Rank</button><span>Page 1 leads page 2 by 6.21. Its image, chart included, goes to the model.</span></li>
   </ol>
 </figure>
-<p>The figures in the diagram are real. The notebook&rsquo;s <code>vidore/colpali-v1.2</code> needs a GPU stack, so the lab pages were scored with <code>vidore/colSmol-256M</code>, a small model of the same family, through <code>colpali_engine</code>. Each 850 by 1100 page image became 1,139 vectors of 128 dimensions, and each question 24 vectors: its own tokens plus 10 <code>&lt;end_of_utterance&gt;</code> tokens the processor appends, which count in the sum like any other. <code>score_multi_vector</code> computes the formula above; a hand-written version matched it to within 2e-6.</p>
-<p>For <em>Which month missed the 99.95% availability target?</em>, a few of the 24 per-token maxima:</p>
+<p><em>Figure 1: MaxSim on one page. The figures are from a real run.</em></p>
+<p>Notebook <code>03a</code>&rsquo;s model needs a GPU stack, so the Larkspur lab pages were scored with <code>vidore/colSmol-256M</code>, a small model of the same family, through the ColPali engine library. Each 850 by 1100 page image became 1,139 vectors of 128 dimensions, and each question 24 vectors: its own tokens plus 10 end-of-utterance tokens the processor appends, which count in the sum like any other. The library&rsquo;s multi-vector scoring computes Table 1&rsquo;s steps; a hand-written version matched it to within 2e-6.</p>
+<p>Here are a few of the 24 per-token maxima for <em>Which month missed the 99.95% availability target?</em>:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -629,48 +852,132 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><code>month</code> scores 0.65 and 0.61 on pages 1 and 2, so it barely separates them. <code>availability</code> and <code>target</code> do: each finds a strong match on page 1 and nothing better than 0.28 elsewhere. One vector per page would have pooled those signals before the question was known; late interaction keeps them apart until it arrives.</p>
+<p><em>Table 2: Per-token maxima and page scores (<code>vidore/colSmol-256M</code>, the module&rsquo;s lab pages).</em></p>
+<p><code>month</code> scores 0.65 and 0.61 on pages 1 and 2, so it barely separates them. <code>availability</code> and <code>target</code> do: each finds a strong match on page 1 and nothing better than 0.28 elsewhere. One vector per page would have pooled those signals before the question was known. We call that loss <strong>early pooling</strong>; late interaction keeps the signals apart until the question arrives.</p>
 <h2 id="page-level-retrieval">Page-level retrieval</h2>
-<p>The unit of retrieval is the page, and the answer model receives the page as an image. Nothing is extracted, split or captioned, so a chart, a table&rsquo;s grid and a scanned form arrive as they were printed. The notebook does it in four calls with byaldi:</p>
-<pre class="sheet code"><code class="language-python">RAG = RAGMultiModalModel.from_pretrained(&quot;vidore/colpali-v1.2&quot;, verbose=1)
-RAG.index(input_path=&quot;../../../../../data/sample/1706.03762v7.pdf&quot;, index_name=&quot;attention_is_all_you_need&quot;,
-          store_collection_with_index=True, overwrite=True)
-results = RAG.search(query, k=1)
-image_bytes = base64.b64decode(results[0].base64)
-</code></pre>
-<p><code>store_collection_with_index=True</code> keeps a base64 copy of every page in the index, so <code>search</code> can return the image with the hit; each <code>Result</code> carries <code>doc_id</code>, <code>page_num</code>, <code>score</code>, <code>metadata</code> and <code>base64</code>. The notebook decodes the top page, saves it as <code>image.jpg</code> and passes it with the question to <code>gemini-1.5-flash</code>.</p>
-<p>The source of byaldi 0.0.7 explains why the course marks this lesson platform-specific:</p>
+<p>In <strong>page-level retrieval</strong> the unit of retrieval is the page, and the answer model receives the page as an image. Nothing is extracted, split or captioned, so a chart, a table&rsquo;s grid and a scanned form arrive as they were printed.</p>
+<p><code>03a</code> does it in four calls with the byaldi library:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Call</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Load</td>
+<td>Loads <code>vidore/colpali-v1.2</code></td>
+</tr>
+<tr>
+<td>Index</td>
+<td>Renders every page of the Attention paper and embeds its patches, keeping a base64 copy of each page in the index</td>
+</tr>
+<tr>
+<td>Search</td>
+<td>Returns the top page with its document id, page number, score, metadata and the stored page image</td>
+</tr>
+<tr>
+<td>Answer</td>
+<td>Decodes the page image and sends it with the question to a vision-capable Gemini model</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The <code>03a</code> pipeline in four calls.</em></p>
+<p>Keeping the page images in the index is what lets search return the image with the hit, instead of a pointer to re-render.</p>
+<p>The library&rsquo;s source (byaldi 0.0.7) explains why the course marks this lesson platform-specific:</p>
 <ul>
-<li><strong><code>from_pretrained</code> defaults to <code>device="cuda"</code>.</strong> On a machine without CUDA, pass <code>device="mps"</code> or <code>device="cpu"</code>. byaldi loads ColPali weights in bfloat16.</li>
-<li><strong>PDFs go through <code>pdf2image.convert_from_path</code></strong>, which needs the poppler tools installed on the machine.</li>
-<li><strong>The Hugging Face token is read from the <code>hf_token</code> argument or the <code>HF_TOKEN</code> environment variable.</strong> The notebook sets <code>os.environ["HF_token"]</code>, which byaldi never reads.</li>
+<li><strong>It defaults to a CUDA GPU.</strong> On a machine without CUDA, pass the Apple-silicon or CPU device instead. Weights load in bfloat16.</li>
+<li><strong>PDFs go through a converter that needs the poppler tools</strong> installed on the machine.</li>
+<li><strong>The Hugging Face token is read from a token argument or the <code>HF_TOKEN</code> environment variable.</strong> <code>03a</code> sets a variable spelled <code>HF_token</code>, which the library never reads. We call this the <strong>misspelt token</strong>: it fails only when the model needs authentication.</li>
 </ul>
-<p>In the <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive lab</a>, choose Page images. ColSmol ranks the right page first for all three questions, by clear margins: 15.95 against 9.74, 15.93 against 10.66, and 12.97 against 6.41. At <code>k = 1</code> the model receives the page with the chart on it, so every answer is in what it reads. Some of page 1&rsquo;s lead comes from its paragraph, which says &ldquo;availability&rdquo; and &ldquo;target&rdquo;; that is fine, because the page brings its chart along.</p>
+<p>In the <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive chart retrieval lab</a>, choose Page images. ColSmol ranks the right page first for all three questions, by clear margins:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Right page</th>
+<th>Runner-up</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Which month missed the 99.95% availability target?</em></td>
+<td>15.95</td>
+<td>9.74</td>
+</tr>
+<tr>
+<td><em>How many business days did a refund take in May?</em></td>
+<td>15.93</td>
+<td>10.66</td>
+</tr>
+<tr>
+<td><em>How much memory does the Medium server have?</em></td>
+<td>12.97</td>
+<td>6.41</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Page scores for the three golden questions (<code>vidore/colSmol-256M</code>).</em></p>
+<p>At <code>k = 1</code> the model receives the page with the chart on it, so every answer is in what it reads. Some of page 1&rsquo;s lead comes from its paragraph, which says &ldquo;availability&rdquo; and &ldquo;target&rdquo;; that is fine, because the page brings its chart along.</p>
+<h2 id="what-pages-cost">What pages cost</h2>
 <p>Pages cost more than chunks in three places:</p>
-<ul>
-<li><strong>Storage.</strong> 1,139 vectors of 128 dimensions is 145,792 numbers per page, about 583 KB in float32. An <code>all-MiniLM-L6-v2</code> chunk vector is 384 numbers. Lower precision, pooled patch vectors, or a cheap first stage with MaxSim only on its shortlist keep a large collection affordable.</li>
-<li><strong>Generation.</strong> Each hit sends a whole page image to a vision model, so <code>k</code> stays small.</li>
-<li><strong>Granularity.</strong> A page with five topics is retrieved whole, and a citation can point only to the page.</li>
-</ul>
-<p>Use page images where layout carries the meaning or there is no text layer: scans, slides, forms, dense tables. Text-heavy documents with a few charts are cheaper to serve with captions (<a href="#">lesson 20.2</a>).</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Cost</th>
+<th>Page images</th>
+<th>Text chunks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Storage</strong></td>
+<td>1,139 × 128 = 145,792 numbers per page, about 583 KB in float32</td>
+<td>384 numbers per <code>all-MiniLM-L6-v2</code> chunk vector, about 1.5 KB</td>
+</tr>
+<tr>
+<td><strong>Generation</strong></td>
+<td>A whole page image to a vision model per hit, so <code>k</code> stays small</td>
+<td>A few hundred tokens per hit</td>
+</tr>
+<tr>
+<td><strong>Granularity</strong></td>
+<td>A page with five topics is retrieved whole; a citation can point only to the page</td>
+<td>A citation can point to a chunk or a quote</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Page retrieval against chunk retrieval.</em></p>
+<p>Lower precision, pooled patch vectors, or a cheap first stage with MaxSim only on its shortlist keep a large collection affordable.</p>
+<blockquote>
+<p><strong>Interview tip:</strong> choose by where the meaning lives. Page images suit scans, slides, forms and dense tables, where layout carries meaning or there is no text layer. Text-heavy documents with a few charts are cheaper to serve with captions (lesson 20.2).</p>
+</blockquote>
+<h2 id="in-practice-page-retrieval-for-larkspur">In practice: page retrieval for Larkspur</h2>
+<ol>
+<li><strong>Use pages for status reports and scanned invoices</strong>, where charts and grids carry the answer.</li>
+<li><strong>Keep the handbook in text chunks</strong>, with captions for its few figures.</li>
+<li><strong>Shortlist first</strong>: a cheap single-vector search picks 20 pages, MaxSim reranks them.</li>
+<li><strong>Fix the token variable</strong> and pin the device before deploying <code>03a</code>&rsquo;s code.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Late interaction keeps one vector per query token and per page patch, and scores a page as the sum of each token&rsquo;s best match. Pages are still encoded ahead of time.</li>
-<li>ColPali retrieves whole page images and sends them to a vision model, so charts, table grids and scans arrive as printed, with nothing extracted or captioned.</li>
+<li>Late interaction keeps one vector per query token and per page patch, and scores a page as the sum of each token&rsquo;s best match (MaxSim). Pages are still encoded ahead of time, and no signal is pooled early.</li>
+<li>Page-level retrieval sends whole page images to a vision model, so charts, table grids and scans arrive as printed, with nothing extracted or captioned. On the Larkspur pages it ranks the right page first for all three questions.</li>
 <li>Pages cost more in storage (about 583 KB per page in float32), in generation and in citation granularity. Use them for scans, slides, forms and dense tables; caption text-heavy documents instead.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. How does MaxSim score a page, and what does it keep that one vector per page would lose?</summary>
-<p>Each query token finds the page vector it matches best, and the page score is the sum of those best matches. One vector per page would pool every signal before the question is known; late interaction keeps one vector per token or patch and compares them only at the end. Pages are still encoded ahead of time, unlike a cross-encoder.</p>
+<summary>1. For the availability question, the token month scores 0.65 on page 1 and 0.61 on page 2. Which tokens actually separate the pages, and why does that matter?</summary>
+<p><code>availability</code> and <code>target</code>: each matches page 1 strongly (0.75 and 0.65) and nothing better than 0.28 elsewhere. Late interaction keeps each token&rsquo;s best match separate until the question is known; a single page vector would have pooled those signals in advance.</p>
 </details>
 <details>
-<summary>2. For the availability question, the token month scores 0.65 on page 1 and 0.61 on page 2. Which tokens separate the pages, and what are the final scores?</summary>
-<p><code>availability</code> and <code>target</code>: each scores 0.75 or 0.65 on page 1 and nothing better than 0.28 elsewhere. The MaxSim scores are 15.95 for page 1, 9.74 for page 2 and 6.82 for page 3. The 10 appended <code>&lt;end_of_utterance&gt;</code> tokens count in the sum like any other.</p>
+<summary>2. ColPali stores 1,139 vectors of 128 dimensions per page. How does that compare with a text chunk, and how do you keep a large collection affordable?</summary>
+<p>145,792 numbers per page, about 583 KB in float32, against 384 numbers for an <code>all-MiniLM-L6-v2</code> chunk vector. Use lower precision, pool patch vectors, or run a cheap first stage and apply MaxSim only to its shortlist.</p>
 </details>
 <details>
-<summary>3. Your corpus is text-heavy reports with a few charts. Should you index page images with ColPali?</summary>
-<p>Probably not; captions are cheaper there. Pages cost more in storage (1,139 vectors of 128 dimensions, about 583 KB per page in float32), in generation (each hit sends a whole page image, so <code>k</code> stays small) and in granularity (a citation can point only to the page). Use page images where layout carries the meaning or there is no text layer: scans, slides, forms, dense tables.</p>
+<summary>3. Larkspur has a text-heavy handbook with a few charts, and a folder of scanned invoices. Where would you use page-image retrieval?</summary>
+<p>For the scanned invoices, which have no text layer and whose layout carries meaning. The handbook is cheaper and more precise as text chunks, with captions for its few figures, since page retrieval costs more storage, sends whole images to the model and can cite only a page.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html"><strong>Four ways to index a chart</strong></a>: open the file in a browser. Start on CLIP joint space and slide <code>k</code> from 1 to 9: the figure stays below every text chunk until <code>k = 7</code>. Switch to Captions at <code>k = 1</code> and watch the first question miss, because the figure note outscores the caption, then pass at <code>k = 2</code>. Then try Page images, where <code>k = 1</code> answers all three.</p>
@@ -728,7 +1035,7 @@ image_bytes = base64.b64decode(results[0].base64)
 <li>A caption answers only what it wrote down. Store the image id with it and send the image when the question needs exact values.</li>
 <li>Page images with late interaction keep everything on the page and need no OCR, and they cost many vectors per page and a vision call per answer.</li>
 </ul></article>
-    <nav class="toc" aria-label="M20 sections"><details open><summary>In M20</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#joint-embedding-space">Joint embedding space</a></li><li><a href="#one-ranking-two-modalities">One ranking, two modalities</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#captioning">Captioning</a></li><li><a href="#what-a-caption-must-hold">What a caption must hold</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#late-interaction">Late interaction</a></li><li><a href="#page-level-retrieval">Page-level retrieval</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M20 sections"><details open><summary>In M20</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#joint-embedding-space">Joint embedding space</a></li><li><a href="#two-input-limits">Two input limits</a></li><li><a href="#one-ranking-two-modalities">One ranking, two modalities</a></li><li><a href="#choosing-around-the-gap">Choosing around the gap</a></li><li><a href="#in-practice-larkspurrsquos-status-reports">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#captioning">Captioning</a></li><li><a href="#a-test-that-never-reaches-a-caption">A test that never reaches a caption</a></li><li><a href="#captions-on-the-larkspur-pages">Captions on the Larkspur pages</a></li><li><a href="#what-a-caption-must-hold">What a caption must hold</a></li><li><a href="#in-practice-captioning-larkspurrsquos-reports">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#late-interaction">Late interaction</a></li><li><a href="#page-level-retrieval">Page-level retrieval</a></li><li><a href="#what-pages-cost">What pages cost</a></li><li><a href="#in-practice-page-retrieval-for-larkspur">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

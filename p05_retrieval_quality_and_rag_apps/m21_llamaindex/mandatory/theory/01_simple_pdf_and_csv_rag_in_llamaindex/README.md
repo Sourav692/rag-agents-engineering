@@ -1,54 +1,75 @@
 # M21.1 Theory: Simple PDF and CSV RAG in LlamaIndex
 
 *[M21 theory](../README.md) · Lesson 21.1 · Notebooks: [`01a_simple_rag_with_llamaindex.ipynb`](../../notebook/01a_simple_rag_with_llamaindex.ipynb), [`01b_simple_csv_rag_with_llamaindex.ipynb`](../../../optional/notebook/01b_simple_csv_rag_with_llamaindex.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Same ideas, new names, and two defaults that change the chunks you get from the same numbers -->
 
 ## Nodes
 
-LlamaIndex has two text objects where LangChain has one. A **Document** is what a reader loads: `SimpleDirectoryReader` turns the notebook's climate-change PDF into 33 Documents, one per page, and `PagedCSVReader` turns the 100-row customer CSV into 100 Documents, one per row. A **Node** is what the index stores: a piece of a Document with its own id, text, metadata, an optional embedding, and relationships. Every node that `SentenceSplitter` produces from the PDF carries three: `SOURCE` (its Document), `PREVIOUS` and `NEXT` (its neighbours). The neighbour links let a query engine fetch the text around a hit later; `PrevNextNodePostprocessor` follows them from the docstore.
+> **What you'll learn**
+>
+> - **Map** LangChain's RAG pieces onto LlamaIndex's Documents, Nodes, retrievers and query engines.
+> - **Explain** why the same chunk size gives different chunks in the two frameworks.
+> - **Diagnose** an ingestion pipeline that crashes on its cleaner and leaves its vector store empty.
+> - **Trace** a question through a query engine's three stages, and read what it returns.
+
+M10 to M20 built every technique in LangChain. The ideas are framework-independent, and rebuilding them in LlamaIndex is the test: if a port behaves differently, either the framework does something different or the idea was only half understood.
+
+LlamaIndex has two text objects where LangChain has one. A **Document** is what a reader loads: the directory reader turns `01a`'s climate-change PDF into 33 Documents, one per page, and a paged CSV reader turns `01b`'s 100-row customer file into 100 Documents, one per row. A **Node** is what the index stores: a piece of a Document with its own id, text, metadata, an optional embedding, and relationships. Every node the sentence splitter produces carries three relationships: its source Document, the previous node and the next node. The neighbour links let a query engine fetch the text around a hit later (lesson 21.4).
 
 The concepts map onto the LangChain pieces from M10 to M18:
 
 | LangChain | LlamaIndex | What changes |
 |---|---|---|
-| `Document` from a loader | `Document` from a reader | Loaded unit; PDF readers give one per page in both |
-| `Document` chunk from a text splitter | `TextNode` from a node parser | Node has an id and neighbour links |
-| `RecursiveCharacterTextSplitter` | `SentenceSplitter` | Size in tokens, not characters |
-| Embed, then `add_documents` | `IngestionPipeline`, then `VectorStoreIndex` | Transformations run as a list |
-| `vectorstore.as_retriever(k=…)` | `index.as_retriever(similarity_top_k=…)` | Default `k` is 2 |
-| `EnsembleRetriever` | `QueryFusionRetriever` | Four fusion modes (21.2) |
+| Document from a loader | Document from a reader | Loaded unit; PDF readers give one per page in both |
+| Document chunk from a text splitter | Text node from a node parser | A node has an id and neighbour links |
+| Recursive character splitter | Sentence splitter | Size in tokens, not characters |
+| Embed, then add to the store | Ingestion pipeline, then vector store index | Transformations run as a list |
+| Store as retriever, `k` | Index as retriever, `similarity_top_k` | Default `k` is 2 |
+| Ensemble retriever | Query fusion retriever | Four fusion modes (21.2) |
 | Compressor or reranker wrapper | Node postprocessor | A list on the query engine (21.3) |
-| A retrieval chain | `QueryEngine` | Retrieve, postprocess, synthesise |
+| A retrieval chain | Query engine | Retrieve, postprocess, synthesise |
 
-Two differences change the chunks you get from the same numbers.
+*Table 1: LangChain to LlamaIndex.*
 
-**`chunk_size` counts tokens.** `01a` sets `CHUNK_SIZE = 200` and `CHUNK_OVERLAP = 50` and says so in a comment: LangChain's splitter measures characters by default, `SentenceSplitter` measures tokens. 200 tokens is several times longer than 200 characters, so a "200" ported from a LangChain notebook is not the same split.
+## Same numbers, different chunks
 
-**Metadata counts against the chunk and goes into the embedding.** `SentenceSplitter` builds the metadata string a node will carry, measures it in tokens and subtracts it from `chunk_size` before splitting. The PDF reader attaches `page_label`, `file_name`, `file_path`, `file_type`, `file_size` and two dates, and excludes all of them from the embedding and LLM text except `page_label` and `file_path`. On the checkout used for this page those two come to 38 tokens, so a 200-token chunk holds at most 162 tokens of text; the largest of the 123 nodes holds 158. The absolute file path is part of every vector. Set `excluded_embed_metadata_keys` and `excluded_llm_metadata_keys` on the Documents before splitting when a field should be stored but not embedded.
+Two differences change the chunks you get from the same settings.
 
-Splitting never crosses a Document boundary. `02a` uses `SentenceSplitter()` with its defaults of 1,024 tokens and 200 overlap, and every PDF page fits in one chunk, so the 33 pages become exactly 33 nodes. The page, not the chunk size, decides what a chunk is.
+**Chunk size counts tokens.** `01a` sets a chunk size of 200 with 50 of overlap and says so in a comment: LangChain's splitter measures characters by default, LlamaIndex's measures tokens. 200 tokens is several times longer than 200 characters, so a "200" ported from a LangChain notebook is not the same split. We call this the **unit swap**.
 
-On the Larkspur handbook the two sections load as two Documents. Lesson 21.4 splits them into one node per sentence: 13 for the refunds section and 4 for exports.
+**Metadata counts against the chunk and goes into the embedding.** The sentence splitter builds the metadata string a node will carry, measures it in tokens and subtracts it from the chunk size before splitting. The PDF reader attaches seven fields (page label, file name, path, type, size and two dates) and excludes all but the page label and file path from the embedding and LLM text:
 
-### What the `01a` ingestion actually builds
+| Setting | Value on `01a`'s PDF |
+|---|---|
+| Chunk size | 200 tokens |
+| Metadata kept in the embedded text (page label, file path) | 38 tokens |
+| Room left for text | 162 tokens |
+| Largest of the 123 nodes | 158 tokens of text |
 
-`01a` creates a FAISS index, passes it to `IngestionPipeline(..., vector_store=vector_store)`, then builds `VectorStoreIndex(nodes)`. With `llama-index-core` 0.14.25 two things go wrong:
+*Table 2: Metadata eats the chunk (measured on the checkout used for this page).*
 
-- **The cleaner runs on Documents and crashes.** `TextCleaner` comes before the splitter, so it receives Documents, and `Document.text` is a read-only property: `AttributeError: property 'text' of 'Document' object has no setter`. `02a` puts the cleaner after `SentenceSplitter`, where the nodes' text can be set; `01a` needs the same order. With that change the 33 pages become 123 nodes.
-- **FAISS stays empty.** The pipeline has no embedding transformation, and `IngestionPipeline` only adds nodes that already have an embedding to its vector store. After the run the FAISS index holds 0 vectors. `VectorStoreIndex(nodes)` then embeds the nodes again into the default in-memory store, and that is the index the notebook queries. The same pattern repeats in every M21 notebook.
+The absolute file path is part of every vector. Exclude fields from the embedding and LLM text on the Documents, before splitting, when they should be stored but not embedded.
 
-To keep the vectors in FAISS, embed in the pipeline and give the store to the index:
+Splitting never crosses a Document boundary. Notebook `02a` uses the splitter's defaults, 1,024 tokens with 200 overlap, and every PDF page fits in one chunk, so the 33 pages become exactly 33 nodes. The page, not the chunk size, decides what a chunk is. On the Larkspur handbook the two sections load as two Documents; lesson 21.4 splits them into one node per sentence, 13 for refunds and 4 for exports.
 
-```python
-pipeline = IngestionPipeline(transformations=[SentenceSplitter(chunk_size=200, chunk_overlap=50), TextCleaner(), Settings.embed_model])
-nodes = pipeline.run(documents=documents)            # nodes now carry embeddings
-index = VectorStoreIndex(nodes, storage_context=StorageContext.from_defaults(vector_store=vector_store))
-```
+## What `01a`'s ingestion actually builds
 
-Run on the notebook's PDF with a local embedding model in place of OpenAI's: the pipeline makes 123 embedding calls, one per node, the index makes none, and FAISS ends with 123 vectors. `VectorStoreIndex.from_vector_store(vector_store)` does not work here, because the FAISS store keeps vectors but not text; it raises `Cannot initialize from a vector store that does not store text.`
+`01a` creates a FAISS index, passes it to an ingestion pipeline, then builds a vector store index from the nodes. With the installed `llama-index-core` 0.14.25 two things go wrong:
+
+| Problem | Cause | Effect | Fix |
+|---|---|---|---|
+| **Cleaner crash** | The text cleaner comes before the splitter, so it receives Documents, whose text is read-only | An attribute error: Document's text has no setter | Put the cleaner after the splitter, as `02a` does; the 33 pages then become 123 nodes |
+| **Empty store** | The pipeline has no embedding step, and it only adds nodes that already have an embedding to its store | FAISS holds 0 vectors; the index embeds the nodes again into the default in-memory store, which is what the notebook queries | Add the embedding model as the pipeline's last step, and build the index with FAISS as its storage |
+
+*Table 3: Two ingestion bugs in `01a`, repeated in every M21 notebook.*
+
+Run on the notebook's PDF with a local embedding model in place of OpenAI's, the fixed pipeline makes 123 embedding calls, one per node, the index makes none, and FAISS ends with 123 vectors. Rebuilding an index from the FAISS store alone fails with "Cannot initialize from a vector store that does not store text", because FAISS keeps vectors and no text.
+
+> **Pitfall: the empty store.** A pipeline given a vector store that it never fills raises nothing. Count the vectors in the store after ingestion, as lesson 19.1 counted vectors against chunks.
 
 ## QueryEngine
 
-`index.as_query_engine(similarity_top_k=2)` returns a `RetrieverQueryEngine`. Each `query(question)` call runs three stages and returns the `Response` to the caller:
+A **query engine** turns a question into an answer in three stages. `index.as_query_engine(similarity_top_k=2)` returns one, and each query runs:
 
 ```mermaid
 sequenceDiagram
@@ -64,55 +85,57 @@ sequenceDiagram
     S-->>QE: Response
 ```
 
-- **The retriever** embeds the question and returns the `similarity_top_k` nearest nodes as `NodeWithScore` objects. The default is 2.
-- **The postprocessors** are the `node_postprocessors` list, applied in order. `01a` passes none; lessons 21.3 and 21.4 add a reranker and a window replacement here.
-- **The synthesizer** puts the nodes' text into a prompt for `Settings.llm`. The default `response_mode` is `compact`: it packs the nodes' text into as few prompts as the context window allows, then refines the answer across them.
+*Figure 1: A query engine's three stages.*
 
-`response.response` is the answer; `response.source_nodes` is the list of nodes the answer was built from, with their scores. `01a`'s `evaluate_rag` reads both: the answer goes to the correctness and faithfulness metrics, the source node texts become the retrieval context for DeepEval's `ContextualRelevancyMetric`. Logging `source_nodes` on every production query gives the same view without an evaluation run.
+- **The retriever** embeds the question and returns the nearest nodes with their scores. The default is 2.
+- **The postprocessors** run in list order. `01a` passes none; lessons 21.3 and 21.4 add a reranker and a window replacement here.
+- **The synthesizer** puts the nodes' text into a prompt for the configured LLM. The default mode, compact, packs the nodes into as few prompts as the context window allows, then refines the answer across them.
 
-`query_engine.retrieve(QueryBundle(question))` runs the retriever and the postprocessors without the LLM, which is how the lab in 21.4 was checked. Building the engine still needs an LLM: `as_query_engine()` resolves `Settings.llm` when it is created, and with no model set and no OpenAI key it raises before any retrieval. Set `Settings.llm` (a `MockLLM` works for tests) or use `index.as_retriever()` when you only need nodes.
+The response holds the answer and the source nodes it was built from, with their scores. `01a`'s evaluation reads both: the answer goes to correctness and faithfulness metrics, the source texts become the retrieval context for DeepEval's contextual relevancy metric. Logging the source nodes on every production query gives the same view without an evaluation run.
 
-### The CSV variant
+The engine can also run the retriever and postprocessors without the LLM, which is how lesson 21.4's lab was checked. Building the engine still needs an LLM: it resolves the configured model when created, and with none set and no OpenAI key it raises before any retrieval. Set a mock LLM for tests, or take a plain retriever from the index when you only need nodes.
 
-`01b` reads each CSV row as one Document whose text is one `column: value` line per field:
+## The CSV variant
 
-```
-Index: 1
-Customer Id: DD37Cf93aecA6Dc
-First Name: Sheryl
-Last Name: Baxter
-Company: Rasmussen Group
-…
-```
+`01b` reads each CSV row as one Document whose text is one "column: value" line per field: index, customer id, first name, last name, company and so on. It skips splitting, embeds each row, and asks *which company does sheryl Baxter work for?* with two results. The answer is in row 1 (Rasmussen Group), and the row's own text names her, so one retrieved row is enough.
 
-It skips splitting, embeds each row, and asks *which company does sheryl Baxter work for?* with `similarity_top_k=2`. The answer is in row 1 (Rasmussen Group), and the row's own text names her, so one retrieved row is enough. A question about many rows ("how many customers are in Chile?") gets the same two rows, and no prompt can count the other 98. Row-per-Document RAG answers lookups; counts, sums and filters belong to a query over the table, which M19 covers.
+A question about many rows, such as *how many customers are in Chile?*, gets the same two rows, and no prompt can count the other 98. That is lesson 19.4's sample average again: row-per-Document RAG answers lookups, and counts, sums and filters belong to a query over the table.
+
+## In practice: porting Larkspur's pipeline
+
+1. **Convert the chunk size**: Larkspur's 300-character split is about 75 tokens at a rough four characters per token, not 300; measure it with the splitter's own tokeniser.
+2. **Exclude file paths** from embedded and LLM metadata before splitting.
+3. **Embed in the pipeline** and count vectors in the store afterwards.
+4. **Log source nodes** for every answer, as lesson 19.2 kept its context.
+
+Lesson 21.2 ports M16's hybrid retrieval, where LlamaIndex's defaults differ most.
 
 ## Key Takeaways
 
 - A Document is what a reader loads; a Node is what the index stores, with an id, metadata and neighbour links. Splitting never crosses a Document boundary.
-- `SentenceSplitter` counts tokens, not characters, and subtracts embedded metadata from `chunk_size`. Exclude fields such as file paths from the embedding when they should only be stored.
-- A query engine retrieves, postprocesses and synthesises; log `source_nodes` on every query. Put the embedding model in the ingestion pipeline, or the vector store you passed stays empty.
+- The sentence splitter counts tokens, not characters (the unit swap), and subtracts embedded metadata from the chunk size: 38 tokens of page label and path leave 162 of 200 for text.
+- A query engine retrieves, postprocesses and synthesises; log its source nodes. Put the embedding model in the ingestion pipeline, or the vector store you passed stays empty.
 
 ## Check yourself
 
 <details>
-<summary>1. You port a LangChain notebook's chunk size of 200 to SentenceSplitter unchanged. Why are the chunks different?</summary>
+<summary>1. A teammate ports a LangChain pipeline with chunk size 200 to LlamaIndex and keeps the number. What changes?</summary>
 
-`SentenceSplitter` counts tokens, not characters, so 200 tokens is several times longer than 200 characters. It also subtracts the node's metadata string from `chunk_size` before splitting: on the PDF, `page_label` and `file_path` come to 38 tokens, so a 200-token chunk holds at most 162 tokens of text.
-
-</details>
-
-<details>
-<summary>2. After the 01a ingestion pipeline runs with a FAISS store, how many vectors does FAISS hold, and which index does the notebook query?</summary>
-
-None. The pipeline has no embedding transformation, and `IngestionPipeline` only adds nodes that already have an embedding to its vector store. `VectorStoreIndex(nodes)` then embeds the nodes again into the default in-memory store, and that is the index queried. Put `Settings.embed_model` in the pipeline and pass the store through `StorageContext` to end with 123 vectors in FAISS.
+The unit. LangChain's splitter counts characters by default and LlamaIndex's counts tokens, so 200 tokens is several times longer than 200 characters. LlamaIndex also subtracts embedded metadata from the chunk: on `01a`'s PDF, 38 tokens of page label and file path leave at most 162 tokens of text.
 
 </details>
 
 <details>
-<summary>3. The CSV variant answers which company Sheryl Baxter works for, but gets the number of customers in Chile wrong. Why?</summary>
+<summary>2. After 01a's ingestion runs, the FAISS index holds 0 vectors, yet queries return answers. How?</summary>
 
-With `similarity_top_k=2` the engine retrieves two rows, and no prompt can count the other 98. A lookup works because one row names her. Counts, sums and filters belong to a query over the table, which M19 covers.
+The pipeline has no embedding step and only adds already-embedded nodes to its store, so FAISS stays empty without an error. The vector store index then embeds the nodes again into the default in-memory store, and that is what the notebook queries. Embed in the pipeline and build the index with FAISS as its storage.
+
+</details>
+
+<details>
+<summary>3. The CSV variant answers which company Sheryl Baxter works for. Why would it fail when asked how many customers are in Chile?</summary>
+
+The first is a lookup: one row names her and holds the answer, and two retrieved rows include it. The second needs every row, and retrieval returns two, so no prompt can count the other 98. Counts, sums and filters belong to a query over the table, as in lesson 19.4.
 
 </details>
 
