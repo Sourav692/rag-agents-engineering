@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 13 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 33
+**Modules:** Not started: 7 · Review draft: 0 · In progress: 6 · In PR: 0 · Live: 33
 
 ## Part I · AI Engineering Foundations
 
@@ -20,17 +20,17 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 4 | Prompt Engineering Patterns | 4 | 4 | 0 / 4 | Not started |  |  |  |
-| 5 | Multimodal Prompting | 3 | 3 | 0 / 3 | Not started |  |  |  |
+| 4 | Prompt Engineering Patterns | 4 | 4 | 4 / 4 | In progress | 2026-11-09 |  | All lessons rewritten; PR pending |
+| 5 | Multimodal Prompting | 3 | 3 | 3 / 3 | In progress | 2026-11-09 |  | All lessons rewritten; PR pending |
 
 ## Part III · LLM Application Frameworks: LangChain & LangGraph
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 6 | LangChain Core: Models, Prompts & Parsers | 7 | 6 | 0 / 6 | Not started |  |  |  |
-| 7 | LCEL, Runnables & Chains | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 8 | LangGraph Core: Graphs, State & Control Flow | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 9 | LangGraph Runtime: Persistence, HITL & Streaming | 6 | 6 | 0 / 6 | Not started |  |  |  |
+| 6 | LangChain Core: Models, Prompts & Parsers | 7 | 7 | 7 / 7 | In progress | 2026-11-09 |  | All lessons rewritten; PR pending |
+| 7 | LCEL, Runnables & Chains | 5 | 5 | 5 / 5 | In progress | 2026-11-09 |  | All lessons rewritten; PR pending |
+| 8 | LangGraph Core: Graphs, State & Control Flow | 5 | 5 | 5 / 5 | In progress | 2026-11-09 |  | All lessons rewritten; PR pending |
+| 9 | LangGraph Runtime: Persistence, HITL & Streaming | 6 | 6 | 6 / 6 | In progress | 2026-11-09 |  | All lessons rewritten; PR pending |
 
 ## Part IV · RAG Foundations: Ingestion & Indexing
 

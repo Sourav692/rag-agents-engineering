@@ -273,29 +273,64 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Whatever the provider, the request is a list of parts and the model reads every part as tokens. Decide how each file gets in by its size and by whether you will send it again, then count the tokens before you call: a 10-minute support call is 19,200 tokens before the question is read.</p>
 <h2 id="image-prompts">Image prompts</h2>
 <p class="lesson-of">Lesson 5.1: Multimodal prompting with Gemini. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m05_multimodal_prompting/mandatory/notebook/01a_multimodal_google_gemini.ipynb" target="_blank" rel="noopener"><code>01a_multimodal_google_gemini.ipynb</code></a></p>
-<p>The notebook loads <code>gemini-2.5-flash</code> through the <code>google-generativeai</code> SDK with <code>temperature=0</code>. Its Markdown cells still say Gemini 1.5 Flash; the code is what runs. An image prompt is a plain Python list: PIL images first, the question last.</p>
-<pre class="sheet code"><code class="language-python">image1 = Image.open('image1.png')
-image2 = Image.open('image2.png')
-
-prompt = &quot;&quot;&quot;
-  Given the following images which can contain graphs, tables and text,
-  analyze all of them to answer the following question:
-
-  Tell me about the top 5 years with largest Wildfires
-&quot;&quot;&quot;
-response = gemini.generate_content([image1, image2, prompt])
-</code></pre>
-<p>The SDK sends the pictures inline with the request; nothing is uploaded first. Three choices in that prompt carry over to any image question:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>It says what the images hold.</strong> &ldquo;Graphs, tables and text&rdquo; tells the model to read the chart and the table, not to describe the picture.</li>
-<li><strong>It asks for all of them.</strong> When the answer spans two pages, the prompt says so.</li>
-<li><strong>It asks one question per call.</strong> The notebook asks about the top five years and about the acreage trend in two calls over the same images. The GPT-4o notebook asks both in one call. Separate calls pay for the images twice but are easier to grade one at a time.</li>
+<li><strong>Build</strong> an image prompt as an ordered list of parts that says what the pictures hold.</li>
+<li><strong>Explain</strong> why PDFs, audio and video go in by uploaded handle instead of inline bytes.</li>
+<li><strong>Price</strong> a page, an image and a second of audio in tokens before you call the model.</li>
+<li><strong>Design</strong> prompts that fix the output shape and refuse anything the file does not contain.</li>
 </ul>
-<p>For Larkspur, the same shape answers <em>How much outbound traffic does the starter plan include?</em> from a screenshot of the pricing page: the screenshot, then the question, then &ldquo;If the value is not printed on the page, say so.&rdquo;</p>
-<p>An image can also be the question. The notebook&rsquo;s last example sends a video, a still image and the prompt &ldquo;When is the moment in the image happening in the video? Provide a timestamp.&rdquo; For a support team that is a customer&rsquo;s screenshot of an error, matched against a recorded walkthrough to find the step they are stuck on.</p>
-<p>Images cost tokens like text. The Gemini API documentation (checked October 2026) counts an image of 384 pixels or less on both sides as 258 tokens, and tiles larger images into 768 by 768 tiles of 258 tokens each.</p>
+</blockquote>
+<p><a href="../../../m04_prompt_engineering_patterns/mandatory/theory/index.html">M04</a> wrote prompt patterns for text alone: roles, few-shot examples, chain of thought. This lesson keeps those patterns and adds the part they never needed: the evidence arrives as a picture, a document or a recording.</p>
+<p>A Larkspur customer sends a screenshot of the pricing page and asks <em>How much outbound traffic does the starter plan include?</em> A text-only assistant cannot see the screenshot. A multimodal model can, and it can still answer badly: it can describe the page instead of reading it, or estimate a value from a bar that carries no printed number. The prompt has three jobs here. It must tell the model what kind of image it holds, ask the exact question, and give it a way to say the answer is not on the page.</p>
+<p>An <strong>image prompt</strong> is a list of parts: one or more images, then the question as text. The notebook sends two scanned pages on US wildfires to Gemini this way, with the pictures first and the question last:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    I1[/"Page image 1"/] --&gt; L["Contents list&lt;br/&gt;in this order"]
+    I2[/"Page image 2"/] --&gt; L
+    Q["Question text&lt;br/&gt;last"] --&gt; L
+    L --&gt; G["Gemini reads&lt;br/&gt;every part as tokens"]
+    G --&gt; A[/Text answer/]
+</pre></figure>
+<p><em>Figure 1: An image prompt is an ordered list. The pictures travel inline with the request; nothing is uploaded first.</em></p>
+<p>The notebook&rsquo;s code runs <code>gemini-2.5-flash</code> at temperature 0, although its Markdown cells still describe Gemini 1.5 Flash. The model name changes over time; the shape of the request stays.</p>
+<h3>Three choices that carry over</h3>
+<p>The wildfire prompt makes three choices worth copying for any image question:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Choice in the prompt</th>
+<th>What it does</th>
+<th>Larkspur pricing screenshot</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&ldquo;can contain graphs, tables and text&rdquo;</td>
+<td>tells the model to read the chart and the table, not describe the picture</td>
+<td>&ldquo;This is a pricing page with a plan table and a traffic chart.&rdquo;</td>
+</tr>
+<tr>
+<td>&ldquo;analyze all of them&rdquo;</td>
+<td>spreads the answer across both pages</td>
+<td>one screenshot, one image</td>
+</tr>
+<tr>
+<td>one question per call</td>
+<td>two calls over the same images: top five years, then the acreage trend</td>
+<td>one call per question, each graded on its own</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The wildfire prompt&rsquo;s choices, applied to the Larkspur question.</em></p>
+<p>The third choice is a trade-off. Lesson 5.2 sends both wildfire questions in one GPT-4o call. Separate calls pay for the images twice, but each answer can be graded by itself.</p>
+<p>The Larkspur prompt adds one line the wildfire prompt lacks: &ldquo;If the value is not printed on the page, say so.&rdquo; Without it the model meets a bar with no label and estimates its height. Call that failure <strong>guessing from the picture</strong>: an answer that looks like a reading of the page but is a measurement of pixels.</p>
+<h3>An image as the question</h3>
+<p>An image can also be the thing you ask about. The notebook&rsquo;s last example sends a video, a still image and the prompt &ldquo;When is the moment in the image happening in the video? Provide a timestamp.&rdquo; For a support team that is a customer&rsquo;s screenshot of an error, matched against a recorded walkthrough to find the step where they are stuck.</p>
+<h3>What an image costs</h3>
+<p>Images cost tokens like text. Gemini&rsquo;s token documentation counts an image of 384 pixels or less on both sides as 258 tokens, and tiles larger images into 768 by 768 tiles of 258 tokens each [1]. A large screenshot therefore costs a multiple of a small one. Documents and recordings are priced the same way, by page and by second, and they travel differently.</p>
 <h2 id="pdf-and-audio-input">PDF and audio input</h2>
-<p>PDFs, audio and video go through the File API. <code>genai.upload_file(path=...)</code> uploads the file and returns a handle, and the handle takes the image&rsquo;s place in the list: <code>contents = [pdf_ref, prompt]</code>. The notebook uploads a Congressional Research Service PDF on wildfire statistics (<code>IF10244.pdf</code>), an interview recording (<code>pixel.mp3</code>) and two videos the same way.</p>
+<p>PDFs, audio and video go through the <strong>File API</strong>: you upload the file once and get back a <strong>file handle</strong>, a reference the model can read. The handle takes the image&rsquo;s place in the contents list. The notebook uploads a Congressional Research Service PDF on wildfire statistics, an interview recording, three videos and one still image this way.</p>
 <p>The upload happens once. The notebook reuses one audio handle for three prompts:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant N as Notebook
@@ -310,14 +345,40 @@ response = gemini.generate_content([image1, image2, prompt])
     N-&gt;&gt;G: audio_file + summary prompt
     G--&gt;&gt;N: speakers, products, topics
 </pre></figure>
-<p>Each of the three prompts fixes the output shape and limits the model to what is in the recording:</p>
-<ul>
-<li><strong>Chapters:</strong> &ldquo;Provide chapter titles with timestamps, be concise and short&rdquo;, then &ldquo;Do not make up any information that is not part of the audio&rdquo;.</li>
-<li><strong>Transcript:</strong> the format <code>[timecode] - [speaker] : caption</code>, speakers named A, B and so on and mapped to real names at the start, one caption per speaker turn, and only the part of the conversation about the Pixel Watch.</li>
-<li><strong>Summary:</strong> three headed lists: key speakers, products and features, other notable discussion.</li>
-</ul>
-<p>For Larkspur, the transcript prompt turns a recorded support call into turns labelled Customer and Agent. A follow-up question such as &ldquo;What refund window did the agent quote?&rdquo; can then be checked against the handbook&rsquo;s 30 days.</p>
-<p>What the File API inputs cost, from the Gemini API documentation (checked October 2026), with Larkspur sizes:</p>
+<p><em>Figure 2: One upload, three prompts. Each call sends the handle, not the recording&rsquo;s bytes.</em></p>
+<p>Sending the bytes again with every prompt is the <strong>re-upload tax</strong>: the same file crosses the network three times for three questions. A handle avoids it, and uploaded files stay available for 48 hours [2].</p>
+<h3>Three prompts over one recording</h3>
+<p>Each of the three prompts fixes the output shape and keeps the model to what is in the recording:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th>Output shape it asks for</th>
+<th>Guard against invention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chapters</td>
+<td>chapter titles with timestamps, short, no chapter summaries</td>
+<td>&ldquo;Do not make up any information that is not part of the audio&rdquo;</td>
+</tr>
+<tr>
+<td>Transcript</td>
+<td><code>[timecode] - [speaker] : caption</code>, speakers A, B and so on mapped to real names first, one caption per speaker turn</td>
+<td>only the part of the conversation about the Pixel Watch</td>
+</tr>
+<tr>
+<td>Summary</td>
+<td>three headed lists: key speakers, products and features, other notable discussion</td>
+<td>scoped to the audio file</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The notebook&rsquo;s three audio prompts. The notebook ships without outputs, and the answers depend on your run.</em></p>
+<p>For Larkspur, the transcript prompt turns a recorded support call into turns labelled Customer and Agent. A follow-up question such as &ldquo;What refund window did the agent quote?&rdquo; can then be checked against the handbook&rsquo;s 30 days. A summary that states the wrong window is the expensive error here, because a customer will act on it.</p>
+<h3>What a document or a call costs</h3>
+<p>The token rates come from Gemini&rsquo;s documentation: 258 tokens per PDF page [3] and 32 tokens per second of audio [1]. With Larkspur sizes:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -342,61 +403,173 @@ response = gemini.generate_content([image1, image2, prompt])
 </tr>
 </tbody>
 </table></div>
-<p>Gemini accepts PDFs up to 50 MB or 1,000 pages. A request that sends files inline is capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it. Video goes in the same way, and Gemini samples it into frames itself; lesson 5.2 shows what that sampling decides.</p>
+<p><em>Table 3: The token price of two Larkspur files, before the question is read.</em></p>
+<p>A 10-minute call costs almost twice the whole handbook. Every question about that call pays the 19,200 again, because the handle saves transfer, not tokens.</p>
+<h3>When to upload</h3>
+<p>Gemini accepts PDFs up to 50 MB or 1,000 pages [3]. Its Files API guide says to upload whenever the whole request, files and prompt together, is larger than 100 MB [2]. Upload below that size too when the same file serves several prompts, as the audio handle does in Figure 2:</p>
+<ul>
+<li><strong>Inline</strong>: small images sent once, such as the pricing screenshot.</li>
+<li><strong>Uploaded handle</strong>: PDFs, recordings and anything you will ask about more than once.</li>
+</ul>
+<p>Video goes in the same way, and Gemini samples it into frames by itself. Lesson 5.2 samples video by hand and shows what the sampling rate decides.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Google, <a href="https://aistudio.google.com/docs/tokens" target="_blank" rel="noopener">Understand and count tokens</a>, Gemini API documentation, checked November 2026.</li>
+<li>Google, <a href="https://aistudio.google.com/docs/files" target="_blank" rel="noopener">Files API</a>, Gemini API documentation, checked November 2026.</li>
+<li>Google, <a href="https://aistudio.google.com/docs/document-processing" target="_blank" rel="noopener">Document understanding</a>, Gemini API documentation, checked November 2026.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>An image prompt is a list of images followed by the question. Say what the images hold, ask the model to use all of them, and give it a way to say a value is not printed.</li>
-<li>Upload PDFs, audio and video once through the File API and reuse the handle across prompts. Upload anything over the 20 MB inline limit.</li>
-<li>Media cost tokens: 258 per small image or PDF page and 32 per second of audio. Fix the output shape in the prompt and forbid anything that is not in the file.</li>
+<li>An image prompt is an ordered list of images followed by the question. Say what the images hold, ask the model to use all of them, and give it a way to say a value is not printed.</li>
+<li>Upload PDFs, recordings and video once through the File API and reuse the handle across prompts; upload anything that takes a request over 100 MB.</li>
+<li>Media cost tokens on every call: 258 per small image or PDF page and 32 per second of audio. Fix the output shape in the prompt and forbid anything that is not in the file.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the notebook upload the interview recording through the File API instead of sending it inline with each prompt?</summary>
-<p><code>genai.upload_file</code> uploads the file once and returns a handle that takes the image&rsquo;s place in the contents list, so one handle serves the chapters, transcript and summary prompts. Inline requests are capped at 20 MB in total, prompt included; above that, or when the same file serves several prompts, upload it.</p>
+<p>The upload returns a handle that takes the image&rsquo;s place in the contents list, and one upload serves the chapters, transcript and summary prompts. Sending the bytes with each prompt pays the re-upload tax three times. The handle saves transfer, not tokens: each call still pays for the audio&rsquo;s seconds.</p>
 </details>
 <details>
 <summary>2. How many tokens does Gemini count for the 40-page Larkspur handbook as a PDF, and for a 10-minute support call as audio?</summary>
-<p>10,320 for the PDF, at 258 tokens per page. 19,200 for the call, at 32 tokens per second over 600 seconds.</p>
+<p>10,320 for the PDF, at 258 tokens per page. 19,200 for the call, at 32 tokens per second over 600 seconds, almost twice the handbook.</p>
 </details>
 <details>
 <summary>3. You want the starter plan's included outbound traffic from a pricing-page screenshot. How do you build the prompt?</summary>
-<p>Send the screenshot first and the question last, say what the image holds, and add &ldquo;If the value is not printed on the page, say so.&rdquo; Ask one question per call: separate calls pay for the image again, but each answer is easier to grade.</p>
+<p>Send the screenshot first and the question last, say that the image holds a plan table and a chart, and add &ldquo;If the value is not printed on the page, say so.&rdquo; That last line stops the model guessing from the picture when a bar has no label. Ask one question per call and grade each answer on its own.</p>
 </details>
 <h2 id="image-content-parts">Image content parts</h2>
 <p class="lesson-of">Lesson 5.2: Multimodal prompting with GPT-4o. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m05_multimodal_prompting/optional/notebook/02a_multimodal_openai_gpt_4o.ipynb" target="_blank" rel="noopener"><code>02a_multimodal_openai_gpt_4o.ipynb</code></a> (optional)</p>
-<p>In the Chat Completions API a user message&rsquo;s <code>content</code> can be a list of typed parts instead of a string. The notebook mixes one text part and one image part:</p>
-<pre class="sheet code"><code class="language-python">{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: [
-    {&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;What's the area of the triangle?&quot;},
-    {&quot;type&quot;: &quot;image_url&quot;, &quot;image_url&quot;: {&quot;url&quot;: f&quot;data:image/png;base64,{base64_image}&quot;}},
-]}
-</code></pre>
-<p>The <code>url</code> field takes either of two forms, and the notebook sends the same scanned page both ways:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>A base64 data URL.</strong> <code>encode_image()</code> reads the file from disk and base64-encodes it. Use it for private files, such as a Larkspur customer&rsquo;s console screenshot. The request carries the bytes, and base64 makes them about a third larger (4 characters for every 3 bytes).</li>
-<li><strong>A public <code>https</code> URL.</strong> The request stays small, but OpenAI has to fetch the image itself, so it only works for images anyone can reach.</li>
+<li><strong>Build</strong> a chat message that mixes text and image parts, sent as a data URL or a public URL.</li>
+<li><strong>Price</strong> an image for <code>gpt-4o</code> at low and high detail from its size.</li>
+<li><strong>Explain</strong> how a video becomes sampled frames plus a transcript when the API takes no video.</li>
+<li><strong>Choose</strong> a frame gap from the shortest event you need the model to see.</li>
 </ul>
-<p>The notebook saves one answer as Markdown. From a scanned page of <em>The Algebra of Mohammed Ben Musa</em> (al-Khwarizmi), the model read the triangle&rsquo;s sides as 6, 5 and 9 and applied Heron&rsquo;s formula: semi-perimeter 10, area √200 = 10√2, about 14.14.</p>
-<p>The extraction prompts that follow share one shape: a role in the system message, a fixed output format, and an explicit escape for anything the model cannot read.</p>
+</blockquote>
+<p>Lesson 5.1 sent images, PDFs and recordings to Gemini as a list of parts. The OpenAI Chat Completions API uses the same idea with a different envelope, and it takes no video file at all.</p>
+<p>A Larkspur customer records a 90-second screen capture of the data export and asks support whether the export finished. The answer is on screen for 1.2 seconds, as an &ldquo;Export ready&rdquo; toast. A pipeline that samples one frame every 2 seconds can send 45 frames and still never show the model that toast. This lesson builds up to that failure from single images.</p>
+<h3>Text and image parts in one message</h3>
+<p>In the Chat Completions API a user message&rsquo;s content can be a list of typed parts instead of one string. The notebook&rsquo;s first image call sends a system message (&ldquo;Help me with my math homework!&rdquo;) and a user message with two parts:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Type</th>
+<th>What it carries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>text</code></td>
+<td>&ldquo;What&rsquo;s the area of the triangle?&rdquo;</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>image_url</code></td>
+<td>the scanned page, as a URL</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The two parts of the notebook&rsquo;s first image message.</em></p>
+<p>The URL field takes either of two forms, and the notebook sends the same scanned page both ways:</p>
 <ul>
-<li><strong>Clinical note:</strong> a Markdown table <code>Symptoms | Present/Denies | Probability</code>, acronyms expanded in an appendix table, and &ldquo;Do not make up terms, if something is not detectable leave it out.&rdquo;</li>
-<li><strong>Handwriting:</strong> &ldquo;Convert the handwritten document into text exactly as in the image&rdquo;, with <code>[NOT_EXTRACTED]</code> for any word the model cannot read.</li>
-<li><strong>Sales chart:</strong> &ldquo;summarize it briefly, give detailed statistics about the top 3 best performing salesmen&rdquo;.</li>
+<li><strong>A base64 data URL</strong>: the notebook reads the file from disk and base64-encodes it into the request. Use it for private files, such as a Larkspur customer&rsquo;s console screenshot. The request carries the bytes, and base64 makes them about a third larger (4 characters for every 3 bytes).</li>
+<li><strong>A public <code>https</code> URL</strong>: the request stays small, but OpenAI fetches the image itself, which only works for images anyone can reach.</li>
 </ul>
-<p>Each image part also takes a <code>detail</code> setting, and it sets the price. OpenAI&rsquo;s images and vision guide gives the rule for <code>gpt-4o</code>: at <code>detail="low"</code> an image costs the base 85 tokens whatever its size. At <code>detail="high"</code> it is scaled to fit 2048 by 2048, its shortest side is scaled down to 768 if longer, and every 512-pixel tile covering the result adds 170 tokens.</p>
+<p>The notebook keeps one answer as a Markdown cell. From a scanned page of <em>The Algebra of Mohammed Ben Musa</em> (al-Khwarizmi), the model read the triangle&rsquo;s sides as 6, 5 and 9 and applied Heron&rsquo;s formula: semi-perimeter 10, area √200 = 10√2, about 14.14. The arithmetic checks out; whether the sides were read correctly is a question about the scan, which is why later lessons grade answers against values printed on the page.</p>
+<h3>Extraction prompts with an escape</h3>
+<p>The notebook&rsquo;s extraction prompts share one shape: a role in the system message, a fixed output format, and an explicit escape for anything the model cannot read:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Image</th>
+<th>Role (system)</th>
+<th>Output format</th>
+<th>Escape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clinical note</td>
+<td>expert in handwritten clinical notes</td>
+<td>Markdown table with columns Symptoms, Present/Denies and Probability; acronyms expanded in an appendix table</td>
+<td>&ldquo;Do not make up terms, if something is not detectable leave it out.&rdquo;</td>
+</tr>
+<tr>
+<td>Handwritten page</td>
+<td>handwriting expert</td>
+<td>the text &ldquo;exactly as in the image&rdquo;</td>
+<td><code>[NOT_EXTRACTED]</code> for any word it cannot read</td>
+</tr>
+<tr>
+<td>Sales chart</td>
+<td>data analyst</td>
+<td>a brief summary, then detailed statistics on the top 3 salesmen</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Two wildfire pages</td>
+<td>analyst of document scans</td>
+<td>both 5.1 questions in one call</td>
+<td>none</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The notebook&rsquo;s image prompts. Outputs are not shipped, and only the triangle answer is recorded.</em></p>
+<p>An escape marker turns an unreadable word into a visible gap instead of a plausible guess. For Larkspur, a screenshot of a console error gets the same treatment: read the error code exactly, or mark it <code>[NOT_EXTRACTED]</code>.</p>
+<h3>What <code>detail</code> costs</h3>
+<p>Each image part also takes a <code>detail</code> setting, and it sets the price. OpenAI&rsquo;s images and vision guide gives the rule for <code>gpt-4o</code> [1]. At <code>detail="low"</code> an image costs the base 85 tokens whatever its size. At <code>detail="high"</code> the image is scaled to fit 2048 by 2048, its shortest side is scaled down to 768 if longer, and every 512-pixel tile covering the result adds 170 tokens:</p>
 <figure class="diagram"><img src="../../optional/theory/02_multimodal_prompting_with_gpt_4o/diagrams/image-tiles.svg" width="800" height="380" alt="At detail high the frame is covered by 512-pixel tiles: three across and two down, six tiles, so it costs 85 plus 6 times 170, which is 1,105 tokens. At detail low the same frame costs the base 85 tokens whatever its size."></figure>
-<p>So a 1280 by 720 frame costs 1,105 tokens at high and 85 at low, 13 times less. A 1920 by 1080 screenshot also costs 1,105, because it is scaled to 1365 by 768 before tiling. The notebook sends its video frames at <code>detail="low"</code>.</p>
+<p><em>Figure 1: How <code>gpt-4o</code> prices one 1280 by 720 frame at each detail setting.</em></p>
+<p>Applying the rule to three sizes:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Image</th>
+<th>Size after scaling</th>
+<th>Tiles</th>
+<th>High</th>
+<th>Low</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Video frame, 1280 by 720</td>
+<td>1280 by 720</td>
+<td>3 by 2</td>
+<td>1,105</td>
+<td>85</td>
+</tr>
+<tr>
+<td>Screenshot, 1920 by 1080</td>
+<td>1365 by 768</td>
+<td>3 by 2</td>
+<td>1,105</td>
+<td>85</td>
+</tr>
+<tr>
+<td>Report page, 860 by 1064 (lesson 5.3)</td>
+<td>768 by 950</td>
+<td>2 by 2</td>
+<td>765</td>
+<td>85</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: <code>gpt-4o</code> image tokens from OpenAI&rsquo;s published rule, computed for each size.</em></p>
+<p>A 1280 by 720 frame costs 13 times less at low detail. The 1920 by 1080 screenshot costs the same as the smaller frame, because scaling happens before tiling. The notebook sends its video frames at <code>detail="low"</code>, which matters once a video becomes dozens of images.</p>
 <h2 id="frame-sampling">Frame sampling</h2>
-<p>The notebook treats the GPT-4o API as taking text and images only, so a video has to be turned into those first. <code>process_video()</code> does it with OpenCV and moviepy:</p>
-<pre class="sheet code"><code class="language-python">frames_to_skip = int(fps * seconds_per_frame)
-curr_frame = 0
-while curr_frame &lt; total_frames - 1:
-    video.set(cv2.CAP_PROP_POS_FRAMES, curr_frame)
-    success, frame = video.read()
-    _, buffer = cv2.imencode(&quot;.jpg&quot;, frame)
-    base64Frames.append(base64.b64encode(buffer).decode(&quot;utf-8&quot;))
-    curr_frame += frames_to_skip
-</code></pre>
-<p>The soundtrack goes to an mp3 at a 32k bitrate and through <code>whisper-1</code> for a transcript. The notebook then writes three summaries of an OpenAI DevDay recap video: from the frames alone, from the transcript alone, and from both in one message. Its own conclusion is that the combined summary is the most accurate: the frames miss what the speaker says, and the transcript misses what is on screen.</p>
+<p><strong>Frame sampling</strong> turns a video into a list of still images taken at a fixed gap, so a model that reads only text and images can follow it. The notebook was written when the GPT-4o API took text and images only, and it builds the video input itself with OpenCV and moviepy:</p>
+<ol>
+<li>Read the video&rsquo;s frame rate and frame count.</li>
+<li>Compute the step between sampled frames as frame rate times <code>seconds_per_frame</code>, truncated to a whole number.</li>
+<li>Read every step-th frame, encode it as JPEG, then as base64.</li>
+<li>Write the soundtrack to an mp3 at a 32k bitrate and transcribe it with <code>whisper-1</code>.</li>
+<li>Send the frames and the transcript in one user message.</li>
+</ol>
 <figure class="anim sheet" aria-labelledby="anim-frames-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Frame sampling pipeline, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 352" role="img" aria-labelledby="anim-frames-title anim-frames-desc">
@@ -489,8 +662,11 @@ while curr_frame &lt; total_frames - 1:
     <li><button type="button">Summary</button><span>gpt-4o answers from pictures and words together. The frames cost 30 × 85 = 2,550 tokens.</span></li>
   </ol>
 </figure>
-<p><code>seconds_per_frame</code> is the setting that matters. It decides how many frames the model reads, so it sets the cost. It also decides which moments the model sees at all: something on screen for less time than the gap between frames may fall between two of them.</p>
-<p>The <a href="../../optional/theory/02_multimodal_prompting_with_gpt_4o/interactive/frame-sampling-lab.html">interactive lab</a> runs a port of <code>process_video</code> on a fictional 90-second Larkspur screen recording (30 fps, 1280 by 720) that walks through a data export in eight steps. Two of them are short: a 1.8 s confirm dialog and a 1.2 s &ldquo;Export ready&rdquo; toast, the only frame that shows the export finished. Its numbers:</p>
+<p><em>Figure 2: A 90-second recording at the notebook&rsquo;s 3-second example gap: every 90th frame, 30 frames, plus the transcript.</em></p>
+<p>The notebook then writes three summaries of an OpenAI DevDay recap video: from the frames alone, from the transcript alone, and from both in one message. Its own conclusion is that the combined summary is the most accurate. The frames miss what the speaker says, and the transcript misses what is on screen.</p>
+<h3>The gap decides what the model sees</h3>
+<p><code>seconds_per_frame</code> is the setting that matters. It decides how many frames the model reads, which sets the cost. It also decides which moments the model sees at all: something on screen for less time than the gap may fall between two frames. Call that failure <strong>the event between frames</strong>.</p>
+<p>The <a href="../../optional/theory/02_multimodal_prompting_with_gpt_4o/interactive/frame-sampling-lab.html">interactive lab</a> runs a port of the notebook&rsquo;s sampling on a fictional 90-second Larkspur screen recording (30 fps, 1280 by 720) that walks through a data export in eight steps. Two of them are short: a 1.8 s confirm dialog and a 1.2 s &ldquo;Export ready&rdquo; toast, the only frame that shows the export finished. Its numbers:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -539,14 +715,57 @@ while curr_frame &lt; total_frames - 1:
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 4: Frames, tokens and coverage per gap in the frame sampling lab.</em></p>
 <figure class="lab-embed"><iframe src="../../optional/theory/02_multimodal_prompting_with_gpt_4o/interactive/frame-sampling-lab.html" title="Frame sampling, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Frame sampling. <a href="../../optional/theory/02_multimodal_prompting_with_gpt_4o/interactive/frame-sampling-lab.html">Open full screen</a></figcaption></figure>
 <ul>
-<li><strong>Only a gap shorter than the shortest event guarantees a frame on it.</strong> The toast lasts 1.2 s, so 1 s is the widest gap in the lab that always catches it. At 2.5 s the frames happen to land on both short steps; if the toast came 1.2 s later, the same gap would miss it.</li>
+<li><strong>Only a gap shorter than the shortest event guarantees a frame on it.</strong> The toast lasts 1.2 s, and 1 s is the widest gap in the lab that always catches it. At 2.5 s the frames happen to land on both short steps; if the toast came 1.2 s later, the same gap would miss it.</li>
 <li><strong>Cost grows with the number of frames.</strong> Halving the gap doubles the frames and the tokens. High detail multiplies the bill by 13 again.</li>
 <li><strong>The transcript is the other source.</strong> A step the narrator mentions survives a missed frame; a silent toast does not.</li>
 </ul>
-<p>Gemini takes the video file itself and samples it at 1 frame per second by default; a custom <code>fps</code> can be set in the request. Its documentation warns that &ldquo;fast action sequences might lose detail due to the 1 FPS sampling rate&rdquo;. At 1 frame per second the lab&rsquo;s 1.2 s toast always gets a frame.</p>
-<p><code>process_video</code> has two sharp edges. <code>int(fps * seconds_per_frame)</code> truncates: at 29.97 fps and 3 s the step is 89 frames, so frames come every 2.97 s. And when <code>seconds_per_frame</code> is below one frame&rsquo;s duration the step is 0 and the <code>while</code> loop never ends; a stubbed run of the notebook&rsquo;s own function at 0.02 s and 30 fps confirms it. <code>max(1, round(fps * seconds_per_frame))</code> stops the hang and brings the 29.97 fps gap back to 3.003 s. The import <code>from moviepy.editor import VideoFileClip</code> needs moviepy 1.x, since moviepy 2 removed <code>moviepy.editor</code>; this repo pins <code>moviepy&lt;2</code> for that reason.</p>
+<p>Gemini takes the video file itself and samples it at 1 frame per second by default, and a request can set a custom rate [2]. Its documentation warns that &ldquo;fast action sequences might lose detail due to the 1 FPS sampling rate&rdquo;. At 1 frame per second the lab&rsquo;s 1.2 s toast always gets a frame.</p>
+<h3>Two sharp edges in the sampler</h3>
+<p>The notebook&rsquo;s sampler has two bugs worth knowing before you copy it:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted input</th>
+<th>What happens</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>29.97 fps, 3 s gap</td>
+<td>step of 89 frames, one frame every 2.97 s</td>
+<td>truncation drops the fraction of 89.91</td>
+</tr>
+<tr>
+<td>30 fps, 0.02 s gap</td>
+<td>the loop never ends</td>
+<td>the step truncates to 0 and the frame position never advances</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: Planted inputs for the sampler, worked from the notebook&rsquo;s own arithmetic.</em></p>
+<p>Rounding the step to the nearest whole frame, with a floor of 1, fixes both: the loop always advances, and the 29.97 fps gap comes back to 3.003 s. The video setup also needs moviepy 1.x, because moviepy 2 removed the <code>moviepy.editor</code> module the notebook imports; this repo pins <code>moviepy&lt;2</code> for that reason.</p>
+<h2 id="choosing-a-frame-gap">Choosing a frame gap</h2>
+<p>Pick the gap from the event, then check the bill:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    E["Shortest event&lt;br/&gt;you must see"] --&gt; G["Gap below&lt;br/&gt;that duration"]
+    G --&gt; N{"Narrator&lt;br/&gt;mentions it?"}
+    N -- yes --&gt; T["Transcript covers it&lt;br/&gt;wider gap is safe"]
+    N -- no --&gt; K["Keep the gap&lt;br/&gt;price frames at low"]
+    K --&gt; H{"Need small text&lt;br/&gt;in frames?"}
+    H -- yes --&gt; HI["High detail&lt;br/&gt;13 times the cost"]
+    H -- no --&gt; LO["Low detail&lt;br/&gt;85 per frame"]
+</pre></figure>
+<p><em>Figure 3: Choosing a gap and a detail level for a recorded walkthrough.</em></p>
+<p>For the Larkspur export recording, the toast is silent and lasts 1.2 s. The widest lab gap that always catches it is 1 s: 90 frames, 7,650 tokens at low detail. Try low detail on the toast frame first, and move to high only if the model cannot read the toast&rsquo;s text.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://developers.openai.com/api/docs/guides/images-vision" target="_blank" rel="noopener">Images and vision</a>, API documentation, checked November 2026.</li>
+<li>Google, <a href="https://aistudio.google.com/docs/video-understanding" target="_blank" rel="noopener">Video understanding</a>, Gemini API documentation, checked November 2026.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Send private images as base64 data URLs and public ones as <code>https</code> URLs. Give extraction prompts a role, a fixed output format and an explicit marker for anything unreadable.</li>
@@ -556,7 +775,7 @@ while curr_frame &lt; total_frames - 1:
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. When should an image part use a base64 data URL rather than a public https URL?</summary>
-<p>Use a data URL for private files, such as a Larkspur customer&rsquo;s console screenshot: the request carries the bytes, about a third larger after base64. A public URL keeps the request small, but OpenAI fetches the image itself, so it works only for images anyone can reach.</p>
+<p>Use a data URL for private files, such as a Larkspur customer&rsquo;s console screenshot: the request carries the bytes, about a third larger after base64. A public URL keeps the request small, but OpenAI fetches the image itself, and that works only for images anyone can reach.</p>
 </details>
 <details>
 <summary>2. What does a 1920 by 1080 screenshot cost gpt-4o at detail high, and at detail low?</summary>
@@ -564,16 +783,27 @@ while curr_frame &lt; total_frames - 1:
 </details>
 <details>
 <summary>3. At the notebook's default 2-second gap, the lab's frames never show the Export ready toast. Why, and which gap guarantees it?</summary>
-<p>The toast lasts 1.2 s, shorter than the gap, so it can fall between two frames. Only a gap shorter than the shortest event guarantees a frame on it: 1 s in the lab, at 90 frames and 7,650 tokens at low detail. The 2.5 s gap catches it by luck and would miss it if the toast came 1.2 s later.</p>
+<p>The toast lasts 1.2 s, shorter than the gap, and it falls between two frames. Only a gap shorter than the shortest event guarantees a frame on it: 1 s in the lab, at 90 frames and 7,650 tokens at low detail. The 2.5 s gap catches it by luck and would miss it if the toast came 1.2 s later.</p>
 </details>
 <h2 id="questions-about-a-report-page">Questions about a report page</h2>
 <p class="lesson-of">Lesson 5.3: Exercise: financial report analysis. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m05_multimodal_prompting/optional/notebook/03a_financial_report_analysis.ipynb" target="_blank" rel="noopener"><code>03a_financial_report_analysis.ipynb</code></a> (optional)</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Replace</strong> an open summary request with questions whose answers are printed on the page.</li>
+<li><strong>Order</strong> a report prompt as extraction first, interpretation second.</li>
+<li><strong>Check</strong> extracted values in code, with a tolerance for the report&rsquo;s own rounding.</li>
+<li><strong>Handle</strong> unlabelled charts and answers the page does not contain.</li>
+</ul>
+</blockquote>
+<p>Lessons 5.1 and 5.2 sent images to a model and asked it to read them. This exercise asks the harder question: how you know the reading was right.</p>
 <p>The exercise sends two page images from ABN AMRO&rsquo;s third-quarter 2024 report to <code>gemini-2.5-flash</code>:</p>
 <ul>
-<li><strong><code>Balance_Sheet.png</code></strong> (779 by 597): the condensed statement of financial position at 30 September 2024, 30 June 2024 and 31 December 2023.</li>
-<li><strong><code>Figure.png</code></strong> (860 by 1064): &ldquo;Figures at a glance&rdquo;, nine bar charts from Q3 2023 to Q3 2024, each bar labelled with its value.</li>
+<li><strong>Balance sheet</strong> (779 by 597 pixels): the condensed statement of financial position at 30 September 2024, 30 June 2024 and 31 December 2023.</li>
+<li><strong>Figures at a glance</strong> (860 by 1064 pixels): nine bar charts from Q3 2023 to Q3 2024, each bar labelled with its value.</li>
 </ul>
-<p>Its prompt asks for a six-part summary: key metrics, income and expenses, balance sheet, credit quality, strategy, outlook. A summary is hard to grade. The module lab brief asks for five questions instead, and five questions with values printed on the page can be graded line by line:</p>
+<p>Its prompt casts the model as a financial analyst and asks for a six-part summary: key metrics, income and expenses, balance sheet, credit quality, strategy, outlook. The notebook ships without its output. Even with one, a summary is hard to grade, since no single line of it is right or wrong. Call that failure the <strong>ungradable summary</strong>.</p>
+<p>The module&rsquo;s lab brief asks for five questions instead. Each one has a value printed on the page, so each answer can be graded line by line:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -604,23 +834,76 @@ while curr_frame &lt; total_frames - 1:
 </tr>
 </tbody>
 </table></div>
-<p>Ask for extraction before interpretation. A prompt that first lists each value with its label, unit and period, then answers from that list, leaves a record you can check against the page. The balance sheet gives you a check for free: total liabilities 377,961 plus total equity 25,810 is 403,771, the printed total assets. Do that sum in code, not in the prompt, and most misread digits in any of the three show up.</p>
+<p><em>Table 1: Five gradable questions and the values printed on the two pages.</em></p>
+<h2 id="extract-check-then-answer">Extract, check, then answer</h2>
+<p>Ask for extraction before interpretation. A prompt that first lists each value with its label, unit and period, then answers from that list, leaves a record you can check against the page:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     P[/Two page images/] --&gt; X["Extract values&lt;br/&gt;label, unit, period"]
     X --&gt; C{"Liabilities + equity&lt;br/&gt;= total assets?"}
     C -- yes --&gt; Q["Answer the five questions&lt;br/&gt;from the extracted values"]
     C -- no --&gt; R["Re-read the page&lt;br/&gt;or flag for review"]
 </pre></figure>
+<p><em>Figure 1: Extract first, let code check the totals, then answer from the checked values.</em></p>
+<p>The balance sheet gives you a check for free. At 30 September 2024, total liabilities of 377,961 plus total equity of 25,810 is 403,771, the printed total assets. Do that sum in code, not in the prompt: code adds exactly, while a model asked to check its own reading can make a second error on top of the first. Most misread digits in any of the three values show up here.</p>
+<h3>Planted check: the report&rsquo;s own rounding</h3>
+<p>An exact-equality check fails on values the model read correctly. The report prints every line in millions, rounded, and its subtotals do not always match the sum of its own rounded lines. Summing the columns of the printed page:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Printed total</th>
+<th>Sum of printed lines</th>
+<th>Gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>30 Sep 2024: liabilities + equity</td>
+<td>403,771</td>
+<td>403,771</td>
+<td>0</td>
+</tr>
+<tr>
+<td>30 Sep 2024: eight liability lines</td>
+<td>377,961</td>
+<td>377,959</td>
+<td>2</td>
+</tr>
+<tr>
+<td>30 Jun 2024: liabilities + equity</td>
+<td>393,404</td>
+<td>393,403</td>
+<td>1</td>
+</tr>
+<tr>
+<td>31 Dec 2023: eight asset lines</td>
+<td>377,909</td>
+<td>377,911</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Totals on the balance sheet image against sums of its own printed lines.</em></p>
+<p>A tolerance of a few million in the check keeps rounding from raising false alarms, while a misread digit in the thousands still fails it. Call the opposite mistake the <strong>false alarm</strong>: a checker so strict that reviewers learn to ignore it.</p>
+<h2 id="reading-charts-honestly">Reading charts honestly</h2>
 <p>Two more rules keep the answers honest:</p>
 <ul>
-<li><strong>Read labels, do not measure bars.</strong> Every bar on &ldquo;Figures at a glance&rdquo; carries its value, so the model reads a number instead of estimating a height. For a chart without labels, ask for the axis range and an estimate, and grade with a tolerance.</li>
+<li><strong>Read labels, do not measure bars.</strong> Every bar on &ldquo;Figures at a glance&rdquo; carries its value, and the model reads a number instead of estimating a height. For a chart without labels, ask for the axis range and an estimate, and grade with a tolerance.</li>
 <li><strong>Allow &ldquo;not on the page&rdquo;.</strong> A question whose answer is not printed should get that answer, not a guess from neighbouring figures.</li>
 </ul>
-<p>Sent to <code>gpt-4o</code> at <code>detail="high"</code>, each of the two images costs 765 tokens: 2 by 2 tiles of 512 pixels, after <code>Figure.png</code> is scaled to 768 by 950. The same method reads a Larkspur pricing page: extract each plan&rsquo;s printed figures first, then answer from the extracted list.</p>
+<p>Sent to <code>gpt-4o</code> at high detail, each of the two images costs 765 tokens under the rule from lesson 5.2: 2 by 2 tiles of 512 pixels, after &ldquo;Figures at a glance&rdquo; is scaled to 768 by 950. Five questions in one call cost the images once; five calls cost them five times.</p>
+<h2 id="in-practice-larkspur-pricing">In practice: Larkspur pricing</h2>
+<p>The same method reads a Larkspur pricing page:</p>
+<ol>
+<li>Extract each plan&rsquo;s printed figures with label, unit and billing period: price, included outbound traffic, refund terms.</li>
+<li>Check in code what can be checked, such as an annual price against twelve monthly prices when the page states a discount.</li>
+<li>Answer customer questions from the extracted list, and reply &ldquo;not on the page&rdquo; for a value the page does not print.</li>
+</ol>
+<p>The extracted list doubles as a test fixture. When the pricing page changes, rerunning the extraction shows exactly which values moved.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Ask specific questions whose values are printed on the page, not for a summary, so each answer can be graded line by line.</li>
-<li>Extract each value with its label, unit and period before interpreting, and check totals in code. On the balance sheet, liabilities plus equity must equal total assets.</li>
+<li>Ask specific questions whose values are printed on the page, not for a summary, and grade each answer line by line.</li>
+<li>Extract each value with its label, unit and period before interpreting, and check totals in code with a small tolerance for the report&rsquo;s own rounding.</li>
 <li>Have the model read printed labels instead of measuring bars, and accept &ldquo;not on the page&rdquo; as an answer rather than a guess.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -630,7 +913,7 @@ while curr_frame &lt; total_frames - 1:
 </details>
 <details>
 <summary>2. The model extracts total liabilities of 377,961 million and total equity of 25,810 million at 30 September 2024. What check do you run, and where?</summary>
-<p>Add them in code, not in the prompt: 377,961 + 25,810 = 403,771, the printed total assets. If the sum does not match, re-read the page or flag it for review; most misread digits in any of the three values show up here.</p>
+<p>Add them in code, not in the prompt: 377,961 + 25,810 = 403,771, the printed total assets. Allow a gap of a few million, because the report&rsquo;s rounded lines can miss their printed totals by 1 or 2. A larger gap means a misread digit: re-read the page or flag it for review.</p>
 </details>
 <details>
 <summary>3. A question asks for a figure the two report pages do not print, and another chart has no value labels. How should each be handled?</summary>
@@ -692,7 +975,7 @@ while curr_frame &lt; total_frames - 1:
 <li>When you sample video yourself, set the gap below the shortest event you need to see, and check what that costs.</li>
 <li>Give the model a way out for unreadable input (<code>[NOT_EXTRACTED]</code>, &ldquo;not on the page&rdquo;) and grade answers on questions with known values.</li>
 </ul></article>
-    <nav class="toc" aria-label="M05 sections"><details open><summary>In M05</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#image-prompts">Image prompts</a></li><li><a href="#pdf-and-audio-input">PDF and audio input</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#image-content-parts">Image content parts</a></li><li><a href="#frame-sampling">Frame sampling</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#questions-about-a-report-page">Questions about a report page</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M05 sections"><details open><summary>In M05</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#image-prompts">Image prompts</a></li><li><a href="#pdf-and-audio-input">PDF and audio input</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#image-content-parts">Image content parts</a></li><li><a href="#frame-sampling">Frame sampling</a></li><li><a href="#choosing-a-frame-gap">Choosing a frame gap</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#questions-about-a-report-page">Questions about a report page</a></li><li><a href="#extract-check-then-answer">Extract, check, then answer</a></li><li><a href="#reading-charts-honestly">Reading charts honestly</a></li><li><a href="#in-practice-larkspur-pricing">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

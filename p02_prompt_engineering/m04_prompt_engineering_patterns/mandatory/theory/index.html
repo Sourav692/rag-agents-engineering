@@ -345,9 +345,31 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>Three of the four steps between the question and the answer are prompts, and each is assembled from the patterns in this module. When the pipeline gives a wrong answer, the fault sits in one of those prompts or in retrieval, and each can be tested on its own against a labelled set.</p>
-<h2 id="few-shot">Few-shot</h2>
+<h2 id="a-grader-that-never-saw-a-hard-case">A grader that never saw a hard case</h2>
 <p class="lesson-of">Lesson 4.1: Core prompt patterns. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/notebook/01a_prompt_engineering_patterns.ipynb" target="_blank" rel="noopener"><code>01a_prompt_engineering_patterns.ipynb</code></a></p>
-<p>An N-shot prompt puts N solved examples in front of the real input. Zero-shot gives only the instruction; one-shot adds one example; few-shot adds several. Notebook 01a runs all three on the same news classifier with <code>gpt-4o-mini</code> at temperature 0. Its prompts, counted with <code>tiktoken</code> in the <code>o200k_base</code> encoding that <code>gpt-4o-mini</code> uses:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what few-shot examples teach a model that the instruction leaves open.</li>
+<li><strong>Count</strong> what those examples cost on every call, and how a RAG grader multiplies that cost.</li>
+<li><strong>Diagnose</strong> a few-shot prompt whose examples only cover easy boundaries.</li>
+<li><strong>Choose</strong> among persona, flipped interaction, directional stimulus, template and meta language for a given step.</li>
+</ul>
+</blockquote>
+<p>M03 called hosted models and wrapped one in a demo. This module looks at the text we send them. Every LLM step in a RAG pipeline is a prompt: the query rewrite, the relevance grade, the route and the final answer. A <strong>prompt pattern</strong> is a reusable way to write one of those steps.</p>
+<p>Take the Larkspur Cloud support assistant from M10. After retrieval, a grading prompt reads each retrieved chunk and answers yes or no: does this passage answer the question? A customer asks <em>How long does a refund take?</em> The grader sees the <code>billing</code> chunk, which talks about when plans are charged, and says yes. It sees the chunk that says refunds <em>take 5 to 10 business days to appear on your statement</em>, and says no, because the passage never uses the words &ldquo;how long&rdquo;.</p>
+<p>Both mistakes come from the same place. The grader&rsquo;s examples showed it one passage that answers and one on an unrelated topic, and nothing in between. This page explains what examples teach, what they cost, and the five other patterns notebook 01a uses to shape a reply.</p>
+<h2 id="few-shot">Few-shot</h2>
+<p><strong>An N-shot prompt puts N solved examples in front of the real input.</strong> Zero-shot gives only the instruction, one-shot adds one example, and few-shot adds several. The model reads the examples as a pattern to continue, and its reply copies their labels, their format and their judgement.</p>
+<p>The parts of a few-shot prompt sit in a fixed order:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    I["Instruction&lt;br/&gt;+ label set"] --&gt; E1["Example 1&lt;br/&gt;input + label"]
+    E1 --&gt; E2["Examples 2 to N"]
+    E2 --&gt; X["Real input&lt;br/&gt;label left blank"]
+    X --&gt; R[/"Reply:&lt;br/&gt;one label"/]
+</pre></figure>
+<p><em>Figure 1: The anatomy of an N-shot prompt. The blank label after the real input is the slot the model fills.</em></p>
+<p>Notebook 01a runs all three forms on the same news classifier with <code>gpt-4o-mini</code> at temperature 0. We counted the prompt tokens of each with <code>tiktoken</code> in the <code>o200k_base</code> encoding that <code>gpt-4o-mini</code> uses:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -374,39 +396,109 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The examples teach three things the instruction leaves open:</p>
+<p><em>Table 1: Prompt size of the three news classifiers (the notebook&rsquo;s prompts, counted in the scratchpad with no model call).</em></p>
+<h3>What the examples teach</h3>
+<p>The examples carry three things the instruction leaves open:</p>
 <ul>
-<li><strong>The label set and its spelling.</strong> The zero-shot prompt lists <code>sports, business, entertainment, technology</code> in lower case; the one-shot and few-shot prompts list them capitalised and show capitalised answers. Code that compares the reply against a fixed string depends on that detail.</li>
-<li><strong>The output shape.</strong> Each example ends <code>OUTPUT: Sports</code> or <code>Category: Sports</code>, so the model learns to reply with the bare label and stop.</li>
+<li><strong>The label set and its spelling.</strong> The zero-shot prompt lists <code>sports, business, entertainment, technology</code> in lower case; the one-shot and few-shot prompts list them capitalised and show capitalised answers. Code that compares the reply against a fixed string depends on that detail. We call a mismatch here <strong>label drift</strong>.</li>
+<li><strong>The output shape.</strong> Each example ends <code>OUTPUT: Sports</code> or <code>Category: Sports</code>, and the model learns to reply with the bare label and stop.</li>
 <li><strong>Where the boundaries are.</strong> A phone launch is Technology; a company&rsquo;s revenue mix is Business. Examples near a boundary teach more than examples in the middle of a class.</li>
 </ul>
-<p>They also cost tokens on every call. The few-shot classifier sends ten times the tokens of the zero-shot one, for one label. In a RAG grader that runs once per retrieved chunk, that multiplies again by <code>k</code>. And examples can leave gaps: the notebook&rsquo;s three cover Sports, Technology and Business, so Entertainment, the fourth label, has no example at all.</p>
-<p>For Larkspur, a grading prompt decides whether a retrieved chunk answers the question. Both passages below are real chunks of the M10 handbook:</p>
-<pre class="sheet code"><code class="language-text">Does the passage answer the question? Reply with yes or no.
-
-Question: Can I export my data after I cancel my plan?
-Passage: After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes.
-Answer: yes
-
-Question: Can I export my data after I cancel my plan?
-Passage: You can reboot a server from the console. A reboot takes about a minute and does not change the server IP address.
-Answer: no
-
-Question: {question}
-Passage: {passage}
-Answer:
-</code></pre>
-<p>The two examples teach the format, and they teach an easy boundary: the &ldquo;no&rdquo; passage shares no topic with the question. The hard cases are a passage on a nearby topic that does not answer (the <code>billing</code> chunk, on when plans are charged, for <em>How long does a refund take?</em>) and a passage that answers in other words (<em>Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement.</em>). Add one example of each, keep yes and no balanced, and measure the grader against your own labels, which is the M04 <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/lab/README.md" target="_blank" rel="noopener">lab brief</a>: three grading prompts, 30 labelled pairs, agreement for each.</p>
+<p>Examples can also leave gaps. The notebook&rsquo;s three cover Sports, Technology and Business, and Entertainment, the fourth label, has no example at all. That is a <strong>missing-label gap</strong>: the model knows the word from the instruction but has never seen what an Entertainment article looks like in this prompt.</p>
+<h3>What the examples cost</h3>
+<p>Examples are sent on every call. The few-shot classifier sends ten times the tokens of the zero-shot one for the same single label. In a RAG grader the cost multiplies again, because the grader runs once per retrieved chunk:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Extra tokens per call, few-shot over zero-shot</td>
+<td>321 minus 31 = 290</td>
+<td>Table 1</td>
+</tr>
+<tr>
+<td>Chunks graded per question</td>
+<td>4</td>
+<td>M10 TF-IDF baseline, k = 4</td>
+</tr>
+<tr>
+<td>Extra tokens per question</td>
+<td>4 × 290 = 1,160</td>
+<td>arithmetic</td>
+</tr>
+<tr>
+<td>Extra tokens per 1,000 questions</td>
+<td>1,160,000</td>
+<td>arithmetic</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: What three examples of the classifier&rsquo;s size would add to a per-chunk grader (illustrative volume of 1,000 questions).</em></p>
+<h3>Planted failure: the easy-boundary grader</h3>
+<p>Now back to Larkspur. Here are the two examples the failing grader had, and the two it needed. All four passages are real chunks of the <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">Larkspur handbook</a>:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Passage</th>
+<th>Label</th>
+<th>What it teaches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Can I export my data after I cancel my plan?</td>
+<td><em>After a plan is cancelled, its data is kept for 30 days and then permanently deleted. Export it before that window closes.</em></td>
+<td>yes</td>
+<td>what an answer looks like</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Can I export my data after I cancel my plan?</td>
+<td><em>You can reboot a server from the console…</em></td>
+<td>no</td>
+<td>an unrelated topic is not an answer</td>
+</tr>
+<tr>
+<td>3</td>
+<td>How long does a refund take?</td>
+<td><em>Monthly plans are billed at the start of each billing cycle…</em></td>
+<td>no</td>
+<td>a nearby topic is still not an answer</td>
+</tr>
+<tr>
+<td>4</td>
+<td>How long does a refund take?</td>
+<td><em>Refunds go back to the original payment method and take 5 to 10 business days to appear on your statement.</em></td>
+<td>yes</td>
+<td>an answer can use other words</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Grading examples. Rows 1 and 2 are the failing prompt; rows 3 and 4 are the cases it was missing.</em></p>
+<p>Rows 1 and 2 only teach an easy boundary, because the &ldquo;no&rdquo; passage shares no topic with the question. We call this the <strong>easy-boundary grader</strong>. It passes topical near misses and rejects paraphrased answers, the two mistakes from the opening. Adding rows 3 and 4 puts examples on the real boundary and keeps yes and no balanced at two each.</p>
+<blockquote>
+<p><strong>Pitfall: tuning to one question.</strong> A fix that makes the refund question pass can break another. Measure the grader against your own labelled pairs before and after each change, which is the M04 <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/lab/README.md" target="_blank" rel="noopener">lab brief</a>: three grading prompts, 30 labelled pairs, agreement for each.</p>
+</blockquote>
+<p>Few-shot fixes the label set and the boundary. The next five patterns shape other parts of the reply.</p>
 <h2 id="five-more-patterns">Five more patterns</h2>
 <p>Notebook 01a covers five more patterns, each a different way to constrain the reply:</p>
 <ul>
-<li><strong>Persona.</strong> <code>Act as a marketing manager</code> before a phone fact sheet sets the vocabulary, the audience and what counts as important. For Larkspur, &ldquo;Act as a Larkspur support agent who answers only from the handbook&rdquo; sets both the tone and the boundary.</li>
-<li><strong>Flipped interaction.</strong> The model asks the questions: <code>Ask me one question at a time</code> until it has enough to write a data science project plan. It needs memory, so the notebook wraps the chain in <code>RunnableWithMessageHistory</code>, one <code>ChatMessageHistory</code> per <code>session_id</code>. For Larkspur, a server-sizing assistant can ask about peak memory use before it recommends a plan.</li>
-<li><strong>Directional stimulus.</strong> A hint steers the output without writing it: <code>Summarize the following article in 5 lines based on the following hints. Hint: Generative AI history, data modalities, tools, applications, concerns</code>. The hint list doubles as a checklist for grading the summary.</li>
-<li><strong>Template.</strong> The prompt fixes the output fields: <code>ACTIVITY, TOPIC, RESOURCE, DIFFICULTY SCALE 1-5, NOTES</code>, returned as JSON. Downstream code can parse the reply only if the model keeps the template, so validate it before use.</li>
-<li><strong>Meta language.</strong> The prompt defines a notation and then uses it: <code>Business_Understanding,3 -&gt; Data_Understanding,5 -&gt; …</code> means a step and its days, and the model expands each step into a day-by-day plan. A notation keeps a long instruction short, as long as the prompt explains it once.</li>
+<li><strong>Persona</strong>: a role line sets the vocabulary, the audience and what counts as important. The notebook opens with <em>Act as a marketing manager</em> before a phone fact sheet. For Larkspur, <em>Act as a Larkspur support agent who answers only from the handbook</em> sets both the tone and the boundary.</li>
+<li><strong>Flipped interaction</strong>: the model asks the questions. The notebook asks it to <em>ask me one question at a time</em> until it has enough to write a data science project plan, then answers seven of its questions. For Larkspur, a server-sizing assistant can ask about peak memory use before it recommends a plan.</li>
+<li><strong>Directional stimulus</strong>: a hint steers the output without writing it. The notebook asks for a five-line summary of an article on generative AI with <em>Hint: Generative AI history, data modalities, tools, applications, concerns</em>. The hint list doubles as a checklist for grading the summary.</li>
+<li><strong>Template</strong>: the prompt fixes the output fields. The notebook asks for learning activities as <code>ACTIVITY, TOPIC, RESOURCE, DIFFICULTY SCALE 1-5, NOTES</code>, returned as JSON. Downstream code can parse the reply only if the model keeps the template; validate it before use.</li>
+<li><strong>Meta language</strong>: the prompt defines a notation and then uses it. In the notebook, <code>Business_Understanding,3 -&gt; Data_Understanding,5 -&gt; …</code> means a step and its days, and the model expands each step into a day-by-day plan. A notation keeps a long instruction short, as long as the prompt explains it once.</li>
 </ul>
-<p>The flipped interaction is the only pattern here with state. Each turn sends the whole history back to the model:</p>
+<h3>The one pattern with state</h3>
+<p>The flipped interaction is the only pattern here that remembers. The notebook wraps the chain in <code>RunnableWithMessageHistory</code>, which keeps one message history per session id and sends the whole history back to the model on every turn:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant U as User
     participant C as conv_chain
@@ -419,50 +511,218 @@ Answer:
     M--&gt;&gt;U: Next question
     Note over C: history grows every turn, stored per session_id
 </pre></figure>
-<p>That history is also why the cost of a flipped interaction grows with every turn. The notebook stores the conversation in <code>store["unused"]</code>, the history for the session id it passes, so that is where to read the messages back.</p>
+<p><em>Figure 2: A flipped interaction. Each call carries every earlier question and answer.</em></p>
+<p>That growth is a cost. The first call sends one message; the eighth sends seven earlier exchanges plus the new answer. We call this <strong>history creep</strong>: the prompt, and the bill, grow with every turn whether or not the old turns still matter.</p>
+<p>The history also lives under one key. The notebook runs its whole conversation under the session id <code>unused</code>, and the history for that id is the only place the messages can be read back. A cell that reads a different history object finds it empty.</p>
+<h2 id="choosing-a-pattern">Choosing a pattern</h2>
+<p>Each pattern answers a different question about the reply. Ask them in this order:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    A{"Fixed labels or&lt;br/&gt;a fixed format?"} -- yes --&gt; FS[Few-shot or template]
+    A -- no --&gt; B{"Missing facts&lt;br/&gt;from the user?"}
+    B -- yes --&gt; FI[Flipped interaction]
+    B -- no --&gt; C{"Must cover&lt;br/&gt;named points?"}
+    C -- yes --&gt; DS[Directional stimulus]
+    C -- no --&gt; D{"Long, repeated&lt;br/&gt;structure?"}
+    D -- yes --&gt; ML[Meta language]
+    D -- no --&gt; P[Persona alone]
+</pre></figure>
+<p><em>Figure 3: Pick the pattern that constrains the part of the reply you need to control. Persona combines with any of them.</em></p>
+<p>The patterns differ in what they fix and what they cost:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>What it fixes</th>
+<th>Extra cost</th>
+<th>Main risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Few-shot</td>
+<td>labels, format, boundaries</td>
+<td>examples on every call</td>
+<td>easy-boundary grader</td>
+</tr>
+<tr>
+<td>Persona</td>
+<td>tone, audience, scope</td>
+<td>one line</td>
+<td>a role the model over-plays</td>
+</tr>
+<tr>
+<td>Flipped interaction</td>
+<td>which facts get collected</td>
+<td>history on every turn</td>
+<td>history creep</td>
+</tr>
+<tr>
+<td>Directional stimulus</td>
+<td>which points get covered</td>
+<td>a hint line</td>
+<td>hints read as the whole answer</td>
+</tr>
+<tr>
+<td>Template</td>
+<td>output fields</td>
+<td>a field list</td>
+<td>a reply that breaks the template</td>
+</tr>
+<tr>
+<td>Meta language</td>
+<td>a long structure, compactly</td>
+<td>one definition</td>
+<td>a notation never explained</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: The six patterns of notebook 01a.</em></p>
+<h2 id="in-practice-the-refund-grader">In practice: the refund grader</h2>
+<p>The Larkspur grader from the opening, rebuilt with these patterns:</p>
+<ol>
+<li><strong>Persona and scope.</strong> One line: the grader judges only whether the passage answers the question, not whether the answer is good.</li>
+<li><strong>Template.</strong> The reply is exactly <code>yes</code> or <code>no</code>. Anything else counts as a parse failure, and a parse failure counts as <code>no</code>, which keeps a hedged reply from being read as approval.</li>
+<li><strong>Few-shot.</strong> The four examples of Table 3, two yes and two no, two of them on the boundary.</li>
+<li><strong>Measure.</strong> Run it on 30 labelled pairs and compare its agreement with a zero-shot version. Keep the examples only if the agreement they buy is worth the tokens they add to every chunk.</li>
+</ol>
+<blockquote>
+<p><strong>What changes next:</strong> lesson 4.2 asks the model to reason before it answers, and shows when sampling several answers and voting helps a grader like this one, and when it hurts.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Few-shot examples teach the label set, the output shape and the class boundaries. They are paid for on every call, so the classifier&rsquo;s three examples cost ten times the zero-shot tokens.</li>
-<li>Choose examples near the boundary, keep the labels balanced, cover every label, and measure the prompt against your own labelled pairs.</li>
-<li>Persona, flipped interaction, directional stimulus, template and meta language each constrain the reply in a different way. Validate templated output before code uses it, and expect a stateful conversation to cost more each turn.</li>
+<li>Few-shot examples teach the label set, the output shape and the class boundaries. They are paid for on every call: the classifier&rsquo;s three examples cost ten times the zero-shot tokens, and a per-chunk grader multiplies that by k.</li>
+<li>Put examples on the real boundary (a nearby topic that does not answer, an answer in other words), keep labels balanced, cover every label, and measure the prompt against your own labelled pairs.</li>
+<li>Persona, flipped interaction, directional stimulus, template and meta language each constrain a different part of the reply. Validate templated output before code uses it, and expect a stateful conversation to cost more each turn.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What do the few-shot examples teach the news classifier that its instruction leaves open, and what do they cost?</summary>
-<p>They teach the label set and its spelling, the output shape (the bare label, then stop) and where the boundaries between classes are. They cost tokens on every call: the few-shot prompt sends 321 tokens against the zero-shot prompt&rsquo;s 31. In a RAG grader that runs once per retrieved chunk, that cost multiplies again by <code>k</code>.</p>
+<p>They teach the label set and its spelling, the output shape (the bare label, then stop) and where the boundaries between classes are. They cost tokens on every call: 321 for the few-shot prompt against 31 for the zero-shot one. A RAG grader runs once per retrieved chunk, which multiplies that cost by k.</p>
 </details>
 <details>
 <summary>2. The Larkspur grading prompt has one yes example and one no example on an unrelated topic. Which two examples should you add?</summary>
-<p>A nearby passage that does not answer, labelled no: the <code>billing</code> chunk for <em>How long does a refund take?</em>. And a passage that answers in other words, labelled yes: the one saying refunds take 5 to 10 business days to appear on your statement. The current no example shares no topic with the question, so it only teaches an easy boundary; keep yes and no balanced and measure the grader against your own labels.</p>
+<p>A nearby passage that does not answer, labelled no: the billing chunk for <em>How long does a refund take?</em>. And a passage that answers in other words, labelled yes: the one saying refunds take 5 to 10 business days to appear on your statement. The current no example only teaches an easy boundary; the two new ones sit on the real boundary and keep yes and no balanced.</p>
 </details>
 <details>
 <summary>3. A flipped-interaction assistant gets more expensive with every question it asks. Why?</summary>
-<p>It is the only one of these patterns with state. Each turn sends the whole conversation history back to the model, stored per <code>session_id</code> by <code>RunnableWithMessageHistory</code>, so the prompt grows with every turn and so does the cost.</p>
+<p>It is the only one of these patterns with state. Each turn sends the whole conversation history for its session id back to the model, and the prompt grows with every question and answer. That is history creep: the cost rises whether or not the old turns still matter.</p>
 </details>
-<h2 id="chain-of-thought">Chain-of-thought</h2>
+<h2 id="a-question-that-needs-steps">A question that needs steps</h2>
 <p class="lesson-of">Lesson 4.2: Reasoning prompts: chain-of-thought, self-consistency, least-to-most, ReAct. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/notebook/02a_advanced_prompt_engineering_patterns.ipynb" target="_blank" rel="noopener"><code>02a_advanced_prompt_engineering_patterns.ipynb</code></a></p>
-<p>A chain-of-thought (CoT) prompt asks the model to write its reasoning before the answer. The answer is then conditioned on the steps, and the steps are on the page for you to check. Notebook 02a uses one question for every variant: from a game summary, <em>How many yards was the shortest valid field goal?</em> The summary has a 35-yard field goal and a 31-yard one that was blocked, so the right answer is 35, and a model that skips the word &ldquo;blocked&rdquo; says 31.</p>
-<p>Three ways to ask for the reasoning:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>Zero-shot CoT</strong> adds one instruction: <code>Think step-by-step to get to your answer. Show your step-by-step reasoning and then the answer.</code></li>
-<li><strong>Few-shot CoT</strong> shows worked examples with numbered steps (<code>Step 1: Roger started with 5 balls.</code>) and lets the model copy the shape.</li>
-<li><strong>Least-to-most</strong> asks the model to list the subproblems first, then solve them in order: <code>break down the problem first into sub problems, answer each sub problem sequentially</code>.</li>
+<li><strong>Explain</strong> how chain-of-thought and least-to-most prompts change what comes before the answer.</li>
+<li><strong>Diagnose</strong> a few-shot reasoning prompt whose worked examples contain a wrong step.</li>
+<li><strong>Predict</strong> when a self-consistency vote raises accuracy and when it locks in a wrong answer.</li>
+<li><strong>Describe</strong> the ReAct loop of thought, tool call and observation, and what actually stops it.</li>
 </ul>
-<p>In few-shot CoT the model copies the reasoning of the examples as well as their format, so the examples have to be right. Two in notebook 02a are not:</p>
-<ul>
-<li>The keystroke example ends <code>9 + 90 + 401 = 1392 keystrokes</code>. Those three numbers add up to 500, the count of numbers from 1 to 500. The keystrokes are 9 × 1 + 90 × 2 + 401 × 3 = 1,392: the answer is right and the step that reaches it is wrong.</li>
-<li>The least-to-most example lists <em>28-yard, 57-yard and 59-yard which are all valid goals</em>, but its own text says the 28-yard attempt was blocked. The final answer, 59, survives only because the blocked kick was not the longest.</li>
-</ul>
-<p>The second example teaches the exact mistake the test question checks for: counting a blocked kick as valid.</p>
-<p>Least-to-most fits Larkspur questions that combine rules. <em>Can I get a refund after 45 days?</em> breaks into three subproblems:</p>
-<ol>
-<li>Is day 45 inside the 30-day window for a full refund? No.</li>
-<li>Which rule applies after day 30? The refund is prorated to the unused whole months, minus a 15% early-termination fee.</li>
-<li>How many whole months are unused? That depends on the customer&rsquo;s plan start date, which is in the billing system, not in the handbook.</li>
-</ol>
-<p>The third subproblem cannot be solved by reasoning alone. It needs a lookup, which is where ReAct comes in.</p>
+</blockquote>
+<p>Lesson 4.1 shaped the reply with examples, personas and templates, each asking for an answer straight away. Some questions need intermediate steps first, and some need facts the model does not have.</p>
+<p>A Larkspur customer asks <em>Can I get a refund after 45 days?</em> An assistant that answers in one breath tends to grab the nearest rule it remembers, the 30-day full refund, and reply &ldquo;No&rdquo;. The handbook has more to say. Monthly plans are never refundable. An annual plan gets a full refund within 30 days, and after day 30 it gets the unused whole months back, minus a 15% early-termination fee. The right answer depends on the plan and on the start date, and the start date is not in the handbook at all.</p>
+<h2 id="chain-of-thought">Chain-of-thought</h2>
+<p><strong>A chain-of-thought (CoT) prompt asks the model to write its reasoning before the answer.</strong> The answer is then conditioned on the steps, and the steps are on the page for you to check.</p>
+<p>Notebook 02a uses one test question for every variant: from a game summary, <em>How many yards was the shortest valid field goal?</em> The summary has a 35-yard field goal and a 31-yard one that was blocked. The right answer is 35; a model that skips the word &ldquo;blocked&rdquo; says 31.</p>
+<p>The notebook asks for the reasoning in three ways:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>What the prompt adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zero-shot CoT</td>
+<td>one instruction: <em>Think step-by-step to get to your answer. Show your step-by-step reasoning and then the answer.</em></td>
+</tr>
+<tr>
+<td>Few-shot CoT</td>
+<td>worked examples with numbered steps (<em>Step 1: Roger started with 5 balls.</em>) for the model to copy</td>
+</tr>
+<tr>
+<td>Least-to-most</td>
+<td>an instruction to <em>break down the problem first into sub problems, answer each sub problem sequentially</em>, plus one worked example</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The three ways notebook 02a asks for reasoning.</em></p>
+<h3>Planted failure: the copied mistake</h3>
+<p>In few-shot CoT the model copies the reasoning of the examples as well as their format, so every step of every example has to be right. Two examples in notebook 02a are not:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Example</th>
+<th>Step as written</th>
+<th>What is wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keystrokes to type 1 to 500</td>
+<td><em>9 + 90 + 401 = 1392 keystrokes</em></td>
+<td>those three numbers add up to 500, the count of numbers; the keystrokes are 9 × 1 + 90 × 2 + 401 × 3 = 1,392</td>
+</tr>
+<tr>
+<td>Longest field goal (least-to-most)</td>
+<td><em>28-yard, 57-yard and 59-yard which are all valid goals</em></td>
+<td>its own text says the 28-yard kick was blocked; the answer, 59, survives only because the blocked kick was not the longest</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Wrong steps inside the notebook&rsquo;s worked examples (checked by hand against each example&rsquo;s own text).</em></p>
+<p>The field goal example teaches the exact mistake the test question checks for: counting a blocked kick as valid. We call this the <strong>copied mistake</strong>, and the only guard is to check each worked step, not only each final answer.</p>
+<h3>Least-to-most on the refund question</h3>
+<p>Least-to-most fits Larkspur questions that combine rules. <em>Can I get a refund after 45 days?</em> breaks into four subproblems, each answered in order:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    S1["1. Monthly or&lt;br/&gt;annual plan?"] --&gt; S2["2. Inside the&lt;br/&gt;30-day window?"]
+    S2 --&gt; S3["3. Rule after&lt;br/&gt;day 30"]
+    S3 --&gt; S4["4. Unused&lt;br/&gt;whole months"]
+    S4 --&gt; A[/Refund amount/]
+</pre></figure>
+<p><em>Figure 1: The refund question as a chain of subproblems. Each answer feeds the next.</em></p>
+<p>Each subproblem has its own source:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Subproblem</th>
+<th>Answer</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Which plan?</td>
+<td>monthly plans are not refundable; annual plans continue</td>
+<td>handbook, plus the customer&rsquo;s account</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Is day 45 inside the 30-day full-refund window?</td>
+<td>no</td>
+<td>handbook</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Which rule applies after day 30?</td>
+<td>prorated to the unused whole months, minus a 15% early-termination fee</td>
+<td>handbook</td>
+</tr>
+<tr>
+<td>4</td>
+<td>How many whole months are unused?</td>
+<td>depends on the purchase date</td>
+<td>billing system</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Least-to-most decomposition of the refund question.</em></p>
+<p>Subproblems 1 and 4 cannot be solved by reasoning alone. They need a lookup, and a reasoning prompt has no way to make one. ReAct, at the end of this page, adds that.</p>
 <h2 id="self-consistency">Self-consistency</h2>
-<p>Self-consistency samples several chain-of-thought paths for the same question and keeps the answer most of them reach (Wang et al., 2022). Notebook 02a builds it from three CoT chains run in parallel with <code>RunnableParallel</code>, all <code>gpt-4o-mini</code> at temperatures 0, 0.5 and 0.9, and a fourth call at temperature 0 that reads the three paths and is told to <em>aggregate, take the majority vote as needed</em>:</p>
+<p><strong>Self-consistency samples several chain-of-thought paths for the same question and keeps the answer most of them reach</strong> (Wang et al., 2022). One path can slip; if the slips land on different answers, the right answer still collects the most votes.</p>
+<p>Notebook 02a builds it from three CoT chains run in parallel, all <code>gpt-4o-mini</code>, at temperatures 0, 0.5 and 0.9. A fourth call at temperature 0 reads the three paths and is told to <em>aggregate, take the majority vote as needed</em>:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     P[/Problem/] --&gt; C1["Path 1&lt;br/&gt;temperature 0"]
     P --&gt; C2["Path 2&lt;br/&gt;temperature 0.5"]
@@ -472,7 +732,10 @@ Answer:
     C3 --&gt; AG
     AG --&gt; A[/Answer/]
 </pre></figure>
-<p>That is four calls where plain CoT makes one. Whether the extra calls pay depends on how the wrong answers are spread, which the <a href="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html">interactive lab</a> computes exactly. It treats each path as an independent draw that is right with probability <code>p</code> and otherwise gives one of <code>W</code> equally likely wrong answers, then counts how often the most common answer is the right one, with ties split at random:</p>
+<p><em>Figure 2: Self-consistency in notebook 02a: three sampled paths and an LLM that merges them.</em></p>
+<p>That is four calls where plain CoT makes one. The aggregator is itself a model call, and it can be talked round by a confident wrong path. For short answers that compare as strings or numbers, counting the votes in code does the same job with one call fewer.</p>
+<h3>When the vote helps</h3>
+<p>Whether the extra calls pay depends on how the wrong answers are spread. The <a href="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html">interactive lab</a> computes this exactly. It treats each path as an independent draw that is right with probability <code>p</code> and otherwise gives one of <code>W</code> equally likely wrong answers, then counts how often the most common answer is the right one, with ties split at random:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -519,25 +782,57 @@ Answer:
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 4: Vote accuracy from the lab (values the lab prints at these settings, checked against a Python port of its formula).</em></p>
+<p>The curves for a path that is right 40% of the time:</p>
 <figure class="diagram"><img src="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/diagrams/vote-accuracy.svg" width="760" height="380" alt="Exact majority-vote accuracy for N from 1 to 15 when each path is right with probability 0.40. With one wrong answer (a yes/no grade) accuracy falls from 0.400 to 0.213 at N = 15. With four equally likely wrong answers it rises from 0.400 to 0.780. Values from the self-consistency lab."></figure>
+<p><em>Figure 3: One accuracy, two outcomes. Scattered errors lift the vote; a single shared error sinks it.</em></p>
 <figure class="lab-embed"><iframe src="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html" title="Self-consistency: when a vote helps, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Self-consistency: when a vote helps. <a href="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html">Open full screen</a></figcaption></figure>
-<p>Three rules follow:</p>
+<p>Three rules follow from the table:</p>
 <ul>
-<li><strong>A vote amplifies whatever answer is most common.</strong> If one path is right more often than any single wrong answer, more paths help. If not, they make the wrong answer look certain: a yes/no grader that is right 40% of the time drops to 0.213 with 15 votes.</li>
-<li><strong>Scattered errors are where voting pays.</strong> With four distinct wrong answers, a path that is right only 40% of the time still wins the vote 78% of the time at N = 15, because no single wrong answer gathers enough votes. Numeric answers such as a prorated refund behave like this; yes/no grades never do.</li>
-<li><strong>On two labels, use an odd N.</strong> An even N can split evenly, and a split is a coin flip, so N = 4 scores exactly what N = 3 scores (0.648 at <code>p</code> = 0.60) for one more call.</li>
+<li><strong>A vote amplifies whatever answer is most common.</strong> If one path is right more often than any single wrong answer, more paths help. If not, the vote makes the wrong answer look certain. We call this the <strong>confident wrong vote</strong>: a yes/no grader that is right 40% of the time drops to 0.213 with 15 votes.</li>
+<li><strong>Scattered errors are where voting pays.</strong> With four distinct wrong answers, a path that is right only 40% of the time still wins the vote 78% of the time at N = 15, because no single wrong answer gathers enough votes. A computed figure such as a prorated refund behaves like this; a yes/no grade never does.</li>
+<li><strong>On two labels, use an odd N.</strong> An even N can split evenly, and a split is a coin flip. N = 4 scores exactly what N = 3 scores (0.648 at <code>p</code> = 0.60) for one more call.</li>
 </ul>
-<p>The lab&rsquo;s independence assumption is the best case. Paths from one model share its blind spots, so they agree on the same wrong answer more often than independent draws would, and a real vote gains less. A path at temperature 0, as in the notebook, repeats the model&rsquo;s most likely path rather than sampling a new one. For a measured case where the wrong answers clustered on one value, see <a href="../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/index.html#tree-of-thoughts--lats">M25&rsquo;s self-consistency page</a>.</p>
+<p>The lab&rsquo;s independence assumption is the best case. Paths from one model share its blind spots and agree on the same wrong answer more often than independent draws, which shrinks the gain; a path at temperature 0 repeats the most likely path rather than sampling a new one. For a measured case where the wrong answers clustered on one value, see <a href="../../../../p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/theory/index.html#tree-of-thoughts--lats">M25&rsquo;s self-consistency page</a>.</p>
 <h2 id="react-format">ReAct format</h2>
-<p>ReAct prompts the model to alternate reasoning with actions: a Thought, an Action with its input, the Observation the action returns, and another Thought, until it can write a Final Answer (Yao et al., 2022). Notebook 02a puts that format in its system prompt:</p>
-<pre class="sheet code"><code class="language-text">Thought: you should always think about what to do
-Action: the action to take … call the tool [search_web]
-Action Input: the input to the action
-Observation: the result of the action
-… (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-</code></pre>
+<p><strong>ReAct prompts the model to alternate reasoning with actions</strong> (Yao et al., 2022): a Thought, an Action with its input, the Observation the action returns, and another Thought, until it can write a Final Answer.</p>
+<p>Notebook 02a puts that format in its system prompt, one labelled line per part:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Line</th>
+<th>What the prompt asks for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thought</td>
+<td>what to do next</td>
+</tr>
+<tr>
+<td>Action</td>
+<td>the action to take: break the task down, use trained knowledge, or call the tool <code>search_web</code></td>
+</tr>
+<tr>
+<td>Action Input</td>
+<td>the input to the action</td>
+</tr>
+<tr>
+<td>Observation</td>
+<td>the result of the action</td>
+</tr>
+<tr>
+<td>(repeat)</td>
+<td>Thought, Action, Action Input and Observation can repeat N times</td>
+</tr>
+<tr>
+<td>Final Answer</td>
+<td>the answer to the original question, after <em>I now know the final answer</em></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 5: The ReAct format as notebook 02a&rsquo;s system prompt states it.</em></p>
+<p>The loop those lines describe:</p>
 <figure class="anim sheet" aria-labelledby="anim-react-loop-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The ReAct loop, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 310" role="img" aria-labelledby="anim-react-loop-title anim-react-loop-desc">
@@ -585,18 +880,103 @@ Final Answer: the final answer to the original input question
     <li><button type="button" data-tok="420,244">Answer</button><span>The Final Answer: yes, export from Settings, then Data, within 30 days of cancelling.</span></li>
   </ol>
 </figure>
-<p>The notebook&rsquo;s tool, <code>search_web</code>, takes the top five DuckDuckGo results, fetches each page with <code>requests</code> and returns its text through BeautifulSoup. The agent is <code>gpt-4o</code> built with <code>create_tool_calling_agent</code> and run by <code>AgentExecutor</code>. That combination changes what the format means:</p>
+<p><em>Figure 4: The ReAct loop. Each Observation goes back into the next Thought until the model answers.</em></p>
+<h3>What the framework actually runs</h3>
+<p>The notebook&rsquo;s tool, <code>search_web</code>, takes the top five DuckDuckGo results, fetches each page and returns its text. The agent is <code>gpt-4o</code> built with <code>create_tool_calling_agent</code> and run by <code>AgentExecutor</code>. That combination changes what the format means:</p>
 <ul>
-<li><strong>The Action is a tool call, not text.</strong> <code>bind_tools</code> gives the model the tool&rsquo;s schema, and the model returns a structured <code>tool_calls</code> entry with the tool name and arguments. The agent runs it and feeds the result back as a tool message. Nothing parses an <code>Action:</code> line: a reply with no <code>tool_calls</code> is taken as the final answer, even if its text says <code>Action:</code>. The <code>PAUSE</code> in the prompt has no effect.</li>
+<li><strong>The Action is a tool call, not text.</strong> The model is given the tool&rsquo;s schema and returns a structured tool call with the tool name and arguments. The agent runs it and feeds the result back as a tool message. Nothing parses an <code>Action:</code> line, and the <code>PAUSE</code> the system prompt mentions has no effect.</li>
 <li><strong>The Thought lines are guidance.</strong> They ask the model to plan and to check the Observation before answering. The model may write them, or may call the tool straight away.</li>
 <li><strong>The loop needs a stop.</strong> <code>AgentExecutor</code> ends the run when the model replies without a tool call, or after <code>max_iterations</code> (15 by default).</li>
 </ul>
-<p>The notebook first asks <em>Tell me about LangGraph in detail including who made it and key features</em> with no tool, and its own comment expects the model to decline or make up an answer; the agent then answers the same question from the pages <code>search_web</code> fetched. For Larkspur the tool is a handbook search, and <em>Can I export my data after I cancel my plan?</em> takes one round: the search returns the <code>export</code> and <code>retention</code> chunks, and the answer is to export from Settings, then Data, within 30 days of cancelling. The proration question from the section above takes two tools, the handbook and the customer&rsquo;s billing record. M22 and M23 build this loop in LangGraph.</p>
+<p>Each of those rules shows up as a failure you can plant:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Planted case</th>
+<th>What the agent returns</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reply text says <code>Action: search_web</code> but carries no tool call</td>
+<td>that text, as the final answer</td>
+<td>a reply with no tool call ends the run</td>
+</tr>
+<tr>
+<td>The search keeps returning the same pages and the model keeps searching</td>
+<td><em>Agent stopped due to iteration limit or time limit.</em> after 15 rounds</td>
+<td>the default stop forces an end</td>
+</tr>
+<tr>
+<td>One result page never responds</td>
+<td>the tool hangs</td>
+<td>the fetch has no timeout</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 6: Planted ReAct failures and the rule behind each (behaviour read from the installed agent code and the notebook&rsquo;s tool; no model call).</em></p>
+<p>We call the second case the <strong>runaway loop</strong>. It usually means the evidence is not where the agent is looking, and the right end is an &ldquo;I don&rsquo;t know&rdquo;, not a sixteenth search.</p>
+<p>The notebook first asks about LangGraph with no tool, and its own comment expects the model to decline or make up an answer; the agent then answers from the pages <code>search_web</code> fetched.</p>
+<p>For Larkspur the tool is a handbook search. <em>Can I export my data after I cancel my plan?</em> takes one round: the search returns the <code>export</code> and <code>retention</code> chunks, and the answer is to export from Settings, then Data, within 30 days of cancelling. The refund question takes two tools, the handbook for the rules and the customer&rsquo;s billing record for the plan and purchase date. <a href="../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/index.html">M22</a> and <a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html">M23</a> build this loop in LangGraph.</p>
+<h2 id="choosing-a-reasoning-prompt">Choosing a reasoning prompt</h2>
+<p>The cheapest prompt that covers the question wins:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    A{"Needs facts the&lt;br/&gt;model lacks?"} -- yes --&gt; R[ReAct with a tool]
+    A -- no --&gt; B{"Several dependent&lt;br/&gt;subproblems?"}
+    B -- yes --&gt; L[Least-to-most]
+    B -- no --&gt; C{"Short answer, errors&lt;br/&gt;that scatter?"}
+    C -- yes --&gt; S[Self-consistency]
+    C -- no --&gt; T[Chain-of-thought]
+</pre></figure>
+<p><em>Figure 5: Pick a reasoning prompt by what the question needs.</em></p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th>Calls per question</th>
+<th>Fixes</th>
+<th>Main risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chain-of-thought</td>
+<td>1</td>
+<td>skipped steps</td>
+<td>copied mistake in examples</td>
+</tr>
+<tr>
+<td>Least-to-most</td>
+<td>1</td>
+<td>rules applied out of order</td>
+<td>a subproblem that needs data</td>
+</tr>
+<tr>
+<td>Self-consistency</td>
+<td>N + 1 with an LLM aggregator, N with a code vote</td>
+<td>slips that land on different answers</td>
+<td>confident wrong vote</td>
+</tr>
+<tr>
+<td>ReAct</td>
+<td>one per round, up to the iteration limit</td>
+<td>missing facts</td>
+<td>runaway loop</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 7: The four reasoning prompts compared.</em></p>
+<h2 id="references">References</h2>
+<ol>
+<li>Wang, X. et al. (2022). <a href="https://arxiv.org/abs/2203.11171" target="_blank" rel="noopener">Self-Consistency Improves Chain of Thought Reasoning in Language Models</a>. arXiv:2203.11171.</li>
+<li>Yao, S. et al. (2022). <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct: Synergizing Reasoning and Acting in Language Models</a>. arXiv:2210.03629.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Chain-of-thought puts the reasoning on the page before the answer. In few-shot form the model copies the examples&rsquo; reasoning, so check every step of every example, not only the final answers.</li>
-<li>Self-consistency votes over several paths and amplifies the most common answer. It pays when errors scatter, as numeric answers do, and makes a weak yes/no grader worse.</li>
-<li>In a tool-calling agent the action is a structured tool call, and a reply with none ends the run. Use ReAct when a subproblem needs a lookup that reasoning alone cannot supply.</li>
+<li>Self-consistency votes over several paths and amplifies the most common answer. It pays when errors scatter, as computed figures do, and makes a weak yes/no grader worse.</li>
+<li>In a tool-calling agent the action is a structured tool call, a reply with none ends the run, and an iteration limit stops a runaway loop. Use ReAct when a subproblem needs a lookup that reasoning alone cannot supply.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -609,11 +989,25 @@ Final Answer: the final answer to the original input question
 </details>
 <details>
 <summary>3. A ReAct agent built with create_tool_calling_agent replies with text that says Action: search_web, but no search runs. Why?</summary>
-<p>The action is a structured <code>tool_calls</code> entry, not text, and nothing parses an <code>Action:</code> line. <code>AgentExecutor</code> takes a reply with no <code>tool_calls</code> as the final answer, even if its text says <code>Action:</code>, and ends the run there.</p>
+<p>The action is a structured tool call, not text, and nothing parses an <code>Action:</code> line. <code>AgentExecutor</code> takes a reply with no tool call as the final answer, even if its text says <code>Action:</code>, and ends the run there.</p>
 </details>
-<h2 id="one-prompt-set-across-four-apis">One prompt set across four APIs</h2>
+<h2 id="a-model-swap-with-no-test-set">A model swap with no test set</h2>
 <p class="lesson-of">Lesson 4.3: The same tasks across models. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/notebook/03a_openai_gpt_4o_mini.ipynb" target="_blank" rel="noopener"><code>03a_openai_gpt_4o_mini.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/optional/notebook/03b_google_gemini_1_5_flash.ipynb" target="_blank" rel="noopener"><code>03b_google_gemini_1_5_flash.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/optional/notebook/03c_meta_llama_3_2_90b_groq.ipynb" target="_blank" rel="noopener"><code>03c_meta_llama_3_2_90b_groq.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/optional/notebook/03d_meta_llama_3_2_1b_huggingface.ipynb" target="_blank" rel="noopener"><code>03d_meta_llama_3_2_1b_huggingface.ipynb</code></a> (optional)</p>
-<p>The four notebooks run the same ten tasks: zero-shot and few-shot classification, Python and SQL generation, information extraction from a clinical note, closed-domain and open-domain question answering, summarisation, turning a fact sheet into an FAQ, and translation. Each notebook defines one function, <code>get_completion(prompt, model)</code>, and every task calls it. Only that function changes between notebooks:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> why a fixed prompt set and one swappable wrapper make a fair model comparison.</li>
+<li><strong>Choose</strong> a check for each kind of task, from exact match to a support judgement.</li>
+<li><strong>Diagnose</strong> a comparison that rests on reading replies by eye or on a tiny, leaky test set.</li>
+<li><strong>Adapt</strong> a closed-domain question-answering prompt into the answer step of a RAG pipeline.</li>
+</ul>
+</blockquote>
+<p>Lessons 4.1 and 4.2 built prompts for one model. A prompt is written against a model, though, and models change: a cheaper one appears, a provider retires an id, a team wants an open model it can host.</p>
+<p>Suppose the Larkspur team moves its support assistant from <code>gpt-4o-mini</code> to a cheaper model. Someone sends five handbook questions to the new model, reads the replies, finds them fluent and ships the change. A week later the answer step is filling gaps in the handbook with general knowledge (illustrative). No check measured whether each answer stayed inside the retrieved passages.</p>
+<p>The four notebooks of this lesson show the setup that catches it: one fixed prompt set, one wrapper per provider, and a score per task.</p>
+<h2 id="one-prompt-set-across-four-apis">One prompt set across four APIs</h2>
+<p>The four notebooks run the same ten tasks: zero-shot and few-shot classification, Python and SQL generation, information extraction from a clinical note, closed-domain and open-domain question answering, summarisation, turning a fact sheet into an FAQ, and translation.</p>
+<p>Each notebook defines one function, <code>get_completion(prompt, model)</code>, and every task calls it. Only that function changes between notebooks:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -645,61 +1039,324 @@ Final Answer: the final answer to the original input question
 </tr>
 </tbody>
 </table></div>
-<p>All four set temperature 0, and 03d caps replies at <code>max_tokens=2048</code>. The prompt text is identical in 03a, 03c and 03d. 03b adds one prompt, a second LangGraph question ending <em>If you are not able to find the answer in your trained knowledge just say you don&rsquo;t know</em>, so for that task its run answers a different prompt.</p>
+<p><em>Table 1: The wrapper is the only part that changes.</em></p>
+<p>All four set temperature 0, and 03d caps replies at 2,048 tokens. 03d&rsquo;s first test call goes to a different model, <code>microsoft/Phi-3.5-mini-instruct</code>; its ten tasks all use the Llama default. The prompt text is identical in 03a, 03c and 03d. 03b adds one prompt, a second LangGraph question ending <em>If you are not able to find the answer in your trained knowledge just say you don&rsquo;t know</em>, and for that task its run answers a different prompt.</p>
+<p>The structure in one picture:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     PS["Prompt set&lt;br/&gt;fixed text"] --&gt; GC["get_completion&lt;br/&gt;one per provider"]
     GC --&gt; M["Model&lt;br/&gt;temperature 0"]
     M --&gt; OUT["Outputs&lt;br/&gt;per task"]
     OUT --&gt; SC["Score against&lt;br/&gt;your labels"]
 </pre></figure>
-<p>The design keeps the prompt set as the fixed part and the wrapper as the swap point. Three practices make the comparison worth trusting:</p>
-<ul>
-<li><strong>Score, do not eyeball.</strong> The notebooks print each reply. A comparison needs a check per task: exact match for the sentiment label, a line count for &ldquo;limit the summary to 5 lines&rdquo;, valid JSON for a template, a labelled list of symptoms for the clinical note. That is the M04 <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/lab/README.md" target="_blank" rel="noopener">lab brief</a> on a small scale.</li>
-<li><strong>Keep the model id in one place.</strong> Provider ids are retired. Groq shut down <code>llama-3.2-90b-vision-preview</code> on 14 April 2025 and names <code>meta-llama/llama-4-scout-17b-16e-instruct</code> as the replacement (<a href="https://console.groq.com/docs/deprecations" target="_blank" rel="noopener">Groq deprecations</a>), so 03c and the Llama half of <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/notebook/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb" target="_blank" rel="noopener">notebook 04a</a> fail until the id is changed. The 1B model in 03d is gated: the notebook asks you to request access from Meta on Hugging Face first.</li>
-<li><strong>Read the prompt as each model will.</strong> Task 6, closed-domain QA, gives a survey report as context and asks the model to answer <em>to the best of your ability</em>. That wording invites the model&rsquo;s own knowledge. In a RAG pipeline the same prompt needs an instruction to answer only from the context and to say so when the context does not contain the answer, the line 03b adds to its extra prompt.</li>
-</ul>
-<p>For Larkspur, the closed-domain prompt becomes the answer step of the pipeline:</p>
-<pre class="sheet code"><code class="language-text">Answer the customer's question using only the handbook passages below.
-If the passages do not contain the answer, reply &quot;The handbook does not cover this.&quot;
-
-Passages:
-&quot;&quot;&quot;{passages}&quot;&quot;&quot;
-
-Question: {question}
-Answer:
-</code></pre>
-<p>Run it on each candidate model with the same golden questions and passages, and score each answer for whether it is supported by the passages. A model that answers <em>What happens if my server goes down?</em> from general knowledge when the passages hold only the reboot instructions fails this prompt, however fluent the answer is.</p>
+<p><em>Figure 1: The prompt set is the fixed part and the wrapper is the swap point. The last box is the one the notebooks leave to you.</em></p>
+<p>Three practices make the comparison worth trusting.</p>
+<h3>Score, do not eyeball</h3>
+<p>The notebooks print each reply. A comparison needs a check per task, decided before the run. Several tasks carry their own answer key in the prompt or its context:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Check</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Zero-shot sentiment</td>
+<td>exact match on one of three labels</td>
+<td>speaker review Positive, blender review Negative</td>
+</tr>
+<tr>
+<td>5. Clinical note</td>
+<td>match against a labelled symptom list</td>
+<td>sore throat and tongue swelling present; chest pain, itching, nausea absent</td>
+</tr>
+<tr>
+<td>6. Closed QA, mortgage</td>
+<td>number match</td>
+<td>12% (£668.51 to £748.94)</td>
+</tr>
+<tr>
+<td>6. Closed QA, salary</td>
+<td>exact match, number only</td>
+<td>54</td>
+</tr>
+<tr>
+<td>8. Summary</td>
+<td>starts with <em>Summary</em>, at most 5 lines</td>
+<td>format check</td>
+</tr>
+<tr>
+<td>9. FAQ</td>
+<td>at most 8 question and answer pairs</td>
+<td>count check</td>
+</tr>
+<tr>
+<td>10. Translation</td>
+<td>German and Spanish both present</td>
+<td>presence check, then a reader</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: A check per task. Expected answers come from the notebooks&rsquo; own inputs, checked by hand.</em></p>
+<p>Different outputs call for different checks. Ask in this order:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    A{"Fixed label&lt;br/&gt;or number?"} -- yes --&gt; EM[Exact match]
+    A -- no --&gt; B{"Fixed format&lt;br/&gt;or length?"}
+    B -- yes --&gt; FC[Format check]
+    B -- no --&gt; C{"Grounded in&lt;br/&gt;given context?"}
+    C -- yes --&gt; SJ[Support judgement]
+    C -- no --&gt; HJ[Human or LLM judge]
+</pre></figure>
+<p><em>Figure 2: The cheapest check that can fail a wrong reply.</em></p>
+<h3>Planted failure: the leaky two-review test</h3>
+<p>The sentiment tasks show how a test set can mislead. Task 1 asks for Positive, Negative or Neutral. Task 2, the few-shot version, switches the labels to 😊 and 😡 and gives no Neutral example. Its two examples open with the same words as the two reviews under test (<em>Just received the…</em> and <em>Needed a new…</em>), and the test set is two reviews long:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Effect on the comparison</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Labels change between tasks</td>
+<td>an exact-match scorer needs a mapping, or both tasks score zero</td>
+</tr>
+<tr>
+<td>Examples echo the test inputs</td>
+<td>the model can match on wording rather than sentiment</td>
+</tr>
+<tr>
+<td>Two test items</td>
+<td>each model scores 0%, 50% or 100%; no difference between models is readable</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: Three ways the sentiment tasks would mislead a scorer.</em></p>
+<p>We call this the <strong>leaky test</strong>: the examples share text with the inputs, and the inputs are too few to separate models. A model comparison needs its own labelled cases, kept apart from any examples in the prompt. That is the M04 <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/lab/README.md" target="_blank" rel="noopener">lab brief</a> on a small scale: 30 labelled pairs, agreement per prompt.</p>
+<h3>Keep the model id in one place</h3>
+<p>Provider ids are retired. Groq shut down <code>llama-3.2-90b-vision-preview</code> on 14 April 2025 and names <code>meta-llama/llama-4-scout-17b-16e-instruct</code> as the replacement (<a href="https://console.groq.com/docs/deprecations" target="_blank" rel="noopener">Groq deprecations</a>, checked 9 November 2026). Notebook 03c and the Llama half of notebook 04a call that id and fail until it is changed. We call this <strong>id rot</strong>. With the id inside <code>get_completion</code>, the fix is one line.</p>
+<p>Access can also change. The 1B model in 03d is gated: the notebook asks you to request access from Meta on Hugging Face before the first call works.</p>
+<h3>Read the prompt as each model will</h3>
+<p>Task 6, closed-domain QA, gives a survey report as context and asks the model to answer <em>to the best of your ability</em>. That wording invites the model&rsquo;s own knowledge. In a RAG pipeline the same prompt needs an instruction to answer only from the context, and to say so when the context does not contain the answer. That is the line 03b adds to its extra prompt.</p>
+<h2 id="in-practice-the-answer-step">In practice: the answer step</h2>
+<p>The closed-domain prompt becomes the answer step of the Larkspur pipeline. It has four parts:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Instruction</td>
+<td>answer the customer&rsquo;s question using only the handbook passages below</td>
+</tr>
+<tr>
+<td>Refusal line</td>
+<td>if the passages do not contain the answer, reply <em>The handbook does not cover this.</em></td>
+</tr>
+<tr>
+<td>Passages</td>
+<td>the retrieved chunks, inside delimiters</td>
+</tr>
+<tr>
+<td>Question</td>
+<td>the customer&rsquo;s question, then an empty <em>Answer:</em> slot</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: The Larkspur answer prompt, adapted from task 6.</em></p>
+<p>To compare candidate models on it:</p>
+<ol>
+<li>Freeze this prompt and the golden questions with their retrieved passages.</li>
+<li>Run every candidate through the same wrapper at temperature 0.</li>
+<li>Score each answer for support: every claim must appear in the passages. Fluency earns nothing.</li>
+<li>Include the five golden questions the handbook cannot answer. For those, the refusal line is the only correct reply.</li>
+</ol>
+<p>Take <em>What happens if my server goes down?</em> with only the reboot passage retrieved. A model that adds status-page advice or service credits from general knowledge fails step 3, however good the advice sounds. The answer either sticks to the reboot instructions or uses the refusal line.</p>
+<blockquote>
+<p><strong>Interview tip:</strong> when asked how to choose between models, describe the frozen prompt set and the per-task checks before naming any model.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Keep the prompt set fixed and swap models behind one wrapper, so the model id lives in one place and a retired id is a one-line fix.</li>
-<li>Score each task with its own check, such as exact match, line count or valid JSON, instead of reading replies by eye.</li>
+<li>Score each task with its own check (exact match, format and length, support by the context), on enough labelled cases kept apart from the prompt&rsquo;s examples.</li>
 <li>For a RAG answer step, tell the model to answer only from the passages and to say when they do not cover the question. Score answers for support by the passages, not fluency.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why is printing each model's reply not enough to compare the four models on the ten tasks?</summary>
-<p>Reading replies by eye gives an impression, not a comparison. Each task needs its own check: exact match for the sentiment label, a line count for the five-line summary, valid JSON for a template, a labelled list of symptoms for the clinical note. Scoring against your own labels is the M04 lab brief on a small scale.</p>
+<p>Reading replies by eye gives an impression, not a comparison. Each task needs its own check: exact match for the sentiment label, a number match for the mortgage question, a line count for the five-line summary, a labelled list of symptoms for the clinical note. The checks also need enough cases; the sentiment tasks have two reviews, so a model can only score 0%, 50% or 100%.</p>
 </details>
 <details>
-<summary>2. The Larkspur answer prompt gets only the reboot passages for What happens if my server goes down? A model answers fluently from general knowledge. Does it pass?</summary>
-<p>No. The prompt tells the model to answer only from the handbook passages and to reply &ldquo;The handbook does not cover this.&rdquo; when they do not contain the answer. Each answer is scored for whether the passages support it, however fluent it is.</p>
+<summary>2. The Larkspur answer prompt gets only the reboot passage for What happens if my server goes down? A model answers fluently from general knowledge. Does it pass?</summary>
+<p>No. The prompt tells the model to answer only from the handbook passages and to reply <em>The handbook does not cover this.</em> when they do not contain the answer. Each answer is scored for whether the passages support every claim, however fluent it is.</p>
 </details>
 <details>
 <summary>3. Notebook 03c now fails on its first call although nobody changed its code. What is the likely cause, and what practice keeps the fix small?</summary>
-<p>The model id was retired: Groq shut down <code>llama-3.2-90b-vision-preview</code> on 14 April 2025 and names <code>meta-llama/llama-4-scout-17b-16e-instruct</code> as the replacement. Keep the model id in one place, inside the <code>get_completion</code> wrapper, so the fix is a one-line change.</p>
+<p>The model id was retired: Groq shut down <code>llama-3.2-90b-vision-preview</code> on 14 April 2025 and names <code>meta-llama/llama-4-scout-17b-16e-instruct</code> as the replacement. Keep the model id in one place, inside the <code>get_completion</code> wrapper, and the fix is a one-line change.</p>
 </details>
-<h2 id="from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</h2>
+<h2 id="a-ticket-reply-nobody-parsed">A ticket reply nobody parsed</h2>
 <p class="lesson-of">Lesson 4.4: Applied prompting on business tasks. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p02_prompt_engineering/m04_prompt_engineering_patterns/mandatory/notebook/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb" target="_blank" rel="noopener"><code>04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb</code></a></p>
-<p>Notebook 04a sends each of five business tasks to <code>gpt-4o</code> and to Llama 3.2 90B on Groq, both at temperature 0. The prompts combine the patterns from lessons 4.1 and 4.2, and each task adds one technique that a production prompt needs:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>Several instructions, one pass.</strong> The review prompt asks for a summary of at most 3 lines, the positives and negatives, the overall sentiment, 3 to 5 emotions, and a reply email. The email instruction is conditional: thank the customer if the sentiment is positive or neutral, apologise if it is negative. One call returns every field, and they agree with each other because the model wrote them together.</li>
-<li><strong>Delimiters around the input.</strong> Every task wraps its input in triple backticks (or triple quotes for the IT tickets), so the model can tell the instruction from the text it works on. Delimiters make an instruction hidden in a review easier to ignore; they do not guarantee it.</li>
-<li><strong>One source, several audiences.</strong> The same paper abstract becomes a 10-line summary, an executive summary for a healthcare company with ethics pros and cons, and one for a generative AI company organised by text, image and structured data. Only the persona and the audience line change.</li>
-<li><strong>Refinement in steps.</strong> The phone advert goes through three versions: a plain product description, then a fixed layout (product name, description, a two-column <code>Feature</code> and <code>Specification</code> table with exact numbers), then a version of at most 60 words on display and camera. The second step fixes the structure, the third the length and focus.</li>
-<li><strong>An output contract.</strong> The IT support prompt asks for JSON with six fields: <code>orig_msg</code>, <code>orig_lang</code>, <code>category</code>, <code>trans_msg</code>, <code>response</code> and <code>trans_response</code>. The six tickets are in Portuguese, Italian, Japanese, Russian (two) and Turkish, so one prompt detects the language, classifies, translates and replies in the customer&rsquo;s language.</li>
-<li><strong>Synthetic examples.</strong> The last task asks for five positive and five negative movie-review tweets of at most 250 characters, then three positive and three negative laptop reviews of at most 200 words with a sentiment and up to three key topics. Generated examples like these can seed a few-shot prompt or a test set, once a person has checked their labels.</li>
+<li><strong>Combine</strong> several instructions, including conditional ones, into one prompt whose outputs agree.</li>
+<li><strong>Explain</strong> what delimiters do for a prompt, and what they cannot guarantee.</li>
+<li><strong>Refine</strong> a prompt in stages: structure first, then length and focus.</li>
+<li><strong>Design</strong> an output contract that code parses, validates and routes, with a fallback to a person.</li>
 </ul>
-<p>Two details in the notebook are worth copying the other way round. The JSON contract lists its fields as <code>orig_msg: The original customer message</code> inside braces, which describes JSON without being JSON, and the notebook displays the reply as Markdown without parsing it. And <code>get_completion</code> returns the string <code>LLM not configured!</code> for an unknown model name, so a typo produces a plausible-looking reply instead of an error. A production version parses and validates every reply, and fails loudly:</p>
+</blockquote>
+<p>Lessons 4.1 to 4.3 built single patterns and compared models on them. A production prompt usually combines several patterns and feeds its reply to code, not to a reader.</p>
+<p>Picture the Larkspur support inbox. A ticket in Portuguese says a server stopped responding. A prompt detects the language, picks a category, translates the ticket and drafts a reply. The model returns a reply with one field misspelt and the category written as a sentence. The code that routes tickets reads the category, finds no match and drops the ticket into a default queue, where it waits a day (illustrative). Nothing was wrong with the patterns. Nothing checked the reply.</p>
+<p>Notebook 04a works through five business tasks with the patterns from lessons 4.1 and 4.2. This page follows the techniques each task adds, then the contract and validation the notebook leaves out.</p>
+<h2 id="from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</h2>
+<p>Notebook 04a sends each task to <code>gpt-4o</code> and to Llama 3.2 90B on Groq, both at temperature 0. Each task adds one technique that a production prompt needs:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Task in 04a</th>
+<th>Technique it adds</th>
+<th>Patterns it combines</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Review analysis and response</td>
+<td>several instructions in one pass</td>
+<td>persona, template</td>
+</tr>
+<tr>
+<td>Paper analysis</td>
+<td>one source, several audiences</td>
+<td>persona, directional stimulus</td>
+</tr>
+<tr>
+<td>Smartphone adverts</td>
+<td>refinement in steps</td>
+<td>persona, template</td>
+</tr>
+<tr>
+<td>IT support tickets</td>
+<td>an output contract</td>
+<td>persona, template</td>
+</tr>
+<tr>
+<td>Synthetic data</td>
+<td>generated examples</td>
+<td>persona, template</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The five tasks and what each adds.</em></p>
+<h3>Several instructions, one pass</h3>
+<p>The review prompt asks for a summary of at most 3 lines, the positives and negatives, the overall sentiment, 3 to 5 emotions, and a reply email. The email instruction is conditional: thank the customer if the sentiment is positive or neutral, apologise if it is negative. One call returns every field, and the fields agree with each other because the model wrote them together. A separate call for the email could thank a customer the sentiment call marked as negative.</p>
+<h3>Delimiters around the input</h3>
+<p>The tasks with an input wrap it in delimiters, triple backticks in most and triple quotes for the IT tickets. A <strong>delimiter</strong> marks where the text to work on starts and ends, and the model can tell the instruction from the review or ticket it applies to. Delimiters make an instruction hidden in a review easier to ignore; they do not guarantee it.</p>
+<p>The IT ticket prompt also shows a small mismatch: its instruction says the message is <em>in triple backticks</em>, while the message sits inside triple quotes. A prompt should name the delimiter it uses.</p>
+<h3>One source, several audiences</h3>
+<p>The same paper abstract on ethics in generative AI for healthcare goes through three prompts. Each keeps the persona, <em>Act as a Artificial Intelligence Expert</em>, and changes only the target line:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Target line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>a short concise summary of at most 10 lines</td>
+</tr>
+<tr>
+<td>2</td>
+<td>an executive summary for a healthcare company, with bullet points for the pros and cons of ethics in generative AI</td>
+</tr>
+<tr>
+<td>3</td>
+<td>an executive summary for a generative AI company solving healthcare problems, with key points for text, image and structured data</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: One abstract, three readers. The persona is constant.</em></p>
+<p>Version 3 is a directional stimulus from lesson 4.1: the three data types tell the model how to organise the summary.</p>
+<h3>Refinement in steps</h3>
+<p>The phone advert goes through three versions, each fixing one thing:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    V1["Version 1&lt;br/&gt;plain description"] --&gt; V2["Version 2&lt;br/&gt;fixed layout"]
+    V2 --&gt; V3["Version 3&lt;br/&gt;60 words, display&lt;br/&gt;and camera"]
+</pre></figure>
+<p><em>Figure 1: Refine structure first, then length and focus.</em></p>
+<p>Version 2 fixes the layout: a product name, a description, and a two-column <code>Feature</code> and <code>Specification</code> table with exact numbers where they exist, focused on the foldable display, processing power, RAM, camera and battery. Version 3 fixes the length and focus: at most 60 words on the display and camera. Changing one thing per version makes it clear which instruction caused which change in the reply.</p>
+<h3>An output contract</h3>
+<p>The IT support prompt asks for JSON with six fields:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orig_msg</code></td>
+<td>the customer&rsquo;s original message</td>
+</tr>
+<tr>
+<td><code>orig_lang</code></td>
+<td>the detected language, e.g. Spanish</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>one or two words for the problem</td>
+</tr>
+<tr>
+<td><code>trans_msg</code></td>
+<td>the message in English</td>
+</tr>
+<tr>
+<td><code>response</code></td>
+<td>the reply, in the customer&rsquo;s language</td>
+</tr>
+<tr>
+<td><code>trans_response</code></td>
+<td>the reply, in English</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The IT support output contract in notebook 04a.</em></p>
+<p>The six tickets are in Portuguese, Italian, Japanese, Russian (two) and Turkish. One prompt detects the language, classifies, translates and replies in the customer&rsquo;s language. An <strong>output contract</strong> is this list of named fields the reply must contain, so that code can read the reply without guessing.</p>
+<h3>Synthetic examples</h3>
+<p>The last task asks for five positive and five negative movie-review tweets of at most 250 characters, then three positive and three negative laptop reviews of at most 200 words, each with a sentiment and up to three key topics. Generated examples like these can seed a few-shot prompt or a test set, once a person has checked their labels. Unchecked, they bring the model&rsquo;s own mistakes into the examples that later teach it.</p>
+<h2 id="where-the-notebook-stops-short">Where the notebook stops short</h2>
+<p>Two details in the notebook are worth copying the other way round:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Detail in 04a</th>
+<th>What happens</th>
+<th>What production needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The contract lists fields as <code>orig_msg: The original customer message</code> inside braces</td>
+<td>that describes JSON without being JSON, and the reply is displayed as Markdown without parsing</td>
+<td>a real schema, and a parser on every reply</td>
+</tr>
+<tr>
+<td><code>get_completion</code> returns <em>LLM not configured!</em> for an unknown model name</td>
+<td>a typo produces a plausible-looking string instead of an error</td>
+<td>an exception on an unknown model</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: Two habits to reverse.</em></p>
+<p>We call the first one the <strong>unchecked contract</strong>: the prompt asks for structure, and nothing confirms the structure arrived. The second is a <strong>silent fallback</strong>: a configuration mistake reaches downstream code as if it were a reply.</p>
+<p>A production version parses and validates every reply, and fails loudly:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     T[/Ticket/] --&gt; P["Prompt&lt;br/&gt;contract + delimiters"]
     P --&gt; M[Model]
@@ -708,25 +1365,38 @@ Answer:
     V -- no --&gt; RT["Retry once&lt;br/&gt;with the error"]
     RT --&gt; M
 </pre></figure>
-<p>If the retry also fails, the ticket goes to a person, not to the customer. For Larkspur, the same contract triages support tickets: <code>orig_lang</code>, a <code>category</code> from a fixed list (billing, refunds, exports, outages, server sizing), an English translation for the support team, and a draft reply in the customer&rsquo;s language that the answer step fills from the handbook. Fix the category list in the prompt, as the few-shot classifier in lesson 4.1 fixes its labels, so the reply can be routed by code.</p>
+<p><em>Figure 2: Validate every reply. A failure goes back once with the error message; the retry&rsquo;s reply is checked the same way.</em></p>
+<p>If the retry also fails, the ticket goes to a person, not to the customer. One retry is a deliberate limit: a reply that fails twice usually means the ticket itself is unusual, and a person reads it faster than a loop of model calls.</p>
+<h2 id="in-practice-larkspur-ticket-triage">In practice: Larkspur ticket triage</h2>
+<p>The same contract triages Larkspur support tickets. The handbook already defines the routing: tickets go to one of three categories, <em>Billing for invoices, refunds and credits; Technical for servers, storage and the API; Security for access and suspected incidents</em>.</p>
+<ol>
+<li><strong>Fix the category list in the prompt.</strong> <code>category</code> must be exactly <code>Billing</code>, <code>Technical</code> or <code>Security</code>, as the few-shot classifier in lesson 4.1 fixes its labels. Code can route on an exact value; it cannot route on a sentence.</li>
+<li><strong>Keep the language fields.</strong> <code>orig_lang</code> and <code>trans_msg</code> let an English-speaking team read a Portuguese ticket.</li>
+<li><strong>Ground the draft reply.</strong> The <code>response</code> field is filled by the answer step from lesson 4.3, from the retrieved handbook passages only.</li>
+<li><strong>Validate before routing.</strong> Parse the JSON, check every field is present and the category is one of the three, retry once with the error, and send a second failure to a person.</li>
+</ol>
+<p>The Portuguese ticket from the opening now arrives as <code>Technical</code>, with an English translation and a draft that points to the reboot instructions. A reply with a misspelt field fails validation, gets one retry, and reaches a person instead of a default queue.</p>
+<blockquote>
+<p><strong>Key distinction:</strong> the prompt asks for a contract; only code enforces it.</p>
+</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>One prompt can carry several instructions, including conditional ones, and return fields that agree because the model wrote them together. Wrap the input in delimiters to separate it from the instructions.</li>
-<li>Refine a prompt in steps: fix the structure first, then the length and focus. Change only the persona and audience line to reuse one source for several readers.</li>
+<li>One prompt can carry several instructions, including conditional ones, and return fields that agree because the model wrote them together. Wrap the input in delimiters, and name the delimiter you use.</li>
+<li>Refine a prompt in steps: fix the structure first, then the length and focus. Keep the persona and change the target line to reuse one source for several readers.</li>
 <li>Give structured output a contract with a fixed category list, parse and validate every reply, retry once with the error, and send a second failure to a person.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. Why do the notebook's prompts wrap each input in triple backticks, and what does that not guarantee?</summary>
-<p>Delimiters let the model tell the instruction from the text it works on, such as a review or an IT ticket. That makes an instruction hidden inside the input easier to ignore, but it does not guarantee the model ignores it.</p>
+<summary>1. Why do the notebook's prompts wrap each input in delimiters, and what does that not guarantee?</summary>
+<p>Delimiters let the model tell the instruction from the text it works on, such as a review or an IT ticket. That makes an instruction hidden inside the input easier to ignore, but it does not guarantee the model ignores it. The prompt should also name the delimiter it actually uses, which the IT ticket prompt does not.</p>
 </details>
 <details>
 <summary>2. You adapt the IT support JSON contract to triage Larkspur tickets. What fields does it need, and what makes the reply routable by code?</summary>
-<p><code>orig_lang</code>, a <code>category</code>, an English translation for the support team, and a draft reply in the customer&rsquo;s language that the answer step fills from the handbook. The category must come from a fixed list in the prompt (billing, refunds, exports, outages, server sizing), as the few-shot classifier fixes its labels, so code can route on it.</p>
+<p>The detected language, a category, an English translation for the support team, and a draft reply in the customer&rsquo;s language that the answer step fills from the handbook. The category must be one of a fixed list in the prompt, the handbook&rsquo;s three ticket categories Billing, Technical and Security. Code can route on an exact value.</p>
 </details>
 <details>
 <summary>3. A ticket's reply comes back as something that is not valid JSON with all six fields. What should the production pipeline do?</summary>
-<p>Parse and validate every reply, then retry once with the error. If the retry also fails, the ticket goes to a person, not to the customer. The notebook only displays the reply as Markdown, so a broken reply would pass unnoticed.</p>
+<p>Parse and validate every reply, then retry once with the error. If the retry also fails, the ticket goes to a person, not to the customer. The notebook only displays the reply as Markdown, and a broken reply would pass unnoticed.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_reasoning_prompts_chain_of_thought_self_consistency_least_to_most_react/interactive/self-consistency-vote-lab.html"><strong>Self-consistency: when a vote helps</strong></a>: open the file in a browser. Set one wrong answer (a yes/no grade) and a one-path accuracy of 0.60, then slide N from 1 to 15 and watch the vote creep from 0.600 to 0.787 while the calls climb to 16. Drop the accuracy to 0.40 and the same vote falls to 0.213. Then pick four wrong answers at 0.40 and the vote rises instead, to 0.780 at N = 15.</p>
@@ -784,7 +1454,7 @@ Answer:
 <li>Vote only on short answers that can be compared, and only when one sample is right more often than any single wrong answer.</li>
 <li>Freeze a labelled prompt set before you change the model, the prompt or the sampling, and judge every change against it.</li>
 </ul></article>
-    <nav class="toc" aria-label="M04 sections"><details open><summary>In M04</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#few-shot">Few-shot</a></li><li><a href="#five-more-patterns">Five more patterns</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-thought">Chain-of-thought</a></li><li><a href="#self-consistency">Self-consistency</a></li><li><a href="#react-format">ReAct format</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-prompt-set-across-four-apis">One prompt set across four APIs</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M04 sections"><details open><summary>In M04</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-grader-that-never-saw-a-hard-case">A grader that never saw a hard case</a></li><li><a href="#few-shot">Few-shot</a></li><li><a href="#five-more-patterns">Five more patterns</a></li><li><a href="#choosing-a-pattern">Choosing a pattern</a></li><li><a href="#in-practice-the-refund-grader">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-question-that-needs-steps">A question that needs steps</a></li><li><a href="#chain-of-thought">Chain-of-thought</a></li><li><a href="#self-consistency">Self-consistency</a></li><li><a href="#react-format">ReAct format</a></li><li><a href="#choosing-a-reasoning-prompt">Choosing a reasoning prompt</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-model-swap-with-no-test-set">A model swap with no test set</a></li><li><a href="#one-prompt-set-across-four-apis">One prompt set across four APIs</a></li><li><a href="#in-practice-the-answer-step">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-ticket-reply-nobody-parsed">A ticket reply nobody parsed</a></li><li><a href="#from-a-pattern-to-a-production-prompt">From a pattern to a production prompt</a></li><li><a href="#where-the-notebook-stops-short">Where the notebook stops short</a></li><li><a href="#in-practice-larkspur-ticket-triage">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
