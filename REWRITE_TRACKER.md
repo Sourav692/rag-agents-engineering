@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 29 · Review draft: 0 · In progress: 0 · In PR: 6 · Live: 11
+**Modules:** Not started: 28 · Review draft: 0 · In progress: 0 · In PR: 7 · Live: 11
 
 ## Part I · AI Engineering Foundations
 
@@ -36,7 +36,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 10 | Why RAG & the RAG Lifecycle | 5 | 5 | 0 / 5 | Not started |  |  |  |
+| 10 | Why RAG & the RAG Lifecycle | 5 | 5 | 5 / 5 | In PR | 2026-11-09 | #44 | 10.1 to 10.5 rewritten; module page unchanged in shape |
 | 11 | Document Ingestion & Metadata Design | 6 | 5 | 0 / 5 | Not started |  |  |  |
 | 12 | Chunking Strategies | 4 | 4 | 0 / 4 | Not started |  |  |  |
 | 13 | Embeddings & Model Selection | 5 | 4 | 0 / 4 | Not started |  |  |  |

@@ -74,7 +74,7 @@ The index is the only thing the two phases share. A bad chunk written at indexin
 ### 3. Your team runs at `k = 20` "to be safe". Latency is 3.1 s, and the product requirement is 1.5 s. How do you choose a new `k` without hurting quality?
 
 **What a strong answer covers:**
-- Measures recall@k on the golden set for k = 1…20 and finds where the curve flattens
+- Measures recall@k on the golden set for k = 1 to 20 and finds where the curve flattens
 - Separates the decision: retrieve wide (20 to 50), rerank, then send a small `k` to the model, if a reranker fits in the latency budget
 - Reports answer quality, not only recall, because fewer distractors often improves faithfulness
 - Watches per-question regressions, not just the mean; one lost question type can matter more than the average
