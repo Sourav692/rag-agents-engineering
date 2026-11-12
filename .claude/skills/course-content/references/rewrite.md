@@ -1,3 +1,5 @@
+> **Required:** Apply `references/source-fidelity.md` first. Preserve all source concepts and diagrams. Rename non-contract headings when clearer, and verify the source-to-output coverage matrix before export.
+
 # Rewrite mode
 
 Rewrites pages that already exist into the `lesson.md` shape, keeping every topic, caveat and diagram. Input: a module or lesson (resolved with `resolve.py`), a file path, a forwarddeployedprep.com URL or pasted content, then `review` (default) or `edit`.

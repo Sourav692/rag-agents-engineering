@@ -12,13 +12,13 @@ The pages teach concepts and engineering decisions. The notebooks carry the code
 
 - **No code blocks.** The only fenced blocks are ` ```mermaid `. `scripts/protect.py` fails a page that has any other fence.
 - **No notebook walkthroughs**: no setup, commands, installs, environment or provider configuration, helper functions, decorators, parser internals, SDK parameters, model versions or protocol syntax that only one example uses.
-- **No notebook links in the body.** Notebooks appear only in the lesson's italic header line (repository navigation, load-bearing). No `### Practice notebook` or "open the notebook and run…" sections; turn a notebook exercise into a standalone conceptual question.
+- **No notebook links in the body**, except an existing source notebook section retained in a standalone adaptation when no importer creates it (`source-fidelity.md`). Notebooks appear only in the lesson's italic header line (repository navigation, load-bearing). No `### Practice notebook` or "open the notebook and run…" sections; turn a notebook exercise into a standalone conceptual question.
 - **Mechanisms stay.** Explain tool schemas, observations, dependent actions, validation, state, retries and stopping conditions as ideas. Show what moves through a system with a table (inputs, outputs, what changed) or a diagram, not with source code or raw JSON.
 - **Numbers stay, sourced.** Get a figure by running the notebook's own deterministic code or a lab in the scratchpad, then quote the result in prose or a table and say where it came from. Never show the code that produced it.
 
 ## Shape
 
-`lesson.md` fixes the sections and what goes inside each one. In short: open on a concrete failure in the running example (the fictional Larkspur Cloud handbook), define the idea, show the mechanism with a figure, trace an example in a table, plant failures and name them, do the arithmetic, compare the options, apply it to Larkspur, state the limits. No `### Step N` headings: sections are named for what they teach.
+`lesson.md` describes the learning outcomes and repository contracts. approved-format.md governs the presentation, while the source determines non-contract section titles and order. In short: open on a concrete failure in the source's running example, define the idea, show the mechanism with a figure, trace an example in a table, plant failures and name them, do the arithmetic, compare genuine alternatives, apply the decision to the same example, state the limits. No `### Step N` headings: sections are named for what they teach.
 
 ## Sentences and paragraphs
 
@@ -53,7 +53,7 @@ En and em dashes (write "20 to 50", "M14 to M16"); rhetorical questions; "not X,
 - [ ] Every figure and table is introduced, numbered and captioned; every named failure mode is reused by name.
 - [ ] No `### Step N` headings.
 - [ ] Every exact `##` concept heading from `concepts:` is on exactly one page.
-- [ ] No fenced block other than Mermaid; no notebook link outside the header line.
+- [ ] No fenced block other than Mermaid. Course notebook links stay in their header/generated slot; standalone adaptations may retain the source notebook section.
 - [ ] One example runs through the whole page; every number is sourced or labelled *Illustrative*.
 - [ ] A contrast, a decision rule and a named failure mode are present where the topic has them.
 - [ ] A beginner meets no undefined term; an expert finds the trade-offs.

@@ -17,6 +17,9 @@ import base64, html, json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 import markdown
+import mimetypes
+from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
 import yaml
 
 HERE = Path(__file__).resolve().parent
@@ -27,13 +30,19 @@ NPM_PKGS = ["@mermaid-js/mermaid-cli", "@fontsource-variable/bricolage-grotesque
 
 def ensure_npm() -> Path:
     mods = CACHE / "node_modules"
-    if not all((mods / p).exists() for p in NPM_PKGS):
+    wanted = json.loads((HERE.parent / "package.json").read_text())["dependencies"]
+    def matches(name, version):
+        pkg = mods / name / "package.json"
+        return pkg.exists() and json.loads(pkg.read_text()).get("version") == version
+    if not all(matches(p, v) for p, v in wanted.items()):
         CACHE.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ)
         chrome = find_chrome()
         if chrome:
             env["PUPPETEER_SKIP_DOWNLOAD"] = "1"
-        subprocess.run(["npm", "i", "--prefix", str(CACHE), *NPM_PKGS], check=True, env=env,
+        shutil.copy2(HERE.parent / "package.json", CACHE / "package.json")
+        shutil.copy2(HERE.parent / "package-lock.json", CACHE / "package-lock.json")
+        subprocess.run(["npm", "ci", "--prefix", str(CACHE)], check=True, env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return mods
 
@@ -93,7 +102,8 @@ def main():
     it = iter(svgs)
     def mermaid_sub(_):
         pair = next(it)
-        inner = "".join(f'<div class="dg {th}">{pair[th]}</div>' for th in ("light", "dark"))
+        inner = "".join('<div class="dg ' + th + '"><img alt="Process diagram" src="data:image/svg+xml;base64,'
+                        + base64.b64encode(pair[th].encode()).decode() + '"></div>' for th in ("light", "dark"))
         return f'\n<figure class="diagram" markdown="0">{inner}</figure>\n'
     src = re.sub(r"```mermaid\n.*?```", mermaid_sub, src, flags=re.S)
     src = re.sub(r"^# .*\n(\n\*.*\*\n)?", "", src.lstrip(), count=1)   # h1 (+ italic subtitle) go in the header
@@ -103,12 +113,61 @@ def main():
     body = re.sub(r'<pre><code class="language-text">#### OUTPUT ####\n',
                   '<pre class="output"><span class="out-label">Output</span><code>', body)
     body = re.sub(r"<p><em>((?:Figure|Table) \d+:.*?)</em></p>", r'<p class="caption">\1</p>', body)
+    def accessible_figure(match):
+        caption = html.unescape(re.sub(r"<[^>]+>", "", match.group(2)))
+        figure_id = "" if re.search(r'\bid=', match.group(1).split('>', 1)[0]) else ' id="figure-' + re.search(r'Figure (\d+)', caption).group(1) + '"'
+        return ('<figure' + figure_id + ' tabindex="0" role="group" aria-label="' + html.escape(caption, quote=True)
+                + '"' + match.group(1) + '</figure><p class="caption">' + match.group(2) + '</p>')
+    body = re.sub(r'<figure(.*?)</figure>\s*<p class="caption">(.*?)</p>', accessible_figure, body, flags=re.S)
+    def mobile_table(match):
+        table = match.group(0)
+        labels = [re.sub(r"<[^>]*>", "", x) for x in re.findall(r"<th>(.*?)</th>", table, re.S)]
+        def label_row(row):
+            cells = iter(labels)
+            return re.sub(r"<td>", lambda _: '<td data-label="' + html.escape(html.unescape(next(cells, "")), quote=True) + '">', row.group(0))
+        table = re.sub(r"<tr>.*?</tr>", label_row, table, flags=re.S)
+        table = re.sub(r'(<td[^>]*>)(.*?)</td>', r'\1<span class="cell-value">\2</span></td>', table, flags=re.S)
+        return table.replace("<th>", '<th scope="col">')
+    body = re.sub(r"<table>.*?</table>", mobile_table, body, flags=re.S)
     body = re.sub(r"(<table>)", r'<div class="table-wrap">\1', body).replace("</table>", "</table></div>")
+
+    def embed_image(match):
+        prefix, quote, uri = match.group(1), match.group(2), html.unescape(match.group(3))
+        if uri.startswith("data:"):
+            return match.group(0)
+        if uri.startswith(("http://", "https://")):
+            request = Request(uri, headers={"User-Agent": "CourseContentRenderer/1.0"})
+            with urlopen(request, timeout=30) as response:
+                payload = response.read()
+                mime = response.headers.get_content_type()
+        else:
+            if uri.startswith("/"):
+                if not g("source_url"):
+                    raise ValueError("Root-relative image needs source_url frontmatter: " + uri)
+                remote = urljoin(g("source_url"), uri)
+                with urlopen(Request(remote, headers={"User-Agent": "CourseContentRenderer/1.0"}), timeout=30) as response:
+                    payload, mime = response.read(), response.headers.get_content_type()
+            else:
+                asset = (md_path.parent / uri).resolve()
+                if asset.exists():
+                    payload = asset.read_bytes()
+                    mime = mimetypes.guess_type(str(asset))[0] or "application/octet-stream"
+                elif g("source_url"):
+                    remote = urljoin(g("source_url"), uri)
+                    with urlopen(Request(remote, headers={"User-Agent": "CourseContentRenderer/1.0"}), timeout=30) as response:
+                        payload, mime = response.read(), response.headers.get_content_type()
+                else:
+                    raise FileNotFoundError("Local image missing; supply the asset or source_url: " + uri)
+        if not mime.startswith("image/"):
+            raise ValueError("Image URL did not return an image: " + uri)
+        return prefix + quote + "data:" + mime + ";base64," + base64.b64encode(payload).decode() + quote
+    body = re.sub(r"(<img\b[^>]*?\bsrc=)([\"'])(.*?)\2", embed_image, body)
 
     def callout(mo):
         inner = mo.group(1)
         kind = "warn" if ("⚠️" in inner or "<strong>Pitfall" in inner) else "learn" if "What you'll learn" in inner else "note"
-        return f'<aside class="callout {kind}">{re.sub(r"(👉|⚠️|💡)\s*", "", inner)}</aside>'
+        clean = re.sub(r"(👉|⚠️|💡)\s*", "", inner)
+        return f'<aside class="callout {kind}">{clean}</aside>'
     body = re.sub(r"<blockquote>(.*?)</blockquote>", callout, body, flags=re.S)
 
     sections = "".join(f'<li><a href="#{i}">{t}</a></li>' for i, t in re.findall(r'<h2 id="([^"]+)">(.*?)</h2>', body))
@@ -117,7 +176,7 @@ def main():
     total = len(lessons)
     side = "".join(
         f'<li class="{"active" if n == lesson_no else ""}"><span class="num">{n}</span><span>{html.escape(t)}</span></li>'
-        + (f'<ul class="sections">{sections}</ul>' if n == lesson_no else "")
+        + (f'<li class="section-group"><ul class="sections">{sections}</ul></li>' if n == lesson_no else "")
         for n, t in enumerate(lessons, 1))
 
     F = mods / "@fontsource-variable"
@@ -130,35 +189,53 @@ def main():
     crumbs = " › ".join(html.escape(c) for c in ["Learn", g("track"), g("module_group"), g("module_name")] if c)
     meta4_label, meta4_value = ("Last updated", e("last_updated")) if g("last_updated") else ("Level", e("level").capitalize())
     css = (ASSETS / "site.css").read_text()
+    reader_js = (ASSETS / "reader.js").read_text()
 
     page = f"""<!DOCTYPE html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="{e('subtitle')}">
 <title>{e('title')} · {e('module_name')} · Forward Deployed</title>
-<style>{fonts}
-{css}</style></head>
+<style>{css}
+{fonts}</style></head>
 <body>
-<header class="topbar"><div class="brand"><i></i>Forward Deployed</div>
-<nav class="nav"><span>Choose Your Path</span><span class="on">Learn</span><span>Casebook</span><span>Practice</span><span>Interview</span></nav>
-<div class="spacer"></div><button class="theme" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">Light / Dark</button></header>
+<header class="topbar"><div class="brand">Forward Deployed</div>
+<span class="export-label">Offline lesson</span>
+<div class="spacer"></div><button class="theme" type="button" hidden aria-label="Use dark theme" aria-pressed="false">Dark theme</button></header>
 <div class="crumbs">{crumbs} › <b>{e('title')}</b></div>
 <div class="layout">
-<aside class="side"><div class="back">← {e('module_group')}</div><div class="mod"><span>{e('module_code')}</span><span>{e('module_name')}</span></div>
+<aside class="side"><div class="back">{e('module_group')}</div><div class="mod"><span>{e('module_code')}</span><span>{e('module_name')}</span></div>
 <h6>Lessons</h6><ol>{side}</ol></aside>
 <article>
-<div class="strip"><b>{e('module_name')}</b><span>Lesson {lesson_no} of {total}</span><div class="bar"></div><span>0 of {total} read</span></div>
-<div class="badge">Learn</div>
+<div class="strip"><b>{e('module_name')}</b><span>Lesson {lesson_no} of {total}</span></div>
+
 <h1>{e('title')}</h1>
 <p class="subtitle">{e('subtitle')}</p>
 <div class="meta"><div><small>Reading time</small>{e('reading_time')}</div><div><small>Source</small>{e('source', 'From the RAG & Agents Engineering course')}</div>
 <div><small>By</small>{e('author', 'Sourav Banerjee')}</div><div><small>{meta4_label}</small>{meta4_value}</div></div>
-<a class="report" href="#">Report an issue</a>
+<a class="report" href="#references">Sources and provenance</a>
+<details class="mobile-contents"><summary>On this page</summary><ul>{sections}</ul></details>
 <hr class="rule">
 <div class="prose">
 {body}
-</div></article></div></body></html>"""
+</div></article></div>
+<script>
+const themeButton = document.querySelector('.theme');
+themeButton.hidden = false;
+themeButton.addEventListener('click', () => {{
+  const isDark = document.documentElement.dataset.theme !== 'dark';
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  themeButton.setAttribute('aria-pressed', String(isDark));
+  themeButton.setAttribute('aria-label', isDark ? 'Use light theme' : 'Use dark theme');
+  themeButton.textContent = isDark ? 'Light theme' : 'Dark theme';
+}});
+</script>
+<script>
+{reader_js}
+</script>
+</body></html>"""
     out_path.write_text(page, encoding="utf-8")
-    print(f"wrote {out_path} ({len(page) // 1024} kB, {len(svgs)} diagrams)")
+    print(f"wrote {out_path} ({len(page) // 1024} kB, {page.count('<figure')} figures, {len(svgs)} rendered Mermaid diagrams)")
 
 
 if __name__ == "__main__":

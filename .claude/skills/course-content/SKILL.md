@@ -1,121 +1,66 @@
 ---
 name: course-content
-description: Create or rewrite theory content for the AI Engineering course and forwarddeployedprep.com. Create mode writes a module's theory (module page, lesson pages, Mermaid/SVG/animated diagrams, an embedded Hallmark lab) or one lesson or topic in it; rewrite mode turns existing theory pages into clear, conversational, theory-only prose with every topic and diagram kept (review in chat, or edit); standalone mode writes a lesson for a topic or track outside the course. Every lesson follows one shape (problem, mechanism, traced tables, planted failures, trade-offs, limits) and ships as a Markdown plus HTML pair in the Forward Deployed style. Pages carry no code: notebooks hold it. Use for "theory for M14", "add theory for lesson 11.3", "cover semantic chunking in M13", "rewrite lesson 22.5", "make this page theory-only", "write a lesson on context engineering for the agentic track".
-argument-hint: <module | lesson | topic | path | URL> [rewrite [review|edit] | --standalone <track>]
+description: >-
+  Create or rewrite forwarddeployedprep.com course lessons in the approved interactive course-page format. Preserve source concepts, evidence and diagrams; teach mechanisms through worked traces and separately explained alternatives; export offline Markdown and HTML with the bundled renderer. Use for a Forward Deployed lesson URL, course lesson, module, or a new course topic.
+metadata:
+  argument-hint: <lesson URL | source path | module/lesson | topic> [review | edit]
 ---
 
 # Course content
 
-One skill for all theory writing. The input is `$ARGUMENTS`. `CLAUDE.md` → Theory pages holds the repository rules; this file is the procedure, and the references hold the detail:
+Use the approved page as the visual and teaching reference for other forwarddeployedprep.com lessons. Keep the frame and component behavior consistent. Adapt the examples, headings, diagrams and optional interactions to the topic.
 
-| File | Read it for |
-|---|---|
-| `references/contracts.md` | Load-bearing page shapes (module page, lesson page), Mermaid/SVG/animated-diagram/lab formats, browser verification. Create and rewrite. |
-| `references/lesson.md` | The lesson shape: sections in order, what goes inside a concept section, how code becomes tables and figures. Every mode. |
-| `references/voice.md` | The reader, the theory-only rule, sentence rules, the quality gate. Every mode. |
-| `references/rewrite.md` | Coverage inventory, protected blocks, review vs edit. Rewrite mode. |
-| `references/standalone.md` | Frontmatter, the system-design template, the HTML builder, track emphasis. Standalone mode. |
+## Read before drafting
 
-## Pick the mode
+1. [Approved format](references/approved-format.md): the exact approved HTML, its original source URL, the design contract and transfer rules.
+2. [Source fidelity](references/source-fidelity.md): inventory concepts, facts, diagrams, comparisons, caveats and checks across every user-supplied reference.
+3. [Editorial explanation](references/editorial-explainer.md) and [Voice](references/voice.md): the teaching sequence and theory-only prose.
+4. [Components](references/components.md) when a stepper or comparison earns its place. [Validation](references/validation.md) before delivery.
 
-| Input | Mode |
-|---|---|
-| A module (`14`, `M14`, `embeddings`) or a lesson/topic (`11.3`, `M13 4`, `chunking "semantic chunking"`) whose page is missing or has gaps | **create** |
-| The same, or a theory README path or site URL, plus `rewrite` (`review` by default, `edit` to change files) | **rewrite** |
-| `--standalone <track> <topic>`, or a topic that is not one of the 46 modules | **standalone** |
+Inspect `standalone/references/example-lesson.html` visually and read its paired Markdown. This is the approved target, including both edge-versus-node comparison diagrams restored at the user's request. It replaces the older example lesson. Do not substitute a theme, an earlier adaptation or the unmodified live source page for this target.
 
-When a page exists and the user did not say `rewrite`, ask once whether to extend it (create) or rewrite it. If the mode or target is still unclear, ask one question.
+Use No AI Slop and Hallmark when available. Hallmark checks the approved house style; it does not choose a new theme or restructure the approved frame. The skill is self-contained if those companion skills are unavailable. No global installation, publication, commits or messages are implied.
 
-**Rules for every mode.** No code blocks and no notebook links in the body (`voice.md` → Theory only). Never invent a number, quote, benchmark or API: every figure comes from a notebook run, a lab you built and verified, or a cited source. The running example is the fictional Larkspur Cloud handbook (pricing, refunds, exports, outages, server sizing).
+## Select the workflow
 
-## 0. Set up
+- A URL or supplied source file means adapt that lesson into the approved format. Fetch the actual article and its diagrams. Use a supplied source snapshot when needed, with its provenance recorded. Do not ask whether to proceed when the user already requested the adaptation.
+- A topic without source means create a lesson with cited primary references, labelled illustrations and the same frame. Never transplant the refund question or LangGraph content into an unrelated topic.
+- In a course repository, read its applicable instructions and [Course repository](references/course-repository.md). Preserve exact curriculum concept headings, importer hooks, notebook slots and navigation. Export outside the theory folders through `scripts/export_lesson.py`.
+- `review` writes reviewable drafts and exports outside the source repository. `edit` changes the authorised source pages. Preserve existing site routes, labs and protected assets. A source URL alone does not authorise publishing to the live site.
 
-1. Load `napkin` and `no-ai-slop` (plus `hallmark` when building a lab). Read `CLAUDE.md` → Theory pages, `references/lesson.md`, `references/voice.md`, the mode's reference, and skim `standalone/references/example-lesson.html` for the target look.
-2. Resolve course targets:
-   ```bash
-   uv run python .claude/skills/course-content/scripts/resolve.py <module> [<lesson or topic>]
-   ```
-   It prints the module's `why`, objectives, concepts and which page holds each, lessons with theory folders and notebooks, existing pages, labs and animated diagrams, neighbours, and the matched lesson or concept. No single match: show the closest options and ask. Use its paths; never build folder names by hand.
-3. Read what exists: the module's theory pages, `<part>/<module>/README.md`, `lab/README.md`, and the M10 reference (`p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/`: module page, a lesson page, `diagrams/lifecycle.anim.html`, the top-k lab).
+## Plan the source coverage and teaching
 
-Rewrite mode continues in `references/rewrite.md`, then step 7. Standalone mode continues in `references/standalone.md`. Create mode follows steps 1 to 8.
+Inventory every source teaching item and every visual from all relevant inputs. That includes diagrams introduced by another supplied adaptation. Record a coverage entry for each item: source location, teaching content, output anchor, status and evidence for any authorised omission. Renamed headings are welcome when clearer; repository contract headings remain exact. A source section may span several output sections, but a mention does not preserve a worked explanation.
 
-## 1. Ground the content in the notebooks
+Use a natural learning sequence: a concrete failure or need; intuition and definitions; architecture; one request traced through decisions and state; genuine alternatives taught separately; comparison and decision rule; failure diagnosis, limits and checks. Reorder non-contract sections when helpful. Avoid a fixed count of headings, figures or controls across unrelated topics.
 
-Open every mandatory notebook the resolver lists, and the optional ones a concept depends on. For each lesson note the mechanisms shown, the numbers the notebook prints or states, the trade-offs, and which `concepts:` it teaches. Notebooks ship without outputs: get numbers by running their deterministic code in the scratchpad. Claims without evidence stay out. The page explains what the code demonstrates; it never reproduces the code.
+For genuine architectural alternatives, retain or create one labelled diagram for each approach, beside its own explanation. Use the same input to expose different state/output effects. Then compare and state when each approach fits. A switcher or comparison table supplements those diagrams. It never substitutes for them.
 
-## 2. Plan, and say the plan before writing
+Choose interactions by the concept: a stepper for a process with meaningful stages; a switcher when alternative choices change the evidence, state or result; no widget when static explanation is clearer. A page without an architectural alternative does not need a comparison switcher. A stepper need not have six stages, and a switcher need not have two modes. Label scripted examples and fictional data.
 
-State in a few lines, and wait for approval when writing a whole module:
+Create a lesson manifest using `examples/manifest.schema.json`. Include stable output anchors for all source items and an asset hash for every preserved diagram payload. Mark source concepts and claims as reviewed only after substantive comparison. For a published source, record its URL. Include required figure and component IDs in the manifest to catch an accidental omission during export.
 
-- **Concept to lesson map.** Each `concepts:` entry goes to exactly one lesson page, the one that teaches it. A lesson whose notebook is a build with no concept of its own (an app, a worked project) gets a **project page** (`lesson.md` → Project page), never a *planned* row. A lesson page has at least one `##` section.
-- **Diagrams per page.** One mental-model diagram on the module page; one or two per lesson where a picture beats prose. Mermaid first; SVG only for spatial layouts and charts Mermaid cannot draw. Animate only processes over time, usually the mental model plus one more.
-- **The lab.** At most one per module unless two lessons each have a parameter worth playing with. It earns its place when one control changes a number the prose argues about. Name its lesson and section.
-- **Running example.** The handbook area and golden questions, and one concrete request or failure to follow through each lesson.
-- **Per lesson:** the subtitle, the concrete failure it opens on, its sections in `lesson.md` order with their headings, the figures and tables (numbered), the planted failures and their names, any claims it will settle, and the decision rule.
+## Write and build
 
-Topic mode also states which module-page sections change (Lessons row, TL;DR bullet, mental model, How it connects, interview questions, takeaways); nothing else is rewritten.
+Write frontmatter and theory Markdown using [Standalone](references/standalone.md), with descriptive headings, numbered captions, source links, the original notebook destinations and conceptual self-checks. Render code mechanisms as traces or field tables. Mermaid is the only allowed code fence. Keep source numbers and uncertainty; additions are labelled and grounded. Keep the full prose, including every interaction panel, within the default 2,500-word budget. Cut repetition and additions before source concepts; an explicitly authorised higher limit must be recorded in the manifest.
 
-## 3. Write the pages
+Author the components as static HTML in the Markdown using [Components](references/components.md). All explanations must be present before scripting. The renderer embeds the shared styles, generic interactions, fonts and light/dark Mermaid images automatically. No post-build patching is needed.
 
-Contracts from `contracts.md`, shape from `lesson.md`, prose from `voice.md`.
-
-- **Module page** `<theory>/README.md`: title, meta line, intro with the "Each idea has a page…" sentence, running-example paragraph, `## TL;DR`, `## Mental model`, `## Lessons`, `## Interactive lab`, `## How it connects`, `## Interview Spotlight: 5 Questions You Might Get Asked`, `## Key Takeaways`, footer.
-- **Lesson page** in the folder `resolve.py` gives (`mandatory/theory/` or `optional/theory/`): title, header line and `<!-- subtitle: … -->`, then the `lesson.md` sections with each `## <exact concept>` among them (What you'll learn opens the first section), `## Key Takeaways` (three bullets, four when the page has four or more concepts), `## Check yourself`, footer. No `### Step N` headings.
-- **Check yourself:** three `<details>` blocks (`<summary>N. Question?</summary>`, blank line, 2 to 4 sentence answer, blank line, `</details>`): the mechanism, an application to the page's example or numbers, and a diagnosis or decision. Plain-text questions; answers use only the page.
-- **Interview Spotlight:** five production scenarios on the running example, never "what is X": at least an incident, a design trade-off, a measurement or monitoring question and an edge case, each with four "What a strong answer covers" bullets.
-
-Topic mode: write or extend only the target lesson page, flip its Lessons row from planned to linked, and change only the module-page sections the plan named. Moving a concept removes its old heading. Keep neighbouring footers pointing at real neighbours.
-
-## 4. Diagrams
-
-Follow `contracts.md` → Mermaid, SVG diagrams, Animated fragment. Readable at 614px: short edge labels, detail inside nodes with `<br/>`, no many-into-one convergence, yes/no chains instead of one question with four long answers. SVGs: own sheet background, Almanac hex palette, `<title>` and `<desc>`, text 13px or more, plotted values computed. Animated fragments: copy `lifecycle.anim.html`'s structure, at most eight steps, the lab's real numbers or none, unique marker ids.
-
-## 5. The lab
-
-Copy the structure and stylesheet of M10's `top-k-retrieval-lab.html`, then design this lab's own control and output. Keep the Hallmark stamp, Almanac tokens, Google Fonts as the only external request, `overflow-x: clip`, eight control states, `:focus-visible`, reduced motion, a live reading paragraph, and embedded mode (`contracts.md` → Lab file). Port small algorithms exactly and compare against the Python library on every control position; keep the comparison result for the report. Every number the prose quotes from the lab must be one the lab prints. Mark the spot with `<!-- lab: interactive/<name>.html -->` and link it inline in that section.
-
-## 6. Edit the prose
-
-Run the `voice.md` quality gate, then `no-ai-slop`, over every page.
-
-## 7. Build and verify
+Run from any working directory, replacing `SKILL_DIR` with this skill's actual path:
 
 ```bash
-uv run python .claude/skills/course-content/scripts/protect.py [--rewrite] <changed pages>   # no code blocks; rewrite: diagrams unchanged vs HEAD
-uv run python scripts/build_curriculum.py
-uv run pytest -q
-uv run python scripts/check_links.py
-uv run python .claude/skills/course-content/scripts/export_lesson.py <changed lesson pages>     # the .md + .html pair
+python3 SKILL_DIR/standalone/scripts/build_site.py lesson.md lesson.html
+python3 SKILL_DIR/scripts/validate_lesson.py lesson.md lesson.html lesson.manifest.json
 ```
 
-The export writes `site-export/<track>/<module>/<NN>-<lesson>.md` (git-ignored) with frontmatter from `curriculum.yaml` and `docs/fde-site-slugs.yaml`, then renders the `.html` beside it with `standalone/scripts/build_site.py` (`--md-only` skips it; `--out DIR` moves it). Open one `.html` at 1254px and 390px, light and dark, and look at every diagram.
+The Python dependencies are in `requirements.txt`. The renderer checks for its Mermaid/font dependencies and installs missing npm packages in a cache. Existing `CONTENT_WRITE_CACHE` and `CHROME_PATH` settings are supported. Read [Validation](references/validation.md) for browser verification and visual comparison. A failed check blocks a claim of completion; correct the issue and rerun the affected checks.
 
-Then the browser check in `contracts.md` → Verification: serve the repo with `python3 -m http.server <port> --bind 127.0.0.1`, open the module's `index.html` at 1280px and 390px, and confirm every Mermaid diagram rendered, none below 75% scale, animations step and autoplay, the lab frame sized itself, no sideways scroll. Lint copies outside the repo (sloplint writes `.hallmark/` beside its input):
+For other pages on the live site, adapt content in the source/import pipeline and integrate the shared CSS/reader behavior into its maintained template. Match the approved article design while preserving the site's genuine navigation. Do not hand-edit generated routes or replace the site's framework with this standalone exporter.
 
-```bash
-S=<scratchpad>/lint; rm -rf $S && mkdir -p $S && cp -R p[0-9][0-9]_* $S/
-cd $S && node ~/.claude/skills/hallmark/scripts/sloplint.mjs <part>/<module>/mandatory/theory/index.html --genre editorial --render
-node ~/.claude/skills/hallmark/scripts/sloplint.mjs <part>/<module>/*/theory/*/interactive/*.html --scope app --render
-```
+## Delivery gate
 
-`--render` needs `HALLMARK_PUPPETEER` pointing at a `puppeteer-core` install. Fix every FAIL; page-level waivers live in `scripts/site/theory.template.html`. Never hand-edit a generated `index.html`. Stop the server; delete `.playwright-mcp/` and screenshots in the repo. Rewrite in review mode skips this step, except the export: run it with `--out <scratchpad>` on each draft as `<draft>=<lesson README>` so the user can open the HTML.
+Before delivery, compare source coverage and the approved component pattern. Confirm every inventoried diagram remains, especially a pair that distinguishes alternatives. Test every stage/mode, keyboard use, disabled controls, internal links, mobile/light/dark, offline assets and the no-script fallback. Inspect every figure. Do not call a deterministic rebuild an independent test of newly authored prose.
 
-## 8. Update the tracker, then report
+For a new or substantially revised skill package, use an independent agent to author or adapt a different lesson with only the packaged instructions and source. Keep it in an isolated workspace and review the resulting lesson. A second topic tests transfer beyond the reference; the saved reference rebuild tests the renderer.
 
-Every course-module run (create, rewrite review, rewrite edit; not standalone) ends by updating `REWRITE_TRACKER.md` at the repo root through its script, never by hand-editing the table:
-
-```bash
-uv run python .claude/skills/course-content/scripts/tracker.py --set <module> "<status>" [--pr "#N"] [--note "<one line>"]
-```
-
-| What the run did | Status |
-|---|---|
-| Review drafts shown, no file changed | `Review draft` |
-| Pages edited or written, not yet in a PR | `In progress` |
-| PR opened | `In PR` (add `--pr`) |
-| PR merged and the page is on forwarddeployedprep.com | `Live` |
-
-The note says what is left (e.g. "22.3 to 22.6 done; 22.1 over 2,500 words"). The script recomputes the Lessons, Pages and New style columns on every run; a module is only `Live` when New style equals Pages. Show the module's tracker row in the report.
-
-Report both paths of every exported pair, then what was written or changed (pages, concepts per lesson, diagrams static and animated, the lab and its verification), which lessons got project pages, check results, anything unconfirmed, and in rewrite mode the flags from `rewrite.md` → Report. Do not commit unless asked. Record new gotchas in `.claude/napkin.md`.
+Deliver the Markdown, self-contained HTML, source coverage and actual check results. For a package revision, also deliver the ZIP, the reference rebuild and the comparison report. Never promise that any skill can eliminate all future mistakes. State what was verified and what still requires editorial judgment.
