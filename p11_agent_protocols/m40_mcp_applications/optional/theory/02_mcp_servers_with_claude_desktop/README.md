@@ -1,14 +1,35 @@
 # M40.2 Theory: MCP servers with Claude Desktop
 
 *[M40 theory](../../../mandatory/theory/README.md) · Lesson 40.2 · Notebooks: [`03_mcp_servers_with_claude_desktop`](../../../projects/03_mcp_servers_with_claude_desktop) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: A desktop host starts every server from one config file, and a stdio server that prints anything but JSON-RPC to stdout corrupts its own channel -->
+<!-- format: approved -->
+
+## Start with a server that works in the terminal and fails in the host
+
+> **What you'll learn**
+>
+> - **Explain** what a desktop host does with each entry in its server config.
+> - **Diagnose** an entry that starts in the wrong folder, leaks a secret or fetches new code at every launch.
+> - **Connect** a stdio host to a remote server through a bridge, and name what the bridge exposes.
+> - **Keep** stdout for the protocol and send every log line to stderr.
+
+Larkspur's support team wants the handbook server inside Claude Desktop, where staff can ask about refund windows while they work. The server passes every test in a terminal. In the host it writes its files somewhere unexpected, and a second build that prints a start-up banner only fails some of the time. Both problems come from how a host launches and talks to a server, not from the server's tools.
 
 ## Claude Desktop
 
-Larkspur adds its handbook server to a desktop host. You will inspect launch paths and working directories, then test whether a startup banner corrupts the stdio channel used for MCP messages.
+Claude Desktop is an MCP host: it owns the model, the chat window and one MCP client per server. It learns about servers from `claude_desktop_config.json`, a map under `mcpServers` from a name to the command that starts the server. At launch the host runs every command as a subprocess and speaks to it over stdio:
 
-### Step 1: Read the host launcher configuration
+```mermaid
+flowchart LR
+    C[/"claude_desktop_config.json"/] --> H["Host<br/>model and chat"]
+    H --> C1["Client 1"] -- stdio --> S1["uv: course server"]
+    H --> C2["Client 2"] -- stdio --> S2["npx: Node package"]
+    H --> C3["Client 3"] -- stdio --> S3["uvx: Python package"]
+```
 
-Claude Desktop is an MCP host: it owns the model, the chat window and one client per server. You give it servers through `claude_desktop_config.json`, a map under `mcpServers` from a name to the command that starts the server. The project's config is the course's whole MCP toolbox in one file, thirteen entries:
+*Figure 1: One client per server. Each config entry becomes a subprocess the host starts and talks to over stdio.*
+
+The project's config is the course's whole MCP toolbox in one file, thirteen entries:
 
 | Launcher | Entries | What it starts |
 |---|---|---|
@@ -17,33 +38,45 @@ Claude Desktop is an MCP host: it owns the model, the chat window and one client
 | `uvx` | 2 | Published Python packages: `ppt`, and `sqlite` straight from a Git URL |
 | `cmd` | 1 | `excel`, as `cmd /c npx --yes @negokaz/excel-mcp-server`, which only runs on Windows |
 
-A Larkspur entry for the handbook server looks like the course's own:
+*Table 1: The thirteen entries in `claude_desktop_config.json`, grouped by launcher.*
 
-```json
-"larkspur-handbook": {
-  "command": "uv",
-  "args": ["--directory", "/ABSOLUTE/PATH/TO/larkspur-handbook", "run", "server.py"]
-}
+A Larkspur entry for the handbook server takes the same shape as the course's own:
+
+| Field | Value | Why |
+|---|---|---|
+| Name | `larkspur-handbook` | The label the host shows for the server |
+| `command` | `uv` | The launcher on the host's `PATH` |
+| `args` | `--directory`, `/ABSOLUTE/PATH/TO/larkspur-handbook`, `run`, `server.py` | Sets the working directory, then runs the server |
+| `env` | only the keys this server needs | Each server sees its own secrets and no others |
+
+*Table 2: A handbook entry, written as fields. Every course entry ships with an `/ABSOLUTE/PATH/TO/…` placeholder to replace.*
+
+## What each entry decides
+
+The config is short, and each line decides something the server's code cannot:
+
+- **The working directory.** The host, not the server, chooses the folder a process starts in, and relative paths resolve there. The 40.4 server writes to `Path(".") / "jobs"`; `uv --directory` makes that land inside the project. That was the handbook server's stray files.
+- **Secrets, per server.** `notionApi` gets `NOTION_TOKEN` in its own `env` block and nothing else does. `excel` sets a paging limit, `EXCEL_MCP_PAGING_CELLS_LIMIT`, to 4000 cells (lesson 40.3).
+- **Which code runs.** `@playwright/mcp@latest` takes whatever version is current at each launch, and the `sqlite` entry installs from a Git repository whenever `uvx` needs it. Pin versions for anything you depend on.
+- **What the model is offered.** Thirteen servers means thirteen sets of tool definitions in every request; M38 measures what connected servers cost in tokens, and lesson 40.1's server manager is one way to hide them.
+
+### Reaching a remote server
+
+Claude Desktop launches local commands. The config reaches the EC2 server from lesson 40.7 through a bridge, `npx mcp-remote http://<EC2_PUBLIC_IP>:8000/mcp --allow-http`: a local stdio process that forwards every message to the remote URL.
+
+```mermaid
+flowchart LR
+    H["Host"] -- stdio --> B["mcp-remote<br/>local process"]
+    B -- "HTTP, unencrypted" --> R["EC2 server<br/>:8000/mcp"]
 ```
 
-### Step 2: Resolve paths, environment and work directories
+*Figure 2: The bridge turns a URL into a command the host can start. The hop after it is plain HTTP.*
 
-What the file teaches beyond its syntax:
-
-- **Paths are absolute, and `--directory` sets the working directory.** Every course entry ships with an `/ABSOLUTE/PATH/TO/…` placeholder to replace. The 40.4 server writes to `Path(".") / "jobs"`; `uv --directory` makes that resolve inside the project, where it would otherwise land wherever the host starts the process.
-- **Secrets go in `env`, per server.** `notionApi` gets `NOTION_TOKEN` and nothing else does. `excel` sets a paging limit, `EXCEL_MCP_PAGING_CELLS_LIMIT`, to 4000 cells.
-- **Some entries fetch code at launch.** `@playwright/mcp@latest` takes whatever version is current, and the `sqlite` entry installs from a Git repository each time `uvx` needs it. Pin versions for anything you depend on.
-- **A remote server needs a bridge.** The config reaches the EC2 server from lesson 40.7 through `npx mcp-remote http://<EC2 address>:8000/mcp --allow-http`, a local stdio process that forwards to the remote URL. mcp-remote 0.15.2's README says `--allow-http` "should only be used in secure private networks where traffic cannot be intercepted"; here it points at a public address.
-
-### Step 3: Count the tool surface the host exposes
-
-Thirteen servers also means thirteen sets of tool definitions on offer to the model; M38 measures what connected servers cost in tokens.
+The mcp-remote README allows `--allow-http` only on trusted private networks. Here it points at a public address, and every request and result crosses the internet unencrypted. Put the server behind HTTPS, or keep it on a private network.
 
 ## Stdout belongs to the protocol
 
-### Step 1: Keep diagnostic text off the wire
-
-Over stdio, the host writes requests to the server's stdin and reads responses from its stdout, one JSON-RPC message per line. Anything else the server writes to stdout arrives in the same stream.
+Over stdio, the host writes requests to the server's stdin and reads responses from its stdout, one JSON-RPC message per line. The specification says a server must not write anything to stdout that is not a valid MCP message. Anything else the server writes there arrives in the same stream.
 
 ```mermaid
 flowchart LR
@@ -52,35 +85,41 @@ flowchart LR
     S -- "stderr: logs" --> L["Host log"]
 ```
 
-### Step 2: Observe a stray stdout line
+*Figure 3: Two output streams. Only stdout is the protocol; stderr goes to the host's log.*
 
-The 06 server breaks this rule. Its `main()` prints a banner before `mcp.run(transport="stdio")`, and `ingest_pdf` prints progress lines while it works. A probe with mcp 1.30.0's stdio client and a server that prints the same way:
+The 06 server breaks this rule. Its `main()` prints a banner before `mcp.run(transport="stdio")`, and `ingest_pdf` prints progress lines while it works. A scratch probe used mcp 1.30.0's stdio client and a server that prints the same way: two banner lines at start-up and one line per file inside a tool call.
 
-- **Output unbuffered** (`PYTHONUNBUFFERED=1`): every stray line reached the client, which logged `Failed to parse JSONRPC message from server` with the offending text (the banner's `'LangChain Chroma Vector DB Server'` among them), dropped the line and carried on. The tool results still arrived.
-- **Default buffering:** Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and nothing reached the client during the short session. The bug was there and did not show.
+<div class="learning-widget evidence-switcher" data-comparison id="buffering-switcher">
+<p class="widget-intro">The same printing server, called once with a two-file ingest. Pick the buffering mode to see what the client received.</p>
+<div class="mode-controls" hidden role="group" aria-label="Stdout buffering">
+<button type="button" data-mode="unbuffered" aria-pressed="false" aria-controls="buffer-unbuffered">Unbuffered</button>
+<button type="button" data-mode="buffered" aria-pressed="false" aria-controls="buffer-buffered">Default buffering</button>
+</div>
+<section id="buffer-unbuffered" class="mode-panel" data-announcement="Unbuffered selected. Four stray lines reached the client."><h4>Unbuffered (<code>PYTHONUNBUFFERED=1</code>)</h4><p>All four stray lines reached the client. It logged <code>Failed to parse JSONRPC message from server</code> four times, dropped each line and carried on. The tool result, <code>Added 2 files</code>, still arrived.</p></section>
+<section id="buffer-buffered" class="mode-panel" data-announcement="Default buffering selected. No stray line reached the client."><h4>Default buffering</h4><p>Python block-buffers stdout when it is a pipe. The prints sat in the buffer and none reached the client during the short session: 0 parse failures. The bug was there and did not show.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-### Step 3: Send diagnostic logs to stderr
+The Python client is forgiving. Another host may treat a bad line as a broken connection. In a longer session, such as a big ingest, the buffer fills and flushes mid-session, and the stray lines arrive then: a failure that comes and goes with the workload. The fix is the one the MCP server guide gives: keep `print()` out of a stdio server, and log through the `logging` module, whose default handler writes to stderr, or with `print(..., file=sys.stderr)`.
 
-The Python client is forgiving; another host may not be. Send logs to stderr (`print(..., file=sys.stderr)` or the `logging` module, whose default handler writes there), and keep stdout for the protocol.
+> **Pitfall: testing a stdio server only in a short session.** Buffering hides stray prints until a flush. A clean test run proves nothing about stdout.
 
-### Try it yourself
+## Limits of this evidence
 
-Launch a stdio server with an ordinary print before it starts, first with normal buffering and then unbuffered output. Check the recorded parse error rather than interpreting a successful connection as clean protocol output. Move the diagnostic to stderr and keep stdout reserved for JSON-RPC.
+- The config facts come from reading the project's `claude_desktop_config.json`. No Claude Desktop instance ran here, and the host's own handling of a bad stdout line was not tested.
+- The buffering results come from one scratch probe with the mcp 1.30.0 Python client and a stand-in server that prints like the 06 server, not from the 06 server itself, which needs Ollama and Chroma.
+- Versions taken by `@latest` and Git installs change over time; this page cannot say what they install today.
 
-### Practice notebook
+## References
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
-
-- [MCP servers with claude](../../../projects/03_mcp_servers_with_claude_desktop).
-
-### Continue learning
-
-- [M38](../../../../m38_mcp_foundations/mandatory/theory/README.md).
+- Model Context Protocol: [Connect to local MCP servers](https://modelcontextprotocol.io/docs/develop/connect-local-servers), on `claude_desktop_config.json`, and [Build an MCP server](https://modelcontextprotocol.io/docs/develop/build-server), on logging in stdio servers.
+- Model Context Protocol specification (2025-06-18): [Transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports), on newline-delimited messages and stdout.
+- mcp-remote: [project README](https://github.com/geelen/mcp-remote), on `--allow-http`.
 
 ## Key Takeaways
 
 - In `claude_desktop_config.json`, use absolute paths with `uv --directory`, give each server only its own secrets in `env`, and pin versions instead of `@latest`.
-- A remote server reaches a stdio host through a bridge such as `mcp-remote`. Keep `--allow-http` to private networks where traffic cannot be intercepted.
+- A remote server reaches a stdio host through a bridge such as `mcp-remote`. Keep `--allow-http` to trusted private networks, and use HTTPS for anything public.
 - Over stdio, stdout carries only JSON-RPC. Send logs to stderr, because buffering can hide stray prints in testing that break a stricter host.
 
 ## Check yourself
@@ -88,21 +127,21 @@ Run the complete implementation from the practice material after checking the tr
 <details>
 <summary>1. How does the Claude Desktop config reach the remote EC2 server, and what does its --allow-http flag risk?</summary>
 
-Through `npx mcp-remote http://<EC2 address>:8000/mcp --allow-http`, a local stdio process that forwards to the remote URL. mcp-remote 0.15.2's README says `--allow-http` should only be used in secure private networks where traffic cannot be intercepted; here it points at a public address.
+Through `npx mcp-remote http://<EC2_PUBLIC_IP>:8000/mcp --allow-http`, a local stdio process that forwards to the remote URL. The mcp-remote README allows `--allow-http` only on trusted private networks. Here it points at a public address, and every request and result crosses the internet unencrypted.
 
 </details>
 
 <details>
 <summary>2. The 40.4 server writes to a jobs folder relative to its working directory. Why does its Claude Desktop entry pass uv an absolute directory?</summary>
 
-`uv --directory` sets the working directory, so `Path(".") / "jobs"` resolves inside the project; without it, the folder lands wherever the host starts the process. Every course entry ships with an `/ABSOLUTE/PATH/TO/…` placeholder you must replace.
+`uv --directory` sets the working directory, so `Path(".") / "jobs"` resolves inside the project. Without it, the folder lands wherever the host starts the process. Every course entry ships with an `/ABSOLUTE/PATH/TO/…` placeholder you must replace.
 
 </details>
 
 <details>
 <summary>3. The 06 server prints a banner to stdout, yet a short test session shows no parse errors. Is the server safe to ship?</summary>
 
-No. Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and never reached the client: the bug was there and did not show. Unbuffered, every stray line reached the client, which logged `Failed to parse JSONRPC message from server`. Send logs to stderr and keep stdout for the protocol, because another host may be less forgiving.
+No. Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and never reached the client. Unbuffered, every stray line reached the client, which logged a parse failure for each. Send logs to stderr and keep stdout for the protocol, because another host may be less forgiving.
 
 </details>
 
