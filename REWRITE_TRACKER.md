@@ -76,9 +76,9 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 |---|---|---|---|---|---|---|---|---|
 | 28 | Agentic RAG Foundations: Grading & Query Rewriting | 3 | 3 | 3 / 3 | Live | 2026-11-13 | #67 | 28.1-28.3 approved format live 2026-11-13 (course #67, site #279 sync + architect estHours 377, site #278 interactive widgets); all 5 widgets verified live at 1280/390 |
 | 29 | Self-Correcting RAG: CRAG & Self-RAG | 3 | 3 | 3 / 3 | Live | 2026-11-13 | #68 | 29.1-29.3 approved format; merged 5131dcf, site sync 26efccc (CI incl. bundle, routes, E2E pass), Vercel success, live pages checked 2026-11-13. |
-| 30 | Adaptive RAG & Query Routing | 4 | 4 | 0 / 4 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
-| 31 | RAG as an Agent Tool | 3 | 3 | 0 / 3 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
-| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 0 / 3 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
+| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
+| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
+| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
 
 ## Part IX · The Memory Layer
 
