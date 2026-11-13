@@ -158,7 +158,7 @@ def build_md():
     a("| Repo | Topic | Notebooks |")
     a("|---|---|---|")
     for k, (name, topic) in REPOS.items():
-        a(f"| [`{name}`]({GH}/{name}) | {topic} | {n_nb_by_repo[k]} |")
+        a(f"| `{name}` | {topic} | {n_nb_by_repo[k]} |")
     a("")
 
     a("## Course at a glance\n")
@@ -451,7 +451,7 @@ def build_html():
     a('<div class="wrap">')
     # header
     a('<header class="hero">')
-    a('<p class="eyebrow">Syllabus · built from ' + " + ".join(f'<a href="{GH}/{v[0]}" target="_blank" rel="noopener">repo {k}</a>' for k, v in REPOS.items()) + "</p>")
+    a('<p class="eyebrow">Syllabus · built from ' + " + ".join(f"repo {k}" for k in REPOS) + "</p>")
     a(f"<h1>{E(COURSE['title'])}</h1>")
     a(f'<p class="lede">{E(COURSE["subtitle"])}. {len(PARTS)} parts take you from your first LLM call through retrieval, agents, memory, multi-agent teams and MCP/A2A to knowledge graphs and Microsoft GraphRAG, with every notebook in all {len(REPOS)} repositories placed in exactly one lesson.</p>')
     a('<dl class="stats">')
@@ -539,7 +539,7 @@ def build_html():
         a(f'<tr><td><span class="repo r{key[0]}">{key[0]}</span></td><td><code>{E(key[1])}</code></td><td class="num">{src_counts[key]}</td><td class="num">{src_core[key]}</td><td>{cm}</td></tr>')
     a('<tr><td><span class="repo r09">09</span></td><td><code>12_cacherag</code></td><td class="num">0</td><td class="num">0</td><td>Planned in repo</td></tr>')
     a("</tbody></table></div></section>")
-    a('<footer class="foot">Notebook links point to this repository’s <code>main</code> branch on GitHub; the source repositories stay canonical. Optional notebooks are alternates, platform-specific variants or extensions; the mandatory track is enough to complete every lab.</footer>')
+    a('<footer class="foot">Notebook links point to this repository’s <code>main</code> branch on GitHub; this repository is canonical and the source repositories are archived. Optional notebooks are alternates, platform-specific variants or extensions; the mandatory track is enough to complete every lab.</footer>')
     a("</div>")
     a(f"<script>{js}</script>")
     return "\n".join(h)

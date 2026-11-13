@@ -6,15 +6,15 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 
 | Repo | Topic | Notebooks |
 |---|---|---|
-| [`ai-engineering-demystified-01-foundations`](https://github.com/Sourav692/ai-engineering-demystified-01-foundations) | AI engineering foundations | 53 |
-| [`ai-engineering-demystified-02-prompt-context-engineering`](https://github.com/Sourav692/ai-engineering-demystified-02-prompt-context-engineering) | Prompt & context engineering | 10 |
-| [`ai-engineering-demystified-03-langchain-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-03-langchain-fundamentals) | LangChain fundamentals | 34 |
-| [`ai-engineering-demystified-04-langgraph-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-04-langgraph-fundamentals) | LangGraph fundamentals | 19 |
-| [`ai-engineering-demystified-05-retrieval-rag`](https://github.com/Sourav692/ai-engineering-demystified-05-retrieval-rag) | Retrieval & RAG | 102 |
-| [`ai-engineering-demystified-06-agent-fundamentals`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals) | Agent fundamentals | 63 |
-| [`ai-engineering-demystified-08-advanced-agent-systems`](https://github.com/Sourav692/ai-engineering-demystified-08-advanced-agent-systems) | Advanced agent systems | 58 |
-| [`ai-engineering-demystified-09-advanced-rag`](https://github.com/Sourav692/ai-engineering-demystified-09-advanced-rag) | Advanced RAG | 32 |
-| [`ai-engineering-demystified-10-agent-protocols`](https://github.com/Sourav692/ai-engineering-demystified-10-agent-protocols) | Agent protocols | 10 |
+| `ai-engineering-demystified-01-foundations` | AI engineering foundations | 53 |
+| `ai-engineering-demystified-02-prompt-context-engineering` | Prompt & context engineering | 10 |
+| `ai-engineering-demystified-03-langchain-fundamentals` | LangChain fundamentals | 34 |
+| `ai-engineering-demystified-04-langgraph-fundamentals` | LangGraph fundamentals | 19 |
+| `ai-engineering-demystified-05-retrieval-rag` | Retrieval & RAG | 102 |
+| `ai-engineering-demystified-06-agent-fundamentals` | Agent fundamentals | 63 |
+| `ai-engineering-demystified-08-advanced-agent-systems` | Advanced agent systems | 58 |
+| `ai-engineering-demystified-09-advanced-rag` | Advanced RAG | 32 |
+| `ai-engineering-demystified-10-agent-protocols` | Agent protocols | 10 |
 
 ## Course at a glance
 

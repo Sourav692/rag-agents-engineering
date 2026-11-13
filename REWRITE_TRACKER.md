@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 33 · Review draft: 3 · In progress: 0 · In PR: 3 · Live: 7
+**Modules:** Not started: 33 · Review draft: 3 · In progress: 0 · In PR: 0 · Live: 10
 
 ## Part I · AI Engineering Foundations
 
@@ -91,9 +91,9 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 35 | Multi-Agent Architectures | 5 | 5 | 5 / 5 | In PR | 2026-11-13 | #71 | Approved format in PR #71; validator, browser, protect, pytest, links pass; site needs estHours data-engineer 254, fde 298, fde-frontier-lab 328 + 'ACM' in NOT_ACRONYMS after merge. |
-| 36 | Collaboration, Control & Parallel Agents | 5 | 5 | 5 / 5 | In PR | 2026-11-13 | #71 | Approved format in PR #71; validator, browser, protect, pytest, links pass; site needs estHours data-engineer 254, fde 298, fde-frontier-lab 328 + 'ACM' in NOT_ACRONYMS after merge. |
-| 37 | Multi-Agent Applied Builds | 5 | 5 | 5 / 5 | In PR | 2026-11-13 | #71 | Approved format in PR #71; validator, browser, protect, pytest, links pass; site needs estHours data-engineer 254, fde 298, fde-frontier-lab 328 + 'ACM' in NOT_ACRONYMS after merge. |
+| 35 | Multi-Agent Architectures | 5 | 5 | 5 / 5 | Live | 2026-11-13 | #71 | Approved format; merged cff546a; site PR #282 (sync + estHours data-engineer 254, fde 298, fde-frontier-lab 328, 'ACM' in NOT_ACRONYMS) merged 406bad5, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-13. |
+| 36 | Collaboration, Control & Parallel Agents | 5 | 5 | 5 / 5 | Live | 2026-11-13 | #71 | Approved format; merged cff546a; site PR #282 (sync + estHours data-engineer 254, fde 298, fde-frontier-lab 328, 'ACM' in NOT_ACRONYMS) merged 406bad5, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-13. |
+| 37 | Multi-Agent Applied Builds | 5 | 5 | 5 / 5 | Live | 2026-11-13 | #71 | Approved format; merged cff546a; site PR #282 (sync + estHours data-engineer 254, fde 298, fde-frontier-lab 328, 'ACM' in NOT_ACRONYMS) merged 406bad5, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-13. |
 
 ## Part XI · Agent Protocols: MCP & A2A
 

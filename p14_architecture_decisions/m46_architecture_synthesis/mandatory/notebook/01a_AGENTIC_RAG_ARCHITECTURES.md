@@ -39,7 +39,7 @@ Supporting material: [`data/sample/research_papers/`](../../../../data/sample/re
 | [`01_router_agentic_rag.ipynb`](../../../../p08_agentic_rag/m30_adaptive_rag_routing/mandatory/notebook/01a_router_agentic_rag.ipynb) | Customer-support router agentic RAG |
 | [`02_router_agentic_rag_modular.ipynb`](../../../../p08_agentic_rag/m30_adaptive_rag_routing/optional/notebook/01b_router_agentic_rag_modular.ipynb) | Same system, refactored into modules |
 
-These two notebooks used to sit with the LangGraph fundamentals as its routing demo; their main example is agentic RAG, so they live here. Graph routing mechanics themselves are taught in [repository 04 (LangGraph fundamentals)](https://github.com/Sourav692/ai-engineering-demystified-04-langgraph-fundamentals).
+These two notebooks used to sit with the LangGraph fundamentals as its routing demo; their main example is agentic RAG, so they live here. Graph routing mechanics themselves are taught in [M08, LangGraph core](../../../../p03_llm_application_frameworks/m08_langgraph_core/README.md).
 
 ---
 
@@ -66,11 +66,11 @@ These live in later repositories and are named here for orientation only.
 | Location | Content |
 |---|---|
 | `Building_Adaptive_RAG` — [repository 14 (projects)](https://github.com/Sourav692/ai-engineering-demystified-14-projects) | Adaptive RAG as a real Python app, not a notebook: `src/workflow/graph.py` + `nodes/` (`retrieve`, `grade_documents`, `generate`, `web_search`) + `chains/` (`router`, `retrieval_grader`, `hallucination_grader`, `answer_grader`). The cleanest reference for how the grader chains factor out of the graph. |
-| `mcp_a2a_agentic_rag` — [repository 10 (agent protocols)](https://github.com/Sourav692/ai-engineering-demystified-10-agent-protocols) | Agentic RAG where retrieval tools are served over **MCP** and agents coordinate over **A2A** — `agents/`, `mcp/`, `mcp_config.json` |
+| [`mcp_a2a_agentic_rag` (M41 project)](../../../../p11_agent_protocols/m41_a2a_protocol/projects/mcp_a2a_agentic_rag/README.md) | Agentic RAG where retrieval tools are served over **MCP** and agents coordinate over **A2A** — `agents/`, `mcp/`, `mcp_config.json` |
 | `ShopUNow_Agentic_RAG_Capstone` — [repository 14 (projects)](https://github.com/Sourav692/ai-engineering-demystified-14-projects) | Two-stage capstone: `01_create_vector_databases.ipynb` → `02_agentic_rag_system.ipynb` over 7 department JSON datasets |
 
 ---
 
 ## Gaps
 
-- **CacheRAG** — [module 12](https://github.com/Sourav692/ai-engineering-demystified-09-advanced-rag/tree/main/modules/12_cacherag/README.md) exists as a scaffolded placeholder with no content.
+- **CacheRAG**: module 12 of the archived source repository 09 was a scaffolded placeholder with no content, so the course has no CacheRAG lesson.
