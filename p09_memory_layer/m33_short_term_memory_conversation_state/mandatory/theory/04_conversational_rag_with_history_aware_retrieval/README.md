@@ -2,8 +2,9 @@
 
 *[M33 theory](../README.md) · Lesson 33.4 · Notebooks: [`04a_conversational_rag_with_history.ipynb`](../../notebook/04a_conversational_rag_with_history.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A retriever reads only the literal follow-up, and the question has to be rewritten into a standalone one before the search -->
+<!-- format: approved -->
 
-## A follow-up with no subject
+## Start with a follow-up that has no subject
 
 > **What you'll learn**
 >
@@ -42,7 +43,7 @@ The rewrite turns each follow-up back into a question the retriever can score. T
 
 *Table 1: Three follow-ups from the lab and their rewrites. The rewrites are written by hand to show the shape; the lab's rankings for them are computed.*
 
-`create_history_aware_retriever` builds exactly the branch in Figure 1. `create_retrieval_chain` then joins it to a chain that stuffs the retrieved documents into an answer prompt, and that prompt carries the chat history too. The answer step sees the conversation as well. Wrapped in `RunnableWithMessageHistory` with the answer field named as the output to save, the chain loads and saves the history itself, as in lesson 33.2.
+`create_history_aware_retriever` builds exactly the branch in Figure 1: in the installed `langchain_classic`, a missing or empty `chat_history` sends the input straight to the retriever. `create_retrieval_chain` then joins it to a chain that stuffs the retrieved documents into an answer prompt, and that prompt carries the chat history too. Wrapped in `RunnableWithMessageHistory` with the answer field named as the output to save, the chain loads and saves the history itself, as in lesson 33.2.
 
 ### What the rewrite costs, and how it fails
 
@@ -57,11 +58,51 @@ The extra step brings its own failure modes:
 
 *Table 2: Four ways a history-aware retriever goes wrong. The last one looks like a retrieval regression and is a memory bug.*
 
-The lab measures how much the rewrite buys against the two cheaper inputs.
-
 ## Rewrite, append or neither
 
-The [interactive lab](interactive/follow-up-retrieval-lab.html) runs six three-turn Larkspur support chats against the twelve handbook chunks from the M10 lab, with the same TF-IDF index (it matches scikit-learn's `TfidfVectorizer` to within 5e-16 on all 648 scores). It compares three things the retriever can receive on turns 2 and 3: the latest message as typed, the earlier questions with the latest appended, and a standalone rewrite. The customer messages are hand-written and the rewrites are representative; the rankings are computed.
+The rewrite is one of three things the retriever can receive on a follow-up. The other two cost no LLM call.
+
+### The latest message as typed
+
+The simplest pipeline ignores the history at retrieval time and searches for the follow-up exactly as the customer wrote it:
+
+```mermaid
+flowchart TB
+    L[/"Latest message"/] --> R["Retriever scores<br/>the literal text"]
+    R --> A["Answer prompt<br/>with chunks + history"]
+```
+
+*Figure 2: Searching the latest message. No extra call, and no subject on a follow-up that points back.*
+
+### Earlier questions appended
+
+The second pipeline joins the customer's earlier questions to the new one and searches the combined text:
+
+```mermaid
+flowchart TB
+    H[/"Earlier questions"/] --> J["Join with the<br/>latest message"]
+    L[/"Latest message"/] --> J
+    J --> R["Retriever scores<br/>the joined text"]
+```
+
+*Figure 3: Appending history. The subject comes back, along with every earlier topic.*
+
+Follow the export chat from the opening through all three inputs. The scores come from the lab's index:
+
+<div class="learning-widget evidence-switcher" data-comparison id="input-switcher">
+<p class="widget-intro">Choose what the retriever receives on turns 2 and 3 of the export chat. Evidence: the export or retention chunk on turn 2, the retention chunk on turn 3.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retriever input">
+<button type="button" data-mode="latest" aria-pressed="false" aria-controls="in-latest">Latest message (Figure 2)</button>
+<button type="button" data-mode="appended" aria-pressed="false" aria-controls="in-appended">Appended (Figure 3)</button>
+<button type="button" data-mode="rewrite" aria-pressed="false" aria-controls="in-rewrite">Rewrite (Figure 1)</button>
+</div>
+<section id="in-latest" class="mode-panel" data-announcement="Latest message selected. Both follow-ups miss."><h4>Latest message as typed</h4><ul><li>Turn 2, <em>Is that possible after I cancel?</em>: the <code>cancel</code> chunk ranks first at 0.306. Miss.</li><li>Turn 3, <em>How long do I have?</em>: every chunk scores zero. Miss.</li><li>Extra LLM calls: 0.</li></ul></section>
+<section id="in-appended" class="mode-panel" data-announcement="Appended selected. Turn 2 hits, turn 3 is dragged back to export."><h4>Earlier questions appended</h4><ul><li>Turn 2: the export question carries the subject, and <code>export</code> ranks first at 0.402. Hit.</li><li>Turn 3: the joined text is still mostly about exporting, and <code>export</code> keeps first place at 0.402. Retention is second at 0.308: a miss at <code>k = 1</code>, a hit at <code>k = 2</code>.</li><li>Extra LLM calls: 0.</li></ul></section>
+<section id="in-rewrite" class="mode-panel" data-announcement="Rewrite selected. Both follow-ups hit, for two extra calls."><h4>A rewritten question</h4><ul><li>Turn 2, <em>Can I export my data after I cancel my plan?</em>: <code>retention</code> 0.372 and <code>export</code> 0.369, both labelled evidence. Hit.</li><li>Turn 3, <em>How long is my data kept after I cancel my plan?</em>: <code>retention</code> ranks first at 0.404. Hit: data is kept for 30 days after cancelling.</li><li>Extra LLM calls: 2, one per follow-up.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The [interactive lab](interactive/follow-up-retrieval-lab.html) runs six three-turn Larkspur support chats against the twelve handbook chunks from the M10 lab, with the same TF-IDF index (it matches scikit-learn's `TfidfVectorizer` to within 5e-16 on all 648 scores). It compares the three inputs on turns 2 and 3. The customer messages are hand-written and the rewrites are representative; the rankings are computed.
 
 | Retriever receives | Turn 2 hits, `k = 1` | Turn 3 hits, `k = 1` | Hit rate, `k = 1` | Hit rate, `k = 2` |
 |---|---|---|---|---|
@@ -77,23 +118,25 @@ The [interactive lab](interactive/follow-up-retrieval-lab.html) runs six three-t
 
 <!-- lab: interactive/follow-up-retrieval-lab.html -->
 
+Pick the rewrite when follow-ups point back and each slot in the context counts. Appending is a cheap stopgap only with a wider `k`. Searching the latest message alone suits chats whose follow-ups name their own subject.
+
 ### Measuring turns 2 and 3 separately
 
 The lab is the module's lab brief in miniature. On your own corpus, write multi-turn conversations, label the evidence for each turn, and report hit rate on turns 2 and 3 separately from turn 1, with and without the rewrite. A single average over all turns hides the follow-ups, because first questions are usually standalone and score well either way.
 
-The same split catches a regression early. If a refactor stops passing the history, the turn-1 numbers stay put while the turn-2 and turn-3 numbers fall to the latest-message row of Table 3.
+The same split catches a regression early. If a refactor stops passing the history, the turn-1 numbers stay put while the turn-2 and turn-3 numbers fall to the latest-message row of Table 3. Log the raw message, the rewrite and the retrieved chunk ids for every turn, which lets the team check the rewrite as well as the retrieval.
 
-## In practice: Larkspur's export chat
+## Limits of this evidence
 
-Following the export conversation through the full chain:
+- **Hand-written chats.** The six lab conversations and their rewrites are written by hand; no model produced the rewrites, and a real rewrite can drop or over-carry detail.
+- **Lexical index.** The lab scores with TF-IDF over twelve chunks. The notebook embeds Lilian Weng's post with an OpenAI model, which scores differently, and it ships without outputs.
+- **Small sample.** Twelve follow-up turns separate the inputs clearly at `k = 1`; they are too few to estimate a production hit rate.
 
-1. **Turn 1.** *How do I export my data?* arrives with an empty history, the branch skips the rewrite, and the retriever finds the export chunk.
-2. **Turn 2.** *Is that possible after I cancel?* arrives with one exchange of history. As typed it finds the `cancel` chunk; rewritten as *Can I export my data after I cancel my plan?* it finds the export evidence.
-3. **Turn 3.** *How long do I have?* scores zero as typed. The rewrite, *How long is my data kept after I cancel my plan?*, finds the retention chunk: data is kept for 30 days after cancelling.
-4. **Answer.** The answer prompt receives the retrieved chunk and the history. The reply can then say *your data* and mean the account from turn 1.
-5. **Monitoring.** The logs keep the raw message, the rewrite and the retrieved chunk ids per turn, which lets the team check the rewrite as well as the retrieval.
+## References
 
-> **What changes next:** these chains keep history with the deprecated wrapper from lesson 33.2. Lesson 33.6 moves conversation state into a LangGraph thread, where the same bounding choices become nodes.
+1. X. Ma et al., [Query Rewriting for Retrieval-Augmented Large Language Models](https://arxiv.org/abs/2305.14283), EMNLP 2023.
+2. L. Weng, [LLM Powered Autonomous Agents](https://lilianweng.github.io/posts/2023-06-23-agent/), the post the notebook indexes.
+3. scikit-learn, [`TfidfVectorizer`](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html), the scoring the lab reproduces.
 
 ## Key Takeaways
 
