@@ -2,8 +2,9 @@
 
 *[M43 theory](../README.md) · Lesson 43.2 · Notebooks: [`02a_healthcare_kg.ipynb`](../../notebook/02a_healthcare_kg.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Why the key you merge on decides how many entities a CSV import creates, and what a row loses when its columns become separate edges -->
+<!-- format: approved -->
 
-## When an import doubles the plans
+## Start with an import that doubles the plans
 
 > **What you'll learn**
 >
@@ -49,25 +50,71 @@ The file has 100 rows, 5 provider names, 7 patient names, 5 specialisations and 
 Two failures account for the gap.
 
 - **Identity by attributes**: every row gives a patient a different age, gender or condition. Merging on all four values makes each of the 100 rows a new patient. Seven people become 100 nodes.
-- **Name fan-out**: the `TREATS` step matches the patient by name alone. A name now points at up to 22 nodes, and the edge is drawn to every one of them that exists so far. 32 real provider and patient pairs become 368 edges.
+- **Name fan-out**: the `TREATS` step matches the patient by name alone. A name now points at up to 22 nodes (Frank Yellow), and the edge is drawn to every one of them that exists so far. 32 real provider and patient pairs become 368 edges.
 
 The provider merge on `name` and `bio` works here only because each provider has one bio in the file. Change one bio between imports and the provider splits in two, which is Larkspur's doubled plan.
 
+### Two identity rules
+
+The notebook's rule puts every descriptive value in the merge pattern:
+
+```mermaid
+flowchart LR
+    R1["Night 1 row<br/>id team, old description"] --> M1{"MERGE on id<br/>and description"}
+    M1 -->|no match| N1[(Plan node 1)]
+    R2["Night 2 row<br/>id team, new description"] --> M2{"MERGE on id<br/>and description"}
+    M2 -->|no match| N2[(Plan node 2)]
+```
+
+*Figure 1: Identity by attributes. A reworded description matches nothing, and the second night creates a second plan.*
+
+A stable key puts only the identifier in the pattern and sets the rest afterwards:
+
+```mermaid
+flowchart LR
+    R1["Night 1 row<br/>id team, old description"] --> M{"MERGE on id"}
+    R2["Night 2 row<br/>id team, new description"] --> M
+    M --> N[(One plan node)]
+    N --> S["SET description,<br/>name, updated time"]
+```
+
+*Figure 2: A stable key. Both nights land on the same node, and the second one updates its description.*
+
+<div class="learning-widget evidence-switcher" data-comparison id="identity-switcher">
+<p class="widget-intro">Choose an identity rule to see what a reworded EU Team description does to the graph.</p>
+<div class="mode-controls" hidden role="group" aria-label="Identity rule">
+<button type="button" data-mode="attributes" aria-pressed="false" aria-controls="identity-attributes">Merge on every property</button>
+<button type="button" data-mode="key" aria-pressed="false" aria-controls="identity-key">Merge on a stable key</button>
+</div>
+<section id="identity-attributes" class="mode-panel" data-announcement="Every property selected. Two EU Team nodes."><h4>Merge on every property</h4><ul><li>The new description matches no existing node, and a second EU Team node appears.</li><li>Edges written by night 1 stay on the old node; night 2 writes its own.</li><li>The EU export query returns EU Team twice, and no step reports an error.</li></ul></section>
+<section id="identity-key" class="mode-panel" data-announcement="Stable key selected. One EU Team node, updated."><h4>Merge on a stable key</h4><ul><li>The merge finds the node with id team and updates its description.</li><li>Every edge stays on one node.</li><li>The EU export query returns EU Team once, with the new wording.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 ### A stable key
 
-The fix is to merge on a key that never changes and set everything else afterwards. For Larkspur's catalogue that means three rules:
+For Larkspur's catalogue the stable key means three rules:
 
 1. A uniqueness constraint on `Plan.id`, created once, which the database enforces and which also gives the merge an index to look up.
 2. A merge on `id` alone, followed by a `SET` of the display name, description and update time. A reworded description updates the existing node.
 3. A key that includes its scope, such as tenant or catalogue, when the identifier is unique only within one of them. A display name alone rarely captures that scope.
 
-These are a proposed Larkspur schema, not cells from the healthcare notebook. Neo4j's [MERGE documentation](https://neo4j.com/docs/cypher-manual/current/clauses/merge/) explains full-pattern matching and how uniqueness constraints interact with it. With identity settled, the next problem is what a row means.
+These are a proposed Larkspur schema, not cells from the healthcare notebook. Merging on attributes fits only data with no identifier at all, and then only when every attribute in the pattern is truly fixed.
 
 ## The flattened row
 
-A CSV row is often an event: one visit, in which this provider saw this patient, in this specialisation, at this location. The notebook turns the row's columns into separate edges on the provider. Once the row is gone, the graph no longer knows which specialisation went with which location. We call this the **flattened row**.
+A CSV row is often an event: one visit, in which this provider saw this patient, in this specialisation, at this location. The notebook turns the row's columns into separate edges on the provider:
 
-The replay shows how much it costs:
+```mermaid
+flowchart LR
+    H[Provider] -->|TREATS| P[Patient]
+    H -->|SPECIALIZES_IN| S[Specialisation]
+    H -->|LOCATED_AT| L[Location]
+```
+
+*Figure 3: The flattened row. Each column becomes an edge on the provider, and nothing records which values came together.*
+
+Once the row is gone, the graph no longer knows which specialisation went with which location. We call this the **flattened row**. The replay shows how much it costs:
 
 | Question | From the 100 rows | From the imported graph |
 |---|---|---|
@@ -78,9 +125,21 @@ The replay shows how much it costs:
 
 *Table 3: What the rows say against what the provider-level edges say (replayed counts).*
 
-Every provider ends up linked to almost every specialisation and location. A question such as "cardiologists in Houston" returns all five providers. The data in this file is synthetic and noisy, which makes the effect large, but the mechanism is general. When the row is the fact, model it as a node (a `Visit` or an `Assertion`) with edges to each participant, and the pairing survives.
+Every provider ends up linked to almost every specialisation and location. A question such as "cardiologists in Houston" returns all five providers. The data in this file is synthetic and noisy, which makes the effect large, but the mechanism is general.
 
-For Larkspur the same choice appears with sources. "The 2026 handbook says EU Team supports export" is a row-level fact. Store the source document and its version with the assertion, and deleting an obsolete edition can remove exactly the capabilities that edition asserted.
+When the row is the fact, model it as a node, such as a `Visit` or an `Assertion`, with an edge to each participant:
+
+```mermaid
+flowchart LR
+    V(("Visit<br/>row 17")) -->|BY| H[Provider]
+    V -->|FOR| P[Patient]
+    V -->|IN| S[Specialisation]
+    V -->|AT| L[Location]
+```
+
+*Figure 4: The row as a node. The visit holds the four values together: "Cardiology in Houston" matches only visits that had both.*
+
+The row node costs one extra hop per question and one node per row. It pays whenever a question combines two columns of the same row. For Larkspur the same choice appears with sources. "The 2026 handbook says EU Team supports export" is a row-level fact. Store the source document and its version with the assertion, and deleting an obsolete edition can remove exactly the capabilities that edition asserted.
 
 ## Import checks
 
@@ -95,7 +154,7 @@ flowchart TD
     E --> C[Check expected facts]
 ```
 
-*Figure 1: Validate the key, merge entities, link only endpoints that exist, then check known facts.*
+*Figure 5: Validate the key, merge entities, link only endpoints that exist, then check known facts.*
 
 Each step guards against one failure the notebook shows:
 
@@ -111,7 +170,20 @@ Each step guards against one failure the notebook shows:
 
 The notebook writes all three relationships in one chained query that begins by matching the provider and the patient. If either is missing, none of the three edges is written. That is the silent absence from lesson 43.1, created by the import.
 
-The last box in Figure 1 is a test you can run on every import. Load a small fixture, then load it again, then load it with one description edited. The entity count should stay the same across all three runs while the description changes. Then check a handful of known paths against the file, such as one provider's patients, and compare relationship counts with the distinct pairs in the input. Table 2 is exactly that comparison, and it would have caught both failures on the first run.
+The last box in Figure 5 is a test you can run on every import. Load a small fixture, then load it again, then load it with one description edited. The entity count should stay the same across all three runs while the description changes. Then check a handful of known paths against the file, such as one provider's patients, and compare relationship counts with the distinct pairs in the input. Table 2 is exactly that comparison, and it would have caught both failures on the first run.
+
+## Limits of this evidence
+
+- **No Neo4j server ran.** Tables 2 and 3 replay the notebook's `MERGE` and `MATCH` rules over `healthcare.csv` in Python, for one run on an empty database. A second run, or a database that already holds nodes, gives other counts.
+- **The file is synthetic.** Its rows pair providers with specialisations at random, which makes the flattened-row effect larger than real data would.
+- **Figures 2 and 4 are proposed designs.** The Larkspur key rules and the visit node are not in the notebook and were not run.
+
+## References
+
+1. Neo4j, [Cypher Manual: MERGE](https://neo4j.com/docs/cypher-manual/current/clauses/merge/).
+2. Neo4j, [Cypher Manual: Constraints](https://neo4j.com/docs/cypher-manual/current/schema/constraints/).
+3. Neo4j, [Cypher Manual: LOAD CSV](https://neo4j.com/docs/cypher-manual/current/clauses/load-csv/).
+4. Python Software Foundation, [csv: CSV file reading and writing](https://docs.python.org/3/library/csv.html).
 
 ## Key Takeaways
 

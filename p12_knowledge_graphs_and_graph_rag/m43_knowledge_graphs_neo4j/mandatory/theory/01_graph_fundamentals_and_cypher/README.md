@@ -2,8 +2,9 @@
 
 *[M43 theory](../README.md) · Lesson 43.1 · Notebooks: [`01a_kg_simple.ipynb`](../../notebook/01a_kg_simple.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a property graph stores Larkspur's plans, features and regions, and how one Cypher pattern finds a plan that meets two conditions at once -->
+<!-- format: approved -->
 
-## Questions that are joins
+## Start with a question that is a join
 
 > **What you'll learn**
 >
@@ -16,9 +17,7 @@ M42 ended with lightweight graph retrieval as one option among summaries and mem
 
 A Larkspur support engineer asks: *Which plans support data export in the EU?* A vector index returns two passages that both look relevant. One says a plan supports export. The other says a plan is available in the EU region. Nothing in either passage says they describe the same plan. The question is a **join**: one entity has to satisfy two facts, and text similarity has no notion of "the same entity".
 
-This module uses a small teaching catalogue of Larkspur plans (EU Team, EU Enterprise, US Export, Legacy plan) that is also the fixture in the lesson 43.4 lab. It is separate from the handbook's own plan list. The notebook teaches the same ideas on a five-node graph about Albert Einstein.
-
-The page has two jobs: describe what a graph stores, then show how a query asks for a joined fact.
+This lesson uses a small teaching catalogue of Larkspur plans (EU Team, EU Enterprise, US Export, Legacy plan), the fixture of the lesson 43.4 lab. It is separate from the handbook's own plan list. The notebook teaches the same ideas on a five-node graph about Albert Einstein.
 
 ## Nodes, edges, properties
 
@@ -39,8 +38,8 @@ Each part of the model has its own job, and the notebook's graph uses the same p
 | Part | Larkspur fixture | Notebook graph | What it decides |
 |---|---|---|---|
 | Label | `Plan`, `Feature`, `Region` | `Person`, `Subject`, `NobelPrize`, `Country` | which kind of entity a pattern can match |
-| Identity property | `id: "eu-team"` | `name: "Albert Einstein"` | which node a write or a query lands on |
-| Descriptive property | display name, description | none | what the answer can say about the node |
+| Identity property | `id: "team"` | `name: "Albert Einstein"` | which node a write or a query lands on |
+| Descriptive property | display name, such as "EU Team" | none | what the answer can say about the node |
 | Relationship type | `SUPPORTS`, `AVAILABLE_IN` | `STUDIED`, `WON`, `BORN_IN`, `DIED_IN` | which question a path can answer |
 
 *Table 1: The parts of a property graph, in the teaching fixture and in the notebook.*
@@ -69,7 +68,7 @@ Choosing relationship types and directions is part of modelling the handbook, an
 
 A graph answers only the relationships you stored or can derive from them. If the EU Team plan has no `AVAILABLE_IN` edge to the EU region, three different things could be true: the plan is not available there, the source never said so, or extraction missed the sentence that did. We call this **silent absence**: an empty match looks the same in all three cases.
 
-The practical rule is to keep the source of each relationship (lesson 43.2) so a missing edge can be traced back to a document, and to phrase empty results as "no matching facts in this graph" rather than "no". With the model in place, the next step is asking for a joined fact.
+The practical rule is to keep the source of each relationship (lesson 43.2) so a missing edge can be traced back to a document, and to phrase empty results as "no matching facts in this graph" rather than "no".
 
 ## Cypher
 
@@ -87,7 +86,47 @@ The EU export question becomes one pattern with two arms:
 
 *Table 2: The EU export query, clause by clause.*
 
-The shared `p` carries the join. Run against the lab's fixture edges, the query returns exactly the plans that have both relationships:
+### One variable or two
+
+The shared `p` carries the join. Bind one plan variable and both arms must hold for the same node:
+
+```mermaid
+flowchart LR
+    P(("p")) -->|SUPPORTS| F[Export]
+    P -->|AVAILABLE_IN| R[EU region]
+```
+
+*Figure 3: One variable. Both arms meet at the same plan node, so a row needs one plan with both facts.*
+
+Give each arm its own plan variable and the two arms no longer share anything:
+
+```mermaid
+flowchart TB
+    subgraph A1["Arm 1"]
+        direction LR
+        P1(("p1")) -->|SUPPORTS| F[Export]
+    end
+    subgraph A2["Arm 2"]
+        direction LR
+        P2(("p2")) -->|AVAILABLE_IN| R[EU region]
+    end
+    A1 ~~~ A2
+```
+
+*Figure 4: Two variables. Cypher pairs every plan from arm 1 with every node from arm 2.*
+
+Run both against the lab's fixture edges. The fixture also has four guide nodes (Refund, Backup, Billing and Audit guides) with `AVAILABLE_IN` edges to the EU, which matters for the second design:
+
+<div class="learning-widget evidence-switcher" data-comparison id="variable-switcher">
+<p class="widget-intro">Choose a design to see what the EU export query returns over the lab's fixture edges.</p>
+<div class="mode-controls" hidden role="group" aria-label="Query design">
+<button type="button" data-mode="shared" aria-pressed="false" aria-controls="variable-shared">One shared variable</button>
+<button type="button" data-mode="separate" aria-pressed="false" aria-controls="variable-separate">Two separate variables</button>
+</div>
+<section id="variable-shared" class="mode-panel" data-announcement="Shared variable selected. Two plans returned."><h4>One shared variable</h4><ul><li>Plans with an export edge: EU Team, EU Enterprise, US Export, Legacy plan.</li><li>Of those, with an EU edge: EU Team and EU Enterprise.</li><li>Result: 2 plans, the right answer.</li></ul></section>
+<section id="variable-separate" class="mode-panel" data-announcement="Separate variables selected. Four plans returned."><h4>Two separate variables</h4><ul><li>Arm 1 binds 4 export plans; arm 2 binds 6 nodes with an EU edge, guides included.</li><li>Cypher pairs them: 4 times 6 is 24 rows before <code>DISTINCT</code>.</li><li>Returning the export plan gives all 4 plans, US Export and Legacy plan among them.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 | Plan | `SUPPORTS` export | `AVAILABLE_IN` eu | Shared `p` | Separate variables |
 |---|---|---|---|---|
@@ -96,27 +135,45 @@ The shared `p` carries the join. Run against the lab's fixture edges, the query 
 | US Export | ✓ | ✗ | not returned | returned |
 | Legacy plan | ✓ | ✗ | not returned | returned |
 
-*Table 3: The query over the lesson 43.4 lab's fixture edges. With one variable per arm, any export plan pairs with any plan in the EU.*
+*Table 3: The query over the lesson 43.4 lab's fixture edges, replayed in Python (no server).*
 
-The last column is the **cross-product match**. Give each arm its own plan variable and Cypher pairs every export plan with every EU plan, so four plans come back instead of two. The query is valid, runs without error and is wrong.
+The last column is the **cross-product match**. The query is valid, runs without error and is wrong. Use the shared variable whenever one entity must satisfy several patterns; separate variables fit only when you really want every pairing.
 
 > **Pitfall: DISTINCT is not deduplication.** `DISTINCT` removes repeated result rows. If the import created two EU Team nodes, both come back, because they are different nodes. Fixing duplicate entities is an import problem, covered in lesson 43.2.
 
 ### The notebook's queries
 
-The notebook runs two read queries. One lists every node's `name`. The other returns four paths out of the Einstein node, one per relationship type, joined with `UNION`. Each arm of that union names its relationship type explicitly, which means a fifth relationship added later would not appear until someone adds a fifth arm. A single pattern with an untyped relationship would return all of them, at the cost of returning edges you did not ask about.
+The notebook defines two read queries. One lists every node's `name`. The other returns four paths out of the Einstein node, one per relationship type, joined with `UNION`. Each arm of that union names its relationship type explicitly, which means a fifth relationship added later would not appear until someone adds a fifth arm. A single pattern with an untyped relationship would return all of them, at the cost of returning edges you did not ask about.
 
 It writes with `MATCH` followed by `MERGE`: find both endpoints first, then create the relationship between them only if it is missing. If either endpoint is absent, the `MATCH` finds nothing and no edge is written, without an error. That is silent absence again, this time created at write time.
 
 ### Sessions and the driver
 
-The notebook opens one Neo4j driver and runs work inside sessions. Two habits matter beyond this notebook. Read a query's results while its session is still open, because they stream from the database. Keep one driver for the life of the program and close it once at the end.
+Read a query's results while its session is still open, because they stream from the database. Keep one driver for the life of the program and close it once at the end. The notebook breaks the second habit in an instructive way. Run it top to bottom:
 
-Some of the notebook's helper functions close the shared driver in their `finally` block. Run the build cell and then another cell that uses the same driver, and the second one fails with a closed driver. Running cells out of order can mean recreating the driver first.
+<div class="walkthrough learning-widget" data-stepper id="notebook-walkthrough">
+<p class="widget-intro">Step through the 01a notebook run from top to bottom on a fresh database.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the 01a notebook run"><button type="button" data-step="0" aria-pressed="false" aria-controls="nb-step-0">1. Driver</button><button type="button" data-step="1" aria-pressed="false" aria-controls="nb-step-1">2. Build</button><button type="button" data-step="2" aria-pressed="false" aria-controls="nb-step-2">3. Query</button><button type="button" data-step="3" aria-pressed="false" aria-controls="nb-step-3">4. Rerun</button></div>
+<div class="step-panels"><section id="nb-step-0" class="step-panel" aria-labelledby="nb-heading-0"><h4 id="nb-heading-0">1. One shared driver is created</h4><dl><dt>Cell</dt><dd>a module-level <code>driver</code>; helper functions are defined but not run</dd></dl></section><section id="nb-step-1" class="step-panel" aria-labelledby="nb-heading-1"><h4 id="nb-heading-1">2. The build call is commented out</h4><dl><dt>Cell</dt><dd><code>build_knowledge_graph()</code> appears only as a comment</dd><dt>Effect</dt><dd>a fresh database stays empty until you remove the comment</dd></dl></section><section id="nb-step-2" class="step-panel" aria-labelledby="nb-heading-2"><h4 id="nb-heading-2">3. The path query runs</h4><dl><dt>Helper</dt><dd><code>query_graph</code> opens its own driver for this one call and closes it</dd><dt>Result</dt><dd>4 paths on a built graph; on an empty one, nothing at all and no error</dd></dl></section><section id="nb-step-3" class="step-panel" aria-labelledby="nb-heading-3"><h4 id="nb-heading-3">4. A second build after the first</h4><dl><dt>Helper</dt><dd><code>build_knowledge_graph</code> closes the shared driver in its <code>finally</code> block</dd><dt>Result</dt><dd>the next call that uses it prints "Error: Driver closed" and carries on</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+We checked stage 4 against the installed driver (neo4j 6.4.1): a session on a closed driver raises `DriverError: Driver closed`, and the helper's `except` turns that into a printed line. Both quiet stages, the empty query and the printed error, look like a cell that ran.
 
 ### Read the paths before the wording
 
 When a model phrases the result ("No plan supports export in the EU"), the sentence can only be as good as the rows behind it. Inspect the returned paths and their source facts first. If the pattern used the wrong label, a reversed direction or the wrong identifier, the rows are empty, and a fluent answer cannot supply the relationship the query failed to match. Lesson 43.2 turns to where those nodes and edges come from.
+
+## Limits of this evidence
+
+- **No Neo4j server ran.** Table 3 and the switcher replay the lab's fixture edges in Python with Cypher's matching rules; the notebook run and the four Einstein paths are read from its cells.
+- **The fixture is a teaching catalogue.** Its four plans and four guides come from the lesson 43.4 lab, not from Larkspur's handbook plan list.
+- **Driver behaviour is version-specific.** The closed-driver error was checked with neo4j 6.4.1 only; other driver versions may behave differently.
+
+## References
+
+1. Neo4j, [Cypher Manual: MATCH](https://neo4j.com/docs/cypher-manual/current/clauses/match/).
+2. Neo4j, [Cypher Manual: MERGE](https://neo4j.com/docs/cypher-manual/current/clauses/merge/).
+3. Neo4j, [Cypher Manual: Parameters](https://neo4j.com/docs/cypher-manual/current/syntax/parameters/).
+4. Neo4j, [Python Driver Manual](https://neo4j.com/docs/python-manual/current/).
 
 ## Key Takeaways
 
@@ -136,14 +193,14 @@ The arrow is part of the fact: `Plan SUPPORTS Feature` answers a different quest
 <details>
 <summary>2. The EU export query reuses one variable p in both patterns. What goes wrong over the fixture if each pattern binds its own plan variable?</summary>
 
-It becomes a cross-product match: every export plan pairs with every plan in the EU. Over the fixture, US Export and Legacy plan come back beside EU Team and EU Enterprise, four plans instead of two. `DISTINCT` would not help, because the rows are different plans.
+It becomes a cross-product match: every export plan pairs with every node in the EU. Over the fixture, US Export and Legacy plan come back beside EU Team and EU Enterprise, four plans instead of two. `DISTINCT` would not help, because the rows are different plans.
 
 </details>
 
 <details>
-<summary>3. A model-phrased answer says no plan supports export in the EU, and you expected one. What do you inspect before the wording?</summary>
+<summary>3. You run the 01a notebook top to bottom on a fresh database and the path query prints nothing. What do you check before blaming the query?</summary>
 
-The rows and paths the query returned, and the source facts behind them. Check that the pattern used the stored labels, directions and identifiers, and whether the expected edges exist at all. A fluent sentence cannot supply a relationship the query failed to match.
+Whether the graph was built at all. The `build_knowledge_graph()` call is commented out, so the database is empty and the query matches nothing without an error. After a build, also check for "Error: Driver closed", because the build helper closes the shared driver.
 
 </details>
 
