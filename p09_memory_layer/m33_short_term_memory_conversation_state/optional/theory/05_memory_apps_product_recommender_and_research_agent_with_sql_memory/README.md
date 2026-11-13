@@ -2,8 +2,9 @@
 
 *[M33 theory](../../../mandatory/theory/README.md) · Lesson 33.5 · Notebooks: [`05a_multi_user_product_recommender.ipynb`](../../notebook/05a_multi_user_product_recommender.ipynb) (optional), [`05b_multi_user_research_agent_sql_memory.ipynb`](../../notebook/05b_multi_user_research_agent_sql_memory.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A small project: per-user SQL memory and a standalone rewrite, applied to a product recommender and a tool-calling research agent -->
+<!-- format: approved -->
 
-## The project: two memory apps
+## Start with a shopper who stops naming the product
 
 > **What you'll build**
 >
@@ -12,11 +13,19 @@
 > - **Per-user SQLite memory** around both, keyed by a session id per user.
 > - **Guards** on the model-written filter and on slow web pages.
 
+A shopper types *looking for a tablet*, then *want one which has display larger than 10 inches*, then *need at least 128GB disk space*. The third message names no product. A shop assistant that filters the catalogue on that message alone has lost the tablets: it is the subject loss of lesson 33.4, now in front of a product filter instead of a retriever.
+
+## The project: two memory apps
+
 This project adds no new memory pattern. It points the session-keyed SQL history from lesson 33.2 and the standalone rewrite from lesson 33.4 at a shop assistant and a web-searching agent.
 
 What changes is what the memory holds. Both apps store only the user's raw message and the final reply; rewrites, filtered tables and tool calls are rebuilt each turn.
 
 ## Architecture
+
+The two apps share the memory and differ in what runs inside it.
+
+### The recommender
 
 The recommender runs three LLM steps per turn inside one wrapped chain:
 
@@ -31,7 +40,22 @@ flowchart LR
 
 *Figure 1: The recommender. The wrapper loads the user's history for the rephraser and saves the raw message and the recommendation afterwards.*
 
-The research agent swaps the three steps for a tool-calling agent with the same wrapper around it. Table 1 lists the pieces of both builds:
+### The research agent
+
+The research agent swaps the three fixed steps for a tool-calling agent. The model decides each turn whether to search, check the weather or answer:
+
+```mermaid
+flowchart TB
+    U[/"User's message"/] --> AG["Tool-calling agent<br/>up to 10 iterations"]
+    H[("SQLite history<br/>per user")] -. load .-> AG
+    AG <--> T["Web search + page extract<br/>or current weather"]
+    AG --> O[/"Final answer"/]
+    O -. save .-> H
+```
+
+*Figure 2: The research agent. The same wrapper loads the history; only the agent's final answer is saved.*
+
+Table 1 lists the pieces of both builds:
 
 | Piece | What it does | Built on |
 |---|---|---|
@@ -46,17 +70,12 @@ The research agent swaps the three steps for a tool-calling agent with the same 
 
 ## Following one shopper
 
-The notebook's first shopper narrows down a tablet over three turns. Display size and storage are not columns in the catalogue. The filter can narrow only by category, and the recommender reads the descriptions for the rest:
+The notebook's first shopper narrows down a tablet over three turns. Display size and storage are not columns in the catalogue: the filter can narrow only by category, and the recommender reads the descriptions for the rest. Catalogue facts come from the project's CSV (30 products, three in each of 10 categories); the rewrites are illustrative, and the recommendations vary by run.
 
-| Turn | Shopper says | Standalone request (illustrative) | Filter can use | Tablets that fit, from the catalogue |
-|---|---|---|---|---|
-| 1 | looking for a tablet | A tablet | Category | BetaTab Lite (10 inch, 32GB, $400), BetaTab S (15 inch, 64GB, $500), SpectraTab Max (12 inch, 128GB, $600) |
-| 2 | want one which has display larger than 10 inches | A tablet with a display larger than 10 inches | Category only | BetaTab S, SpectraTab Max |
-| 3 | need at least 128GB disk space | A tablet larger than 10 inches with at least 128GB storage | Category only | SpectraTab Max |
-
-*Table 2: One shopper's three turns. Catalogue facts come from the project's CSV (30 products, three in each of 10 categories); the rewrites are illustrative, and the recommendations vary by run.*
-
-Turn 3 alone says nothing about tablets; only the rewrite keeps the filter on the right category. A second shopper, on another session id, asks for a highly rated laptop and then for 16GB of memory, and stays on laptops. The history file ends with 6 rows for the first shopper and 4 for the second, two per turn.
+<div class="walkthrough learning-widget" data-stepper id="shopper-walkthrough">
+<p class="widget-intro">Follow shopper jim001 through three turns and into the history file.</p>
+<div class="step-controls" hidden role="group" aria-label="Shopper turns"><button type="button" data-step="0" aria-pressed="false" aria-controls="sh-step-0">1. Tablet</button><button type="button" data-step="1" aria-pressed="false" aria-controls="sh-step-1">2. Display</button><button type="button" data-step="2" aria-pressed="false" aria-controls="sh-step-2">3. Storage</button><button type="button" data-step="3" aria-pressed="false" aria-controls="sh-step-3">4. History</button></div>
+<div class="step-panels"><section id="sh-step-0" class="step-panel" aria-labelledby="sh-heading-0"><h4 id="sh-heading-0">1. looking for a tablet</h4><dl><dt>Standalone request</dt><dd>A tablet (no history yet)</dd><dt>Filter</dt><dd>Category = Tablet</dd><dt>Tablets that fit</dt><dd>BetaTab Lite (10 inch, 32GB, $400), BetaTab S (15 inch, 64GB, $500), SpectraTab Max (12 inch, 128GB, $600)</dd></dl></section><section id="sh-step-1" class="step-panel" aria-labelledby="sh-heading-1"><h4 id="sh-heading-1">2. want one which has display larger than 10 inches</h4><dl><dt>Standalone request</dt><dd>A tablet with a display larger than 10 inches</dd><dt>Filter</dt><dd>Category only: display size is in the description</dd><dt>Tablets that fit</dt><dd>BetaTab S, SpectraTab Max</dd></dl></section><section id="sh-step-2" class="step-panel" aria-labelledby="sh-heading-2"><h4 id="sh-heading-2">3. need at least 128GB disk space</h4><dl><dt>Standalone request</dt><dd>A tablet larger than 10 inches with at least 128GB storage</dd><dt>Filter</dt><dd>Category only; the rewrite is what keeps it on tablets</dd><dt>Tablets that fit</dt><dd>SpectraTab Max</dd></dl></section><section id="sh-step-3" class="step-panel" aria-labelledby="sh-heading-3"><h4 id="sh-heading-3">4. What the history file holds</h4><dl><dt>jim001</dt><dd>6 rows: three raw messages and three recommendations</dd><dt>bond007</dt><dd>4 rows, on its own session id: a highly rated laptop, then 16GB of memory, and it stays on laptops</dd><dt>Not stored</dt><dd>The rewrites and the filtered tables</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 The research agent follows the same shape with live data. One user asks about Nvidia's Q4 2024 earnings call, then *What about Intel?*, then *Which company seems to be doing better?* With history, the second search targets Intel's Q4 2024 earnings, and the third answer compares the two from stored answers without searching. A second user does the same with the weather in Bangalore and Mumbai. Only the call order repeats between runs.
 
@@ -73,17 +92,23 @@ Each choice below protects against a failure named in an earlier lesson:
 | **Timeouts on every network call** | Page downloads give up after 30 seconds and fall back to the search snippet, the weather call after 10; one hung page cannot stall a turn |
 | **Session id per user** | Lesson 33.2's isolation rule; in a real app the id comes from the login |
 
-*Table 3: Six choices and what each protects against.*
+*Table 2: Six choices and what each protects against.*
 
-## Limits
+Pick the recommender's fixed pipeline when every turn needs the same steps over your own data. Pick the agent when the next step depends on the question, and accept that its calls and sources vary by run.
+
+## Limits of this evidence
 
 - **The filter is model-written code.** An empty set of built-ins is not a sandbox. In production, have the model return a structured filter and apply it in code.
 - **Specs live in free text.** The recommender model enforces display size and storage, and its prompt tells it to recommend five random products when nothing matches.
 - **The agent forgets its sources.** Only final answers are saved; asking where a figure came from needs a new search.
 - **Deprecated APIs.** `RunnableWithMessageHistory`, the community history class and the classic `AgentExecutor`; lesson 33.6's checkpointer replaces them.
 - **Narrow tools.** The weather tool looks up Indian cities only, and SQLite suits one process.
+- **Not run here.** Both notebooks need an OpenAI key; the research agent also needs a Tavily key and an OpenWeatherMap key, and every run issues real searches. The catalogue facts and history row counts come from the CSV and the code, not from a recorded run.
 
-Both notebooks need an OpenAI key. The research agent also needs a Tavily key and an OpenWeatherMap key, and every run issues real searches.
+## References
+
+1. Python documentation, [`eval`](https://docs.python.org/3/library/functions.html#eval), on why restricted globals are not a sandbox.
+2. LangChain, [Short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory), the checkpointer-based replacement for the wrapper used here.
 
 ## Key Takeaways
 

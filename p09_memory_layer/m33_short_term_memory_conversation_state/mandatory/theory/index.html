@@ -337,7 +337,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>One history feeds two consumers. The rewrite step reads it so the retriever searches for the real subject; the answer step reads it so the model can refer back. After the answer, both messages go into the history, keyed by the session, and the next turn starts from there.</p>
-<h2 id="why-the-second-call-forgets">Why the second call forgets</h2>
+<h2 id="start-with-a-customer-the-assistant-forgot">Start with a customer the assistant forgot</h2>
 <p class="lesson-of">Lesson 33.1: Why LLMs forget; classic memory classes. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/01a_why_llms_forget.ipynb" target="_blank" rel="noopener"><code>01a_why_llms_forget.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/optional/notebook/01b_classic_memory_classes_and_chains.ipynb" target="_blank" rel="noopener"><code>01b_classic_memory_classes_and_chains.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -350,7 +350,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Part IX starts here. Earlier modules built chains and agents that answered one question at a time. From this lesson on, the Larkspur Cloud support assistant has to hold a conversation.</p>
 <p>A customer writes <em>I&rsquo;m on the annual Team plan</em> and gets a friendly reply. Their next message is <em>Which plan am I on?</em>, and the assistant has no idea. Nothing crashed and the model works. The second call carried only the second question.</p>
-<p>A chat model call is a function of the messages sent in that call and nothing else. The provider keeps nothing between calls, so a stateless chain of prompt, model and parser treats every message as the first one. The notebook shows the same thing with a name: told <em>My name is Sourav</em> in one call, the chain cannot answer <em>What&rsquo;s my name?</em> in the next. Anything that looks like memory in a chatbot is the application resending earlier messages.</p>
+<p>A chat model call is a function of the messages sent in that call and nothing else. The provider keeps nothing between calls. A stateless chain of prompt, model and parser therefore treats every message as the first one. The notebook shows the same thing with a name: told <em>My name is Sourav</em> in one call, the chain cannot answer <em>What&rsquo;s my name?</em> in the next. Anything that looks like memory in a chatbot is the application resending earlier messages.</p>
 <h2 id="message-history">Message history</h2>
 <p><strong>A message history is the ordered list of typed messages that make up the conversation so far, and the application sends it with every call.</strong> The model then reads the earlier turns as part of the current input, exactly as it reads the new question.</p>
 <p>Three message types share the list:</p>
@@ -446,36 +446,29 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Messages sent by a full-history chat over six turns, not counting the system message. The running total is N squared.</em></p>
 <p>Six turns send 36 messages where six independent calls would send 6. Every earlier message is read again on every later turn, and token cost and latency follow that curve. A long enough chat stops fitting in the context window at all. We will call this <strong>replay cost</strong>; lessons 33.3 and 33.6 bound it.</p>
+<h3>Follow the plan question through a full history</h3>
+<p>The walkthrough follows the Larkspur customer through a chat that keeps every message.</p>
+<div class="walkthrough learning-widget" data-stepper id="plan-walkthrough">
+<p class="widget-intro">Follow the plan question through a full-history chat. Each stage shows what the call sends and what the history holds afterwards.</p>
+<div class="step-controls" hidden role="group" aria-label="Turns of the plan conversation"><button type="button" data-step="0" aria-pressed="false" aria-controls="plan-step-0">1. Turn 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="plan-step-1">2. Turn 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="plan-step-2">3. Turn 6</button></div>
+<div class="step-panels"><section id="plan-step-0" class="step-panel" aria-labelledby="plan-heading-0"><h4 id="plan-heading-0">1. The customer gives the plan</h4><dl><dt>Call sends</dt><dd>1 message: <em>I'm on the annual Team plan</em></dd><dt>History after</dt><dd>2 messages: Human 1 and AI 1</dd></dl></section><section id="plan-step-1" class="step-panel" aria-labelledby="plan-heading-1"><h4 id="plan-heading-1">2. The customer asks for it</h4><dl><dt>Call sends</dt><dd>3 messages: Human 1, AI 1 and <em>Which plan am I on?</em></dd><dt>Result</dt><dd>The model reads the plan from Human 1 and answers.</dd></dl></section><section id="plan-step-2" class="step-panel" aria-labelledby="plan-heading-2"><h4 id="plan-heading-2">3. The same chat at turn 6</h4><dl><dt>Call sends</dt><dd>11 messages</dd><dt>Sent so far</dt><dd>36 messages in total. Every message the customer adds is paid for again on every later turn.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h3>Planted failures: what the second call receives</h3>
-<p>Having a history is half the job. Which messages get into it decides what the model can use. Table 3 replays the Larkspur exchange with the history kept in three ways:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>History kept</th>
-<th>Second call receives</th>
-<th>Can it name the plan?</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Full history</td>
-<td>Human 1, AI 1, Human 2</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>None (stateless chain)</td>
-<td>Human 2</td>
-<td>No</td>
-</tr>
-<tr>
-<td>Human turns only: the reply was never appended</td>
-<td>Human 1, Human 2</td>
-<td>Usually, but the model has lost its own earlier answers and can contradict or repeat them</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: Three histories for the same two turns. Only the first gives the model a faithful transcript.</em></p>
-<p>The third row is a <strong>half-saved history</strong>. It looks healthy in a demo, because the customer&rsquo;s facts survive. It fails later, when the customer asks <em>What did you just tell me about refunds?</em> and the reply that answered it was never stored. The older memory classes had a worse version of this bug, as the next section shows.</p>
+<p>Having a history is half the job. Which messages get into it decides what the model can use. The switcher replays the Larkspur exchange with the history kept in three ways.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="history-switcher">
+<p class="widget-intro">Compare three ways of keeping the history for the same two turns.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the history is kept">
+<button type="button" data-mode="full" aria-pressed="false" aria-controls="history-full">Full history</button>
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="history-none">No history</button>
+<button type="button" data-mode="half" aria-pressed="false" aria-controls="history-half">Human turns only</button>
+</div>
+<section id="history-full" class="mode-panel" data-announcement="Full history selected. The model can name the plan."><h4>Full history</h4><ul><li>Second call receives: Human 1, AI 1, Human 2.</li><li>Can it name the plan? Yes.</li></ul><p>The model reads a faithful transcript of the conversation.</p></section>
+<section id="history-none" class="mode-panel" data-announcement="No history selected. The model cannot name the plan."><h4>No history (stateless chain)</h4><ul><li>Second call receives: Human 2 only.</li><li>Can it name the plan? No.</li></ul><p>Every turn behaves like the first one.</p></section>
+<section id="history-half" class="mode-panel" data-announcement="Human turns only selected. The plan survives, the model's own replies do not."><h4>Human turns only: the reply was never appended</h4><ul><li>Second call receives: Human 1, Human 2.</li><li>Can it name the plan? Usually.</li></ul><p>The model has lost its own earlier answers and can contradict or repeat them.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The third mode is a <strong>half-saved history</strong>. It looks healthy in a demo, because the customer&rsquo;s facts survive. It fails later, when the customer asks <em>What did you just tell me about refunds?</em> and the reply that answered it was never stored. The older memory classes had a worse version of this bug, as the next section shows.</p>
 <h2 id="the-classic-memory-classes">The classic memory classes</h2>
 <p>Before <code>RunnableWithMessageHistory</code> and LangGraph checkpointers, LangChain packaged memory as classes that a chain loaded before each call and saved after it. An LCEL chain has no memory slot. The optional notebook drives them through a loop of three steps:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -484,7 +477,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 2: The load, invoke and save loop. The chain never writes to memory; the caller&rsquo;s save step does.</em></p>
 <p>The save is the step people forget. Skip it and the chain still runs without an error, but the next load returns nothing and every turn behaves like the first. This is the <strong>missing save</strong>. In the healthy case, the notebook asks <em>What are the first four colors of a rainbow?</em> and then <em>And the other 3?</em>. The second question only makes sense because the first exchange was loaded, and after two turns memory holds 4 messages, both pairs written by the explicit save.</p>
-<p>Each class decides which messages the prompt receives. Table 4 lines them up with the patterns that replaced them:</p>
+<p>Each class decides which messages the prompt receives. Table 3 lines them up with the patterns that replaced them:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -533,24 +526,28 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: The five classic classes. Each one is a policy for choosing which earlier messages to resend.</em></p>
+<p><em>Table 3: The five classic classes. Each one is a policy for choosing which earlier messages to resend.</em></p>
 <p>Three details from the notebook are worth carrying forward:</p>
 <ul>
 <li><strong>The window hides old turns without deleting them.</strong> The window class still stores every message underneath and returns only the last <code>k</code> exchanges. With <code>k = 1</code>, a favourite colour given in the first exchange is invisible by the third question, although it is still stored.</li>
 <li><strong>Choosing <code>k</code> is a guess about the conversation.</strong> The notebook suggests 1 to 2 exchanges for quick questions, 3 to 5 for support chats and 6 to 10 for long technical threads. Whatever the value, early facts leave without warning.</li>
 <li><strong>The format is separate from the policy.</strong> A memory can hand the prompt one &ldquo;Human: … AI: …&rdquo; string for completion-style prompts or a list of message objects for chat prompts. The choice changes formatting and leaves what is remembered alone.</li>
 </ul>
-<p>These classes now live in <code>langchain_classic</code>. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.</p>
-<h2 id="in-practice-larkspurrsquos-plan-question">In practice: Larkspur&rsquo;s plan question</h2>
-<p>Following the Larkspur customer through a full-history chat:</p>
-<ol>
-<li><strong>Turn 1.</strong> The app appends <em>I&rsquo;m on the annual Team plan</em>, sends one message and appends the reply. The history holds 2 messages.</li>
-<li><strong>Turn 2.</strong> The app appends <em>Which plan am I on?</em> and sends 3 messages. The model reads the plan from Human 1 and answers.</li>
-<li><strong>Turn 6.</strong> The same chat now sends 11 messages per call and has sent 36 in total. Each message the customer adds will be paid for again on every later turn.</li>
-</ol>
+<p>These classes now live in <code>langchain_classic</code>, deprecated and due for removal in its 2.0 release. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.</p>
 <blockquote>
 <p><strong>What changes next:</strong> one list works for one customer. Lesson 33.2 keys a history to each conversation, and the same chain then serves every Larkspur customer without mixing their turns.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Arithmetic, not a run.</strong> The replay counts in Table 2 and the walkthrough follow from the append rule. They count messages, not tokens, and leave out the system message.</li>
+<li><strong>Scripted replies.</strong> The Larkspur plan conversation and the three switcher modes are illustrations. Whether the model &ldquo;usually&rdquo; names the plan from human turns alone depends on the model.</li>
+<li><strong>Notebook values.</strong> The rainbow exchange, the 4 stored messages and the suggested <code>k</code> ranges come from the optional notebook&rsquo;s code and Markdown, not from a measured comparison.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory" target="_blank" rel="noopener">Short-term memory</a>, accessed 13 November 2026.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/messages" target="_blank" rel="noopener">Messages</a>, accessed 13 November 2026.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A chat model call sees only the messages sent in that call. Keep an ordered history of human and AI turns, send the whole list each time, and let the prompt add the system message.</li>
@@ -570,7 +567,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A legacy chain using ConversationBufferMemory runs without errors, but every turn behaves as if the conversation just started. What is the likely bug?</summary>
 <p>The save step is missing from the load, invoke and save loop. The classic memory classes load the history before each call and save the exchange after it; skip the save and the next turn loads nothing. New code avoids the manual loop with the patterns in lessons 33.2 to 33.6.</p>
 </details>
-<h2 id="two-customers-one-list">Two customers, one list</h2>
+<h2 id="start-with-two-customers-on-one-list">Start with two customers on one list</h2>
 <p class="lesson-of">Lesson 33.2: RunnableWithMessageHistory, multi-user sessions and persistence. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/02a_runnable_with_message_history.ipynb" target="_blank" rel="noopener"><code>02a_runnable_with_message_history.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/02b_multi_user_sessions_and_persistence.ipynb" target="_blank" rel="noopener"><code>02b_multi_user_sessions_and_persistence.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -621,89 +618,33 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: The wrapper&rsquo;s keys. The model receives the system message, the history at the placeholder and the new question, in that order.</em></p>
 <h3>Tracing two interleaved customers</h3>
-<p>The notebook runs two users through the same chain with their turns interleaved, then asks each for a summary. Counting what each call loads:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Call</th>
-<th>Session</th>
-<th>Message</th>
-<th>History loaded</th>
-<th>Stored after</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td><code>sourav</code></td>
-<td>Explain AI in 3 bullet points</td>
-<td>0</td>
-<td>2</td>
-</tr>
-<tr>
-<td>2</td>
-<td><code>arnab</code></td>
-<td>Explain an LLM in 2 bullet points</td>
-<td>0</td>
-<td>2</td>
-</tr>
-<tr>
-<td>3</td>
-<td><code>sourav</code></td>
-<td>Now do the same for deep learning</td>
-<td>2</td>
-<td>4</td>
-</tr>
-<tr>
-<td>4</td>
-<td><code>sourav</code></td>
-<td>Summarize what we have discussed</td>
-<td>4</td>
-<td>6</td>
-</tr>
-<tr>
-<td>5</td>
-<td><code>arnab</code></td>
-<td>Summarize what we have discussed</td>
-<td>2</td>
-<td>4</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: Five calls on one chain. Each count follows from the wrapper saving one human and one AI message per call; the answers themselves come from the model.</em></p>
-<p>Call 3 resolves <em>the same</em> only because <code>sourav</code>&rsquo;s first exchange was loaded. Call 5 summarises LLMs alone, because <code>arnab</code>&rsquo;s history never contained the other topics. Streaming works through the wrapper as well: the answer streams out, and the full text is saved to the session once the stream ends.</p>
+<p>The notebook runs two users through the same chain with their turns interleaved, then asks each for a summary. The walkthrough counts what each call loads; each count follows from the wrapper saving one human and one AI message per call, and the answers themselves come from the model.</p>
+<div class="walkthrough learning-widget" data-stepper id="sessions-walkthrough">
+<p class="widget-intro">Follow five interleaved calls on one wrapped chain. Each stage shows the session, the history it loads and what is stored after it.</p>
+<div class="step-controls" hidden role="group" aria-label="Interleaved calls"><button type="button" data-step="0" aria-pressed="false" aria-controls="sessions-step-0">1. sourav</button><button type="button" data-step="1" aria-pressed="false" aria-controls="sessions-step-1">2. arnab</button><button type="button" data-step="2" aria-pressed="false" aria-controls="sessions-step-2">3. sourav</button><button type="button" data-step="3" aria-pressed="false" aria-controls="sessions-step-3">4. sourav</button><button type="button" data-step="4" aria-pressed="false" aria-controls="sessions-step-4">5. arnab</button></div>
+<div class="step-panels"><section id="sessions-step-0" class="step-panel" aria-labelledby="sessions-heading-0"><h4 id="sessions-heading-0">1. sourav: explain AI in 3 bullet points</h4><dl><dt>History loaded</dt><dd>0 messages</dd><dt>Stored after</dt><dd>2</dd></dl></section><section id="sessions-step-1" class="step-panel" aria-labelledby="sessions-heading-1"><h4 id="sessions-heading-1">2. arnab: explain an LLM in 2 bullet points</h4><dl><dt>History loaded</dt><dd>0 messages. A new session id starts empty.</dd><dt>Stored after</dt><dd>2</dd></dl></section><section id="sessions-step-2" class="step-panel" aria-labelledby="sessions-heading-2"><h4 id="sessions-heading-2">3. sourav: now do the same for deep learning</h4><dl><dt>History loaded</dt><dd>2 messages. <em>The same</em> resolves only because the first exchange was loaded.</dd><dt>Stored after</dt><dd>4</dd></dl></section><section id="sessions-step-3" class="step-panel" aria-labelledby="sessions-heading-3"><h4 id="sessions-heading-3">4. sourav: summarise what we discussed</h4><dl><dt>History loaded</dt><dd>4 messages: AI and deep learning</dd><dt>Stored after</dt><dd>6</dd></dl></section><section id="sessions-step-4" class="step-panel" aria-labelledby="sessions-heading-4"><h4 id="sessions-heading-4">5. arnab: summarise what we discussed</h4><dl><dt>History loaded</dt><dd>2 messages: LLMs only</dd><dt>Stored after</dt><dd>4. The summary covers LLMs alone, because this history never held the other topics.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Streaming works through the wrapper as well: the answer streams out, and the full text is saved to the session once the stream ends.</p>
 <h3>Planted failures: where the id comes from</h3>
-<p>The <code>session_id</code> is the only thing separating one customer&rsquo;s conversation from another&rsquo;s. Whoever supplies it chooses which history loads, which makes its source matter more than its format:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Session id taken from</th>
-<th>What happens</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>The authenticated server session</td>
-<td>Each customer reads only their own history</td>
-</tr>
-<tr>
-<td>A field in the request body the user can edit</td>
-<td>Any customer can load another customer&rsquo;s chat by changing one string: a <strong>borrowed session</strong></td>
-</tr>
-<tr>
-<td>The user id alone</td>
-<td>One customer&rsquo;s separate chats merge into a single history</td>
-</tr>
-<tr>
-<td>A fresh value on every request</td>
-<td>Every turn starts empty, and the app forgets as in lesson 33.1</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: Four sources for the session id. Only the first is safe and correct.</em></p>
+<p>The <code>session_id</code> is the only thing separating one customer&rsquo;s conversation from another&rsquo;s. Whoever supplies it chooses which history loads, which makes its source matter more than its format.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="session-id-switcher">
+<p class="widget-intro">Compare four sources for the session id on the same endpoint.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the session id comes from">
+<button type="button" data-mode="server" aria-pressed="false" aria-controls="sid-server">Server session</button>
+<button type="button" data-mode="body" aria-pressed="false" aria-controls="sid-body">Request body</button>
+<button type="button" data-mode="user" aria-pressed="false" aria-controls="sid-user">User id alone</button>
+<button type="button" data-mode="fresh" aria-pressed="false" aria-controls="sid-fresh">Fresh per request</button>
+</div>
+<section id="sid-server" class="mode-panel" data-announcement="Authenticated server session selected. Each customer reads only their own history."><h4>The authenticated server session</h4><p>Each customer reads only their own history. This is the only source that is both safe and correct.</p></section>
+<section id="sid-body" class="mode-panel" data-announcement="Request body selected. Any customer can load another customer's chat."><h4>A field in the request body the user can edit</h4><p>Any customer can load another customer's chat by changing one string. Call this a <strong>borrowed session</strong>.</p></section>
+<section id="sid-user" class="mode-panel" data-announcement="User id alone selected. Separate chats merge."><h4>The user id alone</h4><p>One customer's separate chats merge into a single history.</p></section>
+<section id="sid-fresh" class="mode-panel" data-announcement="Fresh value per request selected. Every turn starts empty."><h4>A fresh value on every request</h4><p>Every turn starts empty, and the app forgets as in lesson 33.1.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Any string works as an id: a user id, a chat id, or both combined, which lets one customer hold several separate chats. Build it on the server from the authenticated user, never from text the user can edit.</p>
 <h2 id="where-the-history-lives">Where the history lives</h2>
-<p>Only the factory changes when the store changes. The chain and the wrapper stay the same, and Table 4 compares the three backends the notebook uses:</p>
+<p>Only the factory changes when the store changes. The chain and the wrapper stay the same, and Table 2 compares the three backends the notebook uses:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -734,7 +675,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Three history backends behind the same interface.</em></p>
+<p><em>Table 2: Three history backends behind the same interface.</em></p>
 <p>Figure 2 turns the table into a check order:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     A{"Must history survive&lt;br/&gt;a restart?"} -- no --&gt; MEM["In-memory dict"]
@@ -773,22 +714,28 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: Row counts across the restart test. Each turn writes two rows, one per message.</em></p>
+<p><em>Table 3: Row counts across the restart test. Each turn writes two rows, one per message.</em></p>
 <p>Any correct recall in run 2 came from the rows, because nothing else survived. The rows also outlive the kernel: rerun only the second half after a restart and the answers still come from the file. A file-backed history works the same way for one session, and the notebook resumes a saved JSON conversation from a copy.</p>
 <blockquote>
 <p><strong>Pitfall: the positional connection.</strong> The second positional argument of <code>SQLChatMessageHistory</code> is <code>table_name</code>. Passing the database URL second creates no connection, and the error appears only at the first call. Pass it by keyword, as <code>connection</code>.</p>
 </blockquote>
 <p>SQLite is fine for one process. For a service with concurrent writers, use the same interface on Postgres or Redis. These history classes come from the sunset <code>langchain-community</code> package, and <code>RunnableWithMessageHistory</code> is deprecated in <code>langchain-core</code> 1.3.3 and removed in 2.0. Lesson 33.6 does the same job with a LangGraph checkpointer, which is where new code should go.</p>
-<h2 id="in-practice-larkspurrsquos-support-endpoint">In practice: Larkspur&rsquo;s support endpoint</h2>
-<p>Applying both halves to the Larkspur assistant:</p>
-<ol>
-<li><strong>Keying.</strong> The endpoint builds the session id from the logged-in account and the chat, for example the customer <code>cust-4821</code> plus a chat number, and never reads it from the request body.</li>
-<li><strong>Storing.</strong> The factory returns a SQL-backed history for that id. A deploy that restarts the service loses no conversation.</li>
-<li><strong>Checking.</strong> A test interleaves two customers and asserts that each summary mentions only its own topics, the same check as Table 2.</li>
-</ol>
+<h3>A session policy for Larkspur</h3>
+<p>For the Larkspur support endpoint, the two halves give three rules. The endpoint builds the session id from the logged-in account and the chat, for example the customer <code>cust-4821</code> plus a chat number, and never reads it from the request body. The factory returns a SQL-backed history for that id. A deploy that restarts the service loses no conversation. A test interleaves two customers and asserts that each summary mentions only its own topics, the same check as the walkthrough.</p>
 <blockquote>
 <p><strong>What changes next:</strong> every stored message still goes back to the model on every turn. Lesson 33.3 bounds that list with trimming, windows and a running summary.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Counts, not answers.</strong> The walkthrough&rsquo;s and Table 3&rsquo;s counts follow from the wrapper&rsquo;s save rule and the notebook&rsquo;s code. What each summary says depends on the model.</li>
+<li><strong>Illustrative failures.</strong> The shared-list opening, the four session-id sources and the <code>cust-4821</code> id are illustrations, not runs.</li>
+<li><strong>Version-bound claims.</strong> The deprecation versions and the <code>table_name</code> signature were read from the installed <code>langchain-core</code> 1.7.0 and <code>langchain-community</code> source; later releases may change them.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory" target="_blank" rel="noopener">Short-term memory</a>, accessed 13 November 2026.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence</a>, accessed 13 November 2026.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li><code>RunnableWithMessageHistory</code> loads and saves history around any runnable, and the <code>session_id</code> in the call&rsquo;s config alone separates conversations. Take that id from the authenticated server session, never from text the user can edit.</li>
@@ -808,7 +755,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. SQLChatMessageHistory built with the session id and the database URL as two positional arguments fails on the first invoke. What went wrong?</summary>
 <p>The second positional argument is <code>table_name</code>, not the connection, so this form creates no database connection and fails only when invoked. Pass the URL by keyword, as <code>connection</code>, next to <code>session_id</code>.</p>
 </details>
-<h2 id="when-the-plan-falls-out-of-the-window">When the plan falls out of the window</h2>
+<h2 id="start-with-a-plan-that-falls-out-of-the-window">Start with a plan that falls out of the window</h2>
 <p class="lesson-of">Lesson 33.3: Trimming, windowing and summary memory. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/03a_trimming_windowing_and_summary.ipynb" target="_blank" rel="noopener"><code>03a_trimming_windowing_and_summary.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -890,57 +837,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </figure>
 <p><em>Figure 1: One turn of summary memory. The fold runs after the answer, and the next turn starts from the updated summary.</em></p>
 <h3>Tracing the five-turn ticket</h3>
-<p>Running the Larkspur ticket through that loop, the counts follow from the code alone:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Turn</th>
-<th>Prompt holds</th>
-<th>Recent list after the answer</th>
-<th>Fold?</th>
-<th>Summary now covers</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Question only</td>
-<td>2 messages</td>
-<td>No</td>
-<td>Nothing</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2 recent + question</td>
-<td>4</td>
-<td>No</td>
-<td>Nothing</td>
-</tr>
-<tr>
-<td>3</td>
-<td>4 recent + question</td>
-<td>6, folded to 4</td>
-<td>Yes</td>
-<td>Turn 1</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Summary + 4 recent + question</td>
-<td>6, folded to 4</td>
-<td>Yes</td>
-<td>Turns 1 and 2</td>
-</tr>
-<tr>
-<td>5</td>
-<td>Summary + 4 recent + question</td>
-<td>6, folded to 4</td>
-<td>Yes</td>
-<td>Turns 1 to 3</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 1: Summary memory with four recent messages over five turns. The summariser runs three times.</em></p>
-<p>On turn 5 the recent messages are turns 3 and 4, exactly what a two-exchange window would send. The plan from turn 1 reaches the model only through the summary. The notebook runs the same loop with a user who gives their name, city, job and cats, then asks for everything they said; the final answer can list the first-turn facts because they survived the folds.</p>
+<p>The walkthrough runs the Larkspur ticket through that loop. The counts follow from the code alone.</p>
+<div class="walkthrough learning-widget" data-stepper id="fold-walkthrough">
+<p class="widget-intro">Follow the five-turn billing ticket through summary memory with four recent messages. Each stage shows the prompt, the recent list and what the summary covers.</p>
+<div class="step-controls" hidden role="group" aria-label="Turns of the billing ticket"><button type="button" data-step="0" aria-pressed="false" aria-controls="fold-step-0">1. Turn 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="fold-step-1">2. Turn 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="fold-step-2">3. Turn 3</button><button type="button" data-step="3" aria-pressed="false" aria-controls="fold-step-3">4. Turn 4</button><button type="button" data-step="4" aria-pressed="false" aria-controls="fold-step-4">5. Turn 5</button></div>
+<div class="step-panels"><section id="fold-step-0" class="step-panel" aria-labelledby="fold-heading-0"><h4 id="fold-heading-0">1. The plan</h4><dl><dt>Prompt holds</dt><dd>The question only</dd><dt>Recent list after</dt><dd>2 messages. No fold.</dd><dt>Summary covers</dt><dd>Nothing</dd></dl></section><section id="fold-step-1" class="step-panel" aria-labelledby="fold-heading-1"><h4 id="fold-heading-1">2. The duplicate charge</h4><dl><dt>Prompt holds</dt><dd>2 recent messages and the question</dd><dt>Recent list after</dt><dd>4 messages. No fold.</dd><dt>Summary covers</dt><dd>Nothing</dd></dl></section><section id="fold-step-2" class="step-panel" aria-labelledby="fold-heading-2"><h4 id="fold-heading-2">3. First fold</h4><dl><dt>Prompt holds</dt><dd>4 recent messages and the question</dd><dt>Recent list after</dt><dd>6, folded to 4. The summariser runs.</dd><dt>Summary covers</dt><dd>Turn 1</dd></dl></section><section id="fold-step-3" class="step-panel" aria-labelledby="fold-heading-3"><h4 id="fold-heading-3">4. Second fold</h4><dl><dt>Prompt holds</dt><dd>The summary, 4 recent messages and the question</dd><dt>Recent list after</dt><dd>6, folded to 4</dd><dt>Summary covers</dt><dd>Turns 1 and 2</dd></dl></section><section id="fold-step-4" class="step-panel" aria-labelledby="fold-heading-4"><h4 id="fold-heading-4">5. The plan question</h4><dl><dt>Prompt holds</dt><dd>The summary (turns 1 and 2) and turns 3 and 4 word for word: exactly what a two-exchange window would send, plus the summary</dd><dt>Recent list after</dt><dd>6, folded to 4. Three folds in five turns.</dd><dt>Summary covers</dt><dd>Turns 1 to 3. The plan reaches the model only through the summary.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The notebook runs the same loop with a user who gives their name, city, job and cats, then asks for everything they said. The final answer can list the first-turn facts because they survived the folds.</p>
 <h3>What the summary costs</h3>
 <p>Three costs come with the fold:</p>
 <ul>
@@ -952,6 +855,11 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="trim-window-or-summarise">Trim, window or summarise</h2>
 <h3>Trimming by tokens</h3>
 <p><code>trim_messages</code> cuts a list to a token budget on its way to the model. The notebook&rsquo;s settings keep the newest messages that fit, always keep the system message, never cut a message in half, and make the kept part start on a user message so it reads as a conversation. It runs locally; the model object serves only as the token counter.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    ST[("Stored history:&lt;br/&gt;every message")] --&gt; TR["trim_messages:&lt;br/&gt;newest that fit&lt;br/&gt;the token budget"]
+    TR --&gt; MO[Model]
+</pre></figure>
+<p><em>Figure 2: Trimming. The store keeps everything; only the copy sent to the model is cut.</em></p>
 <p>The notebook&rsquo;s chat has eleven messages, starting with a system message and <em>hi! I&rsquo;m bob</em>, then vanilla ice cream, <em>whats 2 + 2</em>, <em>thanks</em> and <em>having fun?</em>. With <code>gpt-4o-mini</code>&rsquo;s counter in <code>langchain-openai</code> 1.7.3 the whole list counts 80 tokens. Trimmed to 45:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -987,10 +895,16 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: The notebook&rsquo;s trimmer, run in the scratchpad. Another token counter gives other cuts.</em></p>
+<p><em>Table 1: The notebook&rsquo;s trimmer, run in the scratchpad. Another token counter gives other cuts.</em></p>
 <p>Adding the question costs the trimmer one more exchange, which shows a trap of token budgets: a longer question pushes more history out. Both questions ask about facts outside the budget, and neither can be answered from the conversation. Call this <strong>silent truncation</strong>: nothing errors, and the model either says it does not know or guesses.</p>
 <h3>Windowing the store</h3>
 <p>A window does the same job in storage. The notebook&rsquo;s windowed history keeps only the last <code>k = 2</code> exchanges and deletes the rest as new messages arrive:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    NM[/New exchange/] --&gt; AP["Append to&lt;br/&gt;the history"]
+    AP --&gt; CUT["Delete all but the&lt;br/&gt;last 2k messages"]
+    CUT --&gt; ST[("Stored history:&lt;br/&gt;last k exchanges")] --&gt; MO[Model]
+</pre></figure>
+<p><em>Figure 3: Windowing. The deleted messages are gone from storage, not only from the prompt.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1021,9 +935,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: A two-exchange window. The name and the city slide out before the question arrives.</em></p>
-<h3>Comparing the three bounds</h3>
-<p>Table 4 puts the strategies side by side, with full history as the baseline:</p>
+<p><em>Table 2: A two-exchange window. The name and the city slide out before the question arrives.</em></p>
+<h3>Comparing the bounds</h3>
+<p>Table 3 puts the strategies side by side, with full history as the baseline:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1065,18 +979,40 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Four ways to decide what reaches the model.</em></p>
+<p><em>Table 3: Four ways to decide what reaches the model.</em></p>
 <p>Wrap a trimming chain in <code>RunnableWithMessageHistory</code> and the store keeps the full history while the model sees only the trimmed part. That split between what is stored and what is sent is the question lesson 33.6 asks of a LangGraph thread.</p>
-<h2 id="in-practice-picking-a-bound-for-larkspur-tickets">In practice: picking a bound for Larkspur tickets</h2>
-<p>For the Larkspur support assistant, the choice follows from two facts about its tickets:</p>
-<ol>
-<li><strong>Early facts matter.</strong> Plan, region and account appear in the first turn and decide later answers. A window or a trim alone would fail the turn-5 question in the opening example.</li>
-<li><strong>Most tickets are short.</strong> While a chat fits the budget, keeping everything is cheapest and loses nothing.</li>
-<li><strong>The rule.</strong> Keep everything up to the budget, then fold older turns into a summary, and test that the turn-1 plan still reaches the model late in a long ticket.</li>
-</ol>
+<p>The switcher applies each bound to turn 5 of the opening ticket. It is an illustration: the trim mode assumes a budget that fits two exchanges.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="bound-switcher">
+<p class="widget-intro">Compare the four bounds on turn 5 of the Larkspur billing ticket, where the customer asks for the plan given in turn 1.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the history is bounded">
+<button type="button" data-mode="all" aria-pressed="false" aria-controls="bound-all">Keep everything</button>
+<button type="button" data-mode="trim" aria-pressed="false" aria-controls="bound-trim">Trim (Figure 2)</button>
+<button type="button" data-mode="window" aria-pressed="false" aria-controls="bound-window">Window (Figure 3)</button>
+<button type="button" data-mode="summary" aria-pressed="false" aria-controls="bound-summary">Summary (Figure 1)</button>
+</div>
+<section id="bound-all" class="mode-panel" data-announcement="Keep everything selected. The plan is answered from turn 1."><h4>Keep everything</h4><ul><li>Model receives: all four earlier exchanges and the question, 9 messages.</li><li>Plan answered? Yes, from turn 1 word for word.</li><li>Extra calls: none. Stored: all 10 messages after the reply.</li></ul></section>
+<section id="bound-trim" class="mode-panel" data-announcement="Trim selected. The plan is lost from the prompt but kept in storage."><h4>Trim by tokens</h4><ul><li>Model receives: turns 3 and 4 and the question.</li><li>Plan answered? No: silent truncation.</li><li>Extra calls: none. Stored: every message. A larger budget could still reach the plan.</li></ul></section>
+<section id="bound-window" class="mode-panel" data-announcement="Window selected. The plan is gone from storage."><h4>Window of two exchanges</h4><ul><li>Model receives: turns 3 and 4 and the question.</li><li>Plan answered? No.</li><li>Extra calls: none. Stored: only the last two exchanges; turn 1 is deleted.</li></ul></section>
+<section id="bound-summary" class="mode-panel" data-announcement="Summary selected. The plan reaches the model through the summary."><h4>Running summary</h4><ul><li>Model receives: the summary of turns 1 and 2, turns 3 and 4, and the question.</li><li>Plan answered? Yes, if the summariser kept it.</li><li>Extra calls: two folds before this turn, a third after it.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<h3>A bound for Larkspur tickets</h3>
+<p>Two facts about Larkspur&rsquo;s tickets decide the choice. Early facts matter: plan, region and account appear in the first turn and decide later answers. A window or a trim alone fails the turn-5 question. Most tickets are short, and while a chat fits the budget, keeping everything is cheapest and loses nothing. The rule: keep everything up to the budget, then fold older turns into a summary, and test that the turn-1 plan still reaches the model late in a long ticket.</p>
 <blockquote>
 <p><strong>What changes next:</strong> the retriever is a second reader of the conversation, and it sees only the latest message. Lesson 33.4 rewrites follow-ups before retrieval.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>One token counter.</strong> Table 1 comes from the notebook&rsquo;s trimmer run in the scratchpad with <code>gpt-4o-mini</code>&rsquo;s counter in <code>langchain-openai</code> 1.7.3, counting only, with no model call. Another counter cuts elsewhere.</li>
+<li><strong>Code-derived traces.</strong> The walkthrough&rsquo;s fold counts and Table 2&rsquo;s window contents follow from the notebook&rsquo;s loop and window class. The model&rsquo;s answers and the summaries&rsquo; wording were not run.</li>
+<li><strong>Illustration.</strong> The Larkspur billing ticket and every switcher mode are illustrations, and the trim mode assumes a budget that fits two exchanges.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory" target="_blank" rel="noopener">Short-term memory</a>, accessed 13 November 2026.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/middleware/built-in" target="_blank" rel="noopener">Built-in middleware</a>, for <code>SummarizationMiddleware</code>, accessed 13 November 2026.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Windows and token trims drop the oldest messages, which often set the context, such as the customer&rsquo;s plan. Summary memory folds old exchanges into a running summary and keeps the last few messages word for word.</li>
@@ -1096,7 +1032,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A team adds summary memory to a support bot whose chats rarely pass three turns, hoping to cut cost. Is that a good choice?</summary>
 <p>No. Each fold is an extra LLM call, so on a short chat summary memory is no cheaper than keeping everything, and it is lossy: exact wording does not survive and a summariser can drop a fact you needed. Keep everything while the chat fits the budget.</p>
 </details>
-<h2 id="a-follow-up-with-no-subject">A follow-up with no subject</h2>
+<h2 id="start-with-a-follow-up-that-has-no-subject">Start with a follow-up that has no subject</h2>
 <p class="lesson-of">Lesson 33.4: Conversational RAG with history-aware retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/04a_conversational_rag_with_history.ipynb" target="_blank" rel="noopener"><code>04a_conversational_rag_with_history.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1147,7 +1083,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Three follow-ups from the lab and their rewrites. The rewrites are written by hand to show the shape; the lab&rsquo;s rankings for them are computed.</em></p>
-<p><code>create_history_aware_retriever</code> builds exactly the branch in Figure 1. <code>create_retrieval_chain</code> then joins it to a chain that stuffs the retrieved documents into an answer prompt, and that prompt carries the chat history too. The answer step sees the conversation as well. Wrapped in <code>RunnableWithMessageHistory</code> with the answer field named as the output to save, the chain loads and saves the history itself, as in lesson 33.2.</p>
+<p><code>create_history_aware_retriever</code> builds exactly the branch in Figure 1: in the installed <code>langchain_classic</code>, a missing or empty <code>chat_history</code> sends the input straight to the retriever. <code>create_retrieval_chain</code> then joins it to a chain that stuffs the retrieved documents into an answer prompt, and that prompt carries the chat history too. Wrapped in <code>RunnableWithMessageHistory</code> with the answer field named as the output to save, the chain loads and saves the history itself, as in lesson 33.2.</p>
 <h3>What the rewrite costs, and how it fails</h3>
 <p>The extra step brings its own failure modes:</p>
 <div class="sheet scroll"><table>
@@ -1182,9 +1118,38 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Four ways a history-aware retriever goes wrong. The last one looks like a retrieval regression and is a memory bug.</em></p>
-<p>The lab measures how much the rewrite buys against the two cheaper inputs.</p>
 <h2 id="rewrite-append-or-neither">Rewrite, append or neither</h2>
-<p>The <a href="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html">interactive lab</a> runs six three-turn Larkspur support chats against the twelve handbook chunks from the M10 lab, with the same TF-IDF index (it matches scikit-learn&rsquo;s <code>TfidfVectorizer</code> to within 5e-16 on all 648 scores). It compares three things the retriever can receive on turns 2 and 3: the latest message as typed, the earlier questions with the latest appended, and a standalone rewrite. The customer messages are hand-written and the rewrites are representative; the rankings are computed.</p>
+<p>The rewrite is one of three things the retriever can receive on a follow-up. The other two cost no LLM call.</p>
+<h3>The latest message as typed</h3>
+<p>The simplest pipeline ignores the history at retrieval time and searches for the follow-up exactly as the customer wrote it:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    L[/"Latest message"/] --&gt; R["Retriever scores&lt;br/&gt;the literal text"]
+    R --&gt; A["Answer prompt&lt;br/&gt;with chunks + history"]
+</pre></figure>
+<p><em>Figure 2: Searching the latest message. No extra call, and no subject on a follow-up that points back.</em></p>
+<h3>Earlier questions appended</h3>
+<p>The second pipeline joins the customer&rsquo;s earlier questions to the new one and searches the combined text:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    H[/"Earlier questions"/] --&gt; J["Join with the&lt;br/&gt;latest message"]
+    L[/"Latest message"/] --&gt; J
+    J --&gt; R["Retriever scores&lt;br/&gt;the joined text"]
+</pre></figure>
+<p><em>Figure 3: Appending history. The subject comes back, along with every earlier topic.</em></p>
+<p>Follow the export chat from the opening through all three inputs. The scores come from the lab&rsquo;s index:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="input-switcher">
+<p class="widget-intro">Choose what the retriever receives on turns 2 and 3 of the export chat. Evidence: the export or retention chunk on turn 2, the retention chunk on turn 3.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retriever input">
+<button type="button" data-mode="latest" aria-pressed="false" aria-controls="in-latest">Latest message (Figure 2)</button>
+<button type="button" data-mode="appended" aria-pressed="false" aria-controls="in-appended">Appended (Figure 3)</button>
+<button type="button" data-mode="rewrite" aria-pressed="false" aria-controls="in-rewrite">Rewrite (Figure 1)</button>
+</div>
+<section id="in-latest" class="mode-panel" data-announcement="Latest message selected. Both follow-ups miss."><h4>Latest message as typed</h4><ul><li>Turn 2, <em>Is that possible after I cancel?</em>: the <code>cancel</code> chunk ranks first at 0.306. Miss.</li><li>Turn 3, <em>How long do I have?</em>: every chunk scores zero. Miss.</li><li>Extra LLM calls: 0.</li></ul></section>
+<section id="in-appended" class="mode-panel" data-announcement="Appended selected. Turn 2 hits, turn 3 is dragged back to export."><h4>Earlier questions appended</h4><ul><li>Turn 2: the export question carries the subject, and <code>export</code> ranks first at 0.402. Hit.</li><li>Turn 3: the joined text is still mostly about exporting, and <code>export</code> keeps first place at 0.402. Retention is second at 0.308: a miss at <code>k = 1</code>, a hit at <code>k = 2</code>.</li><li>Extra LLM calls: 0.</li></ul></section>
+<section id="in-rewrite" class="mode-panel" data-announcement="Rewrite selected. Both follow-ups hit, for two extra calls."><h4>A rewritten question</h4><ul><li>Turn 2, <em>Can I export my data after I cancel my plan?</em>: <code>retention</code> 0.372 and <code>export</code> 0.369, both labelled evidence. Hit.</li><li>Turn 3, <em>How long is my data kept after I cancel my plan?</em>: <code>retention</code> ranks first at 0.404. Hit: data is kept for 30 days after cancelling.</li><li>Extra LLM calls: 2, one per follow-up.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The <a href="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html">interactive lab</a> runs six three-turn Larkspur support chats against the twelve handbook chunks from the M10 lab, with the same TF-IDF index (it matches scikit-learn&rsquo;s <code>TfidfVectorizer</code> to within 5e-16 on all 648 scores). It compares the three inputs on turns 2 and 3. The customer messages are hand-written and the rewrites are representative; the rankings are computed.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1226,21 +1191,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>The rewrite wins at <code>k = 1</code> and pays for it with 12 LLM calls</strong>, one per follow-up. Its two misses are worth reading. <em>How long until the money is back?</em> misses whatever the query says, because the evidence chunk says &ldquo;Refunds&rdquo; and &ldquo;business days&rdquo; and no phrasing of the question uses those words. A rewrite restores the subject but not the handbook&rsquo;s vocabulary, which is M10&rsquo;s representation problem and the reason for embeddings in <a href="../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/index.html">M13</a>. And <em>What happens if I cancel my annual plan instead of getting a refund?</em> is the over-carried rewrite from Table 2: &ldquo;refund&rdquo; and &ldquo;annual plan&rdquo; pull the refund chunk above <code>cancel</code> at <code>k = 1</code>.</li>
 </ul>
 <figure class="lab-embed"><iframe src="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html" title="Follow-ups and the retriever, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Follow-ups and the retriever. <a href="04_conversational_rag_with_history_aware_retrieval/interactive/follow-up-retrieval-lab.html">Open full screen</a></figcaption></figure>
+<p>Pick the rewrite when follow-ups point back and each slot in the context counts. Appending is a cheap stopgap only with a wider <code>k</code>. Searching the latest message alone suits chats whose follow-ups name their own subject.</p>
 <h3>Measuring turns 2 and 3 separately</h3>
 <p>The lab is the module&rsquo;s lab brief in miniature. On your own corpus, write multi-turn conversations, label the evidence for each turn, and report hit rate on turns 2 and 3 separately from turn 1, with and without the rewrite. A single average over all turns hides the follow-ups, because first questions are usually standalone and score well either way.</p>
-<p>The same split catches a regression early. If a refactor stops passing the history, the turn-1 numbers stay put while the turn-2 and turn-3 numbers fall to the latest-message row of Table 3.</p>
-<h2 id="in-practice-larkspurrsquos-export-chat">In practice: Larkspur&rsquo;s export chat</h2>
-<p>Following the export conversation through the full chain:</p>
+<p>The same split catches a regression early. If a refactor stops passing the history, the turn-1 numbers stay put while the turn-2 and turn-3 numbers fall to the latest-message row of Table 3. Log the raw message, the rewrite and the retrieved chunk ids for every turn, which lets the team check the rewrite as well as the retrieval.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Hand-written chats.</strong> The six lab conversations and their rewrites are written by hand; no model produced the rewrites, and a real rewrite can drop or over-carry detail.</li>
+<li><strong>Lexical index.</strong> The lab scores with TF-IDF over twelve chunks. The notebook embeds Lilian Weng&rsquo;s post with an OpenAI model, which scores differently, and it ships without outputs.</li>
+<li><strong>Small sample.</strong> Twelve follow-up turns separate the inputs clearly at <code>k = 1</code>; they are too few to estimate a production hit rate.</li>
+</ul>
+<h2 id="references">References</h2>
 <ol>
-<li><strong>Turn 1.</strong> <em>How do I export my data?</em> arrives with an empty history, the branch skips the rewrite, and the retriever finds the export chunk.</li>
-<li><strong>Turn 2.</strong> <em>Is that possible after I cancel?</em> arrives with one exchange of history. As typed it finds the <code>cancel</code> chunk; rewritten as <em>Can I export my data after I cancel my plan?</em> it finds the export evidence.</li>
-<li><strong>Turn 3.</strong> <em>How long do I have?</em> scores zero as typed. The rewrite, <em>How long is my data kept after I cancel my plan?</em>, finds the retention chunk: data is kept for 30 days after cancelling.</li>
-<li><strong>Answer.</strong> The answer prompt receives the retrieved chunk and the history. The reply can then say <em>your data</em> and mean the account from turn 1.</li>
-<li><strong>Monitoring.</strong> The logs keep the raw message, the rewrite and the retrieved chunk ids per turn, which lets the team check the rewrite as well as the retrieval.</li>
+<li>X. Ma et al., <a href="https://arxiv.org/abs/2305.14283" target="_blank" rel="noopener">Query Rewriting for Retrieval-Augmented Large Language Models</a>, EMNLP 2023.</li>
+<li>L. Weng, <a href="https://lilianweng.github.io/posts/2023-06-23-agent/" target="_blank" rel="noopener">LLM Powered Autonomous Agents</a>, the post the notebook indexes.</li>
+<li>scikit-learn, <a href="https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html" target="_blank" rel="noopener"><code>TfidfVectorizer</code></a>, the scoring the lab reproduces.</li>
 </ol>
-<blockquote>
-<p><strong>What changes next:</strong> these chains keep history with the deprecated wrapper from lesson 33.2. Lesson 33.6 moves conversation state into a LangGraph thread, where the same bounding choices become nodes.</p>
-</blockquote>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A retriever reads only the literal question, so a follow-up such as <em>How long do I have?</em> can score zero against every chunk even when the model holds the history.</li>
@@ -1260,7 +1226,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. With the rewrite, How long until the money is back? still misses its evidence. Would a better rewrite prompt fix it?</summary>
 <p>No. The evidence chunk says &ldquo;Refunds&rdquo; and &ldquo;business days&rdquo;, and no phrasing of the question uses those words. A rewrite restores the subject, not the handbook&rsquo;s vocabulary; that is a representation problem, which embeddings (M13) address.</p>
 </details>
-<h2 id="the-project-two-memory-apps">The project: two memory apps</h2>
+<h2 id="start-with-a-shopper-who-stops-naming-the-product">Start with a shopper who stops naming the product</h2>
 <p class="lesson-of">Lesson 33.5: Memory apps: product recommender and research agent with SQL memory. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/optional/notebook/05a_multi_user_product_recommender.ipynb" target="_blank" rel="noopener"><code>05a_multi_user_product_recommender.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/optional/notebook/05b_multi_user_research_agent_sql_memory.ipynb" target="_blank" rel="noopener"><code>05b_multi_user_research_agent_sql_memory.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll build</strong></p>
@@ -1271,9 +1237,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Guards</strong> on the model-written filter and on slow web pages.</li>
 </ul>
 </blockquote>
+<p>A shopper types <em>looking for a tablet</em>, then <em>want one which has display larger than 10 inches</em>, then <em>need at least 128GB disk space</em>. The third message names no product. A shop assistant that filters the catalogue on that message alone has lost the tablets: it is the subject loss of lesson 33.4, now in front of a product filter instead of a retriever.</p>
+<h2 id="the-project-two-memory-apps">The project: two memory apps</h2>
 <p>This project adds no new memory pattern. It points the session-keyed SQL history from lesson 33.2 and the standalone rewrite from lesson 33.4 at a shop assistant and a web-searching agent.</p>
 <p>What changes is what the memory holds. Both apps store only the user&rsquo;s raw message and the final reply; rewrites, filtered tables and tool calls are rebuilt each turn.</p>
 <h2 id="architecture">Architecture</h2>
+<p>The two apps share the memory and differ in what runs inside it.</p>
+<h3>The recommender</h3>
 <p>The recommender runs three LLM steps per turn inside one wrapped chain:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     U[/"Shopper's&lt;br/&gt;message"/] --&gt; RW["Rephrase with&lt;br/&gt;the last 10 exchanges"]
@@ -1283,7 +1253,17 @@ th:last-child, td:last-child { padding-right: 0; }
     R -. save .-&gt; H
 </pre></figure>
 <p><em>Figure 1: The recommender. The wrapper loads the user&rsquo;s history for the rephraser and saves the raw message and the recommendation afterwards.</em></p>
-<p>The research agent swaps the three steps for a tool-calling agent with the same wrapper around it. Table 1 lists the pieces of both builds:</p>
+<h3>The research agent</h3>
+<p>The research agent swaps the three fixed steps for a tool-calling agent. The model decides each turn whether to search, check the weather or answer:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    U[/"User's message"/] --&gt; AG["Tool-calling agent&lt;br/&gt;up to 10 iterations"]
+    H[("SQLite history&lt;br/&gt;per user")] -. load .-&gt; AG
+    AG &lt;--&gt; T["Web search + page extract&lt;br/&gt;or current weather"]
+    AG --&gt; O[/"Final answer"/]
+    O -. save .-&gt; H
+</pre></figure>
+<p><em>Figure 2: The research agent. The same wrapper loads the history; only the agent&rsquo;s final answer is saved.</em></p>
+<p>Table 1 lists the pieces of both builds:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1327,43 +1307,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: The pieces of both apps and the lessons they reuse.</em></p>
 <h2 id="following-one-shopper">Following one shopper</h2>
-<p>The notebook&rsquo;s first shopper narrows down a tablet over three turns. Display size and storage are not columns in the catalogue. The filter can narrow only by category, and the recommender reads the descriptions for the rest:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Turn</th>
-<th>Shopper says</th>
-<th>Standalone request (illustrative)</th>
-<th>Filter can use</th>
-<th>Tablets that fit, from the catalogue</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>looking for a tablet</td>
-<td>A tablet</td>
-<td>Category</td>
-<td>BetaTab Lite (10 inch, 32GB, $400), BetaTab S (15 inch, 64GB, $500), SpectraTab Max (12 inch, 128GB, $600)</td>
-</tr>
-<tr>
-<td>2</td>
-<td>want one which has display larger than 10 inches</td>
-<td>A tablet with a display larger than 10 inches</td>
-<td>Category only</td>
-<td>BetaTab S, SpectraTab Max</td>
-</tr>
-<tr>
-<td>3</td>
-<td>need at least 128GB disk space</td>
-<td>A tablet larger than 10 inches with at least 128GB storage</td>
-<td>Category only</td>
-<td>SpectraTab Max</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: One shopper&rsquo;s three turns. Catalogue facts come from the project&rsquo;s CSV (30 products, three in each of 10 categories); the rewrites are illustrative, and the recommendations vary by run.</em></p>
-<p>Turn 3 alone says nothing about tablets; only the rewrite keeps the filter on the right category. A second shopper, on another session id, asks for a highly rated laptop and then for 16GB of memory, and stays on laptops. The history file ends with 6 rows for the first shopper and 4 for the second, two per turn.</p>
+<p>The notebook&rsquo;s first shopper narrows down a tablet over three turns. Display size and storage are not columns in the catalogue: the filter can narrow only by category, and the recommender reads the descriptions for the rest. Catalogue facts come from the project&rsquo;s CSV (30 products, three in each of 10 categories); the rewrites are illustrative, and the recommendations vary by run.</p>
+<div class="walkthrough learning-widget" data-stepper id="shopper-walkthrough">
+<p class="widget-intro">Follow shopper jim001 through three turns and into the history file.</p>
+<div class="step-controls" hidden role="group" aria-label="Shopper turns"><button type="button" data-step="0" aria-pressed="false" aria-controls="sh-step-0">1. Tablet</button><button type="button" data-step="1" aria-pressed="false" aria-controls="sh-step-1">2. Display</button><button type="button" data-step="2" aria-pressed="false" aria-controls="sh-step-2">3. Storage</button><button type="button" data-step="3" aria-pressed="false" aria-controls="sh-step-3">4. History</button></div>
+<div class="step-panels"><section id="sh-step-0" class="step-panel" aria-labelledby="sh-heading-0"><h4 id="sh-heading-0">1. looking for a tablet</h4><dl><dt>Standalone request</dt><dd>A tablet (no history yet)</dd><dt>Filter</dt><dd>Category = Tablet</dd><dt>Tablets that fit</dt><dd>BetaTab Lite (10 inch, 32GB, $400), BetaTab S (15 inch, 64GB, $500), SpectraTab Max (12 inch, 128GB, $600)</dd></dl></section><section id="sh-step-1" class="step-panel" aria-labelledby="sh-heading-1"><h4 id="sh-heading-1">2. want one which has display larger than 10 inches</h4><dl><dt>Standalone request</dt><dd>A tablet with a display larger than 10 inches</dd><dt>Filter</dt><dd>Category only: display size is in the description</dd><dt>Tablets that fit</dt><dd>BetaTab S, SpectraTab Max</dd></dl></section><section id="sh-step-2" class="step-panel" aria-labelledby="sh-heading-2"><h4 id="sh-heading-2">3. need at least 128GB disk space</h4><dl><dt>Standalone request</dt><dd>A tablet larger than 10 inches with at least 128GB storage</dd><dt>Filter</dt><dd>Category only; the rewrite is what keeps it on tablets</dd><dt>Tablets that fit</dt><dd>SpectraTab Max</dd></dl></section><section id="sh-step-3" class="step-panel" aria-labelledby="sh-heading-3"><h4 id="sh-heading-3">4. What the history file holds</h4><dl><dt>jim001</dt><dd>6 rows: three raw messages and three recommendations</dd><dt>bond007</dt><dd>4 rows, on its own session id: a highly rated laptop, then 16GB of memory, and it stays on laptops</dd><dt>Not stored</dt><dd>The rewrites and the filtered tables</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>The research agent follows the same shape with live data. One user asks about Nvidia&rsquo;s Q4 2024 earnings call, then <em>What about Intel?</em>, then <em>Which company seems to be doing better?</em> With history, the second search targets Intel&rsquo;s Q4 2024 earnings, and the third answer compares the two from stored answers without searching. A second user does the same with the weather in Bangalore and Mumbai. Only the call order repeats between runs.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
 <p>Each choice below protects against a failure named in an earlier lesson:</p>
@@ -1401,16 +1350,22 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Six choices and what each protects against.</em></p>
-<h2 id="limits">Limits</h2>
+<p><em>Table 2: Six choices and what each protects against.</em></p>
+<p>Pick the recommender&rsquo;s fixed pipeline when every turn needs the same steps over your own data. Pick the agent when the next step depends on the question, and accept that its calls and sources vary by run.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>The filter is model-written code.</strong> An empty set of built-ins is not a sandbox. In production, have the model return a structured filter and apply it in code.</li>
 <li><strong>Specs live in free text.</strong> The recommender model enforces display size and storage, and its prompt tells it to recommend five random products when nothing matches.</li>
 <li><strong>The agent forgets its sources.</strong> Only final answers are saved; asking where a figure came from needs a new search.</li>
 <li><strong>Deprecated APIs.</strong> <code>RunnableWithMessageHistory</code>, the community history class and the classic <code>AgentExecutor</code>; lesson 33.6&rsquo;s checkpointer replaces them.</li>
 <li><strong>Narrow tools.</strong> The weather tool looks up Indian cities only, and SQLite suits one process.</li>
+<li><strong>Not run here.</strong> Both notebooks need an OpenAI key; the research agent also needs a Tavily key and an OpenWeatherMap key, and every run issues real searches. The catalogue facts and history row counts come from the CSV and the code, not from a recorded run.</li>
 </ul>
-<p>Both notebooks need an OpenAI key. The research agent also needs a Tavily key and an OpenWeatherMap key, and every run issues real searches.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Python documentation, <a href="https://docs.python.org/3/library/functions.html#eval" target="_blank" rel="noopener"><code>eval</code></a>, on why restricted globals are not a sandbox.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory" target="_blank" rel="noopener">Short-term memory</a>, the checkpointer-based replacement for the wrapper used here.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Per-user SQL history and a standalone rewrite are enough to make a product filter and a tool-calling agent follow a conversation: the rewrite rebuilds each follow-up from that user&rsquo;s stored turns.</li>
@@ -1430,7 +1385,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A user asks the research agent which page its Intel figures came from, and it searches again. Is that a bug?</summary>
 <p>No, it follows from the design. The wrapper saves only the user&rsquo;s question and the agent&rsquo;s final answer, so the tool calls and pages from the earlier turn are not in the history. Keeping sources would mean saving them with the answer, at the cost of a longer history.</p>
 </details>
-<h2 id="forget-it-but-keep-the-log">Forget it, but keep the log</h2>
+<h2 id="start-with-a-ticket-that-must-be-short-and-complete">Start with a ticket that must be short and complete</h2>
 <p class="lesson-of">Lesson 33.6: LangGraph threads, checkpoints and memory optimisations. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/06a_memory_and_conversational_agent.ipynb" target="_blank" rel="noopener"><code>06a_memory_and_conversational_agent.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/notebook/06b_memory_optimizations.ipynb" target="_blank" rel="noopener"><code>06b_memory_optimizations.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1512,13 +1467,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>24</td>
 </tr>
 <tr>
-<td>The notebook&rsquo;s tool-calling agent (model, tool, model)</td>
-<td>about 5</td>
+<td>The notebook&rsquo;s tool-calling agent, one tool round (model, tool, model)</td>
+<td>5</td>
 <td></td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Checkpoints written per turn, counted with a stub model in the scratchpad for the first two rows.</em></p>
+<p><em>Table 2: Checkpoints written per turn, counted with stub nodes in the scratchpad on langgraph 1.2.18. More tool rounds add two per round.</em></p>
 <p><code>get_state</code> returns the latest checkpoint; <code>get_state_history</code> walks all of them, newest first, which is what replay, forking and debugging use. Where they are written depends on the checkpointer:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1613,19 +1568,52 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Messages sent to the model per turn, not counting system messages. Counted by running the notebook&rsquo;s four graphs with a stub model in place of <code>gpt-4o-mini</code>; the graph logic decides these numbers, and a real model gives the same counts with different token totals.</em></p>
-<p>Sequential can answer turn 3, and so can the summary graph if its summariser kept the colour. Sliding window and trim on read cannot, since both send only the last <code>MAX_MESSAGES = 3</code> messages: the previous exchange and the new question.</p>
+<p>Sequential is the one-node graph of Table 2 with plain list concatenation as its reducer: it can answer turn 3, and so can the summary graph if its summariser kept the colour. Sliding window and trim on read cannot, since both send only the last <code>MAX_MESSAGES = 3</code> messages: the previous exchange and the new question.</p>
 <h3>Same prompt, different thread</h3>
-<p>The two bounded strategies send the same prompt and differ in what they keep:</p>
-<ul>
-<li><strong>Sliding window deletes.</strong> A truncate node returns a <code>RemoveMessage</code> for every message older than the window, and the <code>add_messages</code> reducer removes them from the checkpointed state. They are gone for every later turn, for <code>get_state</code> and for anyone auditing the ticket. The reducer is the mechanism: plain list concatenation can only append. A deleting window needs <code>add_messages</code>.</li>
-<li><strong>Trim on read hides.</strong> The model node calls <code>trim_messages</code> on a copy of the list and leaves state alone. The thread still holds all 12 messages, turn 1&rsquo;s colour included. Trimming the prompt never trims the checkpoint: with <code>SqliteSaver</code> the full thread is written to disk on every step.</li>
-</ul>
+<p>The two bounded strategies send the same prompt and differ in what they keep.</p>
+<p><strong>Sliding window deletes.</strong> A truncate node returns a <code>RemoveMessage</code> for every message older than the window, and the <code>add_messages</code> reducer removes them from the checkpointed state. They are gone for every later turn, for <code>get_state</code> and for anyone auditing the ticket. The reducer is the mechanism: plain list concatenation can only append. A deleting window needs <code>add_messages</code>.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S[/"New message"/] --&gt; T["truncate&lt;br/&gt;RemoveMessage for older ones"]
+    T --&gt; C["chat_llm&lt;br/&gt;sees the last 3"]
+    C --&gt; K[("Thread keeps&lt;br/&gt;4 messages")]
+</pre></figure>
+<p><em>Figure 2: Sliding window. The truncate node deletes from state before the model call.</em></p>
+<p><strong>Trim on read hides.</strong> The model node calls <code>trim_messages</code> on a copy of the list and leaves state alone. The thread still holds all 12 messages, turn 1&rsquo;s colour included. Trimming the prompt never trims the checkpoint: with <code>SqliteSaver</code> the full thread is written to disk on every step.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S[/"New message"/] --&gt; C["chat_llm&lt;br/&gt;trims a copy to the last 3"]
+    C --&gt; K[("Thread keeps&lt;br/&gt;all 12 messages")]
+</pre></figure>
+<p><em>Figure 3: Trim on read. One node; the bound applies to the prompt, not to the thread.</em></p>
 <p>Call the first one <strong>audit loss</strong>: the answer quality is identical, and the damage shows up only when someone needs the full ticket.</p>
 <h3>The summary graph</h3>
-<p>The summary graph keeps a <code>summary</code> string next to a <code>buffer</code> of recent messages. Once the buffer reaches <code>MESSAGE_THRESHOLD = 4</code>, a node folds all but the newest message into the summary and removes them. It folds every other turn, turns 3 and 5 in Table 4, and each fold is an extra LLM call. Counting those calls, the notebook notes that on a thread this short summarisation costs about as much as the sequential baseline; it pays off on long threads.</p>
-<p>The <code>summary</code> channel has no reducer, so any value written to it replaces the old one. Pass the empty summary only on the first turn. An app that sends it on every turn wipes the memory it is building, a failure we will call the <strong>summary reset</strong>: the folds run, the logs look busy, and each turn starts from nothing.</p>
+<p>The summary graph keeps a <code>summary</code> string next to a <code>buffer</code> of recent messages. Once the buffer reaches <code>MESSAGE_THRESHOLD = 4</code>, a node folds all but the newest message into the summary and removes them.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S[/"New message"/] --&gt; F{"buffer has&lt;br/&gt;4 or more?"}
+    F -- yes --&gt; SU["summarize: fold older&lt;br/&gt;messages, remove them"]
+    F -- no --&gt; C["chat_llm&lt;br/&gt;summary + buffer"]
+    SU --&gt; C
+</pre></figure>
+<p><em>Figure 4: Summary memory. A fold is an extra LLM call, on turns 3 and 5 of the ticket.</em></p>
+<p>It folds every other turn, turns 3 and 5 in Table 4, and each fold is an extra LLM call. Counting those calls, the notebook notes that on a thread this short summarisation costs about as much as the sequential baseline; it pays off on long threads.</p>
+<p>The <code>summary</code> channel has no reducer, so any value written to it replaces the old one. Pass the empty summary only on the first turn. An app that sends it on every turn wipes the memory it is building, a failure we will call the <strong>summary reset</strong>: the folds run, the logs look busy, and each turn starts from nothing. With stub nodes, the turn-3 fold reaches the model on turn 3 and is gone on turn 4.</p>
+<p>Compare the four strategies on the ticket&rsquo;s turn-3 question, <em>What is my favourite colour?</em>:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="strategy-switcher">
+<p class="widget-intro">Choose a memory strategy and see what the model reads on turn 3, what the thread keeps and what it costs over six turns.</p>
+<div class="mode-controls" hidden role="group" aria-label="Memory strategy">
+<button type="button" data-mode="seq" aria-pressed="false" aria-controls="st-seq">Sequential</button>
+<button type="button" data-mode="window" aria-pressed="false" aria-controls="st-window">Sliding window (Figure 2)</button>
+<button type="button" data-mode="trim" aria-pressed="false" aria-controls="st-trim">Trim on read (Figure 3)</button>
+<button type="button" data-mode="summary" aria-pressed="false" aria-controls="st-summary">Summary (Figure 4)</button>
+</div>
+<section id="st-seq" class="mode-panel" data-announcement="Sequential selected. Turn 3 can be answered; the prompt grows every turn."><h4>Sequential</h4><ul><li>Turn 3: the model reads all 5 messages, turn 1 included, and can answer blue.</li><li>Thread after turn 6: 12 messages; 18 checkpoints.</li><li>Cost: the prompt grows to 11 messages by turn 6.</li></ul></section>
+<section id="st-window" class="mode-panel" data-announcement="Sliding window selected. Turn 3 cannot be answered and turn 1 is deleted."><h4>Sliding window</h4><ul><li>Turn 3: the model reads 3 messages; the colour has left the window.</li><li>Thread after turn 6: 4 messages, the colour deleted; 24 checkpoints.</li><li>Cost: 3 messages per turn from turn 2 on, and audit loss.</li></ul></section>
+<section id="st-trim" class="mode-panel" data-announcement="Trim on read selected. Turn 3 cannot be answered, but the thread keeps everything."><h4>Trim on read</h4><ul><li>Turn 3: the model reads the same 3 messages and cannot answer.</li><li>Thread after turn 6: all 12 messages, the colour still stored; 18 checkpoints.</li><li>Cost: 3 messages per turn from turn 2 on, with the full ticket kept for audit.</li></ul></section>
+<section id="st-summary" class="mode-panel" data-announcement="Summary selected. Turn 3 depends on what the summariser kept."><h4>Summary</h4><ul><li>Turn 3: the first fold runs, and the model reads the summary plus the question. It answers blue only if the summariser kept the colour.</li><li>Thread after turn 6: the summary plus 4 messages; 24 checkpoints.</li><li>Cost: 2 extra LLM calls for the folds on turns 3 and 5.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h3>Choosing a strategy</h3>
-<p>Figure 2 turns Table 4 into questions:</p>
+<p>Figure 5 turns Table 4 into questions:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     A{"Must early facts&lt;br/&gt;reach the model?"} -- yes --&gt; B{"Whole thread within&lt;br/&gt;the token budget?"}
     B -- yes --&gt; SEQ["Keep everything"]
@@ -1634,19 +1622,29 @@ th:last-child, td:last-child { padding-right: 0; }
     C -- yes --&gt; TR["Trim on read"]
     C -- no --&gt; SW["Sliding window"]
 </pre></figure>
-<p><em>Figure 2: Choosing a memory strategy for a thread. Prefer hiding over deleting whenever someone may need the full ticket.</em></p>
+<p><em>Figure 5: Choosing a memory strategy for a thread. Prefer hiding over deleting whenever someone may need the full ticket.</em></p>
 <p>For agents built with <code>create_agent</code>, LangChain 1.x ships the summary strategy as <code>SummarizationMiddleware</code>.</p>
-<h2 id="in-practice-larkspurrsquos-duplicate-charge-ticket">In practice: Larkspur&rsquo;s duplicate-charge ticket</h2>
+<h2 id="trace-the-duplicate-charge-ticket">Trace the duplicate-charge ticket</h2>
 <p>Applying the page to the opening ticket:</p>
-<ol>
-<li><strong>Thread.</strong> The endpoint derives the <code>thread_id</code> from the authenticated customer and ticket, and compiles the graph once with <code>PostgresSaver</code>.</li>
-<li><strong>Bound.</strong> Support leads need the whole ticket, which rules out the sliding window. Trim on read caps the prompt and keeps all 12 messages in the thread.</li>
-<li><strong>Early facts.</strong> The billing-address change from turn 2 and the amount from turn 4 matter for the refund at the end. Long tickets switch to a summary seeded once, on the first turn.</li>
-<li><strong>Retention.</strong> The thread stays in Postgres after the ticket closes and follows the same deletion rules as the rest of the customer&rsquo;s data.</li>
-</ol>
+<div class="walkthrough learning-widget" data-stepper id="ticket-walkthrough">
+<p class="widget-intro">Follow the design decisions for Larkspur's duplicate-charge ticket, from the thread to retention.</p>
+<div class="step-controls" hidden role="group" aria-label="Ticket design decisions"><button type="button" data-step="0" aria-pressed="false" aria-controls="tk-step-0">1. Thread</button><button type="button" data-step="1" aria-pressed="false" aria-controls="tk-step-1">2. Bound</button><button type="button" data-step="2" aria-pressed="false" aria-controls="tk-step-2">3. Early facts</button><button type="button" data-step="3" aria-pressed="false" aria-controls="tk-step-3">4. Retention</button></div>
+<div class="step-panels"><section id="tk-step-0" class="step-panel" aria-labelledby="tk-heading-0"><h4 id="tk-heading-0">1. Pick the thread</h4><dl><dt>Decision</dt><dd>The endpoint derives the <code>thread_id</code> from the authenticated customer and ticket</dd><dt>Checkpointer</dt><dd><code>PostgresSaver</code>, with the graph compiled once</dd></dl></section><section id="tk-step-1" class="step-panel" aria-labelledby="tk-heading-1"><h4 id="tk-heading-1">2. Bound the prompt</h4><dl><dt>Constraint</dt><dd>Support leads need the whole ticket, which rules out the sliding window</dd><dt>Decision</dt><dd>Trim on read caps the prompt at 3 messages and keeps all 12 in the thread</dd></dl></section><section id="tk-step-2" class="step-panel" aria-labelledby="tk-heading-2"><h4 id="tk-heading-2">3. Keep the early facts</h4><dl><dt>Facts</dt><dd>The billing-address change from turn 2 and the $29.99 amount from turn 4 matter for the refund in turn 5</dd><dt>Decision</dt><dd>Long tickets switch to a summary, seeded once on the first turn</dd></dl></section><section id="tk-step-3" class="step-panel" aria-labelledby="tk-heading-3"><h4 id="tk-heading-3">4. Retain and delete</h4><dl><dt>Rule</dt><dd>The thread stays in Postgres after the ticket closes</dd><dt>Decision</dt><dd>It follows the same deletion rules as the rest of the customer's data</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <blockquote>
 <p><strong>What changes next:</strong> a thread ends with its conversation. <a href="../../../m34_long_term_agentic_memory/mandatory/theory/index.html">M34</a> adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub model.</strong> Table 4, the checkpoint counts and the summary reset come from running the notebook&rsquo;s graph logic with stub nodes on langgraph 1.2.18. Token totals, answer text and what a summariser keeps need a real model; the notebook ships without outputs.</li>
+<li><strong>One ticket.</strong> Six turns show the shape of each strategy; the break-even point for summarisation depends on thread length and the summariser&rsquo;s prompt.</li>
+<li><strong>Decisions, not a run.</strong> The duplicate-charge trace applies the page&rsquo;s rules by hand; no Postgres deployment was measured.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence</a>: checkpointers, threads and state history.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/add-memory" target="_blank" rel="noopener">Add memory</a>: trimming, deleting and summarising messages.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Compile the graph with a checkpointer and take the <code>thread_id</code> from trusted server config. A checkpoint is written after every step, three per turn for a one-node chat graph, for replay and debugging.</li>
@@ -1660,7 +1658,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>2. How many checkpoints does a one-node chat graph write per turn, and why more than one?</summary>
-<p>Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn. A two-node graph writes 4 and the notebook&rsquo;s tool-calling agent about 5. <code>get_state_history</code> walks them newest first for replay, forking and debugging.</p>
+<p>Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn. A two-node graph writes 4 and the notebook&rsquo;s tool-calling agent 5 with one tool round. <code>get_state_history</code> walks them newest first for replay, forking and debugging.</p>
 </details>
 <details>
 <summary>3. A summary graph runs its folds, yet each turn starts with an empty summary. What is the likely cause?</summary>
@@ -1722,7 +1720,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Rewrite follow-ups into standalone questions before retrieval, and measure hit rate on turns 2 and 3, not only on first questions.</li>
 <li>Bound long threads by hiding or summarising old turns rather than deleting them, and test that an early fact still reaches the model late in the thread.</li>
 </ul></article>
-    <nav class="toc" aria-label="M33 sections"><details open><summary>In M33</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#why-the-second-call-forgets">Why the second call forgets</a></li><li><a href="#message-history">Message history</a></li><li><a href="#the-classic-memory-classes">The classic memory classes</a></li><li><a href="#in-practice-larkspurrsquos-plan-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#two-customers-one-list">Two customers, one list</a></li><li><a href="#one-history-per-session">One history per session</a></li><li><a href="#where-the-history-lives">Where the history lives</a></li><li><a href="#in-practice-larkspurrsquos-support-endpoint">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#when-the-plan-falls-out-of-the-window">When the plan falls out of the window</a></li><li><a href="#summary-memory">Summary memory</a></li><li><a href="#trim-window-or-summarise">Trim, window or summarise</a></li><li><a href="#in-practice-picking-a-bound-for-larkspur-tickets">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-follow-up-with-no-subject">A follow-up with no subject</a></li><li><a href="#history-aware-retriever">History-aware retriever</a></li><li><a href="#rewrite-append-or-neither">Rewrite, append or neither</a></li><li><a href="#in-practice-larkspurrsquos-export-chat">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-two-memory-apps">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-shopper">Following one shopper</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#forget-it-but-keep-the-log">Forget it, but keep the log</a></li><li><a href="#checkpointer--thread_id">Checkpointer / thread_id</a></li><li><a href="#delete-or-hide">Delete or hide</a></li><li><a href="#in-practice-larkspurrsquos-duplicate-charge-ticket">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M33 sections"><details open><summary>In M33</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-customer-the-assistant-forgot">Start with a customer the assistant forgot</a></li><li><a href="#message-history">Message history</a></li><li><a href="#the-classic-memory-classes">The classic memory classes</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-two-customers-on-one-list">Start with two customers on one list</a></li><li><a href="#one-history-per-session">One history per session</a></li><li><a href="#where-the-history-lives">Where the history lives</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-plan-that-falls-out-of-the-window">Start with a plan that falls out of the window</a></li><li><a href="#summary-memory">Summary memory</a></li><li><a href="#trim-window-or-summarise">Trim, window or summarise</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-follow-up-that-has-no-subject">Start with a follow-up that has no subject</a></li><li><a href="#history-aware-retriever">History-aware retriever</a></li><li><a href="#rewrite-append-or-neither">Rewrite, append or neither</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-shopper-who-stops-naming-the-product">Start with a shopper who stops naming the product</a></li><li><a href="#the-project-two-memory-apps">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-shopper">Following one shopper</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-ticket-that-must-be-short-and-complete">Start with a ticket that must be short and complete</a></li><li><a href="#checkpointer--thread_id">Checkpointer / thread_id</a></li><li><a href="#delete-or-hide">Delete or hide</a></li><li><a href="#trace-the-duplicate-charge-ticket">Trace the duplicate-charge ticket</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

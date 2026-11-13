@@ -2,8 +2,9 @@
 
 *[M33 theory](../README.md) · Lesson 33.6 · Notebooks: [`06a_memory_and_conversational_agent.ipynb`](../../notebook/06a_memory_and_conversational_agent.ipynb), [`06b_memory_optimizations.ipynb`](../../notebook/06b_memory_optimizations.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A checkpointer saves a thread's state after every step, and a bound decides whether old turns are deleted from it or only hidden from the model -->
+<!-- format: approved -->
 
-## Forget it, but keep the log
+## Start with a ticket that must be short and complete
 
 > **What you'll learn**
 >
@@ -56,9 +57,9 @@ Checkpoints are snapshots of every step, not only of the end of a turn. A turn w
 |---|---|---|
 | One node (answer) | 3 | 18 |
 | Two nodes (bound, then answer) | 4 | 24 |
-| The notebook's tool-calling agent (model, tool, model) | about 5 | |
+| The notebook's tool-calling agent, one tool round (model, tool, model) | 5 | |
 
-*Table 2: Checkpoints written per turn, counted with a stub model in the scratchpad for the first two rows.*
+*Table 2: Checkpoints written per turn, counted with stub nodes in the scratchpad on langgraph 1.2.18. More tool rounds add two per round.*
 
 `get_state` returns the latest checkpoint; `get_state_history` walks all of them, newest first, which is what replay, forking and debugging use. Where they are written depends on the checkpointer:
 
@@ -88,26 +89,73 @@ A thread that keeps everything sends every earlier message on every turn. The no
 
 *Table 4: Messages sent to the model per turn, not counting system messages. Counted by running the notebook's four graphs with a stub model in place of `gpt-4o-mini`; the graph logic decides these numbers, and a real model gives the same counts with different token totals.*
 
-Sequential can answer turn 3, and so can the summary graph if its summariser kept the colour. Sliding window and trim on read cannot, since both send only the last `MAX_MESSAGES = 3` messages: the previous exchange and the new question.
+Sequential is the one-node graph of Table 2 with plain list concatenation as its reducer: it can answer turn 3, and so can the summary graph if its summariser kept the colour. Sliding window and trim on read cannot, since both send only the last `MAX_MESSAGES = 3` messages: the previous exchange and the new question.
 
 ### Same prompt, different thread
 
-The two bounded strategies send the same prompt and differ in what they keep:
+The two bounded strategies send the same prompt and differ in what they keep.
 
-- **Sliding window deletes.** A truncate node returns a `RemoveMessage` for every message older than the window, and the `add_messages` reducer removes them from the checkpointed state. They are gone for every later turn, for `get_state` and for anyone auditing the ticket. The reducer is the mechanism: plain list concatenation can only append. A deleting window needs `add_messages`.
-- **Trim on read hides.** The model node calls `trim_messages` on a copy of the list and leaves state alone. The thread still holds all 12 messages, turn 1's colour included. Trimming the prompt never trims the checkpoint: with `SqliteSaver` the full thread is written to disk on every step.
+**Sliding window deletes.** A truncate node returns a `RemoveMessage` for every message older than the window, and the `add_messages` reducer removes them from the checkpointed state. They are gone for every later turn, for `get_state` and for anyone auditing the ticket. The reducer is the mechanism: plain list concatenation can only append. A deleting window needs `add_messages`.
+
+```mermaid
+flowchart TB
+    S[/"New message"/] --> T["truncate<br/>RemoveMessage for older ones"]
+    T --> C["chat_llm<br/>sees the last 3"]
+    C --> K[("Thread keeps<br/>4 messages")]
+```
+
+*Figure 2: Sliding window. The truncate node deletes from state before the model call.*
+
+**Trim on read hides.** The model node calls `trim_messages` on a copy of the list and leaves state alone. The thread still holds all 12 messages, turn 1's colour included. Trimming the prompt never trims the checkpoint: with `SqliteSaver` the full thread is written to disk on every step.
+
+```mermaid
+flowchart TB
+    S[/"New message"/] --> C["chat_llm<br/>trims a copy to the last 3"]
+    C --> K[("Thread keeps<br/>all 12 messages")]
+```
+
+*Figure 3: Trim on read. One node; the bound applies to the prompt, not to the thread.*
 
 Call the first one **audit loss**: the answer quality is identical, and the damage shows up only when someone needs the full ticket.
 
 ### The summary graph
 
-The summary graph keeps a `summary` string next to a `buffer` of recent messages. Once the buffer reaches `MESSAGE_THRESHOLD = 4`, a node folds all but the newest message into the summary and removes them. It folds every other turn, turns 3 and 5 in Table 4, and each fold is an extra LLM call. Counting those calls, the notebook notes that on a thread this short summarisation costs about as much as the sequential baseline; it pays off on long threads.
+The summary graph keeps a `summary` string next to a `buffer` of recent messages. Once the buffer reaches `MESSAGE_THRESHOLD = 4`, a node folds all but the newest message into the summary and removes them.
 
-The `summary` channel has no reducer, so any value written to it replaces the old one. Pass the empty summary only on the first turn. An app that sends it on every turn wipes the memory it is building, a failure we will call the **summary reset**: the folds run, the logs look busy, and each turn starts from nothing.
+```mermaid
+flowchart TB
+    S[/"New message"/] --> F{"buffer has<br/>4 or more?"}
+    F -- yes --> SU["summarize: fold older<br/>messages, remove them"]
+    F -- no --> C["chat_llm<br/>summary + buffer"]
+    SU --> C
+```
+
+*Figure 4: Summary memory. A fold is an extra LLM call, on turns 3 and 5 of the ticket.*
+
+It folds every other turn, turns 3 and 5 in Table 4, and each fold is an extra LLM call. Counting those calls, the notebook notes that on a thread this short summarisation costs about as much as the sequential baseline; it pays off on long threads.
+
+The `summary` channel has no reducer, so any value written to it replaces the old one. Pass the empty summary only on the first turn. An app that sends it on every turn wipes the memory it is building, a failure we will call the **summary reset**: the folds run, the logs look busy, and each turn starts from nothing. With stub nodes, the turn-3 fold reaches the model on turn 3 and is gone on turn 4.
+
+Compare the four strategies on the ticket's turn-3 question, *What is my favourite colour?*:
+
+<div class="learning-widget evidence-switcher" data-comparison id="strategy-switcher">
+<p class="widget-intro">Choose a memory strategy and see what the model reads on turn 3, what the thread keeps and what it costs over six turns.</p>
+<div class="mode-controls" hidden role="group" aria-label="Memory strategy">
+<button type="button" data-mode="seq" aria-pressed="false" aria-controls="st-seq">Sequential</button>
+<button type="button" data-mode="window" aria-pressed="false" aria-controls="st-window">Sliding window (Figure 2)</button>
+<button type="button" data-mode="trim" aria-pressed="false" aria-controls="st-trim">Trim on read (Figure 3)</button>
+<button type="button" data-mode="summary" aria-pressed="false" aria-controls="st-summary">Summary (Figure 4)</button>
+</div>
+<section id="st-seq" class="mode-panel" data-announcement="Sequential selected. Turn 3 can be answered; the prompt grows every turn."><h4>Sequential</h4><ul><li>Turn 3: the model reads all 5 messages, turn 1 included, and can answer blue.</li><li>Thread after turn 6: 12 messages; 18 checkpoints.</li><li>Cost: the prompt grows to 11 messages by turn 6.</li></ul></section>
+<section id="st-window" class="mode-panel" data-announcement="Sliding window selected. Turn 3 cannot be answered and turn 1 is deleted."><h4>Sliding window</h4><ul><li>Turn 3: the model reads 3 messages; the colour has left the window.</li><li>Thread after turn 6: 4 messages, the colour deleted; 24 checkpoints.</li><li>Cost: 3 messages per turn from turn 2 on, and audit loss.</li></ul></section>
+<section id="st-trim" class="mode-panel" data-announcement="Trim on read selected. Turn 3 cannot be answered, but the thread keeps everything."><h4>Trim on read</h4><ul><li>Turn 3: the model reads the same 3 messages and cannot answer.</li><li>Thread after turn 6: all 12 messages, the colour still stored; 18 checkpoints.</li><li>Cost: 3 messages per turn from turn 2 on, with the full ticket kept for audit.</li></ul></section>
+<section id="st-summary" class="mode-panel" data-announcement="Summary selected. Turn 3 depends on what the summariser kept."><h4>Summary</h4><ul><li>Turn 3: the first fold runs, and the model reads the summary plus the question. It answers blue only if the summariser kept the colour.</li><li>Thread after turn 6: the summary plus 4 messages; 24 checkpoints.</li><li>Cost: 2 extra LLM calls for the folds on turns 3 and 5.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ### Choosing a strategy
 
-Figure 2 turns Table 4 into questions:
+Figure 5 turns Table 4 into questions:
 
 ```mermaid
 flowchart TD
@@ -119,20 +167,31 @@ flowchart TD
     C -- no --> SW["Sliding window"]
 ```
 
-*Figure 2: Choosing a memory strategy for a thread. Prefer hiding over deleting whenever someone may need the full ticket.*
+*Figure 5: Choosing a memory strategy for a thread. Prefer hiding over deleting whenever someone may need the full ticket.*
 
 For agents built with `create_agent`, LangChain 1.x ships the summary strategy as `SummarizationMiddleware`.
 
-## In practice: Larkspur's duplicate-charge ticket
+## Trace the duplicate-charge ticket
 
 Applying the page to the opening ticket:
 
-1. **Thread.** The endpoint derives the `thread_id` from the authenticated customer and ticket, and compiles the graph once with `PostgresSaver`.
-2. **Bound.** Support leads need the whole ticket, which rules out the sliding window. Trim on read caps the prompt and keeps all 12 messages in the thread.
-3. **Early facts.** The billing-address change from turn 2 and the amount from turn 4 matter for the refund at the end. Long tickets switch to a summary seeded once, on the first turn.
-4. **Retention.** The thread stays in Postgres after the ticket closes and follows the same deletion rules as the rest of the customer's data.
+<div class="walkthrough learning-widget" data-stepper id="ticket-walkthrough">
+<p class="widget-intro">Follow the design decisions for Larkspur's duplicate-charge ticket, from the thread to retention.</p>
+<div class="step-controls" hidden role="group" aria-label="Ticket design decisions"><button type="button" data-step="0" aria-pressed="false" aria-controls="tk-step-0">1. Thread</button><button type="button" data-step="1" aria-pressed="false" aria-controls="tk-step-1">2. Bound</button><button type="button" data-step="2" aria-pressed="false" aria-controls="tk-step-2">3. Early facts</button><button type="button" data-step="3" aria-pressed="false" aria-controls="tk-step-3">4. Retention</button></div>
+<div class="step-panels"><section id="tk-step-0" class="step-panel" aria-labelledby="tk-heading-0"><h4 id="tk-heading-0">1. Pick the thread</h4><dl><dt>Decision</dt><dd>The endpoint derives the <code>thread_id</code> from the authenticated customer and ticket</dd><dt>Checkpointer</dt><dd><code>PostgresSaver</code>, with the graph compiled once</dd></dl></section><section id="tk-step-1" class="step-panel" aria-labelledby="tk-heading-1"><h4 id="tk-heading-1">2. Bound the prompt</h4><dl><dt>Constraint</dt><dd>Support leads need the whole ticket, which rules out the sliding window</dd><dt>Decision</dt><dd>Trim on read caps the prompt at 3 messages and keeps all 12 in the thread</dd></dl></section><section id="tk-step-2" class="step-panel" aria-labelledby="tk-heading-2"><h4 id="tk-heading-2">3. Keep the early facts</h4><dl><dt>Facts</dt><dd>The billing-address change from turn 2 and the $29.99 amount from turn 4 matter for the refund in turn 5</dd><dt>Decision</dt><dd>Long tickets switch to a summary, seeded once on the first turn</dd></dl></section><section id="tk-step-3" class="step-panel" aria-labelledby="tk-heading-3"><h4 id="tk-heading-3">4. Retain and delete</h4><dl><dt>Rule</dt><dd>The thread stays in Postgres after the ticket closes</dd><dt>Decision</dt><dd>It follows the same deletion rules as the rest of the customer's data</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 > **What changes next:** a thread ends with its conversation. [M34](../../../../m34_long_term_agentic_memory/mandatory/theory/README.md) adds the memory a thread cannot hold: facts about a customer that should carry over to their next conversation.
+
+## Limits of this evidence
+
+- **Stub model.** Table 4, the checkpoint counts and the summary reset come from running the notebook's graph logic with stub nodes on langgraph 1.2.18. Token totals, answer text and what a summariser keeps need a real model; the notebook ships without outputs.
+- **One ticket.** Six turns show the shape of each strategy; the break-even point for summarisation depends on thread length and the summariser's prompt.
+- **Decisions, not a run.** The duplicate-charge trace applies the page's rules by hand; no Postgres deployment was measured.
+
+## References
+
+1. LangGraph, [Persistence](https://docs.langchain.com/oss/python/langgraph/persistence): checkpointers, threads and state history.
+2. LangGraph, [Add memory](https://docs.langchain.com/oss/python/langgraph/add-memory): trimming, deleting and summarising messages.
 
 ## Key Takeaways
 
@@ -152,7 +211,7 @@ The sliding window deletes: a truncate node returns `RemoveMessage` instructions
 <details>
 <summary>2. How many checkpoints does a one-node chat graph write per turn, and why more than one?</summary>
 
-Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn. A two-node graph writes 4 and the notebook's tool-calling agent about 5. `get_state_history` walks them newest first for replay, forking and debugging.
+Three: one for the input, one at the start of the run and one per node step. Checkpoints snapshot every step, not just the end of a turn. A two-node graph writes 4 and the notebook's tool-calling agent 5 with one tool round. `get_state_history` walks them newest first for replay, forking and debugging.
 
 </details>
 

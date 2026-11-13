@@ -2,8 +2,9 @@
 
 *[M33 theory](../README.md) · Lesson 33.1 · Notebooks: [`01a_why_llms_forget.ipynb`](../../notebook/01a_why_llms_forget.ipynb), [`01b_classic_memory_classes_and_chains.ipynb`](../../../optional/notebook/01b_classic_memory_classes_and_chains.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A chat model keeps nothing between calls, and memory is the list of messages the application chooses to resend -->
+<!-- format: approved -->
 
-## Why the second call forgets
+## Start with a customer the assistant forgot
 
 > **What you'll learn**
 >
@@ -16,7 +17,7 @@ Part IX starts here. Earlier modules built chains and agents that answered one q
 
 A customer writes *I'm on the annual Team plan* and gets a friendly reply. Their next message is *Which plan am I on?*, and the assistant has no idea. Nothing crashed and the model works. The second call carried only the second question.
 
-A chat model call is a function of the messages sent in that call and nothing else. The provider keeps nothing between calls, so a stateless chain of prompt, model and parser treats every message as the first one. The notebook shows the same thing with a name: told *My name is Sourav* in one call, the chain cannot answer *What's my name?* in the next. Anything that looks like memory in a chatbot is the application resending earlier messages.
+A chat model call is a function of the messages sent in that call and nothing else. The provider keeps nothing between calls. A stateless chain of prompt, model and parser therefore treats every message as the first one. The notebook shows the same thing with a name: told *My name is Sourav* in one call, the chain cannot answer *What's my name?* in the next. Anything that looks like memory in a chatbot is the application resending earlier messages.
 
 ## Message history
 
@@ -67,19 +68,33 @@ A history that keeps everything resends everything. Turn N carries the N questio
 
 Six turns send 36 messages where six independent calls would send 6. Every earlier message is read again on every later turn, and token cost and latency follow that curve. A long enough chat stops fitting in the context window at all. We will call this **replay cost**; lessons 33.3 and 33.6 bound it.
 
+### Follow the plan question through a full history
+
+The walkthrough follows the Larkspur customer through a chat that keeps every message.
+
+<div class="walkthrough learning-widget" data-stepper id="plan-walkthrough">
+<p class="widget-intro">Follow the plan question through a full-history chat. Each stage shows what the call sends and what the history holds afterwards.</p>
+<div class="step-controls" hidden role="group" aria-label="Turns of the plan conversation"><button type="button" data-step="0" aria-pressed="false" aria-controls="plan-step-0">1. Turn 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="plan-step-1">2. Turn 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="plan-step-2">3. Turn 6</button></div>
+<div class="step-panels"><section id="plan-step-0" class="step-panel" aria-labelledby="plan-heading-0"><h4 id="plan-heading-0">1. The customer gives the plan</h4><dl><dt>Call sends</dt><dd>1 message: <em>I'm on the annual Team plan</em></dd><dt>History after</dt><dd>2 messages: Human 1 and AI 1</dd></dl></section><section id="plan-step-1" class="step-panel" aria-labelledby="plan-heading-1"><h4 id="plan-heading-1">2. The customer asks for it</h4><dl><dt>Call sends</dt><dd>3 messages: Human 1, AI 1 and <em>Which plan am I on?</em></dd><dt>Result</dt><dd>The model reads the plan from Human 1 and answers.</dd></dl></section><section id="plan-step-2" class="step-panel" aria-labelledby="plan-heading-2"><h4 id="plan-heading-2">3. The same chat at turn 6</h4><dl><dt>Call sends</dt><dd>11 messages</dd><dt>Sent so far</dt><dd>36 messages in total. Every message the customer adds is paid for again on every later turn.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 ### Planted failures: what the second call receives
 
-Having a history is half the job. Which messages get into it decides what the model can use. Table 3 replays the Larkspur exchange with the history kept in three ways:
+Having a history is half the job. Which messages get into it decides what the model can use. The switcher replays the Larkspur exchange with the history kept in three ways.
 
-| History kept | Second call receives | Can it name the plan? |
-|---|---|---|
-| Full history | Human 1, AI 1, Human 2 | Yes |
-| None (stateless chain) | Human 2 | No |
-| Human turns only: the reply was never appended | Human 1, Human 2 | Usually, but the model has lost its own earlier answers and can contradict or repeat them |
+<div class="learning-widget evidence-switcher" data-comparison id="history-switcher">
+<p class="widget-intro">Compare three ways of keeping the history for the same two turns.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the history is kept">
+<button type="button" data-mode="full" aria-pressed="false" aria-controls="history-full">Full history</button>
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="history-none">No history</button>
+<button type="button" data-mode="half" aria-pressed="false" aria-controls="history-half">Human turns only</button>
+</div>
+<section id="history-full" class="mode-panel" data-announcement="Full history selected. The model can name the plan."><h4>Full history</h4><ul><li>Second call receives: Human 1, AI 1, Human 2.</li><li>Can it name the plan? Yes.</li></ul><p>The model reads a faithful transcript of the conversation.</p></section>
+<section id="history-none" class="mode-panel" data-announcement="No history selected. The model cannot name the plan."><h4>No history (stateless chain)</h4><ul><li>Second call receives: Human 2 only.</li><li>Can it name the plan? No.</li></ul><p>Every turn behaves like the first one.</p></section>
+<section id="history-half" class="mode-panel" data-announcement="Human turns only selected. The plan survives, the model's own replies do not."><h4>Human turns only: the reply was never appended</h4><ul><li>Second call receives: Human 1, Human 2.</li><li>Can it name the plan? Usually.</li></ul><p>The model has lost its own earlier answers and can contradict or repeat them.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-*Table 3: Three histories for the same two turns. Only the first gives the model a faithful transcript.*
-
-The third row is a **half-saved history**. It looks healthy in a demo, because the customer's facts survive. It fails later, when the customer asks *What did you just tell me about refunds?* and the reply that answered it was never stored. The older memory classes had a worse version of this bug, as the next section shows.
+The third mode is a **half-saved history**. It looks healthy in a demo, because the customer's facts survive. It fails later, when the customer asks *What did you just tell me about refunds?* and the reply that answered it was never stored. The older memory classes had a worse version of this bug, as the next section shows.
 
 ## The classic memory classes
 
@@ -95,7 +110,7 @@ flowchart LR
 
 The save is the step people forget. Skip it and the chain still runs without an error, but the next load returns nothing and every turn behaves like the first. This is the **missing save**. In the healthy case, the notebook asks *What are the first four colors of a rainbow?* and then *And the other 3?*. The second question only makes sense because the first exchange was loaded, and after two turns memory holds 4 messages, both pairs written by the explicit save.
 
-Each class decides which messages the prompt receives. Table 4 lines them up with the patterns that replaced them:
+Each class decides which messages the prompt receives. Table 3 lines them up with the patterns that replaced them:
 
 | Class | What the prompt receives | Keeps early facts | Extra LLM calls | Where the idea lives now |
 |---|---|---|---|---|
@@ -105,7 +120,7 @@ Each class decides which messages the prompt receives. Table 4 lines them up wit
 | `ConversationSummaryBufferMemory` | Summary plus recent turns | Yes, compressed | When over `max_token_limit` | Summary memory (33.3) |
 | `VectorStoreRetrieverMemory` | The past exchanges most similar to the question | Only if retrieved | None | Long-term memory (M34) |
 
-*Table 4: The five classic classes. Each one is a policy for choosing which earlier messages to resend.*
+*Table 3: The five classic classes. Each one is a policy for choosing which earlier messages to resend.*
 
 Three details from the notebook are worth carrying forward:
 
@@ -113,17 +128,20 @@ Three details from the notebook are worth carrying forward:
 - **Choosing `k` is a guess about the conversation.** The notebook suggests 1 to 2 exchanges for quick questions, 3 to 5 for support chats and 6 to 10 for long technical threads. Whatever the value, early facts leave without warning.
 - **The format is separate from the policy.** A memory can hand the prompt one "Human: … AI: …" string for completion-style prompts or a list of message objects for chat prompts. The choice changes formatting and leaves what is remembered alone.
 
-These classes now live in `langchain_classic`. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.
-
-## In practice: Larkspur's plan question
-
-Following the Larkspur customer through a full-history chat:
-
-1. **Turn 1.** The app appends *I'm on the annual Team plan*, sends one message and appends the reply. The history holds 2 messages.
-2. **Turn 2.** The app appends *Which plan am I on?* and sends 3 messages. The model reads the plan from Human 1 and answers.
-3. **Turn 6.** The same chat now sends 11 messages per call and has sent 36 in total. Each message the customer adds will be paid for again on every later turn.
+These classes now live in `langchain_classic`, deprecated and due for removal in its 2.0 release. You will meet them in older code; new code uses the patterns in lessons 33.2 to 33.6.
 
 > **What changes next:** one list works for one customer. Lesson 33.2 keys a history to each conversation, and the same chain then serves every Larkspur customer without mixing their turns.
+
+## Limits of this evidence
+
+- **Arithmetic, not a run.** The replay counts in Table 2 and the walkthrough follow from the append rule. They count messages, not tokens, and leave out the system message.
+- **Scripted replies.** The Larkspur plan conversation and the three switcher modes are illustrations. Whether the model "usually" names the plan from human turns alone depends on the model.
+- **Notebook values.** The rainbow exchange, the 4 stored messages and the suggested `k` ranges come from the optional notebook's code and Markdown, not from a measured comparison.
+
+## References
+
+1. LangChain, [Short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory), accessed 13 November 2026.
+2. LangChain, [Messages](https://docs.langchain.com/oss/python/langchain/messages), accessed 13 November 2026.
 
 ## Key Takeaways
 

@@ -2,8 +2,9 @@
 
 *[M33 theory](../README.md) · Lesson 33.3 · Notebooks: [`03a_trimming_windowing_and_summary.ipynb`](../../notebook/03a_trimming_windowing_and_summary.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Bounding a long chat means choosing between dropping early facts for free and keeping them compressed for an extra call per fold -->
+<!-- format: approved -->
 
-## When the plan falls out of the window
+## Start with a plan that falls out of the window
 
 > **What you'll learn**
 >
@@ -39,19 +40,14 @@ flowchart LR
 
 ### Tracing the five-turn ticket
 
-Running the Larkspur ticket through that loop, the counts follow from the code alone:
+The walkthrough runs the Larkspur ticket through that loop. The counts follow from the code alone.
 
-| Turn | Prompt holds | Recent list after the answer | Fold? | Summary now covers |
-|---|---|---|---|---|
-| 1 | Question only | 2 messages | No | Nothing |
-| 2 | 2 recent + question | 4 | No | Nothing |
-| 3 | 4 recent + question | 6, folded to 4 | Yes | Turn 1 |
-| 4 | Summary + 4 recent + question | 6, folded to 4 | Yes | Turns 1 and 2 |
-| 5 | Summary + 4 recent + question | 6, folded to 4 | Yes | Turns 1 to 3 |
+<div class="walkthrough learning-widget" data-stepper id="fold-walkthrough">
+<p class="widget-intro">Follow the five-turn billing ticket through summary memory with four recent messages. Each stage shows the prompt, the recent list and what the summary covers.</p>
+<div class="step-controls" hidden role="group" aria-label="Turns of the billing ticket"><button type="button" data-step="0" aria-pressed="false" aria-controls="fold-step-0">1. Turn 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="fold-step-1">2. Turn 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="fold-step-2">3. Turn 3</button><button type="button" data-step="3" aria-pressed="false" aria-controls="fold-step-3">4. Turn 4</button><button type="button" data-step="4" aria-pressed="false" aria-controls="fold-step-4">5. Turn 5</button></div>
+<div class="step-panels"><section id="fold-step-0" class="step-panel" aria-labelledby="fold-heading-0"><h4 id="fold-heading-0">1. The plan</h4><dl><dt>Prompt holds</dt><dd>The question only</dd><dt>Recent list after</dt><dd>2 messages. No fold.</dd><dt>Summary covers</dt><dd>Nothing</dd></dl></section><section id="fold-step-1" class="step-panel" aria-labelledby="fold-heading-1"><h4 id="fold-heading-1">2. The duplicate charge</h4><dl><dt>Prompt holds</dt><dd>2 recent messages and the question</dd><dt>Recent list after</dt><dd>4 messages. No fold.</dd><dt>Summary covers</dt><dd>Nothing</dd></dl></section><section id="fold-step-2" class="step-panel" aria-labelledby="fold-heading-2"><h4 id="fold-heading-2">3. First fold</h4><dl><dt>Prompt holds</dt><dd>4 recent messages and the question</dd><dt>Recent list after</dt><dd>6, folded to 4. The summariser runs.</dd><dt>Summary covers</dt><dd>Turn 1</dd></dl></section><section id="fold-step-3" class="step-panel" aria-labelledby="fold-heading-3"><h4 id="fold-heading-3">4. Second fold</h4><dl><dt>Prompt holds</dt><dd>The summary, 4 recent messages and the question</dd><dt>Recent list after</dt><dd>6, folded to 4</dd><dt>Summary covers</dt><dd>Turns 1 and 2</dd></dl></section><section id="fold-step-4" class="step-panel" aria-labelledby="fold-heading-4"><h4 id="fold-heading-4">5. The plan question</h4><dl><dt>Prompt holds</dt><dd>The summary (turns 1 and 2) and turns 3 and 4 word for word: exactly what a two-exchange window would send, plus the summary</dd><dt>Recent list after</dt><dd>6, folded to 4. Three folds in five turns.</dd><dt>Summary covers</dt><dd>Turns 1 to 3. The plan reaches the model only through the summary.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 1: Summary memory with four recent messages over five turns. The summariser runs three times.*
-
-On turn 5 the recent messages are turns 3 and 4, exactly what a two-exchange window would send. The plan from turn 1 reaches the model only through the summary. The notebook runs the same loop with a user who gives their name, city, job and cats, then asks for everything they said; the final answer can list the first-turn facts because they survived the folds.
+The notebook runs the same loop with a user who gives their name, city, job and cats, then asks for everything they said. The final answer can list the first-turn facts because they survived the folds.
 
 ### What the summary costs
 
@@ -69,6 +65,14 @@ Lesson 33.6 builds the same idea as a LangGraph node, and agents built with `cre
 
 `trim_messages` cuts a list to a token budget on its way to the model. The notebook's settings keep the newest messages that fit, always keep the system message, never cut a message in half, and make the kept part start on a user message so it reads as a conversation. It runs locally; the model object serves only as the token counter.
 
+```mermaid
+flowchart TB
+    ST[("Stored history:<br/>every message")] --> TR["trim_messages:<br/>newest that fit<br/>the token budget"]
+    TR --> MO[Model]
+```
+
+*Figure 2: Trimming. The store keeps everything; only the copy sent to the model is cut.*
+
 The notebook's chat has eleven messages, starting with a system message and *hi! I'm bob*, then vanilla ice cream, *whats 2 + 2*, *thanks* and *having fun?*. With `gpt-4o-mini`'s counter in `langchain-openai` 1.7.3 the whole list counts 80 tokens. Trimmed to 45:
 
 | Input | Budget | Kept | Kept messages | Lost facts |
@@ -77,13 +81,22 @@ The notebook's chat has eleven messages, starting with a system message and *hi!
 | The chat + *What ice cream do I like?* | 45 | 4 of 12 | System, *having fun?*, *yes!*, the question | The answer to the question |
 | The chat + *What math problem did I ask?* | 45 | 4 of 12 | System, *having fun?*, *yes!*, the question | The answer to the question |
 
-*Table 2: The notebook's trimmer, run in the scratchpad. Another token counter gives other cuts.*
+*Table 1: The notebook's trimmer, run in the scratchpad. Another token counter gives other cuts.*
 
 Adding the question costs the trimmer one more exchange, which shows a trap of token budgets: a longer question pushes more history out. Both questions ask about facts outside the budget, and neither can be answered from the conversation. Call this **silent truncation**: nothing errors, and the model either says it does not know or guesses.
 
 ### Windowing the store
 
 A window does the same job in storage. The notebook's windowed history keeps only the last `k = 2` exchanges and deletes the rest as new messages arrive:
+
+```mermaid
+flowchart TB
+    NM[/New exchange/] --> AP["Append to<br/>the history"]
+    AP --> CUT["Delete all but the<br/>last 2k messages"]
+    CUT --> ST[("Stored history:<br/>last k exchanges")] --> MO[Model]
+```
+
+*Figure 3: Windowing. The deleted messages are gone from storage, not only from the prompt.*
 
 | After the user says | Window holds (user side) |
 |---|---|
@@ -93,11 +106,11 @@ A window does the same job in storage. The notebook's windowed history keeps onl
 | I have 2 cats | AI engineer, 2 cats |
 | What do you remember about me? | Answered from the job and the cats only |
 
-*Table 3: A two-exchange window. The name and the city slide out before the question arrives.*
+*Table 2: A two-exchange window. The name and the city slide out before the question arrives.*
 
-### Comparing the three bounds
+### Comparing the bounds
 
-Table 4 puts the strategies side by side, with full history as the baseline:
+Table 3 puts the strategies side by side, with full history as the baseline:
 
 | Strategy | What the model receives | Keeps early facts | Extra LLM calls | Stored history |
 |---|---|---|---|---|
@@ -106,19 +119,43 @@ Table 4 puts the strategies side by side, with full history as the baseline:
 | Window of `k` exchanges | Last `2k` messages | No | None | Only the window |
 | Running summary | Summary plus recent messages | Yes, compressed | One per fold | Summary plus recent |
 
-*Table 4: Four ways to decide what reaches the model.*
+*Table 3: Four ways to decide what reaches the model.*
 
 Wrap a trimming chain in `RunnableWithMessageHistory` and the store keeps the full history while the model sees only the trimmed part. That split between what is stored and what is sent is the question lesson 33.6 asks of a LangGraph thread.
 
-## In practice: picking a bound for Larkspur tickets
+The switcher applies each bound to turn 5 of the opening ticket. It is an illustration: the trim mode assumes a budget that fits two exchanges.
 
-For the Larkspur support assistant, the choice follows from two facts about its tickets:
+<div class="learning-widget evidence-switcher" data-comparison id="bound-switcher">
+<p class="widget-intro">Compare the four bounds on turn 5 of the Larkspur billing ticket, where the customer asks for the plan given in turn 1.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the history is bounded">
+<button type="button" data-mode="all" aria-pressed="false" aria-controls="bound-all">Keep everything</button>
+<button type="button" data-mode="trim" aria-pressed="false" aria-controls="bound-trim">Trim (Figure 2)</button>
+<button type="button" data-mode="window" aria-pressed="false" aria-controls="bound-window">Window (Figure 3)</button>
+<button type="button" data-mode="summary" aria-pressed="false" aria-controls="bound-summary">Summary (Figure 1)</button>
+</div>
+<section id="bound-all" class="mode-panel" data-announcement="Keep everything selected. The plan is answered from turn 1."><h4>Keep everything</h4><ul><li>Model receives: all four earlier exchanges and the question, 9 messages.</li><li>Plan answered? Yes, from turn 1 word for word.</li><li>Extra calls: none. Stored: all 10 messages after the reply.</li></ul></section>
+<section id="bound-trim" class="mode-panel" data-announcement="Trim selected. The plan is lost from the prompt but kept in storage."><h4>Trim by tokens</h4><ul><li>Model receives: turns 3 and 4 and the question.</li><li>Plan answered? No: silent truncation.</li><li>Extra calls: none. Stored: every message. A larger budget could still reach the plan.</li></ul></section>
+<section id="bound-window" class="mode-panel" data-announcement="Window selected. The plan is gone from storage."><h4>Window of two exchanges</h4><ul><li>Model receives: turns 3 and 4 and the question.</li><li>Plan answered? No.</li><li>Extra calls: none. Stored: only the last two exchanges; turn 1 is deleted.</li></ul></section>
+<section id="bound-summary" class="mode-panel" data-announcement="Summary selected. The plan reaches the model through the summary."><h4>Running summary</h4><ul><li>Model receives: the summary of turns 1 and 2, turns 3 and 4, and the question.</li><li>Plan answered? Yes, if the summariser kept it.</li><li>Extra calls: two folds before this turn, a third after it.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-1. **Early facts matter.** Plan, region and account appear in the first turn and decide later answers. A window or a trim alone would fail the turn-5 question in the opening example.
-2. **Most tickets are short.** While a chat fits the budget, keeping everything is cheapest and loses nothing.
-3. **The rule.** Keep everything up to the budget, then fold older turns into a summary, and test that the turn-1 plan still reaches the model late in a long ticket.
+### A bound for Larkspur tickets
+
+Two facts about Larkspur's tickets decide the choice. Early facts matter: plan, region and account appear in the first turn and decide later answers. A window or a trim alone fails the turn-5 question. Most tickets are short, and while a chat fits the budget, keeping everything is cheapest and loses nothing. The rule: keep everything up to the budget, then fold older turns into a summary, and test that the turn-1 plan still reaches the model late in a long ticket.
 
 > **What changes next:** the retriever is a second reader of the conversation, and it sees only the latest message. Lesson 33.4 rewrites follow-ups before retrieval.
+
+## Limits of this evidence
+
+- **One token counter.** Table 1 comes from the notebook's trimmer run in the scratchpad with `gpt-4o-mini`'s counter in `langchain-openai` 1.7.3, counting only, with no model call. Another counter cuts elsewhere.
+- **Code-derived traces.** The walkthrough's fold counts and Table 2's window contents follow from the notebook's loop and window class. The model's answers and the summaries' wording were not run.
+- **Illustration.** The Larkspur billing ticket and every switcher mode are illustrations, and the trim mode assumes a budget that fits two exchanges.
+
+## References
+
+1. LangChain, [Short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory), accessed 13 November 2026.
+2. LangChain, [Built-in middleware](https://docs.langchain.com/oss/python/langchain/middleware/built-in), for `SummarizationMiddleware`, accessed 13 November 2026.
 
 ## Key Takeaways
 

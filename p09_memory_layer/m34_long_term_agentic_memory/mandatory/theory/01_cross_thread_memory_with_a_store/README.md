@@ -2,8 +2,9 @@
 
 *[M34 theory](../README.md) · Lesson 34.1 · Notebooks: [`01a_cross_thread_memory_store.ipynb`](../../notebook/01a_cross_thread_memory_store.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A checkpointer remembers one chat, a Store remembers a customer, and the namespace is the only wall between customers -->
+<!-- format: approved -->
 
-## Store namespaces
+## Start with a customer the assistant forgot
 
 > **What you'll learn**
 >
@@ -26,6 +27,8 @@ LangGraph has two persistence primitives, and they answer different questions:
 | Attached with | `compile(checkpointer=...)` | `compile(store=...)` |
 
 *Table 1: The two persistence primitives. Only the Store outlives a thread.*
+
+## Store namespaces
 
 A **Store** holds JSON items, each addressed by three parts. The **namespace** is a tuple such as `("memories", "dana")`. The **key** names the item inside it. The **value** is a JSON-serialisable dict. Three operations cover most uses:
 
@@ -53,19 +56,16 @@ flowchart LR
 
 *Figure 1: Dana's two threads share one namespace. Omar's thread reads a different one and finds it empty.*
 
-### Following one fact across three threads
+### Follow one fact across three threads
 
-The notebook builds a one-node graph that reads and writes the store on every turn. To keep the focus on the store, its write rule is deliberately naive: a message containing "remember" is saved as a memory. The node then loads every item in the user's namespace into the system prompt. Three calls exercise it:
+The notebook builds a one-node graph that reads and writes the store on every turn. To keep the focus on the store, its write rule is deliberately naive: a message containing "remember" is saved as a memory. The node then loads every item in the user's namespace into the system prompt. We replayed its three calls with a stub model in place of gpt-4o-mini. The prompts below are exact, and the replies are not shown:
 
-| Call | Thread | User | What the system prompt holds |
-|---|---|---|---|
-| "Remember my name is Alice." | 1 | `user123` | The memory written this turn |
-| "What is my name?" | 2 (new) | `user123` | "my name is alice", loaded from the store |
-| "What is my name?" | 3 (new) | `userxyz` | No user info at all |
+<div class="walkthrough learning-widget" data-stepper id="thread-walkthrough">
+<p class="widget-intro">Follow the notebook's three calls. Each stage shows the thread, the user and the system prompt the node builds.</p>
+<div class="step-controls" hidden role="group" aria-label="Three calls"><button type="button" data-step="0" aria-pressed="false" aria-controls="thread-step-0">1. Thread 1 writes</button><button type="button" data-step="1" aria-pressed="false" aria-controls="thread-step-1">2. Thread 2 reads</button><button type="button" data-step="2" aria-pressed="false" aria-controls="thread-step-2">3. Thread 3 finds nothing</button></div>
+<div class="step-panels"><section id="thread-step-0" class="step-panel" aria-labelledby="thread-heading-0"><h4 id="thread-heading-0">1. "Remember my name is Alice."</h4><dl><dt>Thread and user</dt><dd>Thread 1, user123</dd><dt>Store write</dt><dd>"my name is alice." under ("memories", "user123")</dd><dt>System prompt</dt><dd>The memory written this turn</dd></dl></section><section id="thread-step-1" class="step-panel" aria-labelledby="thread-heading-1"><h4 id="thread-heading-1">2. "What is my name?" in a new thread</h4><dl><dt>Thread and user</dt><dd>Thread 2, user123</dd><dt>Checkpoint before the call</dt><dd>Empty: the thread is new</dd><dt>System prompt</dt><dd>"my name is alice.", loaded from the store</dd></dl></section><section id="thread-step-2" class="step-panel" aria-labelledby="thread-heading-2"><h4 id="thread-heading-2">3. "What is my name?" as another user</h4><dl><dt>Thread and user</dt><dd>Thread 3, userxyz</dd><dt>Store read</dt><dd>("memories", "userxyz") holds no items</dd><dt>System prompt</dt><dd>No user info at all</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 2: The notebook's three calls. The checkpointer has nothing for threads 2 and 3. Any recall there comes from the store.*
-
-Thread 2 answers correctly although its checkpoint is empty. Thread 3 cannot, because nothing was ever written under its user's namespace. The second row is what the store is for, and the third row is the property you must protect.
+Thread 2 can answer although its checkpoint is empty. Thread 3 cannot, because nothing was ever written under its user's namespace. The second call is what the store is for, and the third is the property you must protect.
 
 ### The default page of ten
 
@@ -77,7 +77,7 @@ Thread 2 answers correctly although its checkpoint is empty. Thread 3 cannot, be
 | `search` with `limit=100` | 11 |
 | `get` on key `"0"` in `("semantic", "omar")` | None |
 
-*Table 3: Eleven facts, three reads. Run in the scratchpad against the repo's locked langgraph 1.2.18.*
+*Table 2: Eleven facts, three reads. Run in the scratchpad against the repo's locked langgraph 1.2.18.*
 
 A read without `limit=` drops the 11th item and raises no error. We call this the **silent cap**, and lesson 34.3 meets it again when an agent preloads a customer's facts.
 
@@ -116,7 +116,7 @@ Each row plants one namespace mistake in the Larkspur assistant and follows it t
 | `user_id` as an ordinary tool argument | A model that writes `user_id="dana"` in Omar's chat reads her memories | **Cross-customer leak** |
 | A preload with no `limit=` | Dana's 11th fact never reaches the prompt | **Silent cap** |
 
-*Table 4: Planted namespace failures (illustrative), each traced to what the customer sees.*
+*Table 3: Planted namespace failures (illustrative), each traced to what the customer sees.*
 
 The first and third rows produce the same leak by different routes. The fix for both sits at the source of the id, never in a filter added after the read.
 
@@ -131,24 +131,30 @@ The namespace also decides how long a memory lives, because each id has its own 
 | `("session", session_id)` | One visit, any number of threads | Reply in French for this visit | `user_id`: the visit never ends |
 | `("procedures", agent_id)` | One agent or tenant | The approved refund procedure | `user_id`: a customer could own a rule |
 
-*Table 5: One namespace per memory layer. Lesson 34.2 gives each layer its own write rule.*
+*Table 4: One namespace per memory layer. Lesson 34.2 gives each layer its own write rule.*
 
 ### Swapping the backend
 
 `InMemoryStore` disappears with the process. `PostgresStore` implements the same interface: the graph is recompiled with a different store and no node changes. Opened from a connection string, it is a context manager that closes the connection when its block ends, and a one-time setup call creates the tables. The notebook probes for a local Postgres first and skips that part when none is running.
 
-## In practice: Dana's Friday chat
+## A namespace policy for Larkspur
 
-For Dana's refund question, the ideas above become four decisions:
-
-1. **Write her plan under her user.** The fact goes to `("semantic", user_id)` with Dana's id, a namespace no thread owns.
-2. **Read it before the model runs.** The Friday chat has a new `thread_id` and an empty checkpoint, and the node loads her namespace into the system prompt with an explicit `limit=`.
-3. **Take the id from the login.** The server puts Dana's `user_id` in the run's context. No tool and no message can name a different user.
-4. **Test isolation in code.** A second user in a fresh thread asks what the assistant knows about them, and a check asserts that nothing of Dana's appears.
+For Dana's refund question the rules above become one policy. Her plan goes to `("semantic", user_id)`, a namespace no thread owns. The Friday chat loads it before the model runs, with an explicit `limit=`. The server puts her `user_id` in the run's context, where no tool and no message can name a different user. A test opens a second user's fresh thread and asserts that nothing of Dana's appears.
 
 > **Key distinction:** the checkpointer answers "what was said in this chat", and the store answers "what do we know about this customer". Mixing up their keys is how memory either leaks or vanishes.
 
 The notebook's write rule saves anything after the word "remember". Lesson 34.2 replaces it with a separate write rule for facts, events, visit settings and procedures.
+
+## Limits of this evidence
+
+- **Stub model.** The three-call trace replays the notebook's node with a stub in place of gpt-4o-mini. The system prompts and checkpoints are exact; whether the model then answers "Alice" is not tested here.
+- **In-memory store only.** Table 2 and the trace ran on `InMemoryStore`. The Postgres part of the notebook was not run, because it needs a database server.
+- **Illustrations.** Dana, Omar and the planted failures in Table 3 are illustrative, not runs.
+
+## References
+
+1. [LangGraph persistence: checkpointers and stores](https://docs.langchain.com/oss/python/langgraph/persistence), accessed 13 November 2026.
+2. [LangChain memory overview](https://docs.langchain.com/oss/python/concepts/memory), accessed 13 November 2026.
 
 ## Key Takeaways
 

@@ -336,7 +336,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>Every turn reads memory before the model runs and writes it after. The ids decide which namespaces a turn can touch, so they come from the login and the visit, never from the conversation. Each layer has one writer: the model for facts, a graph node for episodes, the app for session items and a human for procedures.</p>
-<h2 id="store-namespaces">Store namespaces</h2>
+<h2 id="start-with-a-customer-the-assistant-forgot">Start with a customer the assistant forgot</h2>
 <p class="lesson-of">Lesson 34.1: Cross-thread memory with a Store. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/mandatory/notebook/01a_cross_thread_memory_store.ipynb" target="_blank" rel="noopener"><code>01a_cross_thread_memory_store.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -382,6 +382,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The two persistence primitives. Only the Store outlives a thread.</em></p>
+<h2 id="store-namespaces">Store namespaces</h2>
 <p>A <strong>Store</strong> holds JSON items, each addressed by three parts. The <strong>namespace</strong> is a tuple such as <code>("memories", "dana")</code>. The <strong>key</strong> names the item inside it. The <strong>value</strong> is a JSON-serialisable dict. Three operations cover most uses:</p>
 <ul>
 <li><strong><code>put(namespace, key, value)</code></strong>: creates the item, or overwrites it if the key exists.</li>
@@ -404,40 +405,14 @@ th:last-child, td:last-child { padding-right: 0; }
     T3 -- read --&gt; NO
 </pre></figure>
 <p><em>Figure 1: Dana&rsquo;s two threads share one namespace. Omar&rsquo;s thread reads a different one and finds it empty.</em></p>
-<h3>Following one fact across three threads</h3>
-<p>The notebook builds a one-node graph that reads and writes the store on every turn. To keep the focus on the store, its write rule is deliberately naive: a message containing &ldquo;remember&rdquo; is saved as a memory. The node then loads every item in the user&rsquo;s namespace into the system prompt. Three calls exercise it:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Call</th>
-<th>Thread</th>
-<th>User</th>
-<th>What the system prompt holds</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>&ldquo;Remember my name is Alice.&rdquo;</td>
-<td>1</td>
-<td><code>user123</code></td>
-<td>The memory written this turn</td>
-</tr>
-<tr>
-<td>&ldquo;What is my name?&rdquo;</td>
-<td>2 (new)</td>
-<td><code>user123</code></td>
-<td>&ldquo;my name is alice&rdquo;, loaded from the store</td>
-</tr>
-<tr>
-<td>&ldquo;What is my name?&rdquo;</td>
-<td>3 (new)</td>
-<td><code>userxyz</code></td>
-<td>No user info at all</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: The notebook&rsquo;s three calls. The checkpointer has nothing for threads 2 and 3. Any recall there comes from the store.</em></p>
-<p>Thread 2 answers correctly although its checkpoint is empty. Thread 3 cannot, because nothing was ever written under its user&rsquo;s namespace. The second row is what the store is for, and the third row is the property you must protect.</p>
+<h3>Follow one fact across three threads</h3>
+<p>The notebook builds a one-node graph that reads and writes the store on every turn. To keep the focus on the store, its write rule is deliberately naive: a message containing &ldquo;remember&rdquo; is saved as a memory. The node then loads every item in the user&rsquo;s namespace into the system prompt. We replayed its three calls with a stub model in place of gpt-4o-mini. The prompts below are exact, and the replies are not shown:</p>
+<div class="walkthrough learning-widget" data-stepper id="thread-walkthrough">
+<p class="widget-intro">Follow the notebook's three calls. Each stage shows the thread, the user and the system prompt the node builds.</p>
+<div class="step-controls" hidden role="group" aria-label="Three calls"><button type="button" data-step="0" aria-pressed="false" aria-controls="thread-step-0">1. Thread 1 writes</button><button type="button" data-step="1" aria-pressed="false" aria-controls="thread-step-1">2. Thread 2 reads</button><button type="button" data-step="2" aria-pressed="false" aria-controls="thread-step-2">3. Thread 3 finds nothing</button></div>
+<div class="step-panels"><section id="thread-step-0" class="step-panel" aria-labelledby="thread-heading-0"><h4 id="thread-heading-0">1. "Remember my name is Alice."</h4><dl><dt>Thread and user</dt><dd>Thread 1, user123</dd><dt>Store write</dt><dd>"my name is alice." under ("memories", "user123")</dd><dt>System prompt</dt><dd>The memory written this turn</dd></dl></section><section id="thread-step-1" class="step-panel" aria-labelledby="thread-heading-1"><h4 id="thread-heading-1">2. "What is my name?" in a new thread</h4><dl><dt>Thread and user</dt><dd>Thread 2, user123</dd><dt>Checkpoint before the call</dt><dd>Empty: the thread is new</dd><dt>System prompt</dt><dd>"my name is alice.", loaded from the store</dd></dl></section><section id="thread-step-2" class="step-panel" aria-labelledby="thread-heading-2"><h4 id="thread-heading-2">3. "What is my name?" as another user</h4><dl><dt>Thread and user</dt><dd>Thread 3, userxyz</dd><dt>Store read</dt><dd>("memories", "userxyz") holds no items</dd><dt>System prompt</dt><dd>No user info at all</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Thread 2 can answer although its checkpoint is empty. Thread 3 cannot, because nothing was ever written under its user&rsquo;s namespace. The second call is what the store is for, and the third is the property you must protect.</p>
 <h3>The default page of ten</h3>
 <p><code>search</code> has a default that bites later. We wrote 11 synthetic facts into <code>("semantic", "dana")</code> and read them back with an in-memory store:</p>
 <div class="sheet scroll"><table>
@@ -462,7 +437,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Eleven facts, three reads. Run in the scratchpad against the repo&rsquo;s locked langgraph 1.2.18.</em></p>
+<p><em>Table 2: Eleven facts, three reads. Run in the scratchpad against the repo&rsquo;s locked langgraph 1.2.18.</em></p>
 <p>A read without <code>limit=</code> drops the 11th item and raises no error. We call this the <strong>silent cap</strong>, and lesson 34.3 meets it again when an agent preloads a customer&rsquo;s facts.</p>
 <h3>Where the ids come from</h3>
 <p>Nothing inside the store separates customers. Who may read what is decided entirely by how the namespace tuple is built. Every part of it must come from trusted input:</p>
@@ -515,7 +490,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Planted namespace failures (illustrative), each traced to what the customer sees.</em></p>
+<p><em>Table 3: Planted namespace failures (illustrative), each traced to what the customer sees.</em></p>
 <p>The first and third rows produce the same leak by different routes. The fix for both sits at the source of the id, never in a filter added after the read.</p>
 <h3>Choosing a namespace by scope</h3>
 <p>The namespace also decides how long a memory lives, because each id has its own lifetime. A tuple keyed by the visit ends with the visit, and one keyed by the user lasts until someone deletes it:</p>
@@ -555,21 +530,26 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: One namespace per memory layer. Lesson 34.2 gives each layer its own write rule.</em></p>
+<p><em>Table 4: One namespace per memory layer. Lesson 34.2 gives each layer its own write rule.</em></p>
 <h3>Swapping the backend</h3>
 <p><code>InMemoryStore</code> disappears with the process. <code>PostgresStore</code> implements the same interface: the graph is recompiled with a different store and no node changes. Opened from a connection string, it is a context manager that closes the connection when its block ends, and a one-time setup call creates the tables. The notebook probes for a local Postgres first and skips that part when none is running.</p>
-<h2 id="in-practice-danarsquos-friday-chat">In practice: Dana&rsquo;s Friday chat</h2>
-<p>For Dana&rsquo;s refund question, the ideas above become four decisions:</p>
-<ol>
-<li><strong>Write her plan under her user.</strong> The fact goes to <code>("semantic", user_id)</code> with Dana&rsquo;s id, a namespace no thread owns.</li>
-<li><strong>Read it before the model runs.</strong> The Friday chat has a new <code>thread_id</code> and an empty checkpoint, and the node loads her namespace into the system prompt with an explicit <code>limit=</code>.</li>
-<li><strong>Take the id from the login.</strong> The server puts Dana&rsquo;s <code>user_id</code> in the run&rsquo;s context. No tool and no message can name a different user.</li>
-<li><strong>Test isolation in code.</strong> A second user in a fresh thread asks what the assistant knows about them, and a check asserts that nothing of Dana&rsquo;s appears.</li>
-</ol>
+<h2 id="a-namespace-policy-for-larkspur">A namespace policy for Larkspur</h2>
+<p>For Dana&rsquo;s refund question the rules above become one policy. Her plan goes to <code>("semantic", user_id)</code>, a namespace no thread owns. The Friday chat loads it before the model runs, with an explicit <code>limit=</code>. The server puts her <code>user_id</code> in the run&rsquo;s context, where no tool and no message can name a different user. A test opens a second user&rsquo;s fresh thread and asserts that nothing of Dana&rsquo;s appears.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> the checkpointer answers &ldquo;what was said in this chat&rdquo;, and the store answers &ldquo;what do we know about this customer&rdquo;. Mixing up their keys is how memory either leaks or vanishes.</p>
 </blockquote>
 <p>The notebook&rsquo;s write rule saves anything after the word &ldquo;remember&rdquo;. Lesson 34.2 replaces it with a separate write rule for facts, events, visit settings and procedures.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub model.</strong> The three-call trace replays the notebook&rsquo;s node with a stub in place of gpt-4o-mini. The system prompts and checkpoints are exact; whether the model then answers &ldquo;Alice&rdquo; is not tested here.</li>
+<li><strong>In-memory store only.</strong> Table 2 and the trace ran on <code>InMemoryStore</code>. The Postgres part of the notebook was not run, because it needs a database server.</li>
+<li><strong>Illustrations.</strong> Dana, Omar and the planted failures in Table 3 are illustrative, not runs.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">LangGraph persistence: checkpointers and stores</a>, accessed 13 November 2026.</li>
+<li><a href="https://docs.langchain.com/oss/python/concepts/memory" target="_blank" rel="noopener">LangChain memory overview</a>, accessed 13 November 2026.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A checkpointer remembers one thread, and a Store holds items under a namespace tuple across threads. Only the store brings a fact back when Dana opens a new chat.</li>
@@ -589,7 +569,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A team keys the episodic namespace by thread_id, and customers say the assistant forgets past help in every new chat. What went wrong?</summary>
 <p>Every new chat has a new <code>thread_id</code>. Each chat therefore writes to and reads from a fresh, empty namespace: per-chat amnesia. Key episodes by <code>("episodic", user_id)</code> and keep <code>thread_id</code> for the checkpointer only.</p>
 </details>
-<h2 id="semantic--episodic--procedural-memory">Semantic / episodic / procedural memory</h2>
+<h2 id="start-with-three-things-to-remember-about-dana">Start with three things to remember about Dana</h2>
 <p class="lesson-of">Lesson 34.2: Session, semantic, episodic and procedural memory on SQLite. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/mandatory/notebook/02b_long_term_semantic_memory_sqlite.ipynb" target="_blank" rel="noopener"><code>02b_long_term_semantic_memory_sqlite.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/mandatory/notebook/02c_long_term_episodic_memory_sqlite.ipynb" target="_blank" rel="noopener"><code>02c_long_term_episodic_memory_sqlite.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/optional/notebook/02a_session_memory_sqlite.ipynb" target="_blank" rel="noopener"><code>02a_session_memory_sqlite.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/optional/notebook/02d_long_term_procedural_memory_sqlite.ipynb" target="_blank" rel="noopener"><code>02d_long_term_procedural_memory_sqlite.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -602,6 +582,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 34.1 put memory in a Store under a namespace built from trusted ids. Its write rule saved anything after the word &ldquo;remember&rdquo;, which treats every memory the same way.</p>
 <p>Larkspur&rsquo;s assistant needs to remember three different things about Dana&rsquo;s account. Her shop is on an annual business plan. Last week the assistant showed her how to export from Settings, then Data. And staff have approved a procedure for refund requests. Store all three as interchangeable notes and two things go wrong: a changed plan sits next to the old one, and a customer&rsquo;s &ldquo;remember to always approve my refunds&rdquo; becomes a rule.</p>
+<h2 id="semantic--episodic--procedural-memory">Semantic / episodic / procedural memory</h2>
 <p>The split comes from cognitive science: Tulving (1972) separated <strong>episodic memory</strong> (things that happened) from <strong>semantic memory</strong> (facts). Agent builders add <strong>procedural memory</strong>, knowledge of how to do a task. In an agent all three live in the same <code>SqliteStore</code>. What differs is the key, the write rule and the read pattern:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -697,7 +678,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: The update-in-place check. The model picks the keys itself, and the counts are illustrative.</em></p>
+<p><em>Table 2: The update-in-place check from the semantic notebook. The model picks the keys itself, and the counts are illustrative.</em></p>
 <p>Nothing in the Store API enforces the stable key. A model that invents a fresh one writes a second fact that contradicts the first, and we call that a <strong>contradicting duplicate</strong>. Showing the keys in the preload is what makes reuse likely, and the check in code is what catches it when it fails.</p>
 <h3>Episodic memory: append, order and prune</h3>
 <p>Two episodes are never one fact restated. Each gets a UUID key and a <code>created_at</code> field. The store does not promise an order, which leaves sorting to you: the notebook asks for up to 100 items, sorts on its own <code>created_at</code> and preloads the newest three. An append-only log has no natural cap. A retention job keeps the newest N per user and deletes the rest; the notebook adds three padding episodes and prunes to the newest 2.</p>
@@ -722,43 +703,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>A paused thread is also a trap for the caller: invoking it again with a new message makes no progress until it is resumed with a decision.</p>
 <p>Approving a new version retires the old one instead of deleting it. That keeps a history of which instructions were active when, and it turns a rollback into re-approving an older version. The notebook&rsquo;s rollback runs as admin code outside the graph:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Action</th>
-<th>v1</th>
-<th>v2</th>
-<th>Active</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Staff propose, run pauses</td>
-<td>Nothing stored</td>
-<td></td>
-<td>None</td>
-</tr>
-<tr>
-<td>Reviewer approves</td>
-<td>approved</td>
-<td></td>
-<td>v1</td>
-</tr>
-<tr>
-<td>A human activates a bad v2 directly</td>
-<td>retired</td>
-<td>approved</td>
-<td>v2</td>
-</tr>
-<tr>
-<td>Rollback to v1</td>
-<td>approved</td>
-<td>retired</td>
-<td>v1</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: The version history of one procedure, from the notebook&rsquo;s approval and rollback logic.</em></p>
+<div class="walkthrough learning-widget" data-stepper id="procedure-walkthrough">
+<p class="widget-intro">Follow one procedure through the notebook's approval and rollback logic. Each stage shows every stored version and which one the agent follows.</p>
+<div class="step-controls" hidden role="group" aria-label="Procedure versions"><button type="button" data-step="0" aria-pressed="false" aria-controls="proc-step-0">1. Propose</button><button type="button" data-step="1" aria-pressed="false" aria-controls="proc-step-1">2. Approve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="proc-step-2">3. Bad v2</button><button type="button" data-step="3" aria-pressed="false" aria-controls="proc-step-3">4. Roll back</button></div>
+<div class="step-panels"><section id="proc-step-0" class="step-panel" aria-labelledby="proc-heading-0"><h4 id="proc-heading-0">1. Staff propose, the run pauses</h4><dl><dt>Stored versions</dt><dd>None: nothing is written before the pause</dd><dt>Active</dt><dd>None</dd></dl></section><section id="proc-step-1" class="step-panel" aria-labelledby="proc-heading-1"><h4 id="proc-heading-1">2. The reviewer approves</h4><dl><dt>Stored versions</dt><dd>v1 approved</dd><dt>Active</dt><dd>v1</dd></dl></section><section id="proc-step-2" class="step-panel" aria-labelledby="proc-heading-2"><h4 id="proc-heading-2">3. A human activates a bad v2 directly</h4><dl><dt>Stored versions</dt><dd>v1 retired, v2 approved</dd><dt>Active</dt><dd>v2</dd></dl></section><section id="proc-step-3" class="step-panel" aria-labelledby="proc-heading-3"><h4 id="proc-heading-3">4. Roll back to v1</h4><dl><dt>Stored versions</dt><dd>v1 approved, v2 retired</dd><dt>Active</dt><dd>v1, the highest approved version</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>In the notebook the approved procedure checks a 30-day window and offers 80% store credit outside it. A customer whose order is 45 days old asks for a refund twice, once to the agent that holds the procedure and once to a staging agent id with none, and code checks each reply for the &ldquo;80%&rdquo; offer. In a Larkspur version (illustrative), the approved <code>handle_refund_request</code> would say what the handbook says: a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic.</p>
 <p>The fourth layer is not about what to remember. It is about how long to remember it.</p>
 <h2 id="session-memory-with-a-ttl">Session memory with a TTL</h2>
@@ -799,7 +748,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: TTL settings for a session store, and how each one misleads.</em></p>
+<p><em>Table 3: TTL settings for a session store, and how each one misleads.</em></p>
 <p>Inside its TTL, the item behaves like any store item: a second conversation under the same <code>session_id</code> still sees &ldquo;reply only in French&rdquo;, and a new visit sees nothing. Expiry is where SQLite differs. We reran the notebook&rsquo;s expiry check in the scratchpad:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -827,23 +776,24 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: Expiry on <code>SqliteStore</code> from langgraph-checkpoint-sqlite 3.1.2, the version this repo locks.</em></p>
+<p><em>Table 4: Expiry on <code>SqliteStore</code> from langgraph-checkpoint-sqlite 3.1.2, the version this repo locks. Rerun in the scratchpad.</em></p>
 <p>The store wrote an expiry time and then ignored it on read. We call this the <strong>zombie session</strong>: an item nobody sweeps quietly becomes long-term memory. On SQLite, run a sweeper (a sweep interval in the TTL config, or a background sweeper thread), or check the item&rsquo;s <code>updated_at</code> yourself where even one stale read matters. After the sweep the notebook&rsquo;s agent falls back to its default reply style.</p>
-<h2 id="in-practice-four-layers-for-danarsquos-account">In practice: four layers for Dana&rsquo;s account</h2>
-<p>For Dana&rsquo;s account the four layers become four write paths:</p>
-<ol>
-<li><strong>Her plan is semantic.</strong> The model saves it under the key <code>plan</code>; a plan change overwrites it.</li>
-<li><strong>The export help is episodic.</strong> A summary is appended under a new UUID, and a retention job keeps the newest N.</li>
-<li><strong>The refund procedure is procedural.</strong> Staff propose it, a reviewer approves it, and customer chats never hold the proposal tool.</li>
-<li><strong>&ldquo;Reply in French this visit&rdquo; is session memory.</strong> The app writes it with a 30-minute TTL and a sweeper deletes it after the visit.</li>
-</ol>
+<h2 id="four-write-paths-for-danarsquos-account">Four write paths for Dana&rsquo;s account</h2>
+<p>For Dana&rsquo;s account the four layers become four write paths. Her plan is semantic: the model saves it under the key <code>plan</code>, and a plan change overwrites it. The export help is episodic: a summary is appended under a new UUID and a retention job keeps the newest N. The refund procedure is procedural: staff propose it, a reviewer approves it, and customer chats never hold the proposal tool. &ldquo;Reply in French this visit&rdquo; is session memory, written by the app with a 30-minute TTL and deleted by a sweeper after the visit.</p>
 <blockquote>
-<p><strong>Pitfall: one layer, two writers.</strong> If both the model and a background job can write episodes, nobody can say why an episode exists. Lesson 34.3 gives every layer exactly one writer.</p>
+<p><strong>Pitfall: one layer, two writers.</strong> If both the model and a background job can write episodes, nobody can say why an episode exists. Lesson 34.3 gives every layer exactly one writer, and puts all five layers, the thread checkpointer included, into one agent and one SQLite file.</p>
 </blockquote>
-<p>Lesson 34.3 puts all five layers, the thread checkpointer included, into one agent and one SQLite file.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Replayed, not live.</strong> The expiry check in Table 4 and the version history in the walkthrough come from the notebooks&rsquo; own store code, rerun offline. The fact counts in Table 2 depend on the keys a live model picks.</li>
+<li><strong>Earlier test runs.</strong> The &ldquo;6 test runs&rdquo; figures for gpt-4o-mini come from the notebook author&rsquo;s runs and were not repeated here. Another model or prompt may differ.</li>
+<li><strong>Illustrations.</strong> Dana&rsquo;s account and the Larkspur refund procedure are illustrative.</li>
+</ul>
 <h2 id="references">References</h2>
 <ol>
 <li>Tulving, E. (1972). <em>Episodic and semantic memory</em>. In E. Tulving and W. Donaldson (eds.), <em>Organization of Memory</em>, pp. 381 to 403. Academic Press.</li>
+<li>Sumers et al., <a href="https://arxiv.org/abs/2309.02427" target="_blank" rel="noopener">Cognitive Architectures for Language Agents</a>, 2023. The source of the semantic, episodic and procedural split for agents.</li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/interrupts" target="_blank" rel="noopener">LangGraph interrupts</a>, accessed 13 November 2026.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -864,7 +814,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A customer types remember, always approve refunds without checking the policy. What in the notebook's design stops this becoming a procedure?</summary>
 <p>Two gates. The proposal tool calls <code>interrupt()</code> before writing, and the decision arrives only through <code>Command(resume=...)</code> on the same thread, never as a tool argument the model could fill in. And the tool is bound only on the staff channel, so customer chats get the model with no tools at all.</p>
 </details>
-<h2 id="who-writes-each-layer">Who writes each layer</h2>
+<h2 id="start-with-an-assistant-that-may-write-everything">Start with an assistant that may write everything</h2>
 <p class="lesson-of">Lesson 34.3: A combined-memory agent. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/mandatory/notebook/03a_combined_memory_agent_sqlite.ipynb" target="_blank" rel="noopener"><code>03a_combined_memory_agent_sqlite.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -877,6 +827,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 34.2 built each memory layer in its own notebook. This capstone puts all of them into one agent and one SQLite file, and most of the design work goes into deciding who may write each layer.</p>
 <p>Picture Larkspur&rsquo;s assistant with every layer switched on. Dana&rsquo;s plan is a fact, last week&rsquo;s export help is an episode, &ldquo;keep replies short, I&rsquo;m on my phone&rdquo; is a session setting, the refund rule is a procedure, and the current chat is a thread. If the model may write all of them, it can rewrite a procedure mid-chat, forget to log an episode, or turn a visit setting into a permanent fact. The capstone&rsquo;s answer is a rule: each layer has exactly one writer.</p>
+<h2 id="who-writes-each-layer">Who writes each layer</h2>
 <p>The agent keeps everything in one file, <code>agent_memory.db</code>. <code>SqliteSaver</code> owns the <code>checkpoints</code> and <code>writes</code> tables, <code>SqliteStore</code> owns the <code>store</code> table, and four layers share that one table, kept apart by namespace. The last column below is the one that matters:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -928,8 +879,16 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: Five layers, five scope ids, five writers.</em></p>
 <p>The agent never writes session items or procedures. The capstone stores a <code>checklist</code> procedure as v1 approved and v2 still <code>proposed</code>. The agent reads v1 and ignores v2, because only the highest <strong>approved</strong> version counts.</p>
-<h3>Recording an episode in code</h3>
-<p>The episodic notebook in lesson 34.2 gave the model a save tool, and the user asked for the save. Without that request the tool goes unused: in six test runs of this agent, with the tool bound and a system-prompt rule to use it, gpt-4o-mini never saved one episode. We call this the <strong>forgotten write</strong>. A memory layer that depends on the model remembering to write it stays empty.</p>
+<h3>Two ways to write an episode</h3>
+<p>The episodic notebook in lesson 34.2 gave the model a save tool, and the user asked for the save. In that design the model decides whether a turn is worth remembering:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S([START]) --&gt; A[agent]
+    A -- "save_episode call" --&gt; T[tools]
+    T --&gt; A
+    A -- final answer --&gt; E([END])
+</pre></figure>
+<p><em>Figure 1: The tool design. An episode exists only if the model chooses to call the save tool.</em></p>
+<p>Without a request from the user the tool goes unused: in six test runs of this agent, with the tool bound and a system-prompt rule to use it, gpt-4o-mini never saved one episode. We call this the <strong>forgotten write</strong>. A memory layer that depends on the model remembering to write it stays empty.</p>
 <p>The capstone moves the write into the graph. A node runs once per turn, after the final answer:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S([START]) --&gt; A[agent]
@@ -938,8 +897,19 @@ th:last-child, td:last-child { padding-right: 0; }
     A -- final answer --&gt; R["record_episode&lt;br/&gt;summarise, check, append"]
     R --&gt; E([END])
 </pre></figure>
-<p><em>Figure 1: The capstone graph. A final answer goes to the episode writer instead of straight to the end.</em></p>
-<p><code>record_episode</code> asks the model for a structured summary with three fields: <code>work_request</code>, <code>task</code> and <code>outcome</code>. Code then makes the decision. A turn counts as a task only if <code>work_request</code> quotes the user&rsquo;s own message, which code checks by looking for the quote&rsquo;s first 20 characters in it. We ran that check against the capstone&rsquo;s credentials request, &ldquo;Draft a checklist for rotating our production database credentials.&rdquo;:</p>
+<p><em>Figure 2: The capstone graph. A final answer goes to the episode writer instead of straight to the end.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="writer-switcher">
+<p class="widget-intro">Compare the two designs on Priya's request for a credentials-rotation checklist.</p>
+<div class="mode-controls" hidden role="group" aria-label="Who writes the episode">
+<button type="button" data-mode="tool" aria-pressed="false" aria-controls="writer-tool">Model calls a tool (Figure 1)</button>
+<button type="button" data-mode="node" aria-pressed="false" aria-controls="writer-node">Node after the answer (Figure 2)</button>
+</div>
+<section id="writer-tool" class="mode-panel" data-announcement="Tool design selected. No episode is saved."><h4>Model calls a tool</h4><ul><li>Who decides: the model, while it is also answering.</li><li>In six test runs: no episode saved.</li></ul><p>Visit 2 has nothing to recall, and nothing logs an error.</p></section>
+<section id="writer-node" class="mode-panel" data-announcement="Node design selected. The task is recorded and the oldest episode is pruned."><h4>Node after the answer</h4><ul><li>Who decides: code, using a summary the model fills in.</li><li>The checklist becomes the newest episode, and the prune deletes "Explain blue-green deploys".</li></ul><p>The write happens on every task turn, whether or not the model thinks of it.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p><code>record_episode</code> asks the model for a structured summary with three fields: <code>work_request</code>, <code>task</code> and <code>outcome</code>. Code then makes the decision. A turn counts as a task only if the first 20 characters of <code>work_request</code> appear in the user&rsquo;s own message. We ran that check against the capstone&rsquo;s request, &ldquo;Draft a checklist for rotating our production database credentials.&rdquo;:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -952,67 +922,35 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>The request, copied word for word</td>
 <td>&ldquo;Draft a checklist fo&rdquo;</td>
-<td>✓</td>
+<td>Yes</td>
 </tr>
 <tr>
 <td>&ldquo;none&rdquo; (a greeting or a fact)</td>
 <td></td>
-<td>✗</td>
+<td>No</td>
 </tr>
 <tr>
 <td>&ldquo;Create a checklist for credential rotation&rdquo;</td>
 <td>&ldquo;Create a checklist f&rdquo;</td>
-<td>✗</td>
+<td>No</td>
 </tr>
 <tr>
 <td>&ldquo;draft a checklist&rdquo;</td>
 <td>&ldquo;draft a checklist&rdquo;</td>
-<td>✓</td>
+<td>Yes</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: The quote check on four model outputs. The rule runs in code, so a paraphrase cannot pass as a request.</em></p>
-<p>A real task becomes a new episode under a fresh key, and episodes past <code>MAX_EPISODES = 3</code> are deleted, oldest first. Priya starts with three episodes from a month ago. When the credentials checklist is recorded, the prune deletes &ldquo;Explain blue-green deploys&rdquo;, the oldest of them.</p>
+<p><em>Table 2: The quote check on four model outputs, rerun in the scratchpad. The rule runs in code, so a paraphrase cannot pass as a request.</em></p>
+<p>A real task becomes a new episode under a fresh key, and episodes past <code>MAX_EPISODES = 3</code> are deleted, oldest first. Priya starts with three episodes from a month ago, and recording the checklist prunes the oldest of them.</p>
 <h3>Checking every layer across two visits</h3>
 <p>The end-to-end run checks each layer in code, with no human reading the replies:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Call</th>
-<th>Ids</th>
-<th>What the code checks</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Priya, visit 1: introduces herself</td>
-<td><code>priya-thread-1</code>, <code>priya-visit-1</code></td>
-<td>Her facts are saved under stable keys</td>
-</tr>
-<tr>
-<td>Priya, visit 1: asks for a credentials-rotation checklist</td>
-<td>Same</td>
-<td>The checklist ends with the procedure&rsquo;s <code>Risk:</code> line and stays within the session&rsquo;s 60-word limit; the task is the newest episode and 3 are kept</td>
-</tr>
-<tr>
-<td>Priya, visit 2: asks her role and last task</td>
-<td><code>priya-thread-2</code>, <code>priya-visit-2</code></td>
-<td>The reply names her role and the credentials checklist</td>
-</tr>
-<tr>
-<td>Priya, visit 2: switches from Terraform to Pulumi</td>
-<td>Same</td>
-<td>The fact count is unchanged and exactly one fact changed</td>
-</tr>
-<tr>
-<td>Marco, visit 1: asks what the assistant knows</td>
-<td><code>marco-thread-1</code>, <code>marco-visit-1</code></td>
-<td>Nothing of Priya&rsquo;s appears; his namespaces are empty</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: The capstone&rsquo;s end-to-end checks. The replies come from a live model; the checks are the repeatable part.</em></p>
-<p>Marco gets the same procedure as Priya, because procedures are scoped to the agent, while his facts and episodes stay in his own namespaces.</p>
+<div class="walkthrough learning-widget" data-stepper id="capstone-walkthrough">
+<p class="widget-intro">Follow the capstone's five calls. Each stage shows the ids the server passes and what the code checks.</p>
+<div class="step-controls" hidden role="group" aria-label="Capstone calls"><button type="button" data-step="0" aria-pressed="false" aria-controls="cap-step-0">1. Introduce</button><button type="button" data-step="1" aria-pressed="false" aria-controls="cap-step-1">2. Checklist</button><button type="button" data-step="2" aria-pressed="false" aria-controls="cap-step-2">3. Recall</button><button type="button" data-step="3" aria-pressed="false" aria-controls="cap-step-3">4. Update</button><button type="button" data-step="4" aria-pressed="false" aria-controls="cap-step-4">5. Marco</button></div>
+<div class="step-panels"><section id="cap-step-0" class="step-panel" aria-labelledby="cap-heading-0"><h4 id="cap-heading-0">1. Priya, visit 1: introduces herself</h4><dl><dt>Ids</dt><dd>priya-thread-1, priya-visit-1</dd><dt>Check</dt><dd>Her facts are saved under stable keys</dd></dl></section><section id="cap-step-1" class="step-panel" aria-labelledby="cap-heading-1"><h4 id="cap-heading-1">2. Priya, visit 1: asks for a credentials checklist</h4><dl><dt>Ids</dt><dd>Same</dd><dt>Check</dt><dd>The reply ends with the procedure's Risk: line and stays within the session's 60-word limit. The task is the newest episode and 3 are kept.</dd></dl></section><section id="cap-step-2" class="step-panel" aria-labelledby="cap-heading-2"><h4 id="cap-heading-2">3. Priya, visit 2: asks her role and last task</h4><dl><dt>Ids</dt><dd>priya-thread-2, priya-visit-2</dd><dt>Check</dt><dd>The reply names her role and the credentials checklist</dd></dl></section><section id="cap-step-3" class="step-panel" aria-labelledby="cap-heading-3"><h4 id="cap-heading-3">4. Priya, visit 2: switches from Terraform to Pulumi</h4><dl><dt>Ids</dt><dd>Same</dd><dt>Check</dt><dd>The fact count is unchanged and exactly one fact changed</dd></dl></section><section id="cap-step-4" class="step-panel" aria-labelledby="cap-heading-4"><h4 id="cap-heading-4">5. Marco, visit 1: asks what the assistant knows</h4><dl><dt>Ids</dt><dd>marco-thread-1, marco-visit-1</dd><dt>Check</dt><dd>Nothing of Priya's appears, and his namespaces are empty</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The replies come from a live model, and the checks are the repeatable part. Marco gets the same procedure as Priya, because procedures are scoped to the agent, while his facts and episodes stay in his own namespaces.</p>
 <h2 id="the-preload-budget">The preload budget</h2>
 <p>Every model call starts by reading memory. The capstone preloads all four store layers into the system prompt: facts with their keys, episodes newest first, the session instruction and the approved procedures. The tool loop means one turn can make several model calls, and each call carries the whole preload again:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
@@ -1026,7 +964,7 @@ th:last-child, td:last-child { padding-right: 0; }
     G-&gt;&gt;M: preload + messages
     M--&gt;&gt;G: final answer
 </pre></figure>
-<p><em>Figure 2: A turn with one tool call makes two model calls and pays for the preload twice.</em></p>
+<p><em>Figure 3: A turn with one tool call makes two model calls and pays for the preload twice.</em></p>
 <p>We rebuilt Priya&rsquo;s first system prompt of visit 1 from the notebook&rsquo;s template and seeded data, and counted characters, estimating tokens at four characters each:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1039,8 +977,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Template with every layer empty</td>
-<td>535</td>
-<td>134</td>
+<td>406</td>
+<td>102</td>
 </tr>
 <tr>
 <td>Priya&rsquo;s first call: 3 episodes, the session note, checklist v1</td>
@@ -1049,12 +987,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>What memory adds</td>
-<td>342</td>
-<td>86</td>
+<td>471</td>
+<td>118</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: The preload on Priya&rsquo;s first call. Computed in the scratchpad from the notebook&rsquo;s template and data.</em></p>
+<p><em>Table 3: The preload on Priya&rsquo;s first call. Computed in the scratchpad from the notebook&rsquo;s template and data.</em></p>
 <p>That is cheap while memory is small. It has two limits, each with a name:</p>
 <ul>
 <li><strong>The silent cap.</strong> <code>store.search()</code> returns 10 items unless you pass <code>limit=</code>, as lesson 34.1 measured. The capstone passes <code>limit=100</code> everywhere, and a preload without it drops the 11th fact with no error.</li>
@@ -1069,24 +1007,29 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>The notebook shows the Postgres version without running it, because it needs a database server.</p>
 <p>The same layers can also be two hand-written SQL tables. A primary key on user and key with an insert-or-replace gives the semantic upsert, and a fresh id per row gives the episodic append. Tables give you joins, constraints and indexes you choose. The Store gives you namespaces, per-item TTLs, embedding search and the Postgres swap without touching the agent. <code>SqliteStore</code> keeps its items in its own <code>store</code> table, but that schema is internal and may change between versions: read it only through <code>get</code> and <code>search</code>.</p>
-<h2 id="in-practice-danarsquos-assistant-with-every-layer">In practice: Dana&rsquo;s assistant with every layer</h2>
-<p>For Larkspur, the capstone&rsquo;s rules become five settings:</p>
-<ol>
-<li><strong>The checkpointer owns the chat.</strong> Each of Dana&rsquo;s chats is a thread, replayed in full.</li>
-<li><strong>The app owns the visit.</strong> &ldquo;I&rsquo;m on my phone&rdquo; is written with a 30-minute TTL and swept afterwards.</li>
-<li><strong>The model owns her facts.</strong> It saves her plan through the one tool it holds, reusing keys it sees in the preload.</li>
-<li><strong>A node owns her history.</strong> After each answer, code decides whether the turn was a task and appends the summary.</li>
-<li><strong>A reviewer owns the refund procedure.</strong> The agent reads only the highest approved version.</li>
-</ol>
+<h2 id="five-owners-for-danarsquos-assistant">Five owners for Dana&rsquo;s assistant</h2>
+<p>For Larkspur, the capstone&rsquo;s rules give every layer one owner. The checkpointer owns each of Dana&rsquo;s chats and replays it in full. The app owns the visit: &ldquo;I&rsquo;m on my phone&rdquo; is written with a 30-minute TTL and swept afterwards. The model owns her facts and saves her plan through the one tool it holds. A node owns her history, deciding in code after each answer whether the turn was a task. A reviewer owns the refund procedure, and the agent reads only the highest approved version.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> a writer is whoever decides that something is worth remembering. Giving that decision to code for episodes, and to people for procedures, is what makes the layers trustworthy.</p>
 </blockquote>
 <p>Lesson 34.4 replaces the blind preload with retrieval by similarity, and adds graph memory for questions that chain facts.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Replayed parts.</strong> The quote check, the prune and the preload sizes in Tables 2 and 3 were rerun offline from the notebook&rsquo;s own code and data. The capstone&rsquo;s replies come from a live model and were not rerun here.</li>
+<li><strong>Earlier test runs.</strong> The six runs in which gpt-4o-mini never called the save tool are the notebook author&rsquo;s, not repeated here.</li>
+<li><strong>Rough token estimate.</strong> Four characters per token is a rule of thumb, not the model&rsquo;s tokenizer.</li>
+<li><strong>Illustrations.</strong> Dana&rsquo;s assistant is illustrative. The Postgres path is described, not run.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">LangGraph persistence: checkpointers and stores</a>, accessed 13 November 2026.</li>
+<li>Sumers et al., <a href="https://arxiv.org/abs/2309.02427" target="_blank" rel="noopener">Cognitive Architectures for Language Agents</a>, 2023.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Give each memory layer exactly one writer: the checkpointer for the thread, the app for the session, the model for facts, a graph node for episodes and a human for procedures.</li>
 <li>In six test runs gpt-4o-mini never called the save tool unprompted, a forgotten write. Record episodes in a node after each answer and let code decide whether the turn was a real task.</li>
-<li>The preload is paid on every model call: about 86 tokens of memory on Priya&rsquo;s first call, more as layers grow. Pass <code>limit=</code> to <code>search</code>, cap each layer, and retrieve once a layer outgrows the prompt.</li>
+<li>The preload is paid on every model call: about 118 tokens of memory on Priya&rsquo;s first call, more as layers grow. Pass <code>limit=</code> to <code>search</code>, cap each layer, and retrieve once a layer outgrows the prompt.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -1101,7 +1044,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A customer has 14 saved facts, but the agent never uses the last few and nothing logs an error. What is the likely cause?</summary>
 <p>The silent cap: the preload calls <code>store.search()</code> without <code>limit=</code>, and it returns 10 items by default, so the 11th fact onwards is dropped. The capstone passes <code>limit=100</code> everywhere. When a layer grows past what the prompt should carry on every call, retrieve from it instead of preloading it all (lesson 34.4).</p>
 </details>
-<h2 id="recall-by-similarity">Recall by similarity</h2>
+<h2 id="start-with-a-migration-the-preload-forgot">Start with a migration the preload forgot</h2>
 <p class="lesson-of">Lesson 34.4: Episodic + semantic stack and multi-hop graph memory. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/mandatory/notebook/04a_episodic_with_semantic_memory.ipynb" target="_blank" rel="noopener"><code>04a_episodic_with_semantic_memory.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/optional/notebook/04b_graph_memory_multi_hop.ipynb" target="_blank" rel="noopener"><code>04b_graph_memory_multi_hop.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1113,8 +1056,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 34.3 preloaded every layer, and its episodic layer kept only the newest three episodes. Both choices stop working as a customer&rsquo;s history grows.</p>
-<p>Three months ago the Larkspur assistant walked Dana through moving a server to a bigger plan. Today she asks &ldquo;can we do the same for the second server?&rdquo;. A newest-three preload holds last week&rsquo;s export question and two billing questions; the migration is gone, however relevant. This lesson recalls memory the way a RAG pipeline recalls chunks: embed the question, return the nearest items.</p>
-<p>The store keeps the same API with an index switched on. Every <code>put</code> embeds the value&rsquo;s <code>text</code> field with <code>text-embedding-3-small</code> (1,536 dimensions), and a search that takes a query ranks a namespace&rsquo;s items by similarity, returning the top <code>limit</code>. Each user has two namespaces, <code>(user_id, "episodic")</code> and <code>(user_id, "semantic")</code>; note that this notebook puts the user id first, the reverse of lesson 34.2&rsquo;s tuples. A durable store with a vector index, such as <code>PostgresStore</code> with pgvector, takes the same calls.</p>
+<p>Three months ago the Larkspur assistant walked Dana through moving a server to a bigger plan. Today she asks &ldquo;can we do the same for the second server?&rdquo;. A newest-three preload holds last week&rsquo;s export question and two billing questions. The migration is gone, however relevant it is.</p>
+<p>Nothing failed loudly. The memory existed, and the read rule never reached it. That sets this lesson&rsquo;s two jobs:</p>
+<ul>
+<li><strong>Recall by meaning</strong>: find the stored item that matches the question, however old it is.</li>
+<li><strong>Join facts</strong>: answer a question whose answer is spread over several stored facts.</li>
+</ul>
+<h2 id="recall-by-similarity">Recall by similarity</h2>
+<p>This lesson recalls memory the way a RAG pipeline recalls chunks: embed the question, return the nearest items.</p>
+<p>The store keeps the same API with an index switched on. Every <code>put</code> embeds the value&rsquo;s <code>text</code> field with <code>text-embedding-3-small</code> (1,536 dimensions), and a search that takes a query ranks a namespace&rsquo;s items by similarity, returning the top <code>limit</code>. Each user has two namespaces, <code>(user_id, "episodic")</code> and <code>(user_id, "semantic")</code>. This notebook puts the user id first, the reverse of lesson 34.2&rsquo;s tuples. A durable store with a vector index, such as <code>PostgresStore</code> with pgvector, takes the same calls.</p>
 <p>The notebook uses the store rather than a separate vector library for two reasons: one memory API across the module, and keyed writes that make deduplicating facts free. Its agent is three nodes:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; R["retrieve&lt;br/&gt;2 episodes, 5 facts"]
@@ -1132,40 +1082,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>The second rule closes a failure we call the <strong>echoed suggestion</strong>. If the extractor read the assistant&rsquo;s reply, a sentence like &ldquo;you might consider index funds&rdquo; could come back next month as &ldquo;user is interested in index funds&rdquo;, a fact the user never stated. Questions are excluded for the same reason: &ldquo;what about Apple?&rdquo; is a request, not a preference.</p>
 <h3>Resolving &ldquo;that stock&rdquo; from ordered evidence</h3>
-<p>The memory test is three turns. Alex says he is a conservative investor interested in established tech companies, then asks about Apple, then asks &ldquo;Based on my goals, what&rsquo;s a good alternative to that stock?&rdquo;. The third question names neither the goal nor the stock:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Turn</th>
-<th>What Alex says</th>
-<th>What retrieval must supply</th>
-<th>What the update node writes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Name, conservative investor, established tech</td>
-<td>Nothing yet</td>
-<td>One episode; facts with subject <code>user</code></td>
-</tr>
-<tr>
-<td>2</td>
-<td>&ldquo;What do you think about Apple (AAPL)?&rdquo;</td>
-<td>The investor facts</td>
-<td>One episode; no new facts</td>
-</tr>
-<tr>
-<td>3</td>
-<td>&rdquo;&hellip;a good alternative to that stock?&rdquo;</td>
-<td>The Apple episode and the conservative-investor fact</td>
-<td>One episode; no new facts</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 1: The three-turn memory test. The notebook checks the turn-3 retrieval and the unchanged fact count in code.</em></p>
-<p>Retrieval picks the memories, and time orders them. The retrieve node sorts its two recalled episodes oldest first, and the prompt tells the model to resolve &ldquo;that stock&rdquo; from the most recent conversation. Similarity alone would rank the episodes by closeness to the question, which says nothing about which one was last.</p>
-<p>Similarity search has one blind spot, and the second notebook is built around it.</p>
+<p>The notebook&rsquo;s memory test is three turns. The third question, &ldquo;Based on my goals, what&rsquo;s a good alternative to that stock?&rdquo;, names neither the goal nor the stock. Step through what each turn reads and writes:</p>
+<div class="walkthrough learning-widget" data-stepper id="stock-walkthrough">
+<p class="widget-intro">Follow Alex's three turns. Each stage shows what retrieval must supply and what the update node writes.</p>
+<div class="step-controls" hidden role="group" aria-label="Memory test turns"><button type="button" data-step="0" aria-pressed="false" aria-controls="stock-step-0">1. Goals</button><button type="button" data-step="1" aria-pressed="false" aria-controls="stock-step-1">2. Apple</button><button type="button" data-step="2" aria-pressed="false" aria-controls="stock-step-2">3. Recall</button><button type="button" data-step="3" aria-pressed="false" aria-controls="stock-step-3">4. Order</button></div>
+<div class="step-panels"><section id="stock-step-0" class="step-panel" aria-labelledby="stock-heading-0"><h4 id="stock-heading-0">1. Alex states his goals</h4><dl><dt>Alex says</dt><dd>His name, that he is a conservative investor, and that he likes established tech companies</dd><dt>Retrieval supplies</dt><dd>Nothing yet: both namespaces are empty</dd><dt>Update writes</dt><dd>One episode, and facts with the subject <code>user</code></dd></dl></section><section id="stock-step-1" class="step-panel" aria-labelledby="stock-heading-1"><h4 id="stock-heading-1">2. Alex asks about Apple</h4><dl><dt>Alex says</dt><dd>"What do you think about Apple (AAPL)?"</dd><dt>Retrieval supplies</dt><dd>The investor facts</dd><dt>Update writes</dt><dd>One episode; no new facts, because a question is a request, not a preference</dd></dl></section><section id="stock-step-2" class="step-panel" aria-labelledby="stock-heading-2"><h4 id="stock-heading-2">3. Recall for "that stock"</h4><dl><dt>Alex says</dt><dd>"Based on my goals, what's a good alternative to that stock?"</dd><dt>Retrieval supplies</dt><dd>The 2 nearest episodes, including the Apple one, and up to 5 facts, including the conservative-investor fact</dd><dt>Checked in code</dt><dd>Both recalls, and a fact count unchanged by turns 2 and 3</dd></dl></section><section id="stock-step-3" class="step-panel" aria-labelledby="stock-heading-3"><h4 id="stock-heading-3">4. Order by time, then answer</h4><dl><dt>Sort</dt><dd>The two recalled episodes oldest first, by creation time</dd><dt>Prompt</dt><dd>Resolve "that stock" from the most recent conversation</dd><dt>Why</dt><dd>Similarity ranks episodes by closeness to the question, which says nothing about which one came last</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Retrieval picks the memories, and time orders them. Similarity search has one blind spot, and the second notebook is built around it.</p>
 <h2 id="graph-memory-for-multi-hop-questions">Graph memory for multi-hop questions</h2>
 <p>Similarity search returns items that look like the question. It has no way to chase a relation from one fact to the next. <strong>Graph memory</strong> stores facts as <code>(subject, relation, object)</code> edges and answers by <strong>traversal</strong>: start at an entity the question names, walk edges outward a bounded number of <strong>hops</strong>, and answer only from the edges reached.</p>
 <p>The notebook ingests five separate sentences about a fictional company. No sentence mentions both Project Helios and Marcus Webb, yet the test question needs both: &ldquo;Who manages the person who leads the team that built Project Helios?&rdquo;. A similarity search for that question finds the Project Helios sentence and nothing that connects it to a manager. We call that the <strong>missing middle</strong>:</p>
@@ -1204,9 +1127,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: The graph&rsquo;s design rules and the planted failure each one prevents.</em></p>
+<p><em>Table 1: The graph&rsquo;s design rules and the planted failure each one prevents.</em></p>
 <h3>Tracing the traversal</h3>
-<p>The reader asks the model for one start entity, traverses up to <code>max_hops</code>, and answers only from the triples it reached. Traversal itself is plain code. We loaded the five edges the notebook checks for (plus one restated duplicate, which the store dropped) into its graph class and walked it from Project Helios:</p>
+<p>The reader is a short pipeline of its own, beside Figure 1&rsquo;s similarity agent:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    Q[/Question/] --&gt; E["Pick a start entity&lt;br/&gt;one model call"]
+    E --&gt; T["Traverse both directions&lt;br/&gt;up to max_hops"]
+    T --&gt; A["Answer from the&lt;br/&gt;reached triples only"]
+    A --&gt; P[/Answer and path/]
+</pre></figure>
+<p><em>Figure 3: The graph reader. Only the start entity comes from the model; the walk is plain code.</em></p>
+<p>We loaded the five edges the notebook checks for, plus one restated duplicate (which the store dropped), into its <code>GraphMemoryStore</code> and walked it from Project Helios:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1238,10 +1169,24 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Breadth-first traversal from Project Helios, run in the scratchpad with the notebook&rsquo;s graph code.</em></p>
-<p>At <code>max_hops=3</code> the reader holds all three edges of the chain and the answer names Marcus Webb. At <code>max_hops=1</code> the traversal stops at the team, and the reader is told to say the facts are insufficient rather than guess. The printed path is the evidence: you can see which edges produced the answer, which a similarity score never shows.</p>
+<p><em>Table 2: Breadth-first traversal from Project Helios, run in the scratchpad with the notebook&rsquo;s graph code.</em></p>
+<p>The hop limit decides whether the chain closes. The reader&rsquo;s default is <code>max_hops=2</code>; the notebook&rsquo;s test passes 3 and its short-limit check passes 1:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="hops-switcher">
+<p class="widget-intro">Pick a hop limit and see which edges the reader holds for the Project Helios question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Hop limit">
+<button type="button" data-mode="h1" aria-pressed="false" aria-controls="hops-h1">max_hops = 1</button>
+<button type="button" data-mode="h2" aria-pressed="false" aria-controls="hops-h2">max_hops = 2, the default</button>
+<button type="button" data-mode="h3" aria-pressed="false" aria-controls="hops-h3">max_hops = 3</button>
+</div>
+<section id="hops-h1" class="mode-panel" data-announcement="One hop selected. One edge, no manager."><h4>One hop</h4><ul><li>1 edge: Atlas team built Project Helios.</li><li>The reader knows the team, not who leads it. It is told to say the facts are insufficient rather than guess.</li></ul></section>
+<section id="hops-h2" class="mode-panel" data-announcement="Two hops selected. Three edges, still no manager."><h4>Two hops, the reader's default</h4><ul><li>3 edges: the team, its office, and Priya Chandran leading it.</li><li>The leader is reached, her manager is not. The reader should still say "insufficient", one hop short.</li></ul></section>
+<section id="hops-h3" class="mode-panel" data-announcement="Three hops selected. Four edges, Marcus Webb reached."><h4>Three hops, the notebook's test</h4><ul><li>4 edges, including Priya Chandran reports_to Marcus Webb.</li><li>The chain closes and the answer names Marcus Webb, with the printed path as its evidence.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The printed path shows which edges produced the answer, which a similarity score never shows.</p>
 <p>An optional part of the notebook loads the same triples into Neo4j and lets the model write Cypher against the graph&rsquo;s schema. Model-written Cypher is untrusted code. The notebook asks the query planner whether a query only reads before running it, runs it in a read transaction, and recommends a read-only database role as the control the server enforces. <a href="../../../../p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/theory/index.html">M43</a> builds on that.</p>
-<h3>Choosing how to read memory</h3>
+<h2 id="choosing-how-to-read-memory">Choosing how to read memory</h2>
 <p>The three read patterns of this module answer different questions:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[/Question/] --&gt; S{"Memory small&lt;br/&gt;enough to load?"}
@@ -1250,7 +1195,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C -- no --&gt; V["Similarity&lt;br/&gt;top k"]
     C -- yes --&gt; G["Graph&lt;br/&gt;traversal"]
 </pre></figure>
-<p><em>Figure 3: Preload while memory is small, retrieve by similarity once it grows, and traverse when facts must be joined.</em></p>
+<p><em>Figure 4: Preload while memory is small, retrieve by similarity once it grows, and traverse when facts must be joined.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1263,15 +1208,15 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Finds an old, relevant episode</td>
-<td>✗ past the newest N</td>
-<td>✓</td>
+<td>No, past the newest N</td>
+<td>Yes</td>
 <td>Only if it became edges</td>
 </tr>
 <tr>
 <td>Joins facts from separate sentences</td>
-<td>✗</td>
-<td>✗ missing middle</td>
-<td>✓</td>
+<td>No</td>
+<td>No: missing middle</td>
+<td>Yes</td>
 </tr>
 <tr>
 <td>Extra cost per turn</td>
@@ -1287,8 +1232,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Three ways to read memory, compared on the failures this module has named.</em></p>
-<h2 id="in-practice-danarsquos-second-server">In practice: Dana&rsquo;s second server</h2>
+<p><em>Table 3: Three ways to read memory, compared on the failures this module has named.</em></p>
 <p>For Dana&rsquo;s &ldquo;can we do the same for the second server?&rdquo;, the pieces combine:</p>
 <ol>
 <li><strong>Recall the episode by meaning.</strong> Her question is embedded and searched against her episodic namespace, which surfaces the three-month-old migration summary.</li>
@@ -1299,7 +1243,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Pitfall: the echoed suggestion.</strong> Extraction that reads the assistant&rsquo;s reply turns the model&rsquo;s ideas into the customer&rsquo;s preferences. Keep the extractor on the user&rsquo;s words.</p>
 </blockquote>
-<p>Lesson 34.5 hands memory management to the agent itself, then stores skills and workflows instead of facts.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No recorded model run.</strong> Notebooks ship without outputs. The turn-3 recall is what the notebook checks in code, not a logged result; which facts the model extracts can vary.</li>
+<li><strong>Traversal is replayed, extraction is not.</strong> Table 2 and the hop switcher come from the notebook&rsquo;s graph class on the five checked edges. A live extractor can still produce relation drift or a reversed edge.</li>
+<li><strong>Dana&rsquo;s server is illustrative.</strong> The Larkspur migration story shows the pattern; it is not a notebook test.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangGraph, <a href="https://langchain-ai.github.io/langgraph/concepts/memory/" target="_blank" rel="noopener">Memory</a>, semantic and episodic memory in a store.</li>
+<li>LangGraph, <a href="https://langchain-ai.github.io/langgraph/concepts/persistence/" target="_blank" rel="noopener">Persistence</a>, the store and its semantic search index.</li>
+<li>Rasmussen, P. et al. (2025). <em>Zep: A Temporal Knowledge Graph Architecture for Agent Memory</em>. <a href="https://arxiv.org/abs/2501.13956" target="_blank" rel="noopener">arXiv:2501.13956</a>. Further reading on graph memory in production.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Index the store on a text field and a search with a query recalls memories by meaning: an old but relevant episode can surface where a newest-N preload cannot. Sort what is recalled by time when the question refers back.</li>
@@ -1319,7 +1274,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. Graph memory says the facts are insufficient to answer the Project Helios question. What setting do you check, and why would similarity search not answer it either?</summary>
 <p>Check <code>max_hops</code>: at 1 the traversal stops at the Atlas team, and the chain needs three hops (the team, Priya Chandran, Marcus Webb). Similarity search returns items that look like the question, and no single sentence mentions both Project Helios and Marcus Webb: the missing middle.</p>
 </details>
-<h2 id="tiered-memory">Tiered memory</h2>
+<h2 id="start-with-a-refund-rule-that-needs-two-old-numbers">Start with a refund rule that needs two old numbers</h2>
 <p class="lesson-of">Lesson 34.5: MemGPT tiers, Voyager skill library, Agent Workflow Memory. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/mandatory/notebook/05a_memgpt_tiered_memory.ipynb" target="_blank" rel="noopener"><code>05a_memgpt_tiered_memory.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/optional/notebook/05b_voyager_skill_library.ipynb" target="_blank" rel="noopener"><code>05b_voyager_skill_library.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p09_memory_layer/m34_long_term_agentic_memory/optional/notebook/05c_agent_workflow_memory.ipynb" target="_blank" rel="noopener"><code>05c_agent_workflow_memory.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1332,6 +1287,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lessons 34.1 to 34.4 decided in code what to remember and when to read it. This lesson hands part of that decision to the agent, then looks at memories that are capabilities rather than facts.</p>
 <p>Dana opens a Larkspur chat by saying her shop is on an annual business plan. In her second message she adds that they bought it 12 days ago and have used 80 GB of outbound traffic. Three unrelated questions later she asks whether she can still get a full refund. The handbook&rsquo;s rule needs both numbers: a full refund within 30 days of purchase if the account used less than 100 GB. By then the traffic message has scrolled out of a short context window.</p>
+<h2 id="tiered-memory">Tiered memory</h2>
 <p>MemGPT (Packer et al., 2023; the framework is now called Letta) treats the context window the way an operating system treats RAM. A small <strong>main context</strong> is always in the prompt. An unbounded <strong>archival memory</strong> sits outside it, like disk. The agent moves information between the two with tools, so the agent decides what stays close, where the earlier lessons used a fixed rule:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1451,50 +1407,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Figure 1: Paging. Overflow moves the oldest messages to the archive, and only a search the model makes brings them back.</em></p>
 <p>The notebook runs the same pattern on a trip planner whose $2,500 budget is evicted before a sixth turn asks for it. Its system prompt has to keep one-off details out of core memory: without that rule gpt-4o-mini tends to store every detail there, and the archive stops mattering.</p>
 <h3>The window is a budget</h3>
-<p>The lab replays Dana&rsquo;s six turns through the notebook&rsquo;s own window and archive classes, ported to JavaScript and checked against the Python classes on every window size from 1 to 12 and 408 queries (4,932 comparisons, 0 mismatches). It reports the conversation at turn 6 for each window size:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Window (<code>max_messages</code>)</th>
-<th>Messages in view at turn 6</th>
-<th>Archived</th>
-<th>Prompt, about this many tokens</th>
-<th>Turn-2 message</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>1</td>
-<td>10</td>
-<td>44</td>
-<td>Archived</td>
-</tr>
-<tr>
-<td>6</td>
-<td>6</td>
-<td>5</td>
-<td>117</td>
-<td>Archived</td>
-</tr>
-<tr>
-<td>9</td>
-<td>9</td>
-<td>2</td>
-<td>156</td>
-<td>In view</td>
-</tr>
-<tr>
-<td>11 or more</td>
-<td>11</td>
-<td>0</td>
-<td>195</td>
-<td>In view</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: Window size against what the model sees, from the lab. Tokens are characters of core memory plus the window, divided by four.</em></p>
-<p>A window of 9 keeps the traffic message in view at about 156 tokens of conversation per call, against 117 at the notebook&rsquo;s window of 6. Those 39 extra tokens are paid on every call of every turn, whether or not the next question needs the old message.</p>
+<p>The lab replays Dana&rsquo;s six turns through the notebook&rsquo;s own window and archive classes, ported to JavaScript. We checked the port against the Python classes on every window size from 1 to 12 and 97 queries (1,176 comparisons, 0 mismatches). Pick a window size to see the conversation at turn 6:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="window-switcher">
+<p class="widget-intro">Pick a window size and see what the model holds at turn 6. Tokens are characters of core memory plus the window, divided by four.</p>
+<div class="mode-controls" hidden role="group" aria-label="Window size">
+<button type="button" data-mode="w1" aria-pressed="false" aria-controls="window-w1">1 message</button>
+<button type="button" data-mode="w6" aria-pressed="false" aria-controls="window-w6">6, the notebook's</button>
+<button type="button" data-mode="w9" aria-pressed="false" aria-controls="window-w9">9 messages</button>
+<button type="button" data-mode="w11" aria-pressed="false" aria-controls="window-w11">11 or more</button>
+</div>
+<section id="window-w1" class="mode-panel" data-announcement="Window of 1 selected. Turn-2 message archived, about 44 tokens."><h4>Window of 1</h4><ul><li>1 message in view, 10 archived, about 44 tokens per call.</li><li>The turn-2 traffic message is archived.</li></ul></section>
+<section id="window-w6" class="mode-panel" data-announcement="Window of 6 selected. Turn-2 message archived, about 117 tokens."><h4>Window of 6, the notebook's setting</h4><ul><li>6 messages in view, 5 archived, about 117 tokens per call.</li><li>The turn-2 traffic message is archived; only a search brings it back.</li></ul></section>
+<section id="window-w9" class="mode-panel" data-announcement="Window of 9 selected. Turn-2 message in view, about 156 tokens."><h4>Window of 9</h4><ul><li>9 messages in view, 2 archived, about 156 tokens per call.</li><li>The turn-2 message is in view: 39 more tokens than a window of 6, paid on every call whether or not the question needs it.</li></ul></section>
+<section id="window-w11" class="mode-panel" data-announcement="Window of 11 or more selected. Nothing archived, about 195 tokens."><h4>Window of 11 or more</h4><ul><li>All 11 messages in view, none archived, about 195 tokens per call.</li><li>No paging at all, and the bill grows with every turn.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h3>Recall depends on the query</h3>
 <p>At a window of 6 the traffic message is in the archive, and the answer depends on a search the model must decide to make and on the words it chooses. The notebook&rsquo;s search lower-cases both sides, splits on spaces and counts shared words, so punctuation stays attached:</p>
 <div class="sheet scroll"><table>
@@ -1528,19 +1456,18 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Four archive queries at a window of 6, from the lab.</em></p>
+<p><em>Table 2: Four archive queries at a window of 6, from the lab.</em></p>
 <p>We call the last two rows the <strong>wrong-words miss</strong>: the fact is stored, the agent searched, and the answer still lacks it. Open the <a href="05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/interactive/tiered-memory-lab.html">tiered memory lab</a>, set the window to 6 and switch between <code>outbound traffic</code> and <code>how much traffic?</code>, then slide the window to 9:</p>
 <figure class="lab-embed"><iframe src="05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/interactive/tiered-memory-lab.html" title="The window and the archive, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The window and the archive. <a href="05_memgpt_tiers_voyager_skill_library_agent_workflow_memory/interactive/tiered-memory-lab.html">Open full screen</a></figcaption></figure>
 <h3>Three costs of letting the agent page</h3>
-<p>Three separate things can fail Dana here:</p>
 <ul>
 <li><strong>The window is paid on every call.</strong> A bigger window removes the search at the price of tokens on every turn.</li>
 <li><strong>Recall depends on the agent asking.</strong> The notebook checks in code whether the model called <code>archival_memory_search</code> in turn 6. If it did not, the answer comes without the figure, a failure we call the <strong>unasked search</strong>.</li>
 <li><strong>The search is part of memory quality.</strong> Keyword overlap keeps punctuation and ties easily. A real system embeds archive entries and searches by meaning, the same retrieval choices as any RAG index (<a href="../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/index.html">M13</a>).</li>
 </ul>
-<p>The earlier layers, tiers included, remember facts and events. The next two architectures remember capabilities.</p>
+<p>For Dana, that becomes four settings: keep &ldquo;annual business plan&rdquo; in core memory, size the window from cost, log whether a question about past numbers called the archive search, and embed archive entries so <code>how much traffic?</code> finds the 80 GB message.</p>
 <h2 id="skill-library">Skill library</h2>
-<p>A <strong>skill library</strong> stores capabilities that worked: code in Voyager, tool-call sequences in Agent Workflow Memory. Both follow one loop: look in the library first, build something new only when nothing fits, check it, and store only what passed:</p>
+<p>Tiers remember facts and events. A <strong>skill library</strong> stores capabilities that worked: code in Voyager, tool-call sequences in Agent Workflow Memory. Both follow one loop: look in the library first, build something new only when nothing fits, check it, and store only what passed:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     T[/New task/] --&gt; L{"Library has&lt;br/&gt;a fit?"}
     L -- yes --&gt; RU[Reuse or compose]
@@ -1551,41 +1478,24 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 2: The skill-library loop shared by Voyager and Agent Workflow Memory.</em></p>
 <h3>Voyager: executable skills behind tests</h3>
-<p>Voyager (Wang et al., 2023) played Minecraft without fine-tuning by saving each working piece of code as a named skill. The notebook moves the idea to small Python text tasks:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Task</th>
-<th>Library decision</th>
-<th>What happens</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. Count uppercase letters</td>
-<td>No fit</td>
-<td>A new skill is generated, passes 3 tests, and is stored</td>
-</tr>
-<tr>
-<td>2. Remove all whitespace</td>
-<td>No fit</td>
-<td>A fourth skill is generated, tested and stored</td>
-</tr>
-<tr>
-<td>3. Remove whitespace, then reverse</td>
-<td>Reuse two skills</td>
-<td>Task 2&rsquo;s skill is composed with the seeded <code>reverse_string</code>, with no code-generation call</td>
-</tr>
-<tr>
-<td>4. Palindrome check ignoring case and spaces</td>
-<td>No fit</td>
-<td>New code that calls library skills inside it</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 4: The notebook&rsquo;s four tasks and the decisions it expects; a live model makes them. The library starts with two seeds, <code>count_vowels</code> and <code>reverse_string</code>.</em></p>
-<p>Before generating, a model call reads the library&rsquo;s descriptions and decides whether to reuse. Every new skill, and every reuse, runs against test cases before it counts, and the tests must be able to fail. When every expected answer is <code>True</code>, a function that always returns <code>True</code> passes and the library stores a skill that checks nothing. We call that the <strong>vacuous test</strong>. Task 4&rsquo;s tests mix both answers; run against them, an always-<code>True</code> candidate fails on its second case, &ldquo;Voyager&rdquo;, which expects <code>False</code>.</p>
-<p>Generated code is untrusted. The notebook screens it with a denylist of 21 tokens, runs it with 25 permitted builtins in a child <code>python -I</code> process with an empty environment, and kills it after 5 seconds. It also says plainly that a denylist is not a sandbox: code from a model you do not control belongs in a container or a hosted sandbox with no network and no secrets.</p>
+<p>Voyager (Wang et al., 2023) played Minecraft without fine-tuning by saving each working piece of code as a named skill. The notebook moves the idea to small Python text tasks and puts every candidate through the same gate:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    G["Generated code"] --&gt; D{"Denylist&lt;br/&gt;21 tokens"}
+    D -- clean --&gt; R["Child python -I&lt;br/&gt;25 builtins, 5 s"]
+    D -- hit --&gt; X[Reject]
+    R --&gt; T{"Test cases&lt;br/&gt;that can fail"}
+    T -- pass --&gt; S[(Skill library)]
+    T -- fail --&gt; X
+</pre></figure>
+<p><em>Figure 3: Voyager&rsquo;s store path in the notebook. Only code that clears the screen and its tests is saved.</em></p>
+<p>The library starts with two seeds, <code>count_vowels</code> and <code>reverse_string</code>. Step through the four tasks. A live model makes each decision; the stages show what the notebook expects:</p>
+<div class="walkthrough learning-widget" data-stepper id="voyager-walkthrough">
+<p class="widget-intro">Follow the notebook's four tasks through the library check. Each stage shows the decision and what gets stored.</p>
+<div class="step-controls" hidden role="group" aria-label="Voyager tasks"><button type="button" data-step="0" aria-pressed="false" aria-controls="voyager-step-0">1. Uppercase</button><button type="button" data-step="1" aria-pressed="false" aria-controls="voyager-step-1">2. Whitespace</button><button type="button" data-step="2" aria-pressed="false" aria-controls="voyager-step-2">3. Compose</button><button type="button" data-step="3" aria-pressed="false" aria-controls="voyager-step-3">4. Palindrome</button></div>
+<div class="step-panels"><section id="voyager-step-0" class="step-panel" aria-labelledby="voyager-heading-0"><h4 id="voyager-heading-0">1. Count uppercase letters</h4><dl><dt>Library decision</dt><dd>No fit among the two seeds</dd><dt>What happens</dt><dd>A new skill is generated, passes 3 tests and is stored as the third skill</dd></dl></section><section id="voyager-step-1" class="step-panel" aria-labelledby="voyager-heading-1"><h4 id="voyager-heading-1">2. Remove all whitespace</h4><dl><dt>Library decision</dt><dd>No fit</dd><dt>What happens</dt><dd>A fourth skill is generated, tested and stored</dd></dl></section><section id="voyager-step-2" class="step-panel" aria-labelledby="voyager-heading-2"><h4 id="voyager-heading-2">3. Remove whitespace, then reverse</h4><dl><dt>Library decision</dt><dd>Reuse two skills</dd><dt>What happens</dt><dd>Task 2's skill is composed with the seeded <code>reverse_string</code>, with no code-generation call; the composition still runs against tests</dd></dl></section><section id="voyager-step-3" class="step-panel" aria-labelledby="voyager-heading-3"><h4 id="voyager-heading-3">4. Palindrome check ignoring case and spaces</h4><dl><dt>Library decision</dt><dd>No fit</dd><dt>What happens</dt><dd>New code that calls library skills inside it</dd><dt>Tests</dt><dd>Mixed answers: "Never odd or even" is True, "Voyager" is False, "Step on no pets" is True, "ab" is False</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The tests must be able to fail. When every expected answer is <code>True</code>, a function that always returns <code>True</code> passes and the library stores a skill that checks nothing. We call that the <strong>vacuous test</strong>. Run against Task 4&rsquo;s mixed tests, an always-<code>True</code> candidate fails on its second case, &ldquo;Voyager&rdquo;, and the notebook checks that it is rejected.</p>
+<p>Generated code is untrusted. The notebook&rsquo;s screen and child process (Figure 3) limit the damage, and the notebook says plainly that a denylist is not a sandbox: code from a model you do not control belongs in a container or a hosted sandbox with no network and no secrets.</p>
 <h3>Agent Workflow Memory: templates from successful runs</h3>
 <p>Agent Workflow Memory (Wang et al., 2024) stores procedures instead of code:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -1596,7 +1506,7 @@ th:last-child, td:last-child { padding-right: 0; }
     RT --&gt; AD["Adapt&lt;br/&gt;fill placeholders"]
     AD --&gt; EX["Execute&lt;br/&gt;resolve step_1"]
 </pre></figure>
-<p><em>Figure 3: Workflow memory. Only successful trajectories become templates.</em></p>
+<p><em>Figure 4: Workflow memory. Only successful trajectories become templates.</em></p>
 <p>A small ReAct loop logs every tool call. After a success, a model call turns the trajectory into a template with placeholders: look up <code>{entity}</code>, then multiply by <code>{factor}</code>. For a new task, one model call picks the structurally similar template, a second fills in the placeholders, and the executor runs the plan, filling <code>{step_1}</code> from the first observation. A task with a new shape matches no template and falls back to planning from scratch. Templates can also overfit to the first task&rsquo;s wording, or go stale when the tools change.</p>
 <p>The payoff is in the call count: adapting costs a fixed two calls, and planning from scratch costs one per step plus the final answer:</p>
 <div class="sheet scroll"><table>
@@ -1625,7 +1535,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: LLM calls per task, from the notebook&rsquo;s stated call counts. Rows past 2 steps extend its formula.</em></p>
+<p><em>Table 3: LLM calls per task, from the notebook&rsquo;s stated call counts. Rows past 2 steps extend its formula.</em></p>
 <h3>Three kinds of procedural memory</h3>
 <p>All three store &ldquo;how to do it&rdquo;, with different writers and checks:</p>
 <div class="sheet scroll"><table>
@@ -1658,24 +1568,23 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: Procedures, skills and workflows compared.</em></p>
+<p><em>Table 4: Procedures, skills and workflows compared.</em></p>
 <p>Both notebooks retrieve with a model call over a short list, which works at their size. With hundreds of skills or workflows, embed the descriptions and retrieve by similarity, as lesson 34.4 does for facts.</p>
-<h2 id="in-practice-danarsquos-refund-in-a-paged-context">In practice: Dana&rsquo;s refund in a paged context</h2>
-<p>For a MemGPT-style Larkspur assistant answering Dana&rsquo;s refund question, the choices become four settings:</p>
-<ol>
-<li><strong>Put the plan in core memory.</strong> &ldquo;Annual business plan&rdquo; is durable and identity-level; it stays in every prompt.</li>
-<li><strong>Size the window from cost.</strong> A window of 6 keeps about 117 tokens of conversation; 9 keeps the traffic message for 39 more on every call.</li>
-<li><strong>Check the search in code.</strong> Log whether turn 6 called the archive search, and alert when a question about past numbers answers without one.</li>
-<li><strong>Replace the keyword search.</strong> Embed archive entries, so <code>how much traffic?</code> and <code>data usage this month</code> both find the 80 GB message.</li>
-</ol>
 <blockquote>
 <p><strong>Interview tip:</strong> when asked how an agent remembers, separate what it knows (facts), what happened (episodes) and what it can do (skills and workflows). Each needs its own writer and its own check.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The lab replays code, not a model.</strong> Its customer turns are written for the lab and its assistant replies are representative; the eviction and search are the notebook&rsquo;s own. Whether a live model calls the search, and with which words, is not measured.</li>
+<li><strong>Tokens are estimated.</strong> Characters divided by four, for conversation text only; a real prompt adds the system prompt and tool schemas.</li>
+<li><strong>Voyager and workflow runs are not recorded.</strong> Notebooks ship without outputs: the task decisions are what the notebooks expect. Table 3&rsquo;s rows past 2 steps extend the notebook&rsquo;s stated formula.</li>
+</ul>
 <h2 id="references">References</h2>
 <ol>
 <li>Packer, C. et al. (2023). <em>MemGPT: Towards LLMs as Operating Systems</em>. <a href="https://arxiv.org/abs/2310.08560" target="_blank" rel="noopener">arXiv:2310.08560</a>.</li>
 <li>Wang, G. et al. (2023). <em>Voyager: An Open-Ended Embodied Agent with Large Language Models</em>. <a href="https://arxiv.org/abs/2305.16291" target="_blank" rel="noopener">arXiv:2305.16291</a>.</li>
 <li>Wang, Z. Z. et al. (2024). <em>Agent Workflow Memory</em>. <a href="https://arxiv.org/abs/2409.07429" target="_blank" rel="noopener">arXiv:2409.07429</a>.</li>
+<li>Letta, <a href="https://docs.letta.com/" target="_blank" rel="noopener">documentation</a>, the framework MemGPT became.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -1752,7 +1661,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Write in code what the model forgets to write, and let code make the final yes or no on what counts as a task or a fact.</li>
 <li>Preload while memory is small; once it outgrows the prompt, recall by similarity or traversal, and measure that recall on cross-thread questions.</li>
 </ul></article>
-    <nav class="toc" aria-label="M34 sections"><details open><summary>In M34</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#store-namespaces">Store namespaces</a></li><li><a href="#in-practice-danarsquos-friday-chat">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#semantic--episodic--procedural-memory">Semantic / episodic / procedural memory</a></li><li><a href="#session-memory-with-a-ttl">Session memory with a TTL</a></li><li><a href="#in-practice-four-layers-for-danarsquos-account">In practice</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#who-writes-each-layer">Who writes each layer</a></li><li><a href="#the-preload-budget">The preload budget</a></li><li><a href="#in-practice-danarsquos-assistant-with-every-layer">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#recall-by-similarity">Recall by similarity</a></li><li><a href="#graph-memory-for-multi-hop-questions">Graph memory for multi-hop questions</a></li><li><a href="#in-practice-danarsquos-second-server">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tiered-memory">Tiered memory</a></li><li><a href="#skill-library">Skill library</a></li><li><a href="#in-practice-danarsquos-refund-in-a-paged-context">In practice</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M34 sections"><details open><summary>In M34</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-customer-the-assistant-forgot">Start with a customer the assistant forgot</a></li><li><a href="#store-namespaces">Store namespaces</a></li><li><a href="#a-namespace-policy-for-larkspur">A namespace policy for Larkspur</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-three-things-to-remember-about-dana">Start with three things to remember about Dana</a></li><li><a href="#semantic--episodic--procedural-memory">Semantic / episodic / procedural memory</a></li><li><a href="#session-memory-with-a-ttl">Session memory with a TTL</a></li><li><a href="#four-write-paths-for-danarsquos-account">Four write paths for Dana’s account</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-an-assistant-that-may-write-everything">Start with an assistant that may write everything</a></li><li><a href="#who-writes-each-layer">Who writes each layer</a></li><li><a href="#the-preload-budget">The preload budget</a></li><li><a href="#five-owners-for-danarsquos-assistant">Five owners for Dana’s assistant</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-migration-the-preload-forgot">Start with a migration the preload forgot</a></li><li><a href="#recall-by-similarity">Recall by similarity</a></li><li><a href="#graph-memory-for-multi-hop-questions">Graph memory for multi-hop questions</a></li><li><a href="#choosing-how-to-read-memory">Choosing how to read memory</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-refund-rule-that-needs-two-old-numbers">Start with a refund rule that needs two old numbers</a></li><li><a href="#tiered-memory">Tiered memory</a></li><li><a href="#skill-library">Skill library</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
