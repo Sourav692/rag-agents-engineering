@@ -2,8 +2,9 @@
 
 *[M34 theory](../README.md) · Lesson 34.5 · Notebooks: [`05a_memgpt_tiered_memory.ipynb`](../../notebook/05a_memgpt_tiered_memory.ipynb), [`05b_voyager_skill_library.ipynb`](../../../optional/notebook/05b_voyager_skill_library.ipynb) (optional), [`05c_agent_workflow_memory.ipynb`](../../../optional/notebook/05c_agent_workflow_memory.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: An agent that pages its own context, and agents that remember what worked as code or as tool-call templates -->
+<!-- format: approved -->
 
-## Tiered memory
+## Start with a refund rule that needs two old numbers
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lessons 34.1 to 34.4 decided in code what to remember and when to read it. This lesson hands part of that decision to the agent, then looks at memories that are capabilities rather than facts.
 
 Dana opens a Larkspur chat by saying her shop is on an annual business plan. In her second message she adds that they bought it 12 days ago and have used 80 GB of outbound traffic. Three unrelated questions later she asks whether she can still get a full refund. The handbook's rule needs both numbers: a full refund within 30 days of purchase if the account used less than 100 GB. By then the traffic message has scrolled out of a short context window.
+
+## Tiered memory
 
 MemGPT (Packer et al., 2023; the framework is now called Letta) treats the context window the way an operating system treats RAM. A small **main context** is always in the prompt. An unbounded **archival memory** sits outside it, like disk. The agent moves information between the two with tools, so the agent decides what stays close, where the earlier lessons used a fixed rule:
 
@@ -44,18 +47,22 @@ The notebook runs the same pattern on a trip planner whose $2,500 budget is evic
 
 ### The window is a budget
 
-The lab replays Dana's six turns through the notebook's own window and archive classes, ported to JavaScript and checked against the Python classes on every window size from 1 to 12 and 408 queries (4,932 comparisons, 0 mismatches). It reports the conversation at turn 6 for each window size:
+The lab replays Dana's six turns through the notebook's own window and archive classes, ported to JavaScript. We checked the port against the Python classes on every window size from 1 to 12 and 97 queries (1,176 comparisons, 0 mismatches). Pick a window size to see the conversation at turn 6:
 
-| Window (`max_messages`) | Messages in view at turn 6 | Archived | Prompt, about this many tokens | Turn-2 message |
-|---|---|---|---|---|
-| 1 | 1 | 10 | 44 | Archived |
-| 6 | 6 | 5 | 117 | Archived |
-| 9 | 9 | 2 | 156 | In view |
-| 11 or more | 11 | 0 | 195 | In view |
-
-*Table 2: Window size against what the model sees, from the lab. Tokens are characters of core memory plus the window, divided by four.*
-
-A window of 9 keeps the traffic message in view at about 156 tokens of conversation per call, against 117 at the notebook's window of 6. Those 39 extra tokens are paid on every call of every turn, whether or not the next question needs the old message.
+<div class="learning-widget evidence-switcher" data-comparison id="window-switcher">
+<p class="widget-intro">Pick a window size and see what the model holds at turn 6. Tokens are characters of core memory plus the window, divided by four.</p>
+<div class="mode-controls" hidden role="group" aria-label="Window size">
+<button type="button" data-mode="w1" aria-pressed="false" aria-controls="window-w1">1 message</button>
+<button type="button" data-mode="w6" aria-pressed="false" aria-controls="window-w6">6, the notebook's</button>
+<button type="button" data-mode="w9" aria-pressed="false" aria-controls="window-w9">9 messages</button>
+<button type="button" data-mode="w11" aria-pressed="false" aria-controls="window-w11">11 or more</button>
+</div>
+<section id="window-w1" class="mode-panel" data-announcement="Window of 1 selected. Turn-2 message archived, about 44 tokens."><h4>Window of 1</h4><ul><li>1 message in view, 10 archived, about 44 tokens per call.</li><li>The turn-2 traffic message is archived.</li></ul></section>
+<section id="window-w6" class="mode-panel" data-announcement="Window of 6 selected. Turn-2 message archived, about 117 tokens."><h4>Window of 6, the notebook's setting</h4><ul><li>6 messages in view, 5 archived, about 117 tokens per call.</li><li>The turn-2 traffic message is archived; only a search brings it back.</li></ul></section>
+<section id="window-w9" class="mode-panel" data-announcement="Window of 9 selected. Turn-2 message in view, about 156 tokens."><h4>Window of 9</h4><ul><li>9 messages in view, 2 archived, about 156 tokens per call.</li><li>The turn-2 message is in view: 39 more tokens than a window of 6, paid on every call whether or not the question needs it.</li></ul></section>
+<section id="window-w11" class="mode-panel" data-announcement="Window of 11 or more selected. Nothing archived, about 195 tokens."><h4>Window of 11 or more</h4><ul><li>All 11 messages in view, none archived, about 195 tokens per call.</li><li>No paging at all, and the bill grows with every turn.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ### Recall depends on the query
 
@@ -68,7 +75,7 @@ At a window of 6 the traffic message is in the archive, and the answer depends o
 | `how much traffic?` | Missed | `traffic?` is not `traffic`; the search returns "How do I reboot a server?" on `how` |
 | `data usage this month` | Missed | No shared word at all |
 
-*Table 3: Four archive queries at a window of 6, from the lab.*
+*Table 2: Four archive queries at a window of 6, from the lab.*
 
 We call the last two rows the **wrong-words miss**: the fact is stored, the agent searched, and the answer still lacks it. Open the [tiered memory lab](interactive/tiered-memory-lab.html), set the window to 6 and switch between `outbound traffic` and `how much traffic?`, then slide the window to 9:
 
@@ -76,17 +83,15 @@ We call the last two rows the **wrong-words miss**: the fact is stored, the agen
 
 ### Three costs of letting the agent page
 
-Three separate things can fail Dana here:
-
 - **The window is paid on every call.** A bigger window removes the search at the price of tokens on every turn.
 - **Recall depends on the agent asking.** The notebook checks in code whether the model called `archival_memory_search` in turn 6. If it did not, the answer comes without the figure, a failure we call the **unasked search**.
 - **The search is part of memory quality.** Keyword overlap keeps punctuation and ties easily. A real system embeds archive entries and searches by meaning, the same retrieval choices as any RAG index ([M13](../../../../../p04_rag_foundations/m13_embeddings/mandatory/theory/README.md)).
 
-The earlier layers, tiers included, remember facts and events. The next two architectures remember capabilities.
+For Dana, that becomes four settings: keep "annual business plan" in core memory, size the window from cost, log whether a question about past numbers called the archive search, and embed archive entries so `how much traffic?` finds the 80 GB message.
 
 ## Skill library
 
-A **skill library** stores capabilities that worked: code in Voyager, tool-call sequences in Agent Workflow Memory. Both follow one loop: look in the library first, build something new only when nothing fits, check it, and store only what passed:
+Tiers remember facts and events. A **skill library** stores capabilities that worked: code in Voyager, tool-call sequences in Agent Workflow Memory. Both follow one loop: look in the library first, build something new only when nothing fits, check it, and store only what passed:
 
 ```mermaid
 flowchart TD
@@ -102,20 +107,30 @@ flowchart TD
 
 ### Voyager: executable skills behind tests
 
-Voyager (Wang et al., 2023) played Minecraft without fine-tuning by saving each working piece of code as a named skill. The notebook moves the idea to small Python text tasks:
+Voyager (Wang et al., 2023) played Minecraft without fine-tuning by saving each working piece of code as a named skill. The notebook moves the idea to small Python text tasks and puts every candidate through the same gate:
 
-| Task | Library decision | What happens |
-|---|---|---|
-| 1. Count uppercase letters | No fit | A new skill is generated, passes 3 tests, and is stored |
-| 2. Remove all whitespace | No fit | A fourth skill is generated, tested and stored |
-| 3. Remove whitespace, then reverse | Reuse two skills | Task 2's skill is composed with the seeded `reverse_string`, with no code-generation call |
-| 4. Palindrome check ignoring case and spaces | No fit | New code that calls library skills inside it |
+```mermaid
+flowchart TB
+    G["Generated code"] --> D{"Denylist<br/>21 tokens"}
+    D -- clean --> R["Child python -I<br/>25 builtins, 5 s"]
+    D -- hit --> X[Reject]
+    R --> T{"Test cases<br/>that can fail"}
+    T -- pass --> S[(Skill library)]
+    T -- fail --> X
+```
 
-*Table 4: The notebook's four tasks and the decisions it expects; a live model makes them. The library starts with two seeds, `count_vowels` and `reverse_string`.*
+*Figure 3: Voyager's store path in the notebook. Only code that clears the screen and its tests is saved.*
 
-Before generating, a model call reads the library's descriptions and decides whether to reuse. Every new skill, and every reuse, runs against test cases before it counts, and the tests must be able to fail. When every expected answer is `True`, a function that always returns `True` passes and the library stores a skill that checks nothing. We call that the **vacuous test**. Task 4's tests mix both answers; run against them, an always-`True` candidate fails on its second case, "Voyager", which expects `False`.
+The library starts with two seeds, `count_vowels` and `reverse_string`. Step through the four tasks. A live model makes each decision; the stages show what the notebook expects:
 
-Generated code is untrusted. The notebook screens it with a denylist of 21 tokens, runs it with 25 permitted builtins in a child `python -I` process with an empty environment, and kills it after 5 seconds. It also says plainly that a denylist is not a sandbox: code from a model you do not control belongs in a container or a hosted sandbox with no network and no secrets.
+<div class="walkthrough learning-widget" data-stepper id="voyager-walkthrough">
+<p class="widget-intro">Follow the notebook's four tasks through the library check. Each stage shows the decision and what gets stored.</p>
+<div class="step-controls" hidden role="group" aria-label="Voyager tasks"><button type="button" data-step="0" aria-pressed="false" aria-controls="voyager-step-0">1. Uppercase</button><button type="button" data-step="1" aria-pressed="false" aria-controls="voyager-step-1">2. Whitespace</button><button type="button" data-step="2" aria-pressed="false" aria-controls="voyager-step-2">3. Compose</button><button type="button" data-step="3" aria-pressed="false" aria-controls="voyager-step-3">4. Palindrome</button></div>
+<div class="step-panels"><section id="voyager-step-0" class="step-panel" aria-labelledby="voyager-heading-0"><h4 id="voyager-heading-0">1. Count uppercase letters</h4><dl><dt>Library decision</dt><dd>No fit among the two seeds</dd><dt>What happens</dt><dd>A new skill is generated, passes 3 tests and is stored as the third skill</dd></dl></section><section id="voyager-step-1" class="step-panel" aria-labelledby="voyager-heading-1"><h4 id="voyager-heading-1">2. Remove all whitespace</h4><dl><dt>Library decision</dt><dd>No fit</dd><dt>What happens</dt><dd>A fourth skill is generated, tested and stored</dd></dl></section><section id="voyager-step-2" class="step-panel" aria-labelledby="voyager-heading-2"><h4 id="voyager-heading-2">3. Remove whitespace, then reverse</h4><dl><dt>Library decision</dt><dd>Reuse two skills</dd><dt>What happens</dt><dd>Task 2's skill is composed with the seeded <code>reverse_string</code>, with no code-generation call; the composition still runs against tests</dd></dl></section><section id="voyager-step-3" class="step-panel" aria-labelledby="voyager-heading-3"><h4 id="voyager-heading-3">4. Palindrome check ignoring case and spaces</h4><dl><dt>Library decision</dt><dd>No fit</dd><dt>What happens</dt><dd>New code that calls library skills inside it</dd><dt>Tests</dt><dd>Mixed answers: "Never odd or even" is True, "Voyager" is False, "Step on no pets" is True, "ab" is False</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+The tests must be able to fail. When every expected answer is `True`, a function that always returns `True` passes and the library stores a skill that checks nothing. We call that the **vacuous test**. Run against Task 4's mixed tests, an always-`True` candidate fails on its second case, "Voyager", and the notebook checks that it is rejected.
+
+Generated code is untrusted. The notebook's screen and child process (Figure 3) limit the damage, and the notebook says plainly that a denylist is not a sandbox: code from a model you do not control belongs in a container or a hosted sandbox with no network and no secrets.
 
 ### Agent Workflow Memory: templates from successful runs
 
@@ -131,7 +146,7 @@ flowchart LR
     AD --> EX["Execute<br/>resolve step_1"]
 ```
 
-*Figure 3: Workflow memory. Only successful trajectories become templates.*
+*Figure 4: Workflow memory. Only successful trajectories become templates.*
 
 A small ReAct loop logs every tool call. After a success, a model call turns the trajectory into a template with placeholders: look up `{entity}`, then multiply by `{factor}`. For a new task, one model call picks the structurally similar template, a second fills in the placeholders, and the executor runs the plan, filling `{step_1}` from the first observation. A task with a new shape matches no template and falls back to planning from scratch. Templates can also overfit to the first task's wording, or go stale when the tools change.
 
@@ -143,7 +158,7 @@ The payoff is in the call count: adapting costs a fixed two calls, and planning 
 | 5 | 2 | 6 |
 | 10 | 2 | 11 |
 
-*Table 5: LLM calls per task, from the notebook's stated call counts. Rows past 2 steps extend its formula.*
+*Table 3: LLM calls per task, from the notebook's stated call counts. Rows past 2 steps extend its formula.*
 
 ### Three kinds of procedural memory
 
@@ -155,26 +170,24 @@ All three store "how to do it", with different writers and checks:
 | Voyager skill library | Python functions | The agent | Test cases that can fail |
 | Agent Workflow Memory | Tool-call templates | The agent, after a success | The success of the run it came from |
 
-*Table 6: Procedures, skills and workflows compared.*
+*Table 4: Procedures, skills and workflows compared.*
 
 Both notebooks retrieve with a model call over a short list, which works at their size. With hundreds of skills or workflows, embed the descriptions and retrieve by similarity, as lesson 34.4 does for facts.
 
-## In practice: Dana's refund in a paged context
-
-For a MemGPT-style Larkspur assistant answering Dana's refund question, the choices become four settings:
-
-1. **Put the plan in core memory.** "Annual business plan" is durable and identity-level; it stays in every prompt.
-2. **Size the window from cost.** A window of 6 keeps about 117 tokens of conversation; 9 keeps the traffic message for 39 more on every call.
-3. **Check the search in code.** Log whether turn 6 called the archive search, and alert when a question about past numbers answers without one.
-4. **Replace the keyword search.** Embed archive entries, so `how much traffic?` and `data usage this month` both find the 80 GB message.
-
 > **Interview tip:** when asked how an agent remembers, separate what it knows (facts), what happened (episodes) and what it can do (skills and workflows). Each needs its own writer and its own check.
+
+## Limits of this evidence
+
+- **The lab replays code, not a model.** Its customer turns are written for the lab and its assistant replies are representative; the eviction and search are the notebook's own. Whether a live model calls the search, and with which words, is not measured.
+- **Tokens are estimated.** Characters divided by four, for conversation text only; a real prompt adds the system prompt and tool schemas.
+- **Voyager and workflow runs are not recorded.** Notebooks ship without outputs: the task decisions are what the notebooks expect. Table 3's rows past 2 steps extend the notebook's stated formula.
 
 ## References
 
 1. Packer, C. et al. (2023). *MemGPT: Towards LLMs as Operating Systems*. [arXiv:2310.08560](https://arxiv.org/abs/2310.08560).
 2. Wang, G. et al. (2023). *Voyager: An Open-Ended Embodied Agent with Large Language Models*. [arXiv:2305.16291](https://arxiv.org/abs/2305.16291).
 3. Wang, Z. Z. et al. (2024). *Agent Workflow Memory*. [arXiv:2409.07429](https://arxiv.org/abs/2409.07429).
+4. Letta, [documentation](https://docs.letta.com/), the framework MemGPT became.
 
 ## Key Takeaways
 
