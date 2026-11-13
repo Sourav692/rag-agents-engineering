@@ -2,8 +2,9 @@
 
 *[M33 theory](../README.md) · Lesson 33.2 · Notebooks: [`02a_runnable_with_message_history.ipynb`](../../notebook/02a_runnable_with_message_history.ipynb), [`02b_multi_user_sessions_and_persistence.ipynb`](../../notebook/02b_multi_user_sessions_and_persistence.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: One chain serves every customer: the session id picks the history, and the store decides whether it survives a restart -->
+<!-- format: approved -->
 
-## Two customers, one list
+## Start with two customers on one list
 
 > **What you'll learn**
 >
@@ -43,38 +44,39 @@ When the chain takes a dict, three keys tell the wrapper where things go:
 
 ### Tracing two interleaved customers
 
-The notebook runs two users through the same chain with their turns interleaved, then asks each for a summary. Counting what each call loads:
+The notebook runs two users through the same chain with their turns interleaved, then asks each for a summary. The walkthrough counts what each call loads; each count follows from the wrapper saving one human and one AI message per call, and the answers themselves come from the model.
 
-| Call | Session | Message | History loaded | Stored after |
-|---|---|---|---|---|
-| 1 | `sourav` | Explain AI in 3 bullet points | 0 | 2 |
-| 2 | `arnab` | Explain an LLM in 2 bullet points | 0 | 2 |
-| 3 | `sourav` | Now do the same for deep learning | 2 | 4 |
-| 4 | `sourav` | Summarize what we have discussed | 4 | 6 |
-| 5 | `arnab` | Summarize what we have discussed | 2 | 4 |
+<div class="walkthrough learning-widget" data-stepper id="sessions-walkthrough">
+<p class="widget-intro">Follow five interleaved calls on one wrapped chain. Each stage shows the session, the history it loads and what is stored after it.</p>
+<div class="step-controls" hidden role="group" aria-label="Interleaved calls"><button type="button" data-step="0" aria-pressed="false" aria-controls="sessions-step-0">1. sourav</button><button type="button" data-step="1" aria-pressed="false" aria-controls="sessions-step-1">2. arnab</button><button type="button" data-step="2" aria-pressed="false" aria-controls="sessions-step-2">3. sourav</button><button type="button" data-step="3" aria-pressed="false" aria-controls="sessions-step-3">4. sourav</button><button type="button" data-step="4" aria-pressed="false" aria-controls="sessions-step-4">5. arnab</button></div>
+<div class="step-panels"><section id="sessions-step-0" class="step-panel" aria-labelledby="sessions-heading-0"><h4 id="sessions-heading-0">1. sourav: explain AI in 3 bullet points</h4><dl><dt>History loaded</dt><dd>0 messages</dd><dt>Stored after</dt><dd>2</dd></dl></section><section id="sessions-step-1" class="step-panel" aria-labelledby="sessions-heading-1"><h4 id="sessions-heading-1">2. arnab: explain an LLM in 2 bullet points</h4><dl><dt>History loaded</dt><dd>0 messages. A new session id starts empty.</dd><dt>Stored after</dt><dd>2</dd></dl></section><section id="sessions-step-2" class="step-panel" aria-labelledby="sessions-heading-2"><h4 id="sessions-heading-2">3. sourav: now do the same for deep learning</h4><dl><dt>History loaded</dt><dd>2 messages. <em>The same</em> resolves only because the first exchange was loaded.</dd><dt>Stored after</dt><dd>4</dd></dl></section><section id="sessions-step-3" class="step-panel" aria-labelledby="sessions-heading-3"><h4 id="sessions-heading-3">4. sourav: summarise what we discussed</h4><dl><dt>History loaded</dt><dd>4 messages: AI and deep learning</dd><dt>Stored after</dt><dd>6</dd></dl></section><section id="sessions-step-4" class="step-panel" aria-labelledby="sessions-heading-4"><h4 id="sessions-heading-4">5. arnab: summarise what we discussed</h4><dl><dt>History loaded</dt><dd>2 messages: LLMs only</dd><dt>Stored after</dt><dd>4. The summary covers LLMs alone, because this history never held the other topics.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 2: Five calls on one chain. Each count follows from the wrapper saving one human and one AI message per call; the answers themselves come from the model.*
-
-Call 3 resolves *the same* only because `sourav`'s first exchange was loaded. Call 5 summarises LLMs alone, because `arnab`'s history never contained the other topics. Streaming works through the wrapper as well: the answer streams out, and the full text is saved to the session once the stream ends.
+Streaming works through the wrapper as well: the answer streams out, and the full text is saved to the session once the stream ends.
 
 ### Planted failures: where the id comes from
 
-The `session_id` is the only thing separating one customer's conversation from another's. Whoever supplies it chooses which history loads, which makes its source matter more than its format:
+The `session_id` is the only thing separating one customer's conversation from another's. Whoever supplies it chooses which history loads, which makes its source matter more than its format.
 
-| Session id taken from | What happens |
-|---|---|
-| The authenticated server session | Each customer reads only their own history |
-| A field in the request body the user can edit | Any customer can load another customer's chat by changing one string: a **borrowed session** |
-| The user id alone | One customer's separate chats merge into a single history |
-| A fresh value on every request | Every turn starts empty, and the app forgets as in lesson 33.1 |
-
-*Table 3: Four sources for the session id. Only the first is safe and correct.*
+<div class="learning-widget evidence-switcher" data-comparison id="session-id-switcher">
+<p class="widget-intro">Compare four sources for the session id on the same endpoint.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the session id comes from">
+<button type="button" data-mode="server" aria-pressed="false" aria-controls="sid-server">Server session</button>
+<button type="button" data-mode="body" aria-pressed="false" aria-controls="sid-body">Request body</button>
+<button type="button" data-mode="user" aria-pressed="false" aria-controls="sid-user">User id alone</button>
+<button type="button" data-mode="fresh" aria-pressed="false" aria-controls="sid-fresh">Fresh per request</button>
+</div>
+<section id="sid-server" class="mode-panel" data-announcement="Authenticated server session selected. Each customer reads only their own history."><h4>The authenticated server session</h4><p>Each customer reads only their own history. This is the only source that is both safe and correct.</p></section>
+<section id="sid-body" class="mode-panel" data-announcement="Request body selected. Any customer can load another customer's chat."><h4>A field in the request body the user can edit</h4><p>Any customer can load another customer's chat by changing one string. Call this a <strong>borrowed session</strong>.</p></section>
+<section id="sid-user" class="mode-panel" data-announcement="User id alone selected. Separate chats merge."><h4>The user id alone</h4><p>One customer's separate chats merge into a single history.</p></section>
+<section id="sid-fresh" class="mode-panel" data-announcement="Fresh value per request selected. Every turn starts empty."><h4>A fresh value on every request</h4><p>Every turn starts empty, and the app forgets as in lesson 33.1.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Any string works as an id: a user id, a chat id, or both combined, which lets one customer hold several separate chats. Build it on the server from the authenticated user, never from text the user can edit.
 
 ## Where the history lives
 
-Only the factory changes when the store changes. The chain and the wrapper stay the same, and Table 4 compares the three backends the notebook uses:
+Only the factory changes when the store changes. The chain and the wrapper stay the same, and Table 2 compares the three backends the notebook uses:
 
 | Backend | Survives a restart | Many users | Typical use |
 |---|---|---|---|
@@ -82,7 +84,7 @@ Only the factory changes when the store changes. The chain and the wrapper stay 
 | `FileChatMessageHistory` | Yes | One JSON file per session | Single-user CLI or desktop tools |
 | `SQLChatMessageHistory` | Yes | Yes, one table keyed by `session_id` | Web apps and services |
 
-*Table 4: Three history backends behind the same interface.*
+*Table 2: Three history backends behind the same interface.*
 
 Figure 2 turns the table into a check order:
 
@@ -108,7 +110,7 @@ The notebook separates the chain from the store by throwing the chain away. Run 
 | Run 2 asks *What's my name?* | 4 loaded | Only the database |
 | After run 2 (3 more turns) | 10 | |
 
-*Table 5: Row counts across the restart test. Each turn writes two rows, one per message.*
+*Table 3: Row counts across the restart test. Each turn writes two rows, one per message.*
 
 Any correct recall in run 2 came from the rows, because nothing else survived. The rows also outlive the kernel: rerun only the second half after a restart and the answers still come from the file. A file-backed history works the same way for one session, and the notebook resumes a saved JSON conversation from a copy.
 
@@ -116,15 +118,22 @@ Any correct recall in run 2 came from the rows, because nothing else survived. T
 
 SQLite is fine for one process. For a service with concurrent writers, use the same interface on Postgres or Redis. These history classes come from the sunset `langchain-community` package, and `RunnableWithMessageHistory` is deprecated in `langchain-core` 1.3.3 and removed in 2.0. Lesson 33.6 does the same job with a LangGraph checkpointer, which is where new code should go.
 
-## In practice: Larkspur's support endpoint
+### A session policy for Larkspur
 
-Applying both halves to the Larkspur assistant:
-
-1. **Keying.** The endpoint builds the session id from the logged-in account and the chat, for example the customer `cust-4821` plus a chat number, and never reads it from the request body.
-2. **Storing.** The factory returns a SQL-backed history for that id. A deploy that restarts the service loses no conversation.
-3. **Checking.** A test interleaves two customers and asserts that each summary mentions only its own topics, the same check as Table 2.
+For the Larkspur support endpoint, the two halves give three rules. The endpoint builds the session id from the logged-in account and the chat, for example the customer `cust-4821` plus a chat number, and never reads it from the request body. The factory returns a SQL-backed history for that id. A deploy that restarts the service loses no conversation. A test interleaves two customers and asserts that each summary mentions only its own topics, the same check as the walkthrough.
 
 > **What changes next:** every stored message still goes back to the model on every turn. Lesson 33.3 bounds that list with trimming, windows and a running summary.
+
+## Limits of this evidence
+
+- **Counts, not answers.** The walkthrough's and Table 3's counts follow from the wrapper's save rule and the notebook's code. What each summary says depends on the model.
+- **Illustrative failures.** The shared-list opening, the four session-id sources and the `cust-4821` id are illustrations, not runs.
+- **Version-bound claims.** The deprecation versions and the `table_name` signature were read from the installed `langchain-core` 1.7.0 and `langchain-community` source; later releases may change them.
+
+## References
+
+1. LangChain, [Short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory), accessed 13 November 2026.
+2. LangGraph, [Persistence](https://docs.langchain.com/oss/python/langgraph/persistence), accessed 13 November 2026.
 
 ## Key Takeaways
 
