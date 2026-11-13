@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 33 · Review draft: 3 · In progress: 0 · In PR: 0 · Live: 10
+**Modules:** Not started: 30 · Review draft: 3 · In progress: 0 · In PR: 3 · Live: 10
 
 ## Part I · AI Engineering Foundations
 
@@ -99,9 +99,9 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 38 | MCP Foundations | 7 | 6 | 0 / 6 | Not started |  |  |  |
-| 39 | Building MCP Servers & Clients | 6 | 4 | 0 / 4 | Not started |  |  |  |
-| 40 | MCP Applications & RAG over MCP | 7 | 7 | 0 / 7 | Not started |  |  |  |
+| 38 | MCP Foundations | 7 | 6 | 6 / 6 | In PR | 2026-11-14 | #73 | 38.1-38.6 approved format in PR #73; validator, browser, protect, pytest, links pass. 38.7 (extension labs) has no page. |
+| 39 | Building MCP Servers & Clients | 6 | 4 | 4 / 4 | In PR | 2026-11-14 | #73 | 39.1, 39.2, 39.4, 39.5 approved format in PR #73; validator, browser, protect, pytest, links pass. 39.3 (site-hidden) and 39.6 (licence) have no page; 39.5 keeps the sentence the site text rule matches. |
+| 40 | MCP Applications & RAG over MCP | 7 | 7 | 7 / 7 | In PR | 2026-11-14 | #73 | 40.1-40.7 approved format in PR #73; validator, browser, protect, pytest, links pass. |
 | 41 | A2A: Agent-to-Agent Protocol | 4 | 4 | 0 / 4 | Not started |  |  |  |
 
 ## Part XII · Knowledge Graphs & GraphRAG
