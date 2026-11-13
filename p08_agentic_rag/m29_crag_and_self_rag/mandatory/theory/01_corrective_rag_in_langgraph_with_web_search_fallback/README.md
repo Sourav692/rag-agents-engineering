@@ -2,25 +2,28 @@
 
 *[M29 theory](../README.md) · Lesson 29.1 · Notebooks: [`01a_agentic_corrective_rag_langgraph.ipynb`](../../notebook/01a_agentic_corrective_rag_langgraph.ipynb), [`01b_crag_rag_techniques.ipynb`](../../../optional/notebook/01b_crag_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Grade the retrieved chunks before the model reads them, and decide where missing evidence may come from -->
+<!-- format: approved -->
 
-## Retrieval evaluator
+## Start with an answer nobody checked
 
 > **What you'll learn**
 >
 > - **Explain** what a retrieval evaluator decides and the three verdicts the CRAG paper gives it.
-> - **Compare** the yes-or-no grader of the LangGraph graph with the 0-to-1 scorer of the function variant.
+> - **Trace** one question through the CRAG graph, from retrieval to the fallback.
 > - **Diagnose** a fallback that fires with both evidence chunks in hand, and one that never fires with half the evidence missing.
 > - **Choose** where missing evidence may come from: the web, the index again, or a refusal.
 
+Take the Larkspur question *What happens if my server goes down?* The M10 baseline's TF-IDF retrieval at `k = 3` returns three chunks about reboots, server sizing and exports, and the model writes an answer from them. Nothing in that pipeline notices that none of the three is about outages. We call this **blind generation**: the generator answers from whatever retrieval returned, because nobody checked it first.
+
 [M28](../../../../m28_retrieval_grading_rewriting/mandatory/theory/README.md) graded each retrieved chunk and rewrote the question when none passed. Corrective RAG keeps that grader and adds a second exit: when too few chunks pass, it goes outside the index for evidence.
 
-Take the Larkspur question *What happens if my server goes down?* The M10 baseline's TF-IDF retrieval at `k = 3` returns three chunks about reboots, server sizing and exports, and the model writes an answer from them. Nothing in that pipeline notices that none of the three is about outages. We call this **blind generation**: the generator answers from whatever retrieval returned, because nobody checked it first.
+## Retrieval evaluator
 
 Corrective RAG (Yan et al., *Corrective Retrieval Augmented Generation*, 2024, [arXiv:2401.15884](https://arxiv.org/abs/2401.15884)) adds one component to the baseline. **A retrieval evaluator is a check that judges the retrieved documents before the generator sees them, and its verdict picks the next step.** The paper gives it three verdicts:
 
-- **Correct**: retrieval looks right, so generate from it.
-- **Incorrect**: retrieval looks wrong, so find other context.
-- **Ambiguous**: the evaluator is unsure, so use both.
+- **Correct**: retrieval looks right: generate from it.
+- **Incorrect**: retrieval looks wrong: find other context.
+- **Ambiguous**: the evaluator is unsure: use both.
 
 The paper trains a small model (T5-large) as the evaluator. Both M29 implementations prompt an LLM instead, which costs one call per judgment.
 
@@ -43,9 +46,18 @@ flowchart TD
 
 The grader keeps the chunks graded yes and drops the rest. When nothing is retrieved at all, the graph also takes the web branch. The graph runs once, with no loop back to retrieval.
 
+### Trace the export question through the graph
+
+The [M29 lab](../03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html) runs this graph on the handbook with TF-IDF retrieval and a stand-in grader that agrees with the golden labels. Follow *Can I export my data after I cancel my plan?* at `k = 5`:
+
+<div class="walkthrough learning-widget" data-stepper id="crag-walkthrough">
+<p class="widget-intro">Follow the export question through the CRAG graph. Each stage shows the chunks in hand and the running call count.</p>
+<div class="step-controls" hidden role="group" aria-label="CRAG stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="crag-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="crag-step-1">2. Grade</button><button type="button" data-step="2" aria-pressed="false" aria-controls="crag-step-2">3. Decide</button><button type="button" data-step="3" aria-pressed="false" aria-controls="crag-step-3">4. Fall back</button><button type="button" data-step="4" aria-pressed="false" aria-controls="crag-step-4">5. Generate</button></div>
+<div class="step-panels"><section id="crag-step-0" class="step-panel" aria-labelledby="crag-heading-0"><h4 id="crag-heading-0">1. Retrieve five chunks</h4><dl><dt>Node</dt><dd>retrieve</dd><dt>Chunks</dt><dd>retention 0.372, export 0.369, cancel 0.261, refund-window 0.087, sizing 0.069</dd><dt>LLM calls so far</dt><dd>0</dd></dl></section><section id="crag-step-1" class="step-panel" aria-labelledby="crag-heading-1"><h4 id="crag-heading-1">2. Grade each chunk</h4><dl><dt>Node</dt><dd>grade_documents</dd><dt>Chunks</dt><dd>retention and export graded yes. The other three are dropped.</dd><dt>LLM calls so far</dt><dd>5, one per chunk</dd></dl></section><section id="crag-step-2" class="step-panel" aria-labelledby="crag-heading-2"><h4 id="crag-heading-2">3. Apply the majority rule</h4><dl><dt>Decision</dt><dd>2 of 5 is 0.40, not more than half: take the web branch</dd><dt>Chunks</dt><dd>Both evidence chunks are already kept</dd><dt>LLM calls so far</dt><dd>5</dd></dl></section><section id="crag-step-3" class="step-panel" aria-labelledby="crag-heading-3"><h4 id="crag-heading-3">4. Rewrite and search the web</h4><dl><dt>Node</dt><dd>rewrite_query, then web_search</dd><dt>Chunks</dt><dd>The two kept chunks, plus up to six web pages nobody graded</dd><dt>LLM calls so far</dt><dd>6, plus one search</dd></dl></section><section id="crag-step-4" class="step-panel" aria-labelledby="crag-heading-4"><h4 id="crag-heading-4">5. Generate</h4><dl><dt>Node</dt><dd>generate_answer</dd><dt>Result</dt><dd>An answer from the right chunks and someone else's pages.</dd><dt>LLM calls so far</dt><dd>7, plus one search</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 ### Two evaluators side by side
 
-The two implementations build the evaluator differently. The table sets them side by side:
+The two implementations build the evaluator differently:
 
 | | CRAG graph, LangGraph | CRAG function variant, plain functions (optional) |
 |---|---|---|
@@ -61,7 +73,7 @@ The graph collapses the paper's three verdicts into two, because a yes-or-no gra
 
 ## Where the majority rule breaks
 
-The graph's rule is a fraction of the retrieved set, and that has consequences you can work out without calling a model. Hold the number of relevant chunks fixed and vary how many were retrieved:
+The rule is a fraction of the retrieved set. Hold the number of relevant chunks fixed and vary how many were retrieved:
 
 | Retrieved | Graded relevant | Fraction | Route |
 |---|---|---|---|
@@ -71,7 +83,7 @@ The graph's rule is a fraction of the retrieved set, and that has consequences y
 
 *Table 2: The majority rule on three retrieval sizes. Arithmetic only, no grader or search involved.*
 
-Every Larkspur golden question has two evidence chunks. A perfect grader keeps those two, and 2 of `k` is more than half only when `k` is 3 or less. The [M29 lab](../03_trade_offs_when_correction_is_worth_the_extra_calls/interactive/correction-cost-lab.html) runs the graph on the handbook with a stand-in grader that agrees with the golden labels, so each case below is a routing effect, not a grader mistake:
+Every Larkspur golden question has two evidence chunks. A perfect grader keeps those two, and 2 of `k` is more than half only when `k` is 3 or less. The lab's grader agrees with the golden labels: each case below is a routing effect, not a grader mistake:
 
 | Case | Question, `k` | Chunks kept | Route | LLM calls |
 |---|---|---|---|---|
@@ -81,8 +93,6 @@ Every Larkspur golden question has two evidence chunks. A perfect grader keeps t
 | **Wrong fix** | *What happens if my server goes down?*, 3 | none of `reboot`, `sizing`, `export` | web search | 5, plus the search |
 
 *Table 3: Planted failures of the majority rule, from the M29 lab.*
-
-Each planted row names a failure mode:
 
 - **Diluted majority**: extra low-ranked chunks lower the fraction, so CRAG falls back with both evidence chunks in hand. The threshold moves with `k`.
 - **Thin pass**: one relevant chunk out of one passes the rule, and CRAG answers without the `export` chunk that says how to export. The evaluator grades chunks, not whether the set is complete.
@@ -98,7 +108,33 @@ A correct verdict of "not good enough" still needs a fix that can reach the evid
 - **Rewrite and retry inside the index**: suits a miss caused by wording, like the outage question (M17 rewriting, M28 retry loop).
 - **Refusal**: suits a question the corpus cannot answer, where any answer would be invented.
 
-For a private handbook the web branch fits none of Larkspur's misses. Replace it, or guard it so it runs only for questions about public facts: retry inside the index first, then refuse. Knowledge refinement is the other half of CRAG, and it works on the context the evaluator lets through.
+Figure 1 is the web design. Figure 2, an added alternative, keeps the evaluator and replaces the fallback with a bounded retry against the index that ends in a refusal:
+
+```mermaid
+flowchart TD
+    GD["Grade each chunk"] --> D{"Enough chunks<br/>pass?"}
+    D -- yes --> GEN["Generate from<br/>the kept chunks"]
+    D -- no --> C{"Rewrites<br/>left?"}
+    C -- yes --> RW["Rewrite toward<br/>handbook words"]
+    RW --> R["Retrieve from<br/>the index again"]
+    R --> GD
+    C -- no --> REF["Refuse and hand<br/>off to support"]
+```
+
+*Figure 2: Added alternative. The fallback stays inside the index and ends in a refusal.*
+
+<div class="learning-widget evidence-switcher" data-comparison id="fallback-switcher">
+<p class="widget-intro">Compare the two fallback designs on two questions the evaluator rightly rejects: one missed on wording, one the handbook cannot answer.</p>
+<div class="mode-controls" hidden role="group" aria-label="Fallback design">
+<button type="button" data-mode="web" aria-pressed="false" aria-controls="fallback-web">Web search (Figure 1)</button>
+<button type="button" data-mode="index" aria-pressed="false" aria-controls="fallback-index">Retry, then refuse (Figure 2)</button>
+</div>
+<section id="fallback-web" class="mode-panel" data-announcement="Web search selected. Both questions go to the web."><h4>Web search</h4><ul><li>Outage question: the search cannot see the handbook, so the answer can quote another provider's availability guarantee.</li><li>GPU question: the search can return another provider's GPU plans, which the generator may present as Larkspur's.</li></ul><p>Both answers come from pages nobody graded.</p></section>
+<section id="fallback-index" class="mode-panel" data-announcement="Retry then refuse selected. The outage question is answered and the GPU question is refused."><h4>Retry, then refuse</h4><ul><li>Outage question: a rewrite using the handbook's words "outage" and "availability" retrieves sla at 0.470 in the M28 lab, and the answer comes from Larkspur's own guarantee.</li><li>GPU question: no rewrite finds a GPU policy, and the loop ends in a refusal and a handoff to support.</li></ul><p>Each extra round costs a rewrite and another round of grades.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+For a private handbook, replace the web branch or guard it so it runs only for questions about public facts. Knowledge refinement, the other half of CRAG, works on the context the evaluator lets through.
 
 ## Knowledge refinement
 
@@ -112,7 +148,7 @@ flowchart LR
     F --> J["Join the rest<br/>as context"]
 ```
 
-*Figure 2: Decompose-then-recompose, the paper's refinement step.*
+*Figure 3: Decompose-then-recompose, the paper's refinement step.*
 
 The function variant uses a simpler version. Its refinement step sends one document to the LLM with the prompt "Extract the key information from the following document in bullet points" and returns the bullets. Where it runs depends on the verdict:
 
@@ -135,9 +171,9 @@ flowchart TD
     L -- no --> A["Ambiguous<br/>refined document<br/>plus refined web"]
 ```
 
-*Figure 3: The function variant's three verdicts as a chain of thresholds.*
+*Figure 4: The function variant's three verdicts as a chain of thresholds.*
 
-The LangGraph graph has no refinement step. It filters at chunk level, keeping only chunks graded yes, and passes web pages as full text, so a fallback can put six whole pages into the prompt. We call that **context flood**: the evaluator removes bad chunks from the index, then the fallback adds pages nobody graded.
+The LangGraph graph has no refinement step. It filters at chunk level, keeping only chunks graded yes, and passes web pages as full text. A fallback can put six whole pages into the prompt. We call that **context flood**: the evaluator removes bad chunks from the index, then the fallback adds pages nobody graded.
 
 ### Strips on the export question
 
@@ -157,7 +193,7 @@ Refinement has two costs. It adds one LLM call per document it rewrites, and an 
 
 ## Choosing the evaluator and the fallback
 
-The decisions on this page come down to two questions about your corpus, plus retuning the fraction whenever `k` changes:
+Two questions about your corpus settle the design. Retune the fraction whenever `k` changes:
 
 | Question | If yes | If no |
 |---|---|---|
@@ -166,19 +202,21 @@ The decisions on this page come down to two questions about your corpus, plus re
 
 *Table 6: Design choices for a CRAG pipeline.*
 
-## In practice: CRAG on the Larkspur handbook
-
-Run the support assistant's questions through the graph and its weak points show up in order:
-
-1. *Can I export my data after I cancel my plan?* at `k = 3` keeps both evidence chunks and answers in 4 calls. At `k = 5` the same chunks trigger a **diluted majority** and a web search.
-2. *What happens if my server goes down?* gets a correct "not relevant" verdict and then the **wrong fix**: a web search that cannot see the handbook.
-3. *Does Larkspur offer GPU servers?* is not in the handbook. The web branch fires and can return another provider's GPU plans, which the generator may present as Larkspur's.
-
-For Larkspur, the fallback becomes a rewrite against the index followed by a refusal, and every route is logged with the chunks graded, the chunks kept and the branch taken.
+Log every route with the chunks graded, the chunks kept and the branch taken.
 
 > **Interview tip:** when a CRAG answer is wrong, read the route before the prompt. Which chunks came back, how each was graded and whether the web branch fired usually explain the answer.
 
+## Limits of this evidence
+
+- **Stand-in grader.** The lab's retrieval is real TF-IDF over the M10 handbook chunks, but its grader agrees with the golden labels. A real grader makes mistakes these cases do not.
+- **Different corpus.** The notebook's graph indexes research papers, where a web fallback can help. The Larkspur cases test the same routing on a private corpus.
+- **Illustrations.** The strip table is written by hand, and the retry design in Figure 2 is an addition, not the notebook's graph.
+
 Lesson 29.2 adds the check CRAG lacks: one that runs after generation and looks at the answer itself.
+
+## References
+
+1. Yan et al., [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884), 2024.
 
 ## Key Takeaways
 
