@@ -213,4 +213,4 @@ The source of every finding. The analyst lists contradictions across all finding
 </details>
 
 ---
-*Previous: [37.3 Scaling: parallel agents, memory merging, language and sentiment, web search](../../../optional/theory/03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md). Next: [M38 MCP foundations](../../../../../p11_agent_protocols/m38_mcp_foundations/mandatory/theory/README.md).*
+*Previous: [37.3 Scaling: parallel agents, memory merging, language and sentiment, web search](../../../optional/theory/03_scaling_parallel_agents_memory_merging_language_and_sentiment_web_search/README.md). Next: [37.5 Five practical agent patterns, side by side](../../../optional/theory/05_five_practical_agent_patterns_side_by_side/README.md).*
