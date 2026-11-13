@@ -4,9 +4,8 @@
     uv run python .claude/skills/course-content/scripts/tracker.py --set 23 "Review draft" [--pr "#42"] [--note "..."]
 
 Counts (lessons, lesson pages, pages in the new style) are computed every run. Status, Updated, PRs and
-Notes are hand-set through --set and preserved otherwise. A page is in the new style when it has a
-`<!-- subtitle:` line, no fenced block other than Mermaid, no `### Step N` heading and no
-`### Practice notebook` section.
+Notes are hand-set through --set and preserved otherwise. A page is in the new style when it carries
+the `<!-- format: approved -->` line that a course-content rewrite writes (references/approved-format.md).
 """
 from __future__ import annotations
 
@@ -26,8 +25,7 @@ HEAD = "| # | Module | Lessons | Pages | New style | Status | Updated | PRs | No
 
 
 def new_style(text: str) -> bool:
-    return ("<!-- subtitle:" in text and not re.search(r"^```(?!mermaid)\S+", text, re.M)
-            and "### Practice notebook" not in text and not re.search(r"^### Step \d", text, re.M))
+    return "<!-- format: approved -->" in text
 
 
 def counts(module: dict) -> tuple[int, int, int]:

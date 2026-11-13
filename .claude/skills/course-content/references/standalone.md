@@ -6,7 +6,7 @@ A lesson page for forwarddeployedprep.com that is **not** a course theory page: 
 
 `CLAUDE.md` forbids per-lesson HTML inside part folders, so these files go to `<track-slug>/<NN>-<topic-slug>.md` at the repo root (e.g. `agentic-engineering/01-agentic-patterns-from-scratch.md`; these folders are untracked), or to the folder the user names. Never write them into a theory folder. A course module's theory always uses create or rewrite mode instead.
 
-`lesson.md` and `voice.md` apply in full, including theory only: no code blocks, no `#### OUTPUT ####` blocks. `standalone/references/example-lesson.md` and its approved `.html` are the current target. Use approved-format.md and components.md for the frame and optional interactions. A lesson of a course module is not standalone: write the course README and export it with `scripts/export_lesson.py`.
+`lesson.md` and `voice.md` apply in full, including theory only: no code blocks, no `#### OUTPUT ####` blocks. `standalone/references/example-lesson.md` and its approved `.html` are the current target. Use approved-format.md and components.md for the frame and optional interactions. For a course lesson, use the repository workflow and `scripts/export_lesson.py`. If the user requests only a standalone HTML review, preserve the source README and produce the requested artifact. Still update its module row in `REWRITE_TRACKER.md` under the required rewrite-tracking rule in `SKILL.md`.
 
 ## Workflow
 

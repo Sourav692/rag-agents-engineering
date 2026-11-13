@@ -76,6 +76,7 @@ Without a lab, drop the `## Interactive lab` section. Section anchors are GitHub
 *[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_x.ipynb`](../../notebook/02a_x.ipynb), [`02b_y.ipynb`](../../../optional/notebook/02b_y.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
                                                                  ← load-bearing: " · Notebooks: … · [All theory pages]"; leave out "· Notebooks: …" when the lesson has none
 <!-- subtitle: <one line naming what the page resolves> -->         ← invisible on GitHub; export_lesson.py uses it
+<!-- format: approved -->                                          ← load-bearing: marks a page rewritten in the approved format (references/approved-format.md); tracker.py counts it
 
 ## <Descriptive heading for the problem, or the first concept>
 

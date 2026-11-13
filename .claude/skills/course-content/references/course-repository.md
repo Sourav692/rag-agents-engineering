@@ -63,7 +63,7 @@ Topic mode also states which module-page sections change (Lessons row, TL;DR bul
 Contracts from `contracts.md`, shape from `lesson.md`, prose from `voice.md`.
 
 - **Module page** `<theory>/README.md`: title, meta line, intro with the "Each idea has a page…" sentence, running-example paragraph, `## TL;DR`, `## Mental model`, `## Lessons`, `## Interactive lab`, `## How it connects`, `## Interview Spotlight: 5 Questions You Might Get Asked`, `## Key Takeaways`, footer.
-- **Lesson page** in the folder `resolve.py` gives (`mandatory/theory/` or `optional/theory/`): title, header line and `<!-- subtitle: … -->`, then the `lesson.md` sections with each `## <exact concept>` among them (What you'll learn opens the first section), `## Key Takeaways` (three bullets, four when the page has four or more concepts), `## Check yourself`, footer. No `### Step N` headings.
+- **Lesson page** in the folder `resolve.py` gives (`mandatory/theory/` or `optional/theory/`): title, header line, `<!-- subtitle: … -->` and `<!-- format: approved -->` on the next line, then the `lesson.md` sections with each `## <exact concept>` among them (What you'll learn opens the first section), `## Key Takeaways` (three bullets, four when the page has four or more concepts), `## Check yourself`, footer. No `### Step N` headings.
 - **Check yourself:** three `<details>` blocks (`<summary>N. Question?</summary>`, blank line, 2 to 4 sentence answer, blank line, `</details>`): the mechanism, an application to the page's example or numbers, and a diagnosis or decision. Plain-text questions; answers use only the page.
 - **Interview Spotlight:** five production scenarios on the running example, never "what is X": at least an incident, a design trade-off, a measurement or monitoring question and an edge case, each with four "What a strong answer covers" bullets.
 
@@ -105,7 +105,9 @@ node ~/.claude/skills/hallmark/scripts/sloplint.mjs <part>/<module>/*/theory/*/i
 
 ## 8. Update the tracker, then report
 
-Every course-module run (create, rewrite review, rewrite edit; not standalone) ends by updating `REWRITE_TRACKER.md` at the repo root through its script, never by hand-editing the table:
+Every course-module run ends by updating `/Users/sourav/Github_Repos/rag-agents-engineering/REWRITE_TRACKER.md` through its script before delivery. This includes create, rewrite review, rewrite edit, a single lesson, a partial module and an HTML-only export whose source README is unchanged. Resolve the module from its lesson path or curriculum metadata. A standalone output format does not exempt content belonging to this course. Unrelated standalone topics have no module row. Never hand-edit the table.
+
+Run from `/Users/sourav/Github_Repos/rag-agents-engineering`:
 
 ```bash
 uv run python .claude/skills/course-content/scripts/tracker.py --set <module> "<status>" [--pr "#N"] [--note "<one line>"]
@@ -113,12 +115,14 @@ uv run python .claude/skills/course-content/scripts/tracker.py --set <module> "<
 
 | What the run did | Status |
 |---|---|
-| Review drafts shown, no file changed | `Review draft` |
+| Review draft or HTML-only rewrite delivered; source pages unchanged | `Review draft` |
 | Pages edited or written, not yet in a PR | `In progress` |
 | PR opened | `In PR` (add `--pr`) |
 | PR merged and the page is on forwarddeployedprep.com | `Live` |
 
-The note says what is left (e.g. "22.3 to 22.6 done; 22.1 over 2,500 words"). The script recomputes the Lessons, Pages and New style columns on every run; a module is only `Live` when New style equals Pages. Show the module's tracker row in the report.
+The note records the rewritten lesson numbers, artifact paths, validation results and remaining work. For example: "28.1 HTML review: 01_retriever_as_a_tool_grade_then_rewrite_in_langgraph.html; browser checks passed; source unchanged; 28.2 and 28.3 pending." Read the existing row first. Preserve existing PR references and relevant notes. If the module is already `In PR` or `Live`, preserve that status for a new review draft and describe the pending revision in the note.
+
+The script recomputes Lessons, Pages and New style from source pages. An HTML-only draft must not increase New style or mark the whole module as applied. A module is only `Live` when New style equals Pages and publication is verified. After running the command, read back the affected row to confirm its status, date and note, then show it in the final report. A failed tracker command must be reported rather than treated as a successful update.
 
 Report both paths of every exported pair, then what was written or changed (pages, concepts per lesson, diagrams static and animated, the lab and its verification), which lessons got project pages, check results, anything unconfirmed, and in rewrite mode the flags from `rewrite.md` → Report. Do not commit unless asked. Record new gotchas in `.claude/napkin.md`.
 

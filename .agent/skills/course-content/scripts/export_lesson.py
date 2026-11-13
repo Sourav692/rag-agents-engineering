@@ -65,7 +65,7 @@ def export(page: str, cur: dict, slugs: dict, out: Path, text: str | None = None
     head = re.search(r"^\*\[M\d+ theory\].*$", body, re.M)
     nbs = re.findall(r"\[`([^`]+)`\]\(([^)\s]+)\)( \(optional\))?", head.group(0)) if head else []
     body = re.sub(r"^\*\[M\d+ theory\].*\n", "", body, count=1, flags=re.M)  # header line
-    body = re.sub(r"^<!-- (?:subtitle|animated|lab): .*?-->[ \t]*\n", "", body, flags=re.M)
+    body = re.sub(r"^<!-- (?:subtitle|format|animated|lab): .*?-->[ \t]*\n", "", body, flags=re.M)
     body = re.split(r"\n---\n\*Previous:", body)[0].rstrip() + "\n"
     if nbs:  # the same "Run the notebooks" section the site's importer adds
         rows = []

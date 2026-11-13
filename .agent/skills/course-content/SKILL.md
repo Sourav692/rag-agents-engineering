@@ -57,6 +57,12 @@ The Python dependencies are in `requirements.txt`. The renderer checks for its M
 
 For other pages on the live site, adapt content in the source/import pipeline and integrate the shared CSS/reader behavior into its maintained template. Match the approved article design while preserving the site's genuine navigation. Do not hand-edit generated routes or replace the site's framework with this standalone exporter.
 
+## Required rewrite tracking
+
+After rewriting any module or lesson belonging to this course, update `/Users/sourav/Github_Repos/rag-agents-engineering/REWRITE_TRACKER.md` before delivery. This includes partial-module rewrites, review drafts and HTML-only exports even when the source README is unchanged. Resolve the module from the lesson path or curriculum metadata. Output format and destination do not exempt a course rewrite from tracking.
+
+Use `scripts/tracker.py`, never hand-edit the tracker table. Follow [Course repository, step 8](references/course-repository.md#8-update-the-tracker-then-report) for the command and status mapping. Record which lessons were rewritten, artifact paths, validation results and remaining work in the note. Read back the affected row and include its status in the final report. If updating fails, report the failure and do not claim tracking is complete. Unrelated standalone topics have no module row to update.
+
 ## Delivery gate
 
 Before delivery, compare source coverage and the approved component pattern. Confirm every inventoried diagram remains, especially a pair that distinguishes alternatives. Test every stage/mode, keyboard use, disabled controls, internal links, mobile/light/dark, offline assets and the no-script fallback. Inspect every figure. Do not call a deterministic rebuild an independent test of newly authored prose.
