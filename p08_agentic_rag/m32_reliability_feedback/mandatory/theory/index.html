@@ -347,7 +347,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>The checks in the top row act on one answer and can only remove: a grader drops a chunk or rejects an answer, and neither can add the chunk that was missing. The loop in the bottom row acts across many answers and can only reorder the chunks retrieval already returns. A missing chunk is a retrieval problem in both rows, and the fixes for it sit in M13 to M18.</p>
-<h2 id="relevance-grading">Relevance grading</h2>
+<h2 id="start-with-a-refund-answer-nobody-checked">Start with a refund answer nobody checked</h2>
 <p class="lesson-of">Lesson 32.1: Reliable RAG: relevance checks, hallucination checks, source highlighting. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m32_reliability_feedback/mandatory/notebook/01a_reliable_rag.ipynb" target="_blank" rel="noopener"><code>01a_reliable_rag.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -360,7 +360,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>M31 made the retriever a tool the agent calls when it decides to. This module asks what happens after the call returns: whether the chunks are on topic, whether the answer stays inside them, and whether the user can see where each claim came from.</p>
 <p>A Larkspur customer asks <em>How long does a refund take?</em> The answer comes back fluent and confident, with a number of business days that differs from the handbook&rsquo;s 5 to 10. That duration sits in the <code>refund-timing</code> chunk, and that chunk was never retrieved. The model found a related passage about refunds, saw no duration in it, and filled the gap from memory. Nothing in a plain RAG pipeline notices.</p>
-<p>Lesson 32.1 adds three checks around generation, each catching a different failure:</p>
+<p>This lesson adds three checks around generation, each catching a different failure:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     R[/"4 retrieved chunks"/] --&gt; G{"Relevant?&lt;br/&gt;one call per chunk"}
     G -- no --&gt; X[Dropped]
@@ -373,12 +373,12 @@ th:last-child, td:last-child { padding-right: 0; }
     H -- yes --&gt; S[Highlight segments]
 </pre></figure>
 <p><em>Figure 1: The reliable RAG pipeline. A grader filters chunks before generation, a second grader checks the answer after it, and highlighting ties each claim to a quote.</em></p>
-<h3>A grader before generation</h3>
+<h2 id="relevance-grading">Relevance grading</h2>
 <p>A <strong>relevance grader</strong> is a small model call that reads one retrieved chunk together with the question and returns a structured verdict, <code>yes</code> or <code>no</code>. Chunks graded <code>no</code> are dropped; only the kept ones reach the generator.</p>
-<p>The notebook indexes five posts on agentic design patterns from DeepLearning.AI&rsquo;s <em>The Batch</em> (500-token chunks, no overlap, OpenAI&rsquo;s <code>text-embedding-3-small</code>, Chroma) and retrieves 4 chunks per question. Every grader runs Llama 3.1 8B on Groq at temperature 0 with structured output, so the verdict is a field the code can branch on.</p>
+<p>The notebook indexes five posts on agentic design patterns from DeepLearning.AI&rsquo;s <em>The Batch</em> (500-token chunks, no overlap, OpenAI&rsquo;s <code>text-embedding-3-small</code>, Chroma) and retrieves 4 chunks per question. Every grader runs Llama 3.1 8B on Groq at temperature 0 with structured output, which makes the verdict a field the code can branch on.</p>
 <p>The grading prompt sets a low bar on purpose: a chunk counts as relevant if it shares keywords or meaning with the question, because &ldquo;The goal is to filter out erroneous retrievals.&rdquo; A strict grader would drop borderline chunks that still help.</p>
 <h3>What grading can and cannot fix</h3>
-<p>Run the refund question against the M10 TF-IDF index of the Larkspur handbook and the grader&rsquo;s job becomes concrete:</p>
+<p>Run the refund question against the M10 TF-IDF index of the Larkspur handbook. Only two chunks score above zero:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -391,13 +391,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>1</td>
-<td><code>refund-window</code></td>
+<td><code>refund-window</code> (0.227)</td>
 <td>Shares &ldquo;refund&rdquo; with the question</td>
 <td>Keep: it is about refunds</td>
 </tr>
 <tr>
 <td>2</td>
-<td><code>reboot</code></td>
+<td><code>reboot</code> (0.194)</td>
 <td>Both texts contain &ldquo;does&rdquo;</td>
 <td>Drop: it is about servers</td>
 </tr>
@@ -410,7 +410,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The refund question on the M10 index, and what a relevance grader sees.</em></p>
-<p>Dropping <code>reboot</code> removes a distractor. But the chunk that holds the answer is absent, and no grader can add it. We call this the <strong>candidate ceiling</strong>: every check downstream of retrieval works on the candidates retrieval returned, so recall stays where retrieval left it. Fixing the missing chunk is retrieval work (M13 to M18).</p>
+<p>Dropping <code>reboot</code> removes a distractor. But the chunk that holds the answer is absent, and no grader can add it. We call this the <strong>candidate ceiling</strong>: every check downstream of retrieval works on the candidates retrieval returned, and recall stays where retrieval left it. Fixing the missing chunk is retrieval work (M13 to M18).</p>
 <blockquote>
 <p><strong>Pitfall: the empty-context answer.</strong> The notebook passes the kept chunks to generation without checking whether any survived. If all four are graded <code>no</code>, the model gets no documents and answers anyway, from memory. Branch on the empty case: rewrite the query and retry a bounded number of times (M28), fall back to another source (M29), or say the handbook does not cover the question.</p>
 </blockquote>
@@ -420,12 +420,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <h3>Three limits of one verdict</h3>
 <p>Three properties decide how far to trust it:</p>
 <ul>
-<li><strong>It checks support, not usefulness.</strong> The question is not in the grader&rsquo;s input, so a grounded answer can still miss the question; Self-RAG (M29) adds a check for that.</li>
-<li><strong>It returns one verdict for the whole answer.</strong> One unsupported sentence fails the answer, and the grader does not say which one. Per-claim checks split the answer into statements and verify each against a cited chunk, so they give the location as well as the verdict.</li>
-<li><strong>It is a model judgment.</strong> The same 8B model writes and grades here, so the two can share blind spots. Before relying on it, label a sample of answers by hand and measure how often the grader agrees, for <code>yes</code> and <code>no</code> separately, because a lenient grader fails in one direction.</li>
+<li><strong>It checks support, not usefulness.</strong> The question is not in the grader&rsquo;s input, and a grounded answer can still miss the question. Self-RAG (M29) adds a check for that.</li>
+<li><strong>It returns one verdict for the whole answer.</strong> One unsupported sentence fails the answer, and the grader does not say which one. Per-claim checks split the answer into statements and verify each against a cited chunk, giving the location as well as the verdict.</li>
+<li><strong>It is a model judgment.</strong> The same 8B model writes and grades here, and the two can share blind spots. Before relying on it, label a sample of answers by hand and measure how often the grader agrees, for <code>yes</code> and <code>no</code> separately, because a lenient grader fails in one direction.</li>
 </ul>
 <h3>Planted failure: the remembered number</h3>
-<p>Back to the refund question. Suppose only <code>refund-window</code> survives grading. That chunk states the 30-day window for an annual plan&rsquo;s refund and says nothing about how long the refund takes. The table shows what the grader should return for three possible answers:</p>
+<p>Suppose only <code>refund-window</code> survives grading. That chunk states the 30-day window for an annual plan&rsquo;s refund and says nothing about how long the refund takes. The table shows what the grader should return for three possible answers:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -453,7 +453,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Three answers to the refund question when only <code>refund-window</code> is kept (illustrative answers).</em></p>
-<p>The first row is the usefulness gap: grounded, and still no answer. The second row is the <strong>remembered number</strong>, a fact the model brought from its training data. The notebook&rsquo;s generation prompt invites it, because it says &ldquo;Answer the question based upon your knowledge&rdquo;. A prompt that says &ldquo;answer only from the documents, and say so when they do not cover the question&rdquo; produces the third row instead, and stops most remembered numbers before the grader has to catch them.</p>
+<p>The first row is the usefulness gap: grounded, and still no answer. The second row is the <strong>remembered number</strong>, a fact the model brought from its training data. The notebook&rsquo;s generation prompt invites it, because it says &ldquo;Answer the question based upon your knowledge&rdquo;. A prompt that says &ldquo;answer only from the documents, and say so when they do not cover the question&rdquo; produces the third row instead.</p>
+<h3>Trace the refund question through all three checks</h3>
+<p>The walkthrough follows one refund request through Figure 1, with the stricter prompt applied after the first <code>no</code>. The answers are illustrative; the retrieval scores come from the M10 index.</p>
+<div class="walkthrough learning-widget" data-stepper id="refund-walkthrough">
+<p class="widget-intro">Follow the refund question through grading, generation, the grounding check and highlighting. Each stage shows what is in hand and the running call count.</p>
+<div class="step-controls" hidden role="group" aria-label="Reliable RAG stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="refund-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="refund-step-1">2. Grade</button><button type="button" data-step="2" aria-pressed="false" aria-controls="refund-step-2">3. Generate</button><button type="button" data-step="3" aria-pressed="false" aria-controls="refund-step-3">4. Check</button><button type="button" data-step="4" aria-pressed="false" aria-controls="refund-step-4">5. Retry</button></div>
+<div class="step-panels"><section id="refund-step-0" class="step-panel" aria-labelledby="refund-heading-0"><h4 id="refund-heading-0">1. Retrieve</h4><dl><dt>Chunks</dt><dd>refund-window 0.227, reboot 0.194. refund-timing scores 0.</dd><dt>Model calls so far</dt><dd>0</dd></dl></section><section id="refund-step-1" class="step-panel" aria-labelledby="refund-heading-1"><h4 id="refund-heading-1">2. Grade each chunk</h4><dl><dt>Kept</dt><dd>refund-window. reboot is dropped.</dd><dt>Model calls so far</dt><dd>2, one per chunk</dd></dl></section><section id="refund-step-2" class="step-panel" aria-labelledby="refund-heading-2"><h4 id="refund-heading-2">3. Generate from your knowledge</h4><dl><dt>Answer</dt><dd>States a refund duration in business days, taken from memory.</dd><dt>Model calls so far</dt><dd>3</dd></dl></section><section id="refund-step-3" class="step-panel" aria-labelledby="refund-heading-3"><h4 id="refund-heading-3">4. Check grounding</h4><dl><dt>Verdict</dt><dd>no: refund-window gives no duration.</dd><dt>Model calls so far</dt><dd>4</dd></dl></section><section id="refund-step-4" class="step-panel" aria-labelledby="refund-heading-4"><h4 id="refund-heading-4">5. Regenerate from the documents only</h4><dl><dt>Answer</dt><dd>The handbook passage does not say how long a refund takes. Graded yes, then highlighted.</dd><dt>Model calls so far</dt><dd>7: a second generation, a second grounding check and one highlight call</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The final answer is honest and still incomplete. The checks stopped a wrong number; only better retrieval would deliver the right one.</p>
 <h3>What a <code>no</code> leads to</h3>
 <p>The notebook prints the verdict and stops. In production a <code>no</code> has to go somewhere: regenerate once with the stricter prompt, then retry retrieval with a rewritten query, then answer that the handbook does not say and offer a person. Cap the retries, because each one is another generation call and another grading call on top of these:</p>
 <div class="sheet scroll"><table>
@@ -483,9 +491,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Model calls the three checks add to one answer, before any retry.</em></p>
-<p>Those calls add latency as well as cost (the four chunk grades can run in parallel; the rest run one after another), so the graders belong on the same dashboard as the answer time. Once an answer passes, the last check shows the user which words it rests on.</p>
+<p>Those calls add latency as well as cost. The four chunk grades can run in parallel; the rest run one after another. Put the graders on the same dashboard as the answer time. Once an answer passes, the last check shows the user which words it rests on.</p>
 <h2 id="source-highlighting">Source highlighting</h2>
-<p><strong>Source highlighting</strong> asks the model which exact passages of the kept chunks the answer used, so the reader can check the answer against the handbook at a glance.</p>
+<p><strong>Source highlighting</strong> asks the model which exact passages of the kept chunks the answer used, letting the reader check the answer against the handbook at a glance.</p>
 <p>The notebook asks for the result as four parallel lists, one entry per highlighted passage:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -536,7 +544,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 5: A correct highlight for the export question.</em></p>
 <h3>The parser checks shape, not truth</h3>
 <p>A structured-output parser checks that the response has the four lists with strings in them. It does not check that a segment appears in its chunk. A model can paraphrase, merge two sentences or quote a chunk it was never given, and the output still parses.</p>
-<p>So check every segment in your own code with an exact substring search of the cited chunk. A hit returns the character offset where the quote starts, which is what the interface needs to draw the highlight. A miss returns nothing:</p>
+<p>Check every segment in your own code with an exact substring search of the cited chunk. A hit returns the character offset where the quote starts, which is what the interface needs to draw the highlight. A miss returns nothing:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -601,10 +609,22 @@ th:last-child, td:last-child { padding-right: 0; }
     M -- yes --&gt; O["Highlight&lt;br/&gt;at the offset"]
 </pre></figure>
 <p><em>Figure 2: Validating a highlight, one check per planted failure.</em></p>
-<p>A rising miss rate in that log means the highlighting prompt or the model has drifted. And a chunk that is retrieved often and never highlighted is a candidate for the grader to drop or for retrieval to stop returning.</p>
+<p>A rising miss rate in that log means the highlighting prompt or the model has drifted. A chunk that is retrieved often and never highlighted is a candidate for the grader to drop or for retrieval to stop returning.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Two corpora.</strong> The notebook runs on five blog posts with dense embeddings; the traces on this page use the Larkspur handbook with the M10 TF-IDF index. The retrieval scores come from that index, not from the notebook&rsquo;s.</li>
+<li><strong>Illustrative answers.</strong> The answers in Table 2 and the walkthrough are written to show each verdict. No grader agreement rate was measured here; measure your own before trusting a <code>no</code>.</li>
+<li><strong>Call counts, not latency.</strong> Table 3 counts calls. Waiting time depends on which calls run in parallel and on token counts.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Asai et al., <a href="https://arxiv.org/abs/2310.11511" target="_blank" rel="noopener">Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</a>, 2023.</li>
+<li>Gao et al., <a href="https://arxiv.org/abs/2305.14627" target="_blank" rel="noopener">Enabling Large Language Models to Generate Text with Citations</a>, 2023.</li>
+<li>Es et al., <a href="https://arxiv.org/abs/2309.15217" target="_blank" rel="noopener">RAGAS: Automated Evaluation of Retrieval Augmented Generation</a>, 2023.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Grade each retrieved chunk before generation, at one call per chunk. Grading drops noise but cannot add a chunk retrieval missed (the candidate ceiling), so branch on an empty kept set instead of answering anyway.</li>
+<li>Grade each retrieved chunk before generation, at one call per chunk. Grading drops noise but cannot add a chunk retrieval missed (the candidate ceiling): branch on an empty kept set instead of answering anyway.</li>
 <li>The hallucination grader checks support, not usefulness, and gives one verdict for the whole answer. Measure its agreement with hand labels, prompt the generator to answer only from the documents, and send a <code>no</code> to a capped retry or an abstention.</li>
 <li>A parser checks only the shape of a highlight. Find every segment in its cited chunk, check the ids and list lengths, and fall back to citing the whole chunk when a check fails.</li>
 </ul>
@@ -621,7 +641,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A highlighted segment parses correctly but is not found in the chunk it cites. What should the app do?</summary>
 <p>The parser checks only the shape, so the model may have paraphrased or merged sentences. Fall back to citing the whole chunk and log the miss, because a rising miss rate means the highlighting prompt or model has drifted. Also compare the list lengths before pairing them, since pairing stops at the shorter list and silently drops a row.</p>
 </details>
-<h2 id="the-feedback-re-ranker">The feedback re-ranker</h2>
+<h2 id="start-with-a-thumbs-down-that-changes-nothing">Start with a thumbs-down that changes nothing</h2>
 <p class="lesson-of">Lesson 32.2: Retrieval with a user-feedback loop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m32_reliability_feedback/mandatory/notebook/02a_retrieval_with_feedback_loop.ipynb" target="_blank" rel="noopener"><code>02a_retrieval_with_feedback_loop.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -633,8 +653,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 32.1 checked one answer at a time and could only remove. This lesson learns across many answers.</p>
-<p>A Larkspur customer asks <em>How long does a refund take?</em> and gives the answer a thumbs-down. Twenty askings later the answer is still incomplete, because the chunk with the answer, <code>refund-timing</code>, was never among the candidates the ratings could touch.</p>
-<h3>The feedback record and the multiplier</h3>
+<p>A Larkspur customer asks <em>How long does a refund take?</em> and gives the answer a thumbs-down. Twenty askings later the answer is still incomplete, because the chunk with the answer, <code>refund-timing</code>, was never among the candidates the ratings could touch. Another customer&rsquo;s thumbs-down on a credit question fixes it for good after one rating. The difference is where the evidence sits when the rating arrives.</p>
+<h2 id="the-feedback-re-ranker">The feedback re-ranker</h2>
 <p>The notebook builds a question-answering chain with <code>gpt-4o</code> over a climate-change PDF and stores one <strong>feedback record</strong> per answer, appended to a log file as a line of JSON:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -769,10 +789,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: The multiplier at the ends and the middle of the scale.</em></p>
 <ul>
-<li><strong>Feedback sets the order on its own.</strong> Every chunk starts at a score of 1.0, so after the multiplication ratings alone decide the order. Similarity only breaks ties, because a stable sort keeps the retriever&rsquo;s order for equal scores.</li>
-<li><strong>The multiplier is bounded.</strong> It uses the average, so a chunk sits between 0.333 and 1.667. The first rating moves a chunk as far as it will go; later ratings only move the average.</li>
+<li><strong>Feedback sets the order on its own.</strong> Every chunk starts at a score of 1.0, and after the multiplication ratings alone decide the order. Similarity only breaks ties, because a stable sort keeps the retriever&rsquo;s order for equal scores.</li>
+<li><strong>The multiplier is bounded.</strong> It uses the average, and a chunk sits between 0.333 and 1.667. The first rating moves a chunk as far as it will go; later ratings only move the average.</li>
 <li><strong>It reorders the candidates and nothing else.</strong> The retriever returns 4 chunks by default, and a chunk outside those 4 never receives a rating: the <strong>candidate ceiling</strong> from lesson 32.1 again.</li>
-<li><strong>It costs one model call per pair.</strong> Every retrieved chunk is checked against every stored record, so 4 chunks and 1,000 records make 4,000 <code>gpt-4o</code> calls for one query.</li>
+<li><strong>It costs one model call per pair.</strong> Every retrieved chunk is checked against every stored record: 4 chunks and 1,000 records make 4,000 <code>gpt-4o</code> calls for one query.</li>
 </ul>
 <h3>One hundred ratings on the handbook</h3>
 <p>The <a href="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html">interactive lab</a> runs this rule on the Larkspur handbook with the M10 TF-IDF retriever. Five golden questions take turns, 20 times each over 100 events. Each answer uses the top 2 of the 4 candidates, and the simulated user gives a 5 when every evidence chunk is in the answer and a 1 otherwise. The lab replaces the <code>gpt-4o</code> relevance call with a fixed rule: a record counts for a chunk when it was given on the same question and its answer used that chunk. Its port of the rule matches the Python function on all 202 settings it offers.</p>
@@ -825,13 +845,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The lab after 100 rated answers, ratings on the whole answer.</em></p>
-<p>Three results stand out:</p>
-<ul>
-<li><strong>The credit question is fixed by one rating.</strong> Its candidates arrive as <code>sizing</code>, <code>reboot</code>, <code>sla</code>, <code>export</code>. At event 4 the answer uses <code>sizing</code> and <code>reboot</code>, the user gives a 1, and both drop to 0.333. <code>sla</code> and <code>export</code> move up at 1.000, the next answer contains the evidence, and the thumbs-up at event 9 lifts them to 1.667.</li>
-<li><strong>The loop stops learning early.</strong> No ranking changes after event 8 and no score changes after event 9. Events 10 to 100 add records and change nothing.</li>
-<li><strong>Feedback cannot reach a missing chunk.</strong> <code>refund-timing</code> scores 0 for the refund question, and <code>sla</code> and <code>incidents</code> score 0 for the outage question, so none of them is ever a candidate. Those two questions account for 40 of the 41 wrong answers. On the outage question, every candidate has an average of 1 by event 8, all sit at 0.333, and the order is the retriever&rsquo;s again.</li>
-</ul>
 <figure class="lab-embed"><iframe src="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html" title="The feedback flywheel, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The feedback flywheel. <a href="02_retrieval_with_a_user_feedback_loop/interactive/feedback-flywheel-lab.html">Open full screen</a></figcaption></figure>
+<p>The credit question is the one the loop fixes. The walkthrough follows it event by event:</p>
+<div class="walkthrough learning-widget" data-stepper id="credit-walkthrough">
+<p class="widget-intro">Follow the credit question through the lab's first rated answers. Each stage shows the candidates' scores and what the user saw.</p>
+<div class="step-controls" hidden role="group" aria-label="Credit question events"><button type="button" data-step="0" aria-pressed="false" aria-controls="credit-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="credit-step-1">2. Event 4</button><button type="button" data-step="2" aria-pressed="false" aria-controls="credit-step-2">3. Re-rank</button><button type="button" data-step="3" aria-pressed="false" aria-controls="credit-step-3">4. Event 9</button><button type="button" data-step="4" aria-pressed="false" aria-controls="credit-step-4">5. Events 10 to 100</button></div>
+<div class="step-panels"><section id="credit-step-0" class="step-panel" aria-labelledby="credit-heading-0"><h4 id="credit-heading-0">1. Retrieve four candidates</h4><dl><dt>Similarity</dt><dd>sizing 0.290, reboot 0.221, sla 0.184, export 0.115</dd><dt>Scores</dt><dd>All 1.000: no feedback yet</dd></dl></section><section id="credit-step-1" class="step-panel" aria-labelledby="credit-heading-1"><h4 id="credit-heading-1">2. Event 4: a thumbs-down</h4><dl><dt>Answer used</dt><dd>sizing and reboot. The evidence chunk sla is missing.</dd><dt>Rating</dt><dd>1, recorded against sizing and reboot</dd></dl></section><section id="credit-step-2" class="step-panel" aria-labelledby="credit-heading-2"><h4 id="credit-heading-2">3. Re-rank</h4><dl><dt>Scores</dt><dd>sla 1.000, export 1.000, sizing 0.333, reboot 0.333</dd><dt>Top 2</dt><dd>sla and export: the evidence is now in the answer</dd></dl></section><section id="credit-step-3" class="step-panel" aria-labelledby="credit-heading-3"><h4 id="credit-heading-3">4. Event 9: a thumbs-up</h4><dl><dt>Answer used</dt><dd>sla and export. Complete.</dd><dt>Scores</dt><dd>sla 1.667, export 1.667, sizing 0.333, reboot 0.333</dd></dl></section><section id="credit-step-4" class="step-panel" aria-labelledby="credit-heading-4"><h4 id="credit-heading-4">5. Events 10 to 100</h4><dl><dt>Change</dt><dd>None. No ranking moves after event 8 and no score after event 9, for any question.</dd><dt>Wrong answers on this question</dt><dd>1 of 20</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The other two failing questions never improve. <code>refund-timing</code> scores 0 for the refund question, and <code>sla</code> and <code>incidents</code> score 0 for the outage question: none of them is ever a candidate. Those two questions account for 40 of the 41 wrong answers. On the outage question, every candidate has an average of 1 by event 8, all sit at 0.333, and the order is the retriever&rsquo;s again.</p>
 <h3>Three defects to fix before the loop works</h3>
 <p>The notebook&rsquo;s loop does not yet behave as described. Each defect fails quietly:</p>
 <div class="sheet scroll"><table>
@@ -845,7 +866,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>The relevance check compares the model&rsquo;s reply with lowercase &ldquo;yes&rdquo;, while the prompt asks for &ldquo;Yes&rdquo; or &ldquo;No&rdquo;</td>
-<td>No record ever counts, so no score moves</td>
+<td>No record ever counts, and no score moves</td>
 <td>Normalise case and whitespace before comparing</td>
 </tr>
 <tr>
@@ -861,7 +882,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Three defects in the notebook&rsquo;s feedback loop.</em></p>
-<p>All three leave the pipeline answering, so test the order itself.</p>
+<p>All three leave the pipeline answering. Test the order itself.</p>
 <h2 id="implicit-vs-explicit-feedback">Implicit vs explicit feedback</h2>
 <p><strong>Explicit feedback</strong> is a judgment the user states: a thumbs-up, a star rating, the 1 to 5 <code>relevance</code> and <code>quality</code> fields above. <strong>Implicit feedback</strong> is inferred from what the user does next. The two differ on every axis that matters:</p>
 <div class="sheet scroll"><table>
@@ -895,59 +916,39 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Bias</td>
-<td>Raters choose themselves, so they may not be typical users</td>
-<td>Users click what is shown first, so top-ranked chunks collect more signal</td>
+<td>Raters choose themselves and may not be typical users</td>
+<td>Users click what is shown first, and top-ranked chunks collect more signal</td>
 </tr>
 </tbody>
 </table></div>
 <p><em>Table 5: Explicit and implicit feedback compared.</em></p>
 <h3>Where the rating lands</h3>
-<p>The lab&rsquo;s second setting shows why granularity matters. <em>Thumbs on the answer</em> gives every chunk in the answer the same rating, as the notebook does. <em>Clicks on each source</em> rates each chunk on its own: 5 for an evidence chunk the user opened, 1 for one they skipped.</p>
-<p>Answer-level ratings produce <strong>ride-along credit</strong>: a chunk that happens to sit next to the evidence collects the evidence&rsquo;s rating. It works in both directions, as the lab shows after 100 events:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Question</th>
-<th>Chunk</th>
-<th>Evidence?</th>
-<th>Thumbs on the answer</th>
-<th>Clicks on each source</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><em>Can I still use my server after I cancel the plan?</em></td>
-<td><code>sizing</code></td>
-<td>No</td>
-<td>1.667</td>
-<td>0.333</td>
-</tr>
-<tr>
-<td><em>Can I still use my server after I cancel the plan?</em></td>
-<td><code>cancel</code></td>
-<td>Yes</td>
-<td>1.667</td>
-<td>1.667</td>
-</tr>
-<tr>
-<td><em>How long does a refund take?</em></td>
-<td><code>refund-window</code></td>
-<td>Yes</td>
-<td>0.333</td>
-<td>1.667</td>
-</tr>
-<tr>
-<td><em>How long does a refund take?</em></td>
-<td><code>reboot</code></td>
-<td>No</td>
-<td>0.333</td>
-<td>0.333</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 6: Chunk scores after 100 events under each signal.</em></p>
-<p>On the cancel question <code>sizing</code> rides up next to <code>cancel</code>. On the refund question the answer is always incomplete, so the evidence chunk <code>refund-window</code> is pushed down with the distractor it was served with.</p>
-<p>The sharper signal does not change the lab&rsquo;s totals: with either setting, mean recall@2 ends at 0.70 and 41 of 100 answers are wrong, because neither reaches a chunk the retriever does not return. Per-source ratings reshuffle non-evidence chunks for longer, and the order settles at event 15 instead of event 8.</p>
+<p>The lab&rsquo;s second setting shows why granularity matters. Answer-level ratings produce <strong>ride-along credit</strong>: a chunk that happens to sit next to the evidence collects the evidence&rsquo;s rating.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    A["Answer:&lt;br/&gt;cancel + sizing"] --&gt; T{"Thumbs up&lt;br/&gt;on the answer"}
+    T -- "5" --&gt; C1["cancel 1.667"]
+    T -- "5" --&gt; C2["sizing 1.667"]
+</pre></figure>
+<p><em>Figure 2: Thumbs on the answer. Every chunk in the answer gets the same rating, evidence or not.</em></p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    A["Answer:&lt;br/&gt;cancel + sizing"] --&gt; O["User opens cancel,&lt;br/&gt;skips sizing"]
+    O -- "5" --&gt; C1["cancel 1.667"]
+    O -- "1" --&gt; C2["sizing 0.333"]
+</pre></figure>
+<p><em>Figure 3: Clicks on each source. Each chunk is rated on its own: 5 for evidence the user opened, 1 for a chunk they skipped.</em></p>
+<p>The same 100 events, under each signal:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="signal-switcher">
+<p class="widget-intro">Compare where the ratings land on the cancel and refund questions after 100 events.</p>
+<div class="mode-controls" hidden role="group" aria-label="Feedback signal">
+<button type="button" data-mode="answer" aria-pressed="false" aria-controls="signal-answer">Thumbs on the answer</button>
+<button type="button" data-mode="source" aria-pressed="false" aria-controls="signal-source">Clicks on each source</button>
+</div>
+<section id="signal-answer" class="mode-panel" data-announcement="Thumbs on the answer selected. sizing rides up, refund-window is pushed down."><h4>Thumbs on the answer</h4><ul><li>Cancel question: cancel 1.667, and sizing, which is not evidence, also 1.667.</li><li>Refund question: refund-window, the evidence, falls to 0.333 with the distractor reboot, because every answer is incomplete.</li></ul><p>The order settles at event 8. Mean recall@2 0.70, 41 wrong answers.</p></section>
+<section id="signal-source" class="mode-panel" data-announcement="Clicks on each source selected. sizing falls, refund-window rises."><h4>Clicks on each source</h4><ul><li>Cancel question: cancel 1.667, sizing 0.333.</li><li>Refund question: refund-window rises to 1.667, reboot falls to 0.333.</li></ul><p>The order settles at event 15. Mean recall@2 0.70, 41 wrong answers.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The sharper signal puts credit on the right chunks and still leaves the lab&rsquo;s totals unchanged, because neither signal reaches a chunk the retriever does not return.</p>
 <blockquote>
 <p><strong>Interview tip:</strong> Collect both signals. Implicit ones give volume and per-source detail once corrected for position (compare clicks at the same rank, or occasionally shuffle the sources). Explicit ratings are fewer but mean what they say, and every thumbs-down is a golden-set candidate.</p>
 </blockquote>
@@ -961,16 +962,27 @@ th:last-child, td:last-child { padding-right: 0; }
     J --&gt; R["Re-embed with&lt;br/&gt;the documents"]
     R --&gt; I[(New index)]
 </pre></figure>
-<p><em>Figure 2: The fold-back job. Only answers that were already good enter the new index.</em></p>
+<p><em>Figure 4: The fold-back job. Only answers that were already good enter the new index.</em></p>
 <p>This adds chunks worded the way users ask, which helps questions phrased like past ones. It has three limits:</p>
 <ul>
-<li><strong>Only answers that were already good get in.</strong> In the lab, the refund and outage questions never earn a thumbs-up, so nothing about them would be added. The questions that most need new text get none.</li>
+<li><strong>Only answers that were already good get in.</strong> In the lab, the refund and outage questions never earn a thumbs-up, and nothing about them would be added. The questions that most need new text get none.</li>
 <li><strong>Past answers become retrievable facts.</strong> When Larkspur changes its refund rule, the stored answers still quote the old one, and they match refund questions better than the handbook because they were written as answers to them. We call this <strong>stale-answer echo</strong>. Tag each added chunk with its date and the handbook chunks it came from, drop it when those change, and rank feedback chunks below primary documents.</li>
 <li><strong>It rebuilds the whole index.</strong> Every run re-embeds the full corpus plus the feedback text. Incremental upserts (M14) avoid that.</li>
 </ul>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>A scripted user.</strong> The lab&rsquo;s user rates 5 exactly when the answer holds every evidence chunk. Real users rate mood, length and speed too, and many never rate.</li>
+<li><strong>A rule in place of <code>gpt-4o</code>.</strong> The lab decides which records count for a chunk with a fixed rule. The notebook&rsquo;s model call can match records across differently worded questions, and can also miss.</li>
+<li><strong>Five questions, twelve chunks.</strong> The totals in Table 3 come from one small handbook and TF-IDF retrieval; the notebook itself prints no ranking figures.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Joachims et al., <a href="https://arxiv.org/abs/1608.04468" target="_blank" rel="noopener">Unbiased Learning-to-Rank with Biased Feedback</a>, 2017.</li>
+<li>Diamant, <a href="https://github.com/NirDiamant/RAG_Techniques" target="_blank" rel="noopener">RAG Techniques: retrieval with feedback loop</a>, the source of the notebook.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>The feedback re-ranker multiplies each chunk&rsquo;s score by its average rating over 3, so a chunk stays between 0.333 and 1.667 and ratings alone set the order. It costs one model call per chunk and stored record.</li>
+<li>The feedback re-ranker multiplies each chunk&rsquo;s score by its average rating over 3: a chunk stays between 0.333 and 1.667 and ratings alone set the order. It costs one model call per chunk and stored record.</li>
 <li>Feedback only reorders the candidates retrieval returns. In the lab, mean recall@2 rose from 0.50 to 0.70, but 40 of the 41 wrong answers came from chunks that were never candidates.</li>
 <li>Combine implicit and explicit feedback, and rate sources rather than whole answers where you can, so credit does not ride along to the chunk beside the evidence. Each thumbs-down is a golden-set candidate.</li>
 </ul>
@@ -987,7 +999,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. You plan to fold highly rated answers back into the index every week. What happens when Larkspur changes a policy, and how do you guard against it?</summary>
 <p>The stored answers still quote the old policy and compete with the corrected handbook as retrievable facts, often winning because they were written as answers to those questions. Tag each added chunk with its date and the handbook chunks it was answered from, and drop it when those change.</p>
 </details>
-<h2 id="diversity-aware-selection">Diversity-aware selection</h2>
+<h2 id="start-with-three-copies-of-one-answer">Start with three copies of one answer</h2>
 <p class="lesson-of">Lesson 32.3: Dartboard RAG: relevance and diversity together. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m32_reliability_feedback/optional/notebook/03a_dartboard_rag.ipynb" target="_blank" rel="noopener"><code>03a_dartboard_rag.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -999,15 +1011,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 32.2 showed that feedback can only reorder the candidates retrieval returns. This lesson stays inside that limit: a better way to choose among the candidates, when many of them say the same thing.</p>
-<p>Larkspur ingests its handbook from three places: the help centre, the PDF export and the internal wiki. Every rule is now stored several times. A customer asks <em>Can I export my data after I cancel my plan?</em> The answer needs two chunks, <code>export</code> (how to export) and <code>retention</code> (how long data is kept after cancelling). Plain top-3 retrieval returns <code>export</code>, <code>export</code>, <code>export</code>, and the answer never mentions the 30-day deadline. The runs below store each chunk five times, so the effect is easy to see.</p>
-<h3>Why top-k repeats itself</h3>
-<p><strong>Top-k</strong> scores each chunk against the query on its own and keeps the best k. Copies of one passage score identically, so whichever passage scores best takes every slot. We call this <strong>duplicate crowding</strong>. The notebook creates it on purpose: it loads its climate-change PDF five times over, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for <em>What is the main cause of climate change?</em> are repetitions of one chunk.</p>
-<p>The fix is to score the set rather than each chunk. <strong>Diversity-aware selection</strong> picks chunks so that the set, taken together, covers the query well, which means a chunk adds value only when it brings something the chosen ones do not.</p>
+<p>Larkspur ingests its handbook from three places: the help centre, the PDF export and the internal wiki. Every rule is now stored several times. A customer asks <em>Can I export my data after I cancel my plan?</em> The answer needs two chunks, <code>export</code> (how to export) and <code>retention</code> (how long data is kept after cancelling). Plain top-3 retrieval returns <code>export</code>, <code>export</code>, <code>export</code>, and the answer never mentions the 30-day deadline. The runs below store each chunk five times, which makes the effect easy to see.</p>
+<h2 id="diversity-aware-selection">Diversity-aware selection</h2>
+<p><strong>Top-k</strong> scores each chunk against the query on its own and keeps the best k. Copies of one passage score identically, and whichever passage scores best takes every slot. We call this <strong>duplicate crowding</strong>. The notebook creates it on purpose: it loads its climate-change PDF five times over, splits it into 1,000-character chunks with 200 overlap, and shows that the top 3 results for <em>What is the main cause of climate change?</em> are repetitions of one chunk.</p>
+<p>The fix is to score the set rather than each chunk. <strong>Diversity-aware selection</strong> picks chunks so that the set, taken together, covers the query well: a chunk adds value only when it brings something the chosen ones do not.</p>
 <h3>The dartboard picture</h3>
-<p>The notebook&rsquo;s method comes from <em>Better RAG using Relevant Information Gain</em> (<a href="https://arxiv.org/abs/2407.12101" target="_blank" rel="noopener">arXiv 2407.12101</a>), the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it, landing more often near the centre. A set of chunks scores by how close its nearest member lies to where each dart lands.</p>
-<p>A second copy of a chunk already in the set lies exactly where the first one does, so it brings no landing place any closer and adds nothing. A chunk that covers ground nearby, close to the query but away from the chosen chunks, adds the most.</p>
+<p>The notebook&rsquo;s method comes from <em>Better RAG using Relevant Information Gain</em>, the dartboard method. Picture the query as the centre of a dartboard and darts thrown around it, landing more often near the centre. A set of chunks scores by how close its nearest member lies to where each dart lands.</p>
+<p>A second copy of a chunk already in the set lies exactly where the first one does. It brings no landing place any closer and adds nothing. A chunk that covers ground nearby, close to the query but away from the chosen chunks, adds the most.</p>
 <h3>The greedy rule</h3>
-<p>Finding the best set exactly is expensive, so the method builds it one chunk at a time from a candidate pool of <code>num_results × oversampling_factor</code> nearest chunks (the factor is 3 by default):</p>
+<p>Finding the best set exactly is expensive. The method builds it one chunk at a time from a candidate pool of <code>num_results × oversampling_factor</code> nearest chunks (the factor is 3 by default):</p>
 <ol>
 <li>Turn distances (1 minus cosine similarity) into log probabilities with a normal curve of width <code>SIGMA = 0.1</code>, for query to chunk and for chunk to chunk.</li>
 <li>Pick the chunk most probable under the query.</li>
@@ -1023,9 +1035,16 @@ th:last-child, td:last-child { padding-right: 0; }
     D -- yes --&gt; R[/Selected chunks/]
 </pre></figure>
 <p><em>Figure 1: Greedy dartboard selection. Every pick after the first is scored on the coverage it adds to the set so far.</em></p>
-<p><code>SIGMA</code> sets how quickly closeness stops counting: a small width means only near neighbours of a landing place matter, so two chunks a little apart already count as covering different ground.</p>
+<p><code>SIGMA</code> sets how quickly closeness stops counting: a small width means only near neighbours of a landing place matter, and two chunks a little apart already count as covering different ground.</p>
+<h3>Trace the export question</h3>
+<p>We ran the notebook&rsquo;s selection function, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors), for the export question with <code>num_results = 3</code> and an oversampling factor of 4:</p>
+<div class="walkthrough learning-widget" data-stepper id="dartboard-walkthrough">
+<p class="widget-intro">Follow the greedy rule through three picks from a pool of 12. Each stage shows the pool or the set chosen so far.</p>
+<div class="step-controls" hidden role="group" aria-label="Dartboard picks"><button type="button" data-step="0" aria-pressed="false" aria-controls="dart-step-0">1. Pool</button><button type="button" data-step="1" aria-pressed="false" aria-controls="dart-step-1">2. First pick</button><button type="button" data-step="2" aria-pressed="false" aria-controls="dart-step-2">3. Second pick</button><button type="button" data-step="3" aria-pressed="false" aria-controls="dart-step-3">4. Third pick</button></div>
+<div class="step-panels"><section id="dart-step-0" class="step-panel" aria-labelledby="dart-heading-0"><h4 id="dart-heading-0">1. Fetch a pool of 12</h4><dl><dt>Pool</dt><dd>5 copies of export (0.353), 5 of retention (0.350), 2 of cancel (0.261)</dd><dt>Plain top-3</dt><dd>export, export, export</dd></dl></section><section id="dart-step-1" class="step-panel" aria-labelledby="dart-heading-1"><h4 id="dart-heading-1">2. Pick the most relevant</h4><dl><dt>Set</dt><dd>export</dd><dt>Score</dt><dd>A fixed placeholder of 1.0</dd></dl></section><section id="dart-step-2" class="step-panel" aria-labelledby="dart-heading-2"><h4 id="dart-heading-2">3. Score the coverage each candidate adds</h4><dl><dt>Set</dt><dd>export, retention</dd><dt>Why</dt><dd>Another copy of export brings no landing place closer. retention covers the retention copies.</dd></dl></section><section id="dart-step-3" class="step-panel" aria-labelledby="dart-heading-3"><h4 id="dart-heading-3">4. Pick again</h4><dl><dt>Set</dt><dd>export, retention, cancel</dd><dt>Recall</dt><dd>1.00, against 0.50 for plain top-3</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h2 id="where-the-pool-runs-out">Where the pool runs out</h2>
-<p>To see both the gain and its limit, we ran the notebook&rsquo;s selection function, unchanged, on the twelve Larkspur chunks stored five times (60 chunks, TF-IDF vectors), for the export question with <code>num_results = 3</code>:</p>
+<p>The same run at four pool sizes shows both the gain and its limit:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1097,9 +1116,24 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Pool size needed when every chunk has the same number of copies, (copies × (wanted − 1)) + 1.</em></p>
-<p>The default pool of 9 sits between the first two rows, which is exactly why Table 1 shows two distinct picks at factor 3 and three at factor 4 (pool 12). Real duplication is uneven, so the reliable fix is to remove the copies before retrieval and keep oversampling for the overlap that remains.</p>
+<p>The default pool of 9 sits between the first two rows, which is exactly why Table 1 shows two distinct picks at factor 3 and three at factor 4 (pool 12). Real duplication is uneven. The reliable fix is to remove the copies before retrieval and keep oversampling for the overlap that remains.</p>
 <h2 id="dartboard-or-mmr">Dartboard or MMR</h2>
-<p>Dartboard and MMR, maximal marginal relevance (<a href="../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/index.html#mmr-λ">lesson 16.4</a>), solve the same problem the same greedy way and differ in the score:</p>
+<p>Dartboard and MMR, maximal marginal relevance (<a href="../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/index.html#mmr-λ">lesson 16.4</a>), solve the same problem the same greedy way and differ in the score each candidate gets.</p>
+<p>MMR scores a candidate by its similarity to the query, minus a penalty for its similarity to the closest chunk already chosen. One weight, λ, sets the balance:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    C[/Candidate/] --&gt; R["λ × similarity&lt;br/&gt;to the query"]
+    C --&gt; P["(1 − λ) × highest similarity&lt;br/&gt;to a chosen chunk"]
+    R --&gt; S["Score = first&lt;br/&gt;minus second"]
+    P --&gt; S
+</pre></figure>
+<p><em>Figure 2: The MMR score. A copy of a chosen chunk has similarity 1 to it and takes the full penalty.</em></p>
+<p>Dartboard adds instead of subtracting: the log probability of covering each landing place, summed over the pool, with the query&rsquo;s pull counted in:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    C[/Candidate/] --&gt; L["For each landing place:&lt;br/&gt;closeness of the set&lt;br/&gt;with the candidate added"]
+    L --&gt; W["Plus the landing&lt;br/&gt;place's closeness&lt;br/&gt;to the query"]
+    W --&gt; S["Score = sum over&lt;br/&gt;landing places"]
+</pre></figure>
+<p><em>Figure 3: The dartboard score. A copy changes no landing place&rsquo;s closeness and adds nothing over the set without it.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1135,19 +1169,24 @@ th:last-child, td:last-child { padding-right: 0; }
     C -- yes --&gt; D["Dartboard or MMR,&lt;br/&gt;pool larger than copies"]
     C -- no --&gt; E["Plain top-k"]
 </pre></figure>
-<p><em>Figure 2: Choosing a fix for redundant results.</em></p>
+<p><em>Figure 4: Choosing a fix for redundant results.</em></p>
 <p>Measure the choice on golden questions that need two or more distinct chunks, such as the export question, and check that single-fact questions do not lose their second supporting chunk.</p>
-<h3>Limits of the notebook</h3>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>The first score is a placeholder.</strong> The first pick is recorded with a fixed score of 1.0, not a computed one, so it cannot be compared with the scores after it.</li>
-<li><strong>The last example call fails.</strong> It passes the result count under the name <code>k</code>, while the function names that parameter <code>num_results</code>, so Python raises a type error until the name is corrected.</li>
-<li><strong>One question, one corpus.</strong> Table 1 is one question on a twelve-chunk handbook with uniform copies. Uneven duplication and near-duplicates in other words were not tested.</li>
+<li><strong>The first score is a placeholder.</strong> The notebook records the first pick with a fixed score of 1.0, not a computed one. It cannot be compared with the scores after it.</li>
+<li><strong>The last example call fails.</strong> It passes the result count under the name <code>k</code>, while the function names that parameter <code>num_results</code>. Python raises a type error until the name is corrected.</li>
+<li><strong>One question, one corpus.</strong> Table 1 is one question on a twelve-chunk handbook with uniform copies and TF-IDF vectors. Uneven duplication, near-duplicates in other words and dense embeddings were not tested.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Pickett et al., <a href="https://arxiv.org/abs/2407.12101" target="_blank" rel="noopener">Better RAG using Relevant Information Gain</a>, 2024.</li>
+<li>Carbonell and Goldstein, <a href="https://doi.org/10.1145/290941.291025" target="_blank" rel="noopener">The Use of MMR, Diversity-Based Reranking for Reordering Documents and Producing Summaries</a>, SIGIR 1998.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Top-k fills every slot with copies of the best match when the corpus holds duplicates. Dartboard selection scores a set by how close its nearest member lies to each landing place, so a copy adds nothing.</li>
-<li>The selector only chooses among its <code>num_results × oversampling_factor</code> candidates. With five copies per chunk the default pool of 9 holds two distinct chunks, so enlarge the pool past the copy count or deduplicate at indexing.</li>
-<li>Dartboard and MMR both select greedily and differ in the score. MMR subtracts a linear redundancy penalty, while Dartboard adds log probabilities and needs only distances, so it works on dense, hybrid or cross-encoder scores.</li>
+<li>Top-k fills every slot with copies of the best match when the corpus holds duplicates. Dartboard selection scores a set by how close its nearest member lies to each landing place, and a copy adds nothing.</li>
+<li>The selector only chooses among its <code>num_results × oversampling_factor</code> candidates. With five copies per chunk the default pool of 9 holds two distinct chunks: enlarge the pool past the copy count or deduplicate at indexing.</li>
+<li>Dartboard and MMR both select greedily and differ in the score. MMR subtracts a linear redundancy penalty, while Dartboard adds log probabilities and needs only distances, which lets it run on dense, hybrid or cross-encoder scores.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -1218,7 +1257,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Feedback re-ranking moves only chunks that were shown. Read its result per question, and send questions it cannot fix to retrieval work.</li>
 <li>Remove duplicate chunks at indexing time, then use a diversity-aware selector with a candidate pool larger than the number of copies.</li>
 </ul></article>
-    <nav class="toc" aria-label="M32 sections"><details open><summary>In M32</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#relevance-grading">Relevance grading</a></li><li><a href="#hallucination-detection">Hallucination detection</a></li><li><a href="#source-highlighting">Source highlighting</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-feedback-re-ranker">The feedback re-ranker</a></li><li><a href="#implicit-vs-explicit-feedback">Implicit vs explicit feedback</a></li><li><a href="#folding-good-answers-into-the-index">Folding good answers into the index</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#diversity-aware-selection">Diversity-aware selection</a></li><li><a href="#where-the-pool-runs-out">Where the pool runs out</a></li><li><a href="#dartboard-or-mmr">Dartboard or MMR</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M32 sections"><details open><summary>In M32</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-refund-answer-nobody-checked">Start with a refund answer nobody checked</a></li><li><a href="#relevance-grading">Relevance grading</a></li><li><a href="#hallucination-detection">Hallucination detection</a></li><li><a href="#source-highlighting">Source highlighting</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-thumbs-down-that-changes-nothing">Start with a thumbs-down that changes nothing</a></li><li><a href="#the-feedback-re-ranker">The feedback re-ranker</a></li><li><a href="#implicit-vs-explicit-feedback">Implicit vs explicit feedback</a></li><li><a href="#folding-good-answers-into-the-index">Folding good answers into the index</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-three-copies-of-one-answer">Start with three copies of one answer</a></li><li><a href="#diversity-aware-selection">Diversity-aware selection</a></li><li><a href="#where-the-pool-runs-out">Where the pool runs out</a></li><li><a href="#dartboard-or-mmr">Dartboard or MMR</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

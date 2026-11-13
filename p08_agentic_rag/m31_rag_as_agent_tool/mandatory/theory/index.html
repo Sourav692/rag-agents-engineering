@@ -324,7 +324,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>Retrieval sits inside the loop, so the model decides whether it runs, how often, and with which query. A question that never triggers a tool call is answered from the model&rsquo;s weights, with no handbook text in front of it. The quality of the retriever matters only for questions the model sends to it.</p>
-<h2 id="agent-decided-retrieval">Agent-decided retrieval</h2>
+<h2 id="start-with-a-refund-answer-that-cites-nothing">Start with a refund answer that cites nothing</h2>
 <p class="lesson-of">Lesson 31.1: RAG as a tool inside a LangGraph agent. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m31_rag_as_agent_tool/mandatory/notebook/01a_rag_as_tool_in_agents.ipynb" target="_blank" rel="noopener"><code>01a_rag_as_tool_in_agents.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -336,10 +336,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>M22 built the agent loop, and <a href="../../../m30_adaptive_rag_routing/mandatory/theory/index.html">M30</a> routed questions inside a fixed graph where code decided whether to retrieve. This lesson puts the retriever inside the loop and hands that decision to the model.</p>
-<p>A Larkspur customer asks <em>How long does a refund take?</em> The support agent has a <code>handbook_search</code> tool, and the handbook says refunds take 5 to 10 business days. The agent gives a confident, generic answer with no citation: the trace shows one model call and no tool call.</p>
-<p>Two things can cause it: the graph gave the model the decision and the model declined it, or the description gave the model no reason to pick the tool. This page takes them in that order.</p>
+<p>A Larkspur customer asks <em>How long does a refund take?</em> The support agent has a <code>handbook_search</code> tool, and the handbook says refunds take 5 to 10 business days. The agent gives a confident, generic answer with no citation. The trace shows one model call and no tool call.</p>
+<p>Two things can cause it. Either the graph gave the model the decision and the model declined it, or the description gave the model no reason to pick the tool. This page takes them in that order.</p>
+<h2 id="agent-decided-retrieval">Agent-decided retrieval</h2>
 <h3>Two graphs over one retriever</h3>
-<p>The notebook builds two graphs over one retriever: four short documents about a fictional cafe in Chroma, searched with <code>k = 2</code>. In the first, the pipeline decides. A classifier node, <code>topic_decision</code>, asks the model a yes or no question with structured output, and a conditional edge sends the question either to <code>retrieve</code> and <code>generate_answer</code> or to a fixed off-topic reply:</p>
+<p>The notebook builds two graphs over one retriever: four short documents about a fictional cafe in Chroma, searched with <code>k = 2</code>. In the first, the pipeline decides. A classifier node, <code>topic_decision</code>, asks the model a yes or no question with structured output. A conditional edge then sends the question either to <code>retrieve</code> and <code>generate_answer</code> or to a fixed off-topic reply:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; C{"topic_decision&lt;br/&gt;on topic?"}
     C -- yes --&gt; R[retrieve] --&gt; G[generate_answer]
@@ -347,7 +348,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 1: The pipeline decides. Every on-topic question is retrieved exactly once, with the user&rsquo;s words as the query.</em></p>
 <h3>The model decides</h3>
-<p><strong>Agent-decided retrieval</strong> means the retriever is one of the model&rsquo;s tools, and the model chooses whether to call it, how often and with which query. In the second graph the retriever becomes <code>retriever_tool</code>, beside an <code>off_topic</code> tool for unrelated questions. The <code>agent</code> node calls the model and <code>ToolNode</code> runs the tools it asked for; the run loops back to <code>agent</code> while the reply carries tool calls and ends when it carries none:</p>
+<p><strong>Agent-decided retrieval</strong> means the retriever is one of the model&rsquo;s tools, and the model chooses whether to call it, how often and with which query. In the second graph the retriever becomes <code>retriever_tool</code>, beside an <code>off_topic</code> tool for unrelated questions. The <code>agent</code> node calls the model and <code>ToolNode</code> runs the tools it asked for. The run loops back to <code>agent</code> while the reply carries tool calls and ends when it carries none:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant U as User
     participant A as agent node
@@ -393,16 +394,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <td><code>off_topic_response</code>, a fixed message</td>
 <td>the <code>off_topic</code> tool, or a direct answer</td>
 </tr>
-<tr>
-<td>Typical failure</td>
-<td>the classifier says no and the handbook is never searched</td>
-<td>the model answers from memory and never calls the tool</td>
-</tr>
 </tbody>
 </table></div>
 <p><em>Table 1: The two graphs compared on the same retriever.</em></p>
-<p>The model-decided graph handles small talk with no retrieval, rewrites a follow-up into a better query, and searches again when the first chunks miss. It pays with a decision you no longer control in code.</p>
-<p>We call the last row&rsquo;s failure a <strong>silent skip</strong>: the model answers a policy question without calling <code>handbook_search</code>, from its training data, with nothing to cite. The refund reply above is one. Its mirror in the fixed graph is the <strong>classifier veto</strong>: a no from <code>topic_decision</code>, and the handbook is never searched.</p>
+<p>The model-decided graph handles small talk with no retrieval, rewrites a follow-up into a better query, and searches again when the first chunks miss. It pays with a decision you no longer control in code. Each graph has its own way to miss the handbook on the opening question:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="decider-switcher">
+<p class="widget-intro">Send the refund question through each graph and compare where the handbook can be missed. Scripted illustration on the Larkspur handbook.</p>
+<div class="mode-controls" hidden role="group" aria-label="Who decides to retrieve">
+<button type="button" data-mode="pipeline" aria-pressed="false" aria-controls="decider-pipeline">Pipeline decides</button>
+<button type="button" data-mode="model" aria-pressed="false" aria-controls="decider-model">Model decides</button>
+</div>
+<section id="decider-pipeline" class="mode-panel" data-announcement="Pipeline decides. The classifier can veto retrieval."><h4>Pipeline decides</h4><ul><li>The classifier answers yes, and retrieve searches with the user's exact words.</li><li>If it answers no, the handbook is never searched and the customer gets the fixed off-topic reply.</li></ul><p>Failure: a <strong>classifier veto</strong>. Two model calls when it passes, one when it vetoes.</p></section>
+<section id="decider-model" class="mode-panel" data-announcement="Model decides. The model can skip the tool."><h4>Model decides</h4><ul><li>The model reads the tool descriptions and may call handbook_search with a query it writes, such as "refund timing".</li><li>If nothing in the descriptions points at refunds, it answers from its training data.</li></ul><p>Failure: a <strong>silent skip</strong>. One model call and nothing to cite, the trace from the opening.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>We call the second failure a <strong>silent skip</strong>: the model answers a policy question without calling <code>handbook_search</code>, from its training data, with nothing to cite. Its mirror in the fixed graph is the <strong>classifier veto</strong>: a no from <code>topic_decision</code>, and the handbook is never searched.</p>
 <h3>What the tool hands back</h3>
 <p>A retriever tool turns a list of Documents into one message, and that step can lose the sources. The standard wrapper, <code>create_retriever_tool</code>, joins the chunk texts with a blank line and drops each Document&rsquo;s metadata. We wrapped a fixed retriever that returns one chunk, <em>Refunds take 5 to 10 business days.</em>, tagged <code>refund-timing</code>, three ways:</p>
 <div class="sheet scroll"><table>
@@ -410,29 +417,29 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <th>Wrapper setting</th>
 <th>What the model receives</th>
-<th>Source visible to the model</th>
+<th>Source visible to</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Default</td>
 <td>the chunk text only</td>
-<td>✗</td>
+<td>nobody</td>
 </tr>
 <tr>
 <td>A document prompt that prints the source</td>
 <td><code>refund-timing: Refunds take 5 to 10 business days.</code></td>
-<td>✓</td>
+<td>the model</td>
 </tr>
 <tr>
 <td>Content plus artifact</td>
-<td>the chunk text, with the full Documents kept beside it for your code</td>
-<td>✗ for the model, ✓ for your code</td>
+<td>the chunk text, with the full Documents kept beside it</td>
+<td>your code, not the model</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: One chunk through three wrapper settings (run against the installed <code>langchain_core</code>).</em></p>
-<p>We call the default row&rsquo;s failure the <strong>lost source</strong>: the model quotes a correct policy and cannot say where it came from. Print the source into each chunk when the answer must cite; keep the artifact when your code checks citations.</p>
+<p><em>Table 2: One chunk through three wrapper settings (run against the installed <code>langchain_core</code> 1.7.0).</em></p>
+<p>We call the default row&rsquo;s failure the <strong>lost source</strong>: the model quotes a correct policy and cannot say where it came from. Print the source into each chunk when the answer must cite, and keep the artifact when your code checks citations.</p>
 <p>Getting the evidence back intact matters only once the model has chosen the tool, and that choice rests on the description.</p>
 <h2 id="tool-descriptions">Tool descriptions</h2>
 <p>A <strong>tool description</strong> is the short text the model reads to decide whether a tool fits the question. When the model picks a tool it sees three things per tool and nothing else:</p>
@@ -443,9 +450,9 @@ th:last-child, td:last-child { padding-right: 0; }
     M --&gt; C[/"Tool call&lt;br/&gt;or answer"/]
 </pre></figure>
 <p><em>Figure 3: The model&rsquo;s whole view of a tool. It never sees the documents behind it.</em></p>
-<p>In the notebook the description reads <em>Information related to pricing, hours, or the founder of Cafe Lumiere</em>, over one <code>query</code> string argument. That sentence now carries the scope the first graph kept in its classifier prompt, and it has to separate the retriever from every other tool the model can call.</p>
+<p>In the notebook the description reads <em>Information related to pricing, hours, or the founder of Cafe Lumiere</em>, over one <code>query</code> string argument. That sentence now carries the scope the first graph kept in its classifier prompt. It also has to separate the retriever from every other tool the model can call.</p>
 <h3>Measuring routing with a stand-in router</h3>
-<p>The <a href="01_rag_as_a_tool_inside_a_langgraph_agent/interactive/tool-routing-lab.html">interactive lab</a> gives the Larkspur agent <code>handbook_search</code> and <code>web_search</code> and routes twenty golden questions (ten for the handbook, six for the web, four for no tool) plus five held out. Its router stands in for the model: the M10 TF-IDF retriever scores each question against the two descriptions and picks the higher, or no tool when neither shares a word. Its scores match scikit-learn&rsquo;s <code>TfidfVectorizer</code> to within 4.5e-16:</p>
+<p>The <a href="01_rag_as_a_tool_inside_a_langgraph_agent/interactive/tool-routing-lab.html">interactive lab</a> gives the Larkspur agent <code>handbook_search</code> and <code>web_search</code> and routes twenty golden questions (ten for the handbook, six for the web, four for no tool) plus five held out. Its router stands in for the model: the M10 TF-IDF retriever scores each question against the two descriptions and picks the higher, or no tool when neither shares a word. On all 100 preset and question pairs its scores match scikit-learn&rsquo;s <code>TfidfVectorizer</code> to within 2e-16:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -490,7 +497,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 3: Routing scores for the four description presets. Tokens are the lab&rsquo;s estimate of four characters per token.</em></p>
 <ul>
 <li><strong>Names only</strong> gets right only the four questions that needed no tool. The other sixteen are silent skips.</li>
-<li><strong>Vague</strong> catches <em>When are monthly plans billed?</em> on &ldquo;plans&rdquo; and nothing else; <em>Can I export my data after I cancel my plan?</em> misses because TF-IDF treats &ldquo;plan&rdquo; and &ldquo;plans&rdquo; as different words.</li>
+<li><strong>Vague</strong> catches <em>When are monthly plans billed?</em> on &ldquo;plans&rdquo; and nothing else. <em>Can I export my data after I cancel my plan?</em> misses because TF-IDF treats &ldquo;plan&rdquo; and &ldquo;plans&rdquo; as different words.</li>
 <li><strong>Specific</strong> gets three handbook questions right for a thin reason: <em>goes down</em>, <em>reboot</em> and <em>size</em> match nothing, and the word &ldquo;server&rdquo; carries them.</li>
 </ul>
 <figure class="lab-embed"><iframe src="01_rag_as_a_tool_inside_a_langgraph_agent/interactive/tool-routing-lab.html" title="Tool descriptions and routing, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Tool descriptions and routing. <a href="01_rag_as_a_tool_inside_a_langgraph_agent/interactive/tool-routing-lab.html">Open full screen</a></figcaption></figure>
@@ -533,34 +540,41 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Specific&rsquo;s five golden misses, read from the router&rsquo;s scores.</em></p>
-<p>The first four are <strong>vocabulary misses</strong>: the description covers the topic in words the question does not use, and a model would catch most of them. The last is a <strong>scope gap</strong>: neither description says which tool owns other providers&rsquo; prices, so the router guessed, and a model would have to guess too. It is the worst miss in the set, because a competitor&rsquo;s price gets answered from Larkspur&rsquo;s handbook. Adding &ldquo;refund&rdquo; to the handbook description takes Specific to 16 of 20 and leaves the Hetzner question wrong: more Larkspur words cannot draw a boundary neither description states.</p>
+<p>The first four are <strong>vocabulary misses</strong>: the description covers the topic in words the question does not use, and a model would catch most of them. The last is a <strong>scope gap</strong>: neither description says which tool owns other providers&rsquo; prices. The router guessed, and a model would have to guess too. It is the worst miss in the set, because a competitor&rsquo;s price gets answered from Larkspur&rsquo;s handbook. Adding &ldquo;refund&rdquo; to the handbook description takes Specific to 16 of 20 and leaves the Hetzner question wrong. More Larkspur words cannot draw a boundary neither description states.</p>
 <h3>Planted failure: the overfitted description</h3>
 <p>Tuned copies the golden questions&rsquo; own words (PostgreSQL, AWS, Hetzner, Docker, Ubuntu) into the descriptions and fixes every golden row but one. On the held-out five, <em>What is the newest Node.js version?</em> still gets no tool. We call this an <strong>overfitted description</strong>: it scores well on the questions it was written against and worse on the next one a user types, like a retriever tuned on its own test set.</p>
 <h3>From the stand-in to a real model</h3>
-<p>Descriptions also cost tokens, because each one is sent with every model call. Tuned carries 133 to Specific&rsquo;s 84, so 49 more per call; a handbook question takes two calls (Table 1), so 98 more per question. A model forgives vocabulary misses but fails on a scope gap the same way the stand-in does. A description that earns its tokens states four things:</p>
+<p>Descriptions also cost tokens, because each one is sent with every model call. Tuned carries 133 to Specific&rsquo;s 84, which is 49 more per call. A handbook question takes two calls (Table 1), or 98 more tokens per question. A model forgives vocabulary misses but fails on a scope gap the same way the stand-in does. A description that earns its tokens states four things:</p>
 <ul>
 <li><strong>What it searches, and whose data</strong>: &ldquo;the Larkspur Cloud handbook&rdquo; against &ldquo;the public web&rdquo;.</li>
 <li><strong>The topics, in the words users type</strong>: refunds, cancelling, data export, outages, server sizing.</li>
 <li><strong>Where it stops</strong>: Larkspur&rsquo;s own prices and policies belong to <code>handbook_search</code>; other providers&rsquo; prices belong to <code>web_search</code>.</li>
 <li><strong>What it returns</strong>: handbook passages as plain text, so the model knows what comes back and that it should quote it.</li>
 </ul>
-<p>Treat the descriptions as a retrieval setting: a routing golden set of questions with the tool each should use, a held-out set, and the misses from production traces added over time.</p>
-<h2 id="in-practice-the-larkspur-refund-question">In practice: the Larkspur refund question</h2>
-<p>Back to the customer, with the fixes in place:</p>
-<ol>
-<li><code>handbook_search</code> lists refunds among Larkspur&rsquo;s own policies, and <code>web_search</code> says it covers other providers, so the model calls <code>handbook_search</code> with &ldquo;refund timing&rdquo;.</li>
-<li>The tool prints each chunk&rsquo;s source in front of its text, and the model answers 5 to 10 business days, citing <code>refund-timing</code>.</li>
-<li>The question joins the routing golden set with <code>handbook_search</code> as its expected tool, so a description change that breaks it shows up before release.</li>
-</ol>
-<p>Hand the decision to the model only once that routing golden set exists; without it, a silent skip is invisible.</p>
+<p>Treat the descriptions as a retrieval setting. Keep a routing golden set of questions with the tool each should use, a held-out set, and the misses from production traces added over time.</p>
+<h3>The refund question, fixed</h3>
+<p>Back to the customer, with both fixes in place:</p>
+<div class="walkthrough learning-widget" data-stepper id="refund-walkthrough">
+<p class="widget-intro">Follow the refund question through the model-decided graph after the description and wrapper fixes. Scripted illustration.</p>
+<div class="step-controls" hidden role="group" aria-label="Refund question stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="refund-step-0">1. Read tools</button><button type="button" data-step="1" aria-pressed="false" aria-controls="refund-step-1">2. Call</button><button type="button" data-step="2" aria-pressed="false" aria-controls="refund-step-2">3. Return</button><button type="button" data-step="3" aria-pressed="false" aria-controls="refund-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="refund-step-0" class="step-panel" aria-labelledby="refund-heading-0"><h4 id="refund-heading-0">1. Read the descriptions</h4><dl><dt>Model sees</dt><dd>handbook_search lists refunds among Larkspur's own policies; web_search says it covers other providers</dd><dt>Model calls so far</dt><dd>0</dd></dl></section><section id="refund-step-1" class="step-panel" aria-labelledby="refund-heading-1"><h4 id="refund-heading-1">2. Call the tool</h4><dl><dt>Message</dt><dd>AIMessage with tool_calls: handbook_search("refund timing")</dd><dt>Model calls so far</dt><dd>1</dd></dl></section><section id="refund-step-2" class="step-panel" aria-labelledby="refund-heading-2"><h4 id="refund-heading-2">3. Return the chunk with its source</h4><dl><dt>Message</dt><dd>ToolMessage: refund-timing: Refunds take 5 to 10 business days.</dd><dt>Model calls so far</dt><dd>1</dd></dl></section><section id="refund-step-3" class="step-panel" aria-labelledby="refund-heading-3"><h4 id="refund-heading-3">4. Answer and log</h4><dl><dt>Result</dt><dd>5 to 10 business days, citing refund-timing</dd><dt>Model calls</dt><dd>2</dd><dt>Golden set</dt><dd>The question joins the routing golden set with handbook_search as its expected tool</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Hand the decision to the model only once that routing golden set exists. Without it, a silent skip is invisible.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> the routing golden set scores which tool was called; the M10 golden set scores the answer. A right tool with a wrong answer is a retrieval or generation failure. Keep both sets.</p>
 </blockquote>
 <h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>The router is a stand-in</strong>, stricter about wording than a model. Its scores show how descriptions fail, not how often a model does.</li>
-<li><strong>No model routing scores yet.</strong> The module&rsquo;s lab solution measures a real model&rsquo;s tool choice on 20 labelled questions; its results are pending a run.</li>
+<li><strong>No model routing scores yet.</strong> The module&rsquo;s lab solution measures a real model&rsquo;s tool choice on 20 labelled questions. Its results are pending a run.</li>
+<li><strong>The notebook ships without outputs.</strong> Figures 1 and 2 come from its graph code; Table 2 comes from our own run of the installed wrapper.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Yao et al., <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct: Synergizing Reasoning and Acting in Language Models</a>, 2022.</li>
+<li>Schick et al., <a href="https://arxiv.org/abs/2302.04761" target="_blank" rel="noopener">Toolformer: Language Models Can Teach Themselves to Use Tools</a>, 2023.</li>
+<li>scikit-learn, <a href="https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html" target="_blank" rel="noopener"><code>TfidfVectorizer</code></a>, the reference the lab&rsquo;s router is checked against.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Retrieval as a tool lets the model skip it for small talk, rewrite the query and search again. The cost is a silent skip: a model that answers from memory has nothing to cite.</li>
@@ -580,7 +594,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. The Tuned descriptions route 19 of 20 golden questions because they copy words from those questions. What else must you check before trusting them?</summary>
 <p>The held-out questions, where they reach 4 of 5 and still give the Node.js question no tool, which marks an overfitted description. Check the cost too: 133 tokens on every model call against 84. Score each description change against the golden set and the held-out set, and add misses from production traces.</p>
 </details>
-<h2 id="managed-rag">Managed RAG</h2>
+<h2 id="start-with-a-policy-that-changed-last-week">Start with a policy that changed last week</h2>
 <p class="lesson-of">Lesson 31.2: Managed RAG platforms: Contextual AI. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m31_rag_as_agent_tool/optional/notebook/02a_agentic_rag_contextual_ai.ipynb" target="_blank" rel="noopener"><code>02a_agentic_rag_contextual_ai.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -593,16 +607,28 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 31.1 assembled retrieval from parts you run yourself: an embedding model, a Chroma collection, a retriever and a prompt, wrapped as one tool. Every part is a thing the Larkspur team now maintains.</p>
 <p>Here is the failure that makes a team look elsewhere. Larkspur changes its refund policy, and for a week the index holds both versions. A customer asks about annual refunds, the archived rule ranks first, and the agent quotes it. Fixing that by hand touches the parser, the chunker, the index and the reranker.</p>
-<p><strong>Managed RAG</strong> is retrieval run as a service: you upload documents to a <strong>datastore</strong>, create an agent over it, and send questions to one endpoint that parses, chunks, indexes, retrieves, reranks and generates. The notebook does this with Contextual AI&rsquo;s Python SDK over four PDFs, two of them quarterly revenue slides:</p>
+<h2 id="managed-rag">Managed RAG</h2>
+<p><strong>Managed RAG</strong> is retrieval run as a service. You upload documents to a <strong>datastore</strong>, create an agent over it, and send questions to one endpoint that parses, chunks, indexes, retrieves, reranks and generates. The notebook does this with Contextual AI&rsquo;s Python SDK over four PDFs: two quarterly revenue slides and two spurious-correlation reports.</p>
+<h3>Two ways to run the same pipeline</h3>
+<p>When you run the pipeline yourself, each stage is a component in your own code and infrastructure, as in lesson 31.1:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    F[/"Handbook files"/] --&gt; P["Your parser&lt;br/&gt;and chunker"]
+    P --&gt; E["Your embedding model&lt;br/&gt;and vector store"]
+    E --&gt; R["Your retriever&lt;br/&gt;and reranker"]
+    R --&gt; G["Your prompt&lt;br/&gt;and LLM"]
+    G --&gt; ANS[/"Answer"/]
+</pre></figure>
+<p><em>Figure 1: Your own pipeline. Every box is a setting you choose and a service you keep running.</em></p>
+<p>A managed platform puts the same stages behind two objects you create, a datastore and an agent:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     F[/"Handbook PDFs"/] --&gt; DS["Datastore&lt;br/&gt;parse, chunk, index"]
     DS --&gt; AG["Agent&lt;br/&gt;retrieve, rerank, generate"]
     AG --&gt; ANS[/"Answer +&lt;br/&gt;retrieval_contents"/]
     ANS -.-&gt; LU["LMUnit&lt;br/&gt;unit tests"]
 </pre></figure>
-<p><em>Figure 1: The managed pipeline. The answer comes back with the passages behind it; LMUnit scores answers offline, outside the query path.</em></p>
+<p><em>Figure 2: The managed pipeline. The answer comes back with the passages behind it; LMUnit scores answers offline, outside the query path.</em></p>
 <h3>What runs behind the endpoint</h3>
-<p>Each box in Figure 1 is a component the course builds by hand in an earlier module. The notebook exercises each one on its own:</p>
+<p>Each box in Figure 2 is a component the course builds by hand in an earlier module. The notebook exercises each one on its own:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -645,8 +671,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The platform&rsquo;s components and the module each one stands in for.</em></p>
-<p>An answer from the agent carries its retrieval contents, the passages it used, so a reviewer can check a claim against its evidence. That keeps the habit from lesson 31.1&rsquo;s lost source: the platform returns the sources as well as the text.</p>
-<p>The next two sections test the two components a support agent leans on hardest.</p>
+<h3>Trace one document to a cited answer</h3>
+<div class="walkthrough learning-widget" data-stepper id="upload-walkthrough">
+<p class="widget-intro">Follow one document through the notebook's calls, from upload to a scored answer. No outputs are saved: each stage names what to inspect.</p>
+<div class="step-controls" hidden role="group" aria-label="Managed pipeline stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="upload-step-0">1. Datastore</button><button type="button" data-step="1" aria-pressed="false" aria-controls="upload-step-1">2. Ingest</button><button type="button" data-step="2" aria-pressed="false" aria-controls="upload-step-2">3. Agent</button><button type="button" data-step="3" aria-pressed="false" aria-controls="upload-step-3">4. Query</button><button type="button" data-step="4" aria-pressed="false" aria-controls="upload-step-4">5. Evidence</button><button type="button" data-step="5" aria-pressed="false" aria-controls="upload-step-5">6. Score</button></div>
+<div class="step-panels"><section id="upload-step-0" class="step-panel" aria-labelledby="upload-heading-0"><h4 id="upload-heading-0">1. Create or reuse a datastore</h4><dl><dt>Call</dt><dd>datastores.list, then datastores.create if the name is new</dd><dt>State</dt><dd>An empty datastore ID</dd></dl></section><section id="upload-step-1" class="step-panel" aria-labelledby="upload-heading-1"><h4 id="upload-heading-1">2. Ingest each PDF</h4><dl><dt>Call</dt><dd>datastores.documents.ingest, once per file</dd><dt>State</dt><dd>A document ID per file. Parsing, chunking and indexing run on the platform; documents.metadata returns the details of one document</dd></dl></section><section id="upload-step-2" class="step-panel" aria-labelledby="upload-heading-2"><h4 id="upload-heading-2">3. Create an agent over it</h4><dl><dt>Call</dt><dd>agents.create with the datastore ID</dd><dt>Settings</dt><dd>A system prompt that says to answer only from the documents, suggested queries and multi-turn off</dd></dl></section><section id="upload-step-3" class="step-panel" aria-labelledby="upload-heading-3"><h4 id="upload-heading-3">4. Ask a question</h4><dl><dt>Call</dt><dd>agents.query.create with one user message</dd><dt>Returns</dt><dd>The answer text, a message ID and the retrieval contents</dd></dl></section><section id="upload-step-4" class="step-panel" aria-labelledby="upload-heading-4"><h4 id="upload-heading-4">5. Inspect the evidence</h4><dl><dt>Call</dt><dd>agents.query.retrieval_info per retrieved passage</dd><dt>Returns</dt><dd>Metadata including an image of the source page, for checking a claim against it</dd></dl></section><section id="upload-step-5" class="step-panel" aria-labelledby="upload-heading-5"><h4 id="upload-heading-5">6. Score the answer offline</h4><dl><dt>Call</dt><dd>lmunit.create with the query, the response and one unit test</dd><dt>Returns</dt><dd>A score from 1 to 5</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Stage 5 keeps the habit from lesson 31.1&rsquo;s lost source: the platform returns the sources as well as the text. The next two sections test the two components a support agent leans on hardest.</p>
 <h3>Planted case: two versions of one policy</h3>
 <p>After every policy change the Larkspur index can hold two versions of the same rule. We call the failure from the opening the <strong>stale-policy win</strong>: the archived version outranks the current one, and the answer quotes it with full confidence.</p>
 <p>An <strong>instruction-following reranker</strong> takes a plain-language instruction alongside the query and orders passages by both. The notebook plants a conflict about enterprise GPU pricing, with the instruction <em>Prioritize internal sales documents over market analysis reports. More recent documents should be weighted higher. Enterprise portal content supersedes distributor communications.</em> It passes three passages, each with its date and source as metadata:</p>
@@ -677,8 +708,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The notebook&rsquo;s planted conflict. The first two answer the question and disagree.</em></p>
-<p>The third row makes the test honest: it matches the instruction on date and source, so a reranker that only read the metadata would rank it first. The notebook ranks the passages with the instruction and without it, so the two orders can be compared. It ships without saved outputs, so this page quotes no scores, and the benchmark claims in its text are the vendor&rsquo;s own.</p>
-<p>For Larkspur the instruction would read <em>Prefer the current handbook over archived handbook versions and community forum posts</em>, with each chunk&rsquo;s date and source passed as metadata.</p>
+<p>The third row makes the test honest. It matches the instruction on date and source. A reranker that only read the metadata would rank it first. The notebook ranks the passages with the instruction and without it, for comparing the two orders. For Larkspur the instruction would read <em>Prefer the current handbook over archived handbook versions and community forum posts</em>, with each chunk&rsquo;s date and source passed as metadata.</p>
 <h3>Planted case: a question the handbook cannot answer</h3>
 <p>The <strong>grounded language model</strong> answers from the passages it is handed. It has a flag, <code>avoid_commentary</code>, that decides whether the answer may add context beyond those passages. The notebook runs three cases:</p>
 <div class="sheet scroll"><table>
@@ -712,9 +742,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The notebook&rsquo;s three generation runs.</em></p>
-<p>For a support agent the third row is the one to test first. A question the handbook does not answer should get &ldquo;I don&rsquo;t have that information&rdquo;, never a <strong>plausible policy</strong>, an answer that sounds like Larkspur&rsquo;s rules and is not in the handbook. The flag narrows the answer to the evidence; it does not prove the answer is correct, so read the retrieved passages beside it.</p>
+<p>For a support agent the third row is the one to test first. A question the handbook does not answer should get &ldquo;I don&rsquo;t have that information&rdquo;, never a <strong>plausible policy</strong>: an answer that sounds like Larkspur&rsquo;s rules and is not in the handbook. The flag narrows the answer to the evidence. It does not prove the answer is correct, so read the retrieved passages beside it.</p>
+<h3>Unit tests for answers</h3>
+<p>LMUnit replaces a single quality score with natural-language tests. The notebook writes six, one per property (numerical accuracy, correlation versus causation, multi-document synthesis, stated limitations, evidence, no unnecessary information). It scores three sample answers against all six and plots each answer&rsquo;s scores on a polar chart. One worked case asks <em>Does the response avoid unnecessary information?</em> of an answer that lists four quarters when the question asked for one. Larkspur would write its own tests, such as <em>Does the answer give the refund time from the current handbook?</em></p>
 <h2 id="keeping-the-tool-contract">Keeping the tool contract</h2>
-<p>A managed platform fits behind the tool interface from lesson 31.1. The outer LangGraph agent keeps a <code>handbook_search</code> tool with the same name, description and one <code>query</code> argument; only its body changes, from calling your own retriever to calling the platform agent:</p>
+<p>A managed platform fits behind the tool interface from lesson 31.1. The outer LangGraph agent keeps a <code>handbook_search</code> tool with the same name, description and one <code>query</code> argument. Only its body changes, from calling your own retriever to calling the platform agent:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant A as Outer agent
     participant T as handbook_search
@@ -725,13 +757,13 @@ th:last-child, td:last-child { padding-right: 0; }
     T--&gt;&gt;A: ToolMessage
     A-&gt;&gt;A: answer the customer
 </pre></figure>
-<p><em>Figure 2: The outer agent still decides when to search. The platform decides how.</em></p>
-<p>Because the interface is fixed, the routing golden set from lesson 31.1 still applies unchanged, and swapping the platform in or out is a change to one tool&rsquo;s implementation. The platform&rsquo;s answer arrives as a tool result, so the outer agent can still combine it with other tools.</p>
+<p><em>Figure 3: The outer agent still decides when to search. The platform decides how.</em></p>
+<p>Because the interface is fixed, the routing golden set from lesson 31.1 still applies unchanged. Swapping the platform in or out is a change to one tool&rsquo;s implementation.</p>
 <blockquote>
 <p><strong>Pitfall: a grounded answer inside an ungrounded loop.</strong> The platform refuses when its datastore has no answer, but the outer agent can still skip the tool and answer from memory. The silent skip from lesson 31.1 does not go away; measure it on the routing golden set.</p>
 </blockquote>
 <h2 id="build-or-buy-the-pipeline">Build or buy the pipeline</h2>
-<p>What you trade when the pipeline moves behind an endpoint:</p>
+<p>Figures 1 and 2 run the same stages. What differs is who owns each one:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -764,26 +796,37 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Build or buy, row by row.</em></p>
-<ul>
-<li><strong>You run fewer parts.</strong> Parsing, chunking, reranking and grounded generation come configured, and the platform&rsquo;s UI shows ingested documents and agent answers.</li>
-<li><strong>You control fewer settings.</strong> Beyond its name and datastore, the notebook&rsquo;s agent sets only a system prompt, suggested queries and whether multi-turn is on.</li>
-<li><strong>Your documents leave your infrastructure.</strong> Check data residency, access control on each datastore, and how a deleted document leaves the index.</li>
-<li><strong>You measure it the same way.</strong> A managed platform is one more change to test against the baseline.</li>
-</ul>
-<h2 id="in-practice-moving-the-larkspur-handbook-to-a-platform">In practice: moving the Larkspur handbook to a platform</h2>
+<div class="learning-widget evidence-switcher" data-comparison id="stale-switcher">
+<p class="widget-intro">Fix the stale-policy win from the opening under each design. Scripted illustration on the Larkspur handbook.</p>
+<div class="mode-controls" hidden role="group" aria-label="Pipeline ownership">
+<button type="button" data-mode="own" aria-pressed="false" aria-controls="stale-own">Your own pipeline</button>
+<button type="button" data-mode="managed" aria-pressed="false" aria-controls="stale-managed">Managed platform</button>
+</div>
+<section id="stale-own" class="mode-panel" data-announcement="Your own pipeline. You change several components."><h4>Your own pipeline</h4><ul><li>Delete the archived chunks from the vector store, or add a date field and filter on it.</li><li>Add or retune a reranker that reads dates, then rerun the golden set.</li></ul><p>Every setting is yours, and so is every change.</p></section>
+<section id="stale-managed" class="mode-panel" data-announcement="Managed platform. You change the datastore and the instruction."><h4>Managed platform</h4><ul><li>Remove the archived document from the datastore and check that its passages leave the index.</li><li>Pass dates as metadata with a reranker instruction that prefers the current handbook, then rerun the golden set.</li></ul><p>Fewer parts to touch, and only the settings the platform exposes.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Your documents leave your infrastructure on the managed side. Check data residency, access control on each datastore, and how a deleted document leaves the index. The notebook&rsquo;s agent sets only a system prompt, suggested queries and whether multi-turn is on, beyond its name and datastore.</p>
+<h3>Moving the Larkspur handbook to a platform</h3>
 <ol>
 <li>Upload the handbook to a datastore and wait until every document reports completed.</li>
 <li>Point <code>handbook_search</code> at the platform agent, keeping its name, description and argument.</li>
 <li>Run the M10 golden set through both pipelines and compare answer quality, refusals and latency.</li>
-<li>Plant the two cases from this page: an archived and a current refund rule with dated metadata, and a question the handbook cannot answer.</li>
-<li>Rerun the routing golden set, which should not move, because the tool interface did not change.</li>
+<li>Plant both cases from this page: an archived and a current refund rule with dated metadata, and a question the handbook cannot answer.</li>
+<li>Rerun the routing golden set. It should not move, because the tool interface did not change.</li>
 </ol>
-<h2 id="limits">Limits</h2>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>No saved outputs.</strong> The notebook ships without outputs, so this page reports what each run tests and no scores or rankings. The parser, reranker and LMUnit benchmark figures in the notebook are the vendor&rsquo;s claims.</li>
+<li><strong>No saved outputs.</strong> The notebook ships without outputs. This page reports what each run tests and no scores or rankings. The parser, reranker and LMUnit benchmark figures in the notebook are the vendor&rsquo;s claims.</li>
 <li><strong>One vendor.</strong> The trade-offs in Table 4 apply to any managed RAG service; the component names and settings are Contextual AI&rsquo;s.</li>
 <li><strong>What it needs to run.</strong> A Contextual AI API key; the four sample PDFs download on first run.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Saad-Falcon et al., <a href="https://arxiv.org/abs/2412.13091" target="_blank" rel="noopener">LMUnit: Fine-grained Evaluation with Natural Language Unit Tests</a>, 2024.</li>
+<li>Contextual AI, <a href="https://github.com/ContextualAI/examples" target="_blank" rel="noopener">examples repository</a>, the source of the notebook&rsquo;s sample PDFs.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A managed RAG platform runs parsing, chunking, reranking and grounded generation behind one endpoint. Wrap its agent in the same tool, and your own agent still decides when to search.</li>
@@ -803,7 +846,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. Larkspur wraps the platform agent as its handbook_search tool, and a customer still gets a refund policy from the model's memory. Which part failed?</summary>
 <p>The outer agent&rsquo;s routing, not the platform. The platform refuses when its datastore lacks an answer, but it only runs when the outer agent calls the tool. The model skipped the call, a silent skip from lesson 31.1, so the fix is in the tool description and the routing golden set.</p>
 </details>
-<h2 id="chat-ui">Chat UI</h2>
+<h2 id="start-with-two-support-leads-in-one-chat-app">Start with two support leads in one chat app</h2>
 <p class="lesson-of">Lesson 31.3: Exercise: LlamaIndex Wikipedia agent with Chainlit. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p08_agentic_rag/m31_rag_as_agent_tool/optional/notebook/03a_llamaindex_wikipedia_agent/README.md" target="_blank" rel="noopener"><code>03a_llamaindex_wikipedia_agent</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll build</strong></p>
@@ -811,12 +854,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>A ReAct agent</strong> in LlamaIndex with one tool: a query engine over a vector index of Wikipedia pages.</li>
 <li><strong>An indexing step</strong> that turns a free-text request such as <em>paris, lagos, lao</em> into a list of page titles and indexes them.</li>
 <li><strong>A Chainlit chat app</strong> that builds the index and the agent when the user saves settings, and runs the agent on every message.</li>
-<li><strong>Per-session state</strong>, so two people in the app never share an index or an agent.</li>
+<li><strong>Per-session state</strong>: two people in the app never share an index or an agent.</li>
 </ul>
 </blockquote>
 <p>Lesson 31.1 put a retriever behind a tool inside a LangGraph agent. This exercise builds the same pattern in a second framework and puts it behind a chat window. It adds no new retrieval idea; it shows what changes when the agent has users.</p>
 <p>Picture two Larkspur support leads in the same chat app. The first indexes the refund pages and asks about annual refunds. The second indexes the outage pages a moment later. The first lead&rsquo;s next answer comes from the outage pages, because both sessions were reading one agent.</p>
-<p>A <strong>chat UI</strong> is an event-driven host for the agent: the framework calls one of your functions per event (chat opened, settings saved, message sent), and your code decides what each event does to the index and the agent. Chainlit is the framework here, and the scaffold fills three of its events:</p>
+<h2 id="chat-ui">Chat UI</h2>
+<p>A <strong>chat UI</strong> is an event-driven host for the agent. The framework calls one of your functions per event (chat opened, settings saved, message sent), and your code decides what each event does to the index and the agent. Chainlit is the framework here, and the scaffold fills three of its events:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant U as User
     participant C as Chainlit app
@@ -908,8 +952,34 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: The five pieces and the earlier lesson each one reuses.</em></p>
 <p>The tool description matters here exactly as in lesson 31.1: it is all the ReAct agent knows about what the index holds.</p>
-<h2 id="four-things-the-ui-changes">Four things the UI changes</h2>
-<p>Moving the agent behind a chat window adds four problems a notebook never shows. Each has a planted case and a guard:</p>
+<h2 id="where-the-agent-lives">Where the agent lives</h2>
+<p>The scaffold keeps <code>index</code> and <code>agent</code> in module globals. Chainlit serves every connected user from one Python process. A global is one value shared by every session:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S1["Session 1&lt;br/&gt;saves refund pages"] --&gt; G[("Module globals&lt;br/&gt;index, agent")]
+    S2["Session 2&lt;br/&gt;saves outage pages"] --&gt; G
+    G --&gt; A1["One agent:&lt;br/&gt;the last save wins"]
+</pre></figure>
+<p><em>Figure 3: Globals. The second save replaces the first session&rsquo;s index and agent.</em></p>
+<p>The alternative stores both in Chainlit&rsquo;s user session, which keeps one value per connection:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S1["Session 1&lt;br/&gt;saves refund pages"] --&gt; U1[("Session 1 store&lt;br/&gt;index, agent")]
+    S2["Session 2&lt;br/&gt;saves outage pages"] --&gt; U2[("Session 2 store&lt;br/&gt;index, agent")]
+</pre></figure>
+<p><em>Figure 4: Per-session state. Each connection reads only its own index and agent.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="state-switcher">
+<p class="widget-intro">Replay the opening scenario under each design: lead 1 saves the refund pages, lead 2 saves the outage pages, then lead 1 asks about annual refunds.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the agent is stored">
+<button type="button" data-mode="globals" aria-pressed="false" aria-controls="state-globals">Module globals</button>
+<button type="button" data-mode="session" aria-pressed="false" aria-controls="state-session">User session</button>
+</div>
+<section id="state-globals" class="mode-panel" data-announcement="Module globals. Lead 1 gets an answer from the outage pages."><h4>Module globals</h4><ul><li>Lead 2's save rebinds the global index and agent to the outage pages.</li><li>Lead 1's message runs that agent.</li></ul><p>Lead 1 gets an answer from the outage pages, and nothing in it says so.</p></section>
+<section id="state-session" class="mode-panel" data-announcement="User session. Lead 1 gets an answer from the refund pages."><h4>User session</h4><ul><li>Lead 2's save writes only to lead 2's session.</li><li>Lead 1's message reads lead 1's agent, still over the refund pages.</li></ul><p>Each lead gets answers from the pages they indexed.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>We call the globals failure the <strong>shared agent</strong>. Chainlit keeps a session for 3,600 seconds after its connection drops: the scaffold&rsquo;s configuration sets it, and so does the default file Chainlit 2.x generates.</p>
+<h2 id="three-more-things-the-ui-changes">Three more things the UI changes</h2>
+<p>Moving the agent behind a chat window adds problems a notebook never shows. Each has a planted case and a guard:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -925,11 +995,6 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>confirm in the chat only after indexing finishes</td>
 </tr>
 <tr>
-<td>Two users save different pages</td>
-<td>the second user&rsquo;s index and agent replace the first&rsquo;s</td>
-<td>keep the index and agent per session</td>
-</tr>
-<tr>
 <td>Each user indexes different pages</td>
 <td>a fixed description says nothing about this session&rsquo;s index</td>
 <td>build the description from the session&rsquo;s settings</td>
@@ -941,10 +1006,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Four planted cases and the guard for each.</em></p>
-<p><strong>The premature question.</strong> The index is built when settings are saved, not offline as in M10. A question sent before the confirmation finds no agent on a first save (the scaffold&rsquo;s message handler replies only once an agent exists), or, on a later save, the agent still holding the previous pages. The second case is the dangerous one: the answer looks normal and comes from the wrong pages.</p>
-<p><strong>The shared agent.</strong> The scaffold keeps <code>index</code> and <code>agent</code> in module globals. Chainlit serves every connected user from one Python process, so the second user to save settings replaces the first user&rsquo;s index and agent. That is the failure in the opening scenario. Store both in Chainlit&rsquo;s user session instead, which keeps one value per connection; the scaffold&rsquo;s configuration keeps a session for 3,600 seconds after the connection drops.</p>
-<p><strong>The generic description.</strong> The tool takes a name and a description through its metadata. When each user indexes different pages, write the description from their settings (&ldquo;Wikipedia articles on London, Barcelona and Paris&rdquo;), so the agent knows what this session&rsquo;s index holds. A fixed &ldquo;Wikipedia pages&rdquo; tells it nothing about which ones.</p>
+<p><em>Table 3: Three planted cases and the guard for each.</em></p>
+<p><strong>The premature question.</strong> The index is built when settings are saved, not offline as in M10. A question sent before the first confirmation finds no agent. The scaffold sets <code>index = None</code> at module level but never <code>agent</code>. Its <code>if agent:</code> check raises a <code>NameError</code> instead of staying quiet until you add <code>agent = None</code>. On a later save, the question reaches the agent still holding the previous pages. That case is the dangerous one: the answer looks normal and comes from the wrong pages.</p>
+<p><strong>The generic description.</strong> The tool takes a name and a description through its metadata. When each user indexes different pages, write the description from their settings (&ldquo;Wikipedia articles on London, Barcelona and Paris&rdquo;). Then the agent knows what this session&rsquo;s index holds. A fixed &ldquo;Wikipedia pages&rdquo; tells it nothing about which ones.</p>
 <p><strong>Hidden steps.</strong> Chainlit can show the agent&rsquo;s intermediate steps in the chat. For Larkspur&rsquo;s support chat, a visible step per <code>handbook_search</code> call lets a support lead check the answer against what was retrieved.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
 <div class="sheet scroll"><table>
@@ -961,7 +1025,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td><strong>Index and agent per session</strong></td>
-<td>One process serves every user, so globals leak one user&rsquo;s data into another&rsquo;s answers</td>
+<td>One process serves every user: globals leak one user&rsquo;s data into another&rsquo;s answers</td>
 </tr>
 <tr>
 <td><strong>Description built from settings</strong></td>
@@ -974,20 +1038,26 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Four choices and the failure each one prevents.</em></p>
-<h2 id="in-practice-the-larkspur-support-chat">In practice: the Larkspur support chat</h2>
+<h3>The Larkspur support chat</h3>
 <p>The same three events host the Larkspur agent from lesson 31.1:</p>
 <ol>
 <li>On chat open, build the agent for this session with <code>handbook_search</code> and <code>web_search</code>, and store it in the session.</li>
 <li>On each message, read the session&rsquo;s agent, run it, and send the reply.</li>
-<li>Show each <code>handbook_search</code> call as a step, so a support lead sees the chunks behind every refund answer.</li>
+<li>Show each <code>handbook_search</code> call as a step. A support lead then sees the chunks behind every refund answer.</li>
 </ol>
-<p>The handbook index is built once, offline, as in M10, so the premature question disappears. The shared-agent risk does not: the conversation history still belongs to one session.</p>
-<h2 id="limits">Limits</h2>
+<p>The handbook index is built once, offline, as in M10. The premature question disappears. The shared-agent risk does not: the conversation history still belongs to one session.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>The scaffolds are incomplete on purpose.</strong> Both files have gaps to fill, so the exercise has no expected output to quote. Test it by behaviour: open two sessions with different pages and check that each answers from its own.</li>
-<li><strong>Version drift in the scaffold.</strong> Its configuration file was generated by Chainlit 0.7.0 and switches visible steps on with <code>hide_cot = false</code>. Chainlit 2.x, which the course installs, reads <code>.chainlit/config.toml</code> and uses <code>cot</code> (<code>"full"</code>, <code>"tool_call"</code> or <code>"hidden"</code>, default <code>"full"</code>) instead, so the old setting does nothing. The folder&rsquo;s README also notes that the legacy OpenAI program package does not support <code>llama-index-core</code> 0.14; its function-calling or text-completion programs replace it.</li>
+<li><strong>The scaffolds are incomplete on purpose.</strong> Both files have gaps to fill. The exercise has no expected output to quote. Test it by behaviour: open two sessions with different pages and check that each answers from its own.</li>
+<li><strong>Version drift in the scaffold.</strong> Its configuration file was generated by Chainlit 0.7.0 and switches visible steps on with <code>hide_cot = false</code>. Chainlit 2.x, which the course installs (2.12.0), reads <code>.chainlit/config.toml</code> and uses <code>cot</code> (<code>"full"</code>, <code>"tool_call"</code> or <code>"hidden"</code>, default <code>"full"</code>) instead. The old setting does nothing. The folder&rsquo;s README also notes that the legacy OpenAI program package does not support <code>llama-index-core</code> 0.14; its function-calling or text-completion programs replace it.</li>
 <li><strong>What it needs to run.</strong> An OpenAI API key and the course&rsquo;s <code>llamaindex</code> dependency group. There is no notebook: the app runs with Chainlit from its own folder.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Yao et al., <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct: Synergizing Reasoning and Acting in Language Models</a>, 2022.</li>
+<li><a href="https://docs.chainlit.io" target="_blank" rel="noopener">Chainlit documentation</a>, for chat settings, the user session and steps.</li>
+<li><a href="https://docs.llamaindex.ai" target="_blank" rel="noopener">LlamaIndex documentation</a>, for query engine tools and the ReAct agent.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A chat UI calls one function per event. Build the index and agent when settings are saved, confirm only once indexing finishes, and run the agent on each message.</li>
@@ -1063,7 +1133,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Tune descriptions against a routing golden set and score them on held-out questions too, as you would any retrieval setting.</li>
 <li>A managed platform or a chat UI changes what sits behind or in front of the tool, not the loop. Keep the tool&rsquo;s name, description and arguments stable across both.</li>
 </ul></article>
-    <nav class="toc" aria-label="M31 sections"><details open><summary>In M31</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#agent-decided-retrieval">Agent-decided retrieval</a></li><li><a href="#tool-descriptions">Tool descriptions</a></li><li><a href="#in-practice-the-larkspur-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#managed-rag">Managed RAG</a></li><li><a href="#keeping-the-tool-contract">Keeping the tool contract</a></li><li><a href="#build-or-buy-the-pipeline">Build or buy the pipeline</a></li><li><a href="#in-practice-moving-the-larkspur-handbook-to-a-platform">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chat-ui">Chat UI</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#four-things-the-ui-changes">Four things the UI changes</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#in-practice-the-larkspur-support-chat">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M31 sections"><details open><summary>In M31</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-refund-answer-that-cites-nothing">Start with a refund answer that cites nothing</a></li><li><a href="#agent-decided-retrieval">Agent-decided retrieval</a></li><li><a href="#tool-descriptions">Tool descriptions</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-policy-that-changed-last-week">Start with a policy that changed last week</a></li><li><a href="#managed-rag">Managed RAG</a></li><li><a href="#keeping-the-tool-contract">Keeping the tool contract</a></li><li><a href="#build-or-buy-the-pipeline">Build or buy the pipeline</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-two-support-leads-in-one-chat-app">Start with two support leads in one chat app</a></li><li><a href="#chat-ui">Chat UI</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#where-the-agent-lives">Where the agent lives</a></li><li><a href="#three-more-things-the-ui-changes">Three more things the UI changes</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
