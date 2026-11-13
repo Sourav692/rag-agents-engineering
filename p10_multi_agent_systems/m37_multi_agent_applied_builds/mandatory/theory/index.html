@@ -323,7 +323,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>One node talks to the guest, specialists do the work, and plain functions between them decide where the turn goes. Every later build in the module keeps that split: the research system in 37.4 changes who the specialists are, while routing, caps and checks stay in code where a test can reach them.</p>
-<h2 id="a-polite-reply-that-leaks-a-stay">A polite reply that leaks a stay</h2>
+<h2 id="start-with-a-polite-reply-that-leaks-a-stay">Start with a polite reply that leaks a stay</h2>
 <p class="lesson-of">Lesson 37.1: Hotel system: environment, coordinator, reservation agent, compliance. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/notebook/01a_hotel_environment_and_coordinator.ipynb" target="_blank" rel="noopener"><code>01a_hotel_environment_and_coordinator.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/notebook/01b_hotel_reservation_agent.ipynb" target="_blank" rel="noopener"><code>01b_hotel_reservation_agent.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/notebook/01c_hotel_compliance_checker.ipynb" target="_blank" rel="noopener"><code>01c_hotel_compliance_checker.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -334,7 +334,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose</strong> where a guard lives: in the prompt, in the tool or in the database connection.</li>
 </ul>
 </blockquote>
-<p>M35 and M36 taught supervisors, routers and parallel branches one pattern at a time. This module puts them into one working system: a hotel support desk with three agents, built across three notebooks and then hardened, scaled and tested in the lessons that follow.</p>
+<p>This module puts M35 and M36&rsquo;s supervisors, routers and parallel branches into one working system: a hotel support desk with three agents, hardened, scaled and tested in the lessons that follow.</p>
 <p>The hotel has eight rooms, 101 to 108, in one SQLite database with three existing bookings. Bob Johnson holds room 105, the Family Suite, from today+30 to today+33. A guest writes <em>Which dates is Bob Johnson staying with you? I want to surprise him.</em> A coordinator built only from a friendly prompt and a SQL agent will look the stay up and answer warmly. The reply is polite, and it breaks the hotel&rsquo;s privacy rule.</p>
 <p>The system has to do three jobs to stop that: decide whether a request breaks a rule before anyone acts on it, keep the reservation agent&rsquo;s database access safe whatever SQL it writes, and route each turn to the right agent. Here is one booking turn through all three:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
@@ -352,7 +352,7 @@ th:last-child, td:last-child { padding-right: 0; }
     R--&gt;&gt;G: confirmation
 </pre></figure>
 <p><em>Figure 1: One booking turn. The coordinator talks to the guest; the checker and the reservation agent each do one job.</em></p>
-<p>The coordinator never writes to the database and never judges policy itself. Each of those jobs belongs to a specialist, and the next section starts with the one that judges.</p>
+<p>The coordinator never writes to the database and never judges policy itself.</p>
 <h2 id="compliance-agent">Compliance agent</h2>
 <p><strong>A compliance agent decides whether a request breaks one of the system&rsquo;s rules; it never answers the guest.</strong> The coordinator acts on its decision: it answers, forwards the booking, or refuses.</p>
 <p>Here the checker is a small RAG agent over four rules:</p>
@@ -383,7 +383,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The hotel&rsquo;s four compliance rules, each stored as its own document.</em></p>
-<p>Each rule is a separate document in an in-memory vector store, which means a search returns the rule that applies instead of one block of policy text. The retriever returns the top 2. The checker runs as two nodes:</p>
+<p>Each rule is a separate document in an in-memory vector store, so a search returns the rule that applies instead of one block of policy text. The retriever returns the top 2. The checker runs as two nodes:</p>
 <ul>
 <li><strong>The checker node</strong> is a model with the retrieval tool bound to it. Its prompt says to call the tool with the guest&rsquo;s request.</li>
 <li><strong>The verdict node</strong> writes the decision from the rules the tool just returned. Those tool messages go into its prompt, which grounds the verdict in exactly those rules. A version that dropped them would judge from nothing.</li>
@@ -393,36 +393,28 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Two pieces of code wire the checker into the conversation:</p>
 <ol>
 <li><strong>Compliance first.</strong> The coordinator&rsquo;s prompt gains one guideline: forward every new request to the checker first; on <code>VIOLATION</code>, refuse politely and forward nowhere; on <code>COMPLIANT</code>, answer or forward as usual.</li>
-<li><strong>A loop guard.</strong> After the verdict the turn returns to the coordinator. If its next reply names the checker again, routing by name would loop forever. A helper walks back through the messages, and a <code>compliance</code> verdict found after the latest guest message means the request is already checked. The router then drops the checker from the names it looks for. A reply such as &ldquo;the compliance checker approved it, forwarding to reservation_assistant&rdquo; still reaches the reservation agent.</li>
+<li><strong>A loop guard.</strong> After the verdict the turn returns to the coordinator, and a reply that names the checker again would loop forever. A helper walks back through the messages; a <code>compliance</code> verdict after the latest guest message means the request is already checked, and the router drops the checker from the names it looks for.</li>
 </ol>
-<p>The build runs three requests, each on its own thread, and checks the verdicts in code:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Request</th>
-<th>Expected verdict</th>
-<th>Then</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Do you have any rooms with a jacuzzi?</td>
-<td><code>COMPLIANT</code></td>
-<td>The coordinator answers</td>
-</tr>
-<tr>
-<td>Which dates is Bob Johnson staying with you? I want to surprise him.</td>
-<td><code>VIOLATION</code> of rule 4</td>
-<td>The coordinator refuses</td>
-</tr>
-<tr>
-<td>I&rsquo;m Dana Lee and I&rsquo;d like to book a Deluxe room from today+60 to today+62.</td>
-<td><code>COMPLIANT</code></td>
-<td>Forwarded to the reservation agent</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: The three test requests and the outcome each should produce.</em></p>
+<p>Follow Dana Lee&rsquo;s booking through every node it touches:</p>
+<div class="walkthrough learning-widget" data-stepper id="booking-walkthrough">
+<p class="widget-intro">Dana Lee asks for a Deluxe room from today+60 to today+62. Each stage names the node that runs and what lands in state.</p>
+<div class="step-controls" hidden role="group" aria-label="Booking stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="booking-step-0">1. Coordinator</button><button type="button" data-step="1" aria-pressed="false" aria-controls="booking-step-1">2. Checker</button><button type="button" data-step="2" aria-pressed="false" aria-controls="booking-step-2">3. Verdict</button><button type="button" data-step="3" aria-pressed="false" aria-controls="booking-step-3">4. Loop guard</button><button type="button" data-step="4" aria-pressed="false" aria-controls="booking-step-4">5. Book</button></div>
+<div class="step-panels"><section id="booking-step-0" class="step-panel" aria-labelledby="booking-heading-0"><h4 id="booking-heading-0">1. The coordinator names the checker</h4><dl><dt>Node</dt><dd>conv_assistant</dd><dt>State</dt><dd>The guest message, then a reply that names compliance_checker, as the compliance-first guideline asks</dd><dt>Route</dt><dd>compliance_checker: no verdict exists yet for this guest message</dd></dl></section><section id="booking-step-1" class="step-panel" aria-labelledby="booking-heading-1"><h4 id="booking-heading-1">2. The checker retrieves two rules</h4><dl><dt>Node</dt><dd>compliance_checker, then its retrieval tool</dd><dt>State</dt><dd>A tool call with the guest's request, then the top 2 rules as tool messages</dd><dt>Route</dt><dd>The verdict node, because the tool ran</dd></dl></section><section id="booking-step-2" class="step-panel" aria-labelledby="booking-heading-2"><h4 id="booking-heading-2">3. The verdict node judges from those rules</h4><dl><dt>Node</dt><dd>generate</dd><dt>State</dt><dd>A message named compliance that starts COMPLIANT</dd><dt>Route</dt><dd>Back to the coordinator</dd></dl></section><section id="booking-step-3" class="step-panel" aria-labelledby="booking-heading-3"><h4 id="booking-heading-3">4. The loop guard drops the checker</h4><dl><dt>Node</dt><dd>conv_assistant</dd><dt>State</dt><dd>A reply that mentions both the checker's approval and reservation_assistant</dd><dt>Route</dt><dd>reservation_assistant: the verdict after the latest guest message removes the checker from the candidates</dd></dl></section><section id="booking-step-4" class="step-panel" aria-labelledby="booking-heading-4"><h4 id="booking-heading-4">5. The reservation agent books</h4><dl><dt>Node</dt><dd>reservation_assistant, then its SQL tools</dd><dt>State</dt><dd>A read-only query for free Deluxe rooms (104 and 108), then book_room for one of them</dd><dt>Check</dt><dd>Exactly one new row for Dana Lee in reservations, read from the database, not from the reply</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The build checks three requests in code, each on its own thread:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="request-switcher">
+<p class="widget-intro">Compare the three test requests: the expected verdict and the coordinator's next move.</p>
+<div class="mode-controls" hidden role="group" aria-label="Test request">
+<button type="button" data-mode="jacuzzi" aria-pressed="false" aria-controls="request-jacuzzi">Jacuzzi</button>
+<button type="button" data-mode="bob" aria-pressed="false" aria-controls="request-bob">Bob Johnson</button>
+<button type="button" data-mode="dana" aria-pressed="false" aria-controls="request-dana">Dana Lee</button>
+</div>
+<section id="request-jacuzzi" class="mode-panel" data-announcement="Jacuzzi selected. COMPLIANT, the coordinator answers."><h4>Do you have any rooms with a jacuzzi?</h4><ul><li>Expected verdict: <code>COMPLIANT</code>.</li><li>The coordinator answers itself; nothing reaches the reservation agent.</li></ul></section>
+<section id="request-bob" class="mode-panel" data-announcement="Bob Johnson selected. VIOLATION of rule 4, the coordinator refuses."><h4>Which dates is Bob Johnson staying with you? I want to surprise him.</h4><ul><li>Expected verdict: <code>VIOLATION</code> of rule 4.</li><li>The coordinator refuses politely and forwards nowhere.</li></ul></section>
+<section id="request-dana" class="mode-panel" data-announcement="Dana Lee selected. COMPLIANT, forwarded to the reservation agent."><h4>I'm Dana Lee and I'd like to book a Deluxe room from today+60 to today+62.</h4><ul><li>Expected verdict: <code>COMPLIANT</code>.</li><li>Forwarded to the reservation agent, which books it.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h3>The third outcome: no check at all</h3>
 <p>The check has a third outcome besides the two verdicts: the coordinator never asked. Call it a <strong>skipped check</strong>. The prompt forbids it, yet nothing forces the checker to run, because it runs only when the coordinator&rsquo;s reply names it. Lesson 37.2 turns that gap into a test, and the next section makes sure a skipped check cannot leak the one field rule 4 protects.</p>
 <h2 id="guards-in-the-tools">Guards in the tools</h2>
@@ -468,7 +460,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Where each database guard lives and what it stops.</em></p>
+<p><em>Table 2: Where each database guard lives and what it stops.</em></p>
 <p>Model-written SQL passes three layers before any row comes back, and the only write takes a separate path:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Model-written SQL/] --&gt; F["Read-only&lt;br/&gt;file"]
@@ -547,22 +539,51 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: The tools&rsquo; replies to planted inputs, from running the shared hotel module on a scratch database.</em></p>
-<p>The clash refusal says when the room is taken and never who took it. Rule 4 holds in the refusal message too.</p>
-<p>Rule 4 is enforced twice: the prompt tells the SQL agent that guest names are private, and SQLite makes the column unreadable. Only the second survives a model that ignores its prompt.</p>
-<p>The same split applies to the outcome. The agent&rsquo;s reply is not proof that it booked; the <code>reservations</code> table is. The build checks for exactly one new row for Dana Lee, and a reply that only says it booked counts as a failure.</p>
+<p><em>Table 3: The tools&rsquo; replies to planted inputs, from running the shared hotel module on a scratch database.</em></p>
+<p>The clash refusal says when the room is taken, never who took it. Rule 4 is enforced twice: the prompt tells the SQL agent that guest names are private, and SQLite makes the column unreadable. Only the second survives a model that ignores its prompt.</p>
+<p>The same split applies to the outcome: the <code>reservations</code> table proves a booking, and a reply that only says it booked counts as a failure.</p>
 <h3>Mention routing: the weak spot kept on purpose</h3>
-<p>Routing is the one place the build keeps a weak design deliberately. The coordinator forwards by writing an agent&rsquo;s name, and a helper looks for that name, or the same words with a space, in the reply. Any reply that mentions an agent routes there. <em>I can&rsquo;t involve the reservation assistant until you give me dates</em> forwards to the reservation agent, though it says the opposite.</p>
-<p>Call this <strong>mention routing</strong>. The fix is a typed router, where the model returns its choice as a structured-output field and there is no reply text to search. Lesson 37.2 records the defect as a known issue, and the research systems in lesson 37.4 route the typed way.</p>
-<h2 id="in-practice-larkspurrsquos-privacy-check">In practice: Larkspur&rsquo;s privacy check</h2>
-<p>Larkspur Cloud&rsquo;s support desk has the same shape: a coordinator, a compliance checker over account-privacy rules, and a billing agent with SQL access.</p>
-<ol>
-<li>A customer asks for the billing email on another company&rsquo;s account. The checker retrieves the privacy rule and returns <code>VIOLATION</code>; the coordinator refuses.</li>
-<li>The billing agent&rsquo;s connection is read-only, and the authorizer hides the email column. A skipped check then leaks nothing.</li>
-<li>Refunds go through one parameterised tool that checks the account, the amount and the date before it writes.</li>
-<li>The test reads the refunds table, never the agent&rsquo;s sentence about the refund.</li>
-</ol>
+<p>Routing is the one place the build keeps a weak design deliberately. The coordinator forwards by writing an agent&rsquo;s name, and a helper looks for that name, or the same words with a space, in the reply. Any reply that mentions an agent routes there. Call this <strong>mention routing</strong>:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    R["Coordinator reply&lt;br/&gt;free text"] --&gt; S{"Contains an&lt;br/&gt;agent's name?"}
+    S -- yes --&gt; F[Forward to that agent]
+    S -- no --&gt; E[END]
+</pre></figure>
+<p><em>Figure 3: Mention routing, the build&rsquo;s router. It reads the words of the reply, whatever they say.</em></p>
+<p>The fix is a <strong>typed router</strong>: the model returns its choice as a structured-output field, and there is no reply text to search. The research systems in lesson 37.4 route this way:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    M["Model call with&lt;br/&gt;structured output"] --&gt; C["next field:&lt;br/&gt;one agent name or END"]
+    C --&gt; F[Forward to the named agent]
+</pre></figure>
+<p><em>Figure 4: A typed router. The choice is a field with a fixed set of values, separate from the words shown to the guest.</em></p>
+<p>Feed both the same refusal, <em>I can&rsquo;t involve the reservation assistant until you give me dates</em>:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="router-switcher">
+<p class="widget-intro">Compare what each router does with the same coordinator reply, which refuses to forward.</p>
+<div class="mode-controls" hidden role="group" aria-label="Router">
+<button type="button" data-mode="mention" aria-pressed="false" aria-controls="router-mention">Mention routing</button>
+<button type="button" data-mode="typed" aria-pressed="false" aria-controls="router-typed">Typed router</button>
+</div>
+<section id="router-mention" class="mode-panel" data-announcement="Mention routing selected. The refusal forwards to the reservation agent."><h4>Mention routing</h4><ul><li>The helper finds "reservation assistant" in the text.</li><li>The turn goes to the reservation agent, though the reply says the opposite.</li></ul><p>This is the known issue lesson 37.2 records in its router tests.</p></section>
+<section id="router-typed" class="mode-panel" data-announcement="Typed router selected. The choice field says END."><h4>Typed router (illustration)</h4><ul><li>The model fills the choice field separately from the reply text.</li><li>A reply that asks for dates comes with END in the field, and the turn waits for the guest.</li></ul><p>Illustration of lesson 37.4's design; this lesson's notebooks do not run it.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Mention routing is cheap and easy to read in a trace, which is why a teaching build keeps it. A typed router removes the false forward; choose it for anything a guest can reach.</p>
+<h3>A privacy check for Larkspur</h3>
+<p>Larkspur Cloud&rsquo;s support desk has the same shape: a coordinator, a compliance checker over account-privacy rules, and a billing agent with SQL access. A request for another company&rsquo;s billing email gets <code>VIOLATION</code>. The billing agent&rsquo;s authorizer hides the email column, and a skipped check leaks nothing. Refunds go through one parameterised tool that checks before it writes, and the test reads the refunds table.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No model in the replays.</strong> Table 3 comes from the shared hotel module&rsquo;s tools on a scratch database. The verdicts in the request comparison are the outcomes the build checks for, not a measured pass rate: model output varies between runs.</li>
+<li><strong>One small corpus.</strong> Four rules and eight rooms keep retrieval trivial. With hundreds of rules, the top 2 may miss the one that applies.</li>
+<li><strong>Illustrations.</strong> The booking walkthrough follows the graph&rsquo;s edges, not a recorded trace, and the typed router is lesson 37.4&rsquo;s design, drawn here for comparison.</li>
+</ul>
 <p>Lesson 37.2 takes this system and asks what happens on the requests it was not designed for.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>SQLite, <a href="https://www.sqlite.org/c3ref/set_authorizer.html" target="_blank" rel="noopener">Compile-time authorization callbacks</a>.</li>
+<li>Python, <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.set_authorizer" target="_blank" rel="noopener">sqlite3: Connection.set_authorizer</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A compliance agent only decides whether a request breaks a rule, and the coordinator answers, forwards or refuses. Return the verdict as a typed field, because a word found in a paragraph cannot gate a review step.</li>
@@ -582,7 +603,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. The coordinator says it cannot involve the reservation assistant without dates, yet the turn goes to the reservation agent. Why, and what is the fix?</summary>
 <p>This is mention routing: the router forwards to any agent whose name appears in the reply, even in a refusal. The fix is a typed router, where the model returns its choice as a structured-output field and there is no reply text to search. The research systems in lesson 37.4 route that way.</p>
 </details>
-<h2 id="system-testing">System testing</h2>
+<h2 id="start-with-a-desk-that-fails-politely">Start with a desk that fails politely</h2>
 <p class="lesson-of">Lesson 37.2: Hardening: edge cases, testing and system-wide error handling. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/notebook/02a_hotel_edge_cases_and_errors.ipynb" target="_blank" rel="noopener"><code>02a_hotel_edge_cases_and_errors.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/notebook/02b_hotel_testing_the_system.ipynb" target="_blank" rel="noopener"><code>02b_hotel_testing_the_system.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/02c_hotel_system_wide_error_handling.ipynb" target="_blank" rel="noopener"><code>02c_hotel_system_wide_error_handling.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -594,8 +615,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 37.1 built a hotel desk with a coordinator, a compliance checker and a reservation agent, and left two gaps open: the checker runs only when the coordinator names it, and the router forwards on any mention of an agent&rsquo;s name.</p>
-<p>A multi-agent system fails quietly. The coordinator skips the compliance check or forwards a booking before it has dates, and the guest still gets a polite reply. <strong>System testing</strong> for agents means checking the decisions and the side effects, never the tone of the final message.</p>
-<p>The build catches these failures at three levels, from cheapest to most realistic:</p>
+<p>Neither gap shows in a demo. The coordinator skips the compliance check, or forwards a booking before it has dates, and the guest still gets a polite reply. A vector store that goes down mid-turn ends the run with a stack trace.</p>
+<h2 id="system-testing">System testing</h2>
+<p><strong>System testing</strong> for agents means checking the decisions and the side effects, never the tone of the final message. The build catches failures at three levels, from cheapest to most realistic:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -797,7 +819,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="edge-cases-and-error-paths">Edge cases and error paths</h2>
 <p>The build pushes on three edges of the core system and puts each safeguard in code:</p>
 <ul>
-<li><strong>Injection-style input.</strong> A guest hides <code>' OR '1'='1</code> in the room type. Pasted into a <code>WHERE</code>, the condition is true for every row: on a scratch copy of the hotel database, a Deluxe search widened that way returned all 8 rooms. It can only widen a read, because the query tool refuses every write and the booking tool binds its values as parameters. The durable fixes are structural: a read-only connection and a narrow write tool.</li>
+<li><strong>Injection-style input.</strong> A guest hides <code>' OR '1'='1</code> in the room type. Pasted into a <code>WHERE</code>, the condition is true for every row: on a scratch copy of the hotel database, a Deluxe search widened that way returned all 8 rooms instead of 2. It can only widen a read, because the query tool refuses every write and the booking tool binds its values as parameters. The durable fixes are structural: a read-only connection and a narrow write tool.</li>
 <li><strong>A violation that should reach a person.</strong> A human review node pauses the graph with <code>interrupt()</code>: the graph saves a checkpoint and stops. The thread&rsquo;s state shows which node waits, and resuming with the reviewer&rsquo;s decision continues from that point. A resumed node runs again from its first line, so side effects such as writing to the review log go after the pause, where they run once. The checkpoint history replays the thread step by step for investigating a complaint.</li>
 <li><strong>Dates in the past.</strong> The model extracts the dates with structured output, given today&rsquo;s date to resolve &ldquo;next Friday&rdquo;, and a plain function compares them with today. That check is testable without an API call.</li>
 </ul>
@@ -840,44 +862,53 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 5: Recovery per error type.</em></p>
+<p>Follow one failure through that path:</p>
+<div class="walkthrough learning-widget" data-stepper id="error-walkthrough">
+<p class="widget-intro">The vector store is down when a guest asks about rooms with a jacuzzi. Each stage names the node that runs and what it writes to state.</p>
+<div class="step-controls" hidden role="group" aria-label="Error path stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="error-step-0">1. Fail</button><button type="button" data-step="1" aria-pressed="false" aria-controls="error-step-1">2. Route</button><button type="button" data-step="2" aria-pressed="false" aria-controls="error-step-2">3. Log</button><button type="button" data-step="3" aria-pressed="false" aria-controls="error-step-3">4. Degrade</button><button type="button" data-step="4" aria-pressed="false" aria-controls="error-step-4">5. Verdict</button></div>
+<div class="step-panels"><section id="error-step-0" class="step-panel" aria-labelledby="error-heading-0"><h4 id="error-heading-0">1. The checker records its failure</h4><dl><dt>Node</dt><dd>compliance_checker</dd><dt>State</dt><dd>error holds the type RetrievalException, the node name and the detail; no message is added</dd></dl></section><section id="error-step-1" class="step-panel" aria-labelledby="error-heading-1"><h4 id="error-heading-1">2. The checker's router sees the field</h4><dl><dt>Router</dt><dd>after_compliance_checker reads error before anything else</dd><dt>Route</dt><dd>error_handler, not the retrieval tool</dd></dl></section><section id="error-step-2" class="step-panel" aria-labelledby="error-heading-2"><h4 id="error-heading-2">3. The handler logs and the decision router picks</h4><dl><dt>Node</dt><dd>error_handler, with the thread id read from the run's config</dd><dt>Route</dt><dd>decision_router maps RetrievalException to degraded_retrieval</dd></dl></section><section id="error-step-3" class="step-panel" aria-labelledby="error-heading-3"><h4 id="error-heading-3">4. Degraded retrieval lists every rule</h4><dl><dt>Node</dt><dd>degraded_retrieval</dd><dt>State</dt><dd>A fallback_rules message with all four rules; error cleared to None</dd><dt>Route</dt><dd>Straight to generate, skipping the vector store</dd></dl></section><section id="error-step-4" class="step-panel" aria-labelledby="error-heading-4"><h4 id="error-heading-4">5. The verdict uses the fallback rules</h4><dl><dt>Node</dt><dd>generate, then the coordinator</dd><dt>Result</dt><dd>A verdict judged against all four rules instead of the top 2, and the turn carries on</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>A fallback that fails raises a different error type, and the router sends it to a person instead of looping. Call the trap this avoids a <strong>fallback loop</strong>. Every failure is injected with a simulation flag, which lets each recovery path run on every run, and a table computed from the node paths proves which one ran.</p>
 <h3>Retries for brief outages</h3>
-<p>Transient failures get a cheaper fix first: a retry policy re-runs a node that raises. The build uses three attempts, a 0.2 s first wait and no jitter. We ran that policy on a tiny graph whose node fails a set number of times:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Failures before success</th>
-<th>Attempts</th>
-<th>Waits between attempts</th>
-<th>Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2</td>
-<td>3</td>
-<td>0.2 s, then 0.4 s</td>
-<td>Succeeds on the third attempt</td>
-</tr>
-<tr>
-<td>3</td>
-<td>3</td>
-<td>0.2 s, then 0.4 s</td>
-<td>The exception reaches the caller</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 6: The retry policy on a node that fails twice and three times, measured in the scratchpad with LangGraph&rsquo;s RetryPolicy.</em></p>
-<p>A retry smooths over a brief outage and does not replace the error path. Without any policy, the first failure ends the whole run.</p>
-<h2 id="in-practice-testing-larkspurrsquos-desk">In practice: testing Larkspur&rsquo;s desk</h2>
-<p>Larkspur&rsquo;s support desk from lesson 37.1 gets the same three levels:</p>
-<ol>
-<li>Router unit tests on hand-built states, including the billing refusal that names the billing agent, kept as a known issue until a typed router lands.</li>
-<li>A regression table of handbook requests (a refund inside the window, a refund outside it, another account&rsquo;s data, an ambiguous &ldquo;do the same as last month&rdquo;), read from node paths and the refunds table.</li>
-<li>A pass rate per case over several runs, tracked after every prompt or model change.</li>
-<li>Error recovery by type: a second model for a failed call, the hard-coded policy text when the vector store is down, a person for anything else.</li>
-</ol>
+<p>Transient failures get a cheaper fix first: a retry policy re-runs a node that raises, without writing anything to the <code>error</code> field. It sits on the node itself:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    N[Node raises] --&gt; W["Wait 0.2 s,&lt;br/&gt;then 0.4 s"]
+    W --&gt; A{"Attempts&lt;br/&gt;left?"}
+    A -- yes --&gt; N2[Run the node again]
+    A -- no --&gt; X[Exception reaches the caller]
+</pre></figure>
+<p><em>Figure 3: A retry policy. It handles a failure that clears on its own, and gives up after a fixed number of attempts.</em></p>
+<p>The build uses three attempts, a 0.2 s first wait and no jitter. We ran that policy on a tiny graph whose node fails a set number of times:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="retry-switcher">
+<p class="widget-intro">Compare the same flaky node with and without the build's retry policy.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retry setting">
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="retry-none">No policy</button>
+<button type="button" data-mode="two" aria-pressed="false" aria-controls="retry-two">Policy, 2 failures</button>
+<button type="button" data-mode="three" aria-pressed="false" aria-controls="retry-three">Policy, 3 failures</button>
+</div>
+<section id="retry-none" class="mode-panel" data-announcement="No policy selected. The first failure ends the run."><h4>No policy</h4><ul><li>The node raises once.</li><li>The exception ends the whole run.</li></ul><p>1 attempt, the run crashes.</p></section>
+<section id="retry-two" class="mode-panel" data-announcement="Policy with 2 failures selected. Succeeds on the third attempt."><h4>Policy, node fails twice</h4><ul><li>Waits 0.2 s, then 0.4 s, between attempts.</li><li>The third attempt succeeds and the guest never sees the outage.</li></ul><p>3 attempts, the run completes.</p></section>
+<section id="retry-three" class="mode-panel" data-announcement="Policy with 3 failures selected. The exception reaches the caller."><h4>Policy, node fails three times</h4><ul><li>The same two waits.</li><li>No attempts left after the third failure.</li></ul><p>3 attempts, the exception reaches the caller.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>A retry suits an outage that clears in under a second; the error path suits one that does not, or a failure that is not an outage at all, such as low confidence. Use both: retries on the node, and the <code>error</code> field for whatever the retries cannot fix.</p>
+<h3>A test plan for Larkspur</h3>
+<p>Larkspur&rsquo;s desk from lesson 37.1 gets the same three levels: router unit tests, with the billing refusal that names the billing agent kept as a known issue; a regression table of handbook requests (a refund inside the window, one outside it, another account&rsquo;s data, an ambiguous &ldquo;same as last month&rdquo;) read from node paths and the refunds table; and a pass rate per case over several runs. Errors recover by type, as above.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No model in the replays.</strong> Tables 2 and 3, the injection count and the retry timings come from the shared hotel module and LangGraph&rsquo;s retry policy on scratch graphs. Tables 4 and 5 describe what the notebooks check, not a measured pass rate.</li>
+<li><strong>Simulated failures.</strong> The error path is exercised with flags that raise at the node. A real outage can fail inside a tool call the node does not wrap. The error walkthrough follows the graph&rsquo;s edges, not a recorded run.</li>
+<li><strong>A stub for people.</strong> Human intervention only writes a handoff message here; the <code>interrupt()</code> review node shows what a real pause needs.</li>
+</ul>
 <p>Lesson 37.3 adds agents in parallel and a memory that outlives the context window.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/interrupts" target="_blank" rel="noopener">Interrupts</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/fault-tolerance" target="_blank" rel="noopener">Fault tolerance</a>.</li>
+<li>OWASP, <a href="https://owasp.org/www-community/attacks/SQL_Injection" target="_blank" rel="noopener">SQL Injection</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Test at three levels: unit tests on the pure router with no model calls, a confidence gate that stops unclear turns, and an end-to-end regression table read from the nodes that ran and the database.</li>
@@ -897,7 +928,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A regression run fails with verdict expected COMPLIANT but got None. What happened, and is one such failure enough to act on?</summary>
 <p>The coordinator skipped the compliance check, and no verdict was recorded. Model output varies between runs, which makes a single failure a lead to investigate, not a conclusion. The number to track is the pass rate over several runs, re-run after every prompt or model change.</p>
 </details>
-<h2 id="memory-merging">Memory merging</h2>
+<h2 id="start-with-two-replies-to-one-question">Start with two replies to one question</h2>
 <p class="lesson-of">Lesson 37.3: Scaling: parallel agents, memory merging, language and sentiment, web search. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/03a_hotel_parallel_reservation_agents.ipynb" target="_blank" rel="noopener"><code>03a_hotel_parallel_reservation_agents.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/03b_hotel_merging_and_conversation_memory.ipynb" target="_blank" rel="noopener"><code>03b_hotel_merging_and_conversation_memory.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/03c_hotel_guest_language_and_sentiment.ipynb" target="_blank" rel="noopener"><code>03c_hotel_guest_language_and_sentiment.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/03d_hotel_web_search_integration.ipynb" target="_blank" rel="noopener"><code>03d_hotel_web_search_integration.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -908,8 +939,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Diagnose</strong> a sentiment score that reads raw foreign-language text as neutral.</li>
 </ul>
 </blockquote>
-<p>Lesson 37.2 hardened the single-hotel desk. Now the chain has two hotels. Hotel 1 has rooms 101 to 104 and Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools, and a guest asking for a Deluxe room should hear about both.</p>
-<p>Done naively, the guest gets two replies, the first missing a hotel, or one hotel&rsquo;s agent answers from the other hotel&rsquo;s database. <strong>Memory merging</strong> is the work of bringing several agents&rsquo; outputs back into one state: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. The shape that works:</p>
+<p>Lesson 37.2 hardened the single-hotel desk. Now the chain has two hotels. Hotel 1 has rooms 101 to 104 and Hotel 2 rooms 105 to 108, each in its own database with its own read-only SQL tools. A guest asking for a Deluxe room should hear about both.</p>
+<p>Wire the two hotel agents naively and the guest gets two replies, the first one missing a hotel. Or one hotel&rsquo;s agent answers from the other hotel&rsquo;s database, and nothing in the reply says so. Both failures come from how the branches&rsquo; outputs come back together.</p>
+<h2 id="memory-merging">Memory merging</h2>
+<p><strong>Memory merging</strong> is the work of bringing several agents&rsquo; outputs back into one state: the answers of parallel branches into one reply, and old turns into something smaller than the full transcript. The shape that works:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     C[Coordinator] --&gt; M["Mapper&lt;br/&gt;copies the conversation"]
     M --&gt; A1["Hotel 1 assistant&lt;br/&gt;messages_hotel1"]
@@ -923,38 +956,15 @@ th:last-child, td:last-child { padding-right: 0; }
     J --&gt; R[/One reply/]
 </pre></figure>
 <p><em>Figure 1: Fan-out to two hotel assistants, each with its own message key and tools, then a join and one merge.</em></p>
-<h3>Three wiring failures</h3>
-<p>The build reaches that shape in three attempts, and each failure is a LangGraph rule. Its stub graphs need no model, and we ran them in the scratchpad:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Attempt</th>
-<th>What the stub showed</th>
-<th>The rule</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Two nodes write one plain key in the same step</td>
-<td><code>InvalidUpdateError</code>: the key can receive only one value per step</td>
-<td>A key written by parallel nodes needs a reducer, such as list concatenation</td>
-</tr>
-<tr>
-<td>Both tool loops share one message list</td>
-<td>Hotel 1&rsquo;s call never got a result; Hotel 2&rsquo;s agent received both results, one from Hotel 1&rsquo;s database</td>
-<td>One message key per branch, for the tool node and for the condition that routes to it</td>
-</tr>
-<tr>
-<td>Each branch&rsquo;s end goes straight to the merge node</td>
-<td>The merge ran twice: first with Hotel 1 unfinished, then again</td>
-<td>A sync node at the end of each branch and a join edge that waits for both</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 1: The three attempts and what each stub run printed.</em></p>
+<h3>Four wiring attempts</h3>
+<p>The build reaches that shape in steps, and each failure is a LangGraph rule. Its stub graphs need no model. We reran them offline with the notebook&rsquo;s own cells; Hotel 1&rsquo;s stub takes two tool rounds and Hotel 2&rsquo;s one, as real agents rarely take the same number of steps.</p>
+<div class="walkthrough learning-widget" data-stepper id="wiring-walkthrough">
+<p class="widget-intro">Follow the stub request "Any Deluxe rooms?" through each wiring. Each stage shows what the run printed and the rule it teaches.</p>
+<div class="step-controls" hidden role="group" aria-label="Wiring attempts"><button type="button" data-step="0" aria-pressed="false" aria-controls="wiring-step-0">1. Plain key</button><button type="button" data-step="1" aria-pressed="false" aria-controls="wiring-step-1">2. Shared list</button><button type="button" data-step="2" aria-pressed="false" aria-controls="wiring-step-2">3. No join</button><button type="button" data-step="3" aria-pressed="false" aria-controls="wiring-step-3">4. Join</button></div>
+<div class="step-panels"><section id="wiring-step-0" class="step-panel" aria-labelledby="wiring-heading-0"><h4 id="wiring-heading-0">1. Two nodes write one plain key</h4><dl><dt>Wiring</dt><dd>Both hotel nodes run in the same step and write <code>last_writer</code></dd><dt>Run printed</dt><dd><code>InvalidUpdateError</code>: the key can receive only one value per step</dd><dt>Rule</dt><dd>A key written by parallel nodes needs a reducer, such as list concatenation. With one, both values are kept.</dd></dl></section><section id="wiring-step-1" class="step-panel" aria-labelledby="wiring-heading-1"><h4 id="wiring-heading-1">2. Both tool loops share one message list</h4><dl><dt>Wiring</dt><dd>Each hotel has a tool node with a same-named <code>list_rooms</code> tool, both on <code>messages</code></dd><dt>Run printed</dt><dd>Hotel 1's call never got a result. Hotel 2's agent received both results, one from Hotel 1's rooms.</dd><dt>Rule</dt><dd>One message key per branch, for the tool node and for the condition that routes to it</dd></dl></section><section id="wiring-step-2" class="step-panel" aria-labelledby="wiring-heading-2"><h4 id="wiring-heading-2">3. Separate keys, each branch wired to the merge</h4><dl><dt>Wiring</dt><dd><code>messages_hotel1</code> and <code>messages_hotel2</code>; each agent's "finished" edge goes straight to the merge node</dd><dt>Run printed</dt><dd>The merge ran twice: first with Hotel 1 unfinished, then again with both finished</dd><dt>Rule</dt><dd>A conditional edge fires the merge every time any branch reaches it</dd></dl></section><section id="wiring-step-3" class="step-panel" aria-labelledby="wiring-heading-3"><h4 id="wiring-heading-3">4. Sync nodes and a join edge</h4><dl><dt>Wiring</dt><dd>Each branch ends in a <code>*_done</code> sync node; one edge from both sync nodes leads to the merge</dd><dt>Run printed</dt><dd>The merge ran once, with both branches finished</dd><dt>Rule</dt><dd>A join waits for every listed node. The sync node exists because the agent node itself also runs mid-loop.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>The shared-key failure is the dangerous one. A tool node answers the latest tool call in its list, which may belong to the other branch. With the real SQL tools both hotels have a tool called <code>run_query</code>, and the wrong database answers without any error. Call it <strong>crossed tool results</strong>.</p>
-<p>The merge-twice failure has a plain cause. A conditional edge fires the merge every time any branch reaches it, and the Hotel 1 branch in the stub takes two tool rounds while Hotel 2 takes one. With the sync nodes and the join, the merge ran once, after both branches finished.</p>
-<p>Two more choices keep the branches honest. Both assistants come from one factory, which binds each to its own hotel&rsquo;s tools; copying the first assistant to make the second is how Hotel 2&rsquo;s agent ends up reading Hotel 1&rsquo;s database. And the branches cannot book. Both run the same request at the same time, and a booking tool in each would create two reservations. They report availability and prices, and booking waits until the guest picks a hotel.</p>
+<p>Two more choices keep the branches honest. Both assistants come from one factory, which binds each to its own hotel&rsquo;s tools; copying the first assistant to make the second is how Hotel 2&rsquo;s agent ends up reading Hotel 1&rsquo;s database. And the branches cannot book. Both run the same request at the same time, and a booking tool in each would create two reservations. They report availability and prices; booking waits until the guest picks a hotel.</p>
 <h3>Merging by priority</h3>
 <p>The merge itself is an agent. It reads the guest&rsquo;s request and each hotel&rsquo;s final answer, listed in a fixed priority order (Hotel 1, then Hotel 2), and writes one reply under three rules:</p>
 <ol>
@@ -984,50 +994,41 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: The merge&rsquo;s two test turns and the ground truth each is checked against.</em></p>
+<p><em>Table 1: The merge&rsquo;s two test turns and the ground truth each is checked against.</em></p>
 <p>Code checks the first case by the position of the room numbers in the reply, against free rooms computed from the databases, never against the model&rsquo;s claim.</p>
-<h3>Summarizing old turns into state</h3>
-<p>Every turn now adds several agent messages to the thread. The second half of the build keeps it small by <strong>summarizing into state</strong>. A summarize node runs at the start of each turn when the stored conversation has more than 6 messages:</p>
+<h3>Two ways to shrink the thread</h3>
+<p>Every turn now adds several agent messages to the thread. Something has to keep it small, and the two options differ in what they lose. <strong>Trimming</strong>, from M33, changes only what the model sees on one call:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S[("Stored thread&lt;br/&gt;every message kept")] --&gt; W["Trim on read&lt;br/&gt;last messages only"]
+    W --&gt; L[Model call]
+</pre></figure>
+<p><em>Figure 2: Trimming. The thread keeps everything; old turns drop out of the model&rsquo;s view.</em></p>
+<p><strong>Summarizing into state</strong> changes what the thread stores. A summarize node runs at the start of each turn when the stored conversation has more than 6 messages:</p>
 <ol>
 <li>It keeps the last guest turn word for word; everything before it is old. The cut is always at a guest message, so no tool call is separated from its result.</li>
 <li>It asks the model to fold the old messages into a running <code>summary</code> field, keeping every concrete fact: names, room types and numbers, prices, dates, what was offered and refused.</li>
 <li>It returns a removal marker for each old message id, and the message reducer deletes them.</li>
 </ol>
-<p>The summary goes into the coordinator&rsquo;s and assistants&rsquo; prompts as a system message, never into the guest&rsquo;s reply. The test turn asks <em>Remind me: which Deluxe room did you recommend, and at what price?</em> after every earlier message was removed. The model can only answer from the summary. The new graph continues the same thread because both graphs share one checkpointer.</p>
-<p>The two ways to shrink a thread differ in what they lose:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th></th>
-<th>Trimming (M33)</th>
-<th>Summarizing into state</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>What changes</td>
-<td>What the model sees on this call</td>
-<td>What the thread stores</td>
-</tr>
-<tr>
-<td>Old turns</td>
-<td>Dropped from view, still stored</td>
-<td>Folded into <code>summary</code>, deleted by id</td>
-</tr>
-<tr>
-<td>Cost</td>
-<td>No model call</td>
-<td>One model call when the thread passes the limit</td>
-</tr>
-<tr>
-<td>Risk</td>
-<td>Facts outside the window are forgotten</td>
-<td>Facts the summary leaves out are gone for good</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: Trimming compared with summarizing into state.</em></p>
-<p>Call the summarizer&rsquo;s risk <strong>lossy folding</strong>: a fact it drops cannot be recovered from the thread. That is why its prompt lists the fact types to keep and why the test asks for a specific room and price. With merging in place, new capabilities can attach to the core without touching it.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S[("Stored thread&lt;br/&gt;over 6 messages")] --&gt; F["Summarize node&lt;br/&gt;fold old turns"]
+    F --&gt; Y[("summary field")]
+    F --&gt; D["Remove old&lt;br/&gt;messages by id"]
+    Y --&gt; L["Model call&lt;br/&gt;summary as system message"]
+</pre></figure>
+<p><em>Figure 3: Summarizing into state. Old turns become a summary, and the messages themselves are deleted.</em></p>
+<p>The summary reaches the coordinator&rsquo;s and assistants&rsquo; prompts as a system message, never the guest&rsquo;s reply. The new graph continues the same thread because both graphs share one checkpointer.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="shrink-switcher">
+<p class="widget-intro">The test turn asks <em>Remind me: which Deluxe room did you recommend, and at what price?</em> after the recommendation has fallen out of the recent messages. Compare what each option leaves the model (illustrative).</p>
+<div class="mode-controls" hidden role="group" aria-label="How the thread shrinks">
+<button type="button" data-mode="trim" aria-pressed="false" aria-controls="shrink-trim">Trimming</button>
+<button type="button" data-mode="summary" aria-pressed="false" aria-controls="shrink-summary">Summarizing into state</button>
+</div>
+<section id="shrink-trim" class="mode-panel" data-announcement="Trimming. The answer is stored but outside the model's view."><h4>Trimming</h4><ul><li>Cost: no model call.</li><li>The recommendation is still stored, but outside the window the model sees.</li></ul><p>The model cannot name the room. Facts outside the window are forgotten for this call.</p></section>
+<section id="shrink-summary" class="mode-panel" data-announcement="Summarizing into state. The answer comes from the summary, if it kept the fact."><h4>Summarizing into state</h4><ul><li>Cost: one model call when the thread passes 6 messages.</li><li>The recommendation message is deleted; its room and price survive only inside <code>summary</code>.</li></ul><p>The model answers from the summary. A fact the summary left out is gone for good.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Call the summarizer&rsquo;s risk <strong>lossy folding</strong>: a fact it drops cannot be recovered from the thread. That is why its prompt lists the fact types to keep, and why the test asks for a specific room and price.</p>
 <h2 id="adding-agents-around-the-core">Adding agents around the core</h2>
 <p>The last two builds add capabilities without changing the coordinator, the checker or the reservation agent. Each adds its capability to the core from lesson 37.1 on its own; no build composes all of them into one graph.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -1037,11 +1038,11 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt; TO["translate_out&lt;br/&gt;guest language"]
     TO --&gt; R[/Reply/]
 </pre></figure>
-<p><em>Figure 2: The language and sentiment build. Translation wraps the core, and the coordinator reads the sentiment score.</em></p>
+<p><em>Figure 4: The language and sentiment build. Translation wraps the core, and the coordinator reads the sentiment score.</em></p>
 <h3>Language and sentiment</h3>
 <p>The inbound node detects the guest&rsquo;s language and replaces the message with an English version, using one structured-output call for the language code and the text. A sentiment node then scores the English text with TextBlob&rsquo;s word lexicon. The coordinator adds a de-escalation instruction only when the message reads as negative, and the outbound node translates the final reply back.</p>
 <p>The language is a per-thread state field. A global language variable breaks the moment two guests write at once, which is a form of <strong>shared global state</strong> across threads.</p>
-<p>The order of translation and scoring matters, because the lexicon is English-only and word-level. We scored the build&rsquo;s own sample reviews with TextBlob, using its thresholds of -0.1 and +0.1:</p>
+<p>The order of translation and scoring matters, because the lexicon is English-only and word-level. We reran the build&rsquo;s own <code>analyse()</code> on its sample reviews, raw and untranslated, with its thresholds of -0.1 and +0.1:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1068,6 +1069,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>none</td>
 </tr>
 <tr>
+<td>Le service est horrible et la chambre était sale.</td>
+<td>negative</td>
+<td>negative</td>
+<td>-1.00</td>
+<td>horrible</td>
+</tr>
+<tr>
 <td>Das Personal war wunderbar und das Frühstück war köstlich.</td>
 <td>positive</td>
 <td>neutral</td>
@@ -1090,12 +1098,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: TextBlob on raw text, from the build&rsquo;s sample reviews.</em></p>
-<p>Raw German scores nothing, so an angry German guest never triggers de-escalation. Sarcasm fools the lexicon in English too. Scoring the translation fixes the first problem and leaves the second.</p>
+<p><em>Table 2: TextBlob on raw text, from the build&rsquo;s sample reviews.</em></p>
+<p>Raw German scores nothing, so an angry German guest never triggers de-escalation. The French complaint is caught only because &ldquo;horrible&rdquo; is also an English word. Sarcasm fools the lexicon in English too. Scoring the translation fixes the first problem and leaves the sarcasm.</p>
 <h3>Web search</h3>
 <p>A web search assistant with Tavily, capped at 3 results per search, answers questions about the neighbourhood, which no hotel database holds. It is one more tool loop and one more name the coordinator can route to. The test checks which node ran for a nearby-places question and for a booking question.</p>
-<h2 id="in-practice-larkspur-in-two-regions">In practice: Larkspur in two regions</h2>
-<p>Larkspur runs billing in two regions, each with its own database:</p>
+<h2 id="larkspur-in-two-regions">Larkspur in two regions</h2>
+<p>Larkspur runs billing in two regions, each with its own database. The same rules carry over:</p>
 <ol>
 <li>A question about plan prices fans out to both regional agents, each with its own message key and read-only tools.</li>
 <li>A join waits for both, and the merge answers in a fixed region order, keeping figures exactly as each agent gave them.</li>
@@ -1103,6 +1111,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Long support threads fold into a summary that must keep account ids, amounts and dates, and a test asks for one of them after the fold.</li>
 </ol>
 <p>Lesson 37.4 swaps the hotel agents for a research team and asks who decides which agent runs next.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stubs prove wiring, not answers.</strong> The four wiring attempts and the TextBlob scores were rerun offline from the notebooks&rsquo; own cells. The merged replies, the summaries and the translations need an OpenAI key, and the web search a Tavily key; their wording varies by run.</li>
+<li><strong>The priority check is positional.</strong> Code checks that room 104 appears before 108 in the reply. It does not check that the prices or dates in the reply match the databases.</li>
+<li><strong>One lexicon, a handful of samples.</strong> Table 2 shows six of the build&rsquo;s seven short reviews (the seventh, an English compliment, scores positive), scored by TextBlob&rsquo;s English pattern lexicon. It shows the failure; it does not measure how often translation fixes it.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API</a>, for reducers, parallel branches and join edges.</li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/add-memory" target="_blank" rel="noopener">LangGraph: add and manage memory</a>, for trimming and summarizing messages.</li>
+<li><a href="https://textblob.readthedocs.io/en/dev/" target="_blank" rel="noopener">TextBlob documentation</a>, for the pattern analyser&rsquo;s polarity and assessments.</li>
+<li><a href="https://docs.tavily.com" target="_blank" rel="noopener">Tavily documentation</a>, for the search API behind the web search assistant.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Parallel branches need a reducer on any key they share, a separate message key per tool loop and a join that waits for every branch. Without the join, the merge runs once per branch.</li>
@@ -1122,21 +1143,54 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. In the two-hotel graph, the guest gets two replies and the first one misses a hotel. What is wrong with the wiring?</summary>
 <p>Each branch&rsquo;s end goes straight to the merge node, and a conditional edge fires the merge every time any branch arrives. Add a sync node at the end of each branch and a join edge from both sync nodes to the merge, which then waits for both.</p>
 </details>
-<h2 id="the-project-a-research-team">The project: a research team</h2>
+<h2 id="start-with-a-refund-question-and-two-sources">Start with a refund question and two sources</h2>
 <p class="lesson-of">Lesson 37.4: Research systems: supervisor financial research, summarisation, full research system. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/mandatory/notebook/04c_multi_agent_research_system.ipynb" target="_blank" rel="noopener"><code>04c_multi_agent_research_system.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/04a_supervisor_financial_research.ipynb" target="_blank" rel="noopener"><code>04a_supervisor_financial_research.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/04b_multi_agent_research_summarization.ipynb" target="_blank" rel="noopener"><code>04b_multi_agent_research_summarization.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll build</strong></p>
 <ul>
-<li>A one-shot planner that splits a topic into a fixed number of search queries and runs one search agent per query, in parallel.</li>
-<li>An analyst and a report writer that work from one shared, source-tagged findings list.</li>
-<li>A quality checker that scores each draft by its weakest criterion, with a draft cap enforced in code.</li>
-<li>Two smaller teams to compare against: a supervisor over a market researcher and a coder, and a typed router over web, RAG and plain-model specialists.</li>
+<li><strong>A one-shot planner</strong> that splits a topic into a fixed number of search queries and runs one search agent per query, in parallel.</li>
+<li><strong>An analyst and a report writer</strong> that work from one shared, source-tagged findings list.</li>
+<li><strong>A quality checker</strong> that scores each draft by its weakest criterion, with a draft cap enforced in code.</li>
+<li><strong>Two smaller teams</strong> to compare against: a supervisor over a market researcher and a coder, and a typed router over web, RAG and plain-model specialists.</li>
 </ul>
 </blockquote>
 <p>Lesson 37.3 merged parallel hotel agents into one reply. The research builds keep that fan-out and fan-in and change the question: who decides which agent works next, and when. The full pipeline is the mandatory build; the supervisor and the typed router are the optional builds it is compared against.</p>
-<p>Outside a notebook, a research team fails in ways a single agent does not. Larkspur&rsquo;s support engineers want an answer that cites the handbook and the web, and three things go wrong in production: a search returns nothing useful, a forum post contradicts the handbook, or a provider call fails. The module&rsquo;s lab brief asks for exactly this team, built on the Larkspur handbook and tested on those three cases. This page covers the designs it draws on.</p>
+<p>Outside a notebook, a research team fails in ways a single agent does not. A Larkspur support engineer asks about the refund window for annual plans. The handbook gives the current window, and a community forum post quotes an older one. Three things can go wrong on the way to the answer: a search returns nothing useful, a source contradicts the handbook, or a provider call fails. The module&rsquo;s lab brief asks for exactly this team, built on the Larkspur handbook and tested on those three cases. This page covers the designs it draws on.</p>
 <h2 id="planner-supervisor-or-router">Planner, supervisor or router</h2>
-<p>The three builds answer the &ldquo;who decides next&rdquo; question differently, and that choice sets how many model calls a request costs and what can go wrong:</p>
+<p>The three builds answer &ldquo;who decides next&rdquo; differently, and that choice sets how many model calls a request costs and what can go wrong.</p>
+<p>A <strong>supervisor</strong> decides after every worker report. Its model returns a structured choice (researcher, coder or finish) that a pure function follows:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S["Supervisor&lt;br/&gt;reads every report"] --&gt;|researcher| R["Market researcher&lt;br/&gt;returns MarketData"]
+    S --&gt;|coder| C["Coder&lt;br/&gt;request + numbers only"]
+    R --&gt; S
+    C --&gt; S
+    S --&gt;|FINISH or 6 turns| E[/Answer/]
+</pre></figure>
+<p><em>Figure 1: The supervisor. It sees each result and picks again, until it finishes or reaches the turn cap.</em></p>
+<p>The supervisor is the most flexible and the hardest to bound. Its build proves the 6-turn cap with a stub supervisor that always picks the researcher. Its researcher also returns a validated market-data object, numbers only, and the coder sees just the user&rsquo;s request and that object. No web text reaches the agent that runs code.</p>
+<p>A <strong>typed router</strong> decides once per question:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    Q[/Question/] --&gt; T["Router&lt;br/&gt;one typed field"]
+    T --&gt;|web_research| W[Web agent]
+    T --&gt;|rag| G["RAG agent&lt;br/&gt;score floor 0.2"]
+    T --&gt;|llm| L[Plain model]
+    W --&gt; M[Summarizer]
+    G --&gt; M
+    L --&gt; M
+</pre></figure>
+<p><em>Figure 2: The typed router. One structured-output field picks one specialist, then a summarizer writes the answer.</em></p>
+<p>It is the fix for lesson 37.1&rsquo;s mention routing: the choice is a field whose only values are web research, RAG or the plain model, and there is no reply text to search. Its RAG specialist answers only from chunks whose relevance score reaches 0.2, out of the top 3. When nothing clears that floor, it skips the model call and says so.</p>
+<p>A <strong>one-shot planner</strong> decides once, up front, and never sees a result:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    P["Planner&lt;br/&gt;writes the query list"] --&gt; S1[Search 1]
+    P --&gt; S2[Search 2]
+    P --&gt; S3[Search 3]
+    S1 --&gt; F[("Shared findings")]
+    S2 --&gt; F
+    S3 --&gt; F
+</pre></figure>
+<p><em>Figure 3: The one-shot planner. One <code>Send</code> per planned query, all in parallel, appending to one list.</em></p>
+<p>It cannot adapt, but its cost is known before the first search runs.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1168,7 +1222,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>How the choice reaches the graph</td>
 <td>The model writes <code>next</code> into state; a pure function follows it</td>
-<td>A structured-output field whose only values are web research, RAG or the plain model</td>
+<td>A structured-output field with three allowed values</td>
 <td>One <code>Send</code> per planned query</td>
 </tr>
 <tr>
@@ -1180,9 +1234,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The three controllers compared, with the caps each build sets in code.</em></p>
-<p>The supervisor is the most flexible and the hardest to bound. Its build proves the turn cap with a stub supervisor that never finishes. Its researcher also returns a validated market-data object, numbers only, and the coder sees just the user&rsquo;s request and that object. No web text reaches the agent that runs code.</p>
-<p>The typed router is the fix for lesson 37.1&rsquo;s mention routing: the choice is a field, and there is no reply text to search. Its RAG specialist answers only from chunks whose relevance score reaches 0.2, out of the top 3. When nothing clears that floor, it skips the model call and says so.</p>
-<p>The planner never sees a result, which is what separates it from a supervisor. It cannot adapt, but its cost is known before the first search runs. The choice comes down to two questions:</p>
+<p>The choice comes down to two questions:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[/Research request/] --&gt; A{"Next step depends&lt;br/&gt;on results?"}
     A --&gt;|yes| S["Supervisor&lt;br/&gt;with a turn cap"]
@@ -1190,7 +1242,7 @@ th:last-child, td:last-child { padding-right: 0; }
     B --&gt;|yes| R[Typed router]
     B --&gt;|no| P["One-shot planner&lt;br/&gt;with parallel search"]
 </pre></figure>
-<p><em>Figure 1: Choosing a controller. Adaptivity costs boundedness, so take the supervisor only when the next step really depends on what came back.</em></p>
+<p><em>Figure 4: Choosing a controller. Adaptivity costs boundedness, so take the supervisor only when the next step really depends on what came back.</em></p>
 <p>The planner wins for a broad topic with known angles. The rest of the page follows it.</p>
 <h2 id="a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</h2>
 <p>The full pipeline has five roles. A planner splits the topic into search queries, search agents run them in parallel and append to one shared findings list, an analyst and a writer turn the findings into a report, and a quality checker sends the report back for revision until it passes or the cap is reached:</p>
@@ -1259,7 +1311,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button" data-tok="230,205">Stop</button><span>After the second review the gate ends the loop, approved or not: MAX_DRAFTS is 2.</span></li>
   </ol>
 </figure>
-<p><em>Figure 2: The research pipeline. The loop back to the writer ends on approval or at the draft cap, whichever comes first.</em></p>
+<p><em>Figure 5: The research pipeline. The loop back to the writer ends on approval or at the draft cap, whichever comes first.</em></p>
 <p>The settings live in one place, and code enforces each of them:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1273,7 +1325,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>Queries</td>
 <td>3</td>
-<td>The planner&rsquo;s list is cut to this length, so the fan-out never depends on the model counting</td>
+<td>The planner&rsquo;s list is cut to this length: the fan-out never depends on the model counting</td>
 </tr>
 <tr>
 <td>Results per query</td>
@@ -1332,7 +1384,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 3: The design details that make the loop safe, and what each reuses.</em></p>
 <p>The four required sections are Executive Summary, Key Findings, Analysis and Recommendations. The reviewer is never asked to be lenient on a later pass; the cap does that job. Call the failure it prevents a <strong>runaway revision loop</strong>: a strict reviewer and a writer that cannot satisfy it, revising until the recursion limit stops the run with no report.</p>
 <h3>Proving the loop with stubs</h3>
-<p>The build proves the wiring before it spends a token. The graph factory accepts replacement nodes, and stub nodes plan four queries with two findings each. We ran the stub runs in the scratchpad:</p>
+<p>The build proves the wiring before it spends a token. The graph factory accepts replacement nodes, and stub nodes plan four queries with two findings each. We reran the stub cells offline with a model factory that refuses every call:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1363,49 +1415,11 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 4: Stub runs of the research graph with no model calls.</em></p>
 <p>All eight findings survive the parallel writes, every query contributes, the never-satisfied reviewer stops at 2 drafts, and the satisfied one stops at 1. The real run is then checked against its streamed updates: one search agent per planned query, every query represented in the findings, and as many drafts as reviews, never more than 2.</p>
 <h2 id="following-one-refund-question">Following one refund question</h2>
-<p>A Larkspur support engineer asks the team about the refund window for annual plans, and a community forum post quotes an older window than the handbook. Here is the order of calls (<em>Illustrative</em>, since a live run&rsquo;s searches change):</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Step</th>
-<th>Who</th>
-<th>What moves</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Planner</td>
-<td>Three queries: the handbook policy, recent changes, customer reports</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Three search agents, in parallel</td>
-<td>Up to 3 hits each; 2 or 3 findings each, every one tagged with its URL and whether the search returned it</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Analyst</td>
-<td>Themes, gaps and contradictions across all findings, including the forum post against the handbook</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Writer</td>
-<td>Draft 1, citing both sources and naming the handbook as the policy</td>
-</tr>
-<tr>
-<td>5</td>
-<td>Quality checker</td>
-<td>Scores each criterion; the minimum decides</td>
-</tr>
-<tr>
-<td>6</td>
-<td>Gate</td>
-<td>Approves, or sends one revision back; stops after draft 2 either way</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 5: One research request through the pipeline (illustrative).</em></p>
+<div class="walkthrough learning-widget" data-stepper id="refund-walkthrough">
+<p class="widget-intro">Follow the annual-plan refund question through the pipeline. The order of calls is fixed by the graph; the searches and wording are illustrative, since a live run's results change.</p>
+<div class="step-controls" hidden role="group" aria-label="Pipeline stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="refund-step-0">1. Plan</button><button type="button" data-step="1" aria-pressed="false" aria-controls="refund-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="refund-step-2">3. Analyse</button><button type="button" data-step="3" aria-pressed="false" aria-controls="refund-step-3">4. Draft</button><button type="button" data-step="4" aria-pressed="false" aria-controls="refund-step-4">5. Review</button><button type="button" data-step="5" aria-pressed="false" aria-controls="refund-step-5">6. Gate</button></div>
+<div class="step-panels"><section id="refund-step-0" class="step-panel" aria-labelledby="refund-heading-0"><h4 id="refund-heading-0">1. Plan three queries</h4><dl><dt>Who</dt><dd>Planner</dd><dt>What moves</dt><dd>The handbook policy, recent changes, customer reports. A longer list would be cut to 3 in code.</dd></dl></section><section id="refund-step-1" class="step-panel" aria-labelledby="refund-heading-1"><h4 id="refund-heading-1">2. Search in parallel</h4><dl><dt>Who</dt><dd>Three search agents</dd><dt>What moves</dt><dd>Up to 3 hits each; 2 or 3 findings each, every one tagged with its URL and whether the search returned it</dd></dl></section><section id="refund-step-2" class="step-panel" aria-labelledby="refund-heading-2"><h4 id="refund-heading-2">3. List themes and contradictions</h4><dl><dt>Who</dt><dd>Analyst</dd><dt>What moves</dt><dd>Themes, gaps and contradictions across all findings, including the forum post against the handbook</dd></dl></section><section id="refund-step-3" class="step-panel" aria-labelledby="refund-heading-3"><h4 id="refund-heading-3">4. Write draft 1</h4><dl><dt>Who</dt><dd>Report writer, temperature 0.7</dd><dt>What moves</dt><dd>Four sections, citing both sources and naming the handbook as the policy</dd></dl></section><section id="refund-step-4" class="step-panel" aria-labelledby="refund-heading-4"><h4 id="refund-heading-4">5. Score the draft</h4><dl><dt>Who</dt><dd>Quality checker</dd><dt>What moves</dt><dd>Three criteria scored; the minimum decides. Code checks the four section headings.</dd></dl></section><section id="refund-step-5" class="step-panel" aria-labelledby="refund-heading-5"><h4 id="refund-heading-5">6. Approve or revise</h4><dl><dt>Who</dt><dd>Quality gate, a pure function</dd><dt>What moves</dt><dd>Approves at 0.7 or above with no section missing; otherwise one revision with the feedback. It stops after draft 2 either way.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>The writer can only say which source is the policy because the findings kept their sources through the parallel fan-in.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
 <div class="sheet scroll"><table>
@@ -1442,9 +1456,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: Choices from the three builds and the risk each one addresses.</em></p>
-<h2 id="limits">Limits</h2>
-<p>The cap hides quality problems from the user: a run stopped at draft 2 still ships a report. Log whether each run ended approved or capped, and treat a rising share of capped runs as a sign that the writer or the sources got worse. URL verification only proves the search returned the link; it does not prove the page says what the finding claims. The supervisor build&rsquo;s market data comes from OpenBB and Tavily, and the research builds need an OpenAI key and web search access, so none of them run offline beyond their stub checks.</p>
+<p><em>Table 5: Choices from the three builds and the risk each one addresses.</em></p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The cap hides quality problems.</strong> A run stopped at draft 2 still ships a report. Log whether each run ended approved or capped, and treat a rising share of capped runs as a sign that the writer or the sources got worse.</li>
+<li><strong>URL verification is shallow.</strong> It proves the search returned the link, not that the page says what the finding claims.</li>
+<li><strong>Only the stubs run offline.</strong> Table 4 was rerun from the notebook&rsquo;s own cells with no model. The supervisor build&rsquo;s market data comes from OpenBB and Tavily, and all three builds need an OpenAI key and web search access. Their live behaviour and the refund walkthrough&rsquo;s wording are not reproduced here.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API</a>, for <code>Send</code>, reducers and conditional edges.</li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/multi-agent" target="_blank" rel="noopener">LangChain multi-agent systems</a>, for supervisor and router patterns.</li>
+<li>Madaan et al., <a href="https://arxiv.org/abs/2303.17651" target="_blank" rel="noopener">Self-Refine: Iterative Refinement with Self-Feedback</a>, 2023, the generator and critic loop.</li>
+<li>Shao et al., <a href="https://arxiv.org/abs/2402.14207" target="_blank" rel="noopener">Assisting in Writing Wikipedia-like Articles From Scratch with Large Language Models</a>, 2024 (STORM), on planning research by perspectives before writing.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A supervisor sees results and can adapt but is hardest to bound. A typed router picks one specialist per question, and a one-shot planner fixes its queries up front, which makes its cost known before the first search.</li>
@@ -1463,6 +1488,192 @@ th:last-child, td:last-child { padding-right: 0; }
 <details>
 <summary>3. A web forum post quotes an old Larkspur refund window while the handbook gives the current one. What must the research team preserve so the writer can handle it?</summary>
 <p>The source of every finding. The analyst lists contradictions across all findings before anyone writes, and the writer should cite both sources and say which one is the policy. It can only do that if the findings keep their sources through the parallel fan-in.</p>
+</details>
+<h2 id="start-with-one-message-that-asks-for-two-things">Start with one message that asks for two things</h2>
+<p class="lesson-of">Lesson 37.5: Five practical agent patterns, side by side. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/05a_sequential_and_conditional_workflows.ipynb" target="_blank" rel="noopener"><code>05a_sequential_and_conditional_workflows.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/05b_supervisor_agents_as_tools.ipynb" target="_blank" rel="noopener"><code>05b_supervisor_agents_as_tools.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/05c_parallel_fan_out_fan_in.ipynb" target="_blank" rel="noopener"><code>05c_parallel_fan_out_fan_in.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/05d_generator_critic_loop.ipynb" target="_blank" rel="noopener"><code>05d_generator_critic_loop.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m37_multi_agent_applied_builds/optional/notebook/05e_handoffs_with_swarm.ipynb" target="_blank" rel="noopener"><code>05e_handoffs_with_swarm.ipynb</code></a> (optional)</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> who decides the next step in each of five patterns: the graph, a supervisor, a join, a loop rule or the agent holding the conversation.</li>
+<li><strong>Trace</strong> one Larkspur request through all five and see what each does with its second question.</li>
+<li><strong>Diagnose</strong> the failure each pattern invites, from a dropped question to an endless handoff.</li>
+<li><strong>Choose</strong> the simplest pattern that fits a task, and the cap that keeps it bounded.</li>
+</ul>
+</blockquote>
+<p>Lessons 37.1 to 37.4 built whole systems. This lesson steps back to the five coordination patterns they are made from, one notebook each, every agent a prebuilt <code>create_agent</code>.</p>
+<p>Priya&rsquo;s team bought a Larkspur annual plan 20 days ago and has used 40 GB of outbound traffic. She writes one message: &ldquo;We&rsquo;re cancelling. Please refund the annual plan, and tell us how to export our database before you delete anything.&rdquo; The handbook answers both halves. A full refund is allowed within 30 days of purchase under 100 GB, and takes 5 to 10 business days to appear. Exports run from Settings, then Data, and a cancelled plan&rsquo;s data is kept for 30 days. The question for this lesson is what each pattern does with the second half.</p>
+<p><em>Priya and her message are a scripted example; the mechanisms come from the notebooks.</em></p>
+<h2 id="who-decides-the-next-step">Who decides the next step</h2>
+<p>Every pattern here calls a model several times. They differ in who chooses what runs next:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Who picks the next step</th>
+<th>Notebook&rsquo;s example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sequential / conditional workflow</td>
+<td>The graph you wrote: edges and branch functions</td>
+<td>Research, draft, review; a ticket router</td>
+</tr>
+<tr>
+<td>Supervisor, agents as tools</td>
+<td>A supervisor model, through tool calls</td>
+<td>A trip planner over flight and hotel agents</td>
+</tr>
+<tr>
+<td>Parallel fan-out / fan-in</td>
+<td>Nobody: every worker runs, then a join</td>
+<td>Three product analysts and a lead</td>
+</tr>
+<tr>
+<td>Generator–critic loop</td>
+<td>A rule in code reading the critic&rsquo;s verdict</td>
+<td>A 50-word charger description</td>
+</tr>
+<tr>
+<td>Handoffs</td>
+<td>The agent that holds the conversation</td>
+<td>A storage company&rsquo;s support desk</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The five patterns and their deciders.</em></p>
+<p>The more of that choice a model makes, the more paths the system can take, and the more it needs a cap.</p>
+<h2 id="sequential-and-conditional-workflows">Sequential and conditional workflows</h2>
+<p>A <strong>sequential</strong> workflow is plain <code>add_edge</code> calls: research, then draft, then review, for every input. Stages pass work through typed state fields (<code>notes</code>, <code>draft</code>, <code>final</code>), never through each other&rsquo;s messages. Two different topics in notebook 05a both print the path <code>research → draft → review</code>; the content changes, the path cannot.</p>
+<p>A <strong>conditional</strong> workflow adds a fork. The notebook splits the decision in two: a classifier agent with <code>response_format=ToolStrategy(TicketRoute)</code> returns a validated category, one of three <code>Literal</code> values, and <code>route_ticket</code>, plain code, maps it to a node listed in advance in <code>add_conditional_edges</code>. The agent can pick a branch; it cannot invent a fourth.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    T[/Ticket/] --&gt; C["classify&lt;br/&gt;typed category"]
+    C -. billing .-&gt; B[Billing specialist]
+    C -. technical .-&gt; TE[Technical specialist]
+    C -. general .-&gt; G[General specialist]
+</pre></figure>
+<p><em>Figure 1: The conditional workflow. Exactly one dotted edge fires per run, so each ticket runs two nodes.</em></p>
+<p>A branch condition can also be plain code. The notebook&rsquo;s length gate counts the draft&rsquo;s words and sends it to <code>shorten</code> only when it is over the limit: a 90-word draft takes <code>research → draft → review</code> at a limit of 150 and <code>research → draft → shorten → review</code> at 40.</p>
+<p>The cost of a fixed fork is the input it did not plan for. <code>TicketRoute</code> holds one category: Priya&rsquo;s message reaches billing or technical, never both. We call this the <strong>single-label drop</strong>: the reply is correct and answers half the request.</p>
+<h2 id="supervisor-with-agents-as-tools">Supervisor with agents as tools</h2>
+<p>A supervisor is a <code>create_agent</code> agent whose tools are other agents. Notebook 05b wraps each specialist in a <code>@tool</code> that runs it and returns its last message as a string. A delegation is then an ordinary tool call and the answer comes back as a <code>ToolMessage</code>. Two details carry the design:</p>
+<ul>
+<li><strong>The tool&rsquo;s docstring is the routing rule.</strong> &ldquo;Ask the flight specialist about flights&rdquo; is the only routing logic the supervisor reads.</li>
+<li><strong>The specialist sees only the request the supervisor writes.</strong> This <strong>context isolation</strong> keeps each specialist&rsquo;s prompt short, but the supervisor must pass every detail: cities, budget, or for Priya, plan type, purchase date and traffic.</li>
+</ul>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    U[/Request/] --&gt; S[Supervisor agent]
+    S -- "ask_billing_agent" --&gt; BA["Billing agent&lt;br/&gt;own tools"]
+    BA -- "ToolMessage" --&gt; S
+    S -- "ask_export_agent" --&gt; EA["Export agent&lt;br/&gt;own tools"]
+    EA -- "ToolMessage" --&gt; S
+    S --&gt; A[/One answer/]
+</pre></figure>
+<p><em>Figure 2: Supervisor with agents as tools. Control returns to the supervisor after every specialist.</em></p>
+<p>The notebook&rsquo;s three requests call both specialists, only the hotel agent, or none. No branch function decided that; the supervisor&rsquo;s tool calls did. The cap is <code>recursion_limit</code> in the run config. We replayed the supervisor with a scripted model: answering with no specialist needs a limit of 2, and one round of delegation runs three node steps (model, tools, model) and needs a limit of 4. The notebook&rsquo;s <code>recursion_limit=2</code> therefore stops the full-trip request with <code>GraphRecursionError</code>.</p>
+<h2 id="parallel-fan-out-and-fan-in">Parallel fan-out and fan-in</h2>
+<p>When the pieces of work do not need each other, run them at the same time. Notebook 05c sends one product idea to three analysts: three edges leave <code>START</code>, and <code>add_edge([...three analysts...], "product_lead")</code> is a join that runs the lead once, after all three. Our replay of its graph with stubbed agents puts all three analysts in super-step 1 and the lead in super-step 2.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    I[/Request/] --&gt; W1[Billing worker]
+    I --&gt; W2[Export worker]
+    W1 --&gt; J["Join&lt;br/&gt;reducer: operator.add"]
+    W2 --&gt; J
+    J --&gt; L[Lead writes one reply]
+</pre></figure>
+<p><em>Figure 3: Fan-out and fan-in. Workers share a super-step; the lead runs once after every worker.</em></p>
+<p>Parallel writes to one field need a <strong>reducer</strong>. With <code>Annotated[list, operator.add]</code> the two writes concatenate; without one, LangGraph raises <code>InvalidUpdateError: At key 'results': Can receive only one value per step</code>. The notebook proves this with two plain functions and no model.</p>
+<p>When the number of workers depends on the input, a fan-out function returns one <code>Send("summarize", payload)</code> per item: five reviews start five summarize tasks, two start two, and the graph does not change. Parallelism saves wall-clock time, roughly the slowest worker plus the lead. It does not save model calls: every worker pays for its own, even on a request that needed only one of them.</p>
+<h2 id="generatorcritic-loop">Generator–critic loop</h2>
+<p>A generator writes, a critic judges, and the draft is revised until it passes or a cap is reached. Notebook 05d starts from the acceptance criteria and splits them. Rules code can check (at most 50 words, the exact price <code>₹2,499</code>, no exclamation marks) run first; only a draft that passes all of them reaches the critic agent, which returns a validated <code>Review</code> with an <code>approved: bool</code>. <code>should_continue</code> is plain code with three exits: accept, revise, or stop at <code>MAX_REVISIONS = 3</code>.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    G[Generator drafts] --&gt; CC{"Code checks&lt;br/&gt;pass?"}
+    CC -- yes --&gt; CR{"Critic&lt;br/&gt;approves?"}
+    CR -- yes --&gt; A[/Accept/]
+    CC -- no --&gt; CAP{"Draft 3&lt;br/&gt;written?"}
+    CR -- no --&gt; CAP
+    CAP -- no --&gt; G
+    CAP -- yes --&gt; S[/Stop at cap/]
+</pre></figure>
+<p><em>Figure 4: The refinement loop. A draft that breaks a code rule never costs a critic call.</em></p>
+<p>For Priya, the loop wraps the reply rather than routing it. Step through a run with code checks for the handbook&rsquo;s facts (the scripted drafts are ours; the loop is the notebook&rsquo;s):</p>
+<div class="walkthrough learning-widget" data-stepper id="critic-walkthrough">
+<p class="widget-intro">Follow Priya's reply through the notebook's loop, with code checks for "5 to 10 business days", "30 days" and no exclamation marks.</p>
+<div class="step-controls" hidden role="group" aria-label="Refinement loop"><button type="button" data-step="0" aria-pressed="false" aria-controls="critic-step-0">1. Draft 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="critic-step-1">2. Draft 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="critic-step-2">3. A stuck generator</button></div>
+<div class="step-panels"><section id="critic-step-0" class="step-panel" aria-labelledby="critic-heading-0"><h4 id="critic-heading-0">1. Draft 1 breaks two code rules</h4><dl><dt>Draft</dt><dd>"Done! Your refund is on its way and your data is safe."</dd><dt>Code checks</dt><dd>Missing the refund time and the 30-day window; contains an exclamation mark</dd><dt>Critic</dt><dd>Not called: the feedback is the list of failures</dd><dt>Calls so far</dt><dd>1</dd></dl></section><section id="critic-step-1" class="step-panel" aria-labelledby="critic-heading-1"><h4 id="critic-heading-1">2. Draft 2 passes and is approved</h4><dl><dt>Draft</dt><dd>Names the full refund, 5 to 10 business days, Settings then Data, and the 30-day window</dd><dt>Code checks</dt><dd>All pass</dd><dt>Critic</dt><dd>Approves; the loop exits through accept</dd><dt>Calls in total</dt><dd>3: two drafts and one critique</dd></dl></section><section id="critic-step-2" class="step-panel" aria-labelledby="critic-heading-2"><h4 id="critic-heading-2">3. A generator that never improves</h4><dl><dt>Notebook's proof</dt><dd>A stand-in generator writes the same 80-word draft with exclamation marks every time</dd><dt>Result</dt><dd>3 drafts, 3 critique entries, never approved, critic never called</dd><dt>Lesson</dt><dd>The cap, not the critic, guarantees the loop ends</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>We replayed both paths with the notebook&rsquo;s own <code>critique</code> and <code>should_continue</code>. A run that ends at the cap returns its last draft, which was never approved.</p>
+<h2 id="handoffs">Handoffs</h2>
+<p>In a handoff, the agent holding the conversation passes it on, and the receiver keeps it. Notebook 05e uses <code>langgraph-swarm</code>: <code>create_handoff_tool(agent_name="billing_agent")</code> builds a <code>transfer_to_billing_agent</code> tool that returns <code>Command(goto=..., graph=Command.PARENT)</code> and sets <code>active_agent</code>, and <code>create_swarm(..., default_active_agent="triage_agent")</code> routes every new message to whoever is active.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    U[/New message/] --&gt; R{"active_agent&lt;br/&gt;saved?"}
+    R -- "new thread" --&gt; T[Triage agent]
+    R -- "follow-up" --&gt; SP[Active specialist]
+    T -- "transfer_to_billing_agent" --&gt; B[Billing agent]
+    B -- "transfer_to_tech_agent" --&gt; TE[Tech agent]
+</pre></figure>
+<p><em>Figure 5: Handoffs in a swarm. The receiver becomes the active agent, and a checkpointer remembers it.</em></p>
+<p>Compiled with <code>InMemorySaver</code>, the swarm saves <code>active_agent</code> per thread. We replayed the notebook&rsquo;s three-turn script with a scripted model: turn 1 runs triage then billing, turn 2 starts at billing with no triage, and turn 3 hands off sideways to tech. Unlike the supervisor&rsquo;s tool call, a handoff forwards the whole conversation: billing never asks for the invoice number again.</p>
+<p>No node in a swarm can say stop. If agents keep transferring to each other, only <code>recursion_limit</code> ends it: the notebook&rsquo;s scripted triage, billing, tech cycle raises <code>GraphRecursionError</code> after 10 handoffs at a limit of 10. We call this the <strong>handoff ping-pong</strong>.</p>
+<h2 id="priyarsquos-message-through-all-five">Priya&rsquo;s message through all five</h2>
+<p>The same request, five deciders. Pick a pattern to see what happens to the export question:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="pattern-switcher">
+<p class="widget-intro">Pick a pattern and follow Priya's two-part message. Call counts assume one tool call per specialist; they follow each notebook's graph and are not a model run.</p>
+<div class="mode-controls" hidden role="group" aria-label="Pattern">
+<button type="button" data-mode="workflow" aria-pressed="false" aria-controls="pattern-workflow">Conditional workflow</button>
+<button type="button" data-mode="supervisor" aria-pressed="false" aria-controls="pattern-supervisor">Supervisor</button>
+<button type="button" data-mode="parallel" aria-pressed="false" aria-controls="pattern-parallel">Fan-out</button>
+<button type="button" data-mode="critic" aria-pressed="false" aria-controls="pattern-critic">Generator–critic</button>
+<button type="button" data-mode="handoff" aria-pressed="false" aria-controls="pattern-handoff">Handoffs</button>
+</div>
+<section id="pattern-workflow" class="mode-panel" data-announcement="Conditional workflow selected. One branch runs; the export question is dropped."><h4>Conditional workflow</h4><ul><li>The classifier picks one category, say billing; only that branch runs.</li><li>The refund is answered, the export question is not: the single-label drop.</li><li>2 model calls, the cheapest and most predictable.</li></ul></section>
+<section id="pattern-supervisor" class="mode-panel" data-announcement="Supervisor selected. Both specialists answer; requests must carry every detail."><h4>Supervisor</h4><ul><li>The supervisor calls the billing and export agents and combines their answers.</li><li>Billing sees only the request the supervisor writes: if it leaves out "annual, 20 days, 40 GB", billing cannot apply the 30-day rule.</li><li>About 6 model calls: two for the supervisor, two per specialist.</li></ul></section>
+<section id="pattern-parallel" class="mode-panel" data-announcement="Fan-out selected. Both workers always run, then one lead reply."><h4>Fan-out</h4><ul><li>Billing and export workers run in the same super-step; the lead merges them once.</li><li>Both questions are answered; a refund-only message still pays for the export worker.</li><li>3 model calls with tool-free workers, about the time of the slower worker plus the lead.</li></ul></section>
+<section id="pattern-critic" class="mode-panel" data-announcement="Generator–critic selected. It checks the reply, it does not route it."><h4>Generator–critic</h4><ul><li>It checks the reply another pattern produced; it routes nothing.</li><li>Code checks catch a missing "5 to 10 business days" or "30 days" before the critic runs.</li><li>3 calls on the accept path, at most 6 at the cap of 3 drafts.</li></ul></section>
+<section id="pattern-handoff" class="mode-panel" data-announcement="Handoffs selected. Billing then tech, and tech stays active."><h4>Handoffs</h4><ul><li>Triage transfers to billing, which files the refund and transfers to tech for the export.</li><li>Tech sees the whole conversation and stays active; Priya's next "did the refund go through?" starts at tech, which must hand it back.</li><li>At least 6 model calls: triage 1, billing 3, tech 2.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<h2 id="choosing-a-pattern">Choosing a pattern</h2>
+<p>Start with the most fixed pattern that covers the task, and move control toward a model only when the steps cannot be listed in advance:</p>
+<ul>
+<li><strong>Workflow</strong> when the stages and branches are known before the run. For Priya&rsquo;s desk, let the classifier return a list of categories and fan out over it, which fixes the single-label drop without giving up a fixed graph.</li>
+<li><strong>Supervisor</strong> when a request may need any subset of specialists, and one place should write the answer.</li>
+<li><strong>Fan-out</strong> when the work is independent and the merge rule is clear. Use <code>Send</code> when the worker count follows the input.</li>
+<li><strong>Generator–critic</strong> when &ldquo;done&rdquo; can be written down and feedback can improve a draft. Put every rule code can check in code.</li>
+<li><strong>Handoffs</strong> when a specialist should own the rest of the conversation, as in support triage.</li>
+</ul>
+<p>The patterns combine: lesson 37.4&rsquo;s research team is a supervisor whose workers fan out and whose report passes a capped review loop. Give each model-driven choice a cap in code.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No notebook run is recorded.</strong> Notebooks ship without outputs. Paths, steps, reducer errors, loop exits, active agents and handoff counts come from replaying the notebooks&rsquo; own graph code with stubbed agents or a scripted model (langgraph 1.2.18, langchain 1.4.7, langgraph-swarm 0.1.0). What gpt-4o-mini writes, and whether it calls the right specialists, is not measured.</li>
+<li><strong>Priya&rsquo;s request is scripted.</strong> Its call counts follow each graph with one tool call per specialist; a live run can make more.</li>
+<li><strong>The examples are small.</strong> Two or three specialists over in-memory data; production versions add retries, timeouts and tracing.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Anthropic (2024). <a href="https://www.anthropic.com/research/building-effective-agents" target="_blank" rel="noopener">Building effective agents</a>: sequential workflows, parallelisation, orchestrator-workers and evaluator-optimizer.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/multi-agent" target="_blank" rel="noopener">Multi-agent</a>: subagents called as tools and handoffs.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API</a>: reducers, <code>Send</code>, <code>Command</code> and <code>recursion_limit</code>.</li>
+<li>LangChain, <a href="https://github.com/langchain-ai/langgraph-swarm-py" target="_blank" rel="noopener">langgraph-swarm</a>: <code>create_handoff_tool</code> and <code>create_swarm</code>.</li>
+</ol>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>The five patterns differ in who picks the next step: the graph, a supervisor&rsquo;s tool calls, a join, a rule reading a critic&rsquo;s verdict, or the agent holding the conversation.</li>
+<li>Each has a typical failure: the single-label drop, a supervisor request missing the facts a specialist needs, fan-out paying every worker, an uncapped loop, and handoff ping-pong.</li>
+<li>Prefer the most fixed pattern that fits, check in code whatever code can check, and cap every model-driven choice: <code>recursion_limit</code> stopped the scripted handoff cycle after 10 handoffs and the stuck generator after 3 drafts.</li>
+</ul>
+<h2 id="check-yourself">Check yourself</h2>
+<details>
+<summary>1. What is the difference between a supervisor calling a specialist as a tool and an agent handing off to a specialist?</summary>
+<p>After a tool call, control returns to the supervisor, and the specialist saw only the request the supervisor wrote. After a handoff, the specialist becomes the active agent, sees the whole conversation and receives the user&rsquo;s next message. A checkpointer is what keeps <code>active_agent</code> between turns.</p>
+</details>
+<details>
+<summary>2. Priya asks for a refund and an export in one message, and the ticket router answers only the refund. Why, and what is the smallest fix?</summary>
+<p><code>TicketRoute</code> holds one <code>Literal</code> category, so the conditional edge fires exactly one branch: the single-label drop. Let the classifier return a list of categories and fan out to one specialist per category, joining their answers in one reply. The graph stays fixed, and the second question gets an answer.</p>
+</details>
+<details>
+<summary>3. A generator–critic loop sometimes runs forever on hard tasks. Which part of the notebook's design prevents that, and what does a capped run return?</summary>
+<p><code>should_continue</code> is plain code with a stop exit at <code>MAX_REVISIONS = 3</code>, so the loop ends even if the critic never approves; the stuck-generator proof stops after three drafts. A capped run returns the last draft, which was never approved, so the caller should treat it as unapproved.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="02_hardening_edge_cases_testing_and_system_wide_error_handling/interactive/router-test-bench-lab.html"><strong>Router test bench</strong></a>: open the file in a browser. Start at threshold 50: six of the seven router tests pass, and the seventh is the known issue the suite records on purpose. Slide to 75 and all seven pass, because the confidence gate now ends the known-issue turn before the name check runs. Then write your own coordinator reply under <em>Route your own reply</em> and find one that forwards while saying it will not.</p>
@@ -1520,7 +1731,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Fan out with one state key per branch, join before you merge, keep writes out of parallel branches, and summarize old turns into state before the thread outgrows the context.</li>
 <li>Bound a research team in code: tie every finding to its source, score each draft by its weakest criterion, and stop the quality loop at a fixed draft cap.</li>
 </ul></article>
-    <nav class="toc" aria-label="M37 sections"><details open><summary>In M37</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-polite-reply-that-leaks-a-stay">A polite reply that leaks a stay</a></li><li><a href="#compliance-agent">Compliance agent</a></li><li><a href="#guards-in-the-tools">Guards in the tools</a></li><li><a href="#in-practice-larkspurrsquos-privacy-check">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#system-testing">System testing</a></li><li><a href="#edge-cases-and-error-paths">Edge cases and error paths</a></li><li><a href="#in-practice-testing-larkspurrsquos-desk">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#memory-merging">Memory merging</a></li><li><a href="#adding-agents-around-the-core">Adding agents around the core</a></li><li><a href="#in-practice-larkspur-in-two-regions">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-research-team">The project</a></li><li><a href="#planner-supervisor-or-router">Planner, supervisor or router</a></li><li><a href="#a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</a></li><li><a href="#following-one-refund-question">Following one refund question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M37 sections"><details open><summary>In M37</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-polite-reply-that-leaks-a-stay">Start with a polite reply that leaks a stay</a></li><li><a href="#compliance-agent">Compliance agent</a></li><li><a href="#guards-in-the-tools">Guards in the tools</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-desk-that-fails-politely">Start with a desk that fails politely</a></li><li><a href="#system-testing">System testing</a></li><li><a href="#edge-cases-and-error-paths">Edge cases and error paths</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-two-replies-to-one-question">Start with two replies to one question</a></li><li><a href="#memory-merging">Memory merging</a></li><li><a href="#adding-agents-around-the-core">Adding agents around the core</a></li><li><a href="#larkspur-in-two-regions">Larkspur in two regions</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-refund-question-and-two-sources">Start with a refund question and two sources</a></li><li><a href="#planner-supervisor-or-router">Planner, supervisor or router</a></li><li><a href="#a-quality-loop-with-a-cap-in-code">A quality loop with a cap in code</a></li><li><a href="#following-one-refund-question">Following one refund question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-one-message-that-asks-for-two-things">Start with one message that asks for two things</a></li><li><a href="#who-decides-the-next-step">Who decides the next step</a></li><li><a href="#sequential-and-conditional-workflows">Sequential and conditional workflows</a></li><li><a href="#supervisor-with-agents-as-tools">Supervisor with agents as tools</a></li><li><a href="#parallel-fan-out-and-fan-in">Parallel fan-out and fan-in</a></li><li><a href="#generatorcritic-loop">Generator–critic loop</a></li><li><a href="#handoffs">Handoffs</a></li><li><a href="#priyarsquos-message-through-all-five">Priya’s message through all five</a></li><li><a href="#choosing-a-pattern">Choosing a pattern</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

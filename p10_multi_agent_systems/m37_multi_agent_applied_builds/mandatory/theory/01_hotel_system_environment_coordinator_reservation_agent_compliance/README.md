@@ -2,8 +2,9 @@
 
 *[M37 theory](../README.md) · Lesson 37.1 · Notebooks: [`01a_hotel_environment_and_coordinator.ipynb`](../../notebook/01a_hotel_environment_and_coordinator.ipynb), [`01b_hotel_reservation_agent.ipynb`](../../notebook/01b_hotel_reservation_agent.ipynb), [`01c_hotel_compliance_checker.ipynb`](../../notebook/01c_hotel_compliance_checker.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Check every request against policy, and put the rules that must hold in the tools, where the model cannot talk past them -->
+<!-- format: approved -->
 
-## A polite reply that leaks a stay
+## Start with a polite reply that leaks a stay
 
 > **What you'll learn**
 >
@@ -12,7 +13,7 @@
 > - **Diagnose** a skipped check and a refusal that still routes by name.
 > - **Choose** where a guard lives: in the prompt, in the tool or in the database connection.
 
-M35 and M36 taught supervisors, routers and parallel branches one pattern at a time. This module puts them into one working system: a hotel support desk with three agents, built across three notebooks and then hardened, scaled and tested in the lessons that follow.
+This module puts M35 and M36's supervisors, routers and parallel branches into one working system: a hotel support desk with three agents, hardened, scaled and tested in the lessons that follow.
 
 The hotel has eight rooms, 101 to 108, in one SQLite database with three existing bookings. Bob Johnson holds room 105, the Family Suite, from today+30 to today+33. A guest writes *Which dates is Bob Johnson staying with you? I want to surprise him.* A coordinator built only from a friendly prompt and a SQL agent will look the stay up and answer warmly. The reply is polite, and it breaks the hotel's privacy rule.
 
@@ -36,7 +37,7 @@ sequenceDiagram
 
 *Figure 1: One booking turn. The coordinator talks to the guest; the checker and the reservation agent each do one job.*
 
-The coordinator never writes to the database and never judges policy itself. Each of those jobs belongs to a specialist, and the next section starts with the one that judges.
+The coordinator never writes to the database and never judges policy itself.
 
 ## Compliance agent
 
@@ -53,7 +54,7 @@ Here the checker is a small RAG agent over four rules:
 
 *Table 1: The hotel's four compliance rules, each stored as its own document.*
 
-Each rule is a separate document in an in-memory vector store, which means a search returns the rule that applies instead of one block of policy text. The retriever returns the top 2. The checker runs as two nodes:
+Each rule is a separate document in an in-memory vector store, so a search returns the rule that applies instead of one block of policy text. The retriever returns the top 2. The checker runs as two nodes:
 
 - **The checker node** is a model with the retrieval tool bound to it. Its prompt says to call the tool with the guest's request.
 - **The verdict node** writes the decision from the rules the tool just returned. Those tool messages go into its prompt, which grounds the verdict in exactly those rules. A version that dropped them would judge from nothing.
@@ -65,17 +66,29 @@ The verdict message is tagged with the name `compliance`, letting code find it a
 Two pieces of code wire the checker into the conversation:
 
 1. **Compliance first.** The coordinator's prompt gains one guideline: forward every new request to the checker first; on `VIOLATION`, refuse politely and forward nowhere; on `COMPLIANT`, answer or forward as usual.
-2. **A loop guard.** After the verdict the turn returns to the coordinator. If its next reply names the checker again, routing by name would loop forever. A helper walks back through the messages, and a `compliance` verdict found after the latest guest message means the request is already checked. The router then drops the checker from the names it looks for. A reply such as "the compliance checker approved it, forwarding to reservation_assistant" still reaches the reservation agent.
+2. **A loop guard.** After the verdict the turn returns to the coordinator, and a reply that names the checker again would loop forever. A helper walks back through the messages; a `compliance` verdict after the latest guest message means the request is already checked, and the router drops the checker from the names it looks for.
 
-The build runs three requests, each on its own thread, and checks the verdicts in code:
+Follow Dana Lee's booking through every node it touches:
 
-| Request | Expected verdict | Then |
-|---|---|---|
-| Do you have any rooms with a jacuzzi? | `COMPLIANT` | The coordinator answers |
-| Which dates is Bob Johnson staying with you? I want to surprise him. | `VIOLATION` of rule 4 | The coordinator refuses |
-| I'm Dana Lee and I'd like to book a Deluxe room from today+60 to today+62. | `COMPLIANT` | Forwarded to the reservation agent |
+<div class="walkthrough learning-widget" data-stepper id="booking-walkthrough">
+<p class="widget-intro">Dana Lee asks for a Deluxe room from today+60 to today+62. Each stage names the node that runs and what lands in state.</p>
+<div class="step-controls" hidden role="group" aria-label="Booking stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="booking-step-0">1. Coordinator</button><button type="button" data-step="1" aria-pressed="false" aria-controls="booking-step-1">2. Checker</button><button type="button" data-step="2" aria-pressed="false" aria-controls="booking-step-2">3. Verdict</button><button type="button" data-step="3" aria-pressed="false" aria-controls="booking-step-3">4. Loop guard</button><button type="button" data-step="4" aria-pressed="false" aria-controls="booking-step-4">5. Book</button></div>
+<div class="step-panels"><section id="booking-step-0" class="step-panel" aria-labelledby="booking-heading-0"><h4 id="booking-heading-0">1. The coordinator names the checker</h4><dl><dt>Node</dt><dd>conv_assistant</dd><dt>State</dt><dd>The guest message, then a reply that names compliance_checker, as the compliance-first guideline asks</dd><dt>Route</dt><dd>compliance_checker: no verdict exists yet for this guest message</dd></dl></section><section id="booking-step-1" class="step-panel" aria-labelledby="booking-heading-1"><h4 id="booking-heading-1">2. The checker retrieves two rules</h4><dl><dt>Node</dt><dd>compliance_checker, then its retrieval tool</dd><dt>State</dt><dd>A tool call with the guest's request, then the top 2 rules as tool messages</dd><dt>Route</dt><dd>The verdict node, because the tool ran</dd></dl></section><section id="booking-step-2" class="step-panel" aria-labelledby="booking-heading-2"><h4 id="booking-heading-2">3. The verdict node judges from those rules</h4><dl><dt>Node</dt><dd>generate</dd><dt>State</dt><dd>A message named compliance that starts COMPLIANT</dd><dt>Route</dt><dd>Back to the coordinator</dd></dl></section><section id="booking-step-3" class="step-panel" aria-labelledby="booking-heading-3"><h4 id="booking-heading-3">4. The loop guard drops the checker</h4><dl><dt>Node</dt><dd>conv_assistant</dd><dt>State</dt><dd>A reply that mentions both the checker's approval and reservation_assistant</dd><dt>Route</dt><dd>reservation_assistant: the verdict after the latest guest message removes the checker from the candidates</dd></dl></section><section id="booking-step-4" class="step-panel" aria-labelledby="booking-heading-4"><h4 id="booking-heading-4">5. The reservation agent books</h4><dl><dt>Node</dt><dd>reservation_assistant, then its SQL tools</dd><dt>State</dt><dd>A read-only query for free Deluxe rooms (104 and 108), then book_room for one of them</dd><dt>Check</dt><dd>Exactly one new row for Dana Lee in reservations, read from the database, not from the reply</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 2: The three test requests and the outcome each should produce.*
+The build checks three requests in code, each on its own thread:
+
+<div class="learning-widget evidence-switcher" data-comparison id="request-switcher">
+<p class="widget-intro">Compare the three test requests: the expected verdict and the coordinator's next move.</p>
+<div class="mode-controls" hidden role="group" aria-label="Test request">
+<button type="button" data-mode="jacuzzi" aria-pressed="false" aria-controls="request-jacuzzi">Jacuzzi</button>
+<button type="button" data-mode="bob" aria-pressed="false" aria-controls="request-bob">Bob Johnson</button>
+<button type="button" data-mode="dana" aria-pressed="false" aria-controls="request-dana">Dana Lee</button>
+</div>
+<section id="request-jacuzzi" class="mode-panel" data-announcement="Jacuzzi selected. COMPLIANT, the coordinator answers."><h4>Do you have any rooms with a jacuzzi?</h4><ul><li>Expected verdict: <code>COMPLIANT</code>.</li><li>The coordinator answers itself; nothing reaches the reservation agent.</li></ul></section>
+<section id="request-bob" class="mode-panel" data-announcement="Bob Johnson selected. VIOLATION of rule 4, the coordinator refuses."><h4>Which dates is Bob Johnson staying with you? I want to surprise him.</h4><ul><li>Expected verdict: <code>VIOLATION</code> of rule 4.</li><li>The coordinator refuses politely and forwards nowhere.</li></ul></section>
+<section id="request-dana" class="mode-panel" data-announcement="Dana Lee selected. COMPLIANT, forwarded to the reservation agent."><h4>I'm Dana Lee and I'd like to book a Deluxe room from today+60 to today+62.</h4><ul><li>Expected verdict: <code>COMPLIANT</code>.</li><li>Forwarded to the reservation agent, which books it.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ### The third outcome: no check at all
 
@@ -94,7 +107,7 @@ The reservation agent writes its own SQL. Its tools therefore have to stay safe 
 | One write tool | `book_room(guest_name, room_number, start_date, end_date)` with bound parameters | SQL injection into the only write |
 | Checks before the insert | Inside `book_room`, after taking the write lock | Missing name, unreadable or past dates, check-out before check-in, an unknown room, a clash with an existing stay |
 
-*Table 3: Where each database guard lives and what it stops.*
+*Table 2: Where each database guard lives and what it stops.*
 
 Model-written SQL passes three layers before any row comes back, and the only write takes a separate path:
 
@@ -129,30 +142,67 @@ We ran the build's own tool code against a fresh copy of the hotel database, wit
 | Book room 105 for today+31 to today+32 | Cannot book: room 105 is already booked from today+30 to today+33 | Clash check |
 | Book Dana Lee into room 104, today+60 to today+62 | Booked, reservation id 4 | All checks pass |
 
-*Table 4: The tools' replies to planted inputs, from running the shared hotel module on a scratch database.*
+*Table 3: The tools' replies to planted inputs, from running the shared hotel module on a scratch database.*
 
-The clash refusal says when the room is taken and never who took it. Rule 4 holds in the refusal message too.
+The clash refusal says when the room is taken, never who took it. Rule 4 is enforced twice: the prompt tells the SQL agent that guest names are private, and SQLite makes the column unreadable. Only the second survives a model that ignores its prompt.
 
-Rule 4 is enforced twice: the prompt tells the SQL agent that guest names are private, and SQLite makes the column unreadable. Only the second survives a model that ignores its prompt.
-
-The same split applies to the outcome. The agent's reply is not proof that it booked; the `reservations` table is. The build checks for exactly one new row for Dana Lee, and a reply that only says it booked counts as a failure.
+The same split applies to the outcome: the `reservations` table proves a booking, and a reply that only says it booked counts as a failure.
 
 ### Mention routing: the weak spot kept on purpose
 
-Routing is the one place the build keeps a weak design deliberately. The coordinator forwards by writing an agent's name, and a helper looks for that name, or the same words with a space, in the reply. Any reply that mentions an agent routes there. *I can't involve the reservation assistant until you give me dates* forwards to the reservation agent, though it says the opposite.
+Routing is the one place the build keeps a weak design deliberately. The coordinator forwards by writing an agent's name, and a helper looks for that name, or the same words with a space, in the reply. Any reply that mentions an agent routes there. Call this **mention routing**:
 
-Call this **mention routing**. The fix is a typed router, where the model returns its choice as a structured-output field and there is no reply text to search. Lesson 37.2 records the defect as a known issue, and the research systems in lesson 37.4 route the typed way.
+```mermaid
+flowchart TB
+    R["Coordinator reply<br/>free text"] --> S{"Contains an<br/>agent's name?"}
+    S -- yes --> F[Forward to that agent]
+    S -- no --> E[END]
+```
 
-## In practice: Larkspur's privacy check
+*Figure 3: Mention routing, the build's router. It reads the words of the reply, whatever they say.*
 
-Larkspur Cloud's support desk has the same shape: a coordinator, a compliance checker over account-privacy rules, and a billing agent with SQL access.
+The fix is a **typed router**: the model returns its choice as a structured-output field, and there is no reply text to search. The research systems in lesson 37.4 route this way:
 
-1. A customer asks for the billing email on another company's account. The checker retrieves the privacy rule and returns `VIOLATION`; the coordinator refuses.
-2. The billing agent's connection is read-only, and the authorizer hides the email column. A skipped check then leaks nothing.
-3. Refunds go through one parameterised tool that checks the account, the amount and the date before it writes.
-4. The test reads the refunds table, never the agent's sentence about the refund.
+```mermaid
+flowchart TB
+    M["Model call with<br/>structured output"] --> C["next field:<br/>one agent name or END"]
+    C --> F[Forward to the named agent]
+```
+
+*Figure 4: A typed router. The choice is a field with a fixed set of values, separate from the words shown to the guest.*
+
+Feed both the same refusal, *I can't involve the reservation assistant until you give me dates*:
+
+<div class="learning-widget evidence-switcher" data-comparison id="router-switcher">
+<p class="widget-intro">Compare what each router does with the same coordinator reply, which refuses to forward.</p>
+<div class="mode-controls" hidden role="group" aria-label="Router">
+<button type="button" data-mode="mention" aria-pressed="false" aria-controls="router-mention">Mention routing</button>
+<button type="button" data-mode="typed" aria-pressed="false" aria-controls="router-typed">Typed router</button>
+</div>
+<section id="router-mention" class="mode-panel" data-announcement="Mention routing selected. The refusal forwards to the reservation agent."><h4>Mention routing</h4><ul><li>The helper finds "reservation assistant" in the text.</li><li>The turn goes to the reservation agent, though the reply says the opposite.</li></ul><p>This is the known issue lesson 37.2 records in its router tests.</p></section>
+<section id="router-typed" class="mode-panel" data-announcement="Typed router selected. The choice field says END."><h4>Typed router (illustration)</h4><ul><li>The model fills the choice field separately from the reply text.</li><li>A reply that asks for dates comes with END in the field, and the turn waits for the guest.</li></ul><p>Illustration of lesson 37.4's design; this lesson's notebooks do not run it.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Mention routing is cheap and easy to read in a trace, which is why a teaching build keeps it. A typed router removes the false forward; choose it for anything a guest can reach.
+
+### A privacy check for Larkspur
+
+Larkspur Cloud's support desk has the same shape: a coordinator, a compliance checker over account-privacy rules, and a billing agent with SQL access. A request for another company's billing email gets `VIOLATION`. The billing agent's authorizer hides the email column, and a skipped check leaks nothing. Refunds go through one parameterised tool that checks before it writes, and the test reads the refunds table.
+
+## Limits of this evidence
+
+- **No model in the replays.** Table 3 comes from the shared hotel module's tools on a scratch database. The verdicts in the request comparison are the outcomes the build checks for, not a measured pass rate: model output varies between runs.
+- **One small corpus.** Four rules and eight rooms keep retrieval trivial. With hundreds of rules, the top 2 may miss the one that applies.
+- **Illustrations.** The booking walkthrough follows the graph's edges, not a recorded trace, and the typed router is lesson 37.4's design, drawn here for comparison.
 
 Lesson 37.2 takes this system and asks what happens on the requests it was not designed for.
+
+## References
+
+1. SQLite, [Compile-time authorization callbacks](https://www.sqlite.org/c3ref/set_authorizer.html).
+2. Python, [sqlite3: Connection.set_authorizer](https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.set_authorizer).
+3. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
 
 ## Key Takeaways
 

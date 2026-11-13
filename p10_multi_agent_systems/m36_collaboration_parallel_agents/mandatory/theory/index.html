@@ -271,7 +271,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C -- No --&gt; S["Pipeline of roles&lt;br/&gt;STORM for research and writing"]
 </pre></figure>
 <p>The patterns differ in who decides what runs next and when that decision is made. A pipeline and STORM fix the order when you build the graph. A fan-out fixes the shape but lets the branches overlap in time. A blackboard leaves the order to a controller at run time, which buys flexibility and costs a model call per step. All four write to one shared state, so all four need the same guards: typed decisions, reducers on shared keys and a cap on the number of steps.</p>
-<h2 id="blackboard">Blackboard</h2>
+<h2 id="start-with-an-escalation-that-needs-one-of-two-analysts">Start with an escalation that needs one of two analysts</h2>
 <p class="lesson-of">Lesson 36.1: Blackboard architectures. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/mandatory/notebook/01a_blackboard_intro.ipynb" target="_blank" rel="noopener"><code>01a_blackboard_intro.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/optional/notebook/01b_blackboard_research_team.ipynb" target="_blank" rel="noopener"><code>01b_blackboard_research_team.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -282,8 +282,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose</strong> between a blackboard, a pipeline and a fan-out by asking when the order of work is known.</li>
 </ul>
 </blockquote>
-<p>M35 built supervisors and handoffs, where one agent passes control to the next. This module adds shared state: several specialists contribute to one record, and something decides who goes next.</p>
-<p>Larkspur&rsquo;s support team gets an escalation: <em>a customer says their server went down twice this week. If the outages pushed availability below the 99.95% SLA, draft a service-credit reply, otherwise draft a reply that points to the status page and the root-cause report.</em> A fixed pipeline of analysts would run the credits analyst and the status analyst on every escalation, because its edges cannot skip a node. Half that work is wasted on each request, and the writer has to ignore one of the two reports.</p>
+<p>Larkspur&rsquo;s support team gets an escalation: <em>a customer says their server went down twice this week. If the outages pushed availability below the 99.95% SLA, draft a service-credit reply, otherwise draft a reply that points to the status page and the root-cause report.</em></p>
+<p>A fixed pipeline of analysts runs the credits analyst and the status analyst on every escalation, because its edges cannot skip a node. Half that work is wasted on each request, and the writer has to ignore one of the two reports. The next step depends on what the first analyst finds, and the pipeline fixed its order before the run started.</p>
+<p>M35 built supervisors and handoffs, where one agent passes control to the next. This lesson adds shared state: several specialists contribute to one record, and something decides who goes next.</p>
+<h2 id="blackboard">Blackboard</h2>
 <p>A <strong>blackboard system</strong> coordinates specialists through one shared store, the <strong>blackboard</strong>. Specialists never call each other. Each one reads the board, does its own job and appends its result. A <strong>controller</strong> reads the whole board after every contribution and picks the next specialist, or <code>FINISH</code>:</p>
 <figure class="anim sheet" aria-labelledby="anim-blackboard-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The blackboard loop, scrolls sideways on a narrow screen">
@@ -347,57 +349,38 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p><em>Figure 1: The blackboard loop. Every specialist turn sits between two controller turns.</em></p>
-<p>The design comes from the HEARSAY-II speech-recognition system (Erman et al., 1980). In HEARSAY-II the specialists watched the board for their own trigger conditions and a scheduler chose among them. In the reference implementations the controller does all the watching.</p>
+<p>The design comes from the HEARSAY-II speech-understanding system (Erman et al., 1980). There the specialists watched the board for their own trigger conditions and a scheduler chose among them. In this lesson&rsquo;s implementations the controller does all the watching.</p>
 <p>The controller is the only part that decides order. The specialists stay narrow, and adding one means adding a node and a name the controller may choose. Nothing else is rewired.</p>
+<h3>Follow the Larkspur escalation</h3>
+<p>Here is the escalation through a blackboard with three specialists. The trace is scripted, and the facts come from the Larkspur handbook&rsquo;s SLA and outage pages. The counts track specialist calls and controller model calls separately:</p>
+<div class="walkthrough learning-widget" data-stepper id="escalation-walkthrough">
+<p class="widget-intro">Follow the outage escalation across the board. Each stage shows the newest post and the running call counts.</p>
+<div class="step-controls" hidden role="group" aria-label="Escalation stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="escalation-step-0">1. Board</button><button type="button" data-step="1" aria-pressed="false" aria-controls="escalation-step-1">2. Incident</button><button type="button" data-step="2" aria-pressed="false" aria-controls="escalation-step-2">3. Credits</button><button type="button" data-step="3" aria-pressed="false" aria-controls="escalation-step-3">4. Writer</button><button type="button" data-step="4" aria-pressed="false" aria-controls="escalation-step-4">5. Finish</button></div>
+<div class="step-panels"><section id="escalation-step-0" class="step-panel" aria-labelledby="escalation-heading-0"><h4 id="escalation-heading-0">1. Post the request</h4><dl><dt>Board</dt><dd>The request and the customer's account and region</dd><dt>Controller reads</dt><dd>No findings yet: call the incident analyst</dd><dt>Calls so far</dt><dd>0 specialist, 1 controller</dd></dl></section><section id="escalation-step-1" class="step-panel" aria-labelledby="escalation-heading-1"><h4 id="escalation-heading-1">2. The incident analyst posts</h4><dl><dt>Newest post</dt><dd>What the status page probes recorded for the region this month, and the month's availability</dd><dt>Controller reads</dt><dd>Availability below 99.95%: call the credits analyst, skip the status analyst</dd><dt>Calls so far</dt><dd>1 specialist, 2 controller</dd></dl></section><section id="escalation-step-2" class="step-panel" aria-labelledby="escalation-heading-2"><h4 id="escalation-heading-2">3. The credits analyst posts</h4><dl><dt>Newest post</dt><dd>Credits of 10% of that month's server charges in the region, or 25% below 99.0%, claimed through a Billing ticket within 30 days</dd><dt>Controller reads</dt><dd>A finding and the credit rule are on the board: call the writer</dd><dt>Calls so far</dt><dd>2 specialist, 3 controller</dd></dl></section><section id="escalation-step-3" class="step-panel" aria-labelledby="escalation-heading-3"><h4 id="escalation-heading-3">4. The writer posts a draft</h4><dl><dt>Newest post</dt><dd>A service-credit reply built only from the two posts above</dd><dt>Controller reads</dt><dd>A draft exists: return FINISH</dd><dt>Calls so far</dt><dd>3 specialist, 4 controller</dd></dl></section><section id="escalation-step-4" class="step-panel" aria-labelledby="escalation-heading-4"><h4 id="escalation-heading-4">5. Check the run in code</h4><dl><dt>Checks</dt><dd>Exactly one of the two analysts ran, it matches the availability figure, and the run stayed under the call cap</dd><dt>Had availability stayed at or above 99.95%</dt><dd>The status analyst would post the status-page link and the 72-hour root-cause report instead, at the same cost</dd><dt>Calls in all</dt><dd>3 specialist, 4 controller</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h2 id="branching-on-what-the-board-says">Branching on what the board says</h2>
-<p>The intro notebook gives both designs one request with an either/or condition: find the latest news about a company, then run a technical analysis if the news is neutral or positive, or a financial analysis if it is negative. Here are both graphs, one row per design:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Design</th>
-<th>Order of work</th>
-<th>Branches that run</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Fixed pipeline</td>
-<td>news, technical, financial, writer</td>
-<td>Both, on every request</td>
-</tr>
-<tr>
-<td>Blackboard</td>
-<td>controller, news, controller, one analyst, controller, writer, controller</td>
-<td>One, chosen after the news post lands</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 1: The same conditional request through both designs. The pipeline&rsquo;s edges fix its order before the run starts.</em></p>
-<p>The notebook does not ask another model whether the instruction was followed. It computes two checks from <code>steps</code>, the list of specialists that ran:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Check, computed from <code>steps</code></th>
-<th>Sequential pipeline</th>
-<th>Blackboard</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Followed the either/or</td>
-<td>Never: both branches run by construction</td>
-<td>Whatever this run&rsquo;s controller chose</td>
-</tr>
-<tr>
-<td>Correct branch for the sentiment</td>
-<td>Never: both branches run</td>
-<td>Checked against a sentiment label from the news post</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: The code-computed comparison. The pipeline fails by structure, the blackboard can fail by judgment.</em></p>
-<p>The blackboard row can fail too, because the controller is an LLM. A run where it calls both analysts, or the wrong one, shows up as a failed check instead of a plausible report. That is why the check runs on every run rather than once.</p>
-<p>On the Larkspur escalation the same shape plays out with three specialists. An incident analyst posts what the incident log shows. The controller reads that post and calls either the credits analyst or the status analyst. A writer drafts the reply from the board.</p>
+<p>The intro notebook gives both designs one request with an either/or condition: find the latest news about a company, then run a technical analysis if the news is neutral or positive, or a financial analysis if it is negative. Figure 1 is the blackboard. Figure 2 is the fixed pipeline the notebook builds beside it:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S([Start]) --&gt; N["News analyst"]
+    N --&gt; T["Technical analyst"]
+    T --&gt; F["Financial analyst"]
+    F --&gt; W["Report writer"]
+    W --&gt; E([End])
+</pre></figure>
+<p><em>Figure 2: The notebook&rsquo;s fixed pipeline. Its four edges are set before the run, so both analysts run on every request.</em></p>
+<p>The notebook does not ask another model whether the instruction was followed. It computes two checks from <code>steps</code>, the list of specialists that ran. To grade the branch, it classifies the news post&rsquo;s sentiment once with a narrow structured-output call: negative expects the financial analyst, anything else the technical one.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="design-switcher">
+<p class="widget-intro">Run the notebook's either/or request through each design and read the code-computed checks.</p>
+<div class="mode-controls" hidden role="group" aria-label="Coordination design">
+<button type="button" data-mode="pipeline" aria-pressed="false" aria-controls="design-pipeline">Fixed pipeline (Figure 2)</button>
+<button type="button" data-mode="blackboard" aria-pressed="false" aria-controls="design-blackboard">Blackboard (Figure 1)</button>
+</div>
+<section id="design-pipeline" class="mode-panel" data-announcement="Fixed pipeline selected. Both branches run and both checks fail."><h4>Fixed pipeline</h4><ul><li>Order of work: news, technical, financial, writer.</li><li>Branches that run: both, on every request.</li><li>Followed the either/or: never, both branches run by construction.</li><li>Correct branch: never, for the same reason.</li></ul><p>The pipeline fails by structure, not by a model error.</p></section>
+<section id="design-blackboard" class="mode-panel" data-announcement="Blackboard selected. One branch runs, chosen after the news post lands."><h4>Blackboard</h4><ul><li>Order of work: controller, news, controller, one analyst, controller, writer, controller.</li><li>Branches that run: one, chosen after the news post lands.</li><li>Followed the either/or: whatever this run's controller chose.</li><li>Correct branch: checked against the sentiment label from the news post.</li></ul><p>The blackboard can fail by judgment, because the controller is an LLM.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>A run where the controller calls both analysts, or the wrong one, shows up as a failed check instead of a plausible report. That is why the check runs on every run rather than once.</p>
 <h2 id="guarding-an-llm-controller">Guarding an LLM controller</h2>
 <p>A controller that re-decides at every step can also loop, stall or name a step that cannot run yet. We name the three failures and reuse the names:</p>
 <ul>
@@ -405,7 +388,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Premature step</strong>: it names a real specialist whose input is not on the board yet, such as a writer with no findings.</li>
 <li><strong>Runaway controller</strong>: it keeps choosing specialists and never returns <code>FINISH</code>.</li>
 </ul>
-<p>The reference implementations guard each one in code. The planted cases below come from the research-team notebook, which feeds hand-written boards to its pure guard functions with no model call. All six checks pass:</p>
+<p>The implementations guard each one in code. The planted cases below come from the research-team notebook, which feeds hand-written boards to its pure guard functions with no model call. A scratch run of that cell passes all six checks:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -447,11 +430,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Guard checks on hand-written blackboards, from a scratch run of the research-team notebook&rsquo;s pure functions.</em></p>
+<p><em>Table 1: Guard checks on hand-written blackboards, from a scratch run of the research-team notebook&rsquo;s pure functions.</em></p>
 <p>Four guards cover the three failures:</p>
 <ul>
 <li><strong>A typed decision</strong> stops the phantom route. The decision field is a <code>Literal</code> of the specialist names plus <code>FINISH</code>, so the model can only name a real node. The node writes the decision to state, and a separate, pure routing function reads it.</li>
-<li><strong>Preconditions checked in code</strong> stop the premature step. In the research-team implementation, <code>precondition_problem()</code> rejects impossible choices and <code>rule_based_next()</code> substitutes the rule-based choice. Every override is printed and counted.</li>
+<li><strong>Preconditions checked in code</strong> stop the premature step. In the research team, <code>precondition_problem()</code> rejects impossible choices and <code>rule_based_next()</code> substitutes the rule-based choice. Every override is printed and counted.</li>
 <li><strong>A cap in code</strong> stops the runaway controller. The intro notebook&rsquo;s controller returns <code>FINISH</code> without calling the model once <code>MAX_SPECIALIST_CALLS = 6</code> specialists have run (the research team allows 12 contributions). LangGraph&rsquo;s <code>recursion_limit</code> (20 in the intro, 40 in the research team) is only the backstop: it ends the run with an error rather than a clean stop.</li>
 <li><strong>Structured contributions</strong> let code read the board. Posts in the research team are records with <code>agent</code>, <code>type</code> and <code>content</code>. Code can then tell a finding from a fact-check from a draft, and pair each finding with its own verdict.</li>
 </ul>
@@ -460,7 +443,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Pitfall: an ungrounded fact-check.</strong> The research team&rsquo;s Researcher and Fact-Checker have no search tool. The Fact-Checker judges clarity and internal consistency, and a fluent but wrong finding can still come out <code>verified</code>. Give the Researcher sources and have the Fact-Checker compare claims against them before trusting the label.</p>
 </blockquote>
 <h2 id="what-the-controller-costs">What the controller costs</h2>
-<p>Every specialist turn sits between two controller turns. A run with <code>k</code> specialists makes up to <code>k + 1</code> controller calls on top of the specialists&rsquo; own. For the Larkspur escalation that looks like this:</p>
+<p>Every specialist turn sits between two controller turns. A run with <code>k</code> specialists makes up to <code>k + 1</code> controller calls on top of the specialists&rsquo; own:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -487,9 +470,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Calls per run, counting each specialist as one call even when its own tool loop makes more. The first two rows are illustrative.</em></p>
+<p><em>Table 2: Calls per run, counting each specialist as one call even when its own tool loop makes more. The first two rows are illustrative.</em></p>
 <p>The blackboard saves a specialist and pays for it in controller calls. That trade pays when the skipped specialist is expensive, such as a search loop, or when its output would mislead the writer.</p>
-<p>Traces are harder to read than a pipeline&rsquo;s, because the path changes from run to run. In the research-team implementation a fact-check that flags a finding sends the controller back to the Researcher, a loop-back no edge in the graph spells out. The notebook counts loop-backs and overrides from the final board. A run with zero loop-backs is valid: every finding passed its first check.</p>
+<p>Traces are harder to read than a pipeline&rsquo;s, because the path changes from run to run. In the research team a fact-check that flags a finding sends the controller back to the Researcher, a loop-back no edge in the graph spells out. The notebook counts loop-backs and overrides from the final board. A run with zero loop-backs is valid: every finding passed its first check.</p>
 <h2 id="choosing-a-coordination-shape">Choosing a coordination shape</h2>
 <p>The deciding question is when the next step becomes known:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -498,7 +481,7 @@ th:last-child, td:last-child { padding-right: 0; }
     I -- yes --&gt; F["Fan-out&lt;br/&gt;lesson 36.5"]
     I -- no --&gt; P["Fixed pipeline"]
 </pre></figure>
-<p><em>Figure 2: A blackboard earns its controller calls only when the order depends on what earlier steps find.</em></p>
+<p><em>Figure 3: A blackboard earns its controller calls only when the order depends on what earlier steps find.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -517,9 +500,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Can skip a branch</td>
-<td>✗</td>
-<td>✗</td>
-<td>✓</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
 </tr>
 <tr>
 <td>Extra model calls</td>
@@ -529,9 +512,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Same path every run</td>
-<td>✓</td>
-<td>✓</td>
-<td>✗</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
 </tr>
 <tr>
 <td>Main risk</td>
@@ -541,17 +524,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: Three coordination shapes for several specialists.</em></p>
-<p>Use a blackboard for diagnosis, triage and research with verification. When the order is known before the run starts, a pipeline or a fan-out (<a href="#">lesson 36.5</a>) is cheaper and easier to test.</p>
-<h2 id="in-practice-larkspurrsquos-outage-escalation">In practice: Larkspur&rsquo;s outage escalation</h2>
-<ol>
-<li><strong>Board</strong>: the request and the customer&rsquo;s account go on the board as the first post.</li>
-<li><strong>Incident analyst</strong> posts what the status page probes recorded for the customer&rsquo;s region this month, with the month&rsquo;s availability.</li>
-<li><strong>Controller</strong> reads that post. Below 99.95% it calls the credits analyst, which posts the credit owed (10% of the month&rsquo;s server charges in that region, 25% below 99.0%) and the rule that credits are claimed with a Billing ticket within 30 days. At or above 99.95% it calls the status analyst, which posts the status-page link and the 72-hour root-cause report.</li>
-<li><strong>Writer</strong> drafts from the board, and the controller returns <code>FINISH</code> once a draft exists.</li>
-<li><strong>Checks in code</strong>: exactly one of the two analysts ran, it matches the availability figure, and the run stayed under the call cap.</li>
-</ol>
-<p>Lesson 36.2 swaps cooperation for disagreement: two agents argue opposite sides and a judge weighs them.</p>
+<p><em>Table 3: Three coordination shapes for several specialists.</em></p>
+<p>Use a blackboard for diagnosis, triage and research with verification. When the order is known before the run starts, a pipeline or a fan-out (<a href="#">lesson 36.5</a>) is cheaper and easier to test. Lesson 36.2 swaps cooperation for disagreement: two agents argue opposite sides and a judge weighs them.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li>The notebooks print no recorded runs: they ship without outputs. The controller&rsquo;s choices on the news request vary from run to run, and this page reports only what the code computes, not how often a real controller picks the right branch.</li>
+<li>The guard checks in Table 1 come from a scratch run of the research team&rsquo;s pure functions on hand-written boards, with no model call. They show the guards work, not how often a model triggers them.</li>
+<li>The Larkspur escalation and the first two rows of Table 2 are scripted illustrations built from the handbook&rsquo;s SLA and outage pages. No notebook runs that escalation.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>Erman, L. D., Hayes-Roth, F., Lesser, V. R. and Reddy, D. R. (1980). The Hearsay-II Speech-Understanding System: Integrating Knowledge to Resolve Uncertainty. <em>ACM Computing Surveys</em> 12(2). <a href="https://doi.org/10.1145/356810.356816" target="_blank" rel="noopener">doi:10.1145/356810.356816</a></li>
+<li>LangGraph documentation: <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API</a>, for conditional edges and <code>recursion_limit</code>.</li>
+<li>LangChain documentation: <a href="https://docs.langchain.com/oss/python/langchain/multi-agent" target="_blank" rel="noopener">Multi-agent systems</a>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A blackboard coordinates specialists through one shared store, and only the controller decides order. It can pick one branch from what earlier posts found, where a fixed pipeline runs every branch by construction.</li>
@@ -571,7 +557,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A blackboard controller keeps picking specialists and never returns FINISH. What in the implementations stops the run, and why is that better than relying on recursion_limit?</summary>
 <p>A cap in code: once <code>MAX_SPECIALIST_CALLS = 6</code> specialists have run, the controller returns <code>FINISH</code> without calling the model, and the run ends with a reply. <code>recursion_limit = 20</code> is only the backstop, and it ends the run with an error rather than a clean stop.</p>
 </details>
-<h2 id="debate">Debate</h2>
+<h2 id="start-with-a-recommendation-nobody-argued-against">Start with a recommendation nobody argued against</h2>
 <p class="lesson-of">Lesson 36.2: Debate. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/optional/notebook/02a_debate.ipynb" target="_blank" rel="noopener"><code>02a_debate.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -582,8 +568,9 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose</strong> between debate, a single call and retrieval by asking whether the question has one correct answer.</li>
 </ul>
 </blockquote>
-<p>Lesson 36.1&rsquo;s specialists cooperated on one board. Here two agents disagree on purpose, and the reader of the result sees the strongest case for each side before a decision.</p>
 <p>Larkspur&rsquo;s product team asks the support assistant: <em>should we stop retrieving and put the whole handbook in a long-context prompt?</em> One model call returns a tidy recommendation. It may be right, but it shows one framing of a question with real costs on both sides: cost per call, accuracy on facts buried mid-context, and access control (the fifth interview question on the <a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html#interview-spotlight-5-questions-you-might-get-asked">M10 module page</a>). The team wants the counter-case argued properly before it commits.</p>
+<p>Lesson 36.1&rsquo;s specialists cooperated on one board. Here two agents disagree on purpose, and the reader of the result sees the strongest case for each side before a decision.</p>
+<h2 id="debate">Debate</h2>
 <p>In a <strong>debate</strong> two agents argue opposite sides of a question over several rounds. Each reads the whole transcript and rebuts the other&rsquo;s latest point. A neutral <strong>judge</strong> then writes the verdict:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S([Start]) --&gt; A["Side A&lt;br/&gt;rebuts, then argues"]
@@ -593,42 +580,26 @@ th:last-child, td:last-child { padding-right: 0; }
     R -- done --&gt; J["Judge&lt;br/&gt;structured verdict"]
 </pre></figure>
 <p><em>Figure 1: The round-robin debate graph. Only the two sides and the judge call a model.</em></p>
-<p>Two research setups share the name:</p>
-<ul>
-<li><strong>MAD</strong> (Liang et al., EMNLP 2024): fixed affirmative and negative sides, and a judge that reads the debate and extracts the answer. MAD&rsquo;s judge may also end the debate early. The notebook follows MAD but always runs every round.</li>
-<li><strong>Multiagent debate</strong> (Du et al., 2023): every agent gets the same prompt, answers on its own, then reads the others&rsquo; answers and revises until they converge. There are no assigned sides and no judge.</li>
-</ul>
-<p>The notebook&rsquo;s own question is a classic trade-off: should a six-person team building a new B2B SaaS product start with microservices or a monolith.</p>
+<p>This shape follows <strong>MAD</strong> (Liang et al., EMNLP 2024): fixed affirmative and negative sides, and a judge that reads the debate and extracts the answer. MAD&rsquo;s judge may also end the debate early. The notebook always runs every round.</p>
+<p>A second research setup shares the name. In <strong>multiagent debate</strong> (Du et al., 2023) every agent gets the same prompt and answers on its own, then reads the others&rsquo; answers and revises until they converge. There are no assigned sides and no judge:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    Q[/Same question/] --&gt; A1["Agent 1&lt;br/&gt;answers alone"]
+    Q --&gt; A2["Agent 2&lt;br/&gt;answers alone"]
+    A1 --&gt; R["Each agent reads the others&lt;br/&gt;and revises its answer"]
+    A2 --&gt; R
+    R -- not converged --&gt; R
+    R -- converged --&gt; F[/Shared answer/]
+</pre></figure>
+<p><em>Figure 2: Added for comparison. Multiagent debate in the style of Du et al., with no sides and no judge. The notebook does not build it.</em></p>
+<p>MAD is built to surface the strongest case on each side of a trade-off. Multiagent debate is built to make agents check each other&rsquo;s reasoning toward one answer. The notebook builds the MAD shape, on a classic trade-off: should a six-person team building a new B2B SaaS product start with microservices or a monolith.</p>
 <h2 id="a-bounded-round-robin">A bounded round-robin</h2>
-<p>The control flow is a small graph with one counter in state. After side B speaks, an <code>advance_round</code> node adds one to the counter, and a routing function sends the graph back to side A or on to the judge. That function is plain Python, and the notebook checks it without a model call. A scratch run of that check gives:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>After round</th>
-<th>Counter now</th>
-<th>Route</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>2</td>
-<td>Side A</td>
-</tr>
-<tr>
-<td>2</td>
-<td>3</td>
-<td>Side A</td>
-</tr>
-<tr>
-<td>3</td>
-<td>4</td>
-<td>Judge</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 1: The routing check with <code>MAX_ROUNDS = 3</code>, run in the scratchpad. Three rounds, then the judge.</em></p>
-<p>A counter in code bounds the debate. No agent decides when to stop, so the loop cannot run away the way a blackboard controller can.</p>
+<p>The control flow is a small graph with one counter in state. After the second side speaks, an <code>advance_round</code> node adds one to the counter, and a routing function sends the graph back to the first side or on to the judge. That function is plain Python, and the notebook checks it without a model call. A scratch run of the whole graph with a stub model makes six debater turns and one judge call:</p>
+<div class="walkthrough learning-widget" data-stepper id="debate-walkthrough">
+<p class="widget-intro">Step through the debate with <code>MAX_ROUNDS = 3</code>. Each stage shows the round counter, the route and the running call count.</p>
+<div class="step-controls" hidden role="group" aria-label="Debate rounds"><button type="button" data-step="0" aria-pressed="false" aria-controls="debate-step-0">1. Round 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="debate-step-1">2. Round 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="debate-step-2">3. Round 3</button><button type="button" data-step="3" aria-pressed="false" aria-controls="debate-step-3">4. Judge</button></div>
+<div class="step-panels"><section id="debate-step-0" class="step-panel" aria-labelledby="debate-heading-0"><h4 id="debate-heading-0">1. Round 1: two opening turns</h4><dl><dt>Turns</dt><dd>Pro-microservices opens, pro-monolith rebuts and argues</dd><dt>Counter after advance_round</dt><dd>2, at most 3: route back to the first side</dd><dt>LLM calls so far</dt><dd>2</dd></dl></section><section id="debate-step-1" class="step-panel" aria-labelledby="debate-heading-1"><h4 id="debate-heading-1">2. Round 2: two rebuttals</h4><dl><dt>Turns</dt><dd>Each side answers the other's newest point before adding one or two of its own</dd><dt>Counter after advance_round</dt><dd>3, at most 3: route back to the first side</dd><dt>LLM calls so far</dt><dd>4</dd></dl></section><section id="debate-step-2" class="step-panel" aria-labelledby="debate-heading-2"><h4 id="debate-heading-2">3. Round 3: the last two turns</h4><dl><dt>Turns</dt><dd>Two more rebuttals; the transcript now holds six turns</dd><dt>Counter after advance_round</dt><dd>4, above 3: route to the judge</dd><dt>LLM calls so far</dt><dd>6</dd></dl></section><section id="debate-step-3" class="step-panel" aria-labelledby="debate-heading-3"><h4 id="debate-heading-3">4. The judge fills a verdict</h4><dl><dt>Output</dt><dd>A <code>DebateVerdict</code>: the strongest point from each side, the weak claims, a recommendation and a confidence</dd><dt>Counter</dt><dd>Not read again; the graph ends</dd><dt>LLM calls in all</dt><dd>7</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>A counter in code bounds the debate. No agent decides when to stop, and the loop cannot run away the way a blackboard controller can.</p>
 <h2 id="what-makes-a-debate-worth-reading">What makes a debate worth reading</h2>
 <p>Three rules carry the pattern. Each one guards against a named failure:</p>
 <ul>
@@ -663,7 +634,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Failures the debate pattern does not remove, from the notebook&rsquo;s own analysis.</em></p>
+<p><em>Table 1: Failures the debate pattern does not remove, from the notebook&rsquo;s own analysis.</em></p>
 <blockquote>
 <p><strong>Pitfall: treating the verdict as ground truth.</strong> A judged recommendation is an argued opinion. When both sides miss a consideration, the judge cannot weigh it.</p>
 </blockquote>
@@ -695,7 +666,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: The cost of a debate against a single call. The <code>advance_round</code> node makes no model call.</em></p>
+<p><em>Table 2: The cost of a debate against a single call. The <code>advance_round</code> node makes no model call.</em></p>
 <p>Latency grows with the calls too, because every turn waits for the one before it. The deliverable is the auditable trail: what each side said, what the judge found strongest and what it rejected.</p>
 <h2 id="choosing-when-to-debate">Choosing when to debate</h2>
 <p>Debate earns its cost on questions with legitimate trade-offs and no single correct answer, such as architecture choices, build or buy, and policy. For a factual question with one correct answer, the single call or retrieval is the better choice:</p>
@@ -705,18 +676,33 @@ th:last-child, td:last-child { padding-right: 0; }
     H -- no --&gt; S["Single call"]
     Q -- no --&gt; D["Debate&lt;br/&gt;two sides and a judge"]
 </pre></figure>
-<p><em>Figure 2: Route facts to retrieval or one call, and keep debate for trade-offs.</em></p>
-<p>On the Larkspur handbook that line is clear. &ldquo;How long does a refund take?&rdquo; has one answer, 5 to 10 business days, and belongs to retrieval. &ldquo;Should the support assistant stop retrieving and use a long-context prompt?&rdquo; is a trade-off, and a transcript with a judged verdict is a useful input to that decision.</p>
-<p>A third case looks like a debate and is not one. When two retrieved chunks disagree, for example an old and a new refund policy, one of them is out of date. Fix the index first with version metadata and a filter (M11) rather than asking two agents to argue about which one is current.</p>
-<h2 id="in-practice-the-long-context-question">In practice: the long-context question</h2>
-<ol>
-<li><strong>Frame the question</strong> as a trade-off with two sides: keep retrieval, or move the whole handbook into the prompt.</li>
-<li><strong>Write two personas</strong> of equal strength, each told to argue honestly and to rebut before adding a point.</li>
-<li><strong>Run three rounds</strong>: six turns and one judge call, seven calls in all.</li>
-<li><strong>Run the single-call baseline</strong> and read both answers side by side. Look for what the judge adds: named conditions, a staged path, or a counter-argument the single answer never raised.</li>
-<li><strong>List what neither side raised</strong> before treating the verdict as a decision.</li>
-</ol>
+<p><em>Figure 3: Route facts to retrieval or one call, and keep debate for trade-offs.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="question-switcher">
+<p class="widget-intro">Three Larkspur questions, three different right tools. Pick one to see where Figure 3 sends it.</p>
+<div class="mode-controls" hidden role="group" aria-label="Larkspur question">
+<button type="button" data-mode="refund" aria-pressed="false" aria-controls="question-refund">Refund time</button>
+<button type="button" data-mode="context" aria-pressed="false" aria-controls="question-context">Long context</button>
+<button type="button" data-mode="policies" aria-pressed="false" aria-controls="question-policies">Two policies</button>
+</div>
+<section id="question-refund" class="mode-panel" data-announcement="Refund time selected. One correct answer, so retrieve it."><h4>How long does a refund take?</h4><p>One correct answer, in the handbook: 5 to 10 business days to the original payment method. Retrieve it. A debate would spend 7 calls arguing about a fact.</p></section>
+<section id="question-context" class="mode-panel" data-announcement="Long context selected. A trade-off, so debate it."><h4>Should the assistant stop retrieving and use a long-context prompt?</h4><ol><li>Frame it with two sides: keep retrieval, or move the whole handbook into the prompt.</li><li>Write two personas of equal strength, each told to rebut before adding a point.</li><li>Run three rounds: seven calls in all.</li><li>Run the single-call baseline and look for what the judge adds: named conditions, a staged path, a missed counter-argument.</li><li>List what neither side raised before treating the verdict as a decision.</li></ol></section>
+<section id="question-policies" class="mode-panel" data-announcement="Two policies selected. Not a debate: fix the index."><h4>Two retrieved chunks give an old and a new refund policy</h4><p>This looks like a debate and is not one: one of the chunks is out of date. Fix the index first with version metadata and a filter (M11) rather than asking two agents to argue about which one is current.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Lesson 36.3 keeps several perspectives but makes them cooperate: STORM uses them to research an article instead of arguing.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li>The notebook ships without outputs, and this page quotes no transcript or verdict. The call count and the round routing come from a scratch run of the notebook&rsquo;s own graph with a stub model, so they show the control flow, not argument quality.</li>
+<li>The weaknesses in Table 1 come from the notebook&rsquo;s own analysis. No experiment here measures how often a judge is biased or a side lopsided.</li>
+<li>Whether a debate beats the single call is the notebook&rsquo;s open question: it prints both answers for you to compare and scores neither.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>Liang, T. et al. (2024). Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate. EMNLP 2024. <a href="https://arxiv.org/abs/2305.19118" target="_blank" rel="noopener">arXiv:2305.19118</a></li>
+<li>Du, Y. et al. (2023). Improving Factuality and Reasoning in Language Models through Multiagent Debate. <a href="https://arxiv.org/abs/2305.14325" target="_blank" rel="noopener">arXiv:2305.14325</a></li>
+<li>LangChain documentation: <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>, the mechanism behind <code>DebateVerdict</code>.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A debate runs two opposing sides over <code>N</code> rounds, each rebutting the other&rsquo;s latest point, then a judge fills a structured verdict. It costs <code>2N + 1</code> calls, 7 at three rounds, against 1 for a single call.</li>
@@ -736,7 +722,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. Two retrieved Larkspur chunks give an old and a new refund policy. Should two agents debate which one is current?</summary>
 <p>No. Fix the index first with version metadata and a filter (M11). Debate earns its cost on trade-offs with no single correct answer. A factual question such as how long a refund takes (5 to 10 business days) belongs to retrieval.</p>
 </details>
-<h2 id="storm">STORM</h2>
+<h2 id="start-with-an-article-written-from-one-angle">Start with an article written from one angle</h2>
 <p class="lesson-of">Lesson 36.3: STORM: multi-perspective research and writing. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/mandatory/notebook/03a_storm.ipynb" target="_blank" rel="noopener"><code>03a_storm.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -747,9 +733,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Identify</strong> where retrieval has to plug in before the article&rsquo;s facts can be trusted.</li>
 </ul>
 </blockquote>
-<p>Lesson 36.2 used two perspectives to argue toward a decision. STORM uses several perspectives that cooperate, to research a topic before anyone writes about it.</p>
 <p>Larkspur&rsquo;s documentation team wants a help-centre article on what happens to an account when a customer cancels. A single &ldquo;write an article about cancelling&rdquo; prompt returns fluent, generic prose from one angle. It mentions refunds in a sentence, skips the 30-day data-retention window entirely, and no one can tell which claim came from where.</p>
-<p><strong>STORM</strong> (Synthesis of Topic Outlines through Retrieval and Multi-perspective question asking; Shao et al., NAACL 2024, <a href="https://arxiv.org/abs/2402.14207" target="_blank" rel="noopener">arXiv:2402.14207</a>) writes a long article on a topic the writer knows little about. It researches first, from several perspectives, and writes only from what the research found:</p>
+<p>Lesson 36.2 used two perspectives to argue toward a decision. STORM uses several perspectives that cooperate, to research a topic before anyone writes about it.</p>
+<h2 id="storm">STORM</h2>
+<p><strong>STORM</strong> (Synthesis of Topic Outlines through Retrieval and Multi-perspective question asking; Shao et al., NAACL 2024) writes a long article on a topic the writer knows little about. It researches first, from several perspectives, and writes only from what the research found:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     T[/Topic/] --&gt; P["Perspectives&lt;br/&gt;P editor personas"]
     P --&gt; I["Interviews&lt;br/&gt;one per persona, T turns"]
@@ -765,6 +752,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Section drafting.</strong> A writer call drafts each section from the research notes. A last call writes the title.</li>
 </ol>
 <p>The notebook runs this on the impact of remote work on urban commercial real estate, with three perspectives and two interview turns each.</p>
+<h3>Follow the cancellation article through a run</h3>
+<p>Here is the Larkspur cancellation article through the notebook&rsquo;s configuration, <code>P = 3</code> and <code>T = 2</code>, with an outline of 4 sections. The personas and sections are illustrative; the call counts follow the notebook&rsquo;s code:</p>
+<div class="walkthrough learning-widget" data-stepper id="storm-walkthrough">
+<p class="widget-intro">Follow one STORM run on the cancellation article. Each stage shows what it produces and the running call count.</p>
+<div class="step-controls" hidden role="group" aria-label="STORM stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="storm-step-0">1. Perspectives</button><button type="button" data-step="1" aria-pressed="false" aria-controls="storm-step-1">2. Interviews</button><button type="button" data-step="2" aria-pressed="false" aria-controls="storm-step-2">3. Outline</button><button type="button" data-step="3" aria-pressed="false" aria-controls="storm-step-3">4. Drafts</button><button type="button" data-step="4" aria-pressed="false" aria-controls="storm-step-4">5. Title</button></div>
+<div class="step-panels"><section id="storm-step-0" class="step-panel" aria-labelledby="storm-heading-0"><h4 id="storm-heading-0">1. Propose three personas</h4><dl><dt>Produces</dt><dd><code>PerspectiveList</code>: a billing editor, a data editor and an account-security editor, the disciplines named in the prompt</dd><dt>LLM calls so far</dt><dd>1</dd></dl></section><section id="storm-step-1" class="step-panel" aria-labelledby="storm-heading-1"><h4 id="storm-heading-1">2. Interview each persona</h4><dl><dt>Produces</dt><dd>Per persona: two questions, two answers and one extraction into <code>ResearchFindings</code></dd><dt>Example fact</dt><dd>Data editor: data is kept for 30 days after cancellation, then permanently deleted</dd><dt>LLM calls so far</dt><dd>16 (1 + 3 × 5)</dd></dl></section><section id="storm-step-2" class="step-panel" aria-labelledby="storm-heading-2"><h4 id="storm-heading-2">3. Merge the facts into one outline</h4><dl><dt>Produces</dt><dd><code>ArticleOutline</code>: before you cancel, the refund, your data, closing the account</dd><dt>LLM calls so far</dt><dd>17</dd></dl></section><section id="storm-step-3" class="step-panel" aria-labelledby="storm-heading-3"><h4 id="storm-heading-3">4. Draft each section</h4><dl><dt>Produces</dt><dd>Prose for each of the 4 sections, each written from the research notes</dd><dt>LLM calls so far</dt><dd>21</dd></dl></section><section id="storm-step-4" class="step-panel" aria-labelledby="storm-heading-4"><h4 id="storm-heading-4">5. Write the title and check the count</h4><dl><dt>Produces</dt><dd>A title, then the assembled article</dd><dt>Check</dt><dd>The callback's count matches <code>1 + 3 × (2 × 2 + 1) + 1 + 4 + 1</code></dd><dt>LLM calls in all</dt><dd>22</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h2 id="typed-findings-not-transcripts">Typed findings, not transcripts</h2>
 <p>Each stage hands the next one a typed object produced with structured output, and no stage parses free text:</p>
 <div class="sheet scroll"><table>
@@ -793,7 +787,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Section drafting</td>
-<td>One section and the facts</td>
+<td>One section and every persona&rsquo;s facts</td>
 <td>Prose for that section</td>
 </tr>
 </tbody>
@@ -804,10 +798,33 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Echo panel.</strong> Three reworded generalists produce redundant research. If the personas overlap, tighten the perspective prompt, for example by listing the disciplines to draw from.</li>
 <li><strong>Stapled outline.</strong> Outline synthesis is where <code>P</code> research threads become one narrative. An outline with one section per persona is a concatenation, and the synthesis prompt needs to ask for a merged structure.</li>
 </ul>
-<p>A good outline reads as one article&rsquo;s table of contents, moving from background through each stakeholder&rsquo;s stake to an outlook. A stapled one reads as three reports in a row.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="outline-switcher">
+<p class="widget-intro">The same research, two outlines for the cancellation article. Illustrative sections.</p>
+<div class="mode-controls" hidden role="group" aria-label="Outline">
+<button type="button" data-mode="stapled" aria-pressed="false" aria-controls="outline-stapled">Stapled</button>
+<button type="button" data-mode="merged" aria-pressed="false" aria-controls="outline-merged">Merged</button>
+</div>
+<section id="outline-stapled" class="mode-panel" data-announcement="Stapled outline selected. One section per persona."><h4>Stapled: one section per persona</h4><ol><li>What the billing editor found</li><li>What the data editor found</li><li>What the account-security editor found</li></ol><p>Three reports in a row. The refund window and the retention window sit in different sections, and the reader has to join them.</p></section>
+<section id="outline-merged" class="mode-panel" data-announcement="Merged outline selected. One article's table of contents."><h4>Merged: one article's table of contents</h4><ol><li>Before you cancel</li><li>The refund</li><li>Your data</li><li>Closing the account</li></ol><p>Each section draws on whichever personas found something about it, and the order follows the customer's path.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h2 id="the-missing-retrieval-boundary">The missing retrieval boundary</h2>
-<p>The notebook&rsquo;s expert is the model playing a knowledgeable role, with no retrieval. Its prompt asks it to label a guess as an estimate, but its &ldquo;facts&rdquo; are still only as reliable as the model&rsquo;s memory. We call this the <strong>memory expert</strong>, and it is the pattern&rsquo;s main weakness. The original STORM retrieves from the web at this step. The notebook swaps that out to keep the run self-contained.</p>
-<p>Swapping the expert&rsquo;s plain call for a tool-using agent grounds it without changing any later stage. On the Larkspur handbook the expert would answer from a handbook retriever. For the cancellation article, each persona would surface its own facts with the chunk they came from:</p>
+<p>The notebook&rsquo;s expert is the model playing a knowledgeable role, with no retrieval. Its prompt asks it to label a guess as an estimate, but its &ldquo;facts&rdquo; are still only as reliable as the model&rsquo;s memory. We call this the <strong>memory expert</strong>, and it is the pattern&rsquo;s main weakness. The original STORM retrieves from the web at this step. The notebook swaps that out to keep the run self-contained:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    E["Persona-editor&lt;br/&gt;asks one question"] --&gt; X["Expert&lt;br/&gt;same model, no tools"]
+    X -- answer from memory --&gt; E
+</pre></figure>
+<p><em>Figure 2: The notebook&rsquo;s memory expert. Facts enter the pipeline from the model&rsquo;s memory.</em></p>
+<p>Swapping the expert&rsquo;s plain call for a tool-using agent grounds it without changing any later stage:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    E["Persona-editor&lt;br/&gt;asks one question"] --&gt; X["Expert agent"]
+    X --&gt; H[("Handbook&lt;br/&gt;retriever")]
+    H --&gt; X
+    X -- answer with chunk id --&gt; E
+</pre></figure>
+<p><em>Figure 3: Added alternative. A grounded expert answers from a retriever and returns the chunk each fact came from.</em></p>
+<p>On the Larkspur handbook, each persona would then surface its own facts with the chunk they came from:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -925,16 +942,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: The longest chain of dependent calls in one run, assuming every call takes about the same time (illustrative).</em></p>
-<p>The same 23 calls are made either way, and the bill does not change. The reader waits for 9 calls in a row instead of 23.</p>
-<h2 id="in-practice-the-cancellation-article">In practice: the cancellation article</h2>
-<ol>
-<li><strong>Perspectives</strong>: ask for three personas and name the disciplines (billing, data handling, account security) to avoid an echo panel.</li>
-<li><strong>Interviews</strong>: give the expert the handbook retriever, and keep each fact&rsquo;s chunk id with it in <code>ResearchFindings</code>.</li>
-<li><strong>Outline</strong>: ask for one merged structure, such as before you cancel, the refund, your data, closing the account, rather than one section per persona.</li>
-<li><strong>Drafts</strong>: write each section from the facts with their chunk ids, and dispatch the sections in parallel.</li>
-<li><strong>Check</strong>: compare the callback&rsquo;s call count with the formula, and spot-check one sentence per section against its source chunk.</li>
-</ol>
-<p>Lesson 36.4 moves from fixed pipelines like this one to controllers that choose which specialist, or which whole architecture, handles a request.</p>
+<p>The same 23 calls are made either way, and the bill does not change. The reader waits for 9 calls in a row instead of 23. The title prompt reads only the topic, so starting it beside the perspectives call shortens the chain to 8.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li>The notebook ships without outputs. Its personas, facts and article change on every run, and this page quotes none of them. The cancellation-article trace, its personas and its outlines are illustrations.</li>
+<li>The call formula comes from reading the notebook&rsquo;s code. The notebook checks it against its callback counter on a live run; this page did not repeat that run.</li>
+<li>Table 4 assumes every call takes about the same time. Drafting calls write several paragraphs and take longer than an editor&rsquo;s one-line question, so real waits differ.</li>
+<li>The memory expert&rsquo;s facts are unverified by design. Table 2&rsquo;s facts are from the Larkspur handbook, not from a STORM run.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>Shao, Y. et al. (2024). Assisting in Writing Wikipedia-like Articles From Scratch with Large Language Models. NAACL 2024. <a href="https://arxiv.org/abs/2402.14207" target="_blank" rel="noopener">arXiv:2402.14207</a></li>
+<li>LangChain documentation: <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+<li>LangGraph documentation: <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API</a>, for <code>Send</code> and supersteps.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>STORM researches before it writes. <code>P</code> personas each run a <code>T</code>-turn interview, their extracted facts merge into one outline, and each section is drafted from what the research found.</li>
@@ -954,7 +975,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A STORM outline comes back with exactly one section per persona. What has gone wrong, and where do you fix it?</summary>
 <p>The outline is stapled: a concatenation of the research threads, not a synthesis. Outline synthesis is where <code>P</code> threads become one narrative, and the fix is the editor-in-chief&rsquo;s synthesis prompt, which must ask for a merged structure. If the sections also repeat each other, the personas overlap, and the perspective prompt needs tightening.</p>
 </details>
-<h2 id="three-kinds-of-controller">Three kinds of controller</h2>
+<h2 id="start-with-a-queue-that-gets-every-kind-of-request">Start with a queue that gets every kind of request</h2>
 <p class="lesson-of">Lesson 36.4: Meta-controllers, ensembles and emergent systems. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/optional/notebook/04a_meta_controller.ipynb" target="_blank" rel="noopener"><code>04a_meta_controller.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/optional/notebook/04b_ensemble_parallel_exploration.ipynb" target="_blank" rel="noopener"><code>04b_ensemble_parallel_exploration.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/optional/notebook/04c_cellular_automata.ipynb" target="_blank" rel="noopener"><code>04c_cellular_automata.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -965,8 +986,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Explain</strong> how a grid of cells with one local rule finds shortest paths with no controller at all.</li>
 </ul>
 </blockquote>
+<p>Larkspur&rsquo;s support assistant now receives every kind of request in one queue: &ldquo;What is a vCPU?&rdquo;, &ldquo;Is there an incident right now?&rdquo;, a four-part refund question, &ldquo;Should we move to an annual plan?&rdquo;.</p>
+<p>Any single architecture is wrong for part of that queue. One model call guesses at the live incident. A search loop spends calls on the vCPU definition, which the model already knows. A debate over the refund window wastes three calls on a question with one answer.</p>
 <p>Lessons 36.1 to 36.3 each fixed one way of coordinating agents. This lesson asks who chooses that way, then removes the chooser altogether.</p>
-<p>Larkspur&rsquo;s support assistant now receives every kind of request: &ldquo;What is a vCPU?&rdquo;, &ldquo;Is there an incident right now?&rdquo;, a four-part refund question, &ldquo;Should we move to an annual plan?&rdquo;. One architecture for all of them is wrong somewhere. A single call guesses at the live incident, and a search loop wastes calls on the vCPU definition.</p>
+<h2 id="three-kinds-of-controller">Three kinds of controller</h2>
 <p>A router, a meta-controller and a blackboard controller are all one structured-output call that picks from a fixed set. They differ in what they pick and how often:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -999,49 +1022,43 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Three controllers, one mechanism. The difference is the level and the frequency of the choice.</em></p>
-<p>A router differs from a handoff (M35) in who holds the decision. The router decides before any specialist runs, and the specialist cannot pass the request on. In a handoff the agent holding the conversation transfers it by calling a tool.</p>
-<p>The notebook&rsquo;s router has three specialists: a generalist for conversation, a researcher with web search, and a coder. Its decision is a <code>Literal</code> of the three names, and a conditional edge dispatches to the chosen node.</p>
-<h3>Dispatch through a strategy registry</h3>
-<p>A <strong>meta-controller</strong> makes the same choice one level up. It wraps each architecture as a plain callable that takes the request text and returns an answer, and it never sees inside one. Its decision is a <code>Strategy</code> enum, and a registry maps each member to its callable instead of a chain of <code>if</code>s. A registry check in code catches a strategy with no callable.</p>
-<p>Here are the notebook&rsquo;s four strategies, mapped onto Larkspur support traffic:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Strategy</th>
-<th>Shape of request</th>
-<th>A Larkspur request of that shape</th>
-<th>Model calls inside</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>direct_answer</code></td>
-<td>Self-contained fact the model already knows</td>
-<td>&ldquo;What is a vCPU?&rdquo; (general knowledge, no handbook needed)</td>
-<td>1</td>
-</tr>
-<tr>
-<td><code>search_agent</code></td>
-<td>Live or external information</td>
-<td>&ldquo;Is there an incident right now?&rdquo; (only the live status page knows)</td>
-<td>Its own tool loop decides</td>
-</tr>
-<tr>
-<td><code>multi_step_planning</code></td>
-<td>Several bundled sub-questions</td>
-<td>The lab&rsquo;s refund, timing, export and credits question</td>
-<td>At most 6 (plan, 4 sub-answers, synthesis)</td>
-</tr>
-<tr>
-<td><code>debate</code></td>
-<td>Trade-off with no single answer</td>
-<td>&ldquo;Should we move from a monthly to an annual plan?&rdquo;</td>
-<td>3 (for, against, judge)</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: The meta-controller&rsquo;s strategies. The classifier adds one call in front of each. Larkspur examples are illustrative, call counts are from the notebook&rsquo;s code.</em></p>
-<p>The registry is what makes the design grow: a new strategy is one callable and one line in the classifier prompt.</p>
+<h3>A router picks a specialist</h3>
+<p>The notebook&rsquo;s router has three specialists: a generalist for conversation, a researcher with web search (three results per search), and a coder. Its decision is a <code>Literal</code> of the three names, and a conditional edge dispatches to the chosen node.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    Q[/Request/] --&gt; R["router&lt;br/&gt;Literal of three names"]
+    R -- Generalist --&gt; G[Generalist]
+    R -- Researcher --&gt; S["Researcher&lt;br/&gt;web search tool"]
+    R -- Coder --&gt; C[Coder]
+</pre></figure>
+<p><em>Figure 1: The router. One decision, then one specialist inside one fixed graph.</em></p>
+<p>A router differs from a handoff (M35) in who holds the decision. The router decides before any specialist runs, and the specialist cannot pass the request on. In a handoff, the agent holding the conversation transfers it by calling a tool.</p>
+<h3>A meta-controller picks an architecture</h3>
+<p>A <strong>meta-controller</strong> makes the same choice one level up. It wraps each architecture as a plain callable that takes the request text and returns an answer, and it never sees inside one. Its decision is a <code>Strategy</code> enum, and a registry maps each member to its callable instead of a chain of <code>if</code>s. A check in code catches a strategy with no callable.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    Q[/Request/] --&gt; M["classifier&lt;br/&gt;Strategy enum"]
+    M --&gt; REG{"registry&lt;br/&gt;strategy to callable"}
+    REG --&gt; D["direct_answer&lt;br/&gt;1 call"]
+    REG --&gt; S["search_agent&lt;br/&gt;own tool loop"]
+    REG --&gt; P["multi_step_planning&lt;br/&gt;up to 6 calls"]
+    REG --&gt; B["debate&lt;br/&gt;3 calls"]
+</pre></figure>
+<p><em>Figure 2: The meta-controller. One classification, then a whole architecture it treats as a black box.</em></p>
+<p>The registry is what makes the design grow: a new strategy is one callable and one line in the classifier prompt. Pick a strategy to see which Larkspur request it suits:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="strategy-switcher">
+<p class="widget-intro">The notebook's four strategies, mapped onto Larkspur traffic. The classifier adds one call in front of each. Larkspur requests are illustrative; call counts are from the notebook's code.</p>
+<div class="mode-controls" hidden role="group" aria-label="Meta-controller strategy">
+<button type="button" data-mode="direct" aria-pressed="false" aria-controls="strategy-direct">direct_answer</button>
+<button type="button" data-mode="search" aria-pressed="false" aria-controls="strategy-search">search_agent</button>
+<button type="button" data-mode="plan" aria-pressed="false" aria-controls="strategy-plan">multi_step_planning</button>
+<button type="button" data-mode="debate" aria-pressed="false" aria-controls="strategy-debate">debate</button>
+</div>
+<section id="strategy-direct" class="mode-panel" data-announcement="direct_answer selected. One call for a self-contained fact."><h4>direct_answer</h4><ul><li>Shape: a self-contained fact the model already knows.</li><li>Larkspur request: "What is a vCPU?" (general knowledge, no handbook needed).</li><li>Model calls inside: 1.</li></ul></section>
+<section id="strategy-search" class="mode-panel" data-announcement="search_agent selected. Its own tool loop decides how many searches."><h4>search_agent</h4><ul><li>Shape: live or external information.</li><li>Larkspur request: "Is there an incident right now?" (only the live status page knows).</li><li>Model calls inside: its own tool loop decides, capped at 12 graph steps.</li></ul></section>
+<section id="strategy-plan" class="mode-panel" data-announcement="multi_step_planning selected. At most six calls."><h4>multi_step_planning</h4><ul><li>Shape: several bundled sub-questions.</li><li>Larkspur request: the refund, timing, export and credits question of lesson 36.5.</li><li>Model calls inside: at most 6 (a plan, up to 4 sub-answers, a synthesis). The plan is cut to 4 sub-questions.</li></ul></section>
+<section id="strategy-debate" class="mode-panel" data-announcement="debate selected. Three calls."><h4>debate</h4><ul><li>Shape: a trade-off with no single answer.</li><li>Larkspur request: "Should we move from a monthly to an annual plan?".</li><li>Model calls inside: 3 (for, against, a judge).</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h3>When the route is wrong</h3>
 <p>The main weakness is a <strong>silent misroute</strong>. A misrouted request still gets an answer, from the wrong specialist or architecture, and nothing downstream notices. A <code>direct_answer</code> reply to &ldquo;Is there an incident right now?&rdquo; reads fine and is a guess.</p>
 <p>The notebook&rsquo;s guard is a table of requests with the route each was written for, compared in code with the route each controller chose:</p>
@@ -1076,56 +1093,40 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: The meta-controller&rsquo;s route check from the notebook. The same table, with the router&rsquo;s three requests, is the regression test to run on every prompt or model change.</em></p>
-<p>Two limits remain. One choice per request cannot handle a mixture (&ldquo;look up X, then debate whether it is a good idea&rdquo;), and the classification call adds latency before any real work starts.</p>
+<p><em>Table 2: The meta-controller&rsquo;s route check from the notebook. The same table, with the router&rsquo;s three requests, is the regression test to run on every prompt or model change.</em></p>
+<p>Two limits remain. One choice per request cannot handle a mixture (&ldquo;look up X, then debate whether it is a good idea&rdquo;). The classification call also adds latency before any real work starts.</p>
 <h2 id="ensembles-vote-against-verdict">Ensembles: vote against verdict</h2>
-<p>An <strong>ensemble</strong> runs several independent agents on the same question at the same time, each with a different persona, and an aggregator combines their conclusions. The notebook&rsquo;s committee has a bullish growth analyst, a cautious value analyst and a quantitative analyst, each a search agent, and a chief investment officer (CIO) who writes the recommendation.</p>
+<p>An <strong>ensemble</strong> runs several independent agents on the same question at the same time, each with a different persona, and an aggregator combines their conclusions. The notebook&rsquo;s committee has a bullish growth analyst, a cautious value analyst and a quantitative analyst, each a search agent. A chief investment officer (CIO) writes the recommendation.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S([Start]) --&gt; G[Growth analyst]
     S --&gt; V[Value analyst]
     S --&gt; Q[Quant analyst]
     G &amp; V &amp; Q --&gt; C["CIO&lt;br/&gt;list edge: waits for all three"]
 </pre></figure>
-<p><em>Figure 1: The ensemble graph. Three branches in one superstep, and a join that waits for all of them.</em></p>
+<p><em>Figure 3: The ensemble graph. Three branches in one superstep, and a join that waits for all of them.</em></p>
 <p>The graph uses every piece of lesson 36.5. One edge from <code>START</code> to each analyst puts all three in one superstep. All three write the shared <code>analyses</code> key in that superstep, and the key carries the <code>operator.or_</code> reducer, which merges their one-entry dicts. A list edge from the three analysts makes the CIO wait for every report.</p>
 <p>The analysts never see each other&rsquo;s work, and none anchors on another. That independence is what an ensemble buys. The notebook checks two things that are easy to assume:</p>
 <ul>
 <li><strong>Overlap.</strong> Each analyst records its start and end time. The check passes when all three windows were open at once.</li>
 <li><strong>Vote against verdict.</strong> Each analyst ends its report with a <code>Buy</code>, <code>Hold</code> or <code>Sell</code> line. The CIO&rsquo;s recommendation is a <code>Literal</code> of five values, from <code>Strong Buy</code> to <code>Strong Sell</code>, and code maps it to its direction (<code>Strong Buy</code> counts as <code>Buy</code>). Code then sets the majority vote beside the verdict.</li>
 </ul>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Analyst votes</th>
-<th>CIO verdict</th>
-<th>Reading</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Buy, Buy, Hold</td>
-<td>Buy</td>
-<td>Agrees with the majority</td>
-</tr>
-<tr>
-<td>Buy, Buy, Buy</td>
-<td>Hold, summary explains why</td>
-<td>A justified departure</td>
-</tr>
-<tr>
-<td>Buy, Buy, Buy</td>
-<td>Hold, summary gives no reason</td>
-<td><strong>Unexplained override</strong>, the failure to look for</td>
-</tr>
-<tr>
-<td>Buy, Hold, Sell</td>
-<td>Any</td>
-<td>No majority: the CIO weighed a split committee</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 4: How the vote-against-verdict check reads each outcome (illustrative votes).</em></p>
-<p>For Larkspur, the same shape fits an answer review. Three graders read one drafted reply, one for faithfulness to the retrieved chunks, one for tone, one for policy, and an aggregator decides whether it ships. Each grader costs its own model calls, and the committee is priced like three agents. Its latency is set by the slowest grader.</p>
+<p>Pick an outcome to see how the check reads it:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="verdict-switcher">
+<p class="widget-intro">Four committee outcomes and what the vote-against-verdict check concludes. The votes are illustrative.</p>
+<div class="mode-controls" hidden role="group" aria-label="Committee outcome">
+<button type="button" data-mode="agree" aria-pressed="false" aria-controls="verdict-agree">Agrees</button>
+<button type="button" data-mode="justified" aria-pressed="false" aria-controls="verdict-justified">Justified departure</button>
+<button type="button" data-mode="override" aria-pressed="false" aria-controls="verdict-override">Unexplained override</button>
+<button type="button" data-mode="split" aria-pressed="false" aria-controls="verdict-split">Split committee</button>
+</div>
+<section id="verdict-agree" class="mode-panel" data-announcement="Agrees selected. The CIO follows the majority."><h4>Agrees with the majority</h4><ul><li>Votes: Buy, Buy, Hold. Majority: Buy, 2 of 3.</li><li>CIO verdict: Buy. Nothing to flag.</li></ul></section>
+<section id="verdict-justified" class="mode-panel" data-announcement="Justified departure selected. The CIO departs and says why."><h4>A justified departure</h4><ul><li>Votes: Buy, Buy, Buy.</li><li>CIO verdict: Hold, and the summary explains why. The aggregator is allowed to weigh evidence the vote missed.</li></ul></section>
+<section id="verdict-override" class="mode-panel" data-announcement="Unexplained override selected. The failure to look for."><h4>An unexplained override</h4><ul><li>Votes: Buy, Buy, Buy.</li><li>CIO verdict: Hold, and the summary gives no reason. This is the failure to look for.</li></ul></section>
+<section id="verdict-split" class="mode-panel" data-announcement="Split committee selected. No majority."><h4>A split committee</h4><ul><li>Votes: Buy, Hold, Sell. No majority.</li><li>Any verdict: the CIO weighed a split committee, and the check reports that instead of a match.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>For Larkspur, the same shape fits an answer review. Three graders read one drafted reply, one for faithfulness to the retrieved chunks, one for tone, one for policy, and an aggregator decides whether it ships. The committee is priced like three agents, and its latency is set by the slowest grader.</p>
 <h2 id="emergent-systems">Emergent systems</h2>
 <p>The cellular-automata notebook has no controller at all. Every cell of a warehouse grid is a small agent with one local rule: its distance to the packing station is 1 plus the smallest distance among its four neighbours. Walls stay at infinity. Applied to every cell at once, tick after tick, the rule spreads a distance wave around the walls. A carrier reaches the station by always stepping to the neighbour with the lowest value.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -1134,7 +1135,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C -- yes --&gt; T
     C -- no --&gt; W["Walk downhill&lt;br/&gt;to the station"]
 </pre></figure>
-<p><em>Figure 2: The automaton&rsquo;s loop. Every cell computes its next value from the current grid, then all values change together.</em></p>
+<p><em>Figure 4: The automaton&rsquo;s loop. Every cell computes its next value from the current grid, then all values change together.</em></p>
 <p>The notebook runs this on a 7 by 7 warehouse with walls inside, then checks every emergent path against a global breadth-first search over the same grid. A scratch run of its deterministic cells gives:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1166,9 +1167,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: Emergent paths against a global search, from a scratch run of the cellular-automata notebook. The count of ticks includes the final tick that changes nothing.</em></p>
+<p><em>Table 3: Emergent paths against a global search, from a scratch run of the cellular-automata notebook. The count of ticks includes the final tick that changes nothing.</em></p>
 <p>The third row is the adaptability claim. A new wall beside the station blocks item A&rsquo;s short route, and the same rule finds the 12-move route around the top of the grid with no change to the code.</p>
-<p>This is the far end of the control range in this module: no controller, only a local rule applied everywhere in synchronous ticks. It solves a global problem without a planner, at the cost of many cheap updates. A <code>MAX_TICKS</code> guard stops a grid that never settles, and the notebook trusts the result only after the breadth-first check.</p>
+<p>This is the far end of the control range in this module: no controller, only a local rule applied everywhere in synchronous ticks. It solves a global problem without a planner, at the cost of many cheap updates. A <code>MAX_TICKS</code> guard (500) stops a grid that never settles, and the notebook trusts the result only after the breadth-first check.</p>
 <h2 id="choosing-how-much-control">Choosing how much control</h2>
 <p>The four designs on this page and lesson 36.1 sit on one range, from a model choosing at every step to no chooser at all:</p>
 <div class="sheet scroll"><table>
@@ -1212,15 +1213,21 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: Four control styles and the check each one needs.</em></p>
-<h2 id="in-practice-larkspurrsquos-mixed-traffic">In practice: Larkspur&rsquo;s mixed traffic</h2>
-<ol>
-<li><strong>Classify</strong> each request once with the meta-controller and record its reasoning.</li>
-<li><strong>Dispatch</strong> through the registry: the vCPU question to one call, the incident question to the search agent, the four-part question to planning (lesson 36.5 runs its parts in parallel), the plan question to debate.</li>
-<li><strong>Review</strong> drafted replies with a three-grader ensemble, and flag any verdict that overrides the graders without a reason.</li>
-<li><strong>Regression-test</strong> the routes: keep the expected-route table beside the prompt and run it on every change.</li>
-</ol>
+<p><em>Table 4: Four control styles and the check each one needs.</em></p>
+<p>For Larkspur&rsquo;s mixed queue, classify each request once with the meta-controller and record its reasoning. Dispatch through the registry: the vCPU question to one call, the incident question to the search agent, the four-part question to planning (lesson 36.5 runs its parts in parallel), the plan question to debate. Review drafted replies with a three-grader ensemble, and flag any verdict that overrides the graders without a reason. Keep the expected-route table beside the classifier prompt and run it on every change.</p>
 <p>Lesson 36.5 opens up the parallel machinery the ensemble relied on: supersteps, joins, reducers and <code>Send</code>.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No recorded model runs.</strong> The notebooks ship without outputs. Which route a classifier picks, and how the CIO votes, depends on the model; the pages describe what the notebooks check in code, not a logged result.</li>
+<li><strong>The automaton table is a replay.</strong> Table 3 comes from running the notebook&rsquo;s own grid and search cells in the scratchpad, with no model involved. It holds exactly for that 7 by 7 layout.</li>
+<li><strong>Larkspur mappings are illustrative.</strong> The strategy switcher and the grader committee show where each shape fits; they are not notebook tests.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API</a>, conditional edges, reducers and parallel branches.</li>
+<li>Li, J. et al. (2024). <em>More Agents Is All You Need</em>. <a href="https://arxiv.org/abs/2402.05120" target="_blank" rel="noopener">arXiv:2402.05120</a>. Sampling several agents and voting, the simplest ensemble.</li>
+<li>Gardner, M. (1970). <em>Mathematical Games: The fantastic combinations of John Conway&rsquo;s new solitaire game &ldquo;life&rdquo;</em>. Scientific American 223(4). <a href="https://doi.org/10.1038/scientificamerican1070-120" target="_blank" rel="noopener">doi:10.1038/scientificamerican1070-120</a>. The best-known cellular automaton.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A router picks a specialist and a meta-controller picks a whole architecture, each once per request, with one structured-output call over a fixed set. A misrouted request still gets an answer: keep a table of requests with their intended routes and compare it in code on every prompt or model change.</li>
@@ -1240,7 +1247,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. All three ensemble analysts end with Buy, and the CIO recommends Hold. Is that a failure?</summary>
 <p>Only if the CIO&rsquo;s summary gives no reason. Code maps the CIO&rsquo;s five-value recommendation to Buy, Hold or Sell and sets the majority vote beside it. A CIO that departs from the majority and says why is fine. One that departs with no reason is the unexplained override to look for.</p>
 </details>
-<h2 id="map-reduce--async">Map-reduce / async</h2>
+<h2 id="start-with-a-four-part-refund-question">Start with a four-part refund question</h2>
 <p class="lesson-of">Lesson 36.5: Parallel agents, async nodes and streaming. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/mandatory/notebook/05a_parallel_agents.ipynb" target="_blank" rel="noopener"><code>05a_parallel_agents.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p10_multi_agent_systems/m36_collaboration_parallel_agents/mandatory/notebook/05b_async_multi_agent_streaming.ipynb" target="_blank" rel="noopener"><code>05b_async_multi_agent_streaming.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1251,9 +1258,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Compare</strong> what <code>async</code> nodes, <code>astream</code> modes and a concurrency cap change, and when parallelism buys nothing.</li>
 </ul>
 </blockquote>
-<p>Lesson 36.4&rsquo;s ensemble ran three analysts at once without taking the machinery apart. This lesson is that machinery.</p>
-<p>Larkspur&rsquo;s assistant receives a compound question: <em>&ldquo;I&rsquo;m cancelling my annual plan after this week&rsquo;s outages. Can I get a full refund, how long will it take, can I still export my data, and do I get credits for the outages?&rdquo;</em> It splits into four sub-questions with independent evidence. Answered one at a time, the reply takes as long as every model call added together. Answered in parallel with the wrong join, the first reply goes out with nothing about outage credits.</p>
-<p>An agent spends almost all of its time waiting: for a model, a search, a database. Three agents that each wait one second take 3 s one after another and 1 s together, because the waits overlap. Nothing runs faster. The async notebook measures exactly that with a one-second sleep standing in for a model call, and a scratch run prints 3.00 s and 1.00 s.</p>
+<p>Larkspur&rsquo;s assistant receives a compound question: <em>&ldquo;I&rsquo;m cancelling my annual plan after this week&rsquo;s outages. Can I get a full refund, how long will it take, can I still export my data, and do I get credits for the outages?&rdquo;</em></p>
+<p>It splits into four sub-questions with independent evidence. Answered one at a time, the reply takes as long as every model call added together. Answered in parallel with the wrong join, the first reply goes out with nothing about outage credits.</p>
+<h2 id="map-reduce--async">Map-reduce / async</h2>
+<p>The pattern is map-reduce: split the question, answer the parts in parallel (map), then combine them (reduce). An agent spends almost all of its time waiting, for a model, a search or a database. Three agents that each wait one second take 3 s one after another and 1 s together, because the waits overlap; nothing runs faster. The async notebook measures this with a one-second sleep standing in for a model call, and a scratch run prints 3.00 s and 1.00 s.</p>
 <p>Three of the four sub-questions are answered directly. The outage one first rewrites &ldquo;outages&rdquo; into the handbook&rsquo;s own words (availability, service credits), because TF-IDF missed that evidence in M10:</p>
 <figure class="anim sheet" aria-labelledby="anim-supersteps-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Supersteps, scrolls sideways on a narrow screen">
@@ -1376,46 +1384,59 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The lab&rsquo;s stub latencies.</em></p>
-<p>In Figure 1, <code>rewrite</code> finishes at 0.9 s, but <code>credits</code> cannot start until the whole superstep ends at 1.6 s, when <code>export</code> (the slowest, 1.2 s) finishes. The outage branch waits 0.7 s for work it does not depend on. We call this the <strong>barrier tax</strong>. Moving the rewrite inside the <code>credits</code> node keeps every branch one node long, and the answer lands at 2.7 s instead of 3.4 s.</p>
+<p>Step through the compound question on Figure 1&rsquo;s graph, joined so that the synthesizer waits for all four answers:</p>
+<div class="walkthrough learning-widget" data-stepper id="superstep-walkthrough">
+<p class="widget-intro">The lab's schedule for Figure 1 with a list-edge join. Times are the stub latencies of Table 2, not model calls.</p>
+<div class="step-controls" hidden role="group" aria-label="Supersteps of the compound question"><button type="button" data-step="0" aria-pressed="false" aria-controls="superstep-step-0">1. Plan</button><button type="button" data-step="1" aria-pressed="false" aria-controls="superstep-step-1">2. Fan-out</button><button type="button" data-step="2" aria-pressed="false" aria-controls="superstep-step-2">3. Barrier</button><button type="button" data-step="3" aria-pressed="false" aria-controls="superstep-step-3">4. Credits</button><button type="button" data-step="4" aria-pressed="false" aria-controls="superstep-step-4">5. Synth</button></div>
+<div class="step-panels"><section id="superstep-step-0" class="step-panel" aria-labelledby="superstep-heading-0"><h4 id="superstep-heading-0">1. Superstep 1: plan</h4><dl><dt>Runs</dt><dd><code>plan</code>, 0.0 to 0.4 s</dd><dt>Writes</dt><dd>Four sub-questions</dd><dt>Triggers</dt><dd>Four branches: the three answers and <code>rewrite</code></dd></dl></section><section id="superstep-step-1" class="step-panel" aria-labelledby="superstep-heading-1"><h4 id="superstep-heading-1">2. Superstep 2: four branches at once</h4><dl><dt>Runs</dt><dd><code>refund_timing</code> to 1.2 s, <code>refund_window</code> to 1.4 s, <code>export</code> to 1.6 s, <code>rewrite</code> to 0.9 s, all from 0.4 s</dd><dt>Streams</dt><dd>The first sub-answer, <code>refund_timing</code>, at 1.2 s</dd><dt>Ends</dt><dd>At 1.6 s, when the slowest node, <code>export</code>, finishes</dd></dl></section><section id="superstep-step-2" class="step-panel" aria-labelledby="superstep-heading-2"><h4 id="superstep-heading-2">3. The barrier</h4><dl><dt>Waiting</dt><dd><code>rewrite</code> finished at 0.9 s, but <code>credits</code> cannot start until the superstep ends at 1.6 s</dd><dt>Cost</dt><dd>0.7 s spent waiting for work the outage branch does not depend on: the <strong>barrier tax</strong></dd></dl></section><section id="superstep-step-3" class="step-panel" aria-labelledby="superstep-heading-3"><h4 id="superstep-heading-3">4. Superstep 3: credits alone</h4><dl><dt>Runs</dt><dd><code>credits</code>, 1.6 to 2.6 s</dd><dt>State after</dt><dd>All four sub-answers</dd></dl></section><section id="superstep-step-4" class="step-panel" aria-labelledby="superstep-heading-4"><h4 id="superstep-heading-4">5. Superstep 4: synth</h4><dl><dt>Runs</dt><dd><code>synth</code>, 2.6 to 3.4 s, once, with all four answers</dd><dt>Answer lands</dt><dd>At 3.4 s, against 5.7 s for the same nodes one at a time</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The fix is to keep every branch one node long. Moving the rewrite inside the credits agent makes <code>credits</code> a 1.5 s node that starts with the others:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    Q[/Compound question/] --&gt; P[plan]
+    P --&gt; A[refund_window]
+    P --&gt; B[refund_timing]
+    P --&gt; C[export]
+    P --&gt; D["credits&lt;br/&gt;rewrite, then answer"]
+    A &amp; B &amp; C &amp; D --&gt; S[synth]
+</pre></figure>
+<p><em>Figure 2: The rewrite inside the credits agent. Four branches of one node each, three supersteps.</em></p>
+<p><code>credits</code> now finishes at 1.9 s, and the answer lands at 2.7 s instead of 3.4 s.</p>
 <h2 id="joins-that-wait-for-every-branch">Joins that wait for every branch</h2>
-<p>A <strong>join</strong> is a node with several incoming branches. With separate edges from each branch, it runs once for every superstep in which one of its predecessors finished. The parallel notebook builds one unequal-branch graph three ways: branch <code>a</code> is one node long, branch <code>b1</code> then <code>b2</code> is two. A scratch run counts the join&rsquo;s runs:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Join style</th>
-<th>Join runs</th>
-<th>What each run saw</th>
-<th>Nodes per superstep</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Separate edges</td>
-<td>2</td>
-<td><code>a</code>, then <code>a</code> + <code>b2</code></td>
-<td>{a, b1}, {b2, join}, {join}</td>
-</tr>
-<tr>
-<td>List edge from <code>a</code> and <code>b2</code></td>
-<td>1</td>
-<td><code>a</code> + <code>b2</code></td>
-<td>{a, b1}, {b2}, {join}</td>
-</tr>
-<tr>
-<td><code>defer=True</code> on the join</td>
-<td>1</td>
-<td><code>a</code> + <code>b2</code></td>
-<td>{a, b1}, {b2}, {join}</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: One graph, three join styles, from a scratch run of the notebook&rsquo;s stub graphs.</em></p>
-<p>The first row is the <strong>half-evidence answer</strong>. In the lab&rsquo;s graph the separate-edges synthesizer runs in superstep 3 with 3 of 4 sub-answers, writes a reply with nothing about outage credits, and runs again after <code>credits</code>.</p>
-<ul>
-<li><strong>A list edge</strong> waits for every node it names. Use it when you know the predecessors at build time. If a conditional edge skips one of them, the join never runs.</li>
-<li><strong><code>defer=True</code></strong> holds the join until the run has nothing else to do. It also suits branches chosen at run time.</li>
-</ul>
-<p>A model-free test like Table 3 counts the synthesizer&rsquo;s runs and keeps a fixed join fixed.</p>
+<p>A <strong>join</strong> is a node with several incoming branches. The parallel notebook builds one unequal-branch graph three ways: branch <code>a</code> is one node long, branch <code>b1</code> then <code>b2</code> is two.</p>
+<p>With <strong>separate edges</strong>, the join runs once for every superstep in which one of its predecessors finished:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S([Start]) --&gt; A[a] --&gt; J["join&lt;br/&gt;runs twice"]
+    S --&gt; B1[b1] --&gt; B2[b2] --&gt; J
+</pre></figure>
+<p><em>Figure 3: Separate edges. Each finished predecessor triggers the join on its own.</em></p>
+<p>A <strong>list edge</strong> waits for every node it names. Use it when you know the predecessors at build time. If a conditional edge skips one of them, the join never runs.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S([Start]) --&gt; A[a] --&gt; W{{"wait for&lt;br/&gt;a and b2"}}
+    S --&gt; B1[b1] --&gt; B2[b2] --&gt; W
+    W --&gt; J["join&lt;br/&gt;runs once"]
+</pre></figure>
+<p><em>Figure 4: A list edge. One barrier in front of the join that opens when every named node has finished.</em></p>
+<p><strong><code>defer=True</code></strong> keeps the separate edges and holds the join until the run has nothing else to do. It also suits branches chosen at run time.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    S([Start]) --&gt; A[a] --&gt; J["join, defer=True&lt;br/&gt;runs when nothing else is left"]
+    S --&gt; B1[b1] --&gt; B2[b2] --&gt; J
+</pre></figure>
+<p><em>Figure 5: <code>defer=True</code>. The same edges as Figure 3, with the join held back.</em></p>
+<p>Pick a join style:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="join-switcher">
+<p class="widget-intro">One graph, three join styles. Stub-run counts come from a scratch run of the notebook's join graphs; the lab rows come from its schedule.</p>
+<div class="mode-controls" hidden role="group" aria-label="Join style">
+<button type="button" data-mode="separate" aria-pressed="false" aria-controls="join-separate">Separate edges</button>
+<button type="button" data-mode="list" aria-pressed="false" aria-controls="join-list">List edge</button>
+<button type="button" data-mode="defer" aria-pressed="false" aria-controls="join-defer">defer=True</button>
+</div>
+<section id="join-separate" class="mode-panel" data-announcement="Separate edges selected. The join runs twice, the first time with half the inputs."><h4>Separate edges</h4><ul><li>Notebook: the join runs 2 times, seeing <code>a</code>, then <code>a</code> + <code>b2</code>. Supersteps: {a, b1}, {b2, join}, {join}.</li><li>Lab: the synthesizer runs in superstep 3 with 3 of 4 sub-answers and writes a reply with nothing about outage credits, then runs again after <code>credits</code>. This is the <strong>half-evidence answer</strong>.</li></ul></section>
+<section id="join-list" class="mode-panel" data-announcement="List edge selected. The join runs once with every input."><h4>List edge</h4><ul><li>Notebook: 1 run, seeing <code>a</code> + <code>b2</code>. Supersteps: {a, b1}, {b2}, {join}.</li><li>Lab: one synthesizer run with all four answers, at 3.4 s.</li></ul></section>
+<section id="join-defer" class="mode-panel" data-announcement="defer=True selected. The join runs once when the run goes quiet."><h4>defer=True</h4><ul><li>Notebook: 1 run, seeing <code>a</code> + <code>b2</code>, with the same supersteps as the list edge.</li><li>Lab: one synthesizer run at 3.4 s, with no list of predecessors to maintain.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>A model-free test that counts the synthesizer&rsquo;s runs keeps a fixed join fixed.</p>
 <h2 id="reducers-for-shared-keys">Reducers for shared keys</h2>
 <p>Nodes of one superstep write their updates together when it ends. If two of them write the same key and the key has no reducer, LangGraph cannot choose a winner. It raises <code>InvalidUpdateError</code> with the message &ldquo;At key &lsquo;findings&rsquo;: Can receive only one value per step.&rdquo; A <strong>reducer</strong> in the state schema says how to combine the writes:</p>
 <div class="sheet scroll"><table>
@@ -1444,15 +1465,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Reducers for keys that parallel branches share.</em></p>
-<p>The notebook runs the same two nodes against both schemas. The plain one raises, and the reduced one keeps both writes. The combined list comes out in the same order on every run, whichever branch finished first, because LangGraph applies a superstep&rsquo;s writes in a fixed order. A key that only one node per superstep writes needs no reducer.</p>
+<p><em>Table 3: Reducers for keys that parallel branches share.</em></p>
+<p>The notebook runs the same two nodes against both schemas: the plain one raises, the reduced one keeps both writes. The combined list comes out in the same order on every run, because LangGraph applies a superstep&rsquo;s writes in a fixed order. A key that only one node per superstep writes needs no reducer.</p>
 <h2 id="fan-out-sized-at-run-time">Fan-out sized at run time</h2>
 <p>Fixed edges cannot express a fan-out whose size is known only at run time: one branch per document, or one per sub-question when the decomposer (M17) returns three for one question and five for the next. A routing function that returns a list of <code>Send</code> objects can. Each <code>Send</code> names a node and a private input for it:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     P["plan&lt;br/&gt;3 to 5 sub-questions"] -- "one Send each" --&gt; M["answer_one&lt;br/&gt;runs once per Send"]
     M --&gt; R["reduce&lt;br/&gt;sort by tag, combine"]
 </pre></figure>
-<p><em>Figure 2: Map-reduce with <code>Send</code>. All the <code>answer_one</code> runs land in one superstep.</em></p>
+<p><em>Figure 6: Map-reduce with <code>Send</code>. All the <code>answer_one</code> runs land in one superstep.</em></p>
 <p>An <code>operator.add</code> reducer collects the results. Branches can finish in any order, and the reduce step sorts them by their tag before combining. The parallel notebook maps an LLM summary over three documents this way and counts one map branch per document. A fourth document adds a fourth branch with no change to the graph.</p>
 <h2 id="async-nodes-and-streaming">Async nodes and streaming</h2>
 <p>Making nodes <code>async def</code> and awaiting the graph changes nothing about which nodes are parallel. Edges from one source decide that, and a chain of async nodes still runs in order. What async adds is overlap on one event loop, and <code>astream</code> lets you watch it:</p>
@@ -1482,7 +1503,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: What each stream mode reports.</em></p>
+<p><em>Table 4: What each stream mode reports.</em></p>
 <p>In the async notebook three agents wired to <code>START</code> sleep 1.0, 1.5 and 0.5 s. A scratch run gives:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1515,9 +1536,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: The same run through two stream modes. The team takes 1.50 s against 3.0 s for the sum.</em></p>
+<p><em>Table 5: The same run through two stream modes. The team takes 1.50 s against 3.0 s for the sum.</em></p>
 <p><code>updates</code> reports in finish order, which is the proof the agents ran together. <code>values</code> stays silent between the two snapshots, because all three agents share one superstep.</p>
-<p>In the lab, with the rewrite inside the agent node, the first sub-answer (<code>refund_timing</code>) streams through <code>updates</code> at 1.2 s. <code>values</code> stays silent until the superstep ends at 1.9 s, when <code>credits</code> (1.5 s with its rewrite) finishes. The <a href="05_parallel_agents_async_nodes_and_streaming/interactive/parallel-subquestions-lab.html">interactive lab</a> runs this graph with the stub latencies of Table 2 and draws every superstep. Its schedule was checked against LangGraph 1.2.18 running the same graph with sleeps at every setting:</p>
+<p>In the lab, with the rewrite inside the agent, <code>updates</code> streams the first sub-answer at 1.2 s, while <code>values</code> stays silent until <code>credits</code> ends the superstep at 1.9 s. The <a href="05_parallel_agents_async_nodes_and_streaming/interactive/parallel-subquestions-lab.html">interactive lab</a> runs this graph with Table 2&rsquo;s latencies and draws every superstep. Its schedule matches LangGraph 1.2.18 running the same graph with sleeps:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1572,26 +1593,30 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 7: The lab&rsquo;s schedule at seven settings.</em></p>
+<p><em>Table 6: The lab&rsquo;s schedule at seven settings.</em></p>
 <figure class="lab-embed"><iframe src="05_parallel_agents_async_nodes_and_streaming/interactive/parallel-subquestions-lab.html" title="Parallel sub-question agents, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Parallel sub-question agents. <a href="05_parallel_agents_async_nodes_and_streaming/interactive/parallel-subquestions-lab.html">Open full screen</a></figcaption></figure>
-<p><code>max_concurrency</code> in the run config caps how many tasks run at once, which is how you stay under a provider&rsquo;s rate limit. LangGraph starts a superstep&rsquo;s tasks in node-name order, and under a cap the later names wait for a free slot. At a cap of 2, <code>credits</code> and <code>export</code> start first, and the two refund branches wait for a free slot. At a cap of 1 the parallel graph takes as long as the chain. With separate edges it takes longer, 6.5 s against 5.7 s, because the synthesizer still runs twice.</p>
+<p><code>max_concurrency</code> in the run config caps how many tasks run at once, which keeps you under a provider&rsquo;s rate limit. LangGraph starts a superstep&rsquo;s tasks in node-name order: at a cap of 2, <code>credits</code> and <code>export</code> start first and the refund branches wait. At a cap of 1 the parallel graph takes as long as the chain, and with separate edges longer (6.5 s), because the synthesizer still runs twice.</p>
 <h2 id="when-parallelism-buys-nothing">When parallelism buys nothing</h2>
 <ul>
-<li><strong>A chain.</strong> If the writer needs the researcher&rsquo;s output, it cannot start early. The async notebook&rsquo;s three dependent one-second steps take 3.00 s, async or not.</li>
+<li><strong>A chain.</strong> If the writer needs the researcher&rsquo;s output, it cannot start early. The async notebook&rsquo;s three dependent one-second steps take about 3 s, async or not.</li>
 <li><strong>A single agent.</strong> One agent waiting is one wait. Streaming can still show progress, but there is no time to win.</li>
 <li><strong>Fast local work.</strong> Arithmetic and string handling are work, not waiting. Async adds overhead to them.</li>
 </ul>
-<p>Whole runs can overlap too. Gathering three complete team runs on one event loop takes 1.50 s in a scratch run, against about 4.5 s one after another, with no change to the graph. Inside a running event loop, such as a notebook, await the graph directly: starting a second loop there fails.</p>
-<h2 id="in-practice-the-compound-refund-question">In practice: the compound refund question</h2>
+<p>Whole runs can overlap too: gathering three complete team runs on one event loop takes 1.50 s in a scratch run, against about 4.5 s one after another. Inside a running event loop, such as a notebook, await the graph directly: starting a second loop there fails.</p>
+<p>M37 builds full multi-agent applications on these pieces.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub latencies, not model calls.</strong> The lab and Tables 5 and 6 use fixed sleeps. Real calls vary, and the slowest branch&rsquo;s tail sets p95.</li>
+<li><strong>Replays, not recorded runs.</strong> Tables 1 and 5 and the join switcher come from running the notebooks&rsquo; model-free cells with LangGraph 1.2.18. Table 6 was rerun with sleep nodes at half scale and matched the lab at every row.</li>
+<li><strong>Token streaming is not replayed.</strong> The <code>messages</code> mode needs a model.</li>
+</ul>
+<h2 id="references">References</h2>
 <ol>
-<li><strong>Plan</strong> the four sub-questions, and dispatch them with <code>Send</code> when the decomposer&rsquo;s count varies.</li>
-<li><strong>Keep branches level</strong>: do the outage rewrite inside the credits agent and avoid the barrier tax.</li>
-<li><strong>Join once</strong>: a list edge into the synthesizer, or <code>defer=True</code> when branches are chosen at run time.</li>
-<li><strong>Reduce</strong> the sub-answers with <code>operator.add</code> and sort them by tag.</li>
-<li><strong>Stream</strong> <code>updates</code> to show each sub-answer as it lands, starting at 1.2 s in the lab.</li>
-<li><strong>Cap</strong> concurrency to the provider&rsquo;s rate limit, and price the cap in latency: 2.7 s becomes 3.7 s at a cap of 2.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API</a>, supersteps, reducers, <code>Send</code> and deferred nodes.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/streaming" target="_blank" rel="noopener">Streaming</a>, the <code>updates</code>, <code>values</code> and <code>messages</code> modes.</li>
+<li>Malewicz, G. et al. (2010). <em>Pregel: A System for Large-Scale Graph Processing</em>. SIGMOD. <a href="https://doi.org/10.1145/1807167.1807184" target="_blank" rel="noopener">doi:10.1145/1807167.1807184</a>. The superstep model LangGraph&rsquo;s runtime is named after.</li>
+<li>Dean, J. and Ghemawat, S. (2008). <em>MapReduce: Simplified Data Processing on Large Clusters</em>. Communications of the ACM 51(1). <a href="https://doi.org/10.1145/1327452.1327492" target="_blank" rel="noopener">doi:10.1145/1327452.1327492</a>.</li>
 </ol>
-<p>M37 builds full multi-agent applications on these pieces, including a research system that dispatches a variable number of workers with <code>Send</code> and streams the run.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Parallel agents overlap their waits and run no faster: three one-second waits take 1 s together against 3 s in sequence. A chain, a single agent or fast local work gains nothing.</li>
@@ -1667,7 +1692,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Parallel branches cost as much as the slowest task in each superstep; keep branches the same length, join with a list edge or <code>defer=True</code>, and put a reducer on every shared key.</li>
 <li>Debate and STORM multiply calls by design. Count them, run the cheap baseline beside them, and keep them for trade-offs and research where the trail is the product.</li>
 </ul></article>
-    <nav class="toc" aria-label="M36 sections"><details open><summary>In M36</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#blackboard">Blackboard</a></li><li><a href="#branching-on-what-the-board-says">Branching on what the board says</a></li><li><a href="#guarding-an-llm-controller">Guarding an LLM controller</a></li><li><a href="#what-the-controller-costs">What the controller costs</a></li><li><a href="#choosing-a-coordination-shape">Choosing a coordination shape</a></li><li><a href="#in-practice-larkspurrsquos-outage-escalation">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#debate">Debate</a></li><li><a href="#a-bounded-round-robin">A bounded round-robin</a></li><li><a href="#what-makes-a-debate-worth-reading">What makes a debate worth reading</a></li><li><a href="#counting-the-calls">Counting the calls</a></li><li><a href="#choosing-when-to-debate">Choosing when to debate</a></li><li><a href="#in-practice-the-long-context-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#storm">STORM</a></li><li><a href="#typed-findings-not-transcripts">Typed findings, not transcripts</a></li><li><a href="#the-missing-retrieval-boundary">The missing retrieval boundary</a></li><li><a href="#budgeting-a-storm-run">Budgeting a STORM run</a></li><li><a href="#in-practice-the-cancellation-article">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#three-kinds-of-controller">Three kinds of controller</a></li><li><a href="#ensembles-vote-against-verdict">Ensembles</a></li><li><a href="#emergent-systems">Emergent systems</a></li><li><a href="#choosing-how-much-control">Choosing how much control</a></li><li><a href="#in-practice-larkspurrsquos-mixed-traffic">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#map-reduce--async">Map-reduce / async</a></li><li><a href="#supersteps-and-the-barrier">Supersteps and the barrier</a></li><li><a href="#joins-that-wait-for-every-branch">Joins that wait for every branch</a></li><li><a href="#reducers-for-shared-keys">Reducers for shared keys</a></li><li><a href="#fan-out-sized-at-run-time">Fan-out sized at run time</a></li><li><a href="#async-nodes-and-streaming">Async nodes and streaming</a></li><li><a href="#when-parallelism-buys-nothing">When parallelism buys nothing</a></li><li><a href="#in-practice-the-compound-refund-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M36 sections"><details open><summary>In M36</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-an-escalation-that-needs-one-of-two-analysts">Start with an escalation that needs one of two analysts</a></li><li><a href="#blackboard">Blackboard</a></li><li><a href="#branching-on-what-the-board-says">Branching on what the board says</a></li><li><a href="#guarding-an-llm-controller">Guarding an LLM controller</a></li><li><a href="#what-the-controller-costs">What the controller costs</a></li><li><a href="#choosing-a-coordination-shape">Choosing a coordination shape</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-recommendation-nobody-argued-against">Start with a recommendation nobody argued against</a></li><li><a href="#debate">Debate</a></li><li><a href="#a-bounded-round-robin">A bounded round-robin</a></li><li><a href="#what-makes-a-debate-worth-reading">What makes a debate worth reading</a></li><li><a href="#counting-the-calls">Counting the calls</a></li><li><a href="#choosing-when-to-debate">Choosing when to debate</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-an-article-written-from-one-angle">Start with an article written from one angle</a></li><li><a href="#storm">STORM</a></li><li><a href="#typed-findings-not-transcripts">Typed findings, not transcripts</a></li><li><a href="#the-missing-retrieval-boundary">The missing retrieval boundary</a></li><li><a href="#budgeting-a-storm-run">Budgeting a STORM run</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-queue-that-gets-every-kind-of-request">Start with a queue that gets every kind of request</a></li><li><a href="#three-kinds-of-controller">Three kinds of controller</a></li><li><a href="#ensembles-vote-against-verdict">Ensembles</a></li><li><a href="#emergent-systems">Emergent systems</a></li><li><a href="#choosing-how-much-control">Choosing how much control</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-four-part-refund-question">Start with a four-part refund question</a></li><li><a href="#map-reduce--async">Map-reduce / async</a></li><li><a href="#supersteps-and-the-barrier">Supersteps and the barrier</a></li><li><a href="#joins-that-wait-for-every-branch">Joins that wait for every branch</a></li><li><a href="#reducers-for-shared-keys">Reducers for shared keys</a></li><li><a href="#fan-out-sized-at-run-time">Fan-out sized at run time</a></li><li><a href="#async-nodes-and-streaming">Async nodes and streaming</a></li><li><a href="#when-parallelism-buys-nothing">When parallelism buys nothing</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

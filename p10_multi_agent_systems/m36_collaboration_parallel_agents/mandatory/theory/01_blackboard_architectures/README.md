@@ -2,8 +2,9 @@
 
 *[M36 theory](../README.md) · Lesson 36.1 · Notebooks: [`01a_blackboard_intro.ipynb`](../../notebook/01a_blackboard_intro.ipynb), [`01b_blackboard_research_team.ipynb`](../../../optional/notebook/01b_blackboard_research_team.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A controller that re-reads a shared board after every post can skip the branch a fixed pipeline always pays for -->
+<!-- format: approved -->
 
-## Blackboard
+## Start with an escalation that needs one of two analysts
 
 > **What you'll learn**
 >
@@ -12,9 +13,13 @@
 > - **Diagnose** the ways an LLM controller goes wrong: an invalid name, an impossible step, a loop that never finishes.
 > - **Choose** between a blackboard, a pipeline and a fan-out by asking when the order of work is known.
 
-M35 built supervisors and handoffs, where one agent passes control to the next. This module adds shared state: several specialists contribute to one record, and something decides who goes next.
+Larkspur's support team gets an escalation: *a customer says their server went down twice this week. If the outages pushed availability below the 99.95% SLA, draft a service-credit reply, otherwise draft a reply that points to the status page and the root-cause report.*
 
-Larkspur's support team gets an escalation: *a customer says their server went down twice this week. If the outages pushed availability below the 99.95% SLA, draft a service-credit reply, otherwise draft a reply that points to the status page and the root-cause report.* A fixed pipeline of analysts would run the credits analyst and the status analyst on every escalation, because its edges cannot skip a node. Half that work is wasted on each request, and the writer has to ignore one of the two reports.
+A fixed pipeline of analysts runs the credits analyst and the status analyst on every escalation, because its edges cannot skip a node. Half that work is wasted on each request, and the writer has to ignore one of the two reports. The next step depends on what the first analyst finds, and the pipeline fixed its order before the run started.
+
+M35 built supervisors and handoffs, where one agent passes control to the next. This lesson adds shared state: several specialists contribute to one record, and something decides who goes next.
+
+## Blackboard
 
 A **blackboard system** coordinates specialists through one shared store, the **blackboard**. Specialists never call each other. Each one reads the board, does its own job and appends its result. A **controller** reads the whole board after every contribution and picks the next specialist, or `FINISH`:
 
@@ -30,33 +35,48 @@ flowchart LR
 
 *Figure 1: The blackboard loop. Every specialist turn sits between two controller turns.*
 
-The design comes from the HEARSAY-II speech-recognition system (Erman et al., 1980). In HEARSAY-II the specialists watched the board for their own trigger conditions and a scheduler chose among them. In the reference implementations the controller does all the watching.
+The design comes from the HEARSAY-II speech-understanding system (Erman et al., 1980). There the specialists watched the board for their own trigger conditions and a scheduler chose among them. In this lesson's implementations the controller does all the watching.
 
 The controller is the only part that decides order. The specialists stay narrow, and adding one means adding a node and a name the controller may choose. Nothing else is rewired.
 
+### Follow the Larkspur escalation
+
+Here is the escalation through a blackboard with three specialists. The trace is scripted, and the facts come from the Larkspur handbook's SLA and outage pages. The counts track specialist calls and controller model calls separately:
+
+<div class="walkthrough learning-widget" data-stepper id="escalation-walkthrough">
+<p class="widget-intro">Follow the outage escalation across the board. Each stage shows the newest post and the running call counts.</p>
+<div class="step-controls" hidden role="group" aria-label="Escalation stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="escalation-step-0">1. Board</button><button type="button" data-step="1" aria-pressed="false" aria-controls="escalation-step-1">2. Incident</button><button type="button" data-step="2" aria-pressed="false" aria-controls="escalation-step-2">3. Credits</button><button type="button" data-step="3" aria-pressed="false" aria-controls="escalation-step-3">4. Writer</button><button type="button" data-step="4" aria-pressed="false" aria-controls="escalation-step-4">5. Finish</button></div>
+<div class="step-panels"><section id="escalation-step-0" class="step-panel" aria-labelledby="escalation-heading-0"><h4 id="escalation-heading-0">1. Post the request</h4><dl><dt>Board</dt><dd>The request and the customer's account and region</dd><dt>Controller reads</dt><dd>No findings yet: call the incident analyst</dd><dt>Calls so far</dt><dd>0 specialist, 1 controller</dd></dl></section><section id="escalation-step-1" class="step-panel" aria-labelledby="escalation-heading-1"><h4 id="escalation-heading-1">2. The incident analyst posts</h4><dl><dt>Newest post</dt><dd>What the status page probes recorded for the region this month, and the month's availability</dd><dt>Controller reads</dt><dd>Availability below 99.95%: call the credits analyst, skip the status analyst</dd><dt>Calls so far</dt><dd>1 specialist, 2 controller</dd></dl></section><section id="escalation-step-2" class="step-panel" aria-labelledby="escalation-heading-2"><h4 id="escalation-heading-2">3. The credits analyst posts</h4><dl><dt>Newest post</dt><dd>Credits of 10% of that month's server charges in the region, or 25% below 99.0%, claimed through a Billing ticket within 30 days</dd><dt>Controller reads</dt><dd>A finding and the credit rule are on the board: call the writer</dd><dt>Calls so far</dt><dd>2 specialist, 3 controller</dd></dl></section><section id="escalation-step-3" class="step-panel" aria-labelledby="escalation-heading-3"><h4 id="escalation-heading-3">4. The writer posts a draft</h4><dl><dt>Newest post</dt><dd>A service-credit reply built only from the two posts above</dd><dt>Controller reads</dt><dd>A draft exists: return FINISH</dd><dt>Calls so far</dt><dd>3 specialist, 4 controller</dd></dl></section><section id="escalation-step-4" class="step-panel" aria-labelledby="escalation-heading-4"><h4 id="escalation-heading-4">5. Check the run in code</h4><dl><dt>Checks</dt><dd>Exactly one of the two analysts ran, it matches the availability figure, and the run stayed under the call cap</dd><dt>Had availability stayed at or above 99.95%</dt><dd>The status analyst would post the status-page link and the 72-hour root-cause report instead, at the same cost</dd><dt>Calls in all</dt><dd>3 specialist, 4 controller</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 ## Branching on what the board says
 
-The intro notebook gives both designs one request with an either/or condition: find the latest news about a company, then run a technical analysis if the news is neutral or positive, or a financial analysis if it is negative. Here are both graphs, one row per design:
+The intro notebook gives both designs one request with an either/or condition: find the latest news about a company, then run a technical analysis if the news is neutral or positive, or a financial analysis if it is negative. Figure 1 is the blackboard. Figure 2 is the fixed pipeline the notebook builds beside it:
 
-| Design | Order of work | Branches that run |
-|---|---|---|
-| Fixed pipeline | news, technical, financial, writer | Both, on every request |
-| Blackboard | controller, news, controller, one analyst, controller, writer, controller | One, chosen after the news post lands |
+```mermaid
+flowchart TB
+    S([Start]) --> N["News analyst"]
+    N --> T["Technical analyst"]
+    T --> F["Financial analyst"]
+    F --> W["Report writer"]
+    W --> E([End])
+```
 
-*Table 1: The same conditional request through both designs. The pipeline's edges fix its order before the run starts.*
+*Figure 2: The notebook's fixed pipeline. Its four edges are set before the run, so both analysts run on every request.*
 
-The notebook does not ask another model whether the instruction was followed. It computes two checks from `steps`, the list of specialists that ran:
+The notebook does not ask another model whether the instruction was followed. It computes two checks from `steps`, the list of specialists that ran. To grade the branch, it classifies the news post's sentiment once with a narrow structured-output call: negative expects the financial analyst, anything else the technical one.
 
-| Check, computed from `steps` | Sequential pipeline | Blackboard |
-|---|---|---|
-| Followed the either/or | Never: both branches run by construction | Whatever this run's controller chose |
-| Correct branch for the sentiment | Never: both branches run | Checked against a sentiment label from the news post |
+<div class="learning-widget evidence-switcher" data-comparison id="design-switcher">
+<p class="widget-intro">Run the notebook's either/or request through each design and read the code-computed checks.</p>
+<div class="mode-controls" hidden role="group" aria-label="Coordination design">
+<button type="button" data-mode="pipeline" aria-pressed="false" aria-controls="design-pipeline">Fixed pipeline (Figure 2)</button>
+<button type="button" data-mode="blackboard" aria-pressed="false" aria-controls="design-blackboard">Blackboard (Figure 1)</button>
+</div>
+<section id="design-pipeline" class="mode-panel" data-announcement="Fixed pipeline selected. Both branches run and both checks fail."><h4>Fixed pipeline</h4><ul><li>Order of work: news, technical, financial, writer.</li><li>Branches that run: both, on every request.</li><li>Followed the either/or: never, both branches run by construction.</li><li>Correct branch: never, for the same reason.</li></ul><p>The pipeline fails by structure, not by a model error.</p></section>
+<section id="design-blackboard" class="mode-panel" data-announcement="Blackboard selected. One branch runs, chosen after the news post lands."><h4>Blackboard</h4><ul><li>Order of work: controller, news, controller, one analyst, controller, writer, controller.</li><li>Branches that run: one, chosen after the news post lands.</li><li>Followed the either/or: whatever this run's controller chose.</li><li>Correct branch: checked against the sentiment label from the news post.</li></ul><p>The blackboard can fail by judgment, because the controller is an LLM.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-*Table 2: The code-computed comparison. The pipeline fails by structure, the blackboard can fail by judgment.*
-
-The blackboard row can fail too, because the controller is an LLM. A run where it calls both analysts, or the wrong one, shows up as a failed check instead of a plausible report. That is why the check runs on every run rather than once.
-
-On the Larkspur escalation the same shape plays out with three specialists. An incident analyst posts what the incident log shows. The controller reads that post and calls either the credits analyst or the status analyst. A writer drafts the reply from the board.
+A run where the controller calls both analysts, or the wrong one, shows up as a failed check instead of a plausible report. That is why the check runs on every run rather than once.
 
 ## Guarding an LLM controller
 
@@ -66,7 +86,7 @@ A controller that re-decides at every step can also loop, stall or name a step t
 - **Premature step**: it names a real specialist whose input is not on the board yet, such as a writer with no findings.
 - **Runaway controller**: it keeps choosing specialists and never returns `FINISH`.
 
-The reference implementations guard each one in code. The planted cases below come from the research-team notebook, which feeds hand-written boards to its pure guard functions with no model call. All six checks pass:
+The implementations guard each one in code. The planted cases below come from the research-team notebook, which feeds hand-written boards to its pure guard functions with no model call. A scratch run of that cell passes all six checks:
 
 | Planted case | What the guard returned | Guard |
 |---|---|---|
@@ -77,12 +97,12 @@ The reference implementations guard each one in code. The planted cases below co
 | Fallback after an unchecked finding | Fact-Checker | Rule-based next step |
 | Fallback after a `needs_revision` verdict | Researcher | Rule-based next step |
 
-*Table 3: Guard checks on hand-written blackboards, from a scratch run of the research-team notebook's pure functions.*
+*Table 1: Guard checks on hand-written blackboards, from a scratch run of the research-team notebook's pure functions.*
 
 Four guards cover the three failures:
 
 - **A typed decision** stops the phantom route. The decision field is a `Literal` of the specialist names plus `FINISH`, so the model can only name a real node. The node writes the decision to state, and a separate, pure routing function reads it.
-- **Preconditions checked in code** stop the premature step. In the research-team implementation, `precondition_problem()` rejects impossible choices and `rule_based_next()` substitutes the rule-based choice. Every override is printed and counted.
+- **Preconditions checked in code** stop the premature step. In the research team, `precondition_problem()` rejects impossible choices and `rule_based_next()` substitutes the rule-based choice. Every override is printed and counted.
 - **A cap in code** stops the runaway controller. The intro notebook's controller returns `FINISH` without calling the model once `MAX_SPECIALIST_CALLS = 6` specialists have run (the research team allows 12 contributions). LangGraph's `recursion_limit` (20 in the intro, 40 in the research team) is only the backstop: it ends the run with an error rather than a clean stop.
 - **Structured contributions** let code read the board. Posts in the research team are records with `agent`, `type` and `content`. Code can then tell a finding from a fact-check from a draft, and pair each finding with its own verdict.
 
@@ -92,7 +112,7 @@ Specialists that search must execute their tool. The intro notebook runs each an
 
 ## What the controller costs
 
-Every specialist turn sits between two controller turns. A run with `k` specialists makes up to `k + 1` controller calls on top of the specialists' own. For the Larkspur escalation that looks like this:
+Every specialist turn sits between two controller turns. A run with `k` specialists makes up to `k + 1` controller calls on top of the specialists' own:
 
 | Run | Specialist calls | Controller model calls |
 |---|---|---|
@@ -100,11 +120,11 @@ Every specialist turn sits between two controller turns. A run with `k` speciali
 | Pipeline running both analysts | 4 | 0 |
 | Intro notebook at its cap | 6 | 6 (the seventh decision is made in code) |
 
-*Table 4: Calls per run, counting each specialist as one call even when its own tool loop makes more. The first two rows are illustrative.*
+*Table 2: Calls per run, counting each specialist as one call even when its own tool loop makes more. The first two rows are illustrative.*
 
 The blackboard saves a specialist and pays for it in controller calls. That trade pays when the skipped specialist is expensive, such as a search loop, or when its output would mislead the writer.
 
-Traces are harder to read than a pipeline's, because the path changes from run to run. In the research-team implementation a fact-check that flags a finding sends the controller back to the Researcher, a loop-back no edge in the graph spells out. The notebook counts loop-backs and overrides from the final board. A run with zero loop-backs is valid: every finding passed its first check.
+Traces are harder to read than a pipeline's, because the path changes from run to run. In the research team a fact-check that flags a finding sends the controller back to the Researcher, a loop-back no edge in the graph spells out. The notebook counts loop-backs and overrides from the final board. A run with zero loop-backs is valid: every finding passed its first check.
 
 ## Choosing a coordination shape
 
@@ -118,29 +138,31 @@ flowchart TD
     I -- no --> P["Fixed pipeline"]
 ```
 
-*Figure 2: A blackboard earns its controller calls only when the order depends on what earlier steps find.*
+*Figure 3: A blackboard earns its controller calls only when the order depends on what earlier steps find.*
 
 | | Fixed pipeline | Fan-out | Blackboard |
 |---|---|---|---|
 | Who decides order | The graph's edges | The graph's edges | An LLM controller, every turn |
-| Can skip a branch | ✗ | ✗ | ✓ |
+| Can skip a branch | No | No | Yes |
 | Extra model calls | None | None | Up to `k + 1` |
-| Same path every run | ✓ | ✓ | ✗ |
+| Same path every run | Yes | Yes | No |
 | Main risk | Wasted branches | Joins and shared keys | Runaway or wrong choices |
 
-*Table 5: Three coordination shapes for several specialists.*
+*Table 3: Three coordination shapes for several specialists.*
 
-Use a blackboard for diagnosis, triage and research with verification. When the order is known before the run starts, a pipeline or a fan-out ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md)) is cheaper and easier to test.
+Use a blackboard for diagnosis, triage and research with verification. When the order is known before the run starts, a pipeline or a fan-out ([lesson 36.5](../05_parallel_agents_async_nodes_and_streaming/README.md)) is cheaper and easier to test. Lesson 36.2 swaps cooperation for disagreement: two agents argue opposite sides and a judge weighs them.
 
-## In practice: Larkspur's outage escalation
+## Limits of this evidence
 
-1. **Board**: the request and the customer's account go on the board as the first post.
-2. **Incident analyst** posts what the status page probes recorded for the customer's region this month, with the month's availability.
-3. **Controller** reads that post. Below 99.95% it calls the credits analyst, which posts the credit owed (10% of the month's server charges in that region, 25% below 99.0%) and the rule that credits are claimed with a Billing ticket within 30 days. At or above 99.95% it calls the status analyst, which posts the status-page link and the 72-hour root-cause report.
-4. **Writer** drafts from the board, and the controller returns `FINISH` once a draft exists.
-5. **Checks in code**: exactly one of the two analysts ran, it matches the availability figure, and the run stayed under the call cap.
+- The notebooks print no recorded runs: they ship without outputs. The controller's choices on the news request vary from run to run, and this page reports only what the code computes, not how often a real controller picks the right branch.
+- The guard checks in Table 1 come from a scratch run of the research team's pure functions on hand-written boards, with no model call. They show the guards work, not how often a model triggers them.
+- The Larkspur escalation and the first two rows of Table 2 are scripted illustrations built from the handbook's SLA and outage pages. No notebook runs that escalation.
 
-Lesson 36.2 swaps cooperation for disagreement: two agents argue opposite sides and a judge weighs them.
+## References
+
+- Erman, L. D., Hayes-Roth, F., Lesser, V. R. and Reddy, D. R. (1980). The Hearsay-II Speech-Understanding System: Integrating Knowledge to Resolve Uncertainty. *ACM Computing Surveys* 12(2). [doi:10.1145/356810.356816](https://doi.org/10.1145/356810.356816)
+- LangGraph documentation: [Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api), for conditional edges and `recursion_limit`.
+- LangChain documentation: [Multi-agent systems](https://docs.langchain.com/oss/python/langchain/multi-agent).
 
 ## Key Takeaways
 

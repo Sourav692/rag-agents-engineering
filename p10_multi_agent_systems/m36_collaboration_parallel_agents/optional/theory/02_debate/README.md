@@ -2,8 +2,9 @@
 
 *[M36 theory](../../../mandatory/theory/README.md) · Lesson 36.2 · Notebooks: [`02a_debate.ipynb`](../../notebook/02a_debate.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Two agents arguing opposite sides and a judge who reasons past both earn their seven calls on trade-offs, never on facts -->
+<!-- format: approved -->
 
-## Debate
+## Start with a recommendation nobody argued against
 
 > **What you'll learn**
 >
@@ -12,9 +13,11 @@
 > - **Diagnose** a debate that adds nothing: parallel monologues, a lopsided persona, a biased judge.
 > - **Choose** between debate, a single call and retrieval by asking whether the question has one correct answer.
 
+Larkspur's product team asks the support assistant: *should we stop retrieving and put the whole handbook in a long-context prompt?* One model call returns a tidy recommendation. It may be right, but it shows one framing of a question with real costs on both sides: cost per call, accuracy on facts buried mid-context, and access control (the fifth interview question on the [M10 module page](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md#interview-spotlight-5-questions-you-might-get-asked)). The team wants the counter-case argued properly before it commits.
+
 Lesson 36.1's specialists cooperated on one board. Here two agents disagree on purpose, and the reader of the result sees the strongest case for each side before a decision.
 
-Larkspur's product team asks the support assistant: *should we stop retrieving and put the whole handbook in a long-context prompt?* One model call returns a tidy recommendation. It may be right, but it shows one framing of a question with real costs on both sides: cost per call, accuracy on facts buried mid-context, and access control (the fifth interview question on the [M10 module page](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md#interview-spotlight-5-questions-you-might-get-asked)). The team wants the counter-case argued properly before it commits.
+## Debate
 
 In a **debate** two agents argue opposite sides of a question over several rounds. Each reads the whole transcript and rebuts the other's latest point. A neutral **judge** then writes the verdict:
 
@@ -29,26 +32,34 @@ flowchart LR
 
 *Figure 1: The round-robin debate graph. Only the two sides and the judge call a model.*
 
-Two research setups share the name:
+This shape follows **MAD** (Liang et al., EMNLP 2024): fixed affirmative and negative sides, and a judge that reads the debate and extracts the answer. MAD's judge may also end the debate early. The notebook always runs every round.
 
-- **MAD** (Liang et al., EMNLP 2024): fixed affirmative and negative sides, and a judge that reads the debate and extracts the answer. MAD's judge may also end the debate early. The notebook follows MAD but always runs every round.
-- **Multiagent debate** (Du et al., 2023): every agent gets the same prompt, answers on its own, then reads the others' answers and revises until they converge. There are no assigned sides and no judge.
+A second research setup shares the name. In **multiagent debate** (Du et al., 2023) every agent gets the same prompt and answers on its own, then reads the others' answers and revises until they converge. There are no assigned sides and no judge:
 
-The notebook's own question is a classic trade-off: should a six-person team building a new B2B SaaS product start with microservices or a monolith.
+```mermaid
+flowchart TB
+    Q[/Same question/] --> A1["Agent 1<br/>answers alone"]
+    Q --> A2["Agent 2<br/>answers alone"]
+    A1 --> R["Each agent reads the others<br/>and revises its answer"]
+    A2 --> R
+    R -- not converged --> R
+    R -- converged --> F[/Shared answer/]
+```
+
+*Figure 2: Added for comparison. Multiagent debate in the style of Du et al., with no sides and no judge. The notebook does not build it.*
+
+MAD is built to surface the strongest case on each side of a trade-off. Multiagent debate is built to make agents check each other's reasoning toward one answer. The notebook builds the MAD shape, on a classic trade-off: should a six-person team building a new B2B SaaS product start with microservices or a monolith.
 
 ## A bounded round-robin
 
-The control flow is a small graph with one counter in state. After side B speaks, an `advance_round` node adds one to the counter, and a routing function sends the graph back to side A or on to the judge. That function is plain Python, and the notebook checks it without a model call. A scratch run of that check gives:
+The control flow is a small graph with one counter in state. After the second side speaks, an `advance_round` node adds one to the counter, and a routing function sends the graph back to the first side or on to the judge. That function is plain Python, and the notebook checks it without a model call. A scratch run of the whole graph with a stub model makes six debater turns and one judge call:
 
-| After round | Counter now | Route |
-|---|---|---|
-| 1 | 2 | Side A |
-| 2 | 3 | Side A |
-| 3 | 4 | Judge |
+<div class="walkthrough learning-widget" data-stepper id="debate-walkthrough">
+<p class="widget-intro">Step through the debate with <code>MAX_ROUNDS = 3</code>. Each stage shows the round counter, the route and the running call count.</p>
+<div class="step-controls" hidden role="group" aria-label="Debate rounds"><button type="button" data-step="0" aria-pressed="false" aria-controls="debate-step-0">1. Round 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="debate-step-1">2. Round 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="debate-step-2">3. Round 3</button><button type="button" data-step="3" aria-pressed="false" aria-controls="debate-step-3">4. Judge</button></div>
+<div class="step-panels"><section id="debate-step-0" class="step-panel" aria-labelledby="debate-heading-0"><h4 id="debate-heading-0">1. Round 1: two opening turns</h4><dl><dt>Turns</dt><dd>Pro-microservices opens, pro-monolith rebuts and argues</dd><dt>Counter after advance_round</dt><dd>2, at most 3: route back to the first side</dd><dt>LLM calls so far</dt><dd>2</dd></dl></section><section id="debate-step-1" class="step-panel" aria-labelledby="debate-heading-1"><h4 id="debate-heading-1">2. Round 2: two rebuttals</h4><dl><dt>Turns</dt><dd>Each side answers the other's newest point before adding one or two of its own</dd><dt>Counter after advance_round</dt><dd>3, at most 3: route back to the first side</dd><dt>LLM calls so far</dt><dd>4</dd></dl></section><section id="debate-step-2" class="step-panel" aria-labelledby="debate-heading-2"><h4 id="debate-heading-2">3. Round 3: the last two turns</h4><dl><dt>Turns</dt><dd>Two more rebuttals; the transcript now holds six turns</dd><dt>Counter after advance_round</dt><dd>4, above 3: route to the judge</dd><dt>LLM calls so far</dt><dd>6</dd></dl></section><section id="debate-step-3" class="step-panel" aria-labelledby="debate-heading-3"><h4 id="debate-heading-3">4. The judge fills a verdict</h4><dl><dt>Output</dt><dd>A <code>DebateVerdict</code>: the strongest point from each side, the weak claims, a recommendation and a confidence</dd><dt>Counter</dt><dd>Not read again; the graph ends</dd><dt>LLM calls in all</dt><dd>7</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 1: The routing check with `MAX_ROUNDS = 3`, run in the scratchpad. Three rounds, then the judge.*
-
-A counter in code bounds the debate. No agent decides when to stop, so the loop cannot run away the way a blackboard controller can.
+A counter in code bounds the debate. No agent decides when to stop, and the loop cannot run away the way a blackboard controller can.
 
 ## What makes a debate worth reading
 
@@ -66,7 +77,7 @@ Three weaknesses remain, and the rules above only reduce them:
 | **Lopsided debate** | One side wins every exchange | Its persona prompt is stronger than the other's |
 | **Biased judge** | The verdict leans one way regardless of the transcript | The judge is one model call and a single point of bias |
 
-*Table 2: Failures the debate pattern does not remove, from the notebook's own analysis.*
+*Table 1: Failures the debate pattern does not remove, from the notebook's own analysis.*
 
 > **Pitfall: treating the verdict as ground truth.** A judged recommendation is an argued opinion. When both sides miss a consideration, the judge cannot weigh it.
 
@@ -80,7 +91,7 @@ Each round costs two debater turns, and the judge adds one call at the end:
 | Debate, `N` rounds | `2N + 1` | A transcript, the strongest point from each side, a judged recommendation |
 | Debate, `N = 3` (this configuration) | 7 | Six turns and one verdict |
 
-*Table 3: The cost of a debate against a single call. The `advance_round` node makes no model call.*
+*Table 2: The cost of a debate against a single call. The `advance_round` node makes no model call.*
 
 Latency grows with the calls too, because every turn waits for the one before it. The deliverable is the auditable trail: what each side said, what the judge found strongest and what it rejected.
 
@@ -96,21 +107,34 @@ flowchart TD
     Q -- no --> D["Debate<br/>two sides and a judge"]
 ```
 
-*Figure 2: Route facts to retrieval or one call, and keep debate for trade-offs.*
+*Figure 3: Route facts to retrieval or one call, and keep debate for trade-offs.*
 
-On the Larkspur handbook that line is clear. "How long does a refund take?" has one answer, 5 to 10 business days, and belongs to retrieval. "Should the support assistant stop retrieving and use a long-context prompt?" is a trade-off, and a transcript with a judged verdict is a useful input to that decision.
-
-A third case looks like a debate and is not one. When two retrieved chunks disagree, for example an old and a new refund policy, one of them is out of date. Fix the index first with version metadata and a filter (M11) rather than asking two agents to argue about which one is current.
-
-## In practice: the long-context question
-
-1. **Frame the question** as a trade-off with two sides: keep retrieval, or move the whole handbook into the prompt.
-2. **Write two personas** of equal strength, each told to argue honestly and to rebut before adding a point.
-3. **Run three rounds**: six turns and one judge call, seven calls in all.
-4. **Run the single-call baseline** and read both answers side by side. Look for what the judge adds: named conditions, a staged path, or a counter-argument the single answer never raised.
-5. **List what neither side raised** before treating the verdict as a decision.
+<div class="learning-widget evidence-switcher" data-comparison id="question-switcher">
+<p class="widget-intro">Three Larkspur questions, three different right tools. Pick one to see where Figure 3 sends it.</p>
+<div class="mode-controls" hidden role="group" aria-label="Larkspur question">
+<button type="button" data-mode="refund" aria-pressed="false" aria-controls="question-refund">Refund time</button>
+<button type="button" data-mode="context" aria-pressed="false" aria-controls="question-context">Long context</button>
+<button type="button" data-mode="policies" aria-pressed="false" aria-controls="question-policies">Two policies</button>
+</div>
+<section id="question-refund" class="mode-panel" data-announcement="Refund time selected. One correct answer, so retrieve it."><h4>How long does a refund take?</h4><p>One correct answer, in the handbook: 5 to 10 business days to the original payment method. Retrieve it. A debate would spend 7 calls arguing about a fact.</p></section>
+<section id="question-context" class="mode-panel" data-announcement="Long context selected. A trade-off, so debate it."><h4>Should the assistant stop retrieving and use a long-context prompt?</h4><ol><li>Frame it with two sides: keep retrieval, or move the whole handbook into the prompt.</li><li>Write two personas of equal strength, each told to rebut before adding a point.</li><li>Run three rounds: seven calls in all.</li><li>Run the single-call baseline and look for what the judge adds: named conditions, a staged path, a missed counter-argument.</li><li>List what neither side raised before treating the verdict as a decision.</li></ol></section>
+<section id="question-policies" class="mode-panel" data-announcement="Two policies selected. Not a debate: fix the index."><h4>Two retrieved chunks give an old and a new refund policy</h4><p>This looks like a debate and is not one: one of the chunks is out of date. Fix the index first with version metadata and a filter (M11) rather than asking two agents to argue about which one is current.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Lesson 36.3 keeps several perspectives but makes them cooperate: STORM uses them to research an article instead of arguing.
+
+## Limits of this evidence
+
+- The notebook ships without outputs, and this page quotes no transcript or verdict. The call count and the round routing come from a scratch run of the notebook's own graph with a stub model, so they show the control flow, not argument quality.
+- The weaknesses in Table 1 come from the notebook's own analysis. No experiment here measures how often a judge is biased or a side lopsided.
+- Whether a debate beats the single call is the notebook's open question: it prints both answers for you to compare and scores neither.
+
+## References
+
+- Liang, T. et al. (2024). Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate. EMNLP 2024. [arXiv:2305.19118](https://arxiv.org/abs/2305.19118)
+- Du, Y. et al. (2023). Improving Factuality and Reasoning in Language Models through Multiagent Debate. [arXiv:2305.14325](https://arxiv.org/abs/2305.14325)
+- LangChain documentation: [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output), the mechanism behind `DebateVerdict`.
 
 ## Key Takeaways
 

@@ -2,8 +2,9 @@
 
 *[M37 theory](../README.md) · Lesson 37.2 · Notebooks: [`02a_hotel_edge_cases_and_errors.ipynb`](../../notebook/02a_hotel_edge_cases_and_errors.ipynb), [`02b_hotel_testing_the_system.ipynb`](../../notebook/02b_hotel_testing_the_system.ipynb), [`02c_hotel_system_wide_error_handling.ipynb`](../../../optional/notebook/02c_hotel_system_wide_error_handling.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Test the router without a model, read outcomes from state and the database, and give every failure a bounded way out -->
+<!-- format: approved -->
 
-## System testing
+## Start with a desk that fails politely
 
 > **What you'll learn**
 >
@@ -14,9 +15,11 @@
 
 Lesson 37.1 built a hotel desk with a coordinator, a compliance checker and a reservation agent, and left two gaps open: the checker runs only when the coordinator names it, and the router forwards on any mention of an agent's name.
 
-A multi-agent system fails quietly. The coordinator skips the compliance check or forwards a booking before it has dates, and the guest still gets a polite reply. **System testing** for agents means checking the decisions and the side effects, never the tone of the final message.
+Neither gap shows in a demo. The coordinator skips the compliance check, or forwards a booking before it has dates, and the guest still gets a polite reply. A vector store that goes down mid-turn ends the run with a stack trace.
 
-The build catches these failures at three levels, from cheapest to most realistic:
+## System testing
+
+**System testing** for agents means checking the decisions and the side effects, never the tone of the final message. The build catches failures at three levels, from cheapest to most realistic:
 
 | Level | What it checks | Model calls | How the result is read |
 |---|---|---|---|
@@ -109,7 +112,7 @@ Model output varies between runs. A single failure is a lead, and the number to 
 
 The build pushes on three edges of the core system and puts each safeguard in code:
 
-- **Injection-style input.** A guest hides `' OR '1'='1` in the room type. Pasted into a `WHERE`, the condition is true for every row: on a scratch copy of the hotel database, a Deluxe search widened that way returned all 8 rooms. It can only widen a read, because the query tool refuses every write and the booking tool binds its values as parameters. The durable fixes are structural: a read-only connection and a narrow write tool.
+- **Injection-style input.** A guest hides `' OR '1'='1` in the room type. Pasted into a `WHERE`, the condition is true for every row: on a scratch copy of the hotel database, a Deluxe search widened that way returned all 8 rooms instead of 2. It can only widen a read, because the query tool refuses every write and the booking tool binds its values as parameters. The durable fixes are structural: a read-only connection and a narrow write tool.
 - **A violation that should reach a person.** A human review node pauses the graph with `interrupt()`: the graph saves a checkpoint and stops. The thread's state shows which node waits, and resuming with the reviewer's decision continues from that point. A resumed node runs again from its first line, so side effects such as writing to the review log go after the pause, where they run once. The checkpoint history replays the thread step by step for investigating a complaint.
 - **Dates in the past.** The model extracts the dates with structured output, given today's date to resolve "next Friday", and a plain function compares them with today. That check is testable without an API call.
 
@@ -139,31 +142,64 @@ The three recoveries:
 
 *Table 5: Recovery per error type.*
 
+Follow one failure through that path:
+
+<div class="walkthrough learning-widget" data-stepper id="error-walkthrough">
+<p class="widget-intro">The vector store is down when a guest asks about rooms with a jacuzzi. Each stage names the node that runs and what it writes to state.</p>
+<div class="step-controls" hidden role="group" aria-label="Error path stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="error-step-0">1. Fail</button><button type="button" data-step="1" aria-pressed="false" aria-controls="error-step-1">2. Route</button><button type="button" data-step="2" aria-pressed="false" aria-controls="error-step-2">3. Log</button><button type="button" data-step="3" aria-pressed="false" aria-controls="error-step-3">4. Degrade</button><button type="button" data-step="4" aria-pressed="false" aria-controls="error-step-4">5. Verdict</button></div>
+<div class="step-panels"><section id="error-step-0" class="step-panel" aria-labelledby="error-heading-0"><h4 id="error-heading-0">1. The checker records its failure</h4><dl><dt>Node</dt><dd>compliance_checker</dd><dt>State</dt><dd>error holds the type RetrievalException, the node name and the detail; no message is added</dd></dl></section><section id="error-step-1" class="step-panel" aria-labelledby="error-heading-1"><h4 id="error-heading-1">2. The checker's router sees the field</h4><dl><dt>Router</dt><dd>after_compliance_checker reads error before anything else</dd><dt>Route</dt><dd>error_handler, not the retrieval tool</dd></dl></section><section id="error-step-2" class="step-panel" aria-labelledby="error-heading-2"><h4 id="error-heading-2">3. The handler logs and the decision router picks</h4><dl><dt>Node</dt><dd>error_handler, with the thread id read from the run's config</dd><dt>Route</dt><dd>decision_router maps RetrievalException to degraded_retrieval</dd></dl></section><section id="error-step-3" class="step-panel" aria-labelledby="error-heading-3"><h4 id="error-heading-3">4. Degraded retrieval lists every rule</h4><dl><dt>Node</dt><dd>degraded_retrieval</dd><dt>State</dt><dd>A fallback_rules message with all four rules; error cleared to None</dd><dt>Route</dt><dd>Straight to generate, skipping the vector store</dd></dl></section><section id="error-step-4" class="step-panel" aria-labelledby="error-heading-4"><h4 id="error-heading-4">5. The verdict uses the fallback rules</h4><dl><dt>Node</dt><dd>generate, then the coordinator</dd><dt>Result</dt><dd>A verdict judged against all four rules instead of the top 2, and the turn carries on</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 A fallback that fails raises a different error type, and the router sends it to a person instead of looping. Call the trap this avoids a **fallback loop**. Every failure is injected with a simulation flag, which lets each recovery path run on every run, and a table computed from the node paths proves which one ran.
 
 ### Retries for brief outages
 
-Transient failures get a cheaper fix first: a retry policy re-runs a node that raises. The build uses three attempts, a 0.2 s first wait and no jitter. We ran that policy on a tiny graph whose node fails a set number of times:
+Transient failures get a cheaper fix first: a retry policy re-runs a node that raises, without writing anything to the `error` field. It sits on the node itself:
 
-| Failures before success | Attempts | Waits between attempts | Result |
-|---|---|---|---|
-| 2 | 3 | 0.2 s, then 0.4 s | Succeeds on the third attempt |
-| 3 | 3 | 0.2 s, then 0.4 s | The exception reaches the caller |
+```mermaid
+flowchart LR
+    N[Node raises] --> W["Wait 0.2 s,<br/>then 0.4 s"]
+    W --> A{"Attempts<br/>left?"}
+    A -- yes --> N2[Run the node again]
+    A -- no --> X[Exception reaches the caller]
+```
 
-*Table 6: The retry policy on a node that fails twice and three times, measured in the scratchpad with LangGraph's RetryPolicy.*
+*Figure 3: A retry policy. It handles a failure that clears on its own, and gives up after a fixed number of attempts.*
 
-A retry smooths over a brief outage and does not replace the error path. Without any policy, the first failure ends the whole run.
+The build uses three attempts, a 0.2 s first wait and no jitter. We ran that policy on a tiny graph whose node fails a set number of times:
 
-## In practice: testing Larkspur's desk
+<div class="learning-widget evidence-switcher" data-comparison id="retry-switcher">
+<p class="widget-intro">Compare the same flaky node with and without the build's retry policy.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retry setting">
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="retry-none">No policy</button>
+<button type="button" data-mode="two" aria-pressed="false" aria-controls="retry-two">Policy, 2 failures</button>
+<button type="button" data-mode="three" aria-pressed="false" aria-controls="retry-three">Policy, 3 failures</button>
+</div>
+<section id="retry-none" class="mode-panel" data-announcement="No policy selected. The first failure ends the run."><h4>No policy</h4><ul><li>The node raises once.</li><li>The exception ends the whole run.</li></ul><p>1 attempt, the run crashes.</p></section>
+<section id="retry-two" class="mode-panel" data-announcement="Policy with 2 failures selected. Succeeds on the third attempt."><h4>Policy, node fails twice</h4><ul><li>Waits 0.2 s, then 0.4 s, between attempts.</li><li>The third attempt succeeds and the guest never sees the outage.</li></ul><p>3 attempts, the run completes.</p></section>
+<section id="retry-three" class="mode-panel" data-announcement="Policy with 3 failures selected. The exception reaches the caller."><h4>Policy, node fails three times</h4><ul><li>The same two waits.</li><li>No attempts left after the third failure.</li></ul><p>3 attempts, the exception reaches the caller.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-Larkspur's support desk from lesson 37.1 gets the same three levels:
+A retry suits an outage that clears in under a second; the error path suits one that does not, or a failure that is not an outage at all, such as low confidence. Use both: retries on the node, and the `error` field for whatever the retries cannot fix.
 
-1. Router unit tests on hand-built states, including the billing refusal that names the billing agent, kept as a known issue until a typed router lands.
-2. A regression table of handbook requests (a refund inside the window, a refund outside it, another account's data, an ambiguous "do the same as last month"), read from node paths and the refunds table.
-3. A pass rate per case over several runs, tracked after every prompt or model change.
-4. Error recovery by type: a second model for a failed call, the hard-coded policy text when the vector store is down, a person for anything else.
+### A test plan for Larkspur
+
+Larkspur's desk from lesson 37.1 gets the same three levels: router unit tests, with the billing refusal that names the billing agent kept as a known issue; a regression table of handbook requests (a refund inside the window, one outside it, another account's data, an ambiguous "same as last month") read from node paths and the refunds table; and a pass rate per case over several runs. Errors recover by type, as above.
+
+## Limits of this evidence
+
+- **No model in the replays.** Tables 2 and 3, the injection count and the retry timings come from the shared hotel module and LangGraph's retry policy on scratch graphs. Tables 4 and 5 describe what the notebooks check, not a measured pass rate.
+- **Simulated failures.** The error path is exercised with flags that raise at the node. A real outage can fail inside a tool call the node does not wrap. The error walkthrough follows the graph's edges, not a recorded run.
+- **A stub for people.** Human intervention only writes a handoff message here; the `interrupt()` review node shows what a real pause needs.
 
 Lesson 37.3 adds agents in parallel and a memory that outlives the context window.
+
+## References
+
+1. LangChain, [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts).
+2. LangChain, [Persistence](https://docs.langchain.com/oss/python/langgraph/persistence).
+3. LangChain, [Fault tolerance](https://docs.langchain.com/oss/python/langgraph/fault-tolerance).
+4. OWASP, [SQL Injection](https://owasp.org/www-community/attacks/SQL_Injection).
 
 ## Key Takeaways
 

@@ -2,8 +2,9 @@
 
 *[M35 theory](../README.md) · Lesson 35.4 · Notebooks: [`04a_supervisor_pattern.ipynb`](../../notebook/04a_supervisor_pattern.ipynb), [`04b_hierarchical_agents.ipynb`](../../notebook/04b_hierarchical_agents.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A model picks the next specialist, code caps how many run, and teams of specialists nest under one coordinator only when a flat supervisor stops coping -->
+<!-- format: approved -->
 
-## Supervisor
+## Start with a request that needs two specialists
 
 > **What you'll learn**
 >
@@ -14,7 +15,11 @@
 
 Lesson 35.3 routed with a fixed rule: the first failing check. This lesson lets a model choose the next specialist, and keeps the parts that must not fail in code.
 
-Back to Larkspur's outage request: *My server went down last night. Do I get service credits?* The M30 router sends it to one specialist and stops. Operations explains the outage and nobody mentions the credit claim. A **supervisor** fixes that by deciding again after every specialist. It is a node that reads the work so far and picks the next specialist, or decides the task is done, and every specialist reports back to it.
+A Larkspur customer writes: *My server went down last night. Do I get service credits?* The M30 router classifies the request once and sends it to one specialist. Operations explains the outage, nothing comes back to the router, and nobody answers the credit claim. The request needs two specialists in turn, and something has to notice that the first answer left half of it open.
+
+## Supervisor
+
+A **supervisor** decides again after every specialist. It is a node that reads the work so far and picks the next specialist, or decides the task is done, and every specialist reports back to it.
 
 ### Deciding, routing and counting
 
@@ -30,7 +35,7 @@ The notebook then splits the work three ways:
 
 *Table 1: Who decides, who works and who routes in the supervisor graph.*
 
-Two details make this hold. The `operator.add` reducer sums each specialist's `specialist_calls: 1`, so the count never depends on reading message text. And `route_to_agent` reads that counter first. Once it reaches `MAX_SPECIALIST_CALLS = 6`, the run goes to `finalize`, whatever the model chose. Only then does it follow `task_complete` and `next_agent`:
+Two details make this hold. The `operator.add` reducer sums each specialist's `specialist_calls: 1`, which means the count never depends on reading message text. And `route_to_agent` reads that counter first. Once it reaches `MAX_SPECIALIST_CALLS = 6`, the run goes to `finalize`, whatever the model chose. Only then does it follow `task_complete` and `next_agent`:
 
 ```mermaid
 flowchart LR
@@ -46,7 +51,7 @@ Keeping decisions out of `messages` gives two clean records: the transcript hold
 
 ### Planted failure: the supervisor that never finishes
 
-A supervisor whose critic never says APPROVED keeps sending work back to the writer. The notebook proves the cap without a model: it rebuilds the same graph with a supervisor that always picks the writer and never says `FINISH`, and a writer that returns numbered drafts. We ran that cell:
+A supervisor whose critic never says APPROVED keeps sending work back to the writer. The notebook proves the cap without a model: it rebuilds the same graph with a supervisor that always picks the writer and never says `FINISH`, and a writer that returns numbered drafts. We ran that cell, unchanged, in langgraph 1.2.18:
 
 | Measure | Value |
 |---|---|
@@ -60,21 +65,16 @@ A supervisor whose critic never says APPROVED keeps sending work back to the wri
 
 The seventh decision is the one `route_to_agent` overrides. `recursion_limit = 25` stays as the backstop, but it ends a run with an error, while the counter ends it with a result.
 
-### What a supervisor costs
+### Trace the outage request through a supervisor
 
-The supervisor's price is one routing decision before each specialist and one more to finish. The [routing cost lab](../05_handoffs_and_swarms/interactive/routing-cost-lab.html) counts it call by call on the outage request:
+The supervisor's price is one routing decision before each specialist and one more to finish. The [routing cost lab](../05_handoffs_and_swarms/interactive/routing-cost-lab.html) counts it call by call on the outage request. Retrieval tool calls are left out.
 
-| Call | Node | Kind |
-|---|---|---|
-| 1 | supervisor | routing |
-| 2 | operations | answer |
-| 3 | supervisor | routing |
-| 4 | billing | answer |
-| 5 | supervisor | routing (finish) |
+<div class="walkthrough learning-widget" data-stepper id="supervisor-walkthrough">
+<p class="widget-intro">Step through the outage request under a flat supervisor. Each stage is one model call, as the lab counts it.</p>
+<div class="step-controls" hidden role="group" aria-label="Supervisor calls on the outage request"><button type="button" data-step="0" aria-pressed="false" aria-controls="sup-step-0">1. Route</button><button type="button" data-step="1" aria-pressed="false" aria-controls="sup-step-1">2. Operations</button><button type="button" data-step="2" aria-pressed="false" aria-controls="sup-step-2">3. Route again</button><button type="button" data-step="3" aria-pressed="false" aria-controls="sup-step-3">4. Billing</button><button type="button" data-step="4" aria-pressed="false" aria-controls="sup-step-4">5. Finish</button></div>
+<div class="step-panels"><section id="sup-step-0" class="step-panel" aria-labelledby="sup-heading-0"><h4 id="sup-heading-0">1. The supervisor picks operations</h4><dl><dt>Call</dt><dd>1, routing</dd><dt>Decision</dt><dd>operations, for the outage part; one entry joins <code>route_log</code></dd></dl></section><section id="sup-step-1" class="step-panel" aria-labelledby="sup-heading-1"><h4 id="sup-heading-1">2. Operations answers its part</h4><dl><dt>Call</dt><dd>2, answer</dd><dt>State</dt><dd>The outage explanation joins <code>messages</code>; control returns to the supervisor on a static edge.</dd></dl></section><section id="sup-step-2" class="step-panel" aria-labelledby="sup-heading-2"><h4 id="sup-heading-2">3. The supervisor reads the work so far</h4><dl><dt>Call</dt><dd>3, routing</dd><dt>Decision</dt><dd>billing: the credit claim is still open. This is the step the M30 router never takes.</dd></dl></section><section id="sup-step-3" class="step-panel" aria-labelledby="sup-heading-3"><h4 id="sup-heading-3">4. Billing answers the credit claim</h4><dl><dt>Call</dt><dd>4, answer</dd><dt>Specialists reached</dt><dd>2 of 2, against 1 of 2 for the router</dd></dl></section><section id="sup-step-4" class="step-panel" aria-labelledby="sup-heading-4"><h4 id="sup-heading-4">5. The supervisor chooses FINISH</h4><dl><dt>Total</dt><dd>5 calls, 3 of them routing</dd><dt>Next follow-up</dt><dd>Starts at the supervisor again: route, answer, finish, 3 more calls</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 3: The outage request under a supervisor, as the lab counts it. Each row is one model call. Retrieval tool calls are left out.*
-
-That is 5 calls, 3 of them routing. Each follow-up on the same thread costs 3 more (route, answer, finish), because every turn starts at the supervisor again. In exchange, every routing decision sits in one log with its reason, the routing rules live in one prompt you can test, and one counter caps the whole run.
+In exchange for those 3 routing calls, every routing decision sits in one log with its reason, the routing rules live in one prompt you can test, and one counter caps the whole run.
 
 ## Hierarchical teams
 
@@ -116,31 +116,69 @@ Four rules make the hierarchy compose:
 - **Counters stay out of the shared contract.** A team hands its whole final state back to the parent, and the parent applies its reducers to it.
 - **Cap every level.** `MAX_CEO_TURNS = 4` and `MAX_CONTENT_TURNS = 4`, each read by a pure routing function from its own counter.
 
-The third rule guards against the **double-counted counter**. We planted it in a two-node test: a counter with an adding reducer in the shared state, one increment in the parent and one inside the team:
+The third rule guards against the **double-counted counter**. We planted it in a two-node test in the scratchpad: one increment in the parent, then one inside a team, with the counter declared in two places.
 
-| Step | Expected count | Actual count |
-|---|---|---|
-| Parent node adds 1 | 1 | 1 |
-| Team node adds 1; the team returns its whole state (count 2) to the parent | 2 | 3 |
+<div class="learning-widget evidence-switcher" data-comparison id="counter-switcher">
+<p class="widget-intro">Compare where the counter is declared. The parent adds 1, then the team adds 1.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the counter is declared">
+<button type="button" data-mode="shared" aria-pressed="false" aria-controls="counter-shared">In the shared contract</button>
+<button type="button" data-mode="own" aria-pressed="false" aria-controls="counter-own">At each level</button>
+</div>
+<section id="counter-shared" class="mode-panel" data-announcement="Counter in the shared contract selected. The parent reads 3."><h4>In the shared contract</h4><ul><li>After the parent's step: 1.</li><li>The team adds 1 and returns its whole state, count 2, to the parent.</li><li>The parent's adding reducer adds that 2 to its own 1: the count reads 3, not 2.</li></ul><p>A CEO cap that reads this counter stops the run early, and the turn count in the log is wrong.</p></section>
+<section id="counter-own" class="mode-panel" data-announcement="Counter at each level selected. The parent reads 1."><h4>At each level</h4><ul><li>The parent's <code>ceo_turns</code> reads 1 after its own step.</li><li>The team's own counter stays inside the team: it never appears in the parent's state.</li><li>Only the shared keys, here the messages, cross the boundary.</li></ul><p>This is the notebook's design: <code>ceo_turns</code> in <code>CEOState</code>, <code>content_turns</code> in <code>ContentState</code>.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-*Table 4: A counter in the shared contract, run in the scratchpad. The parent adds the team's final total on top of its own.*
-
-A CEO cap that reads that counter would stop the run early, and the turn count in the log would be wrong.
-
-Test each team on its own before you assemble the hierarchy. The notebook runs the research team and the content team alone first, because a team that misbehaves is much harder to diagnose once it is one node in a larger graph. The cost is visibility and steps: the parent sees what a team appended, not why, and the five-architectures notebook raises `recursion_limit` from 25 to 50 for its two-level run.
+Test each team on its own before you assemble the hierarchy. The notebook runs the research team and the content team alone first, because a team that misbehaves is much harder to diagnose once it is one node in a larger graph. The cost is visibility and steps: the parent sees what a team appended, not why, and the five-architectures notebook doubles `recursion_limit` from 25 to 50 for its two-level run.
 
 ### A hierarchy for Larkspur
 
 Larkspur's three specialists do not need a hierarchy. To see the overhead, the lab puts billing and data in an accounts team with its own lead, and operations in a platform team that runs as a fixed pipeline:
 
-| Architecture | Calls on the outage request | Routing calls | Calls per follow-up |
-|---|---|---|---|
-| Flat supervisor | 5 | 3 | 3 |
-| Two-team hierarchy | 7 | 5 | 5 |
+```mermaid
+flowchart TB
+    CEO{{"CEO<br/>picks a team"}} --> AC
+    CEO --> PL
+    subgraph AC["accounts team"]
+        direction LR
+        LD{{lead}} --> BI[billing]
+        LD --> DT[data]
+    end
+    subgraph PL["platform team"]
+        direction LR
+        OP[operations]
+    end
+```
 
-*Table 5: The outage request under both designs, from the routing cost lab.*
+*Figure 3: The lab's two-team Larkspur hierarchy. The accounts lead decides before and after each of its specialists; the platform team has no lead.*
 
-The hierarchy adds the CEO's decisions before and after each team, and the accounts lead's decisions around billing. A hierarchy starts to pay only when the flat supervisor's prompt has to describe so many specialists that its routing accuracy drops. Measure that drop before adding the layer.
+On the same outage request, the two designs spend:
+
+<div class="learning-widget evidence-switcher" data-comparison id="design-switcher">
+<p class="widget-intro">Compare the calls each design spends on the outage request, from the routing cost lab.</p>
+<div class="mode-controls" hidden role="group" aria-label="Supervisor design">
+<button type="button" data-mode="flat" aria-pressed="false" aria-controls="design-flat">Flat supervisor (Figure 1)</button>
+<button type="button" data-mode="tree" aria-pressed="false" aria-controls="design-tree">Two-team hierarchy (Figure 3)</button>
+</div>
+<section id="design-flat" class="mode-panel" data-announcement="Flat supervisor selected. 5 calls, 3 of them routing."><h4>Flat supervisor</h4><ul><li>Calls: supervisor, operations, supervisor, billing, supervisor.</li><li>5 calls on the request, 3 of them routing.</li><li>Each follow-up to billing: 3 calls.</li></ul></section>
+<section id="design-tree" class="mode-panel" data-announcement="Two-team hierarchy selected. 7 calls, 5 of them routing."><h4>Two-team hierarchy</h4><ul><li>Calls: CEO, operations, CEO, accounts lead, billing, accounts lead, CEO.</li><li>7 calls on the request, 5 of them routing.</li><li>Each follow-up to billing: 5 calls.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The hierarchy adds the CEO's decisions before and after each team, and the accounts lead's decisions around billing. A hierarchy starts to pay only when the flat supervisor's prompt has to describe so many specialists that its routing accuracy drops. Measure that drop on a golden set of routed requests before adding the layer.
+
+## Limits of this evidence
+
+- **The lab counts a script, not a model.** Its call counts follow from each design's wiring with every routing decision taken correctly. It measures no routing accuracy, and retrieval tool calls are left out.
+- **The live runs depend on the model.** The notebooks' supervisor and CEO paths come from `gpt-4o-mini` at temperature 0; only the stub cell in Table 2 and the counter test run without a model.
+- **The counter test is a minimal graph.** It reproduces the reducer behaviour with two nodes in langgraph 1.2.18, not the notebook's full hierarchy.
+
+## References
+
+1. LangChain, [Multi-agent](https://docs.langchain.com/oss/python/langchain/multi-agent) and [Subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents), LangChain documentation.
+2. LangChain, [Subgraphs](https://docs.langchain.com/oss/python/langgraph/use-subgraphs), LangGraph documentation.
+3. LangChain, [langgraph-supervisor](https://github.com/langchain-ai/langgraph-supervisor-py), a prebuilt supervisor library.
+4. Wu et al., [AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation](https://arxiv.org/abs/2308.08155), 2023.
 
 ## Key Takeaways
 
