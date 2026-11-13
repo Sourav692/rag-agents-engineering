@@ -2,8 +2,9 @@
 
 *[M35 theory](../../../mandatory/theory/README.md) · Lesson 35.3 · Notebooks: [`03a_supervisor_workflow_with_human_review.ipynb`](../../notebook/03a_supervisor_workflow_with_human_review.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A supervisor that routes each draft to the specialist that fixes its first failing check, and a pause where a person can edit the result before it ships -->
+<!-- format: approved -->
 
-## Human review in a supervisor loop
+## Start with a refund reply nobody read
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lesson 35.2 sketched a supervisor with hard-coded routing. This lesson gives it real specialists, a grader and a person at the end.
 
 Larkspur's billing agent drafts refund replies. An annual plan gets a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic. After day 30 the refund is prorated, minus a 15% early-termination fee. A reply that promises a full refund on day 45 commits Larkspur to money the handbook does not allow. Someone has to read those replies before the customer does. The pattern needs three parts: a loop that keeps fixing a draft until it meets its rules, a cap on that loop, and a pause for review.
+
+## Human review in a supervisor loop
 
 The notebook builds the same pattern on news articles. A short transfer rumour ("Lionel Messi will join Real Madrid in 2025") has to become a publishable article. A supervisor, the "news chef", grades the article and routes it to the specialist that can fix what is missing. A person reads the result before it is published.
 
@@ -55,16 +58,12 @@ The chef routes to the **first failing check**, in a fixed order: market value, 
 
 ### Tracing a rumour through the loop
 
-We ran the notebook's workflow graph with the model-backed pieces replaced by stubs: a grader that checks for "join", "€" and "Inter Miami", researchers that return the lookup-table values, and a rewriter that pads the text past 100 words. The routing, the word count and the cap are the notebook's own code:
+We ran the notebook's workflow graph with the model-backed pieces replaced by stubs: a grader that checks for "join", "€" and "Inter Miami", researchers that return the lookup-table values, and a rewriter that pads the text to 120 words. The routing, the word count and the cap are the notebook's own code:
 
-| Pass | Checks failing | Routed to |
-|---|---|---|
-| 1 | value, club, length | `market_value_researcher` (adds €50 million) |
-| 2 | club, length | `current_club_researcher` (adds Inter Miami) |
-| 3 | length | `word_count_rewriter` |
-| 4 | none | end; `final_article` set (120 words) |
-
-*Table 2: The rumour through the loop (stubbed grader and specialists, notebook routing).*
+<div class="walkthrough learning-widget" data-stepper id="rumour-walkthrough">
+<p class="widget-intro">Follow the Messi rumour through the news chef's loop. Each pass shows the checks still failing and where the chef sends the article.</p>
+<div class="step-controls" hidden role="group" aria-label="Passes"><button type="button" data-step="0" aria-pressed="false" aria-controls="rumour-step-0">Pass 1</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rumour-step-1">Pass 2</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rumour-step-2">Pass 3</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rumour-step-3">Pass 4</button></div>
+<div class="step-panels"><section id="rumour-step-0" class="step-panel" aria-labelledby="rumour-heading-0"><h4 id="rumour-heading-0">Pass 1: three checks fail</h4><dl><dt>Failing</dt><dd>market value, club, length</dd><dt>Routed to</dt><dd><code>market_value_researcher</code>, which adds €50 million</dd><dt>final_article</dt><dd>not set</dd></dl></section><section id="rumour-step-1" class="step-panel" aria-labelledby="rumour-heading-1"><h4 id="rumour-heading-1">Pass 2: value fixed</h4><dl><dt>Failing</dt><dd>club, length</dd><dt>Routed to</dt><dd><code>current_club_researcher</code>, which adds Inter Miami</dd><dt>final_article</dt><dd>not set</dd></dl></section><section id="rumour-step-2" class="step-panel" aria-labelledby="rumour-heading-2"><h4 id="rumour-heading-2">Pass 3: only length fails</h4><dl><dt>Failing</dt><dd>length</dd><dt>Routed to</dt><dd><code>word_count_rewriter</code></dd><dt>final_article</dt><dd>not set</dd></dl></section><section id="rumour-step-3" class="step-panel" aria-labelledby="rumour-heading-3"><h4 id="rumour-heading-3">Pass 4: every check passes</h4><dl><dt>Failing</dt><dd>none</dd><dt>Routed to</dt><dd>end of the workflow</dd><dt>final_article</dt><dd>set to the 120-word article that passed</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 Two more inputs complete the picture. "Today in Munich will be 9°C" fails the topic check on pass 1 and ends with no article. A 109-word article that already names the club and the value passes on pass 1, and no specialist runs.
 
@@ -101,24 +100,48 @@ The notebook runs three threads to the pause and resumes each one, which we repr
 | messi | the four-pass article | `update_state` sets "Fake news!!!" | "Fake news!!!" |
 | clean | the 109-word article | resume as is | the article, word for word |
 
-*Table 3: Three paused threads (notebook review graph, stubbed workflow).*
+*Table 2: Three paused threads (notebook review graph, stubbed workflow).*
 
 The edited answer reaches the publishing call, not the model's. The checkpointer holds each thread's state by `thread_id`, and the reviewer can take the threads in any order.
 
 ### Static or dynamic review
 
-`interrupt_after` is **static**: fixed at compile time, it pauses every run at the named node. A **dynamic** pause calls `interrupt(payload)` inside a node, which pauses only when the node decides to and shows the reviewer the payload. The run resumes with `Command(resume=...)`.
+`interrupt_after` is **static**: fixed at compile time, it pauses every run at the named node. A **dynamic** pause calls `interrupt(payload)` inside a node. It pauses only when the node decides to, shows the reviewer the payload, and resumes with `Command(resume=...)`. The notebook builds only the static kind; the dynamic design below is an addition.
 
-| | Static `interrupt_after` | Dynamic `interrupt(payload)` |
-|---|---|---|
-| Decided | at compile time | at run time, inside the node |
-| Pauses | every run at that node | only the runs the node chooses |
-| Reviewer sees | the saved state | the payload the node sends |
-| Resume | `invoke(None)` after any `update_state` | `Command(resume=...)` |
+```mermaid
+flowchart TB
+    D[/Refund reply drafted/] --> K{"Code: purchase date<br/>within 30 days?"}
+    K -- yes --> S[/Send to customer/]
+    K -- no --> I["interrupt(payload)<br/>run pauses"]
+    I --> R["Reviewer resumes with<br/>Command(resume=...)"]
+    R --> S
+```
 
-*Table 4: Two ways to put a person in the loop.*
+*Figure 3: Added alternative. A dynamic pause that stops only the refunds outside the window.*
 
-Larkspur needs the dynamic kind. A refund inside the 30-day window can go straight to the customer, and one outside it pauses for a person. The check that decides to pause compares the purchase date with today in code, for the same reason the word count does. A static pause would stop every refund reply, including the ones the handbook already allows.
+<div class="learning-widget evidence-switcher" data-comparison id="pause-switcher">
+<p class="widget-intro">Compare the two pauses on two Larkspur refund replies, one on day 12 and one on day 45 (illustrative cases).</p>
+<div class="mode-controls" hidden role="group" aria-label="Pause design">
+<button type="button" data-mode="static" aria-pressed="false" aria-controls="pause-static">Static interrupt_after (Figure 2)</button>
+<button type="button" data-mode="dynamic" aria-pressed="false" aria-controls="pause-dynamic">Dynamic interrupt (Figure 3)</button>
+</div>
+<section id="pause-static" class="mode-panel" data-announcement="Static pause selected. Both replies wait for a person."><h4>Static <code>interrupt_after</code></h4><dl><dt>Decided</dt><dd>At compile time</dd><dt>Day 12 reply</dt><dd>Pauses, although the handbook already allows a full refund</dd><dt>Day 45 reply</dt><dd>Pauses</dd><dt>Reviewer sees</dt><dd>The saved state, and resumes with <code>invoke(None)</code> after any <code>update_state</code></dd></dl></section>
+<section id="pause-dynamic" class="mode-panel" data-announcement="Dynamic pause selected. Only the day 45 reply waits."><h4>Dynamic <code>interrupt(payload)</code></h4><dl><dt>Decided</dt><dd>At run time, inside the node</dd><dt>Day 12 reply</dt><dd>Goes straight to the customer</dd><dt>Day 45 reply</dt><dd>Pauses, with the purchase date and the proposed amount in the payload</dd><dt>Reviewer sees</dt><dd>The payload the node sends, and resumes with <code>Command(resume=...)</code></dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Larkspur needs the dynamic kind. A static pause would stop every refund reply, including the ones the handbook already allows. The check that decides to pause compares the purchase date with today in code, for the same reason the word count does.
+
+## Limits of this evidence
+
+- **Stubbed judgement.** The traces use a keyword grader and fixed researcher outputs. A live grader can mark a check "no" twice, which the pass cap absorbs but this trace never shows.
+- **One domain in the notebook.** The routing runs on news articles. The Larkspur refund replies and the day 12 and day 45 cases are illustrations of the same pattern.
+- **The dynamic pause is not in the notebook.** Figure 3 and its panel follow LangGraph's documented `interrupt` and `Command(resume=...)` behaviour and were not run here.
+
+## References
+
+1. LangChain, [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts) (static and dynamic pauses, `Command(resume=...)`).
+2. LangChain, [Persistence](https://docs.langchain.com/oss/python/langgraph/persistence) (checkpointers, threads and `update_state`).
 
 ## Key Takeaways
 
