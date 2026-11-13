@@ -1,112 +1,121 @@
 # M38.2 Theory: Building an MCP server
 
 *[M38 theory](../README.md) · Lesson 38.2 · Notebooks: [`02a_creating_an_mcp_server.ipynb`](../../notebook/02a_creating_an_mcp_server.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: FastMCP turns a typed Python function into a tool definition any MCP client can discover, and what it reads from the function decides what the model sees -->
+<!-- format: approved -->
+
+## Start with a search function no client can see
+
+> **What you'll learn**
+>
+> - **Contrast** the low-level MCP server with FastMCP by who answers the protocol requests.
+> - **Read** a generated tool definition and name where each field comes from.
+> - **Fix** a schema that hides parameter help, by putting the help in the type.
+> - **Explain** the output schema and why every result arrives twice.
+
+Larkspur's handbook search is a Python function. A model can call it only through a definition: a name, a description and a JSON Schema for its arguments. In lesson 38.1 the chatbot wrote that definition by hand. An MCP server publishes it instead, and every client that connects reads the same one.
+
+The catch is that the definition is generated. Whatever the server leaves out of the function's signature, the model never sees as structure.
 
 ## From a function to a tool definition
 
-Larkspur wants a search function discoverable by any MCP client. You will expose it through FastMCP, inspect the generated input and output schemas and test the server before writing an agent host.
+A server that offers tools answers two requests: list the tools, and call one. The MCP Python SDK gives two ways to build it.
 
-### Step 1: Expose a typed function as a server tool
+The **low-level `Server`** hands you the requests. You write the handler for `ListToolsRequest` that returns each definition, and the handler for `CallToolRequest` that dispatches by name:
 
-A server that offers tools answers two requests: list the tools, and call one. The MCP Python SDK gives two ways to build it. The low-level `Server` makes you handle `ListToolsRequest` and `CallToolRequest` yourself. `FastMCP`, which the reference implementation uses, does it for you: create the server, decorate functions, run it.
-
-Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
-
-```text
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP("research")
-
-@mcp.tool()
-def search_papers(topic: str, max_results: int = 5) -> List[str]:
-    """
-    Search for papers on arXiv based on a topic and store their information.
-    ...
-    """
-
-if __name__ == "__main__":
-    mcp.run(transport="stdio")
+```mermaid
+flowchart LR
+    C[/client request/] --> K{"method?"}
+    K -- "tools/list" --> LH["your list handler<br/>hand-written definitions"]
+    K -- "tools/call" --> CH["your call handler<br/>dispatch by name"]
+    CH --> F["your function"]
 ```
 
-### Step 2: Start the server outside the example cell
+*Figure 1: The low-level server. You write both handlers and keep the definitions in step with the code.*
 
-The example writes this file with `%%writefile`, so the cell saves the server instead of running it; the server starts later from a terminal or from a client. On `stdio` the server reads requests from its standard input and writes replies to its standard output, one JSON-RPC message per line.
+**`FastMCP`**, which notebook 02a uses, writes both handlers for you. You create the server, decorate functions with `@mcp.tool()` and run it. The decorator reads each function and stores a generated definition:
 
-Inspect discovery locally with the pinned MCP SDK. This registers a synthetic tool and lists it in-process. It does not start a network server or search arXiv.
-
-```python
-import asyncio
-from mcp.server.fastmcp import FastMCP
-
-server = FastMCP("schema-demo")
-
-@server.tool()
-def search_handbook(query: str, max_results: int = 2) -> str:
-    """Search the Larkspur handbook."""
-    return query
-
-tools = asyncio.run(server.list_tools())
-definition = tools[0]
-print(definition.name)
-print(definition.inputSchema["required"])
-print(definition.inputSchema["properties"]["max_results"]["default"])
+```mermaid
+flowchart LR
+    F["typed function<br/>+ docstring"] -- "@mcp.tool()" --> G["generated definition<br/>name, schemas"]
+    C[/client request/] --> FM["FastMCP handlers"]
+    G --> FM
+    FM -- "tools/call" --> F
 ```
 
-**Expected output**
+*Figure 2: FastMCP. The function is the single source; the definition and the dispatch are derived from it.*
 
-```text
-search_handbook
-['query']
-2
-```
+Choose the low-level server when you need control over every request, for example definitions that change at run time. Choose FastMCP when the tools are ordinary functions, which is every server in this module.
 
-### Step 3: Inspect the advertised tool definition
+### What FastMCP reads from the function
 
-FastMCP builds the definition from the function. Here is what SDK 1.30.0 sends for `search_papers` in reply to `tools/list`, recorded from the example's server and printed as the dict the chatbot builds:
+Notebook 02a decorates the two research functions from lesson 38.1 and nothing else. We imported its `research_server.py` with MCP Python SDK 1.30.0 and listed the tools, without starting a server or searching arXiv. Here is the definition of `search_papers`, field by field:
 
-```json
-{
-  "name": "search_papers",
-  "description": "\n    Search for papers on arXiv based on a topic and store their information.\n    \n    Args:\n        topic: The topic to search for\n        max_results: Maximum number of results to retrieve (default: 5)\n        \n    Returns:\n        List of paper IDs found in the search\n    ",
-  "input_schema": {
-    "properties": {
-      "topic": {"title": "Topic", "type": "string"},
-      "max_results": {"default": 5, "title": "Max Results", "type": "integer"}
-    },
-    "required": ["topic"],
-    "title": "search_papersArguments",
-    "type": "object"
-  }
-}
-```
+| Field | Value generated | Taken from |
+|---|---|---|
+| `name` | `search_papers` | the function name |
+| `description` | the whole docstring: a leading newline, the indentation, the `Args:` and `Returns:` blocks | the docstring, unparsed |
+| `inputSchema.properties.topic` | `{"title": "Topic", "type": "string"}` | the type hint `str` |
+| `inputSchema.properties.max_results` | `{"default": 5, "title": "Max Results", "type": "integer"}` | the hint `int` and the Python default |
+| `inputSchema.required` | `["topic"]` | parameters without a default |
+| `inputSchema.title` | `search_papersArguments` | the argument model FastMCP builds |
+| property descriptions | none | nothing: the `Args:` lines stay inside `description` |
 
-| Part of the definition | Where FastMCP takes it from |
-|---|---|
-| `name` | The function name |
-| `description` | The whole docstring, indentation and `Args:` block included |
-| Property types and `required` | The type hints; a parameter with a default is optional |
-| `default` | The Python default (`max_results = 5`) |
-| Property descriptions | Nothing: the `Args:` lines stay in the description |
+*Table 1: The generated definition of `search_papers` in SDK 1.30.0.*
 
-### Step 4: Compare generated metadata with a hand-written schema
+The last row is the trap. The docstring says what `topic` and `max_results` mean, but the model receives that only as free text in the tool description. The schema itself carries a title and a type for each argument and no help.
 
-Compare it with the schema the reference implementation wrote by hand. That one gave each parameter a description (“The topic to search for”) and a one-line tool description. The generated pair is 989 characters of compact JSON against 611 for the hand-written pair, and the model reads the parameter help only as free text inside the description. When a parameter needs help or limits, put them in the type: with `Annotated[int, Field(description="Number of chunks to return", ge=1, le=12)]`, SDK 1.30.0 adds `description`, `minimum` and `maximum` to that property.
+### Generated against hand-written schemas
 
-### Step 5: Read the output contract before returning a value
+Lesson 38.1's chatbot wrote the same two definitions by hand. Measured as compact JSON in the shape the chatbot sends (name, description, input schema), the two pairs differ:
 
-FastMCP also infers an output schema from the return type. For the Larkspur `search_handbook` tool, which returns `str`, the definition carries `"outputSchema": {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "search_handbookOutput", "type": "object"}`, and every call returns the text twice: once in `content` and once in `structuredContent`. The example's chatbot passes only `result.content` to the model, so the copy costs bytes on the wire and nothing in the prompt.
+<div class="learning-widget evidence-switcher" data-comparison id="schema-switcher">
+<p class="widget-intro">Compare the two definitions of the research tools the model would receive.</p>
+<div class="mode-controls" hidden role="group" aria-label="Schema source">
+<button type="button" data-mode="hand" aria-pressed="false" aria-controls="schema-hand">Hand-written (01a)</button>
+<button type="button" data-mode="generated" aria-pressed="false" aria-controls="schema-generated">Generated by FastMCP</button>
+</div>
+<section id="schema-hand" class="mode-panel" data-announcement="Hand-written selected. 614 characters, help on every argument."><h4>Hand-written, 614 characters</h4><ul><li>One-line tool descriptions.</li><li>Each argument has its own description, for example "The topic to search for".</li><li>No titles; the default for <code>max_results</code> is 5.</li></ul></section>
+<section id="schema-generated" class="mode-panel" data-announcement="Generated selected. 968 characters, no help on any argument."><h4>Generated, 968 characters</h4><ul><li>The whole docstring as each tool description, indentation included.</li><li>No argument has a description; each gets a title such as "Max Results".</li><li>Required arguments and the default of 5 match the hand-written pair.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The generated pair is 354 characters longer and says less in structured form. The fix is to put parameter help where the schema generator looks: in the type. Declared as `Annotated[int, Field(description="Number of chunks to return", ge=1, le=12)]`, a Larkspur `k` argument comes out in SDK 1.30.0 with `description`, `minimum: 1` and `maximum: 12` on the property itself, beside its default and title. A one-line docstring then serves as the tool description.
+
+### Trace one tool from decorator to call
+
+The handbook server in this module's lab declares one tool, `search_handbook(query: str, k: int = 4) -> str`. Follow it through FastMCP:
+
+<div class="walkthrough learning-widget" data-stepper id="tool-walkthrough">
+<p class="widget-intro">Step through what FastMCP does with the handbook tool, from registration to a call.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages from decorator to call"><button type="button" data-step="0" aria-pressed="false" aria-controls="tool-step-0">1. Register</button><button type="button" data-step="1" aria-pressed="false" aria-controls="tool-step-1">2. Arguments</button><button type="button" data-step="2" aria-pressed="false" aria-controls="tool-step-2">3. Output</button><button type="button" data-step="3" aria-pressed="false" aria-controls="tool-step-3">4. Listed</button><button type="button" data-step="4" aria-pressed="false" aria-controls="tool-step-4">5. Called</button></div>
+<div class="step-panels"><section id="tool-step-0" class="step-panel" aria-labelledby="tool-heading-0"><h4 id="tool-heading-0">1. The decorator registers the function</h4><dl><dt>Stored</dt><dd>the name <code>search_handbook</code> and the one-line docstring as description</dd></dl></section><section id="tool-step-1" class="step-panel" aria-labelledby="tool-heading-1"><h4 id="tool-heading-1">2. The signature becomes the input schema</h4><dl><dt>Properties</dt><dd><code>query</code> a string; <code>k</code> an integer with default 4</dd><dt>Required</dt><dd><code>query</code> only</dd></dl></section><section id="tool-step-2" class="step-panel" aria-labelledby="tool-heading-2"><h4 id="tool-heading-2">3. The return type becomes the output schema</h4><dl><dt>Output schema</dt><dd>an object with one required string, <code>result</code>, titled <code>search_handbookOutput</code></dd></dl></section><section id="tool-step-3" class="step-panel" aria-labelledby="tool-heading-3"><h4 id="tool-heading-3">4. A client lists the tools</h4><dl><dt>Reply</dt><dd>one definition with both schemas, 528 bytes on the wire</dd></dl></section><section id="tool-step-4" class="step-panel" aria-labelledby="tool-heading-4"><h4 id="tool-heading-4">5. A client calls it</h4><dl><dt>Arguments</dt><dd>validated against the input schema before the function runs</dd><dt>Result</dt><dd>the text in <code>content</code> and again under <code>result</code> in <code>structuredContent</code></dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+### The output contract
+
+FastMCP also infers an **output schema** from the return type, and a tool with one sends its result twice: once as content blocks for the model and once as `structuredContent` for code. For `str` that is one text block plus `{"result": "..."}`. For `search_papers`, which returns `List[str]`, the output schema is an array of strings, and the content is one text block per paper id.
+
+That second shape matters to the client. We called a two-result list tool through an in-memory session: the content held 2 blocks, one id each. A client that reads only the first block, as notebook 03a's OpenAI client does, hands the model 1 of the 2 ids. Lesson 38.3 traces that client.
+
+### Run the server outside the notebook
+
+Notebook 02a writes the server with `%%writefile`: the cell saves `research_server.py` instead of running it. The server starts later, from a terminal or from a client. On `stdio` it reads requests from its standard input and writes replies to its standard output, one JSON-RPC message per line.
 
 Test a server before writing a client. The MCP Inspector launches it the way a client would, `npx @modelcontextprotocol/inspector uv run research_server.py`, and lets you list and call tools by hand. If a tool works in the Inspector and fails in the chatbot, look in the client first.
 
-### Try it yourself
+## Limits of this evidence
 
-List the server's tools and compare required topic with defaulted max_results. Check that a docstring Args block does not automatically become per-argument JSON Schema descriptions in the recorded SDK version. Add a Field description and inspect the definition again before binding it to a model.
+- **The definitions are SDK 1.30.0's.** The fields FastMCP generates, the output schema included, change between SDK versions; list the tools again after an upgrade.
+- **No arXiv search ran.** We imported `research_server.py` with a stub `arxiv` module and listed its tools; the list-tool call used a stand-in that returns two fixed ids.
+- **Character counts are not tokens.** 968 against 614 compares JSON size; a provider's tokeniser and its own formatting of tool definitions decide what the model is billed for.
 
-### Practice notebook
+## References
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
-
-- [Creating an MCP server](../../notebook/02a_creating_an_mcp_server.ipynb).
+1. Model Context Protocol, [Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools), specification 2025-11-25.
+2. Model Context Protocol, [Build an MCP server](https://modelcontextprotocol.io/docs/develop/build-server).
+3. Model Context Protocol, [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
+4. Python Package Index, [mcp 1.30.0](https://pypi.org/project/mcp/1.30.0/), the MCP Python SDK.
+5. Pydantic, [Fields](https://pydantic.dev/docs/validation/latest/concepts/fields/).
 
 ## Key Takeaways
 
@@ -133,7 +142,7 @@ Put the help and the limits in the type: `Annotated[int, Field(description="Numb
 <details>
 <summary>3. A tool works when you call it by hand in the MCP Inspector but fails inside your chatbot. Where do you look first?</summary>
 
-In the client. The Inspector launches the server the way a client would and calls the tool directly, so a pass there shows the server and the tool work. Test the server in the Inspector before writing a client, so this split is available when something breaks.
+In the client. The Inspector launches the server the way a client would and calls the tool directly, so a pass there shows the server and the tool work. A client that reads only the first content block of a list result is one such fault.
 
 </details>
 

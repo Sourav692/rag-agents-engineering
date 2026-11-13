@@ -276,101 +276,187 @@ th:last-child, td:last-child { padding-right: 0; }
     T --&gt; IX[("Chroma index")]
 </pre></figure>
 <p>The server holds the retriever and the index; everything to its left belongs to the host. Each host picks the model, writes the queries, decides when to start and stop the server process, and reads the tool result in its own way. Two hosts can send the same question to the same server and get different answers, and the difference is almost always on the host side: a different query, a different <code>n</code>, or a different reading of the result.</p>
-<h2 id="a-local-agent-over-mcp">A local agent over MCP</h2>
+<h2 id="start-with-a-laptop-agent-that-never-answers">Start with a laptop agent that never answers</h2>
 <p class="lesson-of">Lesson 40.1: Your first MCP server and a local agent. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/01_build_your_first_mcp_server" target="_blank" rel="noopener"><code>01_build_your_first_mcp_server</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/02_mcp_servers_and_local_agent" target="_blank" rel="noopener"><code>02_mcp_servers_and_local_agent</code></a></p>
-<p>Larkspur exposes a numeric tool through MCP and expects the client to validate its output. You will connect a local agent to the server, inspect its step budget and compare a returned failure string with the declared numeric result schema.</p>
-<h3>Step 1: Choose who starts each server</h3>
-<p>The first project serves two FastMCP servers over streamable HTTP: <code>demo-server</code> with one <code>add</code> tool, and <code>weather</code> with <code>get_weather</code> and <code>get_forecast</code>, which call the public wttr.in API. Each comes with a plain client that lists the tools and calls one. <code>client_fastmcp.py</code> uses FastMCP&rsquo;s <code>Client</code> on <code>http://127.0.0.1:8000/mcp</code>; <code>client_mcp.py</code> uses the SDK&rsquo;s <code>streamablehttp_client</code> and <code>ClientSession</code>, and prints the session id before and after <code>initialize</code>: <code>None</code>, then a 32-character hex id the server assigned during the handshake (M39 covers that header).</p>
-<p>The second project hands the same servers to an agent that runs on your machine. <code>mcp_use</code> reads a server map in the shape Claude Desktop uses, starts or connects to each server, and gives their tools to a LangChain chat model:</p>
-<p>Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:</p>
-<pre class="sheet code"><code class="language-text">client = MCPClient.from_config_file(&quot;mcp-http.json&quot;)       # or MCPClient.from_dict(config)
-llm = ChatOllama(base_url=&quot;http://localhost:11434&quot;, model=&quot;gpt-oss:20b&quot;)
-agent = MCPAgent(llm=llm, client=client, max_steps=30, use_server_manager=True)
-await agent.run(&quot;What's the weather in New York and the 3-day forecast? Also, what's 12 multiplied by 342?&quot;)
-</code></pre>
-<p>The project&rsquo;s two config files show the two ways a host reaches a server:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the two ways a host reaches a server: it starts the server itself, or it connects to a URL you started.</li>
+<li><strong>Trace</strong> a multi-tool question through an agent&rsquo;s step budget, with and without a server manager.</li>
+<li><strong>Diagnose</strong> a tool whose return value breaks its own output schema.</li>
+<li><strong>Choose</strong> between raising an error and widening a return type.</li>
+</ul>
+</blockquote>
+<p>Larkspur&rsquo;s on-call engineer wants an assistant on a laptop that can check the weather at a data-centre region and do a quick sum, with no API key and no cloud model. The first attempt hangs at start-up. The second answers the weather and stops before the sum. The third turns a division by zero into a crash in the client library. Each failure comes from a different layer, and this lesson takes them one at a time.</p>
+<p>The two projects supply the parts. The first serves two FastMCP servers over streamable HTTP: <code>demo-server</code>, with one <code>add</code> tool, and <code>weather</code>, with <code>get_weather</code> and <code>get_forecast</code>, which call the public wttr.in API. Each comes with a plain client. <code>client_fastmcp.py</code> uses FastMCP&rsquo;s <code>Client</code>; <code>client_mcp.py</code> uses the SDK&rsquo;s <code>streamablehttp_client</code> and <code>ClientSession</code>, and prints the session id before and after <code>initialize</code>: <code>None</code>, then a 32-character hex id the server assigned during the handshake (M39 covers that header). The second project hands a weather server and a math server (<code>add</code>, <code>multiply</code>, <code>subtract</code>, <code>divide</code>) to an agent running on local Ollama models: <code>qwen3:8b</code> in <code>agentic_client.py</code> and <code>gpt-oss:20b</code> in <code>advanced_agentic_client.py</code>.</p>
+<h2 id="a-local-agent-over-mcp">A local agent over MCP</h2>
+<p><code>mcp_use</code> turns a server map into tools for a LangChain chat model. It reads the map in the shape Claude Desktop uses (lesson 40.2), connects to each server, and runs an agent loop over the result. The model runs on the laptop; the weather tools still call wttr.in over the internet.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
-<th>Config</th>
-<th>Entry</th>
-<th>Who starts the server</th>
+<th>Setting</th>
+<th>In the advanced client</th>
+<th>Default in mcp-use 1.7.1</th>
+<th>What it does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>mcp.json</code></td>
-<td><code>"command": "uv", "args": ["run", "--directory", "…/servers", "weather_server.py"]</code></td>
-<td>The agent, as a stdio subprocess</td>
+<td>Server map</td>
+<td><code>mcp-http.json</code></td>
+<td>none</td>
+<td>Which servers exist and how to reach them</td>
 </tr>
 <tr>
-<td><code>mcp-http.json</code></td>
-<td><code>"url": "http://localhost:8001/mcp"</code> (weather), <code>:8000/mcp</code> (math)</td>
-<td>You, in another terminal, before the agent runs</td>
+<td><code>llm</code></td>
+<td><code>ChatOllama</code>, <code>gpt-oss:20b</code> at <code>localhost:11434</code></td>
+<td>none</td>
+<td>The local model that plans and calls tools</td>
+</tr>
+<tr>
+<td><code>max_steps</code></td>
+<td>30</td>
+<td>5</td>
+<td>Caps model calls, through a model-call limit; the graph&rsquo;s recursion limit is twice this</td>
+</tr>
+<tr>
+<td><code>use_server_manager</code></td>
+<td><code>True</code></td>
+<td><code>False</code></td>
+<td>Hides servers&rsquo; tools behind management tools</td>
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Inspect loop and memory settings</h3>
-<p>Two <code>MCPAgent</code> settings change what the model does, and both have defaults worth knowing in mcp-use 1.7.1:</p>
-<ul>
-<li><strong><code>max_steps</code></strong> caps the agent loop. The default is 5; both clients raise it to 30. The advanced query needs at least three tool calls (weather, forecast, multiply), so a low cap ends the run before the answer.</li>
-<li><strong><code>use_server_manager=True</code></strong> stops the model from seeing the servers&rsquo; tools directly. It gets five management tools instead (<code>list_mcp_servers</code>, <code>connect_to_mcp_server</code>, <code>get_active_mcp_server</code>, <code>search_mcp_tools</code>, <code>disconnect_from_mcp_server</code>) and must connect to a server before it can call <code>multiply</code>. That keeps the prompt small when many servers are configured, at the price of extra model turns.</li>
-</ul>
-<h3>Step 3: Separate local inference from tool connectivity</h3>
-<p>The models are local Ollama models (<code>qwen3:8b</code> in <code>agentic_client.py</code>, <code>gpt-oss:20b</code> in the advanced client), so the whole loop runs without an API key. The weather tools still call wttr.in over the internet.</p>
+<p><em>Table 1: The agent&rsquo;s settings, read from <code>advanced_agentic_client.py</code> and the installed mcp-use source.</em></p>
+<h3>Two ways to reach a server</h3>
+<p>The project ships two server maps. In <code>mcp.json</code> each entry is a command, <code>uv run --directory …/servers weather_server.py</code>, and the agent starts the server as a subprocess that speaks over stdin and stdout:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    A["Agent&lt;br/&gt;mcp_use client"] -- "starts: uv run …" --&gt; S["Server process"]
+    A -- "stdin: requests" --&gt; S
+    S -- "stdout: responses" --&gt; A
+</pre></figure>
+<p><em>Figure 1: Command entry. The host owns the server&rsquo;s life: it starts it, talks over stdio, and stops it.</em></p>
+<p>In <code>mcp-http.json</code> each entry is a URL: weather at <code>http://localhost:8001/mcp</code>, math at <code>:8000/mcp</code>. You start both servers in other terminals first, and the agent connects over streamable HTTP:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    A["Agent&lt;br/&gt;mcp_use client"] -- "HTTP /mcp" --&gt; W["weather :8001&lt;br/&gt;started by you"]
+    A -- "HTTP /mcp" --&gt; M["math :8000&lt;br/&gt;started by you"]
+</pre></figure>
+<p><em>Figure 2: URL entry. The servers outlive the agent, and several clients can share them.</em></p>
+<p>The shipped servers fit only the second map. Their <code>__main__</code> block runs <code>mcp.run(transport="streamable-http", ...)</code>, with the <code>stdio</code> line commented out. Launched as a stdio subprocess, the math server started Uvicorn on port 8000 and wrote nothing to stdout, and a scratch probe with the mcp 1.30.0 client got no reply to <code>initialize</code> within 8 seconds. That is the engineer&rsquo;s hang at start-up. Before using <code>mcp.json</code>, switch the servers to the commented <code>stdio</code> line.</p>
+<h3>The step budget</h3>
+<p><code>max_steps</code> counts model calls, and every tool call costs one, plus the final answer. The advanced query asks: <em>What&rsquo;s the weather in New York and the 3-day forecast? Also, what&rsquo;s 12 multiplied by 342?</em></p>
+<p>With the server manager off, the model sees the servers&rsquo; six tools directly:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; M["Model"]
+    M --&gt; T["6 tools&lt;br/&gt;get_weather, get_forecast&lt;br/&gt;add, multiply, subtract, divide"]
+</pre></figure>
+<p><em>Figure 3: Server manager off. Every tool from every server is in the prompt.</em></p>
+<p>With <code>use_server_manager=True</code>, the model sees five management tools instead: <code>list_mcp_servers</code>, <code>connect_to_mcp_server</code>, <code>get_active_mcp_server</code>, <code>search_mcp_tools</code> and <code>disconnect_from_mcp_server</code>. Connecting makes one server active, and only that server&rsquo;s tools are added:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; M["Model"]
+    M --&gt; G["5 management tools"]
+    G -- "connect_to_mcp_server" --&gt; A["Active server's tools&lt;br/&gt;one server at a time"]
+</pre></figure>
+<p><em>Figure 4: Server manager on. The prompt stays small; reaching a tool costs a connection first.</em></p>
+<div class="walkthrough learning-widget" data-stepper id="budget-walkthrough">
+<p class="widget-intro">Step through the advanced query with the server manager on, one tool call per model turn. The sequence is structural, not a recorded run: a model may batch calls or take detours.</p>
+<div class="step-controls" hidden role="group" aria-label="Agent turns"><button type="button" data-step="0" aria-pressed="false" aria-controls="budget-step-0">1. Weather server</button><button type="button" data-step="1" aria-pressed="false" aria-controls="budget-step-1">2. Two lookups</button><button type="button" data-step="2" aria-pressed="false" aria-controls="budget-step-2">3. Math server</button><button type="button" data-step="3" aria-pressed="false" aria-controls="budget-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="budget-step-0" class="step-panel" aria-labelledby="budget-heading-0"><h4 id="budget-heading-0">1. Connect to the weather server</h4><dl><dt>Tool call</dt><dd><code>connect_to_mcp_server</code> with <code>weather</code></dd><dt>Tools now visible</dt><dd>5 management tools plus <code>get_weather</code> and <code>get_forecast</code></dd><dt>Model calls so far</dt><dd>1</dd></dl></section><section id="budget-step-1" class="step-panel" aria-labelledby="budget-heading-1"><h4 id="budget-heading-1">2. Current weather and forecast</h4><dl><dt>Tool calls</dt><dd><code>get_weather</code>, then <code>get_forecast</code>, each with New York</dd><dt>Network</dt><dd>Both call wttr.in, even though the model is local</dd><dt>Model calls so far</dt><dd>3</dd></dl></section><section id="budget-step-2" class="step-panel" aria-labelledby="budget-heading-2"><h4 id="budget-heading-2">3. Switch to the math server and multiply</h4><dl><dt>Tool calls</dt><dd><code>connect_to_mcp_server</code> with <code>math_server</code>, then <code>multiply</code> with 12 and 342</dd><dt>Tools now visible</dt><dd>5 management tools plus the math server's four; the weather tools are gone</dd><dt>Model calls so far</dt><dd>5, the whole default budget</dd></dl></section><section id="budget-step-3" class="step-panel" aria-labelledby="budget-heading-3"><h4 id="budget-heading-3">4. Write the answer</h4><dl><dt>Model call</dt><dd>The sixth: forecast plus 4,104</dd><dt>With the default of 5</dt><dd>The run stops before this call: the engineer's missing sum</dd><dt>With 30</dt><dd>Room for retries and detours</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The server manager trades prompt size for turns. With two servers and six tools it costs two extra calls; with the thirteen servers of the 40.2 config it keeps dozens of tool definitions out of every prompt. Without the manager the same question needs four model calls (three tools and the answer) and fits the default of 5 with one to spare. Both clients raise <code>max_steps</code> to 30, which leaves room for either mode and for retries.</p>
 <h2 id="return-types-are-part-of-the-contract">Return types are part of the contract</h2>
-<h3>Step 1: Validate a returned result against its schema</h3>
-<p>FastMCP builds a tool&rsquo;s output schema from its return annotation. In fastmcp 3.4.11, <code>add(a: int, b: int) -&gt; int</code> lists as:</p>
-<pre class="sheet code"><code class="language-json">{&quot;inputSchema&quot;:  {&quot;properties&quot;: {&quot;a&quot;: {&quot;type&quot;: &quot;integer&quot;}, &quot;b&quot;: {&quot;type&quot;: &quot;integer&quot;}}, &quot;required&quot;: [&quot;a&quot;, &quot;b&quot;], &quot;type&quot;: &quot;object&quot;, &quot;additionalProperties&quot;: false},
- &quot;outputSchema&quot;: {&quot;properties&quot;: {&quot;result&quot;: {&quot;type&quot;: &quot;integer&quot;}}, &quot;required&quot;: [&quot;result&quot;], &quot;type&quot;: &quot;object&quot;, &quot;x-fastmcp-wrap-result&quot;: true}}
-</code></pre>
-<h3>Step 2: Compare text with structured output</h3>
-<p>A call to <code>add</code> with 5 and 7 returns the text <code>12</code> and the structured content <code>{"result": 12}</code>. The client keeps the output schema and checks every structured result against it.</p>
-<h3>Step 3: Trigger a result-schema mismatch</h3>
-<p>The math server&rsquo;s <code>divide</code> breaks its own schema. It is annotated <code>-&gt; float</code> and returns the string <code>"Error: Division by zero"</code> when <code>b</code> is 0. The server sends that result; the mcp 1.30.0 client rejects it:</p>
-<pre class="sheet code"><code>RuntimeError: Invalid structured content returned by tool divide: 'Error: Division by zero' is not of type 'number'
-</code></pre>
-<p>The friendly message never reaches the model. The host gets an exception from its own client library instead of a tool result it could show the model. Two fixes keep the error inside the protocol, both checked against fastmcp 3.4.11:</p>
+<p>FastMCP builds a tool&rsquo;s schemas from its signature. In fastmcp 3.4.11, <code>add(a: int, b: int) -&gt; int</code> lists as:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Schema</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inputSchema</code></td>
+<td><code>a</code> integer, <code>b</code> integer, both required; <code>additionalProperties: false</code></td>
+</tr>
+<tr>
+<td><code>outputSchema</code></td>
+<td><code>result</code> integer, required; marked <code>x-fastmcp-wrap-result: true</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The schemas a client receives for <code>add</code>, from a scratch <code>list_tools</code> call.</em></p>
+<p>A call to <code>add</code> with 5 and 7 returns two things: the text <code>12</code> and the structured content <code>{"result": 12}</code>. The client keeps the output schema and checks every structured result against it.</p>
+<p>The math server&rsquo;s <code>divide</code> breaks its own schema. It is annotated <code>-&gt; float</code> and returns the string <code>"Error: Division by zero"</code> when <code>b</code> is 0. The server sends that result, and the mcp 1.30.0 client raises <code>RuntimeError: Invalid structured content returned by tool divide: 'Error: Division by zero' is not of type 'number'</code>. The friendly message never reaches the model. The host gets an exception from its own client library instead of a tool result it could show the model.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="divide-switcher">
+<p class="widget-intro">Three ways to write <code>divide</code>, all called with 1 and 0 through the mcp 1.30.0 client. Pick one to see what the host receives.</p>
+<div class="mode-controls" hidden role="group" aria-label="Divide implementation">
+<button type="button" data-mode="string" aria-pressed="false" aria-controls="divide-string">Return a string</button>
+<button type="button" data-mode="raise" aria-pressed="false" aria-controls="divide-raise">Raise ToolError</button>
+<button type="button" data-mode="nocheck" aria-pressed="false" aria-controls="divide-nocheck">No check</button>
+</div>
+<section id="divide-string" class="mode-panel" data-announcement="Return a string selected. The client raises."><h4>Return <code>"Error: Division by zero"</code> from a <code>-&gt; float</code> tool</h4><p>The client raises <code>RuntimeError</code>: the string is not of type number. No tool result exists for the model to read, and the agent loop sees a crash.</p></section>
+<section id="divide-raise" class="mode-panel" data-announcement="Raise ToolError selected. An error result reaches the model."><h4><code>raise ToolError("Division by zero")</code></h4><p>The result arrives with <code>isError: true</code> and the text <code>Division by zero</code>. The model reads it and can tell the user or try again.</p></section>
+<section id="divide-nocheck" class="mode-panel" data-announcement="No check selected. An error result with the exception text."><h4>Plain <code>a / b</code></h4><p>Python raises <code>ZeroDivisionError</code>; FastMCP catches it and returns <code>isError: true</code> with <code>Error calling tool 'divide': division by zero</code>. Safe for the client, though the text exposes an internal message.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The other fix keeps the string and widens the annotation to <code>-&gt; float | str</code>. The schema then accepts both, and every client must tell a number from an error message on its own. Raising keeps the error inside the protocol, where <code>isError</code> already says what happened.</p>
+<blockquote>
+<p><strong>Pitfall: a friendly error string in a typed tool.</strong> It reads well in the server&rsquo;s code and never reaches the model: the client rejects it before the agent sees it.</p>
+</blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>Raise instead of returning.</strong> <code>raise ToolError("Division by zero")</code> comes back as a result with <code>isError: true</code> and the text <code>Division by zero</code>. Without the check, <code>1 / 0</code> raises <code>ZeroDivisionError</code>, which also comes back with <code>isError: true</code>, as <code>Error calling tool 'divide': division by zero</code>.</li>
-<li><strong>Annotate what you return.</strong> <code>-&gt; float | str</code> makes the string valid, and moves the job of telling numbers from error messages to every client.</li>
+<li>The schemas, results and exceptions come from scratch runs of the projects&rsquo; own servers with fastmcp 3.4.11 and mcp 1.30.0, over stdio, with no model. Other client libraries may handle a schema mismatch differently.</li>
+<li>The step sequence in the walkthrough is structural. No Ollama model ran here, and a real model may batch tool calls, call <code>search_mcp_tools</code> first, or wander.</li>
+<li>The mcp-use defaults and the five management tools come from the installed 1.7.1 source; later releases may change them.</li>
 </ul>
-<h3>Try it yourself</h3>
-<p>Call add with five and seven and compare text 12 with structured result 12. Then inspect divide with a zero divisor: returning an error string violates its float output contract. Check the client exception before assuming a friendly error reached the model, and compare raising ToolError instead.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<h2 id="references">References</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/01_build_your_first_mcp_server" target="_blank" rel="noopener">Build your first MCP</a>.</li>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/02_mcp_servers_and_local_agent" target="_blank" rel="noopener">MCP servers and local</a>.</li>
-</ul>
-<h3>Continue learning</h3>
-<ul>
-<li><a href="../../../m39_building_mcp_servers_and_clients/mandatory/theory/index.html">M39</a>.</li>
+<li>Model Context Protocol specification (2025-06-18): <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools" target="_blank" rel="noopener">Tools</a>, including output schemas and <code>isError</code>, and <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/transports" target="_blank" rel="noopener">Transports</a>.</li>
+<li>FastMCP documentation: <a href="https://gofastmcp.com/servers/tools" target="_blank" rel="noopener">Tools</a>, on output schemas and <code>ToolError</code>.</li>
+<li>mcp-use on PyPI: <a href="https://pypi.org/project/mcp-use/" target="_blank" rel="noopener">mcp-use</a>, the <code>MCPAgent</code> and <code>MCPClient</code> used by the second project.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A host reaches a server either by command, starting it as a stdio subprocess, or by URL, where you start the server first.</li>
-<li>Raise <code>max_steps</code> above the default of 5 when a query needs several tool calls. <code>use_server_manager=True</code> keeps the prompt small but costs extra model turns.</li>
+<li>A host reaches a server by command, starting it as a stdio subprocess, or by URL, where you start the server first. The shipped servers run HTTP, so they fit <code>mcp-http.json</code>; switch them to <code>stdio</code> before using <code>mcp.json</code>.</li>
+<li><code>max_steps</code> caps model calls, one per tool call plus the answer. <code>use_server_manager=True</code> keeps the prompt small but adds a connection call for each server the question touches, which pushes the three-tool question past the default of 5.</li>
 <li>The return annotation is a contract the client enforces. Raise <code>ToolError</code> for failures instead of returning a string from a tool typed <code>-&gt; float</code>.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What does use_server_manager=True change about what the model sees, and what does it trade?</summary>
-<p>The model no longer sees the servers&rsquo; tools directly. It gets five management tools (<code>list_mcp_servers</code>, <code>connect_to_mcp_server</code>, <code>get_active_mcp_server</code>, <code>search_mcp_tools</code>, <code>disconnect_from_mcp_server</code>) and must connect to a server before it can call <code>multiply</code>. That keeps the prompt small when many servers are configured, at the price of extra model turns.</p>
+<p>The model no longer sees the servers&rsquo; tools directly. It gets five management tools and must call <code>connect_to_mcp_server</code> before a server&rsquo;s tools appear, one active server at a time. The prompt stays small when many servers are configured, at the price of extra model turns.</p>
 </details>
 <details>
-<summary>2. The advanced query asks for New York's weather, its 3-day forecast and 12 times 342. Why do both clients raise max_steps from its default of 5 to 30?</summary>
-<p><code>max_steps</code> caps the agent loop. The query needs at least three tool calls (weather, forecast, multiply), and with the server manager on the model also spends turns connecting to servers, so a low cap ends the run before the answer.</p>
+<summary>2. The advanced query asks for New York's weather, its 3-day forecast and 12 times 342. Why does it fail with the default max_steps of 5?</summary>
+<p><code>max_steps</code> caps model calls. With the server manager on and one call per turn, the query takes two connections and three tool calls, five calls in all, and the answer needs a sixth. The run stops before the sum is reported, which is why both clients raise the cap to 30.</p>
 </details>
 <details>
 <summary>3. Calling divide with b equal to 0 gives the host a RuntimeError about invalid structured content instead of a tool result. Why, and how do you fix it?</summary>
-<p><code>divide</code> is annotated <code>-&gt; float</code> but returns the string <code>"Error: Division by zero"</code>, and the mcp 1.30.0 client checks structured results against the output schema, so it raises. Use <code>raise ToolError("Division by zero")</code>, which comes back with <code>isError: true</code>, or annotate <code>-&gt; float | str</code>, which moves the job of telling numbers from errors to every client.</p>
+<p><code>divide</code> is annotated <code>-&gt; float</code> but returns the string <code>"Error: Division by zero"</code>, and the mcp 1.30.0 client checks structured results against the output schema. Raise <code>ToolError("Division by zero")</code>, which comes back with <code>isError: true</code>. Annotating <code>-&gt; float | str</code> also works but moves the job of telling numbers from errors to every client.</p>
 </details>
-<h2 id="claude-desktop">Claude Desktop</h2>
+<h2 id="start-with-a-server-that-works-in-the-terminal-and-fails-in-the-host">Start with a server that works in the terminal and fails in the host</h2>
 <p class="lesson-of">Lesson 40.2: MCP servers with Claude Desktop. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/03_mcp_servers_with_claude_desktop" target="_blank" rel="noopener"><code>03_mcp_servers_with_claude_desktop</code></a> (optional)</p>
-<p>Larkspur adds its handbook server to a desktop host. You will inspect launch paths and working directories, then test whether a startup banner corrupts the stdio channel used for MCP messages.</p>
-<h3>Step 1: Read the host launcher configuration</h3>
-<p>Claude Desktop is an MCP host: it owns the model, the chat window and one client per server. You give it servers through <code>claude_desktop_config.json</code>, a map under <code>mcpServers</code> from a name to the command that starts the server. The project&rsquo;s config is the course&rsquo;s whole MCP toolbox in one file, thirteen entries:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what a desktop host does with each entry in its server config.</li>
+<li><strong>Diagnose</strong> an entry that starts in the wrong folder, leaks a secret or fetches new code at every launch.</li>
+<li><strong>Connect</strong> a stdio host to a remote server through a bridge, and name what the bridge exposes.</li>
+<li><strong>Keep</strong> stdout for the protocol and send every log line to stderr.</li>
+</ul>
+</blockquote>
+<p>Larkspur&rsquo;s support team wants the handbook server inside Claude Desktop, where staff can ask about refund windows while they work. The server passes every test in a terminal. In the host it writes its files somewhere unexpected, and a second build that prints a start-up banner only fails some of the time. Both problems come from how a host launches and talks to a server, not from the server&rsquo;s tools.</p>
+<h2 id="claude-desktop">Claude Desktop</h2>
+<p>Claude Desktop is an MCP host: it owns the model, the chat window and one MCP client per server. It learns about servers from <code>claude_desktop_config.json</code>, a map under <code>mcpServers</code> from a name to the command that starts the server. At launch the host runs every command as a subprocess and speaks to it over stdio:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    C[/"claude_desktop_config.json"/] --&gt; H["Host&lt;br/&gt;model and chat"]
+    H --&gt; C1["Client 1"] -- stdio --&gt; S1["uv: course server"]
+    H --&gt; C2["Client 2"] -- stdio --&gt; S2["npx: Node package"]
+    H --&gt; C3["Client 3"] -- stdio --&gt; S3["uvx: Python package"]
+</pre></figure>
+<p><em>Figure 1: One client per server. Each config entry becomes a subprocess the host starts and talks to over stdio.</em></p>
+<p>The project&rsquo;s config is the course&rsquo;s whole MCP toolbox in one file, thirteen entries:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -402,80 +488,136 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 </tr>
 </tbody>
 </table></div>
-<p>A Larkspur entry for the handbook server looks like the course&rsquo;s own:</p>
-<pre class="sheet code"><code class="language-json">&quot;larkspur-handbook&quot;: {
-  &quot;command&quot;: &quot;uv&quot;,
-  &quot;args&quot;: [&quot;--directory&quot;, &quot;/ABSOLUTE/PATH/TO/larkspur-handbook&quot;, &quot;run&quot;, &quot;server.py&quot;]
-}
-</code></pre>
-<h3>Step 2: Resolve paths, environment and work directories</h3>
-<p>What the file teaches beyond its syntax:</p>
+<p><em>Table 1: The thirteen entries in <code>claude_desktop_config.json</code>, grouped by launcher.</em></p>
+<p>A Larkspur entry for the handbook server takes the same shape as the course&rsquo;s own:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td><code>larkspur-handbook</code></td>
+<td>The label the host shows for the server</td>
+</tr>
+<tr>
+<td><code>command</code></td>
+<td><code>uv</code></td>
+<td>The launcher on the host&rsquo;s <code>PATH</code></td>
+</tr>
+<tr>
+<td><code>args</code></td>
+<td><code>--directory</code>, <code>/ABSOLUTE/PATH/TO/larkspur-handbook</code>, <code>run</code>, <code>server.py</code></td>
+<td>Sets the working directory, then runs the server</td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td>only the keys this server needs</td>
+<td>Each server sees its own secrets and no others</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: A handbook entry, written as fields. Every course entry ships with an <code>/ABSOLUTE/PATH/TO/…</code> placeholder to replace.</em></p>
+<h2 id="what-each-entry-decides">What each entry decides</h2>
+<p>The config is short, and each line decides something the server&rsquo;s code cannot:</p>
 <ul>
-<li><strong>Paths are absolute, and <code>--directory</code> sets the working directory.</strong> Every course entry ships with an <code>/ABSOLUTE/PATH/TO/…</code> placeholder to replace. The 40.4 server writes to <code>Path(".") / "jobs"</code>; <code>uv --directory</code> makes that resolve inside the project, where it would otherwise land wherever the host starts the process.</li>
-<li><strong>Secrets go in <code>env</code>, per server.</strong> <code>notionApi</code> gets <code>NOTION_TOKEN</code> and nothing else does. <code>excel</code> sets a paging limit, <code>EXCEL_MCP_PAGING_CELLS_LIMIT</code>, to 4000 cells.</li>
-<li><strong>Some entries fetch code at launch.</strong> <code>@playwright/mcp@latest</code> takes whatever version is current, and the <code>sqlite</code> entry installs from a Git repository each time <code>uvx</code> needs it. Pin versions for anything you depend on.</li>
-<li><strong>A remote server needs a bridge.</strong> The config reaches the EC2 server from lesson 40.7 through <code>npx mcp-remote http://&lt;EC2 address&gt;:8000/mcp --allow-http</code>, a local stdio process that forwards to the remote URL. mcp-remote 0.15.2&rsquo;s README says <code>--allow-http</code> &ldquo;should only be used in secure private networks where traffic cannot be intercepted&rdquo;; here it points at a public address.</li>
+<li><strong>The working directory.</strong> The host, not the server, chooses the folder a process starts in, and relative paths resolve there. The 40.4 server writes to <code>Path(".") / "jobs"</code>; <code>uv --directory</code> makes that land inside the project. That was the handbook server&rsquo;s stray files.</li>
+<li><strong>Secrets, per server.</strong> <code>notionApi</code> gets <code>NOTION_TOKEN</code> in its own <code>env</code> block and nothing else does. <code>excel</code> sets a paging limit, <code>EXCEL_MCP_PAGING_CELLS_LIMIT</code>, to 4000 cells (lesson 40.3).</li>
+<li><strong>Which code runs.</strong> <code>@playwright/mcp@latest</code> takes whatever version is current at each launch, and the <code>sqlite</code> entry installs from a Git repository whenever <code>uvx</code> needs it. Pin versions for anything you depend on.</li>
+<li><strong>What the model is offered.</strong> Thirteen servers means thirteen sets of tool definitions in every request; M38 measures what connected servers cost in tokens, and lesson 40.1&rsquo;s server manager is one way to hide them.</li>
 </ul>
-<h3>Step 3: Count the tool surface the host exposes</h3>
-<p>Thirteen servers also means thirteen sets of tool definitions on offer to the model; M38 measures what connected servers cost in tokens.</p>
+<h3>Reaching a remote server</h3>
+<p>Claude Desktop launches local commands. The config reaches the EC2 server from lesson 40.7 through a bridge, <code>npx mcp-remote http://&lt;EC2_PUBLIC_IP&gt;:8000/mcp --allow-http</code>: a local stdio process that forwards every message to the remote URL.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    H["Host"] -- stdio --&gt; B["mcp-remote&lt;br/&gt;local process"]
+    B -- "HTTP, unencrypted" --&gt; R["EC2 server&lt;br/&gt;:8000/mcp"]
+</pre></figure>
+<p><em>Figure 2: The bridge turns a URL into a command the host can start. The hop after it is plain HTTP.</em></p>
+<p>The mcp-remote README allows <code>--allow-http</code> only on trusted private networks. Here it points at a public address, and every request and result crosses the internet unencrypted. Put the server behind HTTPS, or keep it on a private network.</p>
 <h2 id="stdout-belongs-to-the-protocol">Stdout belongs to the protocol</h2>
-<h3>Step 1: Keep diagnostic text off the wire</h3>
-<p>Over stdio, the host writes requests to the server&rsquo;s stdin and reads responses from its stdout, one JSON-RPC message per line. Anything else the server writes to stdout arrives in the same stream.</p>
+<p>Over stdio, the host writes requests to the server&rsquo;s stdin and reads responses from its stdout, one JSON-RPC message per line. The specification says a server must not write anything to stdout that is not a valid MCP message. Anything else the server writes there arrives in the same stream.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     H["Host&lt;br/&gt;MCP client"] -- "stdin: requests" --&gt; S["Server process"]
     S -- "stdout: JSON-RPC only" --&gt; H
     S -- "stderr: logs" --&gt; L["Host log"]
 </pre></figure>
-<h3>Step 2: Observe a stray stdout line</h3>
-<p>The 06 server breaks this rule. Its <code>main()</code> prints a banner before <code>mcp.run(transport="stdio")</code>, and <code>ingest_pdf</code> prints progress lines while it works. A probe with mcp 1.30.0&rsquo;s stdio client and a server that prints the same way:</p>
+<p><em>Figure 3: Two output streams. Only stdout is the protocol; stderr goes to the host&rsquo;s log.</em></p>
+<p>The 06 server breaks this rule. Its <code>main()</code> prints a banner before <code>mcp.run(transport="stdio")</code>, and <code>ingest_pdf</code> prints progress lines while it works. A scratch probe used mcp 1.30.0&rsquo;s stdio client and a server that prints the same way: two banner lines at start-up and one line per file inside a tool call.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="buffering-switcher">
+<p class="widget-intro">The same printing server, called once with a two-file ingest. Pick the buffering mode to see what the client received.</p>
+<div class="mode-controls" hidden role="group" aria-label="Stdout buffering">
+<button type="button" data-mode="unbuffered" aria-pressed="false" aria-controls="buffer-unbuffered">Unbuffered</button>
+<button type="button" data-mode="buffered" aria-pressed="false" aria-controls="buffer-buffered">Default buffering</button>
+</div>
+<section id="buffer-unbuffered" class="mode-panel" data-announcement="Unbuffered selected. Four stray lines reached the client."><h4>Unbuffered (<code>PYTHONUNBUFFERED=1</code>)</h4><p>All four stray lines reached the client. It logged <code>Failed to parse JSONRPC message from server</code> four times, dropped each line and carried on. The tool result, <code>Added 2 files</code>, still arrived.</p></section>
+<section id="buffer-buffered" class="mode-panel" data-announcement="Default buffering selected. No stray line reached the client."><h4>Default buffering</h4><p>Python block-buffers stdout when it is a pipe. The prints sat in the buffer and none reached the client during the short session: 0 parse failures. The bug was there and did not show.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The Python client is forgiving. Another host may treat a bad line as a broken connection. In a longer session, such as a big ingest, the buffer fills and flushes mid-session, and the stray lines arrive then: a failure that comes and goes with the workload. The fix is the one the MCP server guide gives: keep <code>print()</code> out of a stdio server, and log through the <code>logging</code> module, whose default handler writes to stderr, or with <code>print(..., file=sys.stderr)</code>.</p>
+<blockquote>
+<p><strong>Pitfall: testing a stdio server only in a short session.</strong> Buffering hides stray prints until a flush. A clean test run proves nothing about stdout.</p>
+</blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>Output unbuffered</strong> (<code>PYTHONUNBUFFERED=1</code>): every stray line reached the client, which logged <code>Failed to parse JSONRPC message from server</code> with the offending text (the banner&rsquo;s <code>'LangChain Chroma Vector DB Server'</code> among them), dropped the line and carried on. The tool results still arrived.</li>
-<li><strong>Default buffering:</strong> Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and nothing reached the client during the short session. The bug was there and did not show.</li>
+<li>The config facts come from reading the project&rsquo;s <code>claude_desktop_config.json</code>. No Claude Desktop instance ran here, and the host&rsquo;s own handling of a bad stdout line was not tested.</li>
+<li>The buffering results come from one scratch probe with the mcp 1.30.0 Python client and a stand-in server that prints like the 06 server, not from the 06 server itself, which needs Ollama and Chroma.</li>
+<li>Versions taken by <code>@latest</code> and Git installs change over time; this page cannot say what they install today.</li>
 </ul>
-<h3>Step 3: Send diagnostic logs to stderr</h3>
-<p>The Python client is forgiving; another host may not be. Send logs to stderr (<code>print(..., file=sys.stderr)</code> or the <code>logging</code> module, whose default handler writes there), and keep stdout for the protocol.</p>
-<h3>Try it yourself</h3>
-<p>Launch a stdio server with an ordinary print before it starts, first with normal buffering and then unbuffered output. Check the recorded parse error rather than interpreting a successful connection as clean protocol output. Move the diagnostic to stderr and keep stdout reserved for JSON-RPC.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<h2 id="references">References</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/03_mcp_servers_with_claude_desktop" target="_blank" rel="noopener">MCP servers with claude</a>.</li>
-</ul>
-<h3>Continue learning</h3>
-<ul>
-<li><a href="../../../m38_mcp_foundations/mandatory/theory/index.html">M38</a>.</li>
+<li>Model Context Protocol: <a href="https://modelcontextprotocol.io/docs/develop/connect-local-servers" target="_blank" rel="noopener">Connect to local MCP servers</a>, on <code>claude_desktop_config.json</code>, and <a href="https://modelcontextprotocol.io/docs/develop/build-server" target="_blank" rel="noopener">Build an MCP server</a>, on logging in stdio servers.</li>
+<li>Model Context Protocol specification (2025-06-18): <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/transports" target="_blank" rel="noopener">Transports</a>, on newline-delimited messages and stdout.</li>
+<li>mcp-remote: <a href="https://github.com/geelen/mcp-remote" target="_blank" rel="noopener">project README</a>, on <code>--allow-http</code>.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>In <code>claude_desktop_config.json</code>, use absolute paths with <code>uv --directory</code>, give each server only its own secrets in <code>env</code>, and pin versions instead of <code>@latest</code>.</li>
-<li>A remote server reaches a stdio host through a bridge such as <code>mcp-remote</code>. Keep <code>--allow-http</code> to private networks where traffic cannot be intercepted.</li>
+<li>A remote server reaches a stdio host through a bridge such as <code>mcp-remote</code>. Keep <code>--allow-http</code> to trusted private networks, and use HTTPS for anything public.</li>
 <li>Over stdio, stdout carries only JSON-RPC. Send logs to stderr, because buffering can hide stray prints in testing that break a stricter host.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. How does the Claude Desktop config reach the remote EC2 server, and what does its --allow-http flag risk?</summary>
-<p>Through <code>npx mcp-remote http://&lt;EC2 address&gt;:8000/mcp --allow-http</code>, a local stdio process that forwards to the remote URL. mcp-remote 0.15.2&rsquo;s README says <code>--allow-http</code> should only be used in secure private networks where traffic cannot be intercepted; here it points at a public address.</p>
+<p>Through <code>npx mcp-remote http://&lt;EC2_PUBLIC_IP&gt;:8000/mcp --allow-http</code>, a local stdio process that forwards to the remote URL. The mcp-remote README allows <code>--allow-http</code> only on trusted private networks. Here it points at a public address, and every request and result crosses the internet unencrypted.</p>
 </details>
 <details>
 <summary>2. The 40.4 server writes to a jobs folder relative to its working directory. Why does its Claude Desktop entry pass uv an absolute directory?</summary>
-<p><code>uv --directory</code> sets the working directory, so <code>Path(".") / "jobs"</code> resolves inside the project; without it, the folder lands wherever the host starts the process. Every course entry ships with an <code>/ABSOLUTE/PATH/TO/…</code> placeholder you must replace.</p>
+<p><code>uv --directory</code> sets the working directory, so <code>Path(".") / "jobs"</code> resolves inside the project. Without it, the folder lands wherever the host starts the process. Every course entry ships with an <code>/ABSOLUTE/PATH/TO/…</code> placeholder you must replace.</p>
 </details>
 <details>
 <summary>3. The 06 server prints a banner to stdout, yet a short test session shows no parse errors. Is the server safe to ship?</summary>
-<p>No. Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and never reached the client: the bug was there and did not show. Unbuffered, every stray line reached the client, which logged <code>Failed to parse JSONRPC message from server</code>. Send logs to stderr and keep stdout for the protocol, because another host may be less forgiving.</p>
+<p>No. Python block-buffers stdout when it is a pipe, so the prints sat in the buffer and never reached the client. Unbuffered, every stray line reached the client, which logged a parse failure for each. Send logs to stderr and keep stdout for the protocol, because another host may be less forgiving.</p>
 </details>
-<h2 id="checking-the-agentrsquos-numbers">Checking the agent&rsquo;s numbers</h2>
+<h2 id="start-with-a-deck-that-looks-finished">Start with a deck that looks finished</h2>
 <p class="lesson-of">Lesson 40.3: MCP servers for data analysis. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/04_mcp_servers_for_data_analysis" target="_blank" rel="noopener"><code>04_mcp_servers_for_data_analysis</code></a> (optional)</p>
-<p>Larkspur receives a polished analysis deck built through spreadsheet and slide tools. You will trace its headline figures back to the ticket rows, recompute the arithmetic and identify which errors the model hid in plausible-looking charts.</p>
-<h3>Step 1: Separate moving cells from computing figures</h3>
-<p>This project has no code. It ships the input and the output of one analysis run in Claude through MCP, the job the <code>excel</code> and <code>ppt</code> entries in the 40.2 config are there for: <code>support_tickets_data.xlsx</code>, with 50 support tickets in a <code>support_tickets_data</code> sheet and the model&rsquo;s findings written back as a <code>data_analysis</code> sheet, and <code>Support_Tickets_Analysis_Report.pptx</code>, nine slides that end &ldquo;Analysis completed using Claude MCP Analysis&rdquo;.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> which part of an MCP analysis session computes the figures and which parts only move data.</li>
+<li><strong>Trace</strong> a wrong headline figure back to the cell it was copied from.</li>
+<li><strong>Diagnose</strong> a verdict that contradicts the data&rsquo;s own target.</li>
+<li><strong>Choose</strong> a set-up where every figure keeps a derivation you can inspect.</li>
+</ul>
+</blockquote>
+<p>Larkspur&rsquo;s support lead asks for a review of last month&rsquo;s tickets and gets back a polished nine-slide deck within minutes. One slide says only 42.9% of critical tickets were resolved, and a meeting is booked to discuss it. Nobody has checked where that number came from. This project is the same situation with real files, and it rewards one question: which part of the system did the arithmetic?</p>
+<h2 id="checking-the-agentrsquos-numbers">Checking the agent&rsquo;s numbers</h2>
+<p>This project has no code. It ships the input and the output of one analysis run in Claude through MCP, the job the <code>excel</code> and <code>ppt</code> entries in the 40.2 config are there for:</p>
+<ul>
+<li><code>support_tickets_data.xlsx</code>, with 50 support tickets in a <code>support_tickets_data</code> sheet (12 columns, from <code>ticket_id</code> to <code>resolved</code>) and the model&rsquo;s findings written back as a <code>data_analysis</code> sheet.</li>
+<li><code>Support_Tickets_Analysis_Report.pptx</code>, nine slides that end &ldquo;Analysis completed using Claude MCP Analysis&rdquo;.</li>
+</ul>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     W[("Workbook&lt;br/&gt;50 tickets")] -- excel_read_sheet --&gt; M["Model&lt;br/&gt;reads cells, does the sums"]
     M -- excel_write_to_sheet --&gt; A["data_analysis sheet"]
     M -- "ppt server" --&gt; D["Nine-slide deck"]
 </pre></figure>
-<h3>Step 2: Recompute figures from the source rows</h3>
-<p>The servers move cells and slides. The arithmetic happens in the model. Recomputing the deck&rsquo;s figures from the ticket sheet with pandas:</p>
+<p><em>Figure 1: The run as shipped. The servers move cells and slides; every figure is computed inside the model.</em></p>
+<p>Recomputing the deck&rsquo;s figures from the ticket sheet with pandas takes one cell:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -522,38 +664,54 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 </tr>
 </tbody>
 </table></div>
-<h3>Step 3: Trace a plausible percentage to its source cell</h3>
-<p>Most figures are right, and the two wrong ones look the same as the rest. 42.9% is agent A001&rsquo;s resolution rate (3 of 7), one block up in the same sheet, reported as the critical-ticket rate, and it drives the slide&rsquo;s &ldquo;Critical Ticket Problems&rdquo; finding. Response time is called on target while missing the target the sheet sets in its own success-metrics block.</p>
-<h3>Step 4: Make the spreadsheet perform the arithmetic</h3>
-<p>The excel server can do the sums itself. Its README (excel-mcp-server 0.12.0) says a written value that starts with <code>=</code> is a formula, so <code>=AVERAGE(support_tickets_data!I2:I51)</code> would let the workbook compute the average and keep the source of every number visible. The analysis sheet holds typed strings such as <code>2.84/5</code> instead, and its seven section headings, which begin with <code>=</code> (<code>==== EXECUTIVE SUMMARY ===</code>), were stored as formulas with no value, so pandas reads them as empty cells.</p>
-<h3>Step 5: Check provenance before publishing a deck</h3>
-<p>Rules for analysis sessions over MCP:</p>
+<p><em>Table 1: The deck against a recomputation. Bold marks the two figures that disagree.</em></p>
+<p>Most figures are right, and the two wrong ones look the same as the rest. The verdict on response time is wrong too: 2.17 hours misses the &ldquo;Under 2 hours&rdquo; target that the analysis sheet sets in its own success-metrics block, and the deck calls it on target.</p>
+<h3>Where 42.9% came from</h3>
+<div class="walkthrough learning-widget" data-stepper id="trace-walkthrough">
+<p class="widget-intro">Follow the critical-ticket figure from the slide back to its source. Each stage uses only the shipped files.</p>
+<div class="step-controls" hidden role="group" aria-label="Trace stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="trace-step-0">1. The claim</button><button type="button" data-step="1" aria-pressed="false" aria-controls="trace-step-1">2. Recompute</button><button type="button" data-step="2" aria-pressed="false" aria-controls="trace-step-2">3. Find the number</button><button type="button" data-step="3" aria-pressed="false" aria-controls="trace-step-3">4. Consequence</button></div>
+<div class="step-panels"><section id="trace-step-0" class="step-panel" aria-labelledby="trace-heading-0"><h4 id="trace-heading-0">1. The slide's claim</h4><dl><dt>Deck</dt><dd>"Critical Ticket Problems: Only 42.9% of critical tickets resolved"</dd><dt>Analysis sheet</dt><dd>The same sentence under its key-problems heading</dd></dl></section><section id="trace-step-1" class="step-panel" aria-labelledby="trace-heading-1"><h4 id="trace-heading-1">2. Recompute from the tickets</h4><dl><dt>Filter</dt><dd><code>priority</code> is Critical: 7 tickets</dd><dt>Resolved among them</dt><dd>5, which is 71.4%</dd><dt>Verdict</dt><dd>The slide's figure does not come from these rows</dd></dl></section><section id="trace-step-2" class="step-panel" aria-labelledby="trace-heading-2"><h4 id="trace-heading-2">3. Search the analysis sheet for 42.9</h4><dl><dt>Match</dt><dd>Agent A001: "7 tickets, 42.9% resolved, 2.14/5 satisfaction", one block up</dd><dt>Check</dt><dd>A001 resolved 3 of its 7 tickets: 42.9%</dd><dt>Cause</dt><dd>An agent's rate, copied into the critical-ticket line; both groups happen to hold 7 tickets</dd></dl></section><section id="trace-step-3" class="step-panel" aria-labelledby="trace-heading-3"><h4 id="trace-heading-3">4. What the error drives</h4><dl><dt>Slide finding</dt><dd>A "Critical Ticket Problems" section built on the wrong rate</dd><dt>Real picture</dt><dd>Critical tickets resolve better than the 46% overall rate</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<blockquote>
+<p><strong>Pitfall: checking a deck by reading it.</strong> A copied percentage looks as precise as a computed one. Only a recomputation from the source rows separates them.</p>
+</blockquote>
+<h2 id="make-the-tool-compute">Make the tool compute</h2>
+<p>The excel server can do the sums itself. Its README says a value written through <code>excel_write_to_sheet</code> that starts with <code>=</code> is a formula. Writing <code>=AVERAGE(support_tickets_data!I2:I51)</code> would let the workbook compute the average satisfaction and keep the source of the number visible in the cell:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    W[("Workbook&lt;br/&gt;50 tickets")] -- excel_read_sheet --&gt; M["Model&lt;br/&gt;chooses the formula"]
+    M -- "excel_write_to_sheet&lt;br/&gt;=AVERAGE(...)" --&gt; A["data_analysis sheet&lt;br/&gt;workbook computes"]
+    A -- "computed value" --&gt; D["Deck"]
+</pre></figure>
+<p><em>Figure 2: Added for comparison. The model writes formulas and the workbook does the arithmetic. Each figure can be audited in its cell.</em></p>
+<p>The analysis sheet holds typed strings such as <code>2.84/5</code> instead. Its seven section headings begin with <code>=</code> (<code>==== EXECUTIVE SUMMARY ===</code>), and the workbook stored them as formulas with no cached value. Read with pandas, those seven cells come back empty: the one place the run used the formula path, it did so by accident.</p>
+<p>Three rules for analysis sessions over MCP:</p>
 <ul>
-<li><strong>Make the tool compute.</strong> Ask for formulas, or give the host a code or SQL tool, so each figure has a derivation you can inspect.</li>
+<li><strong>Make the tool compute.</strong> Ask for formulas, or give the host a code or SQL tool. Each figure then has a derivation you can inspect.</li>
 <li><strong>Recompute the headline numbers</strong> before a deck leaves the room. Here that took one pandas cell and found two wrong figures and one wrong verdict.</li>
-<li><strong>Check the paging limit against the data.</strong> <code>EXCEL_MCP_PAGING_CELLS_LIMIT</code> is 4000 cells per read; this sheet is 612 cells, so one read covered it. A larger sheet arrives in pages, and a model that stops after the first page analyses part of the data.</li>
+<li><strong>Check the paging limit against the data.</strong> <code>EXCEL_MCP_PAGING_CELLS_LIMIT</code> is 4000 cells per read in the 40.2 config. This sheet is 612 cells with its header row, so one read covered it. A larger sheet arrives in pages, and a model that stops after the first page analyses part of the data.</li>
 </ul>
-<h3>Try it yourself</h3>
-<p>Recompute average satisfaction and the technical-ticket resolution rate from the fifty-ticket sheet. Check 2.82 rather than 2.84 for satisfaction, and trace the misplaced 42.9% to agent A001&rsquo;s three-of-seven rate. Use a formula or code result as the source for the slide, not a second model-written number.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p>Back at Larkspur, the meeting about critical tickets should be about the response-time target instead.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/04_mcp_servers_for_data_analysis" target="_blank" rel="noopener">MCP servers for data</a>.</li>
+<li>The recomputation uses pandas and openpyxl on the shipped workbook and reads the deck&rsquo;s slide text; the run that produced them is not reproducible here, and its prompts are not shipped.</li>
+<li>How the model arrived at 42.9% is inferred from the matching agent row and the equal ticket counts. The transcript is not available.</li>
+<li>The formula behaviour comes from the excel-mcp-server README, not from running the server.</li>
 </ul>
-<h3>Continue learning</h3>
+<h2 id="references">References</h2>
 <ul>
-<li><a href="#claude-desktop">40.2 config</a>.</li>
+<li>excel-mcp-server: <a href="https://github.com/negokaz/excel-mcp-server" target="_blank" rel="noopener">project README</a>, on <code>excel_read_sheet</code>, <code>excel_write_to_sheet</code>, formulas and <code>EXCEL_MCP_PAGING_CELLS_LIMIT</code>.</li>
+<li>Model Context Protocol specification (2025-06-18): <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools" target="_blank" rel="noopener">Tools</a>.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>MCP servers move cells and slides; the model does the arithmetic. Its wrong figures look the same as its right ones.</li>
-<li>Make the tool compute, with spreadsheet formulas or a code or SQL tool, so every figure has a derivation you can inspect.</li>
+<li>Make the tool compute, with spreadsheet formulas or a code or SQL tool, and every figure keeps a derivation you can inspect.</li>
 <li>Recompute the headline numbers before a report ships, and check the server&rsquo;s paging limit against the data size so the model reads every page.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. In this Claude analysis run, which part does the arithmetic, and why does that make the deck hard to trust?</summary>
-<p>The model. The excel and ppt servers only move cells and slides, so no figure has a derivation you can inspect, and the two wrong figures look the same as the right ones. Make the tool compute instead: ask for formulas, or give the host a code or SQL tool.</p>
+<p>The model. The excel and ppt servers only move cells and slides. No figure has a derivation you can inspect, and the two wrong figures look the same as the right ones. Make the tool compute instead: ask for formulas, or give the host a code or SQL tool.</p>
 </details>
 <details>
 <summary>2. The deck reports that only 42.9% of critical tickets were resolved. What does the ticket sheet give, and where did 42.9% come from?</summary>
@@ -563,11 +721,20 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <summary>3. The next ticket sheet has 6,000 cells. What can go wrong when the model reads it through the excel server, and what do you check?</summary>
 <p><code>EXCEL_MCP_PAGING_CELLS_LIMIT</code> is 4000 cells per read, so the sheet arrives in pages, and a model that stops after the first page analyses part of the data. Check the paging limit against the data size; this project&rsquo;s 612-cell sheet fit in one read.</p>
 </details>
-<h2 id="one-server-three-controllers">One server, three controllers</h2>
+<h2 id="start-with-one-server-that-three-people-drive">Start with one server that three people drive</h2>
 <p class="lesson-of">Lesson 40.4: Tools, resources and prompts together. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/05_mcp_tools_resources_and_prompts" target="_blank" rel="noopener"><code>05_mcp_tools_resources_and_prompts</code></a></p>
-<p>Larkspur wants one server to support model-selected searches, engineer-selected data and reusable instructions. You will follow a complete tool-resource-prompt session and inspect how shared temporary files can mix users&rsquo; work.</p>
-<h3>Step 1: Assign control to the primitive that owns it</h3>
-<p>M38 introduced the three things a server can offer. The Job Market Explorer server uses all three at once, which shows how they divide the work. The project&rsquo;s presentation names who controls each: tools are &ldquo;Model-controlled&rdquo;, resources &ldquo;Application-controlled&rdquo; and prompts &ldquo;User-controlled&rdquo;.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> who triggers each of a server&rsquo;s three primitives, and which of them can change anything.</li>
+<li><strong>Trace</strong> one session that uses all three, through the files they share on the server&rsquo;s disk.</li>
+<li><strong>Diagnose</strong> a host that loads only tools and leaves a prompt with nothing to read.</li>
+<li><strong>Find</strong> hidden coupling between tools before a second user finds it.</li>
+</ul>
+</blockquote>
+<p>Larkspur&rsquo;s support server could offer three different things: a handbook search the model runs when it needs a fact, a customer&rsquo;s plan record the agent&rsquo;s screen attaches, and a &ldquo;refund reply&rdquo; template a support agent picks from a menu. Each has a different owner, and MCP gives each its own primitive. The Job Market Explorer server in this project is the worked case: one server with all three, and a design flaw that only shows with two users.</p>
+<h2 id="one-server-three-controllers">One server, three controllers</h2>
+<p>M38 introduced the three things a server can offer. This server uses all three at once, which shows how they divide the work. The project&rsquo;s presentation names who controls each: tools are &ldquo;Model-controlled&rdquo;, resources &ldquo;Application-controlled&rdquo; and prompts &ldquo;User-controlled&rdquo;.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -598,7 +765,9 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 </tr>
 </tbody>
 </table></div>
-<h3>Step 2: Trace data through the server files</h3>
+<p><em>Table 1: The server&rsquo;s seven features. A scratch <code>list_tools</code>, <code>list_resources</code> and <code>list_prompts</code> call returned exactly these.</em></p>
+<p>The prompts are scripts for the model. <code>personalized_job_recommender</code> says to read the resume, &ldquo;Call job search mcp tool&rdquo;, then &ldquo;Optionally call save job mcp tool on top matches&rdquo;. <code>create_match_report</code> starts &ldquo;Given the attached jobs data and resume&rdquo;, and it only works once the user has attached both resources. The server writes the workflow; the host has to support every step of it.</p>
+<h2 id="a-session-through-all-three">A session through all three</h2>
 <p>A full session uses all three in order, and the pieces meet in files on the server&rsquo;s disk:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     P["User picks prompt&lt;br/&gt;personalized_job_recommender"] --&gt; M["Model"]
@@ -608,27 +777,75 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
     T2 -. "resource: jobs://saved" .-&gt; R["User attaches&lt;br/&gt;resume and saved jobs"]
     R --&gt; C["Prompt: create_match_report"]
 </pre></figure>
-<h3>Step 3: Distinguish instructions from executed actions</h3>
-<p>The prompts are scripts for the model: <code>personalized_job_recommender</code> says to read the resume, &ldquo;Call job search mcp tool&rdquo;, then &ldquo;Optionally call save job mcp tool on top matches&rdquo;. <code>create_match_report</code> starts &ldquo;Given the attached jobs data and resume&rdquo;, so it only works once the user has attached both resources. The server writes the workflow; the host has to support every step of it.</p>
-<h3>Step 4: Check which primitives the adapter loads</h3>
-<p>Hosts differ in how much of that they support. In langchain-mcp-adapters 0.3.2, <code>load_mcp_tools</code> and <code>MultiServerMCPClient.get_tools()</code> load tools only. Resources come from <code>client.get_resources(...)</code> and prompts from <code>client.get_prompt(...)</code>, and the application has to fetch them and put them in the conversation itself. A LangGraph app that only loads tools sees 2 of this server&rsquo;s 7 features, and <code>create_match_report</code> has nothing attached to read.</p>
-<h3>Step 5: Find the hidden dependency between tool calls</h3>
-<p>Two design points the server gets wrong for anything beyond one user:</p>
+<p><em>Figure 1: One session. Tools write files; a resource reads them back; the second prompt reads the resources.</em></p>
+<div class="walkthrough learning-widget" data-stepper id="session-walkthrough">
+<p class="widget-intro">Step through the session in Figure 1. Each stage names who acted, which primitive ran and what changed on disk.</p>
+<div class="step-controls" hidden role="group" aria-label="Session stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="session-step-0">1. Pick a prompt</button><button type="button" data-step="1" aria-pressed="false" aria-controls="session-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="session-step-2">3. Save</button><button type="button" data-step="3" aria-pressed="false" aria-controls="session-step-3">4. Attach and report</button></div>
+<div class="step-panels"><section id="session-step-0" class="step-panel" aria-labelledby="session-heading-0"><h4 id="session-heading-0">1. The user picks a prompt</h4><dl><dt>Who</dt><dd>The user, from the host's prompt menu</dd><dt>Primitive</dt><dd><code>personalized_job_recommender</code>: instructions, no side effects</dd><dt>On disk</dt><dd>Nothing yet</dd></dl></section><section id="session-step-1" class="step-panel" aria-labelledby="session-heading-1"><h4 id="session-heading-1">2. The model searches</h4><dl><dt>Who</dt><dd>The model, following the prompt</dd><dt>Primitive</dt><dd><code>search_jobs</code>: one JSearch request, results returned to the model</dd><dt>On disk</dt><dd>The full results overwrite <code>jobs/temp/fetched_jobs_temp.json</code></dd></dl></section><section id="session-step-2" class="step-panel" aria-labelledby="session-heading-2"><h4 id="session-heading-2">3. The model saves a match</h4><dl><dt>Who</dt><dd>The model, if it decides a job is a top match</dd><dt>Primitive</dt><dd><code>save_job(job_id)</code>: looks the id up in the temp file, not in the conversation</dd><dt>On disk</dt><dd>A new file in <code>jobs/saved_by_candidate/general/</code></dd></dl></section><section id="session-step-3" class="step-panel" aria-labelledby="session-heading-3"><h4 id="session-heading-3">4. The user attaches resources and asks for a report</h4><dl><dt>Who</dt><dd>The user attaches <code>resume://default</code> and <code>jobs://saved</code>, then picks <code>create_match_report</code></dd><dt>Primitives</dt><dd>Two resource reads and one prompt; nothing is written</dd><dt>Model sees</dt><dd>Resume text, every saved job as Markdown, and the report instructions</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<h2 id="what-a-tools-only-host-sees">What a tools-only host sees</h2>
+<p>Hosts differ in how much of that they support. A desktop host such as Claude Desktop (lesson 40.2) shows prompts in a menu and lets the user attach resources. A LangGraph app built with langchain-mcp-adapters 0.3.2 gets less: <code>load_mcp_tools</code> and <code>MultiServerMCPClient.get_tools()</code> load tools only. A scratch run of <code>load_mcp_tools</code> on this server returned <code>search_jobs</code> and <code>save_job</code> and nothing else, 2 of its 7 features.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S["Job Market Explorer"] -- "get_tools()" --&gt; G["Agent&lt;br/&gt;2 tools"]
+    S -. "get_resources(uris=...)" .-&gt; A["App code&lt;br/&gt;fetches and inserts"]
+    S -. "get_prompt(name)" .-&gt; A
+    A --&gt; G
+</pre></figure>
+<p><em>Figure 2: In a tools-only host, resources and prompts reach the model only if the application fetches them and puts them in the conversation.</em></p>
+<p>The adapter&rsquo;s client has the calls: <code>get_resources(server_name, uris=...)</code> returns the resources as blobs, and <code>get_prompt(server_name, prompt_name, arguments=...)</code> returns the prompt as messages. Nothing calls them for you. An app that skips them still runs, but <code>create_match_report</code> arrives with nothing attached and the model writes a match report about a resume it never saw.</p>
+<h2 id="two-users-one-temp-file">Two users, one temp file</h2>
+<p>The server is built for one person at a time, in two ways:</p>
 <ul>
-<li><strong>Hidden coupling between tools.</strong> <code>save_job</code> only works after <code>search_jobs</code>, because it reads the single file <code>fetched_jobs_temp.json</code>. Two users of a shared server overwrite each other&rsquo;s search, and <code>save_job</code> saves a job from someone else&rsquo;s results or reports the id as not found.</li>
-<li><strong>Paths relative to the working directory.</strong> <code>BASE_DIR = Path(".")</code> puts <code>jobs/</code> and <code>resume/</code> wherever the server process starts. The Claude Desktop entry passes <code>uv --directory</code>, which sets it (40.2); anchor paths on <code>Path(__file__).parent</code> instead, as the 06 and 07 servers do.</li>
+<li><strong>Hidden coupling between tools.</strong> <code>save_job</code> only works after <code>search_jobs</code>, because it reads the single file <code>fetched_jobs_temp.json</code>, not the results in the conversation.</li>
+<li><strong>Shared folders.</strong> Every saved job goes into <code>jobs/saved_by_candidate/general/</code>, and <code>jobs://saved</code> lists every file there. On a shared server each user&rsquo;s match report reads everyone&rsquo;s saved jobs.</li>
 </ul>
-<h3>Try it yourself</h3>
-<p>Let two users search different jobs before either saves one. Inspect the single fetched_jobs_temp.json dependency and identify how the second search can replace the first user&rsquo;s candidates. Specify per-user or per-request storage before assuming a shared server preserves the sequence implied by the prompt.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p>A scratch replay ran the server&rsquo;s own code over stdio, with the JSearch request stubbed to return three jobs per search. User A searched for data analyst roles and user B for nurse roles, in that order, before either saved:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Call</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>A: <code>search_jobs("data analyst", "Leeds")</code></td>
+<td>Temp file holds <code>data-0</code> to <code>data-2</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>B: <code>search_jobs("nurse", "Leeds")</code></td>
+<td>Temp file now holds <code>nurse-0</code> to <code>nurse-2</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>A: <code>save_job("data-0")</code></td>
+<td>&ldquo;Job ID data-0 not found in fetched data.&rdquo;</td>
+</tr>
+<tr>
+<td>4</td>
+<td>B: <code>save_job("nurse-1")</code></td>
+<td>Saved to <code>general/nurse-1.json</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: Two users on one server, replayed with a stubbed API. A&rsquo;s job vanished because B&rsquo;s search replaced the file.</em></p>
+<p>The fix is to keep state per user or per request: return everything <code>save_job</code> needs inside the search result, or key the temp file and the saved folder by a session id. One more design point compounds the problem: <code>BASE_DIR = Path(".")</code> puts <code>jobs/</code> and <code>resume/</code> wherever the server process starts. The Claude Desktop entry passes <code>uv --directory</code>, which sets it (40.2); anchor paths on <code>Path(__file__).parent</code> instead, as the 06 and 07 servers do.</p>
+<blockquote>
+<p><strong>Pitfall: state that lives between tool calls.</strong> If one tool reads what another wrote to a shared place, the server holds conversation state that MCP knows nothing about.</p>
+</blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/05_mcp_tools_resources_and_prompts" target="_blank" rel="noopener">MCP tools resources and</a>.</li>
+<li>The feature lists, the tools-only load and the two-user replay come from scratch runs of the project&rsquo;s <code>server.py</code> over stdio with mcp 1.30.0 and langchain-mcp-adapters 0.3.2. The JSearch API was stubbed; no RapidAPI key was used.</li>
+<li>The session in the walkthrough follows the prompts&rsquo; own instructions. No model ran, and a model may skip the optional save.</li>
+<li>Whether a given desktop host supports prompts and resource attachment depends on the host and its version.</li>
 </ul>
-<h3>Continue learning</h3>
+<h2 id="references">References</h2>
 <ul>
-<li><a href="../../../m38_mcp_foundations/mandatory/theory/index.html">M38</a>.</li>
-<li><a href="#claude-desktop">40.2</a>.</li>
+<li>Model Context Protocol specification (2025-06-18): <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools" target="_blank" rel="noopener">Tools</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/resources" target="_blank" rel="noopener">Resources</a> and <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/prompts" target="_blank" rel="noopener">Prompts</a>, on who controls each primitive.</li>
+<li>LangChain documentation: <a href="https://docs.langchain.com/oss/python/langchain/mcp" target="_blank" rel="noopener">Model Context Protocol</a>, on loading tools, resources and prompts with langchain-mcp-adapters.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -639,21 +856,38 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Who triggers each of the Job Market Explorer server's three primitives, and which of them have side effects?</summary>
-<p>Tools are model-controlled and have side effects: <code>search_jobs</code> calls the JSearch API and <code>save_job</code> writes JSON files. Resources are application-controlled and only read. Prompts are user-controlled and return instructions, so they change nothing.</p>
+<p>Tools are model-controlled and have side effects: <code>search_jobs</code> calls the JSearch API and writes a temp file, and <code>save_job</code> writes JSON files. Resources are application-controlled and only read. Prompts are user-controlled and return instructions, so they change nothing.</p>
 </details>
 <details>
 <summary>2. A LangGraph app loads this server with get_tools only. How much of the server does it see, and what happens to the match report?</summary>
-<p>2 of its 7 features: in langchain-mcp-adapters 0.3.2, <code>get_tools()</code> loads tools only. <code>create_match_report</code> starts &ldquo;Given the attached jobs data and resume&rdquo;, so it has nothing to read unless the app fetches the resources with <code>client.get_resources(...)</code> and the prompt with <code>client.get_prompt(...)</code> and puts them in the conversation itself.</p>
+<p>2 of its 7 features: in langchain-mcp-adapters 0.3.2, <code>get_tools()</code> loads tools only. <code>create_match_report</code> starts &ldquo;Given the attached jobs data and resume&rdquo;, and it has nothing to read unless the app fetches the resources with <code>get_resources</code> and the prompt with <code>get_prompt</code> and puts them in the conversation itself.</p>
 </details>
 <details>
-<summary>3. Two users share one Job Market Explorer server, and one of them saves a job that came from the other's search. Why?</summary>
-<p><code>save_job</code> only works after <code>search_jobs</code>, because it reads the single file <code>fetched_jobs_temp.json</code>. A second user&rsquo;s search overwrites the first user&rsquo;s, so <code>save_job</code> saves a job from someone else&rsquo;s results or reports the id as not found. That hidden coupling between tools breaks as soon as there is more than one user.</p>
+<summary>3. Two users share one Job Market Explorer server, and one of them gets "not found" when saving a job from their own search. Why?</summary>
+<p><code>save_job</code> reads the single file <code>fetched_jobs_temp.json</code>, and each <code>search_jobs</code> call overwrites it. When the second user searches before the first one saves, the first user&rsquo;s job ids are gone. Keep that state per user or per request instead of in one shared file.</p>
 </details>
-<h2 id="rag-over-mcp">RAG over MCP</h2>
+<h2 id="start-with-a-cutoff-that-drops-good-evidence">Start with a cutoff that drops good evidence</h2>
 <p class="lesson-of">Lesson 40.5: RAG over MCP with LangChain. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/06_mcp_rag_with_langchain" target="_blank" rel="noopener"><code>06_mcp_rag_with_langchain</code></a></p>
-<p>Larkspur moves indexing behind an MCP server, but the host still needs to interpret retrieval scores correctly. You will inspect server-owned chunking and persistence, then compare Chroma distance with the similarity value returned to clients.</p>
-<h3>Step 1: Separate server retrieval policy from host decisions</h3>
-<p>The 06 server puts a whole LangChain RAG index behind four MCP tools: <code>ingest_pdf(source)</code> for a PDF file, a folder of PDFs or a URL; <code>retrieve(query, n=5)</code>; <code>db_info()</code>; and <code>clear_db()</code>. Inside it is the pipeline from M10 to M14: PyPDF2 extracts the text, <code>RecursiveCharacterTextSplitter</code> cuts it, Ollama&rsquo;s <code>nomic-embed-text</code> embeds it, and Chroma persists it in <code>chroma_db/</code> beside <code>server.py</code>. The Streamlit <code>app.py</code> is the client: a LangGraph ReAct agent on Ollama&rsquo;s <code>qwen3</code> that loads the server&rsquo;s tools for each question.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> which retrieval decisions move to the server when a RAG index sits behind MCP tools, and which stay with the host.</li>
+<li><strong>Trace</strong> one question through the 06 project: server start, discovery, the model&rsquo;s tool call, the retrieved chunks.</li>
+<li><strong>Check</strong> chunk units, chunk ids and result size before trusting the index.</li>
+<li><strong>Convert</strong> Chroma&rsquo;s default distance into what it really measures, and choose a metric that makes a cutoff mean what it says.</li>
+</ul>
+</blockquote>
+<p>Larkspur moves its handbook index behind an MCP server, and the Streamlit app and any other host now share one copy. A developer adds a filter on the client: keep chunks whose <code>similarity_score</code> is above 0.5, the usual reading of &ldquo;fairly similar&rdquo; for cosine.</p>
+<p>The filter quietly drops chunks with a cosine of 0.7. Nothing errors, the ranking is still right, and the answers get thinner. The cause is a metric nobody chose: the collection was created without one.</p>
+<h2 id="rag-over-mcp">RAG over MCP</h2>
+<p>The 06 server puts a whole LangChain RAG index behind four MCP tools:</p>
+<ul>
+<li><code>ingest_pdf(source)</code> takes a PDF file, a folder of PDFs or a URL.</li>
+<li><code>retrieve(query, n=5)</code> returns the top <code>n</code> chunks.</li>
+<li><code>db_info()</code> reports the collection, its size and its settings.</li>
+<li><code>clear_db()</code> deletes the collection and recreates it empty, with no confirmation.</li>
+</ul>
+<p>Inside sits the pipeline from M10 to M14. PyPDF2 extracts the text, <code>RecursiveCharacterTextSplitter</code> cuts it, Ollama&rsquo;s <code>nomic-embed-text</code> embeds it, and Chroma persists it in <code>chroma_db/</code> beside <code>server.py</code>. The client is the Streamlit <code>app.py</code>: a LangGraph ReAct agent on Ollama&rsquo;s <code>qwen3</code> that loads the server&rsquo;s tools for each question.</p>
 <figure class="anim sheet" aria-labelledby="anim-ragmcp-cap">
   <div class="anim__canvas" tabindex="0" aria-label="RAG over MCP, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 352" role="img" aria-labelledby="anim-ragmcp-title anim-ragmcp-desc">
@@ -720,42 +954,71 @@ await agent.run(&quot;What's the weather in New York and the 3-day forecast? Als
     <li><button type="button" data-tok="630,60">Answer</button><span>The model answers from the chunks it was given.</span></li>
   </ol>
 </figure>
-<p>Serving retrieval this way moves every retrieval decision to the server, where all hosts share it, and leaves every question decision with the host. The server decides chunking, embeddings, the distance metric and the shape of the result. The host&rsquo;s model decides when to ingest, what query to write, how many chunks to ask for, and whether to call <code>clear_db</code>, which empties the collection with no confirmation.</p>
-<p>Calculate the conversion on known unit vectors before choosing a cutoff. These are exact synthetic vectors, not embedding-model measurements.</p>
-<pre class="sheet code"><code class="language-python">query = (1.0, 0.0)
-for name, vector in [(&quot;east&quot;, (1.0, 0.0)), (&quot;north&quot;, (0.0, 1.0)), (&quot;west&quot;, (-1.0, 0.0))]:
-    cosine = sum(a * b for a, b in zip(query, vector))
-    squared_l2 = sum((a - b) ** 2 for a, b in zip(query, vector))
-    print(name, cosine, squared_l2, 1 - squared_l2)
-</code></pre>
-<p><strong>Expected output</strong></p>
-<pre class="sheet code"><code class="language-text">east 1.0 0.0 1.0
-north 0.0 2.0 -1.0
-west -1.0 4.0 -3.0
-</code></pre>
-<h3>Step 2: Inspect the actual indexing settings</h3>
-<p>The server&rsquo;s choices, read from its code:</p>
+<p><em>Figure 1: Retrieval as a tool. The host&rsquo;s model asks; the server chunks, embeds, stores and searches.</em></p>
+<p>Serving retrieval this way splits the decisions cleanly:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Decided by</th>
+<th>Decisions</th>
+<th>Shared by every host?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The server</td>
+<td>Chunk size and overlap, the embedding model, the distance metric, the shape of each result</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>The host&rsquo;s model</td>
+<td>When to ingest, what query to write, how many chunks to ask for, whether to call <code>clear_db</code></td>
+<td>No, each host decides alone</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Who owns which retrieval decision once the index is an MCP server.</em></p>
+<p>The split is the point of the design and its risk. One server fixes chunking for everyone, but a metric mistake on the server reaches every host, and a destructive tool is one model decision away from running.</p>
+<p>Step through one question in the Streamlit app:</p>
+<div class="walkthrough learning-widget" data-stepper id="rag-question-walkthrough">
+<p class="widget-intro">A scripted trace of one question through <code>app.py</code> and the 06 server, read from their code. No model ran; the question is illustrative.</p>
+<div class="step-controls" hidden role="group" aria-label="One question through the 06 project"><button type="button" data-step="0" aria-pressed="false" aria-controls="rag-step-0">1. Start</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rag-step-1">2. Discover</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rag-step-2">3. Ask</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rag-step-3">4. Retrieve</button><button type="button" data-step="4" aria-pressed="false" aria-controls="rag-step-4">5. Answer</button></div>
+<div class="step-panels"><section id="rag-step-0" class="step-panel" aria-labelledby="rag-heading-0"><h4 id="rag-heading-0">1. The question starts a server</h4><dl><dt>Input</dt><dd>"Can I get a refund on an annual plan after 20 days?"</dd><dt>What happens</dt><dd>The form handler opens a new stdio client, which launches <code>server.py</code> as a new process. Its imports build the embeddings client and open <code>chroma_db/</code>.</dd></dl></section><section id="rag-step-1" class="step-panel" aria-labelledby="rag-heading-1"><h4 id="rag-heading-1">2. Handshake and discovery</h4><dl><dt>Messages</dt><dd><code>initialize</code>, the initialised notification, then <code>tools/list</code></dd><dt>State after</dt><dd>The four tools, wrapped as LangChain tools by the adapter and handed to a fresh agent</dd></dl></section><section id="rag-step-2" class="step-panel" aria-labelledby="rag-heading-2"><h4 id="rag-heading-2">3. The model writes the call</h4><dl><dt>Decision</dt><dd>The host's model picks <code>retrieve</code>, writes the query and chooses <code>n</code>, or leaves the default of 5</dd><dt>Not decided here</dt><dd>Chunking, embeddings and the metric: those were fixed on the server at ingest time</dd></dl></section><section id="rag-step-3" class="step-panel" aria-labelledby="rag-heading-3"><h4 id="rag-heading-3">4. The server searches</h4><dl><dt>Runs</dt><dd><code>similarity_search_with_score(query, k=n)</code> on the Chroma collection</dd><dt>Returns</dt><dd>For each chunk: <code>text</code>, <code>metadata</code>, <code>similarity_score</code> and <code>distance</code>. Whole chunks, up to 5 × 4,096 characters by default.</dd></dl></section><section id="rag-step-4" class="step-panel" aria-labelledby="rag-heading-4"><h4 id="rag-heading-4">5. Answer, then exit</h4><dl><dt>Output</dt><dd>The model answers from the returned chunks</dd><dt>Session</dt><dd>The handler's session closes and the server process exits. The next question starts it again.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Opening the session inside the handler costs nothing extra for one question. Over a conversation every question pays for a new process and a new handshake, as the <a href="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html">lab in lesson 40.6</a> counts. The 06 server also prints a banner to stdout before it starts serving stdio, a hazard lesson 40.2 covers in <a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a>.</p>
+<h2 id="check-the-index-before-trusting-it">Check the index before trusting it</h2>
+<p>Three settings in <code>server.py</code> decide what a retrieval returns, and each is easy to misread:</p>
 <ul>
-<li><strong>Chunk size is in characters.</strong> <code>CHUNK_SIZE = 4096</code> with <code>length_function=len</code>, and 409 characters of overlap. The project&rsquo;s presentation calls them &ldquo;4096 tokens&rdquo;. At that size the whole Larkspur handbook, 1,415 characters, is a single chunk, so every question retrieves the entire handbook; M12 is about choosing the size for the corpus.</li>
-<li><strong>Chunk ids are positions.</strong> Each chunk is stored as <code>&lt;file stem&gt;_chunk_&lt;i&gt;</code>, and langchain-chroma 1.1.0&rsquo;s <code>add_documents</code> upserts. In a probe, ingesting three chunks and then a two-chunk new version of the same file left three chunks: the two new ones and the old third. Two PDFs with the same name in different folders overwrite each other.</li>
-<li><strong>Results are whole chunks.</strong> <code>retrieve</code> returns <code>text</code>, <code>metadata</code>, <code>similarity_score</code> and <code>distance</code> for each of <code>n</code> chunks, so a default call can put up to 5 × 4,096 characters into the model&rsquo;s context.</li>
+<li><strong>Chunk size counts characters.</strong> <code>CHUNK_SIZE = 4096</code> with <code>length_function=len</code>, and an overlap of <code>4096 // 10</code>, which is 409 characters. The project&rsquo;s presentation calls them &ldquo;4096 tokens&rdquo;. Each of the 13 Larkspur handbook files is 555 to 1,038 characters long. A PDF of any one of them becomes a single chunk, and every hit returns a whole file. M12 is about choosing the size for the corpus.</li>
+<li><strong>Chunk ids are positions.</strong> Each chunk is stored as <code>&lt;file stem&gt;_chunk_&lt;i&gt;</code>, and langchain-chroma 1.1.0&rsquo;s <code>add_documents</code> upserts. A probe ingested three chunks, then a two-chunk new version of the same file: the collection still held three chunks, the two new ones and the old third. Two PDFs with the same name in different folders overwrite each other the same way.</li>
+<li><strong>Results are whole chunks.</strong> A default call can put up to 5 × 4,096 = 20,480 characters into the model&rsquo;s context.</li>
 </ul>
-<h3>Step 3: Check compatibility before starting the server</h3>
-<p>One fix is needed before the project runs in this course&rsquo;s environment: <code>server.py</code> imports <code>RecursiveCharacterTextSplitter</code> from <code>langchain.text_splitter</code>, which raises <code>ModuleNotFoundError</code> under langchain 1.4.7. The class lives in <code>langchain_text_splitters</code>.</p>
-<h3>Step 4: Trace session startup per question</h3>
-<p>The client opens its MCP session inside the request handler, so each question starts the server again: a new process, a new Chroma client, a new handshake. With one question that costs nothing extra. With a conversation it adds up, as the <a href="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html">lab in lesson 40.6</a> counts.</p>
+<p>One fix is needed before the project runs in this course&rsquo;s environment. <code>server.py</code> imports <code>RecursiveCharacterTextSplitter</code> from <code>langchain.text_splitter</code>, which raises <code>ModuleNotFoundError</code> under langchain 1.4.7. The class now lives in <code>langchain_text_splitters</code>.</p>
 <h2 id="distance-is-not-similarity">Distance is not similarity</h2>
-<h3>Step 1: Identify the metric before using a cutoff</h3>
-<h3>Step 2: Identify the metric behind the reported score</h3>
-<p><code>retrieve</code> calls <code>similarity_search_with_score</code>, which returns Chroma&rsquo;s distance, and reports <code>similarity_score = 1 - distance</code>. A collection created without a metric uses squared L2 distance (the configuration reads <code>'space': 'l2'</code> in chromadb 1.5.9). On unit vectors squared L2 is <code>2 - 2 × cosine</code>, so the reported score is <code>2 × cosine - 1</code>, a number from -3 to 1. A probe with four unit vectors and the query pointing east:</p>
+<p><code>retrieve</code> calls <code>similarity_search_with_score</code>, which returns Chroma&rsquo;s <strong>distance</strong>, and reports <code>similarity_score = 1 - distance</code>. That conversion is right for only one metric, and the collection does not use it.</p>
+<p>A collection created without a metric uses <strong>squared L2 distance</strong>: chromadb 1.5.9 records <code>'space': 'l2'</code> in its configuration. On unit vectors squared L2 equals <code>2 - 2 × cosine</code>, so the reported score is <code>2 × cosine - 1</code>, a number from -3 to 1:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Query and chunk&lt;br/&gt;unit vectors"] --&gt; D["Chroma, space l2&lt;br/&gt;distance = 2 - 2 × cosine"]
+    D --&gt; S["06 server&lt;br/&gt;1 - distance"]
+    S --&gt; R["similarity_score&lt;br/&gt;= 2 × cosine - 1"]
+</pre></figure>
+<p><em>Figure 2: The default collection. The score falls as cosine falls, but on a stretched scale.</em></p>
+<p>Created with <code>collection_metadata={"hnsw:space": "cosine"}</code>, the collection stores <code>1 - cosine</code> as the distance, and the same server line returns the cosine itself:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Query and chunk&lt;br/&gt;vectors"] --&gt; D["Chroma, space cosine&lt;br/&gt;distance = 1 - cosine"]
+    D --&gt; S["06 server&lt;br/&gt;1 - distance"]
+    S --&gt; R["similarity_score&lt;br/&gt;= cosine"]
+</pre></figure>
+<p><em>Figure 3: A cosine collection. One line of configuration makes the existing conversion true.</em></p>
+<p>A probe with langchain-chroma 1.1.0 stored four unit vectors and queried with the vector pointing east. These are exact synthetic vectors, not embedding-model measurements:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Chunk vector</th>
 <th>Cosine to the query</th>
-<th>Chroma distance</th>
+<th>Default distance</th>
 <th>06&rsquo;s <code>similarity_score</code></th>
-<th>With <code>hnsw:space</code> cosine</th>
+<th>Cosine-space <code>1 - distance</code></th>
 </tr>
 </thead>
 <tbody>
@@ -777,41 +1040,55 @@ west -1.0 4.0 -3.0
 <td>north</td>
 <td>0.000</td>
 <td>2.000</td>
-<td>−1.000</td>
+<td>-1.000</td>
 <td>0.000</td>
 </tr>
 <tr>
 <td>west</td>
-<td>−1.000</td>
+<td>-1.000</td>
 <td>4.000</td>
-<td>−3.000</td>
-<td>−1.000</td>
+<td>-3.000</td>
+<td>-1.000</td>
 </tr>
 </tbody>
 </table></div>
-<p>The ranking is right, because the score falls as the distance grows. The scale is not: a client that keeps chunks with a &ldquo;similarity&rdquo; above 0.5 is asking for cosine above 0.75, and if the embedding model does not return unit vectors, the scale moves with vector length and changes when the model does. The 07 server prints the same <code>1 - score</code> into its result text, so there the model reads it too.</p>
-<h3>Step 3: Choose a metric and a meaningful threshold</h3>
+<p><em>Table 2: The same four chunks under each metric (langchain-chroma 1.1.0, chromadb 1.5.9).</em></p>
+<p>Apply the client&rsquo;s 0.5 cutoff under each metric:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="metric-switcher">
+<p class="widget-intro">One query, four chunks, one filter: keep <code>similarity_score</code> above 0.5. Values from the probe in Table 2.</p>
+<div class="mode-controls" hidden role="group" aria-label="Collection metric">
+<button type="button" data-mode="l2" aria-pressed="false" aria-controls="metric-l2">Default, squared L2</button>
+<button type="button" data-mode="cosine" aria-pressed="false" aria-controls="metric-cosine">hnsw:space cosine</button>
+</div>
+<section id="metric-l2" class="mode-panel" data-announcement="Default metric selected. The cutoff keeps only the east chunk."><h4>Default, squared L2</h4><ul><li>Scores: east 1.000, north-east 0.414, north -1.000, west -3.000.</li><li>The filter keeps east only. North-east, with a cosine of 0.707, is dropped.</li><li>A 0.5 cutoff here demands a cosine above 0.75, and the scale moves again if the embedding model's vectors are not unit length.</li></ul></section>
+<section id="metric-cosine" class="mode-panel" data-announcement="Cosine metric selected. The cutoff keeps east and north-east."><h4>hnsw:space cosine</h4><ul><li>Scores: east 1.000, north-east 0.707, north 0.000, west -1.000.</li><li>The filter keeps east and north-east, which is what a 0.5 cosine cutoff means.</li><li>Vector length no longer matters: cosine distance ignores it.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The ranking is right under both metrics, because the score falls as the distance grows. Only the scale is wrong, which is why the bug survives every test that checks order and none that checks a threshold. The 07 server in lesson 40.6 prints the same <code>1 - score</code> into its result text as &ldquo;Similarity&rdquo;: there the model reads the stretched number too.</p>
 <p>Two fixes, both checked with langchain-chroma 1.1.0:</p>
 <ul>
-<li><strong>Create the collection with the metric you mean.</strong> <code>Chroma(..., collection_metadata={"hnsw:space": "cosine"})</code> makes the distance <code>1 - cosine</code>, and <code>1 - distance</code> is then the cosine (last column).</li>
-<li><strong>Return what you computed, and say what it is.</strong> Send <code>distance</code> and the metric name, and leave thresholds to the server, where one person owns them.</li>
+<li><strong>Create the collection with the metric you mean.</strong> <code>hnsw:space</code> cosine makes <code>1 - distance</code> the cosine. It only takes effect on a new collection: a probe reopened the default <code>documents</code> collection with the setting, raised no error, and still reported <code>l2</code>. Delete the collection and re-ingest.</li>
+<li><strong>Return what you computed, and say what it is.</strong> Send <code>distance</code> and the metric&rsquo;s name, and keep any threshold on the server, where one person owns it.</li>
 </ul>
-<h3>Try it yourself</h3>
-<p>Use the east-vector comparison and compute one minus the default Chroma distance. Check that ranking can remain correct while the value is not cosine similarity. Before applying a 0.5 cutoff, state whether the collection uses squared L2 or cosine distance and verify the conversion on known vectors.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/06_mcp_rag_with_langchain" target="_blank" rel="noopener">MCP RAG with langchain</a>.</li>
+<li><strong>Synthetic vectors.</strong> Table 2 uses exact two-dimensional unit vectors. <code>nomic-embed-text</code> scores real chunks differently, and whether its vectors are unit length was not measured here.</li>
+<li><strong>Code reading, not a live run.</strong> The walkthrough follows <code>app.py</code> and <code>server.py</code>; no Ollama model or server ran. The upsert and metric probes ran langchain-chroma 1.1.0 and chromadb 1.5.9 with a fixed embedding function.</li>
+<li><strong>PDF extraction.</strong> Handbook lengths are of the Markdown files. PyPDF2&rsquo;s extracted text from a PDF export could differ slightly, still far below 4,096 characters.</li>
 </ul>
-<h3>Continue learning</h3>
-<ul>
-<li><a href="../../../../p04_rag_foundations/m12_chunking/mandatory/theory/index.html">M12</a>.</li>
-</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Lewis, P. et al. (2020). <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>. <a href="https://arxiv.org/abs/2005.11401" target="_blank" rel="noopener">arXiv:2005.11401</a>.</li>
+<li>Model Context Protocol, <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools" target="_blank" rel="noopener">Tools</a>, specification 2025-06-18.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/mcp" target="_blank" rel="noopener">Model Context Protocol (MCP)</a>, loading MCP tools into LangChain agents.</li>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/collections/configure" target="_blank" rel="noopener">Configure collections</a>, the <code>space</code> setting and its default.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Serving retrieval over MCP puts chunking, embeddings, the metric and the result shape on the server, shared by every host. The host&rsquo;s model still chooses queries, chunk counts and destructive calls.</li>
+<li>Serving retrieval over MCP puts chunking, embeddings, the metric and the result shape on the server, shared by every host. The host&rsquo;s model still chooses queries, chunk counts and destructive calls such as <code>clear_db</code>.</li>
 <li>Check units and ids. <code>CHUNK_SIZE = 4096</code> counts characters, and position-based chunk ids leave stale chunks behind when a shorter version is re-ingested.</li>
-<li>Chroma&rsquo;s default distance is squared L2, so <code>1 - distance</code> is not cosine. Create the collection with <code>hnsw:space</code> cosine, or return the distance and its metric.</li>
+<li>Chroma&rsquo;s default distance is squared L2, so <code>1 - distance</code> is <code>2 × cosine - 1</code> on unit vectors. Create the collection with <code>hnsw:space</code> cosine, or return the distance and its metric.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -826,16 +1103,26 @@ west -1.0 4.0 -3.0
 <summary>3. You re-ingest a PDF whose new version splits into two chunks instead of three, and retrieve still returns text the new version dropped. Why?</summary>
 <p>Chunk ids are positions, <code>&lt;file stem&gt;_chunk_&lt;i&gt;</code>, and langchain-chroma 1.1.0&rsquo;s <code>add_documents</code> upserts. The two new chunks replace ids 0 and 1, and the old third chunk stays. For the same reason, two PDFs with the same name in different folders overwrite each other.</p>
 </details>
-<h2 id="mcp--langgraph">MCP + LangGraph</h2>
+<h2 id="start-with-a-server-that-starts-ten-times">Start with a server that starts ten times</h2>
 <p class="lesson-of">Lesson 40.6: Research assistant with MCP and LangGraph. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/07_research_assistant_with_mcp_and_langgraph" target="_blank" rel="noopener"><code>07_research_assistant_with_mcp_and_langgraph</code></a></p>
-<p>Larkspur&rsquo;s research assistant keeps conversation in its graph and research files on a server. You will separate those memories, inspect the MCP tool loop and count repeated startup and discovery under three session lifetimes.</p>
-<h3>Step 1: Connect the graph to server-owned tools</h3>
-<p>The research assistant splits into a graph that thinks and servers that act. <code>client.py</code> builds the graph; two MCP servers supply every tool it can call:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong><code>research_server</code></strong> (this project&rsquo;s <code>server.py</code>) keeps research in Chroma, one database per topic under <code>research_chroma_dbs/&lt;topic&gt;/</code>. Its five tools: <code>save_research_data(content, topic)</code>, <code>search_research_data(query, topic, max_results=5)</code>, <code>list_research_topics()</code>, <code>get_topic_info(topic)</code> and <code>delete_research_topic(topic)</code>. Saving skips any text whose MD5 hash is already in the topic&rsquo;s <code>content_hashes.json</code>.</li>
+<li><strong>Explain</strong> how a LangGraph tool loop uses tools that come from two MCP servers, and what MCP changes in that loop.</li>
+<li><strong>Locate</strong> the assistant&rsquo;s two memories, the conversation and the saved research, and say how long each lasts.</li>
+<li><strong>Compare</strong> three session lifetimes by process starts, messages and bytes, using recorded traffic.</li>
+<li><strong>Choose</strong> a session lifetime for a conversation, and measure start-ups on your own server.</li>
+</ul>
+</blockquote>
+<p>Larkspur&rsquo;s support team builds a research assistant. It keeps findings about the product, such as refund rules and status-page history, in a searchable store, and crawls the web for anything new. An analyst asks three follow-up questions, and the assistant answers each with three tool calls.</p>
+<p>With the client&rsquo;s default tools, each of those nine calls opens a new session. Recorded on the course&rsquo;s handbook server, that conversation shape starts the server ten times and exchanges 68 messages. A client that holds one session starts it once and sends 23. The code that decides this is one line long.</p>
+<h2 id="mcp--langgraph">MCP + LangGraph</h2>
+<p>The research assistant splits into a graph that thinks and servers that act. <code>client.py</code> builds the graph; two MCP servers, both launched over stdio from <code>mcp.json</code>, supply every tool it can call:</p>
+<ul>
+<li><strong><code>research_server</code></strong> (this project&rsquo;s <code>server.py</code>) keeps research in Chroma, one database per topic under <code>research_chroma_dbs/&lt;topic&gt;/</code>. Its five tools: <code>save_research_data(content, topic)</code> with <code>content</code> a list of texts, <code>search_research_data(query, topic, max_results=5)</code>, <code>list_research_topics()</code>, <code>get_topic_info(topic)</code> and <code>delete_research_topic(topic)</code>. Saving skips any text whose MD5 hash is already in the topic&rsquo;s <code>content_hashes.json</code>.</li>
 <li><strong><code>firecrawl_server</code></strong> is the published <code>firecrawl-mcp</code> package, started with <code>npx -y</code>, which scrapes the web. The client copies <code>FIRECRAWL_API_KEY</code> from its environment into that server&rsquo;s <code>env</code> before it connects.</li>
 </ul>
-<p>The graph is the tool loop from M22 and M31, unchanged:</p>
+<p>The graph is the tool loop from <a href="../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/index.html">M22</a> and <a href="../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/index.html">M31</a>, unchanged:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S((START)) --&gt; C[chat_node]
     C --&gt; D{tools_condition}
@@ -843,13 +1130,43 @@ west -1.0 4.0 -3.0
     T --&gt; C
     D -- no call --&gt; E((END))
 </pre></figure>
-<h3>Step 2: Keep the model and execution loop distinct</h3>
-<p>MCP only changes where the tools come from. <code>MultiServerMCPClient(mcp_json).get_tools()</code> turns every tool of both servers into a LangChain tool; <code>llm.bind_tools(tools)</code> shows them to Ollama&rsquo;s <code>qwen3</code>; <code>ToolNode(tools=tools)</code> runs whichever the model picks; <code>tools_condition</code> routes. A system prompt tells the model to search saved research before crawling and to save what it finds.</p>
-<h3>Step 3: Locate conversation and research persistence</h3>
-<p>The assistant has two memories, held in different processes. The client&rsquo;s <code>MemorySaver</code> keeps the conversation for the thread <code>research_session</code> and loses it when <code>client.py</code> exits. The research server keeps findings in Chroma on disk, across sessions and for any host that connects, Claude Desktop included (it is the <code>research_server</code> entry in the 40.2 config).</p>
-<p>Two fixes before it runs here: <code>client.py</code> imports <code>ChatPromptTemplate</code> and <code>MessagesPlaceholder</code> from <code>langchain.prompts</code>, which raises <code>ModuleNotFoundError</code> under langchain 1.4.7 (they live in <code>langchain_core.prompts</code>); and topic names become directory names unchecked, which lesson 40.7 shows is dangerous once the server is shared.</p>
+<p><em>Figure 1: The assistant&rsquo;s graph. MCP supplies the tools; the loop is the ordinary LangGraph one.</em></p>
+<p>MCP changes only where the tools come from. <code>MultiServerMCPClient(mcp_json).get_tools()</code> turns every tool of both servers into a LangChain tool. <code>llm.bind_tools(tools)</code> shows them to Ollama&rsquo;s <code>qwen3</code>, <code>ToolNode(tools=tools)</code> runs whichever the model picks, and <code>tools_condition</code> routes. A system prompt tells the model to search saved research before crawling, and to save what it finds.</p>
+<p>Step through one question:</p>
+<div class="walkthrough learning-widget" data-stepper id="research-walkthrough">
+<p class="widget-intro">A scripted trace of one question, read from <code>client.py</code>, <code>server.py</code> and <code>mcp.json</code>. No model ran; the question, topic and tool choices are illustrative.</p>
+<div class="step-controls" hidden role="group" aria-label="One question through the research assistant"><button type="button" data-step="0" aria-pressed="false" aria-controls="ra-step-0">1. Search</button><button type="button" data-step="1" aria-pressed="false" aria-controls="ra-step-1">2. Run</button><button type="button" data-step="2" aria-pressed="false" aria-controls="ra-step-2">3. Crawl</button><button type="button" data-step="3" aria-pressed="false" aria-controls="ra-step-3">4. Save</button><button type="button" data-step="4" aria-pressed="false" aria-controls="ra-step-4">5. Answer</button></div>
+<div class="step-panels"><section id="ra-step-0" class="step-panel" aria-labelledby="ra-heading-0"><h4 id="ra-heading-0">1. chat_node: search first</h4><dl><dt>Input</dt><dd>"What have we saved about Larkspur's refund window, and is there anything newer?"</dd><dt>Decision</dt><dd>Following the system prompt, the model calls <code>search_research_data</code> with topic <code>larkspur_refunds</code></dd><dt>Route</dt><dd><code>tools_condition</code> sees a tool call and goes to <code>tool_node</code></dd></dl></section><section id="ra-step-1" class="step-panel" aria-labelledby="ra-heading-1"><h4 id="ra-heading-1">2. tool_node: a session for one call</h4><dl><dt>What happens</dt><dd>The adapter opens a new session to <code>research_server</code>: a new process, a handshake, the call, then <code>tools/list</code>, then exit</dd><dt>Returns</dt><dd>Saved results as text, each with a "Similarity" line computed as <code>1 - distance</code> (lesson 40.5)</dd></dl></section><section id="ra-step-2" class="step-panel" aria-labelledby="ra-heading-2"><h4 id="ra-heading-2">3. chat_node, then tool_node: crawl</h4><dl><dt>Decision</dt><dd>The model wants newer sources and calls a Firecrawl scrape tool</dd><dt>What happens</dt><dd><code>npx -y firecrawl-mcp</code> starts Node for this one call, with the API key in its environment</dd></dl></section><section id="ra-step-3" class="step-panel" aria-labelledby="ra-heading-3"><h4 id="ra-heading-3">4. chat_node, then tool_node: save</h4><dl><dt>Decision</dt><dd>The model calls <code>save_research_data</code> with the new texts and the same topic</dd><dt>Server state</dt><dd>New texts are embedded and stored; texts whose MD5 hash is already saved are skipped</dd></dl></section><section id="ra-step-4" class="step-panel" aria-labelledby="ra-heading-4"><h4 id="ra-heading-4">5. chat_node: answer</h4><dl><dt>Route</dt><dd>No tool call, so <code>tools_condition</code> goes to END</dd><dt>Client state</dt><dd><code>MemorySaver</code> checkpoints the conversation under thread <code>research_session</code></dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The assistant has two memories, held in different processes:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Memory</th>
+<th>Held by</th>
+<th>Lasts</th>
+<th>Seen by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The conversation</td>
+<td>The client&rsquo;s <code>MemorySaver</code>, thread <code>research_session</code></td>
+<td>Until <code>client.py</code> exits</td>
+<td>This client only</td>
+</tr>
+<tr>
+<td>Saved research</td>
+<td>The research server&rsquo;s Chroma databases on disk</td>
+<td>Across sessions and restarts</td>
+<td>Any host that connects, Claude Desktop included (the <code>research_server</code> entry in the <a href="#claude-desktop">40.2 config</a>)</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Where each memory lives.</em></p>
+<p>Topic names come from the model and become directory names. The server checks every one with <code>topic_dir</code>: it accepts 3 to 63 letters, digits, <code>_</code> and <code>-</code>, starting with a letter or digit, and refuses any path that resolves outside <code>research_chroma_dbs</code>. <a href="#deployment">Lesson 40.7</a> shows what that check stops once the server is shared.</p>
+<p>One fix is needed before the client runs here. <code>client.py</code> imports <code>ChatPromptTemplate</code> and <code>MessagesPlaceholder</code> from <code>langchain.prompts</code>, which raises <code>ModuleNotFoundError</code> under langchain 1.4.7; they live in <code>langchain_core.prompts</code>.</p>
 <h2 id="how-long-a-session-lives">How long a session lives</h2>
-<h3>Step 1: Count discovery and process startup separately</h3>
 <p><code>MultiServerMCPClient.get_tools()</code> returns tools with no open connection behind them. Its docstring in langchain-mcp-adapters 0.3.2 says: &ldquo;A new session will be created for each tool call&rdquo;. For a stdio server, a new session is a new process.</p>
 <figure class="anim sheet" aria-labelledby="anim-percall-cap">
   <div class="anim__canvas" tabindex="0" aria-label="A tool call with a session per call, scrolls sideways on a narrow screen">
@@ -917,10 +1234,37 @@ west -1.0 4.0 -3.0
     <li><button type="button" data-tok="40,48">Back</button><span>The result goes back to chat_node as a ToolMessage, and the next call starts another process.</span></li>
   </ol>
 </figure>
-<h3>Step 2: Explain discovery after a call</h3>
-<p>The <code>tools/list</code> after the call comes from the SDK. mcp 1.30.0&rsquo;s <code>ClientSession</code> validates each structured tool result against the tool&rsquo;s output schema, and a session that has not listed its tools yet lists them first. A held session pays for that once; a session per call pays for it every time.</p>
-<h3>Step 3: Compare process and message counts</h3>
-<p>The <a href="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html">interactive lab</a> records the real JSON-RPC traffic of the Larkspur handbook server under three client patterns, with a scripted model so every run makes the same calls. Its numbers:</p>
+<p><em>Figure 2: A session per tool call, the <code>get_tools()</code> default. Every call starts, initialises and lists tools again.</em></p>
+<p>The <code>tools/list</code> after the call comes from the SDK. mcp 1.30.0&rsquo;s <code>ClientSession</code> validates each tool result against the tool&rsquo;s output schema, and a session that has not cached that tool&rsquo;s schema lists the tools first. A held session pays for that listing once; a session per call pays for it every time.</p>
+<p>The other two lifetimes keep a session open longer. <strong>Hold one session</strong> for the whole conversation: open it with <code>async with client.session("research_server") as session:</code>, then load its tools with <code>load_mcp_tools(session)</code>.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S["One server process"] --&gt; I["initialize&lt;br/&gt;tools/list"]
+    I --&gt; Q1["Question 1&lt;br/&gt;tools/call × n"]
+    Q1 --&gt; Q2["Question 2&lt;br/&gt;tools/call × n"]
+    Q2 --&gt; X[Exit]
+</pre></figure>
+<p><em>Figure 3: Hold one session. One start and one discovery for the whole conversation.</em></p>
+<p><strong>Session per question</strong> opens a session inside the request handler, as the 06 <code>app.py</code> does in lesson 40.5:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q1["Question 1"] --&gt; P1["Process 1&lt;br/&gt;initialize, tools/list,&lt;br/&gt;tools/call × n, exit"]
+    Q2["Question 2"] --&gt; P2["Process 2&lt;br/&gt;initialize, tools/list,&lt;br/&gt;tools/call × n, exit"]
+</pre></figure>
+<p><em>Figure 4: Session per question. Questions are isolated from each other, at one start each.</em></p>
+<p>The <a href="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html">interactive lab</a> records the real JSON-RPC traffic of the Larkspur handbook server under all three patterns, with a scripted model so every run makes the same calls. Pick a pattern for three questions with two tool calls each:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="session-switcher">
+<p class="widget-intro">Three questions, two tool calls each. Counts from the lab's recorded traffic (mcp 1.30.0, fastmcp 3.4.11, langchain-mcp-adapters 0.3.2).</p>
+<div class="mode-controls" hidden role="group" aria-label="Session lifetime">
+<button type="button" data-mode="hold" aria-pressed="false" aria-controls="session-hold">Hold one session</button>
+<button type="button" data-mode="question" aria-pressed="false" aria-controls="session-question">Per question</button>
+<button type="button" data-mode="call" aria-pressed="false" aria-controls="session-call">Per tool call</button>
+</div>
+<section id="session-hold" class="mode-panel" data-announcement="Hold one session selected. One start, 17 messages."><h4>Hold one session</h4><ul><li>1 server start, 17 messages, 6,966 bytes.</li><li>One <code>tools/list</code> for the whole conversation.</li><li>Server-side state stays in memory between questions.</li></ul></section>
+<section id="session-question" class="mode-panel" data-announcement="Session per question selected. Three starts, 27 messages."><h4>Session per question</h4><ul><li>3 server starts, 27 messages, 9,136 bytes.</li><li>One handshake and one <code>tools/list</code> per question.</li><li>Fits a request handler such as Streamlit's.</li></ul></section>
+<section id="session-call" class="mode-panel" data-announcement="Session per tool call selected. Seven starts, 47 messages."><h4>Session per tool call</h4><ul><li>7 server starts, 47 messages, 13,476 bytes.</li><li>One start for the initial <code>get_tools()</code> listing, then one per call, each followed by its own <code>tools/list</code>.</li><li>No lifecycle code, which is why it is the quickstart.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The gap grows with the conversation:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -951,29 +1295,27 @@ west -1.0 4.0 -3.0
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 2: The lab&rsquo;s recorded counts at three conversation sizes.</em></p>
 <figure class="lab-embed"><iframe src="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html" title="One server, three clients, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: One server, three clients. <a href="06_research_assistant_with_mcp_and_langgraph/interactive/session-lifetime-lab.html">Open full screen</a></figcaption></figure>
-<h3>Step 4: Choose a session lifetime deliberately</h3>
 <p>Each pattern has a reason to exist:</p>
 <ul>
-<li><strong>Hold one session</strong> for a conversation: <code>async with client.session("research_server") as session:</code> then <code>tools = await load_mcp_tools(session)</code>. One process, one handshake, server-side state kept in memory for as long as the session lives.</li>
-<li><strong>Session per question</strong> isolates questions from each other and suits a request handler such as Streamlit&rsquo;s, at the price of one start per question.</li>
-<li><strong>Session per tool call</strong> needs no lifecycle code, which is why <code>get_tools()</code> is the quickstart, and it is the costliest. The lab counts messages; on a real server each start also pays for the work done at import time. The research server builds its Ollama embeddings client at every start, and <code>npx -y firecrawl-mcp</code> starts Node for every crawl.</li>
+<li><strong>Hold one session</strong> for a conversation. One process, one handshake, and server-side state kept in memory for as long as the session lives.</li>
+<li><strong>Session per question</strong> isolates questions from each other and suits a request handler, at the price of one start per question.</li>
+<li><strong>Session per tool call</strong> needs no lifecycle code, and it is the costliest. The lab counts messages; on a real server each start also pays for the work done at import time. The research server builds its Ollama embeddings client at every start, and <code>npx -y firecrawl-mcp</code> starts Node for every crawl.</li>
 </ul>
-<p>Message counts are not latency, and the lab does not time anything, because start-up cost depends on the machine and the server. Measure your own: log one line on the server&rsquo;s stderr at start-up and count the lines per conversation.</p>
-<h3>Try it yourself</h3>
-<p>Use three questions with two calls each in the lab. Compare a held session, one per question and one per tool call, then inspect when tools/list repeats. Check process starts and JSON-RPC messages separately from latency. The lab records traffic, not startup time on your deployment machine.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p>Message counts are not latency, and the lab times nothing, because start-up cost depends on the machine and the server. Measure your own: log one line on the server&rsquo;s stderr at start-up, never stdout, and count the lines per conversation.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/07_research_assistant_with_mcp_and_langgraph" target="_blank" rel="noopener">Research assistant with MCP</a>.</li>
+<li><strong>Recorded traffic from another server.</strong> The lab records the Larkspur handbook server, not the research server or Firecrawl, through a tap on stdin and stdout. The pattern counts carry over; byte totals depend on each server&rsquo;s tool schemas and results.</li>
+<li><strong>Scripted model, scripted trace.</strong> The lab&rsquo;s model makes fixed calls, and the walkthrough follows the code with no model run. A real <code>qwen3</code> may skip the search, crawl twice or save nothing.</li>
+<li><strong>No timings.</strong> Process start-up and import cost were not measured.</li>
 </ul>
-<h3>Continue learning</h3>
-<ul>
-<li><a href="../../../../p06_agent_foundations/m22_agent_loop_and_tools/mandatory/theory/index.html">M22</a>.</li>
-<li><a href="../../../../p08_agentic_rag/m31_rag_as_agent_tool/mandatory/theory/index.html">M31</a>.</li>
-<li><a href="#claude-desktop">40.2 config</a>.</li>
-<li><a href="#deployment">lesson 40.7</a>.</li>
-</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Model Context Protocol, <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle" target="_blank" rel="noopener">Lifecycle</a>, the initialise handshake every new session repeats.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/mcp" target="_blank" rel="noopener">Model Context Protocol (MCP)</a>, <code>MultiServerMCPClient</code>, stateless tools and explicit sessions.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence</a>, checkpointers and threads.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>MCP changes only where the tools come from. The LangGraph tool loop stays the same, with the graph thinking and the servers acting.</li>
@@ -993,87 +1335,146 @@ west -1.0 4.0 -3.0
 <summary>3. You turn the research assistant into a chat that holds long conversations. Which session pattern should the client use, and why not the get_tools default?</summary>
 <p>Hold one session per conversation: <code>async with client.session("research_server") as session:</code> then <code>load_mcp_tools(session)</code>, for one process and one handshake. The <code>get_tools()</code> default opens a session per tool call, the costliest pattern: every start rebuilds the Ollama embeddings client, and <code>npx -y firecrawl-mcp</code> starts Node for every crawl. Log one stderr line at server start-up to count the starts.</p>
 </details>
-<h2 id="deployment">Deployment</h2>
+<h2 id="start-with-a-server-the-whole-team-can-reach">Start with a server the whole team can reach</h2>
 <p class="lesson-of">Lesson 40.7: Deploying an MCP server on EC2. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/08_deploy_mcp_server_on_ec2" target="_blank" rel="noopener"><code>08_deploy_mcp_server_on_ec2</code></a> (optional)</p>
-<p>Larkspur must deploy a research server without turning model-written topic names into arbitrary filesystem paths. You will inspect the bind address and transport, trace the delete path and define the server-side argument checks before exposing it.</p>
-<h3>Step 1: Inspect what changes on the deployed server</h3>
-<p>The 08 server is the 40.6 research server made to run on an Amazon Linux EC2 instance. Three things change:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><code>from fastmcp import FastMCP</code> replaces the SDK&rsquo;s <code>mcp.server.fastmcp</code>.</li>
-<li><code>OpenAIEmbeddings(model="text-embedding-3-small")</code> replaces Ollama&rsquo;s <code>nomic-embed-text</code>, since the instance runs no Ollama; <code>load_dotenv()</code> supplies the API key.</li>
-<li><code>mcp.run(transport="http", host="0.0.0.0")</code> replaces stdio.</li>
+<li><strong>Name</strong> what changes when the 40.6 research server moves to an EC2 instance: the import, the embeddings and the transport.</li>
+<li><strong>Explain</strong> why binding to every interface with no authentication exposes all five tools.</li>
+<li><strong>Trace</strong> what the server does with a model-written topic name, and why a path join alone is no boundary.</li>
+<li><strong>Choose</strong> the checks a shared deployment needs before anyone else connects.</li>
 </ul>
-<p>The project&rsquo;s setup notes cover the machine: SSH in as <code>ec2-user</code>, install Anaconda, <code>pip install uv</code>. On the client side, Claude Desktop reaches the server through the <code>mcp-remote</code> bridge from 40.2.</p>
+</blockquote>
+<p>Larkspur&rsquo;s support team wants one research server for everyone: the 40.6 assistant&rsquo;s findings, reachable from each person&rsquo;s Claude Desktop. A teammate starts it on an EC2 instance, opens port 8000, and connects through a bridge.</p>
+<p>Two questions decide whether that is safe. Who, besides the team, can reach port 8000? And what can a tool argument written by a model, after reading a scraped web page, make the server do to its disk?</p>
+<h2 id="deployment">Deployment</h2>
+<p>The 08 server is the 40.6 research server made to run on an Amazon Linux EC2 instance. Three things change:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>What</th>
+<th>40.6 server</th>
+<th>08 server</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Import</td>
+<td>The SDK&rsquo;s <code>mcp.server.fastmcp</code></td>
+<td><code>from fastmcp import FastMCP</code></td>
+</tr>
+<tr>
+<td>Embeddings</td>
+<td>Ollama&rsquo;s <code>nomic-embed-text</code></td>
+<td><code>OpenAIEmbeddings(model="text-embedding-3-small")</code>, with <code>load_dotenv()</code> supplying the key, since the instance runs no Ollama</td>
+</tr>
+<tr>
+<td>Transport</td>
+<td>stdio</td>
+<td><code>transport="http"</code>, host from the <code>MCP_HOST</code> environment variable, <code>127.0.0.1</code> when it is unset</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: What moving the server to EC2 changes.</em></p>
+<p>The project&rsquo;s setup notes cover the machine: SSH in as <code>ec2-user</code>, install Anaconda, <code>pip install uv</code>. They then start the server with <code>MCP_HOST=0.0.0.0</code>, after limiting the instance&rsquo;s security group to your own IP address on port 8000. On the client side, Claude Desktop reaches it through the <code>mcp-remote</code> bridge from <a href="#claude-desktop">lesson 40.2</a>.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     CD["Claude Desktop"] -- stdio --&gt; MR["mcp-remote&lt;br/&gt;on the laptop"]
     MR -- "HTTP :8000/mcp" --&gt; S["Research server on EC2&lt;br/&gt;0.0.0.0, no auth"]
     X["Anyone who can&lt;br/&gt;reach port 8000"] -- "HTTP :8000/mcp" --&gt; S
     S --&gt; DB[("Chroma on&lt;br/&gt;instance disk")]
 </pre></figure>
-<h3>Step 2: Check the configured host and endpoint</h3>
-<p>In fastmcp 3.4.11, <code>"http"</code> and <code>"streamable-http"</code> select the same transport, and the defaults are host <code>127.0.0.1</code>, port <code>8000</code> and path <code>/mcp</code>. The default listens on the machine itself only. <code>host="0.0.0.0"</code> listens on every interface, so whatever the security group lets through reaches all five tools, with no authentication: <code>FastMCP(...)</code> accepts an <code>auth</code> provider, and the server passes none.</p>
-<h3>Step 3: Resolve a model-supplied path</h3>
-<p>What that exposes is easiest to see in <code>delete_research_topic</code>. It builds a path with <code>CHROMA_DB_ROOT / topic</code> and, if the path exists, calls <code>shutil.rmtree</code> on it. <code>pathlib</code> does not keep a join inside its root:</p>
+<p><em>Figure 1: Started with <code>MCP_HOST=0.0.0.0</code>. The security group is the only thing between port 8000 and every tool.</em></p>
+<p>In fastmcp 3.4.11, <code>"http"</code> and <code>"streamable-http"</code> select the same transport, and the defaults are host <code>127.0.0.1</code>, port <code>8000</code> and path <code>/mcp</code>. The default host listens on the machine itself only. <code>0.0.0.0</code> listens on every interface: whatever the security group lets through reaches all five tools with no authentication. <code>FastMCP(...)</code> accepts an <code>auth</code> provider, and the server passes none; its own comment says so.</p>
+<h2 id="where-a-model-written-topic-can-point">Where a model-written topic can point</h2>
+<p>Every research tool turns its <code>topic</code> argument into a folder under <code>research_chroma_dbs</code>, and <code>delete_research_topic</code> calls <code>shutil.rmtree</code> on that folder. A path join is not a boundary. Python&rsquo;s <code>pathlib</code> documentation says it plainly: &ldquo;If a segment is an absolute path, all previous segments are ignored&rdquo;, and <code>..</code> segments climb out of the root once resolved.</p>
+<p>The server therefore checks every topic in <code>topic_dir</code> before any tool touches the disk. The name must fully match <code>[A-Za-z0-9][A-Za-z0-9_-]{2,62}</code>: 3 to 63 letters, digits, <code>_</code> or <code>-</code>, starting with a letter or digit. The resolved path&rsquo;s parent must be the resolved root. A rejected name raises <code>ValueError</code>, which the tool returns as an error string.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th><code>topic</code></th>
-<th>Path the tool deletes</th>
+<th>Where a bare join would point</th>
+<th><code>topic_dir</code></th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>ai_agents</code></td>
-<td><code>…/research_chroma_dbs/ai_agents</code></td>
+<td><code>research_chroma_dbs/ai_agents</code></td>
+<td>Accepted</td>
 </tr>
 <tr>
 <td><code>../../home/ec2-user</code></td>
-<td>two levels above <code>research_chroma_dbs</code>, then <code>home/ec2-user</code></td>
+<td>Two levels above the root, then <code>home/ec2-user</code></td>
+<td>Rejected</td>
 </tr>
 <tr>
 <td><code>/home/ec2-user</code></td>
-<td><code>/home/ec2-user</code>, because joining an absolute path discards the root</td>
+<td><code>/home/ec2-user</code> itself: the root is discarded</td>
+<td>Rejected</td>
+</tr>
+<tr>
+<td><code>AI Agents</code></td>
+<td>A folder with a space in its name</td>
+<td>Rejected</td>
+</tr>
+<tr>
+<td><code>ab</code></td>
+<td><code>research_chroma_dbs/ab</code></td>
+<td>Rejected, too short</td>
 </tr>
 </tbody>
 </table></div>
-<h3>Step 4: Keep scraped instructions outside deletion authority</h3>
-<p>The argument comes from a model, and the model reads web pages scraped by Firecrawl. A page that says &ldquo;delete the topic /home/ec2-user&rdquo; is a prompt injection with a filesystem behind it. <code>save_research_data</code> has the same hole for writes: it creates directories and a <code>content_hashes.json</code> wherever the topic points.</p>
-<h3>Step 5: Enforce the boundary before tool execution</h3>
-<p>What the deployment needs before anyone else uses it:</p>
+<p><em>Table 2: Five topics through the 08 server&rsquo;s <code>topic_dir</code>, run offline against a scratch root.</em></p>
+<p>The check stops a path escape. It does not stop a model from misusing a valid name. The argument comes from a model, and the model reads web pages scraped by Firecrawl. A page that says &ldquo;delete the topic ai_agents&rdquo; is a prompt injection, and <code>ai_agents</code> passes every check. <code>save_research_data</code> can likewise fill any valid topic with whatever the page contained.</p>
+<h2 id="before-anyone-else-connects">Before anyone else connects</h2>
+<p>The project&rsquo;s own notes name the first two items; the rest follow from the tools:</p>
 <ul>
-<li><strong>Validate every argument that becomes a path.</strong> Accept topic names that match a slug pattern such as <code>^[a-z0-9_-]{1,64}$</code>, resolve the result and check it is still under the root.</li>
-<li><strong>Authenticate, and encrypt.</strong> Pass an <code>auth</code> provider to <code>FastMCP</code>, put TLS in front, and drop <code>--allow-http</code> from the client, which mcp-remote&rsquo;s README reserves for &ldquo;secure private networks where traffic cannot be intercepted&rdquo;.</li>
-<li><strong>Bind narrowly.</strong> Keep <code>127.0.0.1</code> behind a reverse proxy, or restrict the security group to known addresses.</li>
-<li><strong>Keep destructive tools off the shared server,</strong> or require a human approval step in the host before they run (M27).</li>
+<li><strong>Authenticate, and encrypt.</strong> Pass an <code>auth</code> provider to <code>FastMCP</code>, or check credentials in a proxy, and put TLS in front. Then drop <code>--allow-http</code> from the client, which mcp-remote&rsquo;s README reserves for &ldquo;secure private networks where traffic cannot be intercepted&rdquo;.</li>
+<li><strong>Bind narrowly.</strong> Keep the default <code>127.0.0.1</code> behind a reverse proxy, or, when you must set <code>MCP_HOST=0.0.0.0</code>, restrict the security group to known addresses.</li>
+<li><strong>Keep destructive tools off the shared server,</strong> or require a human approval step in the host before they run (<a href="../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/index.html">M27</a>).</li>
 <li><strong>Re-ingest after changing the embedding model.</strong> Topics saved by the local server hold <code>nomic-embed-text</code> vectors; the EC2 server embeds queries with <code>text-embedding-3-small</code>, a different vector space, so copied databases cannot be searched.</li>
 </ul>
-<h3>Try it yourself</h3>
-<p>Compare ai_agents, a traversal topic and an absolute path in the deletion table. Check that joining a path does not validate it and that an absolute component can replace the intended root. Require a bounded slug and resolved-root containment before any delete. Test those validations without deleting real data.</p>
-<h3>Practice notebook</h3>
-<p>Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.</p>
+<p>Behind a proxy, the server never listens on a public interface:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    CD["Claude Desktop"] -- stdio --&gt; MR["mcp-remote&lt;br/&gt;on the laptop"]
+    MR -- "HTTPS :443" --&gt; PX["Reverse proxy&lt;br/&gt;TLS, credentials"]
+    X["Anyone"] -. "rejected without&lt;br/&gt;credentials" .-&gt; PX
+    PX -- "HTTP 127.0.0.1:8000/mcp" --&gt; S["Research server&lt;br/&gt;127.0.0.1"]
+    S --&gt; DB[("Chroma on&lt;br/&gt;instance disk")]
+</pre></figure>
+<p><em>Figure 2: The default host behind a proxy. Only the proxy reaches the server, and it checks credentials first.</em></p>
+<p>Figure 1 suits a short test from one address, which is what the setup notes allow. Figure 2 is the shape for a server the team shares.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/08_deploy_mcp_server_on_ec2" target="_blank" rel="noopener">Deploy MCP server on</a>.</li>
+<li><strong>No deployment ran.</strong> The transport and host facts come from fastmcp 3.4.11&rsquo;s installed source and the project&rsquo;s code and notes, not from an EC2 instance.</li>
+<li><strong>Table 2 is an offline probe.</strong> It ran the 08 server&rsquo;s own <code>topic_dir</code> against a scratch folder; nothing was deleted.</li>
+<li><strong>Injection is described, not demonstrated.</strong> No model was given a hostile page.</li>
 </ul>
-<h3>Continue learning</h3>
-<ul>
-<li><a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p11_agent_protocols/m40_mcp_applications/projects/08_deploy_mcp_server_on_ec2/anaconda_setup.md" target="_blank" rel="noopener">The project&rsquo;s setup notes</a>.</li>
-<li><a href="#claude-desktop">40.2</a>.</li>
-<li><a href="../../../../p07_advanced_agents/m27_human_approval_applied_agents/mandatory/theory/index.html">M27</a>.</li>
-</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Model Context Protocol, <a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization" target="_blank" rel="noopener">Authorization</a>, specification 2025-06-18.</li>
+<li>FastMCP, <a href="https://gofastmcp.com/deployment/running-server" target="_blank" rel="noopener">Running your server</a> and <a href="https://gofastmcp.com/servers/auth/authentication" target="_blank" rel="noopener">Authentication</a>.</li>
+<li>AWS, <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-security-groups.html" target="_blank" rel="noopener">Amazon EC2 security groups for your EC2 instances</a>.</li>
+<li>Python, <a href="https://docs.python.org/3/library/pathlib.html" target="_blank" rel="noopener">pathlib</a>, how joining an absolute segment discards the root.</li>
+<li>OWASP, <a href="https://owasp.org/www-community/attacks/Path_Traversal" target="_blank" rel="noopener">Path Traversal</a> and <a href="https://genai.owasp.org/llmrisk/llm01-prompt-injection/" target="_blank" rel="noopener">LLM01: Prompt Injection</a>.</li>
+<li>Greshake, K. et al. (2023). <em>Not what you&rsquo;ve signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection</em>. <a href="https://arxiv.org/abs/2302.12173" target="_blank" rel="noopener">arXiv:2302.12173</a>.</li>
+<li><a href="https://github.com/geelen/mcp-remote" target="_blank" rel="noopener">mcp-remote</a>, the stdio to remote bridge and its <code>--allow-http</code> warning.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li><code>host="0.0.0.0"</code> with no <code>auth</code> provider exposes every tool to whatever the security group lets through. Authenticate, add TLS and bind narrowly before sharing the server.</li>
-<li>Tool arguments come from a model that reads untrusted pages. Validate any argument that becomes a path against a slug pattern and check it resolves under the root.</li>
-<li>Keep destructive tools off a shared server or put human approval in front of them, and re-ingest whenever the embedding model changes.</li>
+<li><code>MCP_HOST=0.0.0.0</code> with no <code>auth</code> provider exposes every tool to whatever the security group lets through. Authenticate, add TLS and bind narrowly before sharing the server.</li>
+<li>Tool arguments come from a model that reads untrusted pages. Check any argument that becomes a path against a name pattern and confirm it resolves under the root, as <code>topic_dir</code> does.</li>
+<li>A valid name can still be misused: keep destructive tools off a shared server or put human approval in front of them, and re-ingest whenever the embedding model changes.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
-<summary>1. What does host 0.0.0.0 change compared with fastmcp's default, and why is it risky for this server?</summary>
+<summary>1. What does setting MCP_HOST to 0.0.0.0 change compared with the default, and why is it risky for this server?</summary>
 <p>The default <code>127.0.0.1</code> listens on the machine only; <code>0.0.0.0</code> listens on every interface. Whatever the security group lets through then reaches all five tools with no authentication, because the server passes no <code>auth</code> provider to <code>FastMCP</code>.</p>
 </details>
 <details>
-<summary>2. The model calls delete_research_topic with the topic /home/ec2-user. What does the tool delete, and what check would have stopped it?</summary>
-<p><code>/home/ec2-user</code> itself: <code>CHROMA_DB_ROOT / topic</code> discards the root when the topic is an absolute path, and the tool calls <code>shutil.rmtree</code> on any path that exists. Accept only topic names that match a slug pattern such as <code>^[a-z0-9_-]{1,64}$</code>, then resolve the path and check it is still under the root.</p>
+<summary>2. The model calls delete_research_topic with the topic /home/ec2-user. What happens, and what would a bare path join have done?</summary>
+<p><code>topic_dir</code> rejects it: the name does not match the pattern, so it raises <code>ValueError</code> and the tool returns an error string. A bare <code>CHROMA_DB_ROOT / topic</code> discards the root when the topic is an absolute path, and the tool would have called <code>shutil.rmtree</code> on <code>/home/ec2-user</code>.</p>
 </details>
 <details>
 <summary>3. You copy the topics saved by the local server to the EC2 server, and searches there find nothing relevant. What went wrong?</summary>
@@ -1135,7 +1536,7 @@ west -1.0 4.0 -3.0
 <li>Treat tool names, argument schemas and result fields as a public interface: a return value that breaks its own output schema, or a score on an undocumented scale, breaks every client at once.</li>
 <li>A deployed MCP server is an API with an LLM choosing the arguments. Bind it narrowly, authenticate it, and validate every argument that touches the filesystem.</li>
 </ul></article>
-    <nav class="toc" aria-label="M40 sections"><details open><summary>In M40</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-local-agent-over-mcp">A local agent over MCP</a></li><li><a href="#return-types-are-part-of-the-contract">Return types are part of the contract</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#claude-desktop">Claude Desktop</a></li><li><a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#checking-the-agentrsquos-numbers">Checking the agent’s numbers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-server-three-controllers">One server, three controllers</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#rag-over-mcp">RAG over MCP</a></li><li><a href="#distance-is-not-similarity">Distance is not similarity</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mcp--langgraph">MCP + LangGraph</a></li><li><a href="#how-long-a-session-lives">How long a session lives</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deployment">Deployment</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M40 sections"><details open><summary>In M40</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-laptop-agent-that-never-answers">Start with a laptop agent that never answers</a></li><li><a href="#a-local-agent-over-mcp">A local agent over MCP</a></li><li><a href="#return-types-are-part-of-the-contract">Return types are part of the contract</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-server-that-works-in-the-terminal-and-fails-in-the-host">Start with a server that works in the terminal and fails in the host</a></li><li><a href="#claude-desktop">Claude Desktop</a></li><li><a href="#what-each-entry-decides">What each entry decides</a></li><li><a href="#stdout-belongs-to-the-protocol">Stdout belongs to the protocol</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-deck-that-looks-finished">Start with a deck that looks finished</a></li><li><a href="#checking-the-agentrsquos-numbers">Checking the agent’s numbers</a></li><li><a href="#make-the-tool-compute">Make the tool compute</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-one-server-that-three-people-drive">Start with one server that three people drive</a></li><li><a href="#one-server-three-controllers">One server, three controllers</a></li><li><a href="#a-session-through-all-three">A session through all three</a></li><li><a href="#what-a-tools-only-host-sees">What a tools-only host sees</a></li><li><a href="#two-users-one-temp-file">Two users, one temp file</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-cutoff-that-drops-good-evidence">Start with a cutoff that drops good evidence</a></li><li><a href="#rag-over-mcp">RAG over MCP</a></li><li><a href="#check-the-index-before-trusting-it">Check the index before trusting it</a></li><li><a href="#distance-is-not-similarity">Distance is not similarity</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-server-that-starts-ten-times">Start with a server that starts ten times</a></li><li><a href="#mcp--langgraph">MCP + LangGraph</a></li><li><a href="#how-long-a-session-lives">How long a session lives</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-server-the-whole-team-can-reach">Start with a server the whole team can reach</a></li><li><a href="#deployment">Deployment</a></li><li><a href="#where-a-model-written-topic-can-point">Where a model-written topic can point</a></li><li><a href="#before-anyone-else-connects">Before anyone else connects</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
