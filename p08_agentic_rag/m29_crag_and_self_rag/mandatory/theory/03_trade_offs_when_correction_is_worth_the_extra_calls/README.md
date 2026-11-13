@@ -2,8 +2,9 @@
 
 *[M29 theory](../README.md) · Lesson 29.3 · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Count the calls each pipeline spends per question, then add correction only where the fix can reach the evidence -->
+<!-- format: approved -->
 
-## Cost per question
+## Start with a request to check every answer
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lessons 29.1 and 29.2 built two ways to catch a bad answer: CRAG grades the context before generation, and Self-RAG also checks the answer after it. Both are paid for in model calls, and neither was free on the questions we traced.
 
 Larkspur's product team wants Self-RAG on every support question "to stop hallucinations". The assistant already handles most of Larkspur's support traffic, and on the refund question Self-RAG spends 18 calls and still never sees the chunk that answers it. More calls bought nothing there. This page counts what each pipeline spends, finds where the spending goes, and turns that into a rule for when correction is worth it.
+
+## Cost per question
 
 ### Calls by path
 
@@ -28,7 +31,7 @@ Every check in CRAG and Self-RAG is an LLM call, and every failed check sends th
 
 *Table 1: How each pipeline's call count is built.*
 
-Where the calls fall along each path is easier to see as a figure:
+Where the calls fall along each path is easier to see as a figure. Lesson 29.1's Figure 1 and lesson 29.2's Figure 1 draw the CRAG and Self-RAG graphs in full:
 
 ```mermaid
 flowchart LR
@@ -65,7 +68,24 @@ The last rule makes the Self-RAG figures a worst case, since a real rewrite can 
 
 <!-- lab: interactive/correction-cost-lab.html -->
 
-The refund row shows how retrieval shapes the count. Only two chunks score above zero for that question, so CRAG grades two, rewrites and generates, for 4 calls at either `k`. Self-RAG makes 1 retrieve decision, then three passes of two grades, a generation, a groundedness grade and a utility grade, with a rewrite before the second and third: 1 + 15 + 2 = 18.
+### Follow the refund question through all three
+
+The refund row shows how retrieval shapes the count. Only two chunks score above zero for that question, `refund-window` at 0.227 and `reboot` at 0.194. Raising `k` changes nothing:
+
+<div class="learning-widget evidence-switcher" data-comparison id="refund-switcher">
+<p class="widget-intro">Compare what each pipeline does with the same two retrieved chunks for the refund question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Pipeline">
+<button type="button" data-mode="baseline" aria-pressed="false" aria-controls="refund-baseline">Baseline</button>
+<button type="button" data-mode="crag" aria-pressed="false" aria-controls="refund-crag">CRAG</button>
+<button type="button" data-mode="selfrag" aria-pressed="false" aria-controls="refund-selfrag">Self-RAG</button>
+</div>
+<section id="refund-baseline" class="mode-panel" data-announcement="Baseline selected. 1 call, answered from the eligibility chunk."><h4>Baseline</h4><ul><li>Generates from both chunks, with no check.</li><li>refund-window describes eligibility, not how long a refund takes.</li></ul><p>1 LLM call. A blind answer from the wrong evidence.</p></section>
+<section id="refund-crag" class="mode-panel" data-announcement="CRAG selected. 4 calls plus a web search."><h4>CRAG</h4><ul><li>Grades both chunks and keeps refund-window. 1 of 2 is not more than half.</li><li>Rewrites the question and searches the web, which cannot see Larkspur's refund timing.</li></ul><p>4 LLM calls plus a search. The answer can mix eligibility with another company's timing.</p></section>
+<section id="refund-selfrag" class="mode-panel" data-announcement="Self-RAG selected. 18 calls, same chunks every pass."><h4>Self-RAG</h4><ul><li>Each of three passes grades the same two chunks, generates, checks groundedness and fails utility.</li><li>The cap ends the run after two rewrites, with the last answer as final.</li></ul><p>18 LLM calls: 1 decision, 6 grades, 2 rewrites and 9 calls for three rounds of generate, ground and use.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+None of the three reaches `refund-timing`, the chunk that answers the question.
 
 ### Where the calls go
 
@@ -79,7 +99,7 @@ Three patterns hold across Table 2, and each is a failure mode worth naming:
 
 ### Billed calls and waiting time
 
-Call counts measure the bill. Latency depends on how the calls are scheduled, and the reference implementations make them one after another: both graphs grade chunks in a Python loop, so `k` grades add `k` round trips of waiting. Here is the arithmetic for the export question at `k = 5`, under an assumed round trip:
+Call counts measure the bill. Latency depends on how the calls are scheduled, and the reference implementations make them one after another: both graphs grade chunks in a Python loop, and `k` grades add `k` round trips of waiting. Here is the arithmetic for the export question at `k = 5`, under an assumed round trip:
 
 | Self-RAG, export question, `k = 5` | Calls | Sequential round trips | Round trips with batched grading |
 |---|---|---|---|
@@ -124,7 +144,7 @@ The same choice as a comparison, with the evidence from Table 2:
 
 In the lab, none of the three repairs the refund miss. That row is the strongest argument for fixing retrieval before adding checks.
 
-## In practice: a correction policy for Larkspur
+### A correction policy for Larkspur
 
 For the Larkspur assistant the decision chain gives one policy per question type:
 
@@ -135,14 +155,19 @@ For the Larkspur assistant the decision chain gives one policy per question type
 
 > **Interview tip:** answer "should we add Self-RAG everywhere?" with a count. Table 2 shows 15.0 calls per question against 1 at `k = 5`, and the refund row shows calls that changed nothing.
 
-### What the lab leaves out
+## Limits of this evidence
 
-The lab's numbers are call counts under stand-in graders, so some questions stay open:
+The lab's numbers are call counts under stand-in graders. Some questions stay open:
 
 - **Answer quality.** The lab does not judge whether any pipeline's answer is right. The M29 lab notebook's out-of-corpus run counts refusals and hallucinated answers; add it when you need accuracy next to cost.
 - **Real grader errors.** The stand-in relevance grader is perfect. A real one makes mistakes in both directions, which changes both routes and counts.
-- **Rewrites that work.** The lab's rewrite repeats the question, so Self-RAG's counts are a ceiling for questions a better rewrite could reach.
+- **Rewrites that work.** The lab's rewrite repeats the question. Self-RAG's counts are a ceiling for questions a better rewrite could reach.
 - **Tokens and price.** A grading call over one chunk is far smaller than a generation over five chunks plus six web pages. Weight calls by tokens before quoting a cost in money.
+
+## References
+
+1. Yan et al., [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884), 2024.
+2. Asai et al., [Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection](https://arxiv.org/abs/2310.11511), 2023.
 
 ## Key Takeaways
 
