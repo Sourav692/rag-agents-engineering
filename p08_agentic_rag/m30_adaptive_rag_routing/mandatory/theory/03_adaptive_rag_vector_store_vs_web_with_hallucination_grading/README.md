@@ -2,8 +2,9 @@
 
 *[M30 theory](../README.md) · Lesson 30.3 · Notebooks: [`03a_adaptive_rag_langgraph.ipynb`](../../notebook/03a_adaptive_rag_langgraph.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Pick a source before retrieving, then check the evidence and the answer, with a limit on every retry -->
+<!-- format: approved -->
 
-## A question the handbook only half covers
+## Start with a question the handbook only half covers
 
 > **What you'll learn**
 >
@@ -14,11 +15,9 @@
 
 Lessons 30.1 and 30.2 chose a knowledge base or a person. This lesson chooses between two sources, the vector store and the web, and then adds the two checks from M28 and M29 behind that choice.
 
-A Larkspur customer asks how to tune Postgres memory on a Larkspur server. The handbook covers server sizing and memory, so a fixed pipeline retrieves those chunks and answers from them. The chunks say how much memory each plan has, and nothing about Postgres settings. The answer sounds grounded and does not help.
+A Larkspur customer asks how to tune Postgres memory on a Larkspur server. The handbook covers server sizing and memory, and a fixed pipeline retrieves those chunks and answers from them. The chunks say how much memory each plan has, and nothing about Postgres settings. The answer sounds grounded and does not help.
 
-A fixed pipeline does the same work for every question. It has no way to say that the evidence is weak, or to look somewhere else.
-
-The graph in this lesson does four jobs a fixed pipeline cannot:
+A fixed pipeline does the same work for every question. It has no way to say that the evidence is weak, or to look somewhere else. The graph in this lesson does four jobs a fixed pipeline cannot:
 
 - **Choose a source** before retrieving.
 - **Check the evidence** and fall back to the web when it is weak.
@@ -79,7 +78,7 @@ The graph checks its work twice, once on the evidence and once on the answer. M2
 
 ### The relevant-fraction rule
 
-**The document grader asks the LLM, once per retrieved chunk, whether the chunk is relevant**, and gets a yes or no. The grading node keeps the chunks graded yes and computes the share that passed. If that share is 0.5 or less, the graph sets a web-search flag. Four cases show where the line falls:
+**The document grader asks the LLM, once per retrieved chunk, whether the chunk is relevant**, and gets a yes or no. The grading node keeps the chunks graded yes and computes the share that passed. If that share is 0.5 or less, the graph sets a web-search flag:
 
 | Chunks retrieved | Graded relevant | Fraction | Next step |
 |---|---|---|---|
@@ -90,7 +89,7 @@ The graph checks its work twice, once on the evidence and once on the answer. M2
 
 *Table 2: The relevant-fraction rule with a threshold of 0.5.*
 
-Exactly half counts as failure. On the web route, the search node appends the pages to the chunks that passed, so the answer can draw on both sources.
+Exactly half counts as failure. On the web route, the search node appends the pages to the chunks that passed, and the answer can draw on both sources.
 
 ### Planted failure: the inverted grade
 
@@ -107,7 +106,7 @@ We call this the **inverted grade**. Reuse this grader in a graph that expects `
 
 ### Planted failure: the unbounded regeneration loop
 
-Nothing counts the retries. The regeneration edge has no limit, so a grader that keeps saying `yes` loops until LangGraph's recursion limit stops the graph. In the version this repo locks (langgraph 1.2.18) that limit is 10,007 steps by default. Each round costs two LLM calls, a generation and a check. We call this the **unbounded regeneration loop**.
+Nothing counts the retries in Figure 1. The regeneration edge has no limit, and a grader that keeps saying `yes` loops until LangGraph's recursion limit stops the graph. In the version this repo locks (langgraph 1.2.18) that limit is 10,007 steps by default. Each round costs two LLM calls, a generation and a check. We call this the **unbounded regeneration loop**.
 
 The fix is a counter in the graph state and a terminal branch:
 
@@ -122,9 +121,18 @@ flowchart TD
 
 *Figure 2: The bounded version. Stop after one or two retries and hand the result on.*
 
-The escalation in the last box is lesson 30.2's handoff, triggered by a rejected answer.
+<div class="learning-widget evidence-switcher" data-comparison id="loop-switcher">
+<p class="widget-intro">Compare the two loops on one question whose answer the grader never accepts.</p>
+<div class="mode-controls" hidden role="group" aria-label="Regeneration loop">
+<button type="button" data-mode="unbounded" aria-pressed="false" aria-controls="loop-unbounded">Unbounded (Figure 1)</button>
+<button type="button" data-mode="bounded" aria-pressed="false" aria-controls="loop-bounded">Bounded (Figure 2)</button>
+</div>
+<section id="loop-unbounded" class="mode-panel" data-announcement="Unbounded loop selected. The graph loops until the recursion limit."><h4>Unbounded</h4><ul><li>Rounds: until the recursion limit, 10,007 steps by default.</li><li>Cost: two LLM calls a round, with nothing to stop the bill.</li><li>Result: a recursion error, and the customer gets no answer at all.</li></ul></section>
+<section id="loop-bounded" class="mode-panel" data-announcement="Bounded loop selected. The graph stops after two retries."><h4>Bounded</h4><ul><li>Rounds: the first answer plus two retries.</li><li>Cost: four extra LLM calls beyond the first generation and check.</li><li>Result: the best answer with a warning, or lesson 30.2's handoff, triggered by a rejected answer.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-The notebook tests the loop by uncommenting a hard-coded wrong answer in the generation node. That line sits in the first-attempt branch only, so the retry, which takes the feedback branch, runs the real chain. The test exercises one rejection and one retry with feedback, never a second rejection.
+The notebook tests the loop by uncommenting a hard-coded wrong answer in the generation node. That line sits in the first-attempt branch only, and the retry, which takes the feedback branch, runs the real chain. The test exercises one rejection and one retry with feedback, never a second rejection.
 
 ## What each path costs
 
@@ -140,26 +148,33 @@ Counting the LLM calls per path from the graph, before any regeneration:
 
 Each regeneration adds 2 more. A question the router sends to the vector store and the grader then rejects is the most expensive path. We call that the **store-then-web detour**. If many questions take it, the router's topic list is wrong or the index is missing content, and both are cheaper to fix than to grade around.
 
+### Trace the Postgres memory question
+
+Follow the customer tuning Postgres memory through the graph, with a Larkspur topic list in the router's prompt (illustrative; the notebook indexes research papers):
+
+<div class="walkthrough learning-widget" data-stepper id="postgres-walkthrough">
+<p class="widget-intro">Follow a half-covered question through the router, both graders and the web fallback. Each stage shows the running LLM call count.</p>
+<div class="step-controls" hidden role="group" aria-label="Adaptive RAG stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="pg-step-0">1. Route</button><button type="button" data-step="1" aria-pressed="false" aria-controls="pg-step-1">2. Retrieve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="pg-step-2">3. Grade</button><button type="button" data-step="3" aria-pressed="false" aria-controls="pg-step-3">4. Web</button><button type="button" data-step="4" aria-pressed="false" aria-controls="pg-step-4">5. Generate</button><button type="button" data-step="5" aria-pressed="false" aria-controls="pg-step-5">6. Check</button></div>
+<div class="step-panels"><section id="pg-step-0" class="step-panel" aria-labelledby="pg-heading-0"><h4 id="pg-heading-0">1. Choose a source</h4><dl><dt>Decision</dt><dd>vectordb: "server" and "memory" match the handbook's server-sizing topic</dd><dt>LLM calls so far</dt><dd>1</dd></dl></section><section id="pg-step-1" class="step-panel" aria-labelledby="pg-heading-1"><h4 id="pg-heading-1">2. Rewrite and retrieve</h4><dl><dt>Search</dt><dd>A concise rewrite for semantic search, up to 5 chunks scoring 0.35 or more</dd><dt>LLM calls so far</dt><dd>2</dd></dl></section><section id="pg-step-2" class="step-panel" aria-labelledby="pg-heading-2"><h4 id="pg-heading-2">3. Grade each chunk</h4><dl><dt>Result</dt><dd>Half or fewer pass: plan memory sizes say nothing about Postgres settings</dd><dt>Decision</dt><dd>Set the web flag and keep only the chunks that passed</dd><dt>LLM calls so far</dt><dd>up to 7</dd></dl></section><section id="pg-step-3" class="step-panel" aria-labelledby="pg-heading-3"><h4 id="pg-heading-3">4. Rewrite for the web and search</h4><dl><dt>Search</dt><dd>A search-engine query; Tavily returns up to 6 pages, appended to the surviving chunks</dd><dt>LLM calls so far</dt><dd>up to 8, plus one search</dd></dl></section><section id="pg-step-4" class="step-panel" aria-labelledby="pg-heading-4"><h4 id="pg-heading-4">5. Generate</h4><dl><dt>Context</dt><dd>Handbook chunks and web pages together</dd><dt>LLM calls so far</dt><dd>up to 9, plus one search</dd></dl></section><section id="pg-step-5" class="step-panel" aria-labelledby="pg-heading-5"><h4 id="pg-heading-5">6. Check the answer</h4><dl><dt>On no</dt><dd>The graph ends: the store-then-web detour, at up to 10 LLM calls</dd><dt>On yes</dt><dd>Regenerate with the feedback; with Figure 2's counter, stop after two retries</dd><dt>Cheaper fix</dt><dd>If Postgres questions are common, add a database-tuning page to the handbook and its topic to the router's list</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 > **Interview tip:** asked how to cut this graph's cost, start with the grades. Five per-chunk grading calls are the largest single item, and one call that grades all chunks together, or skipping grading when the top score is high, removes most of them.
 
-## In practice: the Postgres memory question
+## Limits of this evidence
 
-Back to the customer tuning Postgres memory, followed through the graph with a Larkspur topic list in the router's prompt:
+- **Counted, not measured.** Table 4 counts calls from the graph's nodes. The notebook ships without outputs, and how often each path fires depends on the questions and the model.
+- **Different corpus.** The notebook indexes research papers. The Postgres trace applies the same graph to the handbook as an illustration.
+- **Added design.** The counter in Figure 2 is an addition; the notebook's graph has none.
 
-1. The source router reads "server" and "memory", which the handbook covers, and picks the vector store.
-2. The question is rewritten for semantic search, and the retriever returns up to five chunks scoring 0.35 or more.
-3. The grader passes half or fewer of them, so the graph sets the web flag and keeps only the chunks that passed.
-4. The question is rewritten for a search engine and Tavily returns up to six pages, appended to the surviving chunks.
-5. The model answers from the handbook chunks and the web pages together, and the hallucination grader checks the answer against both.
-6. On `no`, the graph ends. On `yes`, it regenerates with the feedback, and with Figure 2's counter it stops after two retries.
+The next lesson keeps one index and routes the question to a retrieval method instead of a source.
 
-This is the store-then-web detour, at up to 10 LLM calls. If Postgres questions are common, adding a database-tuning page to the handbook and its topic to the router's list is the cheaper fix.
+## References
 
-> **Next lesson:** 30.4 keeps one index and routes the question to a retrieval method instead of a source.
+1. Jeong et al., [Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity](https://arxiv.org/abs/2403.14403), NAACL 2024.
+2. LangGraph, [Graph API: recursion limit](https://langchain-ai.github.io/langgraph/concepts/low_level/#recursion-limit).
 
 ## Key Takeaways
 
-- A source router picks the vector store or the web before retrieving. Its prompt's topic list is all it knows of the index, so update the prompt whenever you index a new topic.
+- A source router picks the vector store or the web before retrieving. Its prompt's topic list is all it knows of the index: update the prompt whenever you index a new topic.
 - The document grader falls back to the web when half or fewer chunks pass. Frequent store-then-web detours mean the topic list or the index is wrong, which is cheaper to fix than to grade around.
 - Bound the regeneration loop with a counter in the graph state, because each round costs two LLM calls and nothing else stops it before the recursion limit. A `yes` from this hallucination grader means unsupported.
 

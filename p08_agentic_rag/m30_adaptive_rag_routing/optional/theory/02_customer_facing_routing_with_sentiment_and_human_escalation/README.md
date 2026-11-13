@@ -2,8 +2,9 @@
 
 *[M30 theory](../../../mandatory/theory/README.md) · Lesson 30.2 · Notebooks: [`02a_healthcare_router_agentic_rag.ipynb`](../../notebook/02a_healthcare_router_agentic_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Check who should answer before checking what the ticket is about, and hand off without blocking -->
+<!-- format: approved -->
 
-## Tickets that need a person
+## Start with tickets that need a person
 
 > **What you'll learn**
 >
@@ -16,9 +17,7 @@ Lesson 30.1 sent every ticket to a knowledge base. That assumes the right reply 
 
 Two Larkspur tickets break the assumption. One customer writes, angrily, that they were billed twice; the billing knowledge base explains double charges perfectly, and the customer wants a person. Another writes, calmly, that their production server has been down for an hour. The technical knowledge base has a restart guide, and the customer needs the on-call engineer now.
 
-A topic router sends both to retrieval and both get a polite handbook answer. The topic was right each time. The question of who should reply was never asked.
-
-So this lesson adds four jobs in front of the topic route:
+A topic router sends both to retrieval and both get a polite handbook answer. The topic was right each time. The question of who should reply was never asked. This lesson adds four jobs in front of the topic route:
 
 - **Detect**: decide whether a person should handle the ticket.
 - **Direct**: pick which person, since an unhappy customer and an emergency need different teams.
@@ -86,11 +85,35 @@ Each form writes what the person needs into the graph state, and the escalation 
 
 *Table 3: What each escalation path collects.*
 
-The emergency form asks for less, because the callback is the point. A production handoff should also pass the query, both labels and anything already retrieved, so the person does not start from zero.
+The emergency form asks for less, because the callback is the point. A production handoff should also pass the query, both labels and anything already retrieved, and the person does not start from zero.
+
+## Waiting for a person
+
+The form is where the graph waits, and the notebook's way of waiting does not survive a service.
 
 ### Planted failure: the blocking form
 
-The clinic notebook's form node displays Jupyter widgets and then loops, polling UI events with a 0.3-second sleep, until the Submit button sets a flag. The node holds the graph open the whole time. That works in a notebook. In a service it ties up a worker per waiting customer, and a restart loses every form in progress. We call this the **blocking form**.
+The clinic notebook's form node displays Jupyter widgets and then loops, polling UI events with a 0.3-second sleep, until the Submit button sets a flag. The node holds the graph open the whole time:
+
+```mermaid
+sequenceDiagram
+    participant U as Customer
+    participant G as Graph worker
+    U->>G: angry ticket
+    G->>G: classify, route to form
+    G-->>U: show form widgets
+    loop every 0.3 s
+        G->>G: poll UI events
+    end
+    U->>G: Submit
+    G-->>U: escalation reply
+```
+
+*Figure 2: The polling form. The worker stays inside the form node until Submit.*
+
+That works in a notebook. In a service it ties up a worker per waiting customer, and a restart loses every form in progress. We call this the **blocking form**.
+
+### The interrupt pattern
 
 Both notebooks already compile their graphs with a `MemorySaver` checkpointer and run each conversation under a `thread_id`. That is what LangGraph's `interrupt()` needs (M09). The node calls it with the form it wants filled, the graph saves its state and returns, and a later call on the same thread resumes with the form values:
 
@@ -108,18 +131,18 @@ sequenceDiagram
     G-->>U: escalation reply
 ```
 
-*Figure 2: The interrupt pattern. Nothing waits in memory between the two calls.*
+*Figure 3: The interrupt pattern. Nothing waits in memory between the two calls.*
 
-With a persistent checkpointer in place of the in-memory one, the paused ticket survives a restart.
-
-| | Polling loop | `interrupt()` and resume |
-|---|---|---|
-| Worker held while waiting | ✓ | ✗ |
-| Survives a restart | ✗ | ✓, with a persistent checkpointer |
-| Works outside a notebook | ✗ | ✓ |
-| Needs a `thread_id` | ✗ | ✓ |
-
-*Table 4: Two ways to wait for a person.*
+<div class="learning-widget evidence-switcher" data-comparison id="wait-switcher">
+<p class="widget-intro">Compare the two ways of waiting on one angry ticket while the customer takes ten minutes to fill the form.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the graph waits">
+<button type="button" data-mode="poll" aria-pressed="false" aria-controls="wait-poll">Polling loop (Figure 2)</button>
+<button type="button" data-mode="interrupt" aria-pressed="false" aria-controls="wait-interrupt">Interrupt and resume (Figure 3)</button>
+</div>
+<section id="wait-poll" class="mode-panel" data-announcement="Polling loop selected. A worker is held for the whole wait."><h4>Polling loop</h4><ul><li>Worker: held for the whole ten minutes, waking every 0.3 seconds.</li><li>Restart during the wait: the form and the ticket's state are lost.</li><li>Outside a notebook: the widgets have nowhere to render.</li><li>Needs a thread_id: no.</li></ul></section>
+<section id="wait-interrupt" class="mode-panel" data-announcement="Interrupt and resume selected. No worker is held while waiting."><h4>Interrupt and resume</h4><ul><li>Worker: free as soon as the form is sent.</li><li>Restart during the wait: the ticket resumes, with a persistent checkpointer in place of the in-memory one.</li><li>Outside a notebook: the form is just data in the response.</li><li>Needs a thread_id: yes, to find the saved state.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ## Counting missed and needless escalations
 
@@ -130,36 +153,46 @@ Sentiment is a proxy for "a person should handle this". It misses a calm custome
 | **Missed escalation** | A customer with a production outage gets a handbook answer | Tickets reopened or escalated by the customer after an automated answer |
 | **Needless escalation** | An agent's time on a question the handbook answers | Escalated tickets an agent closes with a handbook link |
 
-*Table 5: The two escalation errors and where each shows up.*
+*Table 4: The two escalation errors and where each shows up.*
 
-The two errors pull in opposite directions. A looser trigger cuts missed escalations and raises needless ones, so the threshold is a staffing decision as much as a model decision.
+The two errors pull in opposite directions. A looser trigger cuts missed escalations and raises needless ones, making the threshold a staffing decision as much as a model decision.
 
 ### Triggers beside sentiment
 
 Sentiment is one signal among several the graph already has:
 
 - **Sentiment**: Negative or an emergency label, as in both notebooks.
-- **Fallback search**: the router fell back to searching every knowledge base (lesson 30.1), so it was unsure of the topic.
+- **Fallback search**: the router fell back to searching every knowledge base (lesson 30.1), a sign it was unsure of the topic.
 - **Rejected answer**: the hallucination grader rejected the answer (lesson 30.3).
 - **Repeat**: the same customer asked the same question twice.
 
-Each extra trigger reduces missed escalations and adds some needless ones, which Table 5's counts will show.
+Each extra trigger reduces missed escalations and adds some needless ones, which Table 4's counts will show.
 
-## In practice: the calm outage report
+### Trace the calm outage report
 
-A Larkspur customer writes *Our production server has been unreachable since 9am, can you look?* Followed through a router built from this page:
+A Larkspur customer writes *Our production server has been unreachable since 9am, can you look?* Follow it through a router built from this page (illustrative; the notebook does not run this ticket):
 
-1. The sentiment check reads a polite message and returns Neutral. A Negative-only rule would send it on to the technical knowledge base.
-2. A Larkspur version of the clinic's Distress label, "a production service is down now", catches it and routes to the on-call engineer.
-3. The graph interrupts with a short form, name and callback number, and returns. No worker waits.
-4. The customer submits; the graph resumes on the same thread and passes the query, both labels and the contact details to on-call.
-5. If the first rule had missed it, the reopened ticket would count as a missed escalation in Table 5, and the label definition would be the thing to fix.
+<div class="walkthrough learning-widget" data-stepper id="outage-walkthrough">
+<p class="widget-intro">Follow a polite but urgent ticket through the escalation checks, the pause and the handoff.</p>
+<div class="step-controls" hidden role="group" aria-label="Escalation stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="outage-step-0">1. Sentiment</button><button type="button" data-step="1" aria-pressed="false" aria-controls="outage-step-1">2. Emergency</button><button type="button" data-step="2" aria-pressed="false" aria-controls="outage-step-2">3. Pause</button><button type="button" data-step="3" aria-pressed="false" aria-controls="outage-step-3">4. Hand off</button><button type="button" data-step="4" aria-pressed="false" aria-controls="outage-step-4">5. Count</button></div>
+<div class="step-panels"><section id="outage-step-0" class="step-panel" aria-labelledby="outage-heading-0"><h4 id="outage-heading-0">1. Check sentiment</h4><dl><dt>Label</dt><dd>Neutral: the message is polite</dd><dt>Negative-only rule</dt><dd>Sends it on to the technical knowledge base and a restart guide</dd></dl></section><section id="outage-step-1" class="step-panel" aria-labelledby="outage-heading-1"><h4 id="outage-heading-1">2. Check for an emergency</h4><dl><dt>Label</dt><dd>A Larkspur version of the clinic's Distress label: "a production service is down now"</dd><dt>Route</dt><dd>On-call engineer, before any knowledge base is searched</dd></dl></section><section id="outage-step-2" class="step-panel" aria-labelledby="outage-heading-2"><h4 id="outage-heading-2">3. Pause for the form</h4><dl><dt>Form</dt><dd>Name and callback number</dd><dt>Graph</dt><dd>Interrupts, saves state under the thread_id and returns. No worker waits.</dd></dl></section><section id="outage-step-3" class="step-panel" aria-labelledby="outage-heading-3"><h4 id="outage-heading-3">4. Resume and hand off</h4><dl><dt>Graph</dt><dd>Resumes on the same thread with the form values</dd><dt>Passed to on-call</dt><dd>The query, both labels and the contact details</dd></dl></section><section id="outage-step-4" class="step-panel" aria-labelledby="outage-heading-4"><h4 id="outage-heading-4">5. Count the outcome</h4><dl><dt>If the first rule had missed it</dt><dd>The reopened ticket counts as a missed escalation in Table 4</dd><dt>What to fix</dt><dd>The emergency label's definition</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-> **Next lesson:** 30.3 routes between two sources instead of two audiences, and checks the evidence and the answer after retrieval.
+## Limits of this evidence
+
+- **Model-dependent labels.** Table 1 shows what the prompts are written to produce. The notebook ships without outputs, and a run depends on the model.
+- **Added designs.** The Larkspur emergency label, the extra triggers and the interrupt form are additions; the notebook uses the polling loop.
+- **No measured error rates.** Table 4 names where each error shows up; it reports no counts.
+
+The next lesson routes between two sources instead of two audiences, and checks the evidence and the answer after retrieval.
+
+## References
+
+1. LangGraph, [Human-in-the-loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/), the `interrupt()` and resume pattern.
+2. LangGraph, [Persistence](https://langchain-ai.github.io/langgraph/concepts/persistence/), checkpointers and threads.
 
 ## Key Takeaways
 
-- Check escalation before topic so an angry or distressed customer reaches a person, not the knowledge base. Give each kind of escalation its own target, such as support for unhappy customers and on-call for live outages.
+- Check escalation before topic, and an angry or distressed customer reaches a person, not the knowledge base. Give each kind of escalation its own target, such as support for unhappy customers and on-call for live outages.
 - Map each label to its filter value explicitly, and pass the query, both labels and anything retrieved with the handoff. Wait for the person with `interrupt()` and a checkpointer, not a blocking form.
 - Sentiment is only a proxy for needing a person. Count missed and needless escalations on labelled tickets, and add triggers such as a fallback search, a rejected answer or a repeated question.
 
