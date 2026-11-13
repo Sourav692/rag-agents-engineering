@@ -2,8 +2,9 @@
 
 *[M46 theory](../README.md) · Lesson 46.1 · Notebooks: [`01a_AGENTIC_RAG_ARCHITECTURES.md`](../../notebook/01a_AGENTIC_RAG_ARCHITECTURES.md) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Every retrieval architecture in the course on one map, compared in one unit: model calls per question -->
+<!-- format: approved -->
 
-## Too many designs to compare
+## Start with a review that compares feature lists
 
 > **What you'll learn**
 >
@@ -16,7 +17,7 @@
 
 Picture Larkspur's design review. The support assistant answers from the handbook, and three engineers each bring a proposal for the outage question, *What happens if my server goes down?* One wants Self-RAG, one a supervisor over billing, operations and data agents, one GraphRAG. Each argues in the vocabulary of the module that taught it: reflection tokens, handoffs, communities. Nobody can say which proposal costs more, or which part of the pipeline each one changes.
 
-We call this a **feature-list review**: designs compared by what they contain instead of by what they change and what they cost. The rest of this page gives the review two things it lacks, a map that sorts the designs by the component they add, and a common unit to price that component.
+We call this a **feature-list review**: designs compared by what they contain instead of by what they change and what they cost. This page gives the review two things it lacks: a map that sorts the designs by the component they add, and a common unit to price that component.
 
 ## The architecture map
 
@@ -74,7 +75,19 @@ flowchart LR
     RW --> RET
 ```
 
-*Figure 2: Plain RAG with each family's component in its place. A tool-based design hands the retrieve, grade and rewrite loop to a model that decides when to search.*
+*Figure 2: Plain RAG with each fixed-pipeline family's component in its place.*
+
+The tool-based family does not fit in that picture, because it removes the fixed order. A model holds retrieval as a tool and decides on every turn whether to search again or answer:
+
+```mermaid
+flowchart LR
+    Q["Question"] --> M{"Model<br/>search or answer?"}
+    M -- search --> T["Retrieval tool"]
+    T -- results --> M
+    M -- answer --> A["Answer"]
+```
+
+*Figure 3: The tool-based family. The retrieve, grade and rewrite loop of Figure 2 becomes the model's own decision.*
 
 Each family has a module whose theory page measures what its component buys:
 
@@ -87,8 +100,6 @@ Each family has a module whose theory page measures what its component buys:
 Memory ([M33](../../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/README.md), [M34](../../../../../p09_memory_layer/m34_long_term_agentic_memory/mandatory/theory/README.md)) cuts across all five. A follow-up such as *How long do I have?* needs rewriting into a standalone question before any of these architectures can retrieve for it.
 
 The families also stack. The M28 agent is a tool-based loop with a self-correcting grader, and adaptive RAG in M30 is a router in front of two graders. A stacked design priced as one total is a **lump-sum design**: a later review cannot remove one component without guessing what it cost. Count each component's calls separately instead, the loop's and the grader's, and the design document shows what each removal saves.
-
-The map and the unit come together when we run one question through every family.
 
 ## In practice: the export question
 
@@ -109,15 +120,16 @@ The [M46 lab](../03_decision_framework_picking_the_simplest_architecture_that_wo
 
 *Table 3: The export question through every family, as the M46 lab records it. The routing rows assume the handbook split into three knowledge bases.*
 
-Read the table as the review should:
+Step through the table the way the review should read it:
 
-1. Plain TF-IDF RAG already answers, at 1 call.
-2. Every family above it also answers, and each adds calls without changing the outcome: the grader passes both chunks, CRAG never searches the web, Self-RAG's checks all say yes.
-3. The one architecture that falls short is an entry-level swap: dense retrieval ranks `cancel` above `export` and recalls half the evidence. A retrieval upgrade is not better on every question.
+<div class="walkthrough learning-widget" data-stepper id="review-walkthrough">
+<p class="widget-intro">Each stage adds one family to plain RAG on the export question and asks what the extra calls bought. Counts are the M46 lab's.</p>
+<div class="step-controls" hidden role="group" aria-label="Review stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="review-step-0">1. Baseline</button><button type="button" data-step="1" aria-pressed="false" aria-controls="review-step-1">2. Add a check</button><button type="button" data-step="2" aria-pressed="false" aria-controls="review-step-2">3. Add routing</button><button type="button" data-step="3" aria-pressed="false" aria-controls="review-step-3">4. Swap the retriever</button></div>
+<div class="step-panels"><section id="review-step-0" class="step-panel" aria-labelledby="review-heading-0"><h4 id="review-heading-0">1. Plain TF-IDF RAG</h4><dl><dt>Calls</dt><dd>1</dd><dt>Outcome</dt><dd>Both evidence chunks in the top 2; the answer is right</dd></dl></section><section id="review-step-1" class="step-panel" aria-labelledby="review-heading-1"><h4 id="review-heading-1">2. Self-correcting family</h4><dl><dt>Calls</dt><dd>4 for the grader loop and CRAG, 7 for Self-RAG</dd><dt>Outcome</dt><dd>Unchanged: the grader passes both chunks, CRAG never searches the web, every Self-RAG check says yes</dd></dl></section><section id="review-step-2" class="step-panel" aria-labelledby="review-heading-2"><h4 id="review-heading-2">3. Routing family</h4><dl><dt>Calls</dt><dd>2 for the router and the swarm, 3 for the supervisor, 5 for the hierarchy</dd><dt>Outcome</dt><dd>Unchanged: the question has one domain, and most of the extra calls are routing</dd></dl></section><section id="review-step-3" class="step-panel" aria-labelledby="review-heading-3"><h4 id="review-heading-3">4. Entry-level swap to dense retrieval</h4><dl><dt>Calls</dt><dd>1</dd><dt>Outcome</dt><dd>Worse: <code>cancel</code> outranks <code>export</code> and recall falls to 0.50. A retrieval upgrade is not better on every question</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 > **Key distinction:** a family earns its calls on the questions where the cheaper design fails. On a question plain RAG answers, every extra call is overhead. Lesson 46.3 turns this into a decision procedure, run on the questions where plain RAG does fail.
 
-## Limits of the map
+## Limits of this evidence
 
 The map compares query-time model calls, and three costs sit outside it:
 
@@ -125,18 +137,29 @@ The map compares query-time model calls, and three costs sit outside it:
 - **Tokens per call.** A loop re-reads its message list on every call, and its tenth call costs more than its first.
 - **Different questions.** Each range in Figure 1 comes from the question and settings its lab used. Two ranges are comparable in order of magnitude, not call for call.
 
+The counts themselves come from small handbook fixtures and stub or recorded models, not from production traffic.
+
+## References
+
+- FareedKhan-dev, [all-agentic-architectures](https://github.com/FareedKhan-dev/all-agentic-architectures): the upstream catalogue of 35 architectures behind Table 1.
+- Asai et al., [Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection](https://arxiv.org/abs/2310.11511), 2023.
+- Yan et al., [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884), 2024.
+- Jeong et al., [Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity](https://arxiv.org/abs/2403.14403), NAACL 2024.
+- Sarthi et al., [RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval](https://arxiv.org/abs/2401.18059), ICLR 2024.
+- Edge et al., [From Local to Global: A Graph RAG Approach](https://arxiv.org/abs/2404.16130) (title shortened), 2024.
+
 ## Key Takeaways
 
 - Every architecture is retrieve-then-generate with components added. Compare them in model calls per question: plain RAG is 1, routing and tool loops 2 to 7, self-correcting loops up to 20.
 - Each family adds one kind of component: better context, a judgement step, routing, a model that calls retrieval, or a new index shape whose cost moves to index time.
-- Families stack. Count each component's calls separately so a review can remove one and know what it saves.
+- Families stack. Count each component's calls separately, and a review can remove one and know what it saves.
 
 ## Check yourself
 
 <details>
 <summary>1. What common unit does the lesson use to compare the architectures, and what does that unit leave out?</summary>
 
-Model calls per question, because every architecture is the M10 pipeline with components added: plain RAG is 1 call, routing and tool loops 2 to 7, and self-correcting loops climb to 10 and 20. It leaves out index-time model work, which is the main cost of collapsed-tree RAPTOR and GraphRAG, so those have no counted query cost on the axis.
+Model calls per question, because every architecture is the M10 pipeline with components added: plain RAG is 1 call, routing and tool loops 2 to 7, and self-correcting loops climb to 10 and 20. It leaves out index-time model work, the main cost of collapsed-tree RAPTOR and GraphRAG, which is why those have no counted query cost on the axis.
 
 </details>
 
