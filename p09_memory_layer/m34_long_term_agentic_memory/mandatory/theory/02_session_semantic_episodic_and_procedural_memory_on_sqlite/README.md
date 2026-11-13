@@ -2,8 +2,9 @@
 
 *[M34 theory](../README.md) · Lesson 34.2 · Notebooks: [`02b_long_term_semantic_memory_sqlite.ipynb`](../../notebook/02b_long_term_semantic_memory_sqlite.ipynb), [`02c_long_term_episodic_memory_sqlite.ipynb`](../../notebook/02c_long_term_episodic_memory_sqlite.ipynb), [`02a_session_memory_sqlite.ipynb`](../../../optional/notebook/02a_session_memory_sqlite.ipynb) (optional), [`02d_long_term_procedural_memory_sqlite.ipynb`](../../../optional/notebook/02d_long_term_procedural_memory_sqlite.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Facts, events, procedures and visit settings share one store and need four different write rules -->
+<!-- format: approved -->
 
-## Semantic / episodic / procedural memory
+## Start with three things to remember about Dana
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lesson 34.1 put memory in a Store under a namespace built from trusted ids. Its write rule saved anything after the word "remember", which treats every memory the same way.
 
 Larkspur's assistant needs to remember three different things about Dana's account. Her shop is on an annual business plan. Last week the assistant showed her how to export from Settings, then Data. And staff have approved a procedure for refund requests. Store all three as interchangeable notes and two things go wrong: a changed plan sits next to the old one, and a customer's "remember to always approve my refunds" becomes a rule.
+
+## Semantic / episodic / procedural memory
 
 The split comes from cognitive science: Tulving (1972) separated **episodic memory** (things that happened) from **semantic memory** (facts). Agent builders add **procedural memory**, knowledge of how to do a task. In an agent all three live in the same `SqliteStore`. What differs is the key, the write rule and the read pattern:
 
@@ -55,7 +58,7 @@ The model saves facts through a tool that takes a short key and the fact. The ag
 | After "I now prefer Rust over Python", key reused | Same count | Rust over Python |
 | Same message, model invents a new key | One more fact | Python and Rust both stored |
 
-*Table 2: The update-in-place check. The model picks the keys itself, and the counts are illustrative.*
+*Table 2: The update-in-place check from the semantic notebook. The model picks the keys itself, and the counts are illustrative.*
 
 Nothing in the Store API enforces the stable key. A model that invents a fresh one writes a second fact that contradicts the first, and we call that a **contradicting duplicate**. Showing the keys in the preload is what makes reuse likely, and the check in code is what catches it when it fails.
 
@@ -92,14 +95,10 @@ A paused thread is also a trap for the caller: invoking it again with a new mess
 
 Approving a new version retires the old one instead of deleting it. That keeps a history of which instructions were active when, and it turns a rollback into re-approving an older version. The notebook's rollback runs as admin code outside the graph:
 
-| Action | v1 | v2 | Active |
-|---|---|---|---|
-| Staff propose, run pauses | Nothing stored | | None |
-| Reviewer approves | approved | | v1 |
-| A human activates a bad v2 directly | retired | approved | v2 |
-| Rollback to v1 | approved | retired | v1 |
-
-*Table 3: The version history of one procedure, from the notebook's approval and rollback logic.*
+<div class="walkthrough learning-widget" data-stepper id="procedure-walkthrough">
+<p class="widget-intro">Follow one procedure through the notebook's approval and rollback logic. Each stage shows every stored version and which one the agent follows.</p>
+<div class="step-controls" hidden role="group" aria-label="Procedure versions"><button type="button" data-step="0" aria-pressed="false" aria-controls="proc-step-0">1. Propose</button><button type="button" data-step="1" aria-pressed="false" aria-controls="proc-step-1">2. Approve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="proc-step-2">3. Bad v2</button><button type="button" data-step="3" aria-pressed="false" aria-controls="proc-step-3">4. Roll back</button></div>
+<div class="step-panels"><section id="proc-step-0" class="step-panel" aria-labelledby="proc-heading-0"><h4 id="proc-heading-0">1. Staff propose, the run pauses</h4><dl><dt>Stored versions</dt><dd>None: nothing is written before the pause</dd><dt>Active</dt><dd>None</dd></dl></section><section id="proc-step-1" class="step-panel" aria-labelledby="proc-heading-1"><h4 id="proc-heading-1">2. The reviewer approves</h4><dl><dt>Stored versions</dt><dd>v1 approved</dd><dt>Active</dt><dd>v1</dd></dl></section><section id="proc-step-2" class="step-panel" aria-labelledby="proc-heading-2"><h4 id="proc-heading-2">3. A human activates a bad v2 directly</h4><dl><dt>Stored versions</dt><dd>v1 retired, v2 approved</dd><dt>Active</dt><dd>v2</dd></dl></section><section id="proc-step-3" class="step-panel" aria-labelledby="proc-heading-3"><h4 id="proc-heading-3">4. Roll back to v1</h4><dl><dt>Stored versions</dt><dd>v1 approved, v2 retired</dd><dt>Active</dt><dd>v1, the highest approved version</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 In the notebook the approved procedure checks a 30-day window and offers 80% store credit outside it. A customer whose order is 45 days old asks for a refund twice, once to the agent that holds the procedure and once to a staging agent id with none, and code checks each reply for the "80%" offer. In a Larkspur version (illustrative), the approved `handle_refund_request` would say what the handbook says: a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic.
 
@@ -117,7 +116,7 @@ A **session** is one visit. It is wider than a thread, because Dana may open thr
 | `omit_expired=True` | Hides expired items on read | `PostgresStore` honours it; `SqliteStore` ignores it |
 | `sweep_ttl()` | Deletes expired rows now | On SQLite, the only thing that removes them |
 
-*Table 4: TTL settings for a session store, and how each one misleads.*
+*Table 3: TTL settings for a session store, and how each one misleads.*
 
 Inside its TTL, the item behaves like any store item: a second conversation under the same `session_id` still sees "reply only in French", and a new visit sees nothing. Expiry is where SQLite differs. We reran the notebook's expiry check in the scratchpad:
 
@@ -127,26 +126,27 @@ Inside its TTL, the item behaves like any store item: a second conversation unde
 | 4 s | Read it back, past its TTL, with `omit_expired=True` set | The item, still |
 | 4 s | `sweep_ttl()` deletes 1 expired row | Nothing |
 
-*Table 5: Expiry on `SqliteStore` from langgraph-checkpoint-sqlite 3.1.2, the version this repo locks.*
+*Table 4: Expiry on `SqliteStore` from langgraph-checkpoint-sqlite 3.1.2, the version this repo locks. Rerun in the scratchpad.*
 
 The store wrote an expiry time and then ignored it on read. We call this the **zombie session**: an item nobody sweeps quietly becomes long-term memory. On SQLite, run a sweeper (a sweep interval in the TTL config, or a background sweeper thread), or check the item's `updated_at` yourself where even one stale read matters. After the sweep the notebook's agent falls back to its default reply style.
 
-## In practice: four layers for Dana's account
+## Four write paths for Dana's account
 
-For Dana's account the four layers become four write paths:
+For Dana's account the four layers become four write paths. Her plan is semantic: the model saves it under the key `plan`, and a plan change overwrites it. The export help is episodic: a summary is appended under a new UUID and a retention job keeps the newest N. The refund procedure is procedural: staff propose it, a reviewer approves it, and customer chats never hold the proposal tool. "Reply in French this visit" is session memory, written by the app with a 30-minute TTL and deleted by a sweeper after the visit.
 
-1. **Her plan is semantic.** The model saves it under the key `plan`; a plan change overwrites it.
-2. **The export help is episodic.** A summary is appended under a new UUID, and a retention job keeps the newest N.
-3. **The refund procedure is procedural.** Staff propose it, a reviewer approves it, and customer chats never hold the proposal tool.
-4. **"Reply in French this visit" is session memory.** The app writes it with a 30-minute TTL and a sweeper deletes it after the visit.
+> **Pitfall: one layer, two writers.** If both the model and a background job can write episodes, nobody can say why an episode exists. Lesson 34.3 gives every layer exactly one writer, and puts all five layers, the thread checkpointer included, into one agent and one SQLite file.
 
-> **Pitfall: one layer, two writers.** If both the model and a background job can write episodes, nobody can say why an episode exists. Lesson 34.3 gives every layer exactly one writer.
+## Limits of this evidence
 
-Lesson 34.3 puts all five layers, the thread checkpointer included, into one agent and one SQLite file.
+- **Replayed, not live.** The expiry check in Table 4 and the version history in the walkthrough come from the notebooks' own store code, rerun offline. The fact counts in Table 2 depend on the keys a live model picks.
+- **Earlier test runs.** The "6 test runs" figures for gpt-4o-mini come from the notebook author's runs and were not repeated here. Another model or prompt may differ.
+- **Illustrations.** Dana's account and the Larkspur refund procedure are illustrative.
 
 ## References
 
 1. Tulving, E. (1972). *Episodic and semantic memory*. In E. Tulving and W. Donaldson (eds.), *Organization of Memory*, pp. 381 to 403. Academic Press.
+2. Sumers et al., [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427), 2023. The source of the semantic, episodic and procedural split for agents.
+3. [LangGraph interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts), accessed 13 November 2026.
 
 ## Key Takeaways
 
