@@ -65,7 +65,7 @@ The client and the server agree on a protocol version and capabilities once, the
 ### 1. Larkspur's support bot connects to a filesystem server rooted at the project folder. Someone adds a second filesystem server rooted at `./handbook`. Now the bot says files it read yesterday “do not exist”. How do you find the cause?
 
 **What a strong answer covers:**
-- Reads the startup log: both servers list the same 14 tool names, so the model gets 32 definitions for 18 names
+- Reads the startup log: both servers list the same 14 tool names; with the retriever also connected the model gets 32 definitions for 18 names
 - Finds the router, `tool_to_session[tool.name] = session`, which keeps the last server for each name; every filesystem call now goes to `./handbook`, which resolves `research_server.py` inside its own root and answers `ENOENT`
 - Fixes it by namespacing tool names per server (for example `handbook__read_text_file`) or by refusing to start on a duplicate name, rather than relying on config order
 - Adds a startup check that fails when two servers expose the same name, and logs which server each call went to
