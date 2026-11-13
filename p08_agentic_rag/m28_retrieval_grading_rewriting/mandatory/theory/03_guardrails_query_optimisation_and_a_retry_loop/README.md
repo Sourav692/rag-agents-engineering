@@ -1,21 +1,25 @@
 # M28.3 Theory: Guardrails, query optimisation and a retry loop
 
 *[M28 theory](../README.md) · Lesson 28.3 · Notebooks: [`03a_advanced_rag_agent.ipynb`](../../notebook/03a_advanced_rag_agent.ipynb) · [All theory pages](../../../../../THEORY.md)*
-<!-- subtitle: Keep off-topic questions out of retrieval, stop the rewrite loop on purpose, and price every extra attempt -->
+<!-- subtitle: Keep off-topic questions out of retrieval, stop the rewrite loop on purpose, and price every extra attempt. -->
+<!-- format: approved -->
 
-## Topic guardrails
+## Start with two questions the loop cannot finish
 
 > **What you'll learn**
 >
 > - **Distinguish** an off-topic question from one the handbook cannot answer, and the check that catches each.
-> - **Calculate** what a question costs in LLM calls for any rewrite bound.
+> - **Trace** an unanswerable question through a bounded loop and count its LLM calls.
+> - **Compare** two router check orders on the same question.
 > - **Choose** a rewrite bound from the golden set.
 
 Lesson 28.1's graph rewrites when the grade fails, but it cannot stop. Two Larkspur questions show the cost. *Do you offer a student discount?* is about pricing, but the handbook has no discount policy. *What's the weather like today?* has nothing to do with Larkspur. In lesson 28.1's graph both rewrite again and again and never get a reply. Even with a counter, both would end in the same "I couldn't find that" message, which is wrong for the weather question.
 
+## Topic guardrails
+
 ### The eight-node support agent
 
-The notebook builds this agent for a fictional company's support documents; these pages run it on the Larkspur handbook. Before retrieving, it asks whether the question belongs to the assistant at all:
+The notebook builds this agent for a fictional company's support documents. These pages run it on the Larkspur handbook. Before retrieving, it asks whether the question belongs to the assistant at all:
 
 ```mermaid
 flowchart TD
@@ -29,9 +33,9 @@ flowchart TD
     OQ --> F
 ```
 
-*Figure 1: The support agent. Three nodes end the turn; the two handlers reply with fixed text and make no LLM call.*
+*Figure 1: The support agent. Three nodes end the turn, and the two handlers reply with fixed text and make no LLM call.*
 
-A **topic guardrail** is a classification step before retrieval that decides whether a question is in scope. Here it is one structured-output call whose schema has a classification (`RELEVANT` or `IRRELEVANT`) and a confidence (`HIGH`, `MEDIUM` or `LOW`), both typed as fixed sets of values. Its prompt lists what is on topic (services, pricing, support procedures, company information) and what is not (general technology, other companies, weather and news). `RELEVANT` goes to retrieval; anything else goes to the off-topic handler, which lists what the assistant can help with.
+A **topic guardrail** is a classification step before retrieval that decides whether a question is in scope. Here it is one structured-output call whose schema has a classification (`RELEVANT` or `IRRELEVANT`) and a confidence (`HIGH`, `MEDIUM` or `LOW`), both typed as fixed sets of values. Its prompt lists what is on topic (services, pricing, support procedures, company information) and what is not (general technology, other companies, weather and news). `RELEVANT` goes to retrieval. Anything else goes to the off-topic handler, which lists what the assistant can help with.
 
 ### Off topic or unanswered
 
@@ -46,25 +50,19 @@ The check comes before retrieval because the grader cannot tell "off topic" from
 
 *Table 1: Three golden questions, two rewrites allowed. The guardrail and the grader catch different failures.*
 
-The student-discount question passes the topic check, so only the grader and the bound stop it. The weather question stops for 1 call instead of 8, and the customer reads "I can help with pricing, refunds and servers" instead of "I couldn't find that in the handbook".
+The weather question stops for 1 call instead of 8, and the customer reads "I can help with pricing, refunds and servers" instead of "I couldn't find that in the handbook".
 
-### What the check costs
-
-The check costs one call on every question, so it does not always pay. Over the lab's five golden questions it costs 3 calls at zero rewrites (14 with the check, 11 without), breaks even at one (24 and 24) and saves 3 at two (31 and 34). The check pays when the off-topic share of traffic times the cost of a full retry loop exceeds one call per question, and it pays in reply quality at any bound.
+The check costs one call on every question. Over the lab's five golden questions it costs 3 calls at zero rewrites (14 with the check, 11 without), breaks even at one (24 and 24) and saves 3 at two (31 and 34). It pays in calls when the off-topic share of traffic times the cost of a full retry loop exceeds one call per question. It pays in reply quality at any bound.
 
 ### The classification boundary
 
-Three details matter in production:
-
-- **It classifies the enhanced query.** The enhancement node first folds the conversation history into a standalone question, so a follow-up such as *What about annual plans?* carries the refund question it follows.
+- **It classifies the enhanced query.** The enhancement node first folds the conversation history into a standalone question, and a follow-up such as *What about annual plans?* carries the refund question it follows.
 - **Confidence is computed and ignored.** The router reads only the classification. Asking a clarifying question on `LOW` confidence needs a third branch.
-- **A false rejection is silent.** An on-topic question classified `IRRELEVANT` never reaches retrieval or its logs. We call this the **silent rejection**: track the off-topic rate and sample those replies.
-
-The guardrail keeps one kind of question out of the loop; the next section bounds the loop for the rest.
+- **A false rejection is silent.** An on-topic question classified `IRRELEVANT` never reaches retrieval or its logs. We call this the **silent rejection**. Track the off-topic rate and sample those replies.
 
 ## Bounded retries
 
-**Bounded retries** means the graph counts its rewrites in the state and takes a different exit when the count reaches a limit. Lesson 28.1's graph has no counter, so when the handbook has no answer, LangGraph's recursion limit (a cap on graph steps per run) is the only stop.
+**Bounded retries** means the graph counts its rewrites in the state and takes a different exit when the count reaches a limit. Lesson 28.1's graph has no counter. When the handbook has no answer, LangGraph's recursion limit (a cap on graph steps per run) is the only stop.
 
 ### The runaway rewrite loop
 
@@ -77,13 +75,13 @@ In the pinned `langgraph` 1.2.18 the default recursion limit is 10,007 steps. Le
 
 *Table 2: Lesson 28.1's graph on a question nothing can answer, with stub nodes.*
 
-We call this the **runaway rewrite loop**. Each round costs three LLM calls (agent, grader, rewrite) and three graph steps, so calls track the step limit, and the run still ends in an error, not a reply.
+We call this the **runaway rewrite loop**. Each round costs three LLM calls (agent, grader, rewrite) and three graph steps. Calls track the step limit, and the run still ends in an error, not a reply.
 
 ### A counter in the state
 
 This lesson's graph bounds the loop in the state:
 
-- **The count**: a rewrite counter that the enhancement node resets to 0 at the start of every turn, so the bound is per question, not per conversation.
+- **The count**: a rewrite counter that the enhancement node resets to 0 at the start of every turn. The bound is per question, not per conversation.
 - **The router**: after grading, it picks one of three exits in a fixed order, shown in Figure 2.
 - **The guard**: the rewrite node repeats the limit check and does nothing if it is reached, in case a later edge reaches it directly.
 
@@ -96,13 +94,50 @@ flowchart TD
     C -- no --> O[optimize_query]
 ```
 
-*Figure 2: The router's check order. Evidence is checked before the budget, so a hit on the last retrieval is still answered.*
+*Figure 2: The router's check order. Evidence is checked before the budget, and a hit on the last retrieval is still answered.*
 
-With a limit of 2 rewrites, a turn makes at most 3 retrievals. Swapping the two checks would discard a passing chunk on the third retrieval and reply "not found" to a question the graph had just answered.
+### Trace the student-discount question
+
+With a bound of 2, a turn makes at most 3 retrievals. Follow the question that never finds evidence:
+
+<div class="walkthrough learning-widget" data-stepper id="discount-walkthrough">
+<p class="widget-intro">Follow the student-discount question through the bounded loop. Each stage shows the counter and the running call total.</p>
+<div class="step-controls" hidden role="group" aria-label="Loop stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="discount-step-0">1. Check</button><button type="button" data-step="1" aria-pressed="false" aria-controls="discount-step-1">2. Retrieve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="discount-step-2">3. Rewrite</button><button type="button" data-step="3" aria-pressed="false" aria-controls="discount-step-3">4. Rewrite</button><button type="button" data-step="4" aria-pressed="false" aria-controls="discount-step-4">5. Stop</button></div>
+<div class="step-panels"><section id="discount-step-0" class="step-panel" aria-labelledby="discount-heading-0"><h4 id="discount-heading-0">1. Enhance and check the topic</h4><dl><dt>Node</dt><dd>enhance_query, then validate_topic</dd><dt>Decision</dt><dd>RELEVANT: pricing is in scope</dd><dt>Counter</dt><dd>Reset to 0</dd><dt>LLM calls so far</dt><dd>1 (a first turn needs no enhancement call)</dd></dl></section><section id="discount-step-1" class="step-panel" aria-labelledby="discount-heading-1"><h4 id="discount-heading-1">2. First retrieval fails</h4><dl><dt>Node</dt><dd>fetch_content, then assess_relevance</dd><dt>Decision</dt><dd>Both chunks score 0.000 and fail. Rewrites are left.</dd><dt>Counter</dt><dd>0</dd><dt>LLM calls so far</dt><dd>3 (two grader calls)</dd></dl></section><section id="discount-step-2" class="step-panel" aria-labelledby="discount-heading-2"><h4 id="discount-heading-2">3. First rewrite, second retrieval</h4><dl><dt>Node</dt><dd>optimize_query, then fetch and grade</dd><dt>Decision</dt><dd>New wording, still no discount policy. One rewrite left.</dd><dt>Counter</dt><dd>1</dd><dt>LLM calls so far</dt><dd>6</dd></dl></section><section id="discount-step-3" class="step-panel" aria-labelledby="discount-heading-3"><h4 id="discount-heading-3">4. Second rewrite, third retrieval</h4><dl><dt>Node</dt><dd>optimize_query, then fetch and grade</dd><dt>Decision</dt><dd>No chunk passes, and the budget is used up.</dd><dt>Counter</dt><dd>2</dd><dt>LLM calls so far</dt><dd>9</dd></dl></section><section id="discount-step-4" class="step-panel" aria-labelledby="discount-heading-4"><h4 id="discount-heading-4">5. Reply that the handbook has no answer</h4><dl><dt>Node</dt><dd>handle_no_results</dd><dt>Decision</dt><dd>Fixed text, no LLM call</dd><dt>Counter</dt><dd>2</dd><dt>LLM calls so far</dt><dd>9 in all. The question needs new handbook content, which no rewrite can supply.</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+### Check evidence before the budget
+
+The order of the router's two checks changes the outcome on the last retrieval. The outage question, *What happens if my server goes down?*, finds `sla` only on its third retrieval, after both rewrites are used.
+
+**Evidence first (Figure 2).** The router sees a passing chunk and answers. The question costs 10 calls: 1 check, 6 grader calls, 2 rewrites and 1 answer.
+
+**Budget first (Figure 3, an added counter-example).** The router sees two rewrites used and replies "not found" before it looks at the grades. It spends 9 calls and discards the evidence it has just retrieved.
+
+```mermaid
+flowchart TD
+    G[Chunks graded] --> C{"2 rewrites<br/>used?"}
+    C -- yes --> N[handle_no_results]
+    C -- no --> P{"Any chunk<br/>passed?"}
+    P -- yes --> A[generate_response]
+    P -- no --> O[optimize_query]
+```
+
+*Figure 3: Added counter-example with the checks swapped. A hit on the last retrieval goes to the no-results reply.*
+
+<div class="learning-widget evidence-switcher" data-comparison id="router-order-switcher">
+<p class="widget-intro">Compare what the outage question's third retrieval produces under each check order.</p>
+<div class="mode-controls" hidden role="group" aria-label="Router check order">
+<button type="button" data-mode="evidence" aria-pressed="false" aria-controls="evidence-first">Evidence first</button>
+<button type="button" data-mode="budget" aria-pressed="false" aria-controls="budget-first">Budget first</button>
+</div>
+<section id="evidence-first" class="mode-panel" data-announcement="Evidence first selected. The outage question is answered."><h4>Evidence first</h4><ul><li>Third retrieval: sla 0.470, incidents 0.253. The sla chunk passes.</li><li>First check: a chunk passed, so go to generate_response.</li></ul><p>Reply: an answer from the availability guarantee. 10 LLM calls.</p></section>
+<section id="budget-first" class="mode-panel" data-announcement="Budget first selected. The outage question gets the no-results reply."><h4>Budget first</h4><ul><li>Third retrieval: sla 0.470, incidents 0.253. The sla chunk passes.</li><li>First check: two rewrites used, so go to handle_no_results.</li></ul><p>Reply: "I couldn't find that in the handbook". 9 LLM calls, and the passing chunk is discarded.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ### The cost of each attempt
 
-The bound also caps the cost. With `k = 2` chunks per retrieval, a question costs one call for the topic check, two grader calls per retrieval, one per rewrite and one for the answer if there is one; the handlers and a first-turn enhancement make none. Answered on the first retrieval, a question costs 1 + 2 + 1 = 4. Never answered with a bound of `m`, it costs `1 + 2(m + 1) + m`: 9 at a bound of 2. The [interactive lab](interactive/grade-rewrite-retry-lab.html) runs the loop on the five golden questions with real TF-IDF retrieval over the M10 handbook chunks and the bound as its slider:
+With `k = 2` chunks per retrieval, a question costs one call for the topic check, two grader calls per retrieval, one per rewrite and one for the answer if there is one. The handlers and a first-turn enhancement make none. Answered on the first retrieval, a question costs 1 + 2 + 1 = 4. Never answered with a bound of `m`, it costs `1 + 2(m + 1) + m`: 9 at a bound of 2. The [interactive lab](interactive/grade-rewrite-retry-lab.html) runs the loop on the five golden questions with real TF-IDF retrieval over the M10 handbook chunks and the bound as its slider:
 
 | Rewrites allowed | Answered | No-results reply | Off-topic reply | Retrievals | LLM calls |
 |---|---|---|---|---|---|
@@ -117,11 +152,9 @@ The bound also caps the cost. With `k = 2` chunks per retrieval, a question cost
 
 ### Choosing the bound
 
-Each step up the bound reaches one more question until 2, where the outage question is answered on its second rewrite. Going to 3 answers nothing new: the extra retrieval and three calls all go to the student-discount question, which no bound can answer. Unanswerable questions always pay the full bound, so set it where the answered count stops rising.
+Each step up the bound reaches one more question until 2, where the outage question is answered on its second rewrite. Going to 3 answers nothing new: the extra retrieval and three calls all go to the student-discount question, which no bound can answer. Unanswerable questions always pay the full bound. Set it where the answered count stops rising.
 
-> **Pitfall: the counter as the only stop.** Keep the recursion limit as a backstop under the counter. The counter bounds the loop you designed; the recursion limit bounds the one a later edit creates by accident.
-
-The counter decides how many rewrites a question gets; what they say decides whether they help.
+> **Pitfall: the counter as the only stop.** Keep the recursion limit as a backstop under the counter. The counter bounds the loop you designed. The recursion limit bounds the one a later edit creates by accident.
 
 ## Two rewrites, two jobs
 
@@ -134,7 +167,7 @@ The graph rewrites the query in two places, for different reasons:
 | Job | Make a follow-up standalone | Find words that retrieve better |
 | On the first turn | Passes the question through, no LLM call | Same as any turn |
 
-*Table 4: Enhancement repairs the conversation; optimisation repairs the retrieval.*
+*Table 4: Enhancement repairs the conversation. Optimisation repairs the retrieval.*
 
 ### When a rewrite helps
 
@@ -148,21 +181,27 @@ A rewrite helps only if it moves toward the documents' words. The outage questio
 
 *Table 5: The outage question's three retrievals. The rewrites are the lab's hand-written ones.*
 
-TF-IDF matches exact words, and "unavailable" is not in the handbook (only "availability" is), so the first rewrite retrieves the same chunks at the same scores. We call this the **synonym swap**: new wording that never reaches the documents' vocabulary. The second rewrite uses the handbook's words, "outage" and "availability".
+TF-IDF matches exact words, and "unavailable" is not in the handbook (only "availability" is). The first rewrite retrieves the same chunks at the same scores. We call this the **synonym swap**: new wording that never reaches the documents' vocabulary. The second rewrite uses the handbook's words, "outage" and "availability".
 
 ### Drift across rewrites
 
-Each optimisation reads the current query and writes back to the same field, so the second rewrite rewrites the first, and two rounds can drift from what the customer asked. Lesson 28.1's rewrite node rewords the original question every time instead, at the cost of never building on a near miss. M17 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.
+Each optimisation reads the current query and writes back to the same field. The second rewrite rewrites the first, and two rounds can drift from what the customer asked. Lesson 28.1's rewrite node rewords the original question every time instead, at the cost of never building on a near miss. M17 covers rewriting before retrieval as a stage of its own, including HyDE and multi-query.
 
-## In practice: the student-discount question at Larkspur
+## Diagnose a loop that misbehaves
 
-Follow *Do you offer a student discount?* with a bound of 2:
+*Added diagnosis guide.* Each failure has a different signal in the logs:
 
-1. The topic check says `RELEVANT`: 1 call.
-2. Three retrievals, the first scoring 0.000 on both chunks, and all six chunks fail: 6 calls.
-3. Two rewrites between them, then the fixed no-results reply: 2 calls, 9 in all.
+| Failure | Signal | Fix |
+|---|---|---|
+| Silent rejection | Off-topic rate rises, with no retrieval logged for those questions | Sample off-topic replies, and branch on `LOW` confidence |
+| Runaway rewrite loop | `GraphRecursionError` instead of a reply | A per-question counter in the state, recursion limit as backstop |
+| Budget checked first | "Not found" right after a passing grade | Check evidence before the budget |
+| Synonym swap | A rewrite retrieves the same chunks at the same scores | Steer the rewriter toward the documents' vocabulary |
+| Drift | Later rewrites no longer ask the customer's question | Rewrite from the original question, or keep it beside the search wording |
 
-This question needs new handbook content, which no rewrite can supply. The no-results rate lists the handbook's gaps, and a jump after a change points at the index or the grader.
+*Table 6: Five loop failures, the signal each leaves and its fix.*
+
+The no-results rate lists the handbook's gaps, and a jump after a change points at the index or the grader.
 
 > **Key distinction:** this graph knows when to stop, but it never checks its own answer. M29 adds a web-search fallback when grading fails and a check on the generated answer.
 
@@ -171,12 +210,17 @@ This question needs new handbook content, which no rewrite can supply. The no-re
 - **Stand-ins in the lab.** Retrieval is real TF-IDF, but the grader passes only the golden set's answer chunks, the topic check reads the golden label and the rewrites are hand-written. Real LLMs make mistakes these do not.
 - **Five questions.** A larger golden set may keep gaining answers past a bound of 2.
 - **Stub nodes.** Table 2 measures graph steps, not a model's behaviour.
+- **Illustrations.** The walkthrough and the check-order comparison are scripted from the lab's numbers. Figure 3 is a counter-example, not the notebook's graph.
+
+## References
+
+1. [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api), accessed 13 November 2026.
 
 ## Key Takeaways
 
 - A topic check before retrieval costs one call per question and keeps off-topic questions out of the retry loop. Track the off-topic rate, because a silent rejection leaves no retrieval log.
-- Bound rewrites with a per-question counter in the state, check evidence before the budget, and keep the recursion limit as a backstop. Unanswerable questions always pay the full bound, so set it where the golden set's answered count stops rising.
-- Enhancement makes a follow-up standalone; optimisation looks for words that retrieve better. A rewrite helps only when it reaches the documents' vocabulary, and rewriting a rewrite can drift from the question.
+- Bound rewrites with a per-question counter in the state, check evidence before the budget, and keep the recursion limit as a backstop. Unanswerable questions always pay the full bound: set it where the golden set's answered count stops rising.
+- Enhancement makes a follow-up standalone, and optimisation looks for words that retrieve better. A rewrite helps only when it reaches the documents' vocabulary, and rewriting a rewrite can drift from the question.
 
 ## Check yourself
 
@@ -197,7 +241,7 @@ Nine: 1 for the topic check, 6 grader calls (2 per retrieval over 3 retrievals) 
 <details>
 <summary>3. The outage question's first rewrite retrieves exactly the same two chunks as the original. What went wrong, and should you raise the bound to compensate?</summary>
 
-It is a synonym swap: "unavailable" is no more a handbook word than "goes down", so TF-IDF returns the same chunks at the same scores. A higher bound only buys more attempts; the fix is a rewriter that reaches the documents' vocabulary, as the second rewrite does with "outage" and "availability".
+It is a synonym swap: "unavailable" is no more a handbook word than "goes down", so TF-IDF returns the same chunks at the same scores. A higher bound only buys more attempts. The fix is a rewriter that reaches the documents' vocabulary, as the second rewrite does with "outage" and "availability".
 
 </details>
 
