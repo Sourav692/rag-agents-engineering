@@ -2,8 +2,9 @@
 
 *[M32 theory](../README.md) · Lesson 32.2 · Notebooks: [`02a_retrieval_with_feedback_loop.ipynb`](../../notebook/02a_retrieval_with_feedback_loop.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: What a thumbs-down can reorder, what it can never reach, and why the rating lands on the wrong chunks -->
+<!-- format: approved -->
 
-## The feedback re-ranker
+## Start with a thumbs-down that changes nothing
 
 > **What you'll learn**
 >
@@ -14,9 +15,9 @@
 
 Lesson 32.1 checked one answer at a time and could only remove. This lesson learns across many answers.
 
-A Larkspur customer asks *How long does a refund take?* and gives the answer a thumbs-down. Twenty askings later the answer is still incomplete, because the chunk with the answer, `refund-timing`, was never among the candidates the ratings could touch.
+A Larkspur customer asks *How long does a refund take?* and gives the answer a thumbs-down. Twenty askings later the answer is still incomplete, because the chunk with the answer, `refund-timing`, was never among the candidates the ratings could touch. Another customer's thumbs-down on a credit question fixes it for good after one rating. The difference is where the evidence sits when the rating arrives.
 
-### The feedback record and the multiplier
+## The feedback re-ranker
 
 The notebook builds a question-answering chain with `gpt-4o` over a climate-change PDF and stores one **feedback record** per answer, appended to a log file as a line of JSON:
 
@@ -57,10 +58,10 @@ The arithmetic is short:
 
 *Table 2: The multiplier at the ends and the middle of the scale.*
 
-- **Feedback sets the order on its own.** Every chunk starts at a score of 1.0, so after the multiplication ratings alone decide the order. Similarity only breaks ties, because a stable sort keeps the retriever's order for equal scores.
-- **The multiplier is bounded.** It uses the average, so a chunk sits between 0.333 and 1.667. The first rating moves a chunk as far as it will go; later ratings only move the average.
+- **Feedback sets the order on its own.** Every chunk starts at a score of 1.0, and after the multiplication ratings alone decide the order. Similarity only breaks ties, because a stable sort keeps the retriever's order for equal scores.
+- **The multiplier is bounded.** It uses the average, and a chunk sits between 0.333 and 1.667. The first rating moves a chunk as far as it will go; later ratings only move the average.
 - **It reorders the candidates and nothing else.** The retriever returns 4 chunks by default, and a chunk outside those 4 never receives a rating: the **candidate ceiling** from lesson 32.1 again.
-- **It costs one model call per pair.** Every retrieved chunk is checked against every stored record, so 4 chunks and 1,000 records make 4,000 `gpt-4o` calls for one query.
+- **It costs one model call per pair.** Every retrieved chunk is checked against every stored record: 4 chunks and 1,000 records make 4,000 `gpt-4o` calls for one query.
 
 ### One hundred ratings on the handbook
 
@@ -77,13 +78,16 @@ The [interactive lab](interactive/feedback-flywheel-lab.html) runs this rule on 
 
 *Table 3: The lab after 100 rated answers, ratings on the whole answer.*
 
-Three results stand out:
-
-- **The credit question is fixed by one rating.** Its candidates arrive as `sizing`, `reboot`, `sla`, `export`. At event 4 the answer uses `sizing` and `reboot`, the user gives a 1, and both drop to 0.333. `sla` and `export` move up at 1.000, the next answer contains the evidence, and the thumbs-up at event 9 lifts them to 1.667.
-- **The loop stops learning early.** No ranking changes after event 8 and no score changes after event 9. Events 10 to 100 add records and change nothing.
-- **Feedback cannot reach a missing chunk.** `refund-timing` scores 0 for the refund question, and `sla` and `incidents` score 0 for the outage question, so none of them is ever a candidate. Those two questions account for 40 of the 41 wrong answers. On the outage question, every candidate has an average of 1 by event 8, all sit at 0.333, and the order is the retriever's again.
-
 <!-- lab: interactive/feedback-flywheel-lab.html -->
+
+The credit question is the one the loop fixes. The walkthrough follows it event by event:
+
+<div class="walkthrough learning-widget" data-stepper id="credit-walkthrough">
+<p class="widget-intro">Follow the credit question through the lab's first rated answers. Each stage shows the candidates' scores and what the user saw.</p>
+<div class="step-controls" hidden role="group" aria-label="Credit question events"><button type="button" data-step="0" aria-pressed="false" aria-controls="credit-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="credit-step-1">2. Event 4</button><button type="button" data-step="2" aria-pressed="false" aria-controls="credit-step-2">3. Re-rank</button><button type="button" data-step="3" aria-pressed="false" aria-controls="credit-step-3">4. Event 9</button><button type="button" data-step="4" aria-pressed="false" aria-controls="credit-step-4">5. Events 10 to 100</button></div>
+<div class="step-panels"><section id="credit-step-0" class="step-panel" aria-labelledby="credit-heading-0"><h4 id="credit-heading-0">1. Retrieve four candidates</h4><dl><dt>Similarity</dt><dd>sizing 0.290, reboot 0.221, sla 0.184, export 0.115</dd><dt>Scores</dt><dd>All 1.000: no feedback yet</dd></dl></section><section id="credit-step-1" class="step-panel" aria-labelledby="credit-heading-1"><h4 id="credit-heading-1">2. Event 4: a thumbs-down</h4><dl><dt>Answer used</dt><dd>sizing and reboot. The evidence chunk sla is missing.</dd><dt>Rating</dt><dd>1, recorded against sizing and reboot</dd></dl></section><section id="credit-step-2" class="step-panel" aria-labelledby="credit-heading-2"><h4 id="credit-heading-2">3. Re-rank</h4><dl><dt>Scores</dt><dd>sla 1.000, export 1.000, sizing 0.333, reboot 0.333</dd><dt>Top 2</dt><dd>sla and export: the evidence is now in the answer</dd></dl></section><section id="credit-step-3" class="step-panel" aria-labelledby="credit-heading-3"><h4 id="credit-heading-3">4. Event 9: a thumbs-up</h4><dl><dt>Answer used</dt><dd>sla and export. Complete.</dd><dt>Scores</dt><dd>sla 1.667, export 1.667, sizing 0.333, reboot 0.333</dd></dl></section><section id="credit-step-4" class="step-panel" aria-labelledby="credit-heading-4"><h4 id="credit-heading-4">5. Events 10 to 100</h4><dl><dt>Change</dt><dd>None. No ranking moves after event 8 and no score after event 9, for any question.</dd><dt>Wrong answers on this question</dt><dd>1 of 20</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+The other two failing questions never improve. `refund-timing` scores 0 for the refund question, and `sla` and `incidents` score 0 for the outage question: none of them is ever a candidate. Those two questions account for 40 of the 41 wrong answers. On the outage question, every candidate has an average of 1 by event 8, all sit at 0.333, and the order is the retriever's again.
 
 ### Three defects to fix before the loop works
 
@@ -91,13 +95,13 @@ The notebook's loop does not yet behave as described. Each defect fails quietly:
 
 | Defect | What happens | Fix |
 |---|---|---|
-| The relevance check compares the model's reply with lowercase "yes", while the prompt asks for "Yes" or "No" | No record ever counts, so no score moves | Normalise case and whitespace before comparing |
+| The relevance check compares the model's reply with lowercase "yes", while the prompt asks for "Yes" or "No" | No record ever counts, and no score moves | Normalise case and whitespace before comparing |
 | The vector store returns its stored chunk objects, and the score is multiplied in place | The adjustment persists and compounds: one rating of 5 gives 1.667 on the first query and 2.778 on the second | Adjust copies of the chunks |
 | The re-ranked list is handed to the retriever as a search setting it ignores | The retriever searches the index again, and the re-ranked order is lost | Pass the re-ranked chunks to the answer step directly |
 
 *Table 4: Three defects in the notebook's feedback loop.*
 
-All three leave the pipeline answering, so test the order itself.
+All three leave the pipeline answering. Test the order itself.
 
 ## Implicit vs explicit feedback
 
@@ -109,28 +113,46 @@ All three leave the pipeline answering, so test the order itself.
 | Meaning | Clear: the user said it | Inferred: a rephrased question probably means the answer missed |
 | Volume | Only from users who choose to rate | From every session |
 | What it rates | The whole answer | Often one source, such as the one the user opened |
-| Bias | Raters choose themselves, so they may not be typical users | Users click what is shown first, so top-ranked chunks collect more signal |
+| Bias | Raters choose themselves and may not be typical users | Users click what is shown first, and top-ranked chunks collect more signal |
 
 *Table 5: Explicit and implicit feedback compared.*
 
 ### Where the rating lands
 
-The lab's second setting shows why granularity matters. *Thumbs on the answer* gives every chunk in the answer the same rating, as the notebook does. *Clicks on each source* rates each chunk on its own: 5 for an evidence chunk the user opened, 1 for one they skipped.
+The lab's second setting shows why granularity matters. Answer-level ratings produce **ride-along credit**: a chunk that happens to sit next to the evidence collects the evidence's rating.
 
-Answer-level ratings produce **ride-along credit**: a chunk that happens to sit next to the evidence collects the evidence's rating. It works in both directions, as the lab shows after 100 events:
+```mermaid
+flowchart TB
+    A["Answer:<br/>cancel + sizing"] --> T{"Thumbs up<br/>on the answer"}
+    T -- "5" --> C1["cancel 1.667"]
+    T -- "5" --> C2["sizing 1.667"]
+```
 
-| Question | Chunk | Evidence? | Thumbs on the answer | Clicks on each source |
-|---|---|---|---|---|
-| *Can I still use my server after I cancel the plan?* | `sizing` | No | 1.667 | 0.333 |
-| *Can I still use my server after I cancel the plan?* | `cancel` | Yes | 1.667 | 1.667 |
-| *How long does a refund take?* | `refund-window` | Yes | 0.333 | 1.667 |
-| *How long does a refund take?* | `reboot` | No | 0.333 | 0.333 |
+*Figure 2: Thumbs on the answer. Every chunk in the answer gets the same rating, evidence or not.*
 
-*Table 6: Chunk scores after 100 events under each signal.*
+```mermaid
+flowchart TB
+    A["Answer:<br/>cancel + sizing"] --> O["User opens cancel,<br/>skips sizing"]
+    O -- "5" --> C1["cancel 1.667"]
+    O -- "1" --> C2["sizing 0.333"]
+```
 
-On the cancel question `sizing` rides up next to `cancel`. On the refund question the answer is always incomplete, so the evidence chunk `refund-window` is pushed down with the distractor it was served with.
+*Figure 3: Clicks on each source. Each chunk is rated on its own: 5 for evidence the user opened, 1 for a chunk they skipped.*
 
-The sharper signal does not change the lab's totals: with either setting, mean recall@2 ends at 0.70 and 41 of 100 answers are wrong, because neither reaches a chunk the retriever does not return. Per-source ratings reshuffle non-evidence chunks for longer, and the order settles at event 15 instead of event 8.
+The same 100 events, under each signal:
+
+<div class="learning-widget evidence-switcher" data-comparison id="signal-switcher">
+<p class="widget-intro">Compare where the ratings land on the cancel and refund questions after 100 events.</p>
+<div class="mode-controls" hidden role="group" aria-label="Feedback signal">
+<button type="button" data-mode="answer" aria-pressed="false" aria-controls="signal-answer">Thumbs on the answer</button>
+<button type="button" data-mode="source" aria-pressed="false" aria-controls="signal-source">Clicks on each source</button>
+</div>
+<section id="signal-answer" class="mode-panel" data-announcement="Thumbs on the answer selected. sizing rides up, refund-window is pushed down."><h4>Thumbs on the answer</h4><ul><li>Cancel question: cancel 1.667, and sizing, which is not evidence, also 1.667.</li><li>Refund question: refund-window, the evidence, falls to 0.333 with the distractor reboot, because every answer is incomplete.</li></ul><p>The order settles at event 8. Mean recall@2 0.70, 41 wrong answers.</p></section>
+<section id="signal-source" class="mode-panel" data-announcement="Clicks on each source selected. sizing falls, refund-window rises."><h4>Clicks on each source</h4><ul><li>Cancel question: cancel 1.667, sizing 0.333.</li><li>Refund question: refund-window rises to 1.667, reboot falls to 0.333.</li></ul><p>The order settles at event 15. Mean recall@2 0.70, 41 wrong answers.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The sharper signal puts credit on the right chunks and still leaves the lab's totals unchanged, because neither signal reaches a chunk the retriever does not return.
 
 > **Interview tip:** Collect both signals. Implicit ones give volume and per-source detail once corrected for position (compare clicks at the same rank, or occasionally shuffle the sources). Explicit ratings are fewer but mean what they say, and every thumbs-down is a golden-set candidate.
 
@@ -149,17 +171,28 @@ flowchart LR
     R --> I[(New index)]
 ```
 
-*Figure 2: The fold-back job. Only answers that were already good enter the new index.*
+*Figure 4: The fold-back job. Only answers that were already good enter the new index.*
 
 This adds chunks worded the way users ask, which helps questions phrased like past ones. It has three limits:
 
-- **Only answers that were already good get in.** In the lab, the refund and outage questions never earn a thumbs-up, so nothing about them would be added. The questions that most need new text get none.
+- **Only answers that were already good get in.** In the lab, the refund and outage questions never earn a thumbs-up, and nothing about them would be added. The questions that most need new text get none.
 - **Past answers become retrievable facts.** When Larkspur changes its refund rule, the stored answers still quote the old one, and they match refund questions better than the handbook because they were written as answers to them. We call this **stale-answer echo**. Tag each added chunk with its date and the handbook chunks it came from, drop it when those change, and rank feedback chunks below primary documents.
 - **It rebuilds the whole index.** Every run re-embeds the full corpus plus the feedback text. Incremental upserts (M14) avoid that.
 
+## Limits of this evidence
+
+- **A scripted user.** The lab's user rates 5 exactly when the answer holds every evidence chunk. Real users rate mood, length and speed too, and many never rate.
+- **A rule in place of `gpt-4o`.** The lab decides which records count for a chunk with a fixed rule. The notebook's model call can match records across differently worded questions, and can also miss.
+- **Five questions, twelve chunks.** The totals in Table 3 come from one small handbook and TF-IDF retrieval; the notebook itself prints no ranking figures.
+
+## References
+
+1. Joachims et al., [Unbiased Learning-to-Rank with Biased Feedback](https://arxiv.org/abs/1608.04468), 2017.
+2. Diamant, [RAG Techniques: retrieval with feedback loop](https://github.com/NirDiamant/RAG_Techniques), the source of the notebook.
+
 ## Key Takeaways
 
-- The feedback re-ranker multiplies each chunk's score by its average rating over 3, so a chunk stays between 0.333 and 1.667 and ratings alone set the order. It costs one model call per chunk and stored record.
+- The feedback re-ranker multiplies each chunk's score by its average rating over 3: a chunk stays between 0.333 and 1.667 and ratings alone set the order. It costs one model call per chunk and stored record.
 - Feedback only reorders the candidates retrieval returns. In the lab, mean recall@2 rose from 0.50 to 0.70, but 40 of the 41 wrong answers came from chunks that were never candidates.
 - Combine implicit and explicit feedback, and rate sources rather than whole answers where you can, so credit does not ride along to the chunk beside the evidence. Each thumbs-down is a golden-set candidate.
 
