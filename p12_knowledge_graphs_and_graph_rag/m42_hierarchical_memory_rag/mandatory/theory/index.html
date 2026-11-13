@@ -288,23 +288,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><button type="button">Answer</button><span>Answer with evidence that supports each claim.</span></li>
 </ol></figure>
 <p>Derived representations can make distributed evidence easier to find. They also introduce another place to lose an exception, merge unrelated entities or preserve a deleted policy. Keep source identifiers and versions through every transformation so a retrieved summary can lead back to its evidence.</p>
-<h2 id="questions-no-single-chunk-answers">Questions no single chunk answers</h2>
+<h2 id="start-with-a-question-no-single-passage-answers">Start with a question no single passage answers</h2>
 <p class="lesson-of">Lesson 42.1: RAPTOR: clustering and recursive summarisation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/notebook/01a_raptor.ipynb" target="_blank" rel="noopener"><code>01a_raptor.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
 <li><strong>Explain</strong> why a passage index struggles with a question about a theme that spans several sections.</li>
 <li><strong>Trace</strong> how RAPTOR builds summary levels by clustering, summarising and repeating.</li>
-<li><strong>Compare</strong> collapsed-tree retrieval with top-down tree traversal under the same context budget.</li>
+<li><strong>Compare</strong> collapsed-tree retrieval with top-down tree traversal on the same question.</li>
 <li><strong>Diagnose</strong> a summary that reaches the right sources and still drops the condition a customer asked about.</li>
 </ul>
 </blockquote>
-<p><a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> built the flat baseline: split the handbook into passages, score each passage against the question, keep the top few. That works when one passage holds the answer. This module asks what to do when no single passage does.</p>
-<p>An operations lead at Larkspur Cloud asks <em>How does service continuity work?</em> The handbook never answers that in one place. Availability guarantees and outage credits sit in the SLA section, status updates in the outages section, and data protection in export and retention. A flat index scores each of those passages against the word &ldquo;continuity&rdquo;, and most of them never use it.</p>
-<p>The failure is a scoring problem. A theme is spread across passages, and no passage is about the theme as a whole. RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) answers it by adding new text to the index: summaries that are about the theme. The rest of this page covers how those summaries are built, how retrieval searches them, and how they mislead.</p>
+<p><a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a> built the flat baseline: split the handbook into passages, score each passage against the question, keep the top few. That works when one passage holds the answer.</p>
+<p>A Larkspur Cloud operations lead asks <em>How does service continuity work?</em> The handbook never answers that in one place. Availability guarantees and outage credits sit in the SLA section, status updates in the outages section, and data protection in export and retention. A flat index scores each passage against the word &ldquo;continuity&rdquo;, and most of them never use it.</p>
+<p>The failure is a scoring problem. A theme is spread across passages, and no passage is about the theme as a whole. RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) adds new text to the index: summaries that are about the theme.</p>
 <h2 id="abstraction-levels">Abstraction levels</h2>
-<p><strong>An abstraction level is one layer of text in the index, from the original passages at level 0 up through summaries of summaries.</strong> Each level answers a different kind of question. A passage keeps the exact wording; a summary connects claims across passages; a summary of summaries names a broad theme.</p>
-<p>The same handbook at three levels looks like this:</p>
+<p><strong>An abstraction level is one layer of text in the index, from the original passages at level 0 up through summaries of summaries.</strong> A passage keeps the exact wording; a summary connects claims across passages; a summary of summaries names a broad theme.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -332,7 +331,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: One handbook at three abstraction levels.</em></p>
-<p>RAPTOR builds the levels bottom up. It embeds the current texts, groups them into clusters by meaning, writes one summary per cluster, then treats those summaries as the texts for the next round:</p>
+<p>RAPTOR builds the levels bottom up. It embeds the current texts, groups them by meaning, writes one summary per group, then treats those summaries as the texts for the next round:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     A[Original policy passages] --&gt; B[Cluster by meaning]
     B --&gt; C[Summarise each cluster]
@@ -342,7 +341,7 @@ th:last-child, td:last-child { padding-right: 0; }
     E --&gt;|no| F[Store all levels]
 </pre></figure>
 <p><em>Figure 1: The RAPTOR build loop. Each round clusters the current level and summarises every cluster into the next one.</em></p>
-<p>The notebook builds this loop over a 33-page climate report, one page per level-0 text. It clusters with a Gaussian mixture model, asks a chat model to summarise each cluster, and stops after at most three rounds. The number of clusters per round is half the number of texts, capped at 10. That rule sets an upper bound on the tree&rsquo;s shape:</p>
+<p>The notebook runs this loop over a 33-page climate report, one page per level-0 text. It clusters with a Gaussian mixture model, asks <code>gpt-4o-mini</code> to summarise each cluster, and stops after at most three rounds. Each round allows half as many clusters as it has texts, capped at 10:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -374,8 +373,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The tree&rsquo;s shape from the notebook&rsquo;s cluster rule. Actual counts can be lower when a mixture component receives no text.</em></p>
-<p>The notebook assigns each text to exactly one cluster. That is a teaching simplification: the <a href="https://arxiv.org/html/2401.18059v1" target="_blank" rel="noopener">RAPTOR paper</a> (Sarthi et al., 2024) uses soft clustering, where one passage can feed several summaries, and it describes both search strategies covered in the next section.</p>
-<p>The lab&rsquo;s fixture is the smallest tree that shows the idea. It has four authored passages, two level-1 summaries and one level-2 summary, with each summary listing the source passages it descends from:</p>
+<p>The notebook puts each text in exactly one cluster. That is a teaching simplification: the <a href="https://arxiv.org/abs/2401.18059" target="_blank" rel="noopener">RAPTOR paper</a> (Sarthi et al., 2024) uses soft clustering, where one passage can feed several summaries.</p>
+<p>The lab&rsquo;s fixture is the smallest tree that shows the idea: four authored passages, two level-1 summaries and one level-2 summary, each summary listing the passages it descends from.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     H["handbook&lt;br/&gt;level 2"] --&gt; P["portability&lt;br/&gt;level 1"]
     H --&gt; C["continuity&lt;br/&gt;level 1"]
@@ -385,13 +384,12 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt; I[incidents]
 </pre></figure>
 <p><em>Figure 2: The lab&rsquo;s fixture tree. The summaries are written by hand and labelled representative; no clustering runs in the browser.</em></p>
-<p>Each node needs more than its text. Store its level, the identifiers and versions of the passages it summarises, and its children. With those fields a retrieved summary can lead back to its evidence, and a changed passage can mark every ancestor for rebuilding.</p>
-<p>A summary can be accurate overall and still drop the one exception a customer asks about. Call that <strong>lossy compression</strong>: the summary&rsquo;s sources cover the policy, but its text no longer carries the condition. For a policy answer, follow the summary back to its passages before quoting a condition or a number.</p>
-<p>The notebook&rsquo;s metadata does not support that walk yet. Its level-0 records hold <code>level</code>, <code>origin</code> and <code>parent_id</code> but no <code>id</code>, and each summary builds its <code>child_ids</code> by reading that missing field. Every first-level summary therefore points at children with no identifier. Treat the notebook&rsquo;s tree as a sketch of the structure, not as verified provenance.</p>
-<p>With levels in place, the next question is how retrieval chooses among them.</p>
+<p>Each node needs more than its text. Store its level, the identifiers and versions of the passages it summarises, and its children. With those fields a retrieved summary leads back to its evidence, and a changed passage marks every ancestor for rebuilding.</p>
+<p>A summary can be accurate overall and still drop the one exception a customer asks about. Call that <strong>lossy compression</strong>: the summary&rsquo;s sources cover the policy, but its text no longer carries the condition. Follow the summary back to its passages before quoting a condition or a number.</p>
+<p>The notebook&rsquo;s metadata cannot support that walk yet. Its level-0 records hold <code>level</code>, <code>origin</code> and <code>parent_id</code> but no <code>id</code>, and each first-level summary builds <code>child_ids</code> by reading that missing field. Every first-level summary points at children with no identifier. Treat the notebook&rsquo;s tree as a sketch of the structure, not as verified provenance.</p>
 <h2 id="collapsed-tree-retrieval">Collapsed-tree retrieval</h2>
-<p><strong>Collapsed-tree retrieval puts every node, passages and summaries alike, into one pool, scores them all against the question and keeps the best within a budget.</strong> The mix of levels in the context then follows the question: a theme question pulls summaries, a procedure question pulls passages.</p>
-<p><strong>Tree traversal</strong> works the other way. It picks the best nodes at the top level, then searches only their children, and so on down. One early wrong branch excludes every leaf beneath the other branches:</p>
+<p><strong>Collapsed-tree retrieval puts every node, passages and summaries alike, into one pool, scores them all against the question and keeps the best within a budget.</strong> The mix of levels then follows the question: a theme question pulls summaries, a procedure question pulls passages.</p>
+<p><strong>Tree traversal</strong> works the other way. It picks the best nodes at the top level, then searches only their children, and so on down. One early wrong branch excludes every leaf beneath the other branches.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[Question] --&gt; M{Retrieval strategy}
     M --&gt;|collapsed| A[Rank all levels together]
@@ -400,11 +398,32 @@ th:last-child, td:last-child { padding-right: 0; }
     B --&gt; D[Context from chosen branches]
 </pre></figure>
 <p><em>Figure 3: Two ways to search a tree. Collapsed search ranks every level at once; traversal commits to parents before it sees their children.</em></p>
-<p>The notebook stores every level in one FAISS index, which is what makes collapsed search possible. Its query helper then walks the levels from the top down, passing a level filter that FAISS does apply, and returns up to four nodes per level. After each level it appends the text <code>AND id:(…)</code> with the chosen children to the query string. That text changes the query that gets embedded; it does not filter by identifier or join parents to children. Check the identifiers of the nodes you get back before calling this a constrained traversal. A compression step then rewrites each retrieved node to the parts a model judges relevant, one more transformation whose output needs a source check.</p>
-<p>The notebook also defines a proper traversal function that filters children by parent identifier. It is never called, and it would fail as written: it calls a FAISS method that the installed library does not provide.</p>
-<p>The <a href="01_raptor_clustering_and_recursive_summarisation/interactive/collapsed-tree-lab.html">interactive lab</a> isolates the one change that matters here: adding summary nodes to the pool. It scores the fixture of Figure 2 with real TF-IDF cosine similarity, one vocabulary fitted over all seven nodes. Leaf-only mode keeps level 0; collapsed mode keeps everything.</p>
+<p>Run both on the fixture with the continuity question, using the lab&rsquo;s TF-IDF scores. Collapsed search at a budget of two ranks all seven nodes and keeps the two summaries:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"How does service&lt;br/&gt;continuity work?"/] --&gt; POOL["One pool&lt;br/&gt;7 nodes, all levels"]
+    POOL --&gt; H["handbook 0.448"]
+    POOL --&gt; C["continuity 0.378"]
+    POOL -.-&gt; V["availability 0.168&lt;br/&gt;outside the budget"]
+</pre></figure>
+<p><em>Figure 4: Collapsed search on the fixture. Two summaries fill the budget and reach all four source identifiers.</em></p>
+<p>Traversal with one branch per level takes the root, the better child, then that child&rsquo;s better leaf:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"How does service&lt;br/&gt;continuity work?"/] --&gt; H["handbook 0.448&lt;br/&gt;level 2"]
+    H --&gt; C["continuity 0.378&lt;br/&gt;beats portability 0"]
+    C --&gt; V["availability 0.168&lt;br/&gt;beats incidents 0"]
+</pre></figure>
+<p><em>Figure 5: Traversal on the fixture, one branch per level. Hand-computed from the lab&rsquo;s scores; the lab has no traversal mode.</em></p>
+<p>On this tree both reach the continuity branch, and traversal also returns a passage. The difference shows when a parent summary misses the question&rsquo;s words: traversal never sees the leaves beneath it, while collapsed search can still rank them. Pick collapsed search as the default, and keep traversal for trees whose summaries are known to name their children&rsquo;s vocabulary.</p>
+<p>The notebook stores every level in one FAISS index, which makes collapsed search possible. Its query helper does something in between. Step through it:</p>
+<div class="walkthrough learning-widget" data-stepper id="raptor-query-walkthrough">
+<p class="widget-intro">The notebook's <code>hierarchical_retrieval</code> for one question, read from its code and checked with a pass-through compressor and fake embeddings (langchain-community 0.4.2). No model ran.</p>
+<div class="step-controls" hidden role="group" aria-label="The notebook's query path, level by level"><button type="button" data-step="0" aria-pressed="false" aria-controls="rq-step-0">1. Top level</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rq-step-1">2. Child filter</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rq-step-2">3. Level 1</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rq-step-3">4. Passages and answer</button></div>
+<div class="step-panels"><section id="rq-step-0" class="step-panel" aria-labelledby="rq-heading-0"><h4 id="rq-heading-0">1. Search the top level</h4><dl><dt>Runs</dt><dd>The compression retriever with a filter on <code>level == 3</code>. The filter reaches FAISS: a probe returned only nodes of the requested level.</dd><dt>Returns</dt><dd>Up to four nodes, each rewritten by one extraction call. If the third round ended with two summaries, level 3 was never stored and nothing comes back.</dd></dl></section><section id="rq-step-1" class="step-panel" aria-labelledby="rq-heading-1"><h4 id="rq-heading-1">2. Append the children to the query</h4><dl><dt>Runs</dt><dd>The hits' <code>child_ids</code> become the text <code>AND id:(summary_2_0 OR …)</code>, appended to the question</dd><dt>Effect</dt><dd>The longer question is embedded as it stands. Nothing filters by identifier or joins parents to children.</dd></dl></section><section id="rq-step-2" class="step-panel" aria-labelledby="rq-heading-2"><h4 id="rq-heading-2">3. Search level 2, then level 1</h4><dl><dt>Runs</dt><dd>The same retriever, the next level's filter and the extended question</dd><dt>At level 1</dt><dd>Every child identifier is missing, so the question stops growing</dd></dl></section><section id="rq-step-3" class="step-panel" aria-labelledby="rq-heading-3"><h4 id="rq-heading-3">4. Passages, then one answer</h4><dl><dt>Runs</dt><dd>Level 0 with the extended question, then one answer call over every node from every level</dd><dt>Cost</dt><dd>Up to 16 retrieved nodes and 17 model calls per question: one extraction per node plus the answer</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Check the identifiers of the nodes you get back before calling this a constrained traversal. The notebook also defines a real traversal that filters children by parent identifier. It is never called, and it would fail as written: it calls <code>similarity_search_by_vector_with_relevance_scores</code> and <code>docstore.values()</code>, neither of which exists in langchain-community 0.4.2.</p>
+<p>The <a href="01_raptor_clustering_and_recursive_summarisation/interactive/collapsed-tree-lab.html">interactive lab</a> isolates the change that matters here: adding summary nodes to the pool. It scores the fixture with real TF-IDF cosine similarity, one vocabulary fitted over all seven nodes. Leaf-only mode keeps level 0; collapsed mode keeps everything.</p>
 <figure class="lab-embed"><iframe src="01_raptor_clustering_and_recursive_summarisation/interactive/collapsed-tree-lab.html" title="Search the leaves or the whole tree, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Search the leaves or the whole tree. <a href="01_raptor_clustering_and_recursive_summarisation/interactive/collapsed-tree-lab.html">Open full screen</a></figcaption></figure>
-<p>At a budget of two nodes, the lab computes these results for its first two questions:</p>
+<p>At a budget of two nodes, the lab computes these results:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -452,8 +471,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Leaf-only against collapsed retrieval at two nodes. Scores checked against scikit-learn&rsquo;s TfidfVectorizer.</em></p>
-<p>For continuity, the only passage that matches is availability, at a score of 0.168. With summaries in the pool, the handbook summary (0.448) and the continuity summary (0.378) take both places and reach all four source identifiers. For export steps, the export passage scores 0.387 and no summary makes the top two, leaving the context unchanged.</p>
-<p>Reaching four source identifiers describes ancestry. It does not mean the context holds the source passages, and it says nothing about the answer a model would write. The lab&rsquo;s third question shows the gap:</p>
+<p>For continuity, only the availability passage matches, at 0.168. With summaries in the pool, handbook (0.448) and continuity (0.378) take both places. For export steps, the export passage scores 0.387 and no summary makes the top two.</p>
+<p>Reaching four source identifiers describes ancestry. It does not mean the context holds the source passages. The lab&rsquo;s third question shows the gap:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -473,8 +492,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Planted failure in the lab. The summary that enters has no &ldquo;30 days&rdquo; in its text.</em></p>
-<p>The retention passage still ranks first, and the answer survives here. The pattern is what to watch: a summary that matches the question&rsquo;s vocabulary takes a slot a passage held. Call it <strong>summary displacement</strong>. At a tighter budget, or with a vaguer passage, the summary would be the only evidence, and lossy compression would decide the answer.</p>
-<p>The notebook build has its own planted failures, one per guard it is missing:</p>
+<p>The retention passage still ranks first, at 0.594, and the answer survives here. The pattern is what to watch: a summary that matches the question&rsquo;s vocabulary takes a slot a passage held. Call it <strong>summary displacement</strong>. At a tighter budget, lossy compression would decide the answer.</p>
+<p>The notebook build has its own planted failures, one per missing guard:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -507,18 +526,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 5: Planted failures in the notebook&rsquo;s RAPTOR build.</em></p>
-<p>These are fixes to make before trusting the tree, and none of them changes the idea. Collapsed search over a tree with real provenance is the design worth copying.</p>
-<h2 id="in-practice-a-theme-question">In practice: a theme question</h2>
-<p>A Larkspur support team adding RAPTOR to the handbook would work through it in this order:</p>
-<ol>
-<li>Keep the passage index as level 0, with stable identifiers and versions.</li>
-<li>Build summaries per cluster and store each one&rsquo;s level, sources, versions and children.</li>
-<li>Search all levels together at a fixed context budget, and log which level each hit came from.</li>
-<li>When a summary ranks high, add its source passages to the context before the model quotes a condition.</li>
-<li>When a passage changes, rebuild every summary above it.</li>
-</ol>
-<p>To test it, freeze the corpus and a question set, then compare flat retrieval, the summary tree and graph retrieval at the same final budget. Count indexing calls apart from retrieval and generation calls. Include precise facts, cross-section comparisons, changed policies and questions the handbook cannot answer.</p>
+<p>None of them changes the idea. For the Larkspur handbook: keep passages as level 0 with stable identifiers and versions; store each summary&rsquo;s sources, versions and children; search all levels at a fixed budget and log each hit&rsquo;s level; add a summary&rsquo;s source passages before quoting a condition; rebuild every ancestor when a passage changes. To evaluate, compare flat retrieval, the tree and graph retrieval at the same final budget, and count indexing calls apart from query calls.</p>
 <p>Lesson 42.2 replaces the summary tree with a different derived representation: a memory of the corpus that writes search clues.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Fixture scale.</strong> Tables 3 and 4 and Figures 4 and 5 come from seven hand-written nodes and TF-IDF. Embedding scores on a real handbook rank differently, and a real tree has more branches to choose wrongly between.</li>
+<li><strong>No model ran.</strong> The notebook&rsquo;s tree, summaries and answers were not regenerated. The query path was checked with fake embeddings and a pass-through compressor; the failures in Table 5 were read from the code.</li>
+<li><strong>Hand-computed traversal.</strong> Figure 5 applies one branch per level to the lab&rsquo;s scores. The paper&rsquo;s traversal keeps several nodes per level.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Sarthi, P. et al. (2024). <em>RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval</em>. <a href="https://arxiv.org/abs/2401.18059" target="_blank" rel="noopener">arXiv:2401.18059</a>.</li>
+<li>scikit-learn, <a href="https://scikit-learn.org/stable/modules/generated/sklearn.mixture.GaussianMixture.html" target="_blank" rel="noopener">GaussianMixture</a>, the clustering model the notebook uses.</li>
+<li>scikit-learn, <a href="https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html" target="_blank" rel="noopener">TfidfVectorizer</a>, the scoring the lab reproduces.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>RAPTOR clusters passages, summarises each cluster and repeats, so one index holds both exact wording and broad themes. Store each node&rsquo;s level, sources, versions and children with its text.</li>
@@ -538,7 +559,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A customer asks for the exact data-deletion condition, and the top hit is a summary linked to the retention passage. Can you quote the condition from the summary?</summary>
 <p>No. A summary can cover the right sources and still drop the condition, which is lossy compression; in the lab the portability summary has no &ldquo;30 days&rdquo; in its text. Follow the summary back to the retention passage and quote that. In the notebook build, the first-level child links have no identifiers, and its tree cannot yet support that walk.</p>
 </details>
-<h2 id="when-the-question-has-no-keywords">When the question has no keywords</h2>
+<h2 id="start-with-a-question-that-has-no-keywords">Start with a question that has no keywords</h2>
 <p class="lesson-of">Lesson 42.2: MemoRAG: global memory and clue-guided retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/optional/notebook/02a_memorag.ipynb" target="_blank" rel="noopener"><code>02a_memorag.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -553,7 +574,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A Larkspur operations lead asks <em>How does Larkspur protect continuity?</em> The question names no section. Searched directly, it matches passages that share its words and misses the ones that answer it: export, retention, availability guarantees and incident reports. A reader who knew the whole handbook would turn the question into better searches first. MemoRAG gives the retriever that reader.</p>
 <h2 id="global-memory">Global memory</h2>
 <p><strong>Global memory is a compact, model-readable representation of the whole corpus that turns a vague question into specific search clues before retrieval runs.</strong> For the continuity question, memory might suggest <em>export before cancellation</em>, <em>30-day retention window</em> and <em>availability guarantee and credits</em>. Each clue is a search, not an answer: the final answer still needs source passages that support every claim.</p>
-<p>The <a href="https://arxiv.org/html/2409.05591v2" target="_blank" rel="noopener">MemoRAG paper</a> (Qian et al., 2024) builds the memory with a long-range model that compresses the corpus, then has that model draft clues for the retriever. A clue can contain a wrong detail. Its job is to locate evidence, and the generator checks what comes back:</p>
+<p>The <a href="https://arxiv.org/abs/2409.05591" target="_blank" rel="noopener">MemoRAG paper</a> (Qian et al., 2024) builds the memory with a long-range model that compresses the corpus, then has that model draft clues for the retriever. A clue can contain a wrong detail. Its job is to locate evidence, and the generator checks what comes back:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     A[Corpus memory] --&gt; B[Question plus relevant memory]
     B --&gt; C[Draft clues and surrogate questions]
@@ -562,8 +583,13 @@ th:last-child, td:last-child { padding-right: 0; }
     E --&gt; F[Answer the original question]
 </pre></figure>
 <p><em>Figure 1: Clue-guided retrieval. Memory shapes the searches; only retrieved passages reach the answer.</em></p>
-<p>The optional notebook implements a smaller approximation. Its memory is a list of readable text records, each a <strong>topic</strong> and its <strong>details</strong>, written by a chat model reading the corpus and validated against a schema. The records are embedded and stored in a FAISS index. The memorising prompt says it mimics KV-cache creation; the records are text, not the attention key and value tensors a model keeps inside, and the analogy stops there.</p>
-<p>How the notebook reads the corpus sets how much memory each call sees:</p>
+<p>Plain retrieval, the alternative, sends the question straight to the passage index:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; P["Passage index&lt;br/&gt;one search, k passages"]
+    P --&gt; G[Answer from those passages]
+</pre></figure>
+<p><em>Figure 2: Plain retrieval. One search with the question&rsquo;s own words.</em></p>
+<p>The optional notebook implements a smaller approximation of Figure 1. Its memory is a list of readable text records, each a <strong>topic</strong> and its <strong>details</strong>, written by <code>gpt-4o-mini</code> reading the corpus and validated against a schema. The records are embedded and stored in a FAISS index. The memorising prompt says it mimics KV-cache creation; the records are text, not the attention key and value tensors a model keeps inside, and the analogy stops there.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -599,9 +625,21 @@ th:last-child, td:last-child { padding-right: 0; }
     P--&gt;&gt;U: passages, duplicates removed
     U-&gt;&gt;L: question plus passages
 </pre></figure>
-<p><em>Figure 2: One question through the notebook&rsquo;s pipeline. Clues come from two separate model calls.</em></p>
+<p><em>Figure 3: One question through the notebook&rsquo;s pipeline. Clues come from two separate model calls.</em></p>
 <p>The clue step makes two calls: one asks for text spans likely to appear in the corpus, the other for <strong>surrogate questions</strong>, narrower questions that clarify the original. The notebook splits both replies into lines, drops any line of three words or fewer, and appends the original question. Each surviving line becomes one search for three passages.</p>
-<p>That design has a cost that grows with the clue count. The arithmetic for one question:</p>
+<p>Compare the two designs on the continuity question:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="retrieval-switcher">
+<p class="widget-intro">One vague question, two retrieval designs. The clue texts are illustrative; the counts follow the notebook's code with four clues kept.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval design">
+<button type="button" data-mode="plain" aria-pressed="false" aria-controls="design-plain">Plain retrieval</button>
+<button type="button" data-mode="clues" aria-pressed="false" aria-controls="design-clues">Clue-guided</button>
+</div>
+<section id="design-plain" class="mode-panel" data-announcement="Plain retrieval selected. One search with the question's own words."><h4>Plain retrieval</h4><ul><li>Searches: 1, with "How does Larkspur protect continuity?"</li><li>Passages: those that share "continuity" or "protect", which few policy passages do.</li><li>Model calls: 1, the answer.</li></ul></section>
+<section id="design-clues" class="mode-panel" data-announcement="Clue-guided selected. Five searches, up to 15 passages before deduplication."><h4>Clue-guided</h4><ul><li>Searches: 5, one per clue such as "export before cancellation", plus the question.</li><li>Passages: up to 15 before deduplication, now including export, retention and availability.</li><li>Model calls: 3, two for clues and one for the answer, plus one memory search.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The clue-guided design reaches the passages a plain search misses, and its cost grows with the clue count:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -632,8 +670,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Retrieval work per question (illustrative clue counts). One memory search is added to every row; the three model calls are the two clue calls and the answer.</em></p>
-<p>Removing duplicate passages is the only control on context size. Deduplication drops repeats; it does not cap tokens. Eight clues that each find three new passages put 27 passages in front of the generator. Call that <strong>clue sprawl</strong>, and set a passage or token budget after deduplication.</p>
+<p><em>Table 2: Retrieval work per question in the notebook (illustrative clue counts). One memory search is added to every row; the three model calls are the two clue calls and the answer.</em></p>
+<p>Removing duplicate passages is the only control on context size. Deduplication drops repeats; it does not cap tokens. Eight clues that each find three new passages put 27 passages in front of the generator. Call that <strong>clue sprawl</strong>, and set a passage or token budget after deduplication. Choose plain retrieval when questions name what they want; choose clues when questions are vague and the corpus is long enough that a reader&rsquo;s overview helps.</p>
 <p>Each stage has its own failure, and its own thing to log:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -672,8 +710,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Where clue-guided retrieval fails, stage by stage.</em></p>
-<p>The invented-product row is the failure that matters most. Call it the <strong>fluent clue</strong>: a clue that reads well and names something the corpus does not contain. If retrieval then finds a loosely related passage, the generator may treat the clue&rsquo;s claim as supported. The notebook&rsquo;s answer prompt tells the model to use only the retrieved context and to say when the context is not enough. Logging clues beside the passages they found is what shows whether that instruction held.</p>
-<p>The notebook&rsquo;s update path has gaps worth planting:</p>
+<p>The invented-product row matters most. Call it the <strong>fluent clue</strong>: a clue that reads well and names something the corpus does not contain. If retrieval then finds a loosely related passage, the generator may treat the clue&rsquo;s claim as supported. The notebook&rsquo;s answer prompt says to use only the retrieved context and to say when it is not enough. Logging clues beside the passages they found shows whether that instruction held.</p>
+<p>The notebook&rsquo;s memory store has gaps worth planting:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -702,24 +740,22 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 4: Planted failures in the notebook&rsquo;s memory store.</em></p>
 <p>A topic registry or stable record identifiers fixes the first row. The third needs a fallback that searches with the original question alone.</p>
-<p>Memory is derived data, with the same duties as the summaries in lesson 42.1. When Larkspur changes its retention rules, update the passage index and regenerate every memory record written from those passages. Shared memory must not leak restricted documents through its records or its clues. Test a deletion against the stored memory and against generated answers.</p>
-<h2 id="in-practice-continuity-clues">In practice: continuity clues</h2>
-<p>For Larkspur, a memory-assisted retriever would run like this:</p>
-<ol>
-<li>Memorise the handbook into topic records, each tagged with the passages and versions it came from.</li>
-<li>For <em>How does Larkspur protect continuity?</em>, retrieve the closest memory records and write clues from them.</li>
-<li>Search the passage index with each clue and with the original question.</li>
-<li>Deduplicate, cut to a fixed passage budget, and answer only from what remains.</li>
-<li>Log the clues, the passages each one found, and the claims each passage supports.</li>
-</ol>
-<p>Run the same questions through plain retrieval at the same budget. Report a gain only when the clue-guided run finds supporting passages the plain run missed.</p>
-<h2 id="limits-of-the-notebook">Limits of the notebook</h2>
-<p>The notebook loads two prebuilt memory stores, one per corpus, and the second corpus is a book PDF. None of those files ships with this repository, and the memorising cells are commented out because they are slow and paid. As shipped, the notebook shows the implementation&rsquo;s shape and does not run end to end.</p>
-<p>Its evaluation compares plain RAG with this MemoRAG approximation on the first 5 of 44 climate questions and on 15 of 16 questions about the book. It also scores answers saved from a run of the original MemoRAG on a GPU. Those scores come from a model judge and a different corpus, and they say nothing about the Larkspur handbook. Report a comparison only after running both pipelines on the same questions and budget.</p>
+<p>Memory is derived data, with the same duties as the summaries in lesson 42.1. When Larkspur changes its retention rules, update the passage index and regenerate every memory record written from those passages. Shared memory must not leak restricted documents through its records or its clues. For Larkspur, tag each record with the passages and versions it came from, cut the deduplicated passages to a fixed budget, and log each clue beside the passages it found. Report a gain over plain retrieval only when the clue-guided run finds supporting passages the plain run missed at the same budget.</p>
 <p>Lesson 42.3 builds a third derived representation, a graph of entities and relationships, and searches it at two levels.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The notebook does not run as shipped.</strong> It loads two prebuilt memory stores and a book PDF that are not in this repository, and the memorising cells are commented out because they are slow and paid.</li>
+<li><strong>Its comparison is broken.</strong> The plain-RAG cells call the shared <code>evaluate_rag</code> helper with a <code>q_a_file_name</code> argument it does not accept, and they stop with a <code>TypeError</code>. Even fixed, that helper writes its own five climate questions instead of reading the question file. The notebook&rsquo;s own MemoRAG evaluation reads the first 5 of 44 climate questions and 15 of 16 book questions, scored by a model judge. No plain baseline on the same questions exists.</li>
+<li><strong>Illustrative counts.</strong> Table 2 and the switcher follow the code with chosen clue counts. No model wrote clues for the Larkspur handbook here.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Qian, H. et al. (2024). <em>MemoRAG: Boosting Long Context Processing with Global Memory-Enhanced Retrieval Augmentation</em>. <a href="https://arxiv.org/abs/2409.05591" target="_blank" rel="noopener">arXiv:2409.05591</a>.</li>
+<li>Meta AI, <a href="https://faiss.ai/" target="_blank" rel="noopener">Faiss</a>, the similarity search library behind both the memory records and the passages.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Corpus memory writes clues that help the retriever find evidence. A clue can contain a wrong detail, so every claim in the answer must rest on a retrieved passage.</li>
+<li>Corpus memory writes clues that help the retriever find evidence. A clue can contain a wrong detail, and every claim in the answer must rest on a retrieved passage.</li>
 <li>Each extra clue adds a search and its passages, and deduplication alone does not bound the context. Log clue text beside the original question and set a budget after deduplication.</li>
 <li>Treat memory as derived data. Regenerate records when their source passages change, and check that records and clues never expose restricted documents.</li>
 </ul>
@@ -736,7 +772,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. The notebook keeps eight clues for a question and retrieves three passages for each clue and for the question. What bounds the context the generator sees?</summary>
 <p>Nothing beyond deduplication. Nine searches at three passages each can return 27 passages, and removing repeats does not cap tokens. Set a passage or token budget after deduplication and log which clue found each passage.</p>
 </details>
-<h2 id="questions-that-connect-two-policies">Questions that connect two policies</h2>
+<h2 id="start-with-a-question-that-connects-two-policies">Start with a question that connects two policies</h2>
 <p class="lesson-of">Lesson 42.3: LightRAG: low-level and high-level graph retrieval. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/notebook/03a_light_rag.ipynb" target="_blank" rel="noopener"><code>03a_light_rag.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -752,7 +788,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>LightRAG stores that link as an edge in a graph, gives it a short text profile, and searches it like any other passage.</p>
 <h2 id="dual-level-retrieval">Dual-level retrieval</h2>
 <p><strong>Dual-level retrieval searches two indexes built from one graph: entity profiles for the specific things a question names, and relationship profiles for the themes that connect them.</strong> For the cancellation question, the <strong>low-level</strong> route finds the entities Cancellation and Export. The <strong>high-level</strong> route finds a relationship profile about data portability. Both routes add evidence to one context.</p>
-<p>High-level here means thematic relationships. It does not mean RAPTOR&rsquo;s upper summary levels from lesson 42.1, or the community reports that Microsoft GraphRAG builds in <a href="../../../m44_graphrag/mandatory/theory/index.html">M44</a>. The <a href="https://arxiv.org/html/2410.05779v3" target="_blank" rel="noopener">LightRAG paper</a> (Guo et al., 2024) describes graph indexing with entity and relationship profiles, the two retrieval levels, and adding new documents to the graph without a rebuild.</p>
+<p>High-level here means thematic relationships. It does not mean RAPTOR&rsquo;s upper summary levels from lesson 42.1, or the community reports that Microsoft GraphRAG builds in <a href="../../../m44_graphrag/mandatory/theory/index.html">M44</a>. The <a href="https://arxiv.org/abs/2410.05779" target="_blank" rel="noopener">LightRAG paper</a> (Guo et al., 2024) describes graph indexing with entity and relationship profiles, the two retrieval levels, and adding new documents without a rebuild.</p>
 <p>The graph comes first. The notebook builds it in four stages:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     A[Chunks] --&gt; B["Extract entities&lt;br/&gt;and relations"]
@@ -760,7 +796,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt; D["Entity index&lt;br/&gt;Relation index"]
 </pre></figure>
 <p><em>Figure 1: Building the graph. One model call per chunk extracts entities and relationships; merging folds repeats into one node or edge.</em></p>
-<p>Each relationship carries a description and a few high-level keywords. The keywords are what the high-level route searches. At question time a model splits the question into two keyword lists, one per route:</p>
+<p>Each relationship carries a description and a few high-level keywords. The keywords are what the high-level route searches. At question time a model splits the question into two keyword lists, one per route; an empty list falls back to the question itself:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[Question] --&gt; K[Extract two keyword sets]
     K --&gt; L[Low-level entity keywords]
@@ -769,7 +805,6 @@ th:last-child, td:last-child { padding-right: 0; }
     H --&gt; R[Relation profiles and endpoints]
 </pre></figure>
 <p><em>Figure 2: The two routes. Each keyword set searches its own index, then expands through the graph.</em></p>
-<p>The routes differ in what they search and what they pull in after a hit:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -795,8 +830,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: What each route adds after a hit.</em></p>
-<p>The notebook builds this from scratch with NetworkX, structured extraction schemas and two FAISS indexes; it does not use the packaged LightRAG library. It splits a 33-page climate report into chunks of 1,200 characters with 150 overlap, which gives 78 chunks, and keeps the first 20 to save extraction calls. Every later query can only reach those 20.</p>
-<p>To see the merge and the routes without a model, we ran the notebook&rsquo;s merge loop and its selection logic on five scripted extractions from the Larkspur handbook:</p>
+<p>The notebook builds this from scratch with NetworkX, structured extraction schemas and two FAISS indexes; it does not use the packaged LightRAG library. It splits the 33-page climate report page by page into chunks of 1,200 characters with 150 overlap, which gives 78 chunks, and keeps the first 20 to save extraction calls. Every later query can only reach those 20.</p>
+<h2 id="what-the-merge-keeps-and-loses">What the merge keeps and loses</h2>
+<p>To see the merge and the routes without a model, we ran the notebook&rsquo;s own merge, profile and retrieval cells on five scripted extractions from the Larkspur handbook:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     B[Billing] --- C[Cancellation]
     S["Account deletion&lt;br/&gt;type unknown"] --- C
@@ -805,7 +841,6 @@ th:last-child, td:last-child { padding-right: 0; }
     K["Daily backup&lt;br/&gt;two plans merged"]
 </pre></figure>
 <p><em>Figure 3: The merged Larkspur graph from the scripted run: 6 entities and 4 relationships.</em></p>
-<p>The merge did four things a reader should expect:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -838,9 +873,34 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The notebook&rsquo;s merge on scripted extractions. Notebook code, no model calls.</em></p>
-<p>The last row is the failure that hurts policy answers. Call it a <strong>name collision</strong>: two things share a name, and their facts merge into one profile. Lower-casing causes it here and cannot fix it. Stable identifiers, with the plan or product in the key, can.</p>
+<p>The last row hurts policy answers. Call it a <strong>name collision</strong>: two things share a name, and their facts merge into one profile. Lower-casing causes it here and cannot fix it. Stable identifiers, with the plan or product in the key, can.</p>
 <p>The second row is a different loss. An undirected graph keeps that two things relate and drops which way. The notebook&rsquo;s graph also holds one edge per pair, so a typed model with several relations between the same two entities needs a different graph structure.</p>
-<p>Then the two routes, with the vector hits fixed by hand:</p>
+<h2 id="the-two-routes-on-one-graph">The two routes on one graph</h2>
+<p>Fix the vector hits by hand and run the notebook&rsquo;s retrieval function. The low-level route seeds on an entity and pulls in every edge around it:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    C(("Cancellation&lt;br/&gt;seed")) --- B[Billing]
+    C --- S[Account deletion]
+    C --- R[Data retention]
+</pre></figure>
+<p><em>Figure 4: Low-level route, seed Cancellation. Three edges and three chunks come in; only Cancellation&rsquo;s profile does.</em></p>
+<p>The high-level route seeds on a relationship and pulls in its two ends:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    X[Export] ===|"seed relation&lt;br/&gt;data portability"| R[Data retention]
+</pre></figure>
+<p><em>Figure 5: High-level route, seed Export to Data retention. Two entity profiles, one edge, one chunk.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="route-switcher">
+<p class="widget-intro">Scripted seed hits on the Figure 3 graph, run through the notebook's <code>lightrag_retrieve</code>. No embeddings or model ran.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval route">
+<button type="button" data-mode="low" aria-pressed="false" aria-controls="route-low">Low level</button>
+<button type="button" data-mode="high" aria-pressed="false" aria-controls="route-high">High level</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="route-both">Both</button>
+</div>
+<section id="route-low" class="mode-panel" data-announcement="Low level selected. One entity, three edges, three chunks."><h4>Low level: Cancellation</h4><ul><li>Entities in context: 1. Edges: 3. Chunks: 3.</li><li>The edge block names Billing and Account deletion; the entity block describes only Cancellation.</li><li>The retention rule arrives through its edge and chunk, not through a Data retention profile.</li></ul></section>
+<section id="route-high" class="mode-panel" data-announcement="High level selected. Two entities, one edge, one chunk."><h4>High level: Export to Data retention</h4><ul><li>Entities in context: 2. Edges: 1. Chunks: 1.</li><li>The edge says to export before the retention window closes, the link the question needs.</li><li>Cancellation itself never enters.</li></ul></section>
+<section id="route-both" class="mode-panel" data-announcement="Both selected. Three entities, four edges, four chunks."><h4>Both: Cancellation, Export and their relation</h4><ul><li>Entities in context: 3. Edges: 4. Chunks: 4.</li><li>Every relationship in the graph is now in the context, from two entity hits and one relation hit.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -872,19 +932,21 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: What the routes select on the scripted graph. Cancellation touches three edges, and all three come in with one hit.</em></p>
-<p>Two things show up in Table 3. First, <strong>neighbour sprawl</strong>: one low-level hit on a well-connected entity brings in every edge around it. The notebook&rsquo;s defaults are four entity hits and four relation hits; those are seed counts, not a bound on the context. In a full handbook graph, an entity such as Cancellation touches every policy that mentions it.</p>
-<p>Second, the low-level route adds the edges around a hit but not the entity profiles at their far ends. In the low-level row, the relationship block mentions Billing and Account deletion, and the entity block describes only Cancellation. The passages behind those edges do come in: every chunk a relation came from is also recorded for both its endpoints. Check that invariant in your own build before relying on it for provenance.</p>
-<p>Combine both routes with their source passages, remove duplicates and apply a context budget before generation. An edge description can help find a policy. It cannot replace the policy&rsquo;s qualifiers, which live in the passage.</p>
-<h2 id="in-practice-larkspurrsquos-graph">In practice: Larkspur&rsquo;s graph</h2>
-<p>For the Larkspur handbook, a LightRAG index would follow these rules:</p>
+<p>Two things show up. First, <strong>neighbour sprawl</strong>: one low-level hit on a well-connected entity brings in every edge around it. The notebook&rsquo;s defaults are four entity hits and four relation hits; those are seed counts, not a bound on the context. In a full handbook graph, Cancellation touches every policy that mentions it.</p>
+<p>Second, the low-level route adds the edges around a hit but not the entity profiles at their far ends. The passages behind those edges do come in: every chunk a relation came from is also recorded for both its endpoints. Check that invariant in your own build before relying on it for provenance.</p>
+<p>Use the low-level route when a question names things, the high-level route when it names a relationship or theme, and both by default. Remove duplicates and apply a context budget after expansion. An edge description can help find a policy; it cannot replace the policy&rsquo;s qualifiers, which live in the passage.</p>
+<p>For the Larkspur handbook: key entities by stable identifier with the plan or product in the key; keep relation direction where it carries meaning, such as <em>cancellation starts retention</em>; store the source passage and version behind every description; limit expansion to evidence the asker may see. When a policy is withdrawn, recompute the merged profiles as well as removing the passage, because the old wording survives inside node and edge descriptions. The notebook skips a chunk whose extraction fails and continues, and it prints only a warning: count those skips beside indexing cost.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Scripted extractions.</strong> Tables 2 and 3 run the notebook&rsquo;s code on five hand-written extractions. A model extracting from real chunks names, types and links entities differently.</li>
+<li><strong>Hand-fixed vector hits.</strong> The switcher and Table 3 choose seed hits directly. Real embeddings decide which entities and relations seed each route.</li>
+<li><strong>One corpus subset.</strong> The notebook&rsquo;s graph covers 20 of 78 chunks of a climate report; its answers say nothing about a handbook-sized graph.</li>
+</ul>
+<h2 id="references">References</h2>
 <ol>
-<li>Key entities by stable identifier, with the plan or product in the key, and keep Business and Enterprise daily backups apart.</li>
-<li>Keep relation direction where it carries meaning, such as <em>cancellation starts retention</em>.</li>
-<li>Store the source passage and version behind every node description and edge.</li>
-<li>Limit graph expansion to evidence the asker may see.</li>
-<li>When a policy is withdrawn, recompute the merged profiles as well as removing the passage; the old wording survives inside node and edge descriptions.</li>
+<li>Guo, Z. et al. (2024). <em>LightRAG: Simple and Fast Retrieval-Augmented Generation</em>. <a href="https://arxiv.org/abs/2410.05779" target="_blank" rel="noopener">arXiv:2410.05779</a>.</li>
+<li>NetworkX, <a href="https://networkx.org/documentation/stable/reference/classes/graph.html" target="_blank" rel="noopener">Graph</a>, the undirected graph class the notebook uses.</li>
 </ol>
-<p>To evaluate the routes, run entity-only, relationship-only and combined retrieval on the same precise and cross-section questions. Inspect answer support, source coverage and context size. Count extraction failures and indexing calls apart from query cost: the notebook skips a chunk whose extraction fails and continues, and a graph with plausible labels can still miss the relationship a question needs.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>LightRAG runs two routes over one graph: low-level search over entity profiles and their edges, and high-level search over relationship profiles and their endpoints. Both feed one budgeted context with the source passages.</li>
@@ -960,7 +1022,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Distinguish a paper&rsquo;s algorithm from the simplified implementation in its teaching notebook.</li>
 <li>Measure retrieval, source support, update work and generation quality separately.</li>
 </ul></article>
-    <nav class="toc" aria-label="M42 sections"><details open><summary>In M42</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#questions-no-single-chunk-answers">Questions no single chunk answers</a></li><li><a href="#abstraction-levels">Abstraction levels</a></li><li><a href="#collapsed-tree-retrieval">Collapsed-tree retrieval</a></li><li><a href="#in-practice-a-theme-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#when-the-question-has-no-keywords">When the question has no keywords</a></li><li><a href="#global-memory">Global memory</a></li><li><a href="#in-practice-continuity-clues">In practice</a></li><li><a href="#limits-of-the-notebook">Limits of the notebook</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#questions-that-connect-two-policies">Questions that connect two policies</a></li><li><a href="#dual-level-retrieval">Dual-level retrieval</a></li><li><a href="#in-practice-larkspurrsquos-graph">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M42 sections"><details open><summary>In M42</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-question-no-single-passage-answers">Start with a question no single passage answers</a></li><li><a href="#abstraction-levels">Abstraction levels</a></li><li><a href="#collapsed-tree-retrieval">Collapsed-tree retrieval</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-question-that-has-no-keywords">Start with a question that has no keywords</a></li><li><a href="#global-memory">Global memory</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-question-that-connects-two-policies">Start with a question that connects two policies</a></li><li><a href="#dual-level-retrieval">Dual-level retrieval</a></li><li><a href="#what-the-merge-keeps-and-loses">What the merge keeps and loses</a></li><li><a href="#the-two-routes-on-one-graph">The two routes on one graph</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

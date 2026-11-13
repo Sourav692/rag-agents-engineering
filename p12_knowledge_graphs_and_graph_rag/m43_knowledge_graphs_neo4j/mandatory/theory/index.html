@@ -270,7 +270,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <div class="anim__controls" hidden><button class="anim__btn" type="button" data-act="prev">Previous</button><button class="anim__btn" type="button" data-act="play" aria-pressed="false">Play</button><button class="anim__btn" type="button" data-act="next">Next</button></div>
 <ol class="anim__steps" id="anim-kgpath-cap"><li><button type="button">Read</button><span>Read a versioned Larkspur handbook passage.</span></li><li><button type="button">Resolve</button><span>Extract candidate facts and resolve their entity identities.</span></li><li><button type="button">Index</button><span>Store relationships and retain supporting text.</span></li><li><button type="button">Retrieve</button><span>Match graph facts and retrieve related passages.</span></li><li><button type="button">Answer</button><span>Generate an answer from the retrieved evidence.</span></li></ol></figure>
 <p>Extraction turns prose into candidate facts. Stable identities let those facts connect across documents, while retained passages let a reader inspect what supports them. Retrieval must carry both the matched relationship and its supporting text into the answer.</p>
-<h2 id="questions-that-are-joins">Questions that are joins</h2>
+<h2 id="start-with-a-question-that-is-a-join">Start with a question that is a join</h2>
 <p class="lesson-of">Lesson 43.1: Graph fundamentals and Cypher. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/notebook/01a_kg_simple.ipynb" target="_blank" rel="noopener"><code>01a_kg_simple.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -283,8 +283,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>M42 ended with lightweight graph retrieval as one option among summaries and memory. This module builds the graph itself, in Neo4j, and asks it questions that similarity search cannot settle.</p>
 <p>A Larkspur support engineer asks: <em>Which plans support data export in the EU?</em> A vector index returns two passages that both look relevant. One says a plan supports export. The other says a plan is available in the EU region. Nothing in either passage says they describe the same plan. The question is a <strong>join</strong>: one entity has to satisfy two facts, and text similarity has no notion of &ldquo;the same entity&rdquo;.</p>
-<p>This module uses a small teaching catalogue of Larkspur plans (EU Team, EU Enterprise, US Export, Legacy plan) that is also the fixture in the lesson 43.4 lab. It is separate from the handbook&rsquo;s own plan list. The notebook teaches the same ideas on a five-node graph about Albert Einstein.</p>
-<p>The page has two jobs: describe what a graph stores, then show how a query asks for a joined fact.</p>
+<p>This lesson uses a small teaching catalogue of Larkspur plans (EU Team, EU Enterprise, US Export, Legacy plan), the fixture of the lesson 43.4 lab. It is separate from the handbook&rsquo;s own plan list. The notebook teaches the same ideas on a five-node graph about Albert Einstein.</p>
 <h2 id="nodes-edges-properties">Nodes, edges, properties</h2>
 <p><strong>A property graph stores entities as nodes, typed and directed relationships between them, and properties (key and value pairs) on either.</strong> A node carries one or more labels, such as <code>Plan</code> or <code>Feature</code>, which say what kind of thing it is. A relationship has exactly one type, such as <code>SUPPORTS</code>, and always points from one node to another.</p>
 <p>Larkspur&rsquo;s question needs three nodes and two relationships:</p>
@@ -312,13 +311,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Identity property</td>
-<td><code>id: "eu-team"</code></td>
+<td><code>id: "team"</code></td>
 <td><code>name: "Albert Einstein"</code></td>
 <td>which node a write or a query lands on</td>
 </tr>
 <tr>
 <td>Descriptive property</td>
-<td>display name, description</td>
+<td>display name, such as &ldquo;EU Team&rdquo;</td>
 <td>none</td>
 <td>what the answer can say about the node</td>
 </tr>
@@ -345,7 +344,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Choosing relationship types and directions is part of modelling the handbook, and it happens before any retrieval algorithm runs. A good test is to write each golden question as a path first. If a question has no path in the model, no query can answer it.</p>
 <h3>An absent edge is not a no</h3>
 <p>A graph answers only the relationships you stored or can derive from them. If the EU Team plan has no <code>AVAILABLE_IN</code> edge to the EU region, three different things could be true: the plan is not available there, the source never said so, or extraction missed the sentence that did. We call this <strong>silent absence</strong>: an empty match looks the same in all three cases.</p>
-<p>The practical rule is to keep the source of each relationship (lesson 43.2) so a missing edge can be traced back to a document, and to phrase empty results as &ldquo;no matching facts in this graph&rdquo; rather than &ldquo;no&rdquo;. With the model in place, the next step is asking for a joined fact.</p>
+<p>The practical rule is to keep the source of each relationship (lesson 43.2) so a missing edge can be traced back to a document, and to phrase empty results as &ldquo;no matching facts in this graph&rdquo; rather than &ldquo;no&rdquo;.</p>
 <h2 id="cypher">Cypher</h2>
 <p><strong>Cypher is Neo4j&rsquo;s query language: you draw the shape you want with nodes in parentheses and relationships as arrows, and the database returns every way that shape matches the stored graph.</strong> Variables name parts of the shape. When the same variable appears twice, both appearances must be the same node.</p>
 <p>The EU export question becomes one pattern with two arms:</p>
@@ -386,7 +385,38 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The EU export query, clause by clause.</em></p>
-<p>The shared <code>p</code> carries the join. Run against the lab&rsquo;s fixture edges, the query returns exactly the plans that have both relationships:</p>
+<h3>One variable or two</h3>
+<p>The shared <code>p</code> carries the join. Bind one plan variable and both arms must hold for the same node:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    P(("p")) --&gt;|SUPPORTS| F[Export]
+    P --&gt;|AVAILABLE_IN| R[EU region]
+</pre></figure>
+<p><em>Figure 3: One variable. Both arms meet at the same plan node, so a row needs one plan with both facts.</em></p>
+<p>Give each arm its own plan variable and the two arms no longer share anything:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TB
+    subgraph A1["Arm 1"]
+        direction LR
+        P1(("p1")) --&gt;|SUPPORTS| F[Export]
+    end
+    subgraph A2["Arm 2"]
+        direction LR
+        P2(("p2")) --&gt;|AVAILABLE_IN| R[EU region]
+    end
+    A1 ~~~ A2
+</pre></figure>
+<p><em>Figure 4: Two variables. Cypher pairs every plan from arm 1 with every node from arm 2.</em></p>
+<p>Run both against the lab&rsquo;s fixture edges. The fixture also has four guide nodes (Refund, Backup, Billing and Audit guides) with <code>AVAILABLE_IN</code> edges to the EU, which matters for the second design:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="variable-switcher">
+<p class="widget-intro">Choose a design to see what the EU export query returns over the lab's fixture edges.</p>
+<div class="mode-controls" hidden role="group" aria-label="Query design">
+<button type="button" data-mode="shared" aria-pressed="false" aria-controls="variable-shared">One shared variable</button>
+<button type="button" data-mode="separate" aria-pressed="false" aria-controls="variable-separate">Two separate variables</button>
+</div>
+<section id="variable-shared" class="mode-panel" data-announcement="Shared variable selected. Two plans returned."><h4>One shared variable</h4><ul><li>Plans with an export edge: EU Team, EU Enterprise, US Export, Legacy plan.</li><li>Of those, with an EU edge: EU Team and EU Enterprise.</li><li>Result: 2 plans, the right answer.</li></ul></section>
+<section id="variable-separate" class="mode-panel" data-announcement="Separate variables selected. Four plans returned."><h4>Two separate variables</h4><ul><li>Arm 1 binds 4 export plans; arm 2 binds 6 nodes with an EU edge, guides included.</li><li>Cypher pairs them: 4 times 6 is 24 rows before <code>DISTINCT</code>.</li><li>Returning the export plan gives all 4 plans, US Export and Legacy plan among them.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -428,19 +458,37 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: The query over the lesson 43.4 lab&rsquo;s fixture edges. With one variable per arm, any export plan pairs with any plan in the EU.</em></p>
-<p>The last column is the <strong>cross-product match</strong>. Give each arm its own plan variable and Cypher pairs every export plan with every EU plan, so four plans come back instead of two. The query is valid, runs without error and is wrong.</p>
+<p><em>Table 3: The query over the lesson 43.4 lab&rsquo;s fixture edges, replayed in Python (no server).</em></p>
+<p>The last column is the <strong>cross-product match</strong>. The query is valid, runs without error and is wrong. Use the shared variable whenever one entity must satisfy several patterns; separate variables fit only when you really want every pairing.</p>
 <blockquote>
 <p><strong>Pitfall: DISTINCT is not deduplication.</strong> <code>DISTINCT</code> removes repeated result rows. If the import created two EU Team nodes, both come back, because they are different nodes. Fixing duplicate entities is an import problem, covered in lesson 43.2.</p>
 </blockquote>
 <h3>The notebook&rsquo;s queries</h3>
-<p>The notebook runs two read queries. One lists every node&rsquo;s <code>name</code>. The other returns four paths out of the Einstein node, one per relationship type, joined with <code>UNION</code>. Each arm of that union names its relationship type explicitly, which means a fifth relationship added later would not appear until someone adds a fifth arm. A single pattern with an untyped relationship would return all of them, at the cost of returning edges you did not ask about.</p>
+<p>The notebook defines two read queries. One lists every node&rsquo;s <code>name</code>. The other returns four paths out of the Einstein node, one per relationship type, joined with <code>UNION</code>. Each arm of that union names its relationship type explicitly, which means a fifth relationship added later would not appear until someone adds a fifth arm. A single pattern with an untyped relationship would return all of them, at the cost of returning edges you did not ask about.</p>
 <p>It writes with <code>MATCH</code> followed by <code>MERGE</code>: find both endpoints first, then create the relationship between them only if it is missing. If either endpoint is absent, the <code>MATCH</code> finds nothing and no edge is written, without an error. That is silent absence again, this time created at write time.</p>
 <h3>Sessions and the driver</h3>
-<p>The notebook opens one Neo4j driver and runs work inside sessions. Two habits matter beyond this notebook. Read a query&rsquo;s results while its session is still open, because they stream from the database. Keep one driver for the life of the program and close it once at the end.</p>
-<p>Some of the notebook&rsquo;s helper functions close the shared driver in their <code>finally</code> block. Run the build cell and then another cell that uses the same driver, and the second one fails with a closed driver. Running cells out of order can mean recreating the driver first.</p>
+<p>Read a query&rsquo;s results while its session is still open, because they stream from the database. Keep one driver for the life of the program and close it once at the end. The notebook breaks the second habit in an instructive way. Run it top to bottom:</p>
+<div class="walkthrough learning-widget" data-stepper id="notebook-walkthrough">
+<p class="widget-intro">Step through the 01a notebook run from top to bottom on a fresh database.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the 01a notebook run"><button type="button" data-step="0" aria-pressed="false" aria-controls="nb-step-0">1. Driver</button><button type="button" data-step="1" aria-pressed="false" aria-controls="nb-step-1">2. Build</button><button type="button" data-step="2" aria-pressed="false" aria-controls="nb-step-2">3. Query</button><button type="button" data-step="3" aria-pressed="false" aria-controls="nb-step-3">4. Rerun</button></div>
+<div class="step-panels"><section id="nb-step-0" class="step-panel" aria-labelledby="nb-heading-0"><h4 id="nb-heading-0">1. One shared driver is created</h4><dl><dt>Cell</dt><dd>a module-level <code>driver</code>; helper functions are defined but not run</dd></dl></section><section id="nb-step-1" class="step-panel" aria-labelledby="nb-heading-1"><h4 id="nb-heading-1">2. The build call is commented out</h4><dl><dt>Cell</dt><dd><code>build_knowledge_graph()</code> appears only as a comment</dd><dt>Effect</dt><dd>a fresh database stays empty until you remove the comment</dd></dl></section><section id="nb-step-2" class="step-panel" aria-labelledby="nb-heading-2"><h4 id="nb-heading-2">3. The path query runs</h4><dl><dt>Helper</dt><dd><code>query_graph</code> opens its own driver for this one call and closes it</dd><dt>Result</dt><dd>4 paths on a built graph; on an empty one, nothing at all and no error</dd></dl></section><section id="nb-step-3" class="step-panel" aria-labelledby="nb-heading-3"><h4 id="nb-heading-3">4. A second build after the first</h4><dl><dt>Helper</dt><dd><code>build_knowledge_graph</code> closes the shared driver in its <code>finally</code> block</dd><dt>Result</dt><dd>the next call that uses it prints "Error: Driver closed" and carries on</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>We checked stage 4 against the installed driver (neo4j 6.4.1): a session on a closed driver raises <code>DriverError: Driver closed</code>, and the helper&rsquo;s <code>except</code> turns that into a printed line. Both quiet stages, the empty query and the printed error, look like a cell that ran.</p>
 <h3>Read the paths before the wording</h3>
 <p>When a model phrases the result (&ldquo;No plan supports export in the EU&rdquo;), the sentence can only be as good as the rows behind it. Inspect the returned paths and their source facts first. If the pattern used the wrong label, a reversed direction or the wrong identifier, the rows are empty, and a fluent answer cannot supply the relationship the query failed to match. Lesson 43.2 turns to where those nodes and edges come from.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No Neo4j server ran.</strong> Table 3 and the switcher replay the lab&rsquo;s fixture edges in Python with Cypher&rsquo;s matching rules; the notebook run and the four Einstein paths are read from its cells.</li>
+<li><strong>The fixture is a teaching catalogue.</strong> Its four plans and four guides come from the lesson 43.4 lab, not from Larkspur&rsquo;s handbook plan list.</li>
+<li><strong>Driver behaviour is version-specific.</strong> The closed-driver error was checked with neo4j 6.4.1 only; other driver versions may behave differently.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/clauses/match/" target="_blank" rel="noopener">Cypher Manual: MATCH</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/clauses/merge/" target="_blank" rel="noopener">Cypher Manual: MERGE</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/syntax/parameters/" target="_blank" rel="noopener">Cypher Manual: Parameters</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/python-manual/current/" target="_blank" rel="noopener">Python Driver Manual</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A property graph stores labelled nodes, typed directed relationships and properties on both. Choose identity keys, relationship types and directions by writing each golden question as a path first.</li>
@@ -454,13 +502,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>2. The EU export query reuses one variable p in both patterns. What goes wrong over the fixture if each pattern binds its own plan variable?</summary>
-<p>It becomes a cross-product match: every export plan pairs with every plan in the EU. Over the fixture, US Export and Legacy plan come back beside EU Team and EU Enterprise, four plans instead of two. <code>DISTINCT</code> would not help, because the rows are different plans.</p>
+<p>It becomes a cross-product match: every export plan pairs with every node in the EU. Over the fixture, US Export and Legacy plan come back beside EU Team and EU Enterprise, four plans instead of two. <code>DISTINCT</code> would not help, because the rows are different plans.</p>
 </details>
 <details>
-<summary>3. A model-phrased answer says no plan supports export in the EU, and you expected one. What do you inspect before the wording?</summary>
-<p>The rows and paths the query returned, and the source facts behind them. Check that the pattern used the stored labels, directions and identifiers, and whether the expected edges exist at all. A fluent sentence cannot supply a relationship the query failed to match.</p>
+<summary>3. You run the 01a notebook top to bottom on a fresh database and the path query prints nothing. What do you check before blaming the query?</summary>
+<p>Whether the graph was built at all. The <code>build_knowledge_graph()</code> call is commented out, so the database is empty and the query matches nothing without an error. After a build, also check for &ldquo;Error: Driver closed&rdquo;, because the build helper closes the shared driver.</p>
 </details>
-<h2 id="when-an-import-doubles-the-plans">When an import doubles the plans</h2>
+<h2 id="start-with-an-import-that-doubles-the-plans">Start with an import that doubles the plans</h2>
 <p class="lesson-of">Lesson 43.2: From CSV to knowledge graph. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/notebook/02a_healthcare_kg.ipynb" target="_blank" rel="noopener"><code>02a_healthcare_kg.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -555,20 +603,54 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Two failures account for the gap.</p>
 <ul>
 <li><strong>Identity by attributes</strong>: every row gives a patient a different age, gender or condition. Merging on all four values makes each of the 100 rows a new patient. Seven people become 100 nodes.</li>
-<li><strong>Name fan-out</strong>: the <code>TREATS</code> step matches the patient by name alone. A name now points at up to 22 nodes, and the edge is drawn to every one of them that exists so far. 32 real provider and patient pairs become 368 edges.</li>
+<li><strong>Name fan-out</strong>: the <code>TREATS</code> step matches the patient by name alone. A name now points at up to 22 nodes (Frank Yellow), and the edge is drawn to every one of them that exists so far. 32 real provider and patient pairs become 368 edges.</li>
 </ul>
 <p>The provider merge on <code>name</code> and <code>bio</code> works here only because each provider has one bio in the file. Change one bio between imports and the provider splits in two, which is Larkspur&rsquo;s doubled plan.</p>
+<h3>Two identity rules</h3>
+<p>The notebook&rsquo;s rule puts every descriptive value in the merge pattern:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    R1["Night 1 row&lt;br/&gt;id team, old description"] --&gt; M1{"MERGE on id&lt;br/&gt;and description"}
+    M1 --&gt;|no match| N1[(Plan node 1)]
+    R2["Night 2 row&lt;br/&gt;id team, new description"] --&gt; M2{"MERGE on id&lt;br/&gt;and description"}
+    M2 --&gt;|no match| N2[(Plan node 2)]
+</pre></figure>
+<p><em>Figure 1: Identity by attributes. A reworded description matches nothing, and the second night creates a second plan.</em></p>
+<p>A stable key puts only the identifier in the pattern and sets the rest afterwards:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    R1["Night 1 row&lt;br/&gt;id team, old description"] --&gt; M{"MERGE on id"}
+    R2["Night 2 row&lt;br/&gt;id team, new description"] --&gt; M
+    M --&gt; N[(One plan node)]
+    N --&gt; S["SET description,&lt;br/&gt;name, updated time"]
+</pre></figure>
+<p><em>Figure 2: A stable key. Both nights land on the same node, and the second one updates its description.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="identity-switcher">
+<p class="widget-intro">Choose an identity rule to see what a reworded EU Team description does to the graph.</p>
+<div class="mode-controls" hidden role="group" aria-label="Identity rule">
+<button type="button" data-mode="attributes" aria-pressed="false" aria-controls="identity-attributes">Merge on every property</button>
+<button type="button" data-mode="key" aria-pressed="false" aria-controls="identity-key">Merge on a stable key</button>
+</div>
+<section id="identity-attributes" class="mode-panel" data-announcement="Every property selected. Two EU Team nodes."><h4>Merge on every property</h4><ul><li>The new description matches no existing node, and a second EU Team node appears.</li><li>Edges written by night 1 stay on the old node; night 2 writes its own.</li><li>The EU export query returns EU Team twice, and no step reports an error.</li></ul></section>
+<section id="identity-key" class="mode-panel" data-announcement="Stable key selected. One EU Team node, updated."><h4>Merge on a stable key</h4><ul><li>The merge finds the node with id team and updates its description.</li><li>Every edge stays on one node.</li><li>The EU export query returns EU Team once, with the new wording.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h3>A stable key</h3>
-<p>The fix is to merge on a key that never changes and set everything else afterwards. For Larkspur&rsquo;s catalogue that means three rules:</p>
+<p>For Larkspur&rsquo;s catalogue the stable key means three rules:</p>
 <ol>
 <li>A uniqueness constraint on <code>Plan.id</code>, created once, which the database enforces and which also gives the merge an index to look up.</li>
 <li>A merge on <code>id</code> alone, followed by a <code>SET</code> of the display name, description and update time. A reworded description updates the existing node.</li>
 <li>A key that includes its scope, such as tenant or catalogue, when the identifier is unique only within one of them. A display name alone rarely captures that scope.</li>
 </ol>
-<p>These are a proposed Larkspur schema, not cells from the healthcare notebook. Neo4j&rsquo;s <a href="https://neo4j.com/docs/cypher-manual/current/clauses/merge/" target="_blank" rel="noopener">MERGE documentation</a> explains full-pattern matching and how uniqueness constraints interact with it. With identity settled, the next problem is what a row means.</p>
+<p>These are a proposed Larkspur schema, not cells from the healthcare notebook. Merging on attributes fits only data with no identifier at all, and then only when every attribute in the pattern is truly fixed.</p>
 <h2 id="the-flattened-row">The flattened row</h2>
-<p>A CSV row is often an event: one visit, in which this provider saw this patient, in this specialisation, at this location. The notebook turns the row&rsquo;s columns into separate edges on the provider. Once the row is gone, the graph no longer knows which specialisation went with which location. We call this the <strong>flattened row</strong>.</p>
-<p>The replay shows how much it costs:</p>
+<p>A CSV row is often an event: one visit, in which this provider saw this patient, in this specialisation, at this location. The notebook turns the row&rsquo;s columns into separate edges on the provider:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    H[Provider] --&gt;|TREATS| P[Patient]
+    H --&gt;|SPECIALIZES_IN| S[Specialisation]
+    H --&gt;|LOCATED_AT| L[Location]
+</pre></figure>
+<p><em>Figure 3: The flattened row. Each column becomes an edge on the provider, and nothing records which values came together.</em></p>
+<p>Once the row is gone, the graph no longer knows which specialisation went with which location. We call this the <strong>flattened row</strong>. The replay shows how much it costs:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -601,8 +683,16 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: What the rows say against what the provider-level edges say (replayed counts).</em></p>
-<p>Every provider ends up linked to almost every specialisation and location. A question such as &ldquo;cardiologists in Houston&rdquo; returns all five providers. The data in this file is synthetic and noisy, which makes the effect large, but the mechanism is general. When the row is the fact, model it as a node (a <code>Visit</code> or an <code>Assertion</code>) with edges to each participant, and the pairing survives.</p>
-<p>For Larkspur the same choice appears with sources. &ldquo;The 2026 handbook says EU Team supports export&rdquo; is a row-level fact. Store the source document and its version with the assertion, and deleting an obsolete edition can remove exactly the capabilities that edition asserted.</p>
+<p>Every provider ends up linked to almost every specialisation and location. A question such as &ldquo;cardiologists in Houston&rdquo; returns all five providers. The data in this file is synthetic and noisy, which makes the effect large, but the mechanism is general.</p>
+<p>When the row is the fact, model it as a node, such as a <code>Visit</code> or an <code>Assertion</code>, with an edge to each participant:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    V(("Visit&lt;br/&gt;row 17")) --&gt;|BY| H[Provider]
+    V --&gt;|FOR| P[Patient]
+    V --&gt;|IN| S[Specialisation]
+    V --&gt;|AT| L[Location]
+</pre></figure>
+<p><em>Figure 4: The row as a node. The visit holds the four values together: &ldquo;Cardiology in Houston&rdquo; matches only visits that had both.</em></p>
+<p>The row node costs one extra hop per question and one node per row. It pays whenever a question combines two columns of the same row. For Larkspur the same choice appears with sources. &ldquo;The 2026 handbook says EU Team supports export&rdquo; is a row-level fact. Store the source document and its version with the assertion, and deleting an obsolete edition can remove exactly the capabilities that edition asserted.</p>
 <h2 id="import-checks">Import checks</h2>
 <p>An import should prove it did what the file says before anything queries it:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -612,7 +702,7 @@ th:last-child, td:last-child { padding-right: 0; }
     N --&gt; E[Link bound entities]
     E --&gt; C[Check expected facts]
 </pre></figure>
-<p><em>Figure 1: Validate the key, merge entities, link only endpoints that exist, then check known facts.</em></p>
+<p><em>Figure 5: Validate the key, merge entities, link only endpoints that exist, then check known facts.</em></p>
 <p>Each step guards against one failure the notebook shows:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -652,7 +742,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 4: Planted import problems, one guard each.</em></p>
 <p>The notebook writes all three relationships in one chained query that begins by matching the provider and the patient. If either is missing, none of the three edges is written. That is the silent absence from lesson 43.1, created by the import.</p>
-<p>The last box in Figure 1 is a test you can run on every import. Load a small fixture, then load it again, then load it with one description edited. The entity count should stay the same across all three runs while the description changes. Then check a handful of known paths against the file, such as one provider&rsquo;s patients, and compare relationship counts with the distinct pairs in the input. Table 2 is exactly that comparison, and it would have caught both failures on the first run.</p>
+<p>The last box in Figure 5 is a test you can run on every import. Load a small fixture, then load it again, then load it with one description edited. The entity count should stay the same across all three runs while the description changes. Then check a handful of known paths against the file, such as one provider&rsquo;s patients, and compare relationship counts with the distinct pairs in the input. Table 2 is exactly that comparison, and it would have caught both failures on the first run.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No Neo4j server ran.</strong> Tables 2 and 3 replay the notebook&rsquo;s <code>MERGE</code> and <code>MATCH</code> rules over <code>healthcare.csv</code> in Python, for one run on an empty database. A second run, or a database that already holds nodes, gives other counts.</li>
+<li><strong>The file is synthetic.</strong> Its rows pair providers with specialisations at random, which makes the flattened-row effect larger than real data would.</li>
+<li><strong>Figures 2 and 4 are proposed designs.</strong> The Larkspur key rules and the visit node are not in the notebook and were not run.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/clauses/merge/" target="_blank" rel="noopener">Cypher Manual: MERGE</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/schema/constraints/" target="_blank" rel="noopener">Cypher Manual: Constraints</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/clauses/load-csv/" target="_blank" rel="noopener">Cypher Manual: LOAD CSV</a>.</li>
+<li>Python Software Foundation, <a href="https://docs.python.org/3/library/csv.html" target="_blank" rel="noopener">csv: CSV file reading and writing</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li><code>MERGE</code> matches the whole pattern, so the properties in it are the identity. Merge on a stable, scoped key backed by a uniqueness constraint, and update descriptions with <code>SET</code>.</li>
@@ -673,7 +776,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. Larkspur deletes an obsolete handbook edition, but some plans still show capabilities that only that edition asserted. What did the import leave out?</summary>
 <p>A source document identifier and version on each assertion. With them, deleting the edition also removes the assertions it supported; without them, the capabilities stay behind with nothing to support them.</p>
 </details>
-<h2 id="users-do-not-write-cypher">Users do not write Cypher</h2>
+<h2 id="start-with-an-answer-that-looks-like-success">Start with an answer that looks like success</h2>
 <p class="lesson-of">Lesson 43.3: Natural-language graph QA (text-to-Cypher). Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/notebook/03a_query_kg_with_langchain.ipynb" target="_blank" rel="noopener"><code>03a_query_kg_with_langchain.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -717,7 +820,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>Validate</td>
 <td>Cypher text</td>
-<td>accepted or rejected query</td>
+<td>accepted, corrected or emptied query</td>
 <td>a write clause slips through</td>
 </tr>
 <tr>
@@ -735,9 +838,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: What moves between the stages of Figure 1.</em></p>
-<p>The schema goes stale when the graph changes. Add a <code>REQUIRES_APPROVAL</code> relationship and a model working from yesterday&rsquo;s schema cannot use it. Refresh the schema used for generation after every schema change, and re-run the questions that touch the changed labels and properties.</p>
+<p>The schema goes stale when the graph changes. LangChain&rsquo;s <code>Neo4jGraph</code> reads it once, when the object is created. Add a <code>REQUIRES_APPROVAL</code> relationship afterwards and the generator keeps working from the old map until someone calls <code>refresh_schema()</code>. Refresh after every schema change, and re-run the questions that touch the changed labels and properties.</p>
+<h3>One request through the chain</h3>
+<p>LangChain&rsquo;s <code>GraphCypherQAChain</code> (langchain-neo4j 0.11.0) runs the loop. Follow the EU export question through it with the planted reversed edge. The generated query is scripted; the chain&rsquo;s handling of it was checked against the installed source:</p>
+<div class="walkthrough learning-widget" data-stepper id="chain-walkthrough">
+<p class="widget-intro">Step through one question in the chain, with a generated query that points the EU edge the wrong way.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one text-to-Cypher request"><button type="button" data-step="0" aria-pressed="false" aria-controls="chain-step-0">1. Schema</button><button type="button" data-step="1" aria-pressed="false" aria-controls="chain-step-1">2. Generate</button><button type="button" data-step="2" aria-pressed="false" aria-controls="chain-step-2">3. Validate</button><button type="button" data-step="3" aria-pressed="false" aria-controls="chain-step-3">4. Read</button><button type="button" data-step="4" aria-pressed="false" aria-controls="chain-step-4">5. Answer</button></div>
+<div class="step-panels"><section id="chain-step-0" class="step-panel" aria-labelledby="chain-heading-0"><h4 id="chain-heading-0">1. The schema goes into the prompt</h4><dl><dt>Source</dt><dd>the schema text read when the graph object was created</dd><dt>Holds</dt><dd>Plan, Feature and Region; SUPPORTS and AVAILABLE_IN, both pointing out of Plan</dd></dl></section><section id="chain-step-1" class="step-panel" aria-labelledby="chain-heading-1"><h4 id="chain-heading-1">2. The model writes a query</h4><dl><dt>Arm 1</dt><dd>plan p SUPPORTS the export feature</dd><dt>Arm 2</dt><dd>the EU region AVAILABLE_IN p, the planted mistake</dd></dl></section><section id="chain-step-2" class="step-panel" aria-labelledby="chain-heading-2"><h4 id="chain-heading-2">3. Validation is off by default</h4><dl><dt>Default</dt><dd><code>validate_cypher=False</code>: the query runs exactly as written</dd><dt>If switched on</dt><dd>the corrector cannot repair this two-arm query and replaces it with an empty string</dd></dl></section><section id="chain-step-3" class="step-panel" aria-labelledby="chain-heading-3"><h4 id="chain-heading-3">4. The database returns rows</h4><dl><dt>Rows</dt><dd>0, and no error; an empty query is not run at all</dd><dt>Cap</dt><dd>the chain keeps at most <code>top_k</code> rows, 10 by default</dd></dl></section><section id="chain-step-4" class="step-panel" aria-labelledby="chain-heading-4"><h4 id="chain-heading-4">5. The model phrases the rows</h4><dl><dt>Context</dt><dd>an empty list</dd><dt>Answer</dt><dd>whatever the model makes of nothing, often a confident "no"</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Stage 4 has a second trap. On a query that returns 368 rows, the answer model sees only the first 10. A count or a &ldquo;list all&rdquo; question gets answered from a sample, and nothing in the answer says so.</p>
 <h3>What the notebook runs, and what it leaves out</h3>
-<p>The lesson notebook is narrower than its title. It connects to the healthcare graph from lesson 43.2 and runs 13 hand-written Cypher queries; no model writes a query. The <a href="https://docs.langchain.com/oss/python/integrations/graphs/neo4j_cypher" target="_blank" rel="noopener">LangChain Neo4j integration</a> documents <code>GraphCypherQAChain</code>, which adds the generation and answer steps, and schema refresh. That chain is the extension beyond the checked-in notebook, and the module lab uses it.</p>
+<p>The lesson notebook is narrower than its title. It connects to the healthcare graph from lesson 43.2 through <code>Neo4jGraph</code> and runs 13 hand-written Cypher queries; no model writes a query. The <a href="https://docs.langchain.com/oss/python/integrations/graphs/neo4j_cypher" target="_blank" rel="noopener">LangChain Neo4j integration</a> documents the chain that adds the generation and answer steps. That chain is the extension beyond the checked-in notebook, and the module lab uses it.</p>
 <p>The 13 queries are still the most useful part of the lesson, because they are the expected answers for a translation test. Here is what they return on the graph that lesson 43.2&rsquo;s import builds, replayed in Python from the CSV (no Neo4j server was used; the healthcare examples are data-query exercises, not medical guidance):</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -816,13 +927,14 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>We call this the <strong>right query, wrong graph</strong> failure. A text-to-Cypher test that only compares generated rows with reference rows passes here, since both queries return the same 368 rows. Grade some answers against the source data as well, or the test certifies the import&rsquo;s mistakes.</p>
 <h2 id="debug-the-query-before-the-answer">Debug the query before the answer</h2>
 <p>When an answer is wrong, the bug is usually in the query, and the answer hides it. Save five fields for every request: the original question, the generated Cypher, its parameters, the returned rows, and the final answer. Then compare the generated pattern with the hand-written reference before reading the prose.</p>
-<p>Small mistakes in the pattern return nothing without raising an error:</p>
+<p>Small mistakes in the pattern return nothing without raising an error. We also ran each planted query through the chain&rsquo;s corrector, the step <code>validate_cypher=True</code> adds, with the Larkspur schema:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Planted mistake in the EU export query</th>
 <th>What the database returns</th>
 <th>Error raised</th>
+<th>With <code>validate_cypher=True</code></th>
 </tr>
 </thead>
 <tbody>
@@ -830,30 +942,42 @@ th:last-child, td:last-child { padding-right: 0; }
 <td><code>SUPPORT</code> instead of <code>SUPPORTS</code></td>
 <td>no rows</td>
 <td>none</td>
+<td>query emptied, no rows</td>
 </tr>
 <tr>
 <td><code>AVAILABLE_IN</code> pointing from region to plan</td>
 <td>no rows</td>
 <td>none</td>
+<td>query emptied, no rows</td>
 </tr>
 <tr>
 <td>Region condition dropped</td>
 <td>every export plan, EU or not</td>
 <td>none</td>
+<td>unchanged</td>
 </tr>
 <tr>
 <td><code>name: "EU"</code> where the stored key is <code>id: "eu"</code></td>
 <td>no rows</td>
 <td>none</td>
+<td>unchanged</td>
 </tr>
 <tr>
 <td>Two plan variables instead of one</td>
 <td>the cross-product match from lesson 43.1</td>
 <td>none</td>
+<td>unchanged</td>
+</tr>
+<tr>
+<td>A <code>DETACH DELETE</code> clause</td>
+<td>deletes plans</td>
+<td>none</td>
+<td>unchanged</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Planted generation mistakes. Each produces a valid query and a misleading result.</em></p>
+<p><em>Table 3: Planted generation mistakes. Each produces a valid query and a misleading result, and the corrector changes none of the outcomes.</em></p>
+<p>The corrector checks relationship types and directions against the schema. It flips a reversed edge in a single simple pattern, but in both two-arm versions we tried it gave up and returned an empty query, which the chain treats as zero rows. It never looks at properties, at missing conditions or at writes.</p>
 <p>This is the <strong>silent empty result</strong>: Cypher treats an unknown relationship type or property as a pattern that matches nothing (at most with a warning notification), which is a valid answer to the query that was written. The answer step then sees zero rows and phrases them. An empty result should say &ldquo;no matching facts under this schema and data version&rdquo;; it cannot establish that a capability is impossible.</p>
 <h3>A test set for translation</h3>
 <p>Build the test set from question types, not from one phrasing. For Larkspur:</p>
@@ -866,31 +990,59 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>Grade the rows against the reference query as well as grading the answer.</p>
 <h3>The database is the guard</h3>
-<p>A generated query runs with whatever authority its database user has. A prompt that says &ldquo;generate read-only queries&rdquo; restricts nothing; a model can still emit a <code>DELETE</code>. Give the chain a read-only database user, a query timeout and a result limit. Then a bad query fails at the database.</p>
+<p>A generated query runs with whatever authority its database user has. One design puts the guard in the prompt:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    P["Prompt: generate&lt;br/&gt;read-only queries"] --&gt; G[Model]
+    G --&gt; Q["Query with&lt;br/&gt;DETACH DELETE"]
+    Q --&gt; D[("Database, user&lt;br/&gt;with write rights")]
+    D --&gt; X[Plans deleted]
+</pre></figure>
+<p><em>Figure 2: A prompt guard. The instruction shapes what the model usually writes, and nothing stops the query it actually writes.</em></p>
+<p>The other puts it in the database:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    G[Model] --&gt; Q["Query with&lt;br/&gt;DETACH DELETE"]
+    Q --&gt; D[("Database, read-only&lt;br/&gt;user, timeout, row limit")]
+    D --&gt; X[Write refused]
+</pre></figure>
+<p><em>Figure 3: A database guard. The same query fails at the database, whatever the model wrote.</em></p>
+<p>Give the chain a read-only database user, a query timeout (<code>Neo4jGraph</code> has none unless you set <code>timeout</code>) and a result limit. Then a bad query fails at the database.</p>
 <blockquote>
-<p><strong>Key distinction:</strong> LangChain&rsquo;s chain requires an explicit <code>allow_dangerous_requests</code> opt-in. Its <a href="https://reference.langchain.com/python/langchain-community/chains/graph_qa/cypher/GraphCypherQAChain/allow_dangerous_requests" target="_blank" rel="noopener">security note</a> explains that the flag records that you accept the risk; it does not enforce any permission.</p>
+<p><strong>Key distinction:</strong> LangChain&rsquo;s chain refuses to start without an explicit <code>allow_dangerous_requests=True</code>. Its <a href="https://reference.langchain.com/python/langchain-community/chains/graph_qa/cypher/GraphCypherQAChain/allow_dangerous_requests" target="_blank" rel="noopener">security note</a> explains that the flag records that you accept the risk; it does not enforce any permission.</p>
 </blockquote>
 <p>Lesson 43.4 adds the case where the user does not know the exact entity name, and the graph needs a vector index to find a starting point.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No model and no Neo4j server ran.</strong> The chain trace uses a scripted query; Table 2 replays the notebook&rsquo;s queries over the CSV in Python; Table 3&rsquo;s database column applies Cypher&rsquo;s matching rules by hand.</li>
+<li><strong>The corrector column is real but narrow.</strong> It comes from langchain-neo4j 0.11.0&rsquo;s <code>CypherQueryCorrector</code> on six hand-written queries with a two-relationship schema; other versions and schemas may correct more or less.</li>
+<li><strong>The 10-row cap and the schema read are defaults</strong> in the installed versions; both are parameters you can change.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/graphs/neo4j_cypher" target="_blank" rel="noopener">Neo4j integration: GraphCypherQAChain</a>.</li>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-community/chains/graph_qa/cypher/GraphCypherQAChain/allow_dangerous_requests" target="_blank" rel="noopener">GraphCypherQAChain: allow_dangerous_requests</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/operations-manual/current/authentication-authorization/" target="_blank" rel="noopener">Operations Manual: Authentication and authorisation</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/clauses/match/" target="_blank" rel="noopener">Cypher Manual: MATCH</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Text-to-Cypher generates a query from the question and the schema, runs it and phrases the rows. Refresh the schema after every schema change and re-run the questions it affects.</li>
-<li>Log question, Cypher, parameters, rows and answer separately. A wrong relationship name, direction or property key returns no rows and no error.</li>
+<li>Text-to-Cypher generates a query from the question and the schema, runs it and phrases the rows. <code>Neo4jGraph</code> reads the schema once: refresh it after every schema change and re-run the questions it affects.</li>
+<li>Log question, Cypher, parameters, rows and answer separately. A wrong relationship name, direction or property key returns no rows and no error, and the optional corrector empties or passes such queries rather than fixing them.</li>
 <li>Hand-written queries are the expected results for generated ones, but a correct query over a flawed graph still returns wrong rows. Enforce safety with a read-only user, timeouts and result limits.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why must Text-to-Cypher generation see the graph schema, and when must that schema be refreshed?</summary>
-<p>The schema tells the model which labels, relationship types, directions and properties exist, which it needs to write a pattern that matches, such as <code>SUPPORTS</code> and <code>AVAILABLE_IN</code> bound to one plan. After a schema change, refresh the schema used for generation and re-run the questions that use the changed parts.</p>
+<p>The schema tells the model which labels, relationship types, directions and properties exist, which it needs to write a pattern that matches, such as <code>SUPPORTS</code> and <code>AVAILABLE_IN</code> bound to one plan. <code>Neo4jGraph</code> reads it once at creation, so after a schema change call <code>refresh_schema()</code> and re-run the questions that use the changed parts.</p>
 </details>
 <details>
 <summary>2. The generated query and the reference query both return 368 rows for cardiology patients in Houston. Does that mean the system answered correctly?</summary>
-<p>No. It means the generated query matches the reference, and both run over a graph whose import flattened its rows. In the CSV only 2 rows pair Cardiology with Houston. Grade some answers against the source data, or the test certifies the import&rsquo;s mistakes.</p>
+<p>No. It means the generated query matches the reference, and both run over a graph whose import flattened its rows. In the CSV only 2 rows pair Cardiology with Houston. The chain would also pass only the first 10 rows to the answer model. Grade some answers against the source data.</p>
 </details>
 <details>
 <summary>3. A team relies on a prompt that says generate read-only queries, plus the allow_dangerous_requests flag. Is the database protected?</summary>
-<p>No. A prompt does not restrict database authority, and the flag only records that the risk was accepted. Use a read-only database user, a query timeout and result limits, so a bad query fails at the database.</p>
+<p>No. A prompt does not restrict database authority, the flag only records that the risk was accepted, and the corrector passes a <code>DETACH DELETE</code> unchanged. Use a read-only database user, a query timeout and result limits, so a bad query fails at the database.</p>
 </details>
-<h2 id="when-the-question-has-no-exact-name">When the question has no exact name</h2>
+<h2 id="start-with-a-question-that-names-nothing">Start with a question that names nothing</h2>
 <p class="lesson-of">Lesson 43.4: Vector indexes on graph nodes. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/notebook/04a_vector_indexing_and_embedding.ipynb" target="_blank" rel="noopener"><code>04a_vector_indexing_and_embedding.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -951,8 +1103,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The notebook&rsquo;s vector index, piece by piece.</em></p>
-<p>The 1536 dimensions belong to the notebook&rsquo;s embedding model, not to every model. Query vectors and stored vectors must come from the same model with the same dimensionality, or the scores mean nothing. After creating the index, list the vector indexes and wait until this one reports <code>ONLINE</code> before searching.</p>
-<p>The notebook searches with the <code>db.index.vector.queryNodes</code> procedure. Current <a href="https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/vector-indexes/" target="_blank" rel="noopener">Neo4j vector-index documentation</a> prefers a <code>SEARCH</code> clause on recent releases and marks the procedure deprecated from 2026.04. Check the deployed database version before copying either form.</p>
+<p>The 1536 dimensions belong to the notebook&rsquo;s embedding model, not to every model. Query vectors and stored vectors must come from the same model with the same dimensionality, or the scores mean nothing. Follow one run of the notebook from an empty index to three ranked providers:</p>
+<div class="walkthrough learning-widget" data-stepper id="index-walkthrough">
+<p class="widget-intro">Step through the notebook's index build and search on the healthcare graph.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the index build and search"><button type="button" data-step="0" aria-pressed="false" aria-controls="index-step-0">1. Create</button><button type="button" data-step="1" aria-pressed="false" aria-controls="index-step-1">2. Wait</button><button type="button" data-step="2" aria-pressed="false" aria-controls="index-step-2">3. Embed bios</button><button type="button" data-step="3" aria-pressed="false" aria-controls="index-step-3">4. Embed question</button><button type="button" data-step="4" aria-pressed="false" aria-controls="index-step-4">5. Rank</button></div>
+<div class="step-panels"><section id="index-step-0" class="step-panel" aria-labelledby="index-heading-0"><h4 id="index-heading-0">1. Create the index</h4><dl><dt>Declared</dt><dd>label, property, 1536 dimensions and cosine similarity</dd><dt>Stored vectors</dt><dd>none yet</dd></dl></section><section id="index-step-1" class="step-panel" aria-labelledby="index-heading-1"><h4 id="index-heading-1">2. Wait until it is online</h4><dl><dt>Check</dt><dd>list the vector indexes and read the state</dd><dt>Rule</dt><dd>search only once this index reports <code>ONLINE</code></dd></dl></section><section id="index-step-2" class="step-panel" aria-labelledby="index-heading-2"><h4 id="index-heading-2">3. Embed each provider's bio</h4><dl><dt>Rows matched</dt><dd>368, one per <code>TREATS</code> edge</dd><dt>Distinct bios</dt><dd>5</dd><dt>Written to</dt><dd><code>comprehensiveEmbedding</code> on each provider node</dd></dl></section><section id="index-step-3" class="step-panel" aria-labelledby="index-heading-3"><h4 id="index-heading-3">4. Embed the question</h4><dl><dt>Question</dt><dd>"give me a list of healthcare providers in the area of dermatology"</dd><dt>Model</dt><dd>the same one that embedded the bios</dd></dl></section><section id="index-step-4" class="step-panel" aria-labelledby="index-heading-4"><h4 id="index-heading-4">5. Rank the nodes</h4><dl><dt>Budget</dt><dd>top 3 providers by cosine score</dd><dt>Returned</dt><dd>name, bio and score; no relationship is checked</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>Step 5 is where the notebook stops: it returns the vector stage alone. The graph checks of Figure 1 are what this lesson adds on top.</p>
+<p>Both database calls the notebook uses are now old forms. Neo4j&rsquo;s <a href="https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/vector-indexes/" target="_blank" rel="noopener">vector-index documentation</a> names the Cypher <code>SEARCH</code> clause as the preferred query from Neo4j 2026.01 and marks <code>db.index.vector.queryNodes</code> deprecated as of 2026.04. The GenAI plugin&rsquo;s <a href="https://neo4j.com/docs/genai/plugin/current/embeddings/" target="_blank" rel="noopener">embedding page</a> marks <code>genai.vector.encode</code> deprecated in 2025.11, superseded by <code>ai.text.embed</code>. Check the deployed database version before copying either form.</p>
 <h3>Planted failure: one embedding call per row</h3>
 <p>The embedding step starts by matching every provider that <code>TREATS</code> a patient, then embeds the provider&rsquo;s bio. A <code>MATCH</code> returns one row per matching path, not one per provider. On the graph that lesson 43.2&rsquo;s import builds there are 368 <code>TREATS</code> edges, which means 368 embedding calls for 5 distinct bios (replayed from the CSV; no database or embedding call was run). We call this <strong>row multiplication</strong>. Reduce to distinct providers before calling anything that costs money.</p>
 <h3>Text and edges can disagree</h3>
@@ -1067,17 +1225,35 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Recall against the candidate budget, as the lab prints it.</em></p>
 <p>The lab&rsquo;s recall divides surviving eligible records by every eligible record in a complete toy catalogue. A production system has no complete list; its recall needs independently labelled questions and answers.</p>
-<p>Each unit of <code>k</code> is one more candidate scored and one more set of graph checks. At <code>k = 5</code> the lab checks 5 records to find 2; at <code>k = 8</code> it checks 8 and finds the same 2, so the last 3 checks add work and no answer. When an eligible plan is missing, move the budget before changing the schema. Raise <code>k</code> until recall stops changing on labelled questions, then stop.</p>
+<p>Each unit of <code>k</code> is one more candidate scored and one more set of graph checks. At <code>k = 5</code> the lab checks 5 records to find 2; at <code>k = 8</code> it checks 8 and finds the same 2. The last 3 checks add work and no answer. When an eligible plan is missing, move the budget before changing the schema. Raise <code>k</code> until recall stops changing on labelled questions, then stop.</p>
 <h3>What a bigger budget cannot fix</h3>
-<p>The graph check is a post-filter, so it can return fewer than <code>k</code> results, including none. A larger <code>k</code> gives the graph more candidates. It cannot fix a missing <code>AVAILABLE_IN</code> edge, an entity that was never resolved to the right plan, or an eligible plan whose text ranks below every budget you can afford. Authorization is a separate constraint again: apply it to every branch of retrieval, and never treat it as a relevance filter that a bigger budget might relax.</p>
+<p>The graph check is a post-filter: it can return fewer than <code>k</code> results, including none. A larger <code>k</code> gives the graph more candidates. It cannot fix a missing <code>AVAILABLE_IN</code> edge, an entity that was never resolved to the right plan, or an eligible plan whose text ranks below every budget you can afford. Authorisation is a separate constraint again: apply it to every branch of retrieval, and never treat it as a relevance filter that a bigger budget might relax.</p>
 <h2 id="choosing-the-order">Choosing the order</h2>
-<p>Vector-first is one of two orders. When the question names its constraints exactly, the graph can go first:</p>
+<p>Vector-first, Figure 1, is one of two orders. When the question names its constraints exactly, the graph can go first and the vectors only order what it returns:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart TD
+    C[Known ids and relationships] --&gt; M[Match every node meeting them]
+    M --&gt; R[Rank matches by vector score]
+    R --&gt; A[Answer with source text]
+</pre></figure>
+<p><em>Figure 2: Graph-first retrieval. The match decides membership; the vectors only order the members.</em></p>
+<p>The same question shows the difference. Take &ldquo;EU plans with export&rdquo; on the lab&rsquo;s catalogue:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="order-switcher">
+<p class="widget-intro">Compare the two orders on the question "EU plans with export". Graph-first is worked by hand from the lab's edges; the lab itself runs only vector-first.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval order">
+<button type="button" data-mode="vector" aria-pressed="false" aria-controls="order-vector">Vector-first, k = 3</button>
+<button type="button" data-mode="graph" aria-pressed="false" aria-controls="order-graph">Graph-first</button>
+</div>
+<section id="order-vector" class="mode-panel" data-announcement="Vector-first selected. 3 candidates checked, 1 of 2 eligible plans found."><h4>Vector-first, k = 3: 1 of 2 plans</h4><ul><li>Ranks all eight records, keeps Refund guide, US Export and EU Team.</li><li>The graph checks reject the first two.</li><li>EU Enterprise, at rank 5, never reaches the checks.</li></ul></section>
+<section id="order-graph" class="mode-panel" data-announcement="Graph-first selected. Both eligible plans found, no budget to tune."><h4>Graph-first: 2 of 2 plans</h4><ul><li>Matches every plan with an export edge and an EU edge: EU Team and EU Enterprise.</li><li>Scores only those two, so ranking changes their order and nothing else.</li><li>Finds nothing if the question names no constraint the graph can bind.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th></th>
 <th>Vector-first (Figure 1)</th>
-<th>Graph-first</th>
+<th>Graph-first (Figure 2)</th>
 </tr>
 </thead>
 <tbody>
@@ -1110,11 +1286,24 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 4: The two orders for combining vectors and graph constraints.</em></p>
 <p>For &ldquo;EU plans with export&rdquo; the exact two-arm Cypher from lesson 43.1 returns both eligible plans over the whole graph, with no budget to tune. Use the vector stage when there is no exact starting point, and compare its recall curve with that exact match on the questions where both apply. Lesson 43.5 turns to where the graph&rsquo;s relationships come from when there is no CSV, only text.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The lab is a toy.</strong> Eight records, two-dimensional hand-placed vectors and exact cosine ranking. Neo4j&rsquo;s index is approximate and model embeddings have hundreds of dimensions, so real rankings shift between runs and models.</li>
+<li><strong>No database or embedding call ran.</strong> The 368 rows, 5 bios and the Dermatology edges come from replaying lesson 43.2&rsquo;s import rules on its CSV in Python.</li>
+<li><strong>Scores compare within one result set.</strong> Neo4j&rsquo;s documentation says vector scores are meaningful inside a single vector query; rank each source separately before combining vector hits with full-text or other scores.</li>
+<li><strong>Syntax dates are Neo4j&rsquo;s.</strong> The <code>SEARCH</code> clause and the deprecations are quoted from the current documentation; an older server needs the procedure form.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/vector-indexes/" target="_blank" rel="noopener">Vector indexes</a>, Cypher Manual.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/genai/plugin/current/embeddings/" target="_blank" rel="noopener">Create and store embeddings</a>, GenAI Plugin documentation.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector" target="_blank" rel="noopener">Neo4j vector index integration</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Vector search ranks text that resembles the question; graph checks confirm explicit relationships. Keep both stages visible so each dropped candidate has a reason.</li>
-<li>Query and stored vectors need the same model and dimensionality. Check the database version for the current search syntax, wait for the index to be <code>ONLINE</code>, and embed distinct nodes, not matched rows.</li>
-<li>In the lab, recall is 0% at <code>k = 2</code>, 50% at <code>k = 3</code> and 100% at <code>k = 5</code>. A bigger budget cannot fix a missing edge or an unresolved entity, and authorization applies to every branch.</li>
+<li>Query and stored vectors need the same model and dimensionality. Check the database version for the current search and embedding syntax, wait for the index to be <code>ONLINE</code>, and embed distinct nodes, not matched rows.</li>
+<li>In the lab, recall is 0% at <code>k = 2</code>, 50% at <code>k = 3</code> and 100% at <code>k = 5</code>. A bigger budget cannot fix a missing edge or an unresolved entity, and authorisation applies to every branch.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -1129,7 +1318,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. The notebook's embedding step matches every provider that treats a patient, then embeds the bio. What does that cost on the imported graph, and how do you fix it?</summary>
 <p>The match returns one row per <code>TREATS</code> edge, so the embedding runs once per row: 368 times for 5 distinct bios on the replayed graph. Reduce the rows to distinct providers before the embedding call.</p>
 </details>
-<h2 id="extraction-produces-candidate-facts">Extraction produces candidate facts</h2>
+<h2 id="start-with-a-sentence-that-loses-its-condition">Start with a sentence that loses its condition</h2>
 <p class="lesson-of">Lesson 43.5: LLM entity and relationship extraction. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/notebook/05a_entity_relationship_extraction.ipynb" target="_blank" rel="noopener"><code>05a_entity_relationship_extraction.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/optional/notebook/05b_create_kg_from_text.ipynb" target="_blank" rel="noopener"><code>05b_create_kg_from_text.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1142,6 +1331,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lessons 43.2 to 43.4 started from a CSV, where every column already had a meaning. Most of Larkspur&rsquo;s knowledge is prose: the handbook, policy updates, incident notes. To get a graph from prose, a model reads the text and proposes entities and relationships.</p>
 <p>The failure is quiet. The handbook says <em>EU Team may support exports after approval</em>. The extractor returns <code>(EU Team, supports, Export)</code>. Lesson 43.3&rsquo;s assistant now tells customers that EU Team supports exports, with no approval step, and the graph looks clean.</p>
+<h2 id="extraction-produces-candidate-facts">Extraction produces candidate facts</h2>
 <p><strong>LLM extraction asks a model to read a passage and return the entities it names and relationship tuples of the form (subject, relation, object).</strong> Each tuple is a <strong>candidate fact</strong>: the model&rsquo;s reading of the passage, which may be right, partial or invented. Nothing in the output proves the passage supports it.</p>
 <h3>What the notebook does</h3>
 <p>The extraction notebook runs four steps over a text file:</p>
@@ -1177,8 +1367,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The notebook&rsquo;s extraction pipeline.</em></p>
-<p>The input file is not prose. It is a tab-separated question and answer set: 402 rows about eight subjects such as Abraham Lincoln, Finland and Calvin Coolidge, 6,090 words in all, and the same question often appears twice with answers like &ldquo;yes&rdquo; and &ldquo;Yes.&rdquo;. At a threshold of 2,665 words the chunker makes 3 chunks of 2,659, 2,657 and 774 words (run in the scratchpad on the notebook&rsquo;s own function).</p>
-<p>That input carries a planted failure of its own. Some rows are questions whose answer is &ldquo;no&rdquo;, such as whether Lincoln&rsquo;s mother died of pneumonia. A tuple taken from the question text asserts exactly what the answer denies. We call this the <strong>negated fact</strong>, and only a check against the full row catches it.</p>
+<p>The input file is not prose. It is a tab-separated question and answer set from a Wikipedia factoid collection: 402 rows about eight subjects (Abraham Lincoln, Alessandro Volta, Amedeo Avogadro, Anders Celsius, Calvin Coolidge, Canada, Egypt and Finland), 6,090 words in all. The same question often appears twice, with answers like &ldquo;yes&rdquo; and &ldquo;Yes.&rdquo;. Of the 402 answers, 87 are yes, 30 are no and 131 are <code>NULL</code>, a question nobody answered. At a threshold of 2,665 words the chunker makes 3 chunks of 2,659, 2,657 and 774 words (run in the scratchpad on the notebook&rsquo;s own function).</p>
+<p>That input carries a planted failure of its own. Follow one row through the pipeline:</p>
+<div class="walkthrough learning-widget" data-stepper id="row-walkthrough">
+<p class="widget-intro">Step through one row of the input file as the notebook would process it. The extraction stage shows a plausible tuple, not a recorded model reply.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one row through extraction"><button type="button" data-step="0" aria-pressed="false" aria-controls="row-step-0">1. Row</button><button type="button" data-step="1" aria-pressed="false" aria-controls="row-step-1">2. Chunk</button><button type="button" data-step="2" aria-pressed="false" aria-controls="row-step-2">3. Extract</button><button type="button" data-step="3" aria-pressed="false" aria-controls="row-step-3">4. Parse and plot</button></div>
+<div class="step-panels"><section id="row-step-0" class="step-panel" aria-labelledby="row-heading-0"><h4 id="row-heading-0">1. The row</h4><dl><dt>Subject</dt><dd>Abraham_Lincoln</dd><dt>Question</dt><dd>"Did his mother die of pneumonia?"</dd><dt>Answer</dt><dd>no</dd></dl></section><section id="row-step-1" class="step-panel" aria-labelledby="row-heading-1"><h4 id="row-heading-1">2. Chunk</h4><dl><dt>Chunk</dt><dd>the first of 3; the row stays one line, all six tab-separated columns</dd><dt>Kept</dt><dd>the question, the "no" and the subject, side by side</dd></dl></section><section id="row-step-2" class="step-panel" aria-labelledby="row-heading-2"><h4 id="row-heading-2">3. Extract</h4><dl><dt>Plausible tuple</dt><dd>(Abraham Lincoln's mother, died of, pneumonia)</dd><dt>Problems</dt><dd>"his" is resolved from the subject column; the tuple states what the answer denies</dd></dl></section><section id="row-step-3" class="step-panel" aria-labelledby="row-heading-3"><h4 id="row-heading-3">4. Parse and plot</h4><dl><dt>Parser</dt><dd>accepts it: the shape is right</dd><dt>Graph</dt><dd>an edge from the mother to pneumonia, with no record of the "no"</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>A tuple taken from the question text asserts exactly what the answer denies. We call this the <strong>negated fact</strong>, and only a check against the full row catches it. The 30 &ldquo;no&rdquo; rows are 30 chances for it on this file.</p>
 <h3>From candidate to edge</h3>
 <p>A candidate becomes an edge only after it passes the checks the notebook leaves out:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -1194,7 +1390,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Support</strong>: the passage states the tuple, conditions included. A schema-valid tuple can still be unsupported.</li>
 <li><strong>Types</strong>: the subject and object have allowed labels, and the relation is an allowed type between them, such as <code>Plan SUPPORTS Feature</code>.</li>
 <li><strong>Identity</strong>: each name resolves to one existing entity, or to a new one on purpose.</li>
-<li><strong>Provenance</strong>: the stored assertion keeps the passage identifier, the source version and the extraction configuration (model and prompt), so it can be audited and deleted with its source.</li>
+<li><strong>Provenance</strong>: the stored assertion keeps the passage identifier, the source version and the extraction configuration (model and prompt). It can then be audited, and deleted with its source.</li>
 </ul>
 <h3>Names are not identities</h3>
 <p>The notebook removes duplicate entities by putting the names in a set. That merges only exact repeats. &ldquo;EU Team&rdquo; and &ldquo;EU team&rdquo; stay two entities; &ldquo;Team&rdquo; and &ldquo;EU Team&rdquo; stay two as well, and here they might really be two products. A string set cannot tell an alias from a different thing.</p>
@@ -1257,10 +1453,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The notebook&rsquo;s parser on planted replies (its own function, run in the scratchpad).</em></p>
-<p>Models add commentary and fences often enough that this matters. Structured output, where the model must return a schema-shaped object, removes these shape errors. It does not make a tuple true; the support check still applies. Treat any parse failure as a failed extraction, and keep the input chunk for review instead of dropping it.</p>
+<p>Models add commentary and fences often enough that this matters. Structured output, where the model must return a schema-shaped object, removes these shape errors. It does not make a tuple true; the support check still applies. Treat any parse failure as a failed extraction, and keep the input chunk for review instead of dropping it. In the notebook one failure stops the whole loop: the chunks after it are never extracted.</p>
 <h3>Chunk boundaries</h3>
 <p>The chunker adds whole lines until the next line would reach the threshold. A chunk reaches the threshold only when one line reaches it on its own. With the notebook&rsquo;s 2,665 words that never happens on this file; at a 50-word threshold it makes 148 chunks and 2 of them reach or pass 50 words, because the longest line has 75. Test the boundary before treating the threshold as a hard maximum.</p>
-<p>Boundaries also split references. A pronoun at the top of a chunk points to a name in the chunk before it. The optional notebook lays out the stages that handle this as separate tasks: named entity recognition, coreference clustering and resolution, then relationship extraction and graph building. Its cells are empty scaffolding for you to fill. When you evaluate those stages, inspect pronouns and aliases at chunk boundaries specifically.</p>
+<p>Boundaries also split references. A pronoun at the top of a chunk points to a name in the chunk before it; in this file even one row needs its subject column to resolve &ldquo;his&rdquo;. The optional notebook lays out the stages that handle this as separate tasks: named entity recognition, coreference clustering and resolution, then relationship extraction and graph building. Its cells are empty scaffolding for you to fill. When you evaluate those stages, inspect pronouns and aliases at chunk boundaries specifically.</p>
 <h3>Planted failure: the overwritten edge</h3>
 <p>The notebook draws its graph as a NetworkX directed graph, which holds at most one edge per ordered pair of nodes. We added two tuples between the same pair:</p>
 <div class="sheet scroll"><table>
@@ -1283,6 +1479,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The edge-label map used for drawing has the same one-per-pair key. When a pair can hold several predicates, versions or sources, use a representation that keeps each assertion, such as a multigraph or Neo4j relationships, which allow several between the same nodes.</p>
 <h3>Evaluate the stages separately</h3>
 <p>A graph that looks plausible in a plot can still answer the wrong question. Score entity resolution errors apart from relation extraction errors, because they have different fixes. Then check the paths your golden questions use: for Larkspur, does EU Team reach Export and the EU region, with its approval condition intact? Lesson 43.6 assembles extraction, the graph and text retrieval into one system.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No model was called.</strong> The parser results come from replies we wrote, and the extracted tuple in the row walkthrough is illustrative. A real model&rsquo;s error rate on this file is unmeasured.</li>
+<li><strong>The file counts are exact, the meaning is not.</strong> Rows, words, chunks and answer labels were counted with the notebook&rsquo;s own functions on its asset; how many &ldquo;no&rdquo; rows a model turns into negated facts depends on the model and prompt.</li>
+<li><strong>The optional notebook is a plan.</strong> Its coreference and entity recognition stages are empty cells, so this page describes their purpose, not their results.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>N. A. Smith, M. Heilman, R. Hwa and others, <a href="https://www.cs.cmu.edu/~ark/QA-data/" target="_blank" rel="noopener">Question-Answer Dataset</a>, Carnegie Mellon University and University of Pittsburgh, 2008 to 2010.</li>
+<li>Python documentation, <a href="https://docs.python.org/3/library/ast.html#ast.literal_eval" target="_blank" rel="noopener"><code>ast.literal_eval</code></a>.</li>
+<li>NetworkX, <a href="https://networkx.org/documentation/stable/reference/classes/digraph.html" target="_blank" rel="noopener">DiGraph</a> and <a href="https://networkx.org/documentation/stable/reference/classes/multidigraph.html" target="_blank" rel="noopener">MultiDiGraph</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>LLM extraction produces candidate facts. Check each tuple against its passage, validate types, resolve identity and store the passage identifier, source version and extraction configuration with it.</li>
@@ -1303,7 +1512,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A plan and a feature have two different extracted predicates, but the plotted graph shows only one. What caused the loss?</summary>
 <p>The notebook&rsquo;s directed graph holds one edge per ordered pair of nodes, so the second tuple overwrote the first. Use a multigraph or Neo4j relationships, which keep several assertions between the same pair.</p>
 </details>
-<h2 id="assemble-retrieval-with-source-evidence">Assemble retrieval with source evidence</h2>
+<h2 id="start-with-an-answer-nobody-can-check">Start with an answer nobody can check</h2>
 <p class="lesson-of">Lesson 43.6: End-to-end knowledge-graph RAG. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p12_knowledge_graphs_and_graph_rag/m43_knowledge_graphs_neo4j/mandatory/notebook/06a_roman_empire_graph_rag.ipynb" target="_blank" rel="noopener"><code>06a_roman_empire_graph_rag.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1316,6 +1525,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lessons 43.1 to 43.5 built the pieces one at a time: a model, a query language, an import, a vector index and extraction. This lesson runs all of them in one pipeline, on documents in and answers out.</p>
 <p>A Larkspur customer asks <em>Can EU Team export my data, and where does it say so?</em> The system answers &ldquo;Yes, EU Team supports export in the EU.&rdquo; The graph had the edge. Nobody can check the answer, because the passage that asserted the edge never reached the model, and the approval condition from lesson 43.5 was in that passage.</p>
+<h2 id="assemble-retrieval-with-source-evidence">Assemble retrieval with source evidence</h2>
 <p>The notebook builds the system on Wikipedia pages about the Roman Empire. Larkspur would substitute versioned handbook passages and keep the links from every extracted entity back to its source text.</p>
 <h3>Building the graph</h3>
 <p>Ingestion has four steps, each with a notebook setting:</p>
@@ -1363,10 +1573,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 1: The graph branch, joined to text hits. The notebook stops at &ldquo;Combine&rdquo;; attaching source passages is the step this lesson adds.</em></p>
 <ul>
-<li><strong>Text branch</strong>: hybrid search over the <code>Document</code> chunks, combining keyword and vector scores, as described in the <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector" target="_blank" rel="noopener">Neo4jVector integration</a>.</li>
+<li><strong>Text branch</strong>: hybrid search over the <code>Document</code> chunks, combining keyword and vector scores, as described in the <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector" target="_blank" rel="noopener">Neo4jVector integration</a>. The notebook keeps the search&rsquo;s default of 4 chunks.</li>
 <li><strong>Graph branch</strong>: a model extracts the person and organisation names in the question, a full-text index finds matching entities, and the branch returns each match&rsquo;s incoming and outgoing relationships, leaving out <code>MENTIONS</code> edges.</li>
 </ul>
-<p>The final context is two labelled blocks, &ldquo;Structured data&rdquo; with the relation lines and &ldquo;Unstructured data&rdquo; with the retrieved chunks. The answer prompt says to answer only from that context.</p>
+<p>The final context is two labelled blocks, &ldquo;Structured data&rdquo; with the relation lines and &ldquo;Unstructured data&rdquo; with the retrieved chunks. The answer prompt says to answer only from that context. Follow one question through the whole chain:</p>
+<div class="walkthrough learning-widget" data-stepper id="chain-walkthrough">
+<p class="widget-intro">Step through the notebook's chain for one question. Names and rows are illustrative; the shapes come from the notebook's code.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one question through the chain"><button type="button" data-step="0" aria-pressed="false" aria-controls="chain-step-0">1. Question</button><button type="button" data-step="1" aria-pressed="false" aria-controls="chain-step-1">2. Names</button><button type="button" data-step="2" aria-pressed="false" aria-controls="chain-step-2">3. Graph rows</button><button type="button" data-step="3" aria-pressed="false" aria-controls="chain-step-3">4. Text hits</button><button type="button" data-step="4" aria-pressed="false" aria-controls="chain-step-4">5. Context</button><button type="button" data-step="5" aria-pressed="false" aria-controls="chain-step-5">6. Answer</button></div>
+<div class="step-panels"><section id="chain-step-0" class="step-panel" aria-labelledby="chain-heading-0"><h4 id="chain-heading-0">1. The question</h4><dl><dt>Input</dt><dd>"Who was Octavian?", no chat history</dd><dt>Rewrite</dt><dd>skipped: with no history the question passes through unchanged</dd></dl></section><section id="chain-step-1" class="step-panel" aria-labelledby="chain-heading-1"><h4 id="chain-heading-1">2. Extract names</h4><dl><dt>Structured output</dt><dd>a list of person and organisation names: Octavian</dd><dt>Full-text query</dt><dd><code>Octavian~2</code></dd></dl></section><section id="chain-step-2" class="step-panel" aria-labelledby="chain-heading-2"><h4 id="chain-heading-2">3. Fetch the neighbourhood</h4><dl><dt>Entities kept</dt><dd>at most 2 matches for the name</dd><dt>Rows kept</dt><dd>at most 50 relation lines, shared by both matches, in no particular order</dd></dl></section><section id="chain-step-3" class="step-panel" aria-labelledby="chain-heading-3"><h4 id="chain-heading-3">4. Search the text</h4><dl><dt>Search</dt><dd>hybrid keyword and vector search over the chunks</dd><dt>Kept</dt><dd>4 chunks, joined with the marker <code>#Document </code></dd></dl></section><section id="chain-step-4" class="step-panel" aria-labelledby="chain-heading-4"><h4 id="chain-heading-4">5. Build the context</h4><dl><dt>Structured data</dt><dd>the relation lines, with no source passage</dd><dt>Unstructured data</dt><dd>the 4 chunks</dd></dl></section><section id="chain-step-5" class="step-panel" aria-labelledby="chain-heading-5"><h4 id="chain-heading-5">6. Answer</h4><dl><dt>Prompt</dt><dd>answer only from the context, concisely</dd><dt>Citations</dt><dd>none: no line in the context names its source</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h3>What the graph branch actually sends</h3>
 <p>The full-text query is built word by word: each word becomes a fuzzy term that tolerates two character edits, and the terms are joined with AND. We ran the notebook&rsquo;s builder:</p>
 <div class="sheet scroll"><table>
@@ -1389,10 +1604,15 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>Octavian</td>
 <td><code>Octavian~2</code></td>
 </tr>
+<tr>
+<td>Augustus (Octavian)</td>
+<td><code>Augustus~2 AND Octavian~2</code></td>
+</tr>
 </tbody>
 </table></div>
 <p><em>Table 2: The notebook&rsquo;s full-text query builder, run in the scratchpad. Punctuation is stripped before the terms are built.</em></p>
-<p>For each extracted name the branch keeps at most <strong>2</strong> matching entities and returns at most <strong>50</strong> relationship rows. These are caps, not relevance rules. Nothing orders the 50 rows by how useful they are, which means a highly connected entity can fill the budget before the needed relationship appears. We call this the <strong>neighbourhood budget</strong> failure. Log which entity each name matched, its score, and whether the 50-row cap was hit.</p>
+<p>AND means every word must match the same entity. An extracted name with an extra word, such as &ldquo;Augustus (Octavian)&rdquo;, misses an entity stored only as &ldquo;Augustus&rdquo;. A name made only of punctuation leaves no words, and the builder raises an <code>IndexError</code> that stops the whole chain.</p>
+<p>For each extracted name the branch keeps at most <strong>2</strong> matching entities and returns at most <strong>50</strong> relationship rows between them. These are caps, not relevance rules. Nothing orders the 50 rows by how useful they are, which means a highly connected entity can fill the budget before the needed relationship appears. We call this the <strong>neighbourhood budget</strong> failure. Log which entity each name matched, its score, and whether the 50-row cap was hit.</p>
 <p>There is a smaller planted failure in how the branch joins its output. It joins each name&rsquo;s rows with line breaks, then appends the next name&rsquo;s rows with no separator:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1413,10 +1633,33 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 3: <strong>Run-on facts</strong>, reproduced with the notebook&rsquo;s join logic in the scratchpad. Two relations become one garbled line.</em></p>
 <h2 id="check-the-evidence-contract">Check the evidence contract</h2>
 <p>Ingestion with sources keeps the <code>MENTIONS</code> link from each chunk to the entities it names. The graph branch then excludes <code>MENTIONS</code> and returns bare relation strings. The answer model sees &ldquo;EU Team SUPPORTS Export&rdquo; with no passage behind it. We call this the <strong>uncited fact</strong>: the graph knows where the fact came from, and retrieval throws that away.</p>
-<p>The contract that fixes it is one rule: every graph assertion travels with its supporting passage identifier and text. In practice that means following each relationship back to the chunk that mentions both endpoints, and putting the passage beside the relation line in the context. Larkspur&rsquo;s answer can then quote the approval sentence, or the reviewer can see that it was missing.</p>
+<p>The contract that fixes it is one rule: every graph assertion travels with its supporting passage identifier and text. In practice that means following each relationship back to the chunk that mentions both endpoints, and putting the passage beside the relation line in the context:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Contract</th>
+<th>Line in &ldquo;Structured data&rdquo;</th>
+<th>What a reviewer can check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Notebook</td>
+<td><code>EU Team - SUPPORTS -&gt; Export</code></td>
+<td>nothing: the line has no source</td>
+</tr>
+<tr>
+<td>With evidence</td>
+<td>the same line, plus passage id and text: &ldquo;EU Team may support exports after approval.&rdquo;</td>
+<td>the claim, its condition and the handbook version it came from</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: One graph fact under the two context contracts. The second line is a Larkspur illustration.</em></p>
+<p>Larkspur&rsquo;s answer can then quote the approval sentence, or the reviewer can see that it was missing.</p>
 <h3>Follow-up questions</h3>
-<p>The notebook also handles conversation. When a chat history is present, a model first rewrites the follow-up into a standalone question (&ldquo;When did he become emperor?&rdquo; becomes a question naming the person), and both branches retrieve with the rewrite. If the rewrite resolves &ldquo;he&rdquo; to the wrong person, both branches go to the wrong entity together.</p>
-<p>Record the rewritten question beside the original. The notebook passes the original input to the answer step, which keeps the user&rsquo;s words available for judging the final answer.</p>
+<p>The notebook also handles conversation. When a chat history is present, a model first rewrites the follow-up into a standalone question (&ldquo;When did he become the first emperor?&rdquo; becomes a question naming the person), and both branches retrieve with the rewrite. That rewrite runs on a separate OpenAI chat model at temperature 0, not on the model that answers. If it resolves &ldquo;he&rdquo; to the wrong person, both branches go to the wrong entity together.</p>
+<p>Record the rewritten question beside the original. The answer step never sees the rewrite: its question slot receives the whole input as text, the chat history included (checked by rendering the notebook&rsquo;s prompt in the scratchpad). The user&rsquo;s words stay available for judging the answer, mixed with the history.</p>
 <h3>An evaluation plan</h3>
 <p>No notebook output shows that the combined system beats either branch alone on Larkspur. That needs a comparison on fixed questions:</p>
 <div class="sheet scroll"><table>
@@ -1455,8 +1698,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Five question types for comparing vector-only, graph-only and combined retrieval.</em></p>
+<p><em>Table 5: Five question types for comparing vector-only, graph-only and combined retrieval.</em></p>
 <p>Run each type through vector-only, graph-only and combined retrieval. Report retrieved evidence, answer correctness, unsupported claims, latency and indexing work as separate columns; one blended score hides which branch failed. The module lab runs a version of this comparison on Larkspur&rsquo;s team and incident records.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No database, model or Wikipedia call ran.</strong> The query builder, the row join and the answer prompt were run from the notebook&rsquo;s own code in the scratchpad; the walkthrough&rsquo;s names and rows are illustrative.</li>
+<li><strong>The caps and settings are the notebook&rsquo;s.</strong> Two entities, 50 rows, 4 chunks, 512 tokens and 24 overlap are its choices; none was tuned or measured.</li>
+<li><strong>Some calls are ageing.</strong> Neo4j&rsquo;s <a href="https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/full-text-indexes/" target="_blank" rel="noopener">full-text index documentation</a> prefers the <code>SEARCH</code> clause from 2026.09 and deprecates <code>db.index.fulltext.queryNodes</code> in Cypher 25 as of 2026.10. LangChain marks the experimental package that holds the graph transformer as no longer maintained.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector" target="_blank" rel="noopener">Neo4j vector index integration</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/providers/neo4j" target="_blank" rel="noopener">Neo4j integrations</a>.</li>
+<li>Neo4j, <a href="https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/full-text-indexes/" target="_blank" rel="noopener">Full-text indexes</a>, Cypher Manual.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Knowledge-graph RAG runs hybrid keyword and vector search over text beside an entity neighbourhood from the graph, and joins both into the context.</li>
@@ -1466,7 +1721,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. The end-to-end notebook combines two kinds of retrieval. What does each one contribute to the context?</summary>
-<p>The text branch runs hybrid keyword and vector search over the <code>Document</code> chunks and contributes passages. The graph branch extracts names from the question, resolves them through a full-text index and contributes their incoming and outgoing relationships as relation lines. The context holds both, in two labelled blocks.</p>
+<p>The text branch runs hybrid keyword and vector search over the <code>Document</code> chunks and contributes 4 passages. The graph branch extracts names from the question, resolves them through a full-text index and contributes their incoming and outgoing relationships as relation lines. The context holds both, in two labelled blocks.</p>
 </details>
 <details>
 <summary>2. A question about a highly connected entity misses the relationship it needs. Which caps in the graph branch could explain it?</summary>
@@ -1532,7 +1787,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Separate semantic candidate selection from exact graph validation and measure both stages.</li>
 <li>Retrieve source passages with graph assertions so each answer claim can be checked.</li>
 </ul></article>
-    <nav class="toc" aria-label="M43 sections"><details open><summary>In M43</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#questions-that-are-joins">Questions that are joins</a></li><li><a href="#nodes-edges-properties">Nodes, edges, properties</a></li><li><a href="#cypher">Cypher</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#when-an-import-doubles-the-plans">When an import doubles the plans</a></li><li><a href="#identity-before-import">Identity before import</a></li><li><a href="#the-flattened-row">The flattened row</a></li><li><a href="#import-checks">Import checks</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#users-do-not-write-cypher">Users do not write Cypher</a></li><li><a href="#text-to-cypher">Text-to-Cypher</a></li><li><a href="#debug-the-query-before-the-answer">Debug the query before the answer</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#when-the-question-has-no-exact-name">When the question has no exact name</a></li><li><a href="#graph--vector-hybrid">Graph + vector hybrid</a></li><li><a href="#candidate-budget-and-constraints">Candidate budget and constraints</a></li><li><a href="#choosing-the-order">Choosing the order</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#extraction-produces-candidate-facts">Extraction produces candidate facts</a></li><li><a href="#preserve-relations-and-conditions">Preserve relations and conditions</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#assemble-retrieval-with-source-evidence">Assemble retrieval with source evidence</a></li><li><a href="#check-the-evidence-contract">Check the evidence contract</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M43 sections"><details open><summary>In M43</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-question-that-is-a-join">Start with a question that is a join</a></li><li><a href="#nodes-edges-properties">Nodes, edges, properties</a></li><li><a href="#cypher">Cypher</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-an-import-that-doubles-the-plans">Start with an import that doubles the plans</a></li><li><a href="#identity-before-import">Identity before import</a></li><li><a href="#the-flattened-row">The flattened row</a></li><li><a href="#import-checks">Import checks</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-an-answer-that-looks-like-success">Start with an answer that looks like success</a></li><li><a href="#text-to-cypher">Text-to-Cypher</a></li><li><a href="#debug-the-query-before-the-answer">Debug the query before the answer</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-question-that-names-nothing">Start with a question that names nothing</a></li><li><a href="#graph--vector-hybrid">Graph + vector hybrid</a></li><li><a href="#candidate-budget-and-constraints">Candidate budget and constraints</a></li><li><a href="#choosing-the-order">Choosing the order</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-sentence-that-loses-its-condition">Start with a sentence that loses its condition</a></li><li><a href="#extraction-produces-candidate-facts">Extraction produces candidate facts</a></li><li><a href="#preserve-relations-and-conditions">Preserve relations and conditions</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-an-answer-nobody-can-check">Start with an answer nobody can check</a></li><li><a href="#assemble-retrieval-with-source-evidence">Assemble retrieval with source evidence</a></li><li><a href="#check-the-evidence-contract">Check the evidence contract</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

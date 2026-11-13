@@ -90,7 +90,7 @@ When evaluation shows a problem, the fix is usually in the examples or in how th
 
 **What a strong answer covers:**
 - Does the arithmetic: Llama 2 7B has 6.74 billion parameters, 13.5 GB of weights in 16-bit before any gradients or optimizer state, so full fine-tuning does not fit
-- Loads the base weights in 4 bits (about 3.4 GB) and trains LoRA adapters: at rank 16 on every linear layer that is 40.0 million trainable parameters, 0.59% of the model
+- Loads the base weights in 4 bits (about 4.2 GB) and trains LoRA adapters: at rank 16 on every linear layer that is 40.0 million trainable parameters, 0.59% of the model
 - Uses a LoRA-sized learning rate; AutoTrain’s default is 3e-5, and the notebook’s 0.4 is more than 13,000 times that
 - Keeps batch size small with gradient accumulation and gradient checkpointing, and merges or serves the adapter separately depending on how many variants are deployed
 
