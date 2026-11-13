@@ -11,7 +11,7 @@ async def main():
               "command": "uv",
               "args": ["run",
                        "--directory",
-                       "/ABSOLUTE/PATH/TO/ai-engineering-demystified-10-agent-protocols/modules/04_mcp_applications/projects/02_mcp_servers_and_local_agent/servers",
+                       "/ABSOLUTE/PATH/TO/rag-agents-engineering/p11_agent_protocols/m40_mcp_applications/projects/02_mcp_servers_and_local_agent/servers",
                        "weather_server.py"],
           }
         

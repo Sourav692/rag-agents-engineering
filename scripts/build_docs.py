@@ -51,8 +51,9 @@ def mod_span(keys):
     return ", ".join(mref(n) for n in nums)
 
 
-def src_url(it):
-    return f"{GH}/{SOURCES[it.repo]['repo']}/blob/main/{it.source_path}"
+def src_ref(it):
+    """Provenance only: the source repos are archived, so this is text, not a link."""
+    return f"{SOURCES[it.repo]['repo']}/{it.source_path}"
 
 
 # ---------------------------------------------------------------- coverage
@@ -152,7 +153,7 @@ def coverage():
           "| # | Architecture | Family | Status | Course notebook(s) | Source | Module |", "|---|---|---|---|---|---|---|"]
     for a in arch:
         nbs = "<br>".join(f"[`{label(it)}`](../{it.dest})" + (" *(optional)*" if it.optional else "") for it in a["items"])
-        srcs = "<br>".join(f"[{it.repo}]({src_url(it)})" for it in a["items"])
+        srcs = "<br>".join(f"`{it.repo}`" for it in a["items"])
         L.append(f"| {a['num']} | [{a['name']}]({up}/blob/main/notebooks/{a['upstream']}.ipynb) | {a['family']} | "
                  f"{STATUS[a['status']]} | {nbs} | {srcs} | {a['mods']} |")
     notes = [a for a in arch if a.get("note")]
@@ -190,7 +191,7 @@ def coverage():
              "<th>Course notebook(s)</th><th>Module</th></tr></thead><tbody>")
     for a in arch:
         nbs = "".join(
-            f"<a class='nb' href='{COURSE_URL}/blob/main/{it.dest}' target='_blank' rel='noopener' title='source: {E(src_url(it))}'>"
+            f"<a class='nb' href='{COURSE_URL}/blob/main/{it.dest}' target='_blank' rel='noopener' title='source: {E(src_ref(it))}'>"
             f"<span class='repo r{it.repo}'>{it.repo}</span><span>{E(label(it))}</span>"
             f"{'<em class=opt>optional</em>' if it.optional else ''}</a>" for it in a["items"])
         nt = f"<div class='note'>{E(a['note'])}</div>" if a.get("note") else ""

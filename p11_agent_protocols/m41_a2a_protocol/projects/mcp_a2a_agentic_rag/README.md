@@ -8,7 +8,7 @@ This project is the capstone of module 05 of *AI Engineering Demystified — 10 
 
 **Prerequisites (knowledge):**
 
-- Agentic RAG — retrieval grading, multi-candidate retrieval and answer ranking — from [repository 09 (advanced RAG)](https://github.com/Sourav692/ai-engineering-demystified-09-advanced-rag). Read that first if `agents/agentic_rag_agent/rag_orchestrator.py` is unfamiliar.
+- Agentic RAG — retrieval grading, multi-candidate retrieval and answer ranking — from [Part 8, agentic RAG](../../../../p08_agentic_rag/README.md). Read that first if `agents/agentic_rag_agent/rag_orchestrator.py` is unfamiliar.
 - MCP servers and clients: modules [01](../../../m38_mcp_foundations/README.md)–[03](../../../m39_building_mcp_servers_and_clients/README.md) of this repository.
 - A2A Agent Cards, tasks and clients: the three notebooks in [module 05](../../README.md).
 

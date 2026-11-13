@@ -53,7 +53,7 @@ modifications, additions, improvements in the writing style, etc.
 Want to see how this pattern is implemented? 💻
 
 - Check the [notebook](../optional/notebook/01a_reflection_pattern.ipynb) for a step by step explanation
-- Check the [`ReflectionAgent`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals/tree/main/modules/01_agents_from_scratch/notebooks/agentic_patterns/reflection_pattern/reflection_agent.py) for a complete Python implementation
+- Check the [`ReflectionAgent`](../mandatory/notebook/agentic_patterns/reflection_pattern/reflection_agent.py) for a complete Python implementation
 
 
 Take a look at the YouTube video! 👇
@@ -83,8 +83,8 @@ In practice, you can build tools for whatever you want (at the end of the day th
 Want to see how this pattern is implemented? 💻
 
 - Check the [notebook](../mandatory/notebook/01b_tool_use_pattern.ipynb) for a step by step explanation
-- Check the [`ToolAgent`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals/tree/main/modules/01_agents_from_scratch/notebooks/agentic_patterns/tool_pattern/tool_agent.py) for a complete Python implementation
-- Check the [`Tool`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals/tree/main/modules/01_agents_from_scratch/notebooks/agentic_patterns/tool_pattern/tool.py) for understanding how Tools work under the hood.
+- Check the [`ToolAgent`](../mandatory/notebook/agentic_patterns/tool_pattern/tool_agent.py) for a complete Python implementation
+- Check the [`Tool`](../mandatory/notebook/agentic_patterns/tool_pattern/tool.py) for understanding how Tools work under the hood.
 
 Take a look at the YouTube video! 👇
 <div align="center">
@@ -111,7 +111,7 @@ The most paradigmatic example of the planning pattern is the **ReAct** technique
 Want to see how this pattern is implemented? 💻
 
 - Check the [notebook](../mandatory/notebook/01c_planning_pattern_react.ipynb) for a step by step explanation
-- Check the [`ReactAgent`](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals/tree/main/modules/01_agents_from_scratch/notebooks/agentic_patterns/planning_pattern/react_agent.py) for a complete Python implementation
+- Check the [`ReactAgent`](../mandatory/notebook/agentic_patterns/planning_pattern/react_agent.py) for a complete Python implementation
 
 Take a look at the YouTube video! 👇
 
@@ -135,7 +135,7 @@ These frameworks implement different variations of the multi-agent pattern, in w
 
 Want to see how this pattern is implemented? 💻
 
-- Check the notebook (moved to [repository 08, advanced agent systems](https://github.com/Sourav692/ai-engineering-demystified-08-advanced-agent-systems)) for a step by step explanation
+- Check the notebook ([M35, multi-agent architectures](../../../p10_multi_agent_systems/m35_multi_agent_architectures/README.md)) for a step by step explanation
 - Check the `Agent` (repository 08) to see how to implement
 an `Agent`, member of the `Crew`.
 - Check the `Crew` (repository 08) to see how to implement
@@ -153,7 +153,7 @@ Take a look at the YouTube video! 👇
 
 ## Installation
 
-In this course you don't install anything: the library sits beside the notebooks, so `import agentic_patterns` works from the [notebooks/](https://github.com/Sourav692/ai-engineering-demystified-06-agent-fundamentals/tree/main/modules/01_agents_from_scratch/notebooks) folder (see `04_real_world_agent_hacker_news_chatbot.ipynb`).
+In this course you don't install anything: the library sits beside the notebooks, so `import agentic_patterns` works from the [notebooks/](../mandatory/notebook/) folder (see `04_real_world_agent_hacker_news_chatbot.ipynb`).
 
 This is the library implemented in the [agentic_patterns/](../mandatory/notebook/agentic_patterns) folder, and contains a full implementation of the 4 patterns and related helper methods.
 

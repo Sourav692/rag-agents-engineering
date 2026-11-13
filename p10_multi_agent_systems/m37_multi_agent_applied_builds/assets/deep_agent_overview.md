@@ -212,7 +212,7 @@ A React single-page application with a neural-inspired dark theme:
 
 ## Deployment
 
-> The standalone deployable app these steps build (the monorepo's `app/` folder: FastAPI backend, React frontend, Docker and Databricks app config) moves to [repository 14 (projects)](https://github.com/Sourav692/ai-engineering-demystified-14-projects). This repository keeps the teaching examples in [`../mandatory/notebook/`](https://github.com/Sourav692/ai-engineering-demystified-08-advanced-agent-systems/tree/main/modules/11_deep_agents_and_harness_engineering/notebooks), which need nothing from it.
+> The standalone deployable app these steps build (the monorepo's `app/` folder: FastAPI backend, React frontend, Docker and Databricks app config) moves to [repository 14 (projects)](https://github.com/Sourav692/ai-engineering-demystified-14-projects). This repository keeps the teaching examples in [`../mandatory/notebook/`](../mandatory/notebook/), which need nothing from it.
 
 Deployed as a Databricks App (`deep-agent-memory`):
 

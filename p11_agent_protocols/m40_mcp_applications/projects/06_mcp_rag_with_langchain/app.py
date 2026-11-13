@@ -20,7 +20,7 @@ from langgraph.prebuilt import create_react_agent as create_agent
 server_params = StdioServerParameters(
     command="uv",
     args=["--directory",
-            "/ABSOLUTE/PATH/TO/ai-engineering-demystified-10-agent-protocols/modules/04_mcp_applications/projects/06_mcp_rag_with_langchain",
+            "/ABSOLUTE/PATH/TO/rag-agents-engineering/p11_agent_protocols/m40_mcp_applications/projects/06_mcp_rag_with_langchain",
             "run",
             "server.py"])
 
