@@ -1,12 +1,23 @@
 # M38.5 Theory: Prompts and resources
 
 *[M38 theory](../README.md) · Lesson 38.5 · Notebooks: [`05a_adding_prompt_and_resource_features.ipynb`](../../notebook/05a_adding_prompt_and_resource_features.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: A server offers three kinds of thing, and who decides to use each one, model or user, decides which kind a feature should be -->
+<!-- format: approved -->
+
+## Start with three ways into one answer
+
+> **What you'll learn**
+>
+> - **Explain** how tools, resources and prompts differ in who invokes them and what comes back.
+> - **Distinguish** a static resource URI from a URI template, and list both.
+> - **Trace** what the lesson 7 chatbot forwards to the model for `@topic`, `/prompt` and a plain question.
+> - **Choose** the right kind for a server feature, using Larkspur's handbook as the example.
+
+A Larkspur support engineer answering "How long does a refund take?" can get handbook text into the answer three ways. They can let the model search the handbook mid-answer. They can attach the refund-timing section themselves. Or they can start a reply template the team wrote, which tells the model to search and cite.
+
+All three reach the same handbook through the same server. What differs is who decides, and what the model ends up reading.
 
 ## Tools, resources, prompts
-
-A Larkspur engineer may attach a handbook section, choose a reply template or let the model search. You will map those actions to resources, prompts and tools, then inspect what this host actually forwards to the model.
-
-### Step 1: Choose the primitive by who invokes it
 
 A server can offer three kinds of thing. They differ in who decides to use them, and that decides which one a feature should be.
 
@@ -18,22 +29,92 @@ A server can offer three kinds of thing. They differ in who decides to use them,
 | In the lesson 7 chatbot, chosen by | the model | the user, typing `@topic` | the user, typing `/prompt name arg=value` |
 | Returns | content for the model | data the app shows or adds to context | messages to send to the model |
 
-### Step 2: Read a named resource or URI template
+*Table 1: The three server primitives.*
 
-are read-only data, like GET endpoints in a REST API: they return data and should not change anything. Each has a URI the server chooses. A static URI names one thing (`papers://folders`, the list of topic folders); a template names a family (`papers://{topic}`, the papers saved under one topic), and the client fills in the parameter at read time.
+The spec calls tools model-controlled, resources application-driven and prompts user-controlled. A **tool** is something the model decides to call while it writes an answer, with arguments it chooses:
 
-### Step 3: Fetch a server-owned instruction template
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant H as Host
+    participant S as Server
+    M->>H: tool_use search_handbook
+    H->>S: tools/call
+    S-->>H: result content
+    H-->>M: tool_result, then the answer
+```
 
-are templates the server owns. `generate_search_prompt(topic, num_papers=5)` returns a long instruction to search for papers on the topic and summarise them; FastMCP takes the prompt's name from the function and its arguments from the signature, and `prompts/get` returns the filled-in text as messages.
+*Figure 1: A tool. The model decides, mid-answer.*
 
-The Larkspur server offers one of each kind of resource and a prompt. Recorded with SDK 1.30.0:
+A **resource** is data the user or the application picks by URI. The host decides what to do with it:
 
-- `resources/list` returned only the static resource, `handbook://sections`.
-- `resources/templates/list` returned the template, `handbook://section/{chunk_id}`.
-- `resources/read` on `handbook://section/refund-timing` returned that chunk as `text/plain`.
-- `prompts/get` for `answer_with_citations` with `question = "How long does a refund take?"` returned one message with `role: "user"` whose text asks the model to call `search_handbook` and cite chunk ids.
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant H as Host
+    participant S as Server
+    U->>H: pick the refund-timing section
+    H->>S: resources/read
+    S-->>H: text/plain chunk
+    H-->>U: shown, or added to context
+```
 
-### Step 4: Trace the host command before generation
+*Figure 2: A resource. The user picks it, and no model is involved in fetching it.*
+
+A **prompt** is a message template the server owns. The user starts it, and its output becomes the model's input:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant H as Host
+    participant S as Server
+    participant M as Model
+    U->>H: /prompt answer_with_citations
+    H->>S: prompts/get with arguments
+    S-->>H: 1 message, role user
+    H->>M: the message, as the question
+```
+
+*Figure 3: A prompt. The user starts it; the server writes the instruction.*
+
+Send the refund question through each kind on a small Larkspur server, replayed in memory with SDK 1.30.0:
+
+<div class="learning-widget evidence-switcher" data-comparison id="primitive-switcher">
+<p class="widget-intro">One question, "How long does a refund take?", through each primitive. Server responses come from the in-memory replay; the model's behaviour is described, not recorded.</p>
+<div class="mode-controls" hidden role="group" aria-label="Server primitive">
+<button type="button" data-mode="tool" aria-pressed="false" aria-controls="primitive-tool">Tool</button>
+<button type="button" data-mode="resource" aria-pressed="false" aria-controls="primitive-resource">Resource</button>
+<button type="button" data-mode="prompt" aria-pressed="false" aria-controls="primitive-prompt">Prompt</button>
+</div>
+<section id="primitive-tool" class="mode-panel" data-announcement="Tool selected. The model decides to search."><h4>Tool: search_handbook</h4><dl><dt>Decided by</dt><dd>The model, which writes the query itself</dd><dt>Request</dt><dd><code>tools/call</code> with a query and <code>k</code></dd><dt>Model reads</dt><dd>The returned chunks, as a tool result inside its own answer loop</dd></dl></section>
+<section id="primitive-resource" class="mode-panel" data-announcement="Resource selected. The engineer attaches a section."><h4>Resource: the refund-timing section</h4><dl><dt>Decided by</dt><dd>The engineer, who picks the section</dd><dt>Request</dt><dd><code>resources/read</code> on <code>handbook://section/refund-timing</code></dd><dt>Returns</dt><dd>The chunk as <code>text/plain</code></dd><dt>Model reads</dt><dd>Nothing in the lesson 7 chatbot, which prints it; a host that adds it to context makes it evidence</dd></dl></section>
+<section id="primitive-prompt" class="mode-panel" data-announcement="Prompt selected. The engineer starts a server template."><h4>Prompt: answer_with_citations</h4><dl><dt>Decided by</dt><dd>The engineer, who starts the template on purpose</dd><dt>Request</dt><dd><code>prompts/get</code> with the question as its argument</dd><dt>Returns</dt><dd>One message, <code>role: "user"</code>, asking the model to call <code>search_handbook</code> and cite chunk ids</dd><dt>Model reads</dt><dd>That message as the question, and then usually calls the tool</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+## Resources: one URI or a family
+
+**Resources** are read-only data, like GET endpoints in a REST API: they return data and should not change anything. Each has a URI the server chooses. A static URI names one thing: `papers://folders`, the list of topic folders. A template names a family: `papers://{topic}`, the papers saved under one topic, with the client filling in the parameter at read time.
+
+Static resources and templates are listed separately. In the Larkspur replay:
+
+| Request | Returned |
+|---|---|
+| `resources/list` | Only the static resource, `handbook://sections` |
+| `resources/templates/list` | The template, `handbook://section/{chunk_id}` |
+| `resources/read` on `handbook://section/refund-timing` | That chunk, as `text/plain` |
+
+*Table 2: Listing and reading Larkspur's resources (SDK 1.30.0, in-memory session).*
+
+A client that calls only `resources/list` never learns the template exists.
+
+## Prompts: templates the server owns
+
+**Prompts** are templates the server owns. The notebook's `generate_search_prompt(topic, num_papers=5)` returns a long instruction to search for papers on the topic, extract each paper's details and summarise the field. FastMCP takes the prompt's name from the function, its arguments from the signature and its description from the docstring. `prompts/get` returns the filled-in text as messages.
+
+In the replay, `prompts/get` for `answer_with_citations` with `question = "How long does a refund take?"` returned one message with `role: "user"`. The wording lives on the server. Every engineer who starts it sends the same instruction, and a fix to the template reaches all of them.
+
+## How the lesson 7 chatbot routes input
 
 The lesson 7 chatbot routes user input before the model sees it:
 
@@ -47,28 +128,34 @@ flowchart TD
     PP --> M
 ```
 
-`/prompts` only prints the list. A prompt fetched with `/prompt` goes to `process_query` like a typed question. A resource is printed for the user and never reaches the model in this chatbot; another host could add it to the context instead. Two details in the chatbot's code are worth knowing before you copy it:
+*Figure 4: The lesson 7 chatbot's input routing. Only prompts and plain questions reach the model.*
 
-- **It lists only static resources.** `connect_to_server` calls `list_resources()`, which does not return templates, so `papers://{topic}` never enters the routing table. `get_resource` works around it: for an unknown `papers://` URI it uses any session that has a `papers://` resource. With two servers using that scheme it picks the first.
-- **One dict routes all three kinds.** `self.sessions` maps tool names, prompt names and resource URIs to sessions, so a prompt named like another server's tool overwrites the route, the same collision the lab in lesson 38.4 shows for tools.
+`/prompts` only prints the list. A prompt fetched with `/prompt` goes to `process_query` like a typed question, and only its first message is used. A resource is printed for the user and never reaches the model in this chatbot; another host could add it to the context instead. Two details in the chatbot's code are worth knowing before you copy it:
 
-### Step 5: Assign one concrete feature to each primitive
+- **It lists only static resources.** `connect_to_server` calls `list_resources()`, which does not return templates. `papers://{topic}` never enters the routing table, and `get_resource` works around it: for an unknown `papers://` URI it uses any session that has a `papers://` resource. With two servers using that scheme it picks the first.
+- **One dict routes all three kinds.** `self.sessions` maps tool names, prompt names and resource URIs to sessions. A prompt named like another server's tool overwrites the route, the same collision the lab in lesson 38.4 shows for tools.
 
-For Larkspur the split is: `search_handbook` is a tool, because the model needs it mid-answer with a query it writes; the sections are resources, for a support console that lets an engineer attach a section; and `answer_with_citations` is a prompt the engineer starts on purpose.
+## Choosing the kind for a feature
 
-### Try it yourself
+Ask who should decide to use the feature, and when:
 
-List resources and resource templates separately, then read handbook://section/refund-timing. Check that listing static resources alone would not discover the template. Follow /prompt and a resource read through the host: identify which text enters process_query and which is only printed for the user.
+- **The model, mid-answer, with arguments it writes:** a tool. Larkspur's `search_handbook` is one, because the query depends on the conversation.
+- **A person or the app, by name, as data:** a resource. The handbook sections are resources, for a support console that lets an engineer attach a section.
+- **A person, on purpose, as a ready-made instruction:** a prompt. `answer_with_citations` is one, started when an engineer wants a cited reply.
 
-### Practice notebook
+A feature can be offered twice. A section the model should find by itself and a person should be able to pin is both a search result from a tool and a resource.
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+## Limits of this evidence
 
-- [Adding prompt and resource](../../notebook/05a_adding_prompt_and_resource_features.ipynb).
+- **A reconstructed server.** Table 2 and the switcher come from a small Larkspur server written for this page and replayed in memory with SDK 1.30.0. The notebook's own research server was not run over stdio.
+- **No model in the loop.** What the model does with a tool result or a prompt message is described, not recorded.
+- **One host's choices.** Printing a resource rather than adding it to context is the lesson 7 chatbot's design, not a protocol rule.
 
-### Continue learning
+## References
 
-- [lesson 38.4](../04_connecting_to_reference_servers/README.md).
+1. Model Context Protocol, [Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools), [Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources) and [Prompts](https://modelcontextprotocol.io/specification/2025-11-25/server/prompts), specification 2025-11-25.
+2. Model Context Protocol, [Understanding MCP servers](https://modelcontextprotocol.io/docs/2026-07-28/learn/server-concepts), the three primitives and who controls each.
+3. Model Context Protocol, [Python SDK](https://github.com/modelcontextprotocol/python-sdk), the FastMCP decorators.
 
 ## Key Takeaways
 
@@ -88,7 +175,7 @@ Who decides to use it. The model chooses a tool mid-answer through `tools/call`.
 <details>
 <summary>2. Why is search_handbook a tool on the Larkspur server, while the handbook sections are resources and answer_with_citations is a prompt?</summary>
 
-The model needs `search_handbook` mid-answer with a query it writes, so it is a tool. The sections are data a support console lets an engineer attach (`handbook://sections` and the template `handbook://section/{chunk_id}`), so they are resources. `answer_with_citations` is something the engineer starts on purpose, so it is a prompt.
+`search_handbook` is a tool because the model needs it mid-answer, with a query it writes. The sections are resources because they are data a support console lets an engineer attach (`handbook://sections` and the template `handbook://section/{chunk_id}`). `answer_with_citations` is a prompt because the engineer starts it on purpose.
 
 </details>
 

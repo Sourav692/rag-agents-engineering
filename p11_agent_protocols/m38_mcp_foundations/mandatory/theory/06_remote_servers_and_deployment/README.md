@@ -1,24 +1,55 @@
 # M38.6 Theory: Remote servers and deployment
 
 *[M38 theory](../README.md) · Lesson 38.6 · Notebooks: [`06a_creating_and_deploying_remote_servers.ipynb`](../../notebook/06a_creating_and_deploying_remote_servers.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: A remote server changes one transport line, and then needs what a subprocess never did: a reachable address, storage that lasts and a check on who calls it -->
+<!-- format: approved -->
+
+## Start with a server that must outlive the laptop
+
+> **What you'll learn**
+>
+> - **Explain** what changes, and what does not, when a server moves from stdio to a remote transport.
+> - **Compare** SSE with Streamable HTTP, stateful and stateless, by the requests and headers each exchange uses.
+> - **Diagnose** a containerised server nobody can reach, and one that starts with no data.
+> - **List** what a remote server needs before anyone outside can reach it.
+
+Until now the Larkspur handbook server has run as a subprocess of each engineer's chatbot. The support console, two internal agents and a teammate's laptop now all want it. Each could start its own copy, with its own files and its own version, or the team can run one server and give everyone its URL.
+
+The tools, resources and prompts stay as they are. The transport, the address, the storage and the security around them all change.
 
 ## Remote transport
 
-Larkspur moves its handbook server from a local subprocess to a remote endpoint. You will compare SSE and Streamable HTTP exchanges, inspect the session headers and distinguish a working container command from an externally reachable service.
+A stdio server is a subprocess: the client starts it, owns it, and talks over its standard input and output.
 
-### Step 1: Compare local ownership with a remote service
-
-A stdio server is a subprocess: the client starts it, owns it, and talks over its standard input and output. A remote server is a process of its own, often on another machine, that must already be running when the client connects by URL. The tools, resources and prompts do not change. With FastMCP only the last line does:
-
-Implementation excerpt from the configured application. The practice material supplies its models, data and session setup:
-
-```text
-mcp = FastMCP("research", port=8001)   # notebook 06a
-...
-mcp.run(transport="sse")               # or "streamable-http", or "stdio"
+```mermaid
+flowchart LR
+    C["Client"] -- "starts and owns" --> P["Server subprocess"]
+    P -- "stdin and stdout" --> C
 ```
 
-The reference implementation deploys over SSE because, when the course was filmed, Streamable HTTP was still being built into the Python SDK; it adds notes for Streamable HTTP. SDK 1.30.0 ships both. Recorded against the Larkspur server running each way (initialize, list tools, one `tools/call`, close):
+*Figure 1: stdio. One client, one server process, gone when the client exits.*
+
+A remote server is a process of its own, often on another machine, that must already be running when the client connects by URL.
+
+```mermaid
+flowchart LR
+    C1["Support console"] -- "HTTP" --> S["Server process<br/>already running"]
+    C2["Agent"] -- "HTTP" --> S
+    C3["Chatbot"] -- "HTTP" --> S
+```
+
+*Figure 2: Remote. Many clients, one long-running server they reach by URL.*
+
+With FastMCP only the last line of the server changes:
+
+| Line in notebook 06a | Value |
+|---|---|
+| Constructor | `FastMCP("research", port=8001)` |
+| Last line | `mcp.run(transport="sse")`, or `"streamable-http"`, or `"stdio"` |
+
+*Table 1: The two lines that set the transport.*
+
+The notebook deploys over SSE because, when the course was filmed, Streamable HTTP was still being built into the Python SDK; it adds notes for Streamable HTTP. SDK 1.30.0 ships both. Recorded against the Larkspur server running each way (initialize, list tools, one `tools/call`, close):
 
 | | SSE | Streamable HTTP | Streamable HTTP, `stateless_http=True` |
 |---|---|---|---|
@@ -26,6 +57,25 @@ The reference implementation deploys over SSE because, when the course was filme
 | Reply to a request | `202 Accepted`; the answer arrives on the `/sse` stream | `200` with the answer in the response (`text/event-stream`) | `200` with the answer |
 | Session | id in the query string | `mcp-session-id` header, set on the `initialize` reply | none |
 | Close | close the stream | `DELETE /mcp` | nothing to close |
+
+*Table 2: Three remote transports compared.*
+
+SSE splits every exchange across two connections: requests go up as POSTs, and answers come back down a stream the client opened first.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: GET /sse
+    S-->>C: event stream, endpoint with session_id
+    C->>S: POST /messages/ initialize
+    S-->>C: 202 Accepted
+    S-->>C: initialize result, on the stream
+```
+
+*Figure 3: SSE. Every POST is acknowledged with 202; every answer travels on the stream.*
+
+Streamable HTTP sends each request to one endpoint and answers it in the response:
 
 ```mermaid
 sequenceDiagram
@@ -46,43 +96,82 @@ sequenceDiagram
 ```
 <!-- animated: diagrams/streamable-http.anim.html -->
 
-### Step 2: Track stateful session headers
+*Figure 4: Streamable HTTP, stateful. One endpoint, a session header, and an explicit close.*
 
-After `initialize`, every request in the stateful run carried two headers: `mcp-session-id` (32 characters) and `mcp-protocol-version: 2025-11-25`. The session id is what lets a stateful server remember a client between requests; it is also why a stateful server behind several replicas needs sticky routing, while a stateless one can answer from any replica and cannot keep anything between calls.
+Compare the three exchanges request by request:
 
-### Step 3: Choose the correct endpoint and SDK setting
+<div class="learning-widget evidence-switcher" data-comparison id="transport-switcher">
+<p class="widget-intro">The same session (initialize, list tools, one call, close) on each transport. Status codes come from SDK 1.30.0 servers driven in-process; SSE's 202 is from the SDK's message handler.</p>
+<div class="mode-controls" hidden role="group" aria-label="Remote transport">
+<button type="button" data-mode="sse" aria-pressed="false" aria-controls="transport-sse">SSE</button>
+<button type="button" data-mode="stateful" aria-pressed="false" aria-controls="transport-stateful">Streamable HTTP</button>
+<button type="button" data-mode="stateless" aria-pressed="false" aria-controls="transport-stateless">Stateless</button>
+</div>
+<section id="transport-sse" class="mode-panel" data-announcement="SSE selected. Two connections, answers on the stream."><h4>SSE</h4><ul><li>The client opens <code>GET /sse</code> and keeps it open; the server names a <code>/messages/</code> URL carrying the session id.</li><li>Every request is a POST answered <code>202 Accepted</code>; its result arrives on the stream.</li><li>Closing the stream ends the session.</li></ul></section>
+<section id="transport-stateful" class="mode-panel" data-announcement="Streamable HTTP selected. One endpoint and a 32-character session id."><h4>Streamable HTTP, stateful</h4><ul><li><code>POST /mcp</code> initialize: <code>200</code>, <code>text/event-stream</code>, and a 32-character <code>mcp-session-id</code>.</li><li><code>notifications/initialized</code>: <code>202</code>. <code>tools/list</code> and <code>tools/call</code>: <code>200</code> each, with both session and protocol headers.</li><li><code>DELETE /mcp</code>: <code>200</code>, and the session is gone.</li></ul></section>
+<section id="transport-stateless" class="mode-panel" data-announcement="Stateless selected. No session id, nothing to close."><h4>Streamable HTTP, stateless_http=True</h4><ul><li>Initialize: <code>200</code> with no <code>mcp-session-id</code>.</li><li>The same <code>202</code> and <code>200</code> replies for the rest, with nothing to close.</li><li>Any replica can answer any request, and nothing is kept between calls.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+After `initialize`, every request in the stateful run carried two headers: `mcp-session-id` (32 characters) and `mcp-protocol-version: 2025-11-25`. The session id is what lets a stateful server remember a client between requests. It is also why a stateful server behind several replicas needs sticky routing, while a stateless one can answer from any replica and cannot keep anything between calls.
 
 Paths and names to get right in SDK 1.30.0:
 
-- **Defaults.** `FastMCP` listens on `127.0.0.1:8000`, with SSE at `/sse` and `/messages/` and Streamable HTTP at `/mcp`. The example's `port=8001` still works as a constructor argument.
-- **The URL.** The example says to append `/mcp/`. The server answers `POST /mcp/` with `307` and a `Location` of `/mcp`; the 1.30.0 client follows a same-origin `307` for a POST, so either works, and `/mcp` saves the round trip.
-- **The client function.** The example imports `streamablehttp_client`. In 1.30.0 it is marked deprecated with “Use `streamable_http_client` instead.”; the new one takes the URL and an optional `httpx.AsyncClient` for headers and auth. `sse_client(url)` still takes the URL as the example passes it.
+- **Defaults.** `FastMCP` listens on `127.0.0.1:8000`, with SSE at `/sse` and `/messages/` and Streamable HTTP at `/mcp`. The notebook's `port=8001` still works as a constructor argument.
+- **The URL.** The notebook says to append `/mcp/`. The server answers `POST /mcp/` with `307` and a `Location` of `/mcp`. The 1.30.0 client follows a redirect only while it stays on the same origin, so either works, and `/mcp` saves the round trip.
+- **The client function.** The notebook imports `streamablehttp_client`. In 1.30.0 it is marked deprecated with "Use `streamable_http_client` instead."; the new one takes the URL and an optional `httpx.AsyncClient` for headers and auth. `sse_client(url)` still takes the URL as the notebook passes it.
 
 ## Deploying a remote server
 
-### Step 1: Test the bind address and server-owned files
+The lesson 9 project ships a `Dockerfile`:
 
-The lesson 9 project ships a `Dockerfile`: `python:3.11-slim`, `uv pip install --system .`, `EXPOSE 8001`, then `uv run research_server.py`. Two things change once the server leaves your laptop.
+| Line | Value |
+|---|---|
+| Base image | `python:3.11-slim` |
+| Install | `pip install uv`, then `uv pip install --system .` from `pyproject.toml` and `uv.lock` |
+| Port | `EXPOSE 8001` |
+| Command | `uv run research_server.py` |
 
-### Step 2: Test reachability using the actual SDK defaults
+*Table 3: The lesson 9 container.*
 
-The project's own `uv.lock` pins mcp 1.8.0, whose FastMCP default host is `0.0.0.0`, reachable through the container's mapped port. The course environment's 1.30.0 defaults to `127.0.0.1`, which only the container itself can reach. Set `host="0.0.0.0"` in the constructor and the server behaves the same under both.
+Two things change once the server leaves your laptop: who can reach it, and where its data lives.
 
-### Step 3: Locate persistent data on the server
+**The bind address.** The project's own `uv.lock` pins mcp 1.8.0, whose FastMCP default host is `0.0.0.0`, reachable through the container's mapped port. The course environment's 1.30.0 defaults to `127.0.0.1`: loaded under 1.30.0, the lesson 9 server reports host `127.0.0.1` and port 8001. Only the container itself can reach that address.
 
-The research server keeps papers in a `papers/` folder beside it. In the reference implementation's hosted server that folder is empty, so the resources list no topics. On a fresh copy, recorded with 1.30.0, `papers://folders` returns “No topics found.” and `extract_info` fails with `[Errno 2] No such file or directory: 'papers'`, because it lists the folder without checking that it exists. A remote server needs storage that outlives the container, and tools that handle an empty start.
+```mermaid
+flowchart TB
+    O["Client outside<br/>the container"] --> P["Port mapping<br/>8001 to 8001"]
+    P --> A["Bound to 0.0.0.0<br/>mcp 1.8.0 default<br/>answers"]
+    P -.-> B["Bound to 127.0.0.1<br/>mcp 1.30.0 default<br/>never reached"]
+```
 
-Before anyone outside can reach the server, it needs what a stdio server never did: authentication, because anyone who can reach the URL can call the tools; TLS; and logs of which client called what. The 1.30.0 `FastMCP` constructor takes `auth` settings and a `token_verifier` for the first. The reference implementation's optional section deploys to Render, and its resources link Cloudflare's guide to remote MCP servers.
+*Figure 5: The same container under two SDK versions. `EXPOSE` and a port mapping cannot reach a process listening only on loopback.*
 
-### Try it yourself
+Set `host="0.0.0.0"` in the constructor and the server behaves the same under both.
 
-Compare the project's SDK 1.8.0 default bind address with the course SDK 1.30.0 default. Check that exposing container port 8001 does not make a process bound to 127.0.0.1 reachable through that mapping. Inspect the configured host, endpoint and session mode before testing authentication or model behaviour.
+**Data the server keeps.** The research server keeps papers in a `papers/` folder beside it. The notebook's hosted server has that folder empty, and its resources list no topics. On a fresh copy under 1.30.0, `papers://folders` returns "No topics found." and `extract_info` fails with `[Errno 2] No such file or directory: 'papers'`, because it lists the folder without checking that it exists. A remote server needs storage that outlives the container, and tools that handle an empty start.
 
-### Practice notebook
+**Who may call it.** Before anyone outside can reach the server, it needs what a stdio server never did:
 
-Run the complete implementation from the practice material after checking the trace or calculation above. Use its stated environment for live model or server calls; recorded model choices and timings are observations, not guaranteed outputs.
+- **Authentication**, because anyone who can reach the URL can call the tools. The 1.30.0 `FastMCP` constructor takes `auth` settings and a `token_verifier`.
+- **TLS**, because tool arguments and results cross the network.
+- **Logs** of which client called what, because many clients now share one server.
 
-- [Creating and deploying remote](../../notebook/06a_creating_and_deploying_remote_servers.ipynb).
+The notebook's optional section deploys to Render, and its resources link Cloudflare's guide to remote MCP servers.
+
+## Limits of this evidence
+
+- **In-process, not over a network.** Streamable HTTP status codes and headers come from SDK 1.30.0 servers driven through Starlette's test client; the SSE 202 is read from the SDK's handler. No proxy, load balancer or TLS sat in between.
+- **The GET stream was not replayed.** Figure 4's server-to-client stream comes from the earlier recording, not the in-process run.
+- **Two SDK versions only.** The bind-address default was read from the 1.8.0 and 1.30.0 sources. Other releases may differ; set the host explicitly.
+
+## References
+
+1. Model Context Protocol, [Transports](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports), specification 2025-11-25: stdio, Streamable HTTP, session ids and protocol-version headers.
+2. Model Context Protocol, [Authorisation](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization), specification 2025-11-25.
+3. Model Context Protocol, [Python SDK](https://github.com/modelcontextprotocol/python-sdk), FastMCP settings and the client transports.
+4. Cloudflare, [Build a remote MCP server](https://developers.cloudflare.com/agents/model-context-protocol/guides/remote-mcp-server/).
+5. Render, [Docker on Render](https://render.com/docs/docker).
 
 ## Key Takeaways
 
