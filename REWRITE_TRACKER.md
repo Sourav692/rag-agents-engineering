@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 38 · Review draft: 3 · In progress: 0 · In PR: 3 · Live: 2
+**Modules:** Not started: 36 · Review draft: 3 · In progress: 0 · In PR: 2 · Live: 5
 
 ## Part I · AI Engineering Foundations
 
@@ -76,16 +76,16 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 |---|---|---|---|---|---|---|---|---|
 | 28 | Agentic RAG Foundations: Grading & Query Rewriting | 3 | 3 | 3 / 3 | Live | 2026-11-13 | #67 | 28.1-28.3 approved format live 2026-11-13 (course #67, site #279 sync + architect estHours 377, site #278 interactive widgets); all 5 widgets verified live at 1280/390 |
 | 29 | Self-Correcting RAG: CRAG & Self-RAG | 3 | 3 | 3 / 3 | Live | 2026-11-13 | #68 | 29.1-29.3 approved format; merged 5131dcf, site sync 26efccc (CI incl. bundle, routes, E2E pass), Vercel success, live pages checked 2026-11-13. |
-| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
-| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
-| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | In PR | 2026-11-13 | #69 | Approved format in PR #69 (content/m30-m32-approved); validator, browser, pytest, links pass; site dry run passes except check:paths: estHours ml-engineer 209->208, architect 377->376 needed in a site PR after merge. |
+| 30 | Adaptive RAG & Query Routing | 4 | 4 | 4 / 4 | Live | 2026-11-13 | #69 | Approved format; merged f165271; site PR #280 (sync + estHours ml-engineer 208, architect 376) merged 17eac2b, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-13. |
+| 31 | RAG as an Agent Tool | 3 | 3 | 3 / 3 | Live | 2026-11-13 | #69 | Approved format; merged f165271; site PR #280 (sync + estHours ml-engineer 208, architect 376) merged 17eac2b, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-13. |
+| 32 | Reliability, Feedback Loops & Diversity | 3 | 3 | 3 / 3 | Live | 2026-11-13 | #69 | Approved format; merged f165271; site PR #280 (sync + estHours ml-engineer 208, architect 376) merged 17eac2b, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-13. |
 
 ## Part IX · The Memory Layer
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 33 | Short-Term Memory & Conversation State | 6 | 6 | 0 / 6 | Not started |  |  |  |
-| 34 | Long-Term & Agentic Memory | 5 | 5 | 0 / 5 | Not started |  |  |  |
+| 33 | Short-Term Memory & Conversation State | 6 | 6 | 6 / 6 | In PR | 2026-11-13 | #70 | Approved format in PR #70; validator, browser, pytest, links pass; site needs estHours ml-engineer 209, architect 377 after merge. |
+| 34 | Long-Term & Agentic Memory | 5 | 5 | 5 / 5 | In PR | 2026-11-13 | #70 | Approved format in PR #70; validator, browser, pytest, links pass; site needs estHours ml-engineer 209, architect 377 after merge. |
 
 ## Part X · Multi-Agent Systems
 
