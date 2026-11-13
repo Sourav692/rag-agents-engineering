@@ -2,8 +2,9 @@
 
 *[M44 theory](../README.md) · Lesson 44.1 · Notebooks: [`01a_graph_rag.ipynb`](../../notebook/01a_graph_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a graph of similar chunks extends flat retrieval, and why a traversal that looks like Dijkstra can stop one hop short of the passage it needs -->
+<!-- format: approved -->
 
-## Chunk graphs and traversal
+## Start with a passage two hops away
 
 > **What you'll learn**
 >
@@ -14,7 +15,9 @@
 
 [M43](../../../../m43_knowledge_graphs_neo4j/mandatory/theory/README.md) stored facts as typed nodes and relationships and queried them with Cypher. This module asks a different question: how can graph structure decide which passages reach the answer model?
 
-Take a Larkspur Cloud customer who asks which export mechanism remains available after cancellation. The answer depends on three passages: the cancellation policy, the export options and the snapshot retention rule. Flat top-k retrieval scores each chunk against the question on its own, and the retention passage barely mentions cancellation. It can rank below a billing chunk that shares more words with the question.
+A Larkspur Cloud customer asks which export mechanism remains available after cancellation. The answer needs three passages: the cancellation policy, the export options and the snapshot retention rule. Flat top-k retrieval scores each chunk against the question on its own, and the retention passage barely mentions cancellation. It can rank below a billing chunk that shares more words with the question. A graph of chunks offers a way round: start from the passages that do match, then follow links to the ones that do not.
+
+## Chunk graphs and traversal
 
 A **chunk graph** is a graph whose nodes are text chunks and whose edges join chunks that are similar enough to be read together. Retrieval finds a few seed chunks, then walks the edges to collect neighbours that the question alone would not rank. The first notebook builds one over the first 10 pages of a climate-change PDF and walks it to answer a question.
 
@@ -81,18 +84,14 @@ Read the right-hand branch closely. A neighbour's text is added, and the neighbo
 
 The seed priority has a second problem. LangChain's FAISS store returns L2 distance by default, where a lower score means a closer match. Dividing 1 by a distance gives the closest seed the largest priority, and the min-heap pops it last. We call this the **inverted seed priority**. A distance of exactly zero would also divide by zero.
 
-We ran the notebook's traversal code on the five illustrative chunks from Table 2, with a stub vector store and a stub completeness check that answers "complete" once cancellation, export and retention are all in context:
+We ran the notebook's traversal code on the five illustrative chunks from Table 2, with a stub vector store and a stub completeness check that answers "complete" once cancellation, export and retention are all in context. Step through the run:
 
-| Order | Node | How it entered | Completeness check |
-|---|---|---|---|
-| 1 | Billing cycle | Seed at L2 0.70, priority 1.43 | incomplete |
-| 2 | Outage status | Neighbour of billing | incomplete |
-| 3 | Cancellation policy | Seed at L2 0.40, priority 2.50 | incomplete |
-| 4 | Export options | Neighbour of cancellation | incomplete |
+<div class="walkthrough learning-widget" data-stepper id="traversal-walkthrough">
+<p class="widget-intro">Step through the notebook's traversal on the five Larkspur chunks. Seeds are Cancellation policy (L2 0.40) and Billing cycle (L2 0.70).</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the traversal run"><button type="button" data-step="0" aria-pressed="false" aria-controls="walk-step-0">1. Seed</button><button type="button" data-step="1" aria-pressed="false" aria-controls="walk-step-1">2. Billing</button><button type="button" data-step="2" aria-pressed="false" aria-controls="walk-step-2">3. Cancellation</button><button type="button" data-step="3" aria-pressed="false" aria-controls="walk-step-3">4. Skipped pops</button><button type="button" data-step="4" aria-pressed="false" aria-controls="walk-step-4">5. Fall through</button></div>
+<div class="step-panels"><section id="walk-step-0" class="step-panel" aria-labelledby="walk-heading-0"><h4 id="walk-heading-0">1. Seeds enter the heap</h4><dl><dt>Priorities</dt><dd>Billing cycle 1 / 0.70 = 1.43; Cancellation policy 1 / 0.40 = 2.50</dd><dt>Effect</dt><dd>the farther seed has the lower priority; the min-heap pops it first</dd></dl></section><section id="walk-step-1" class="step-panel" aria-labelledby="walk-heading-1"><h4 id="walk-heading-1">2. Billing cycle pops first</h4><dl><dt>Context</dt><dd>Billing cycle; completeness check 1: incomplete</dd><dt>Neighbours</dt><dd>Outage status at 1.43 + 1 / 0.574 = 3.17 is pushed, added and checked (check 2: incomplete); Cancellation at 2.79 is not closer than 2.50 and is not pushed</dd></dl></section><section id="walk-step-2" class="step-panel" aria-labelledby="walk-heading-2"><h4 id="walk-heading-2">3. Cancellation policy pops</h4><dl><dt>Context</dt><dd>Billing, Outage, Cancellation; check 3: incomplete</dd><dt>Neighbours</dt><dd>Export options at 2.50 + 1 / 0.702 = 3.92 is pushed, added and checked (check 4: incomplete)</dd></dl></section><section id="walk-step-3" class="step-panel" aria-labelledby="walk-heading-3"><h4 id="walk-heading-3">4. The neighbours pop and are skipped</h4><dl><dt>Pops</dt><dd>Outage status at 3.17, then Export options at 3.92</dd><dt>Test</dt><dd>both are already in the path and neither is expanded; Snapshot retention, Export's neighbour, is never pushed</dd></dl></section><section id="walk-step-4" class="step-panel" aria-labelledby="walk-heading-4"><h4 id="walk-heading-4">5. The heap empties</h4><dl><dt>Calls</dt><dd>4 completeness checks over contexts of 1, 2, 3 and 4 chunks</dd><dt>Result</dt><dd>the loop falls through to generating an answer without the retention passage</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 3: The notebook's traversal on a hand-built graph (scratchpad run, stub retrieval and stub answer check).*
-
-The farther seed went first. Export options was added as a neighbour and later skipped when popped. Snapshot retention, two hops from the cancellation seed, never entered the context. The loop ended after four completeness calls and fell through to generating an answer from incomplete context. With the cancellation chunk as the only seed, the path was cancellation, export, billing: the same one-hop limit.
+The farther seed went first, and Snapshot retention, two hops from the cancellation seed, never entered the context. With the cancellation chunk as the only seed, the path was cancellation, export, billing: the same one-hop limit.
 
 | Planted case | What the traversal did | Why |
 |---|---|---|
@@ -100,7 +99,7 @@ The farther seed went first. Export options was added as a neighbour and later s
 | Retention two hops from the seed | Never reached | Discovered neighbours are never expanded |
 | A node whose concepts were all seen | No neighbours pushed | The new-concept test gates expansion |
 
-*Table 4: Planted cases and their causes. The first two come from Table 3's run; the third is the gate in Figure 2.*
+*Table 3: Planted cases and their causes. The first two come from the run above; the third is the gate in Figure 2.*
 
 None of this makes the notebook useless as a teaching build. It shows the moving parts of graph-guided retrieval. It should not be described as an unmodified shortest-path search, and its reach should be measured before it is trusted with multi-hop questions.
 
@@ -116,13 +115,25 @@ The cost of checking grows with the walk:
 | 4 | 4 | 1, 2, 3, then 4 chunks |
 | n | n | 1 + 2 + … + n chunks in total |
 
-*Table 5: Completeness calls in the notebook's loop. Table 3's run made four calls over contexts of 1, 2, 3 and 4 chunks.*
+*Table 4: Completeness calls in the notebook's loop. The traced run made four calls over contexts of 1, 2, 3 and 4 chunks.*
 
 At 1,000-character chunks, a walk that adds 10 nodes resends 55 chunks of text across its checks. That is the price of asking after every node.
 
 An LLM saying "complete" is a stopping heuristic. For the cancellation question, check that the context holds the cancellation condition, the available export mechanism and the retention condition. If the graph has no path to one of those passages, report the missing evidence. More context cannot create a relation absent from the index.
 
 For each query, log the seed IDs, the edges followed, the source spans retrieved, the context size and the stopping reason. Then compare against flat retrieval on the same golden questions. A longer traversal can add work while leaving the answer's supporting evidence unchanged, and lesson 44.2 turns that evidence into explicit citations.
+
+## Limits of this evidence
+
+- **No model was called.** The traversal ran the notebook's code with a stub vector store and a stub completeness check; a live model may call a context complete earlier or later.
+- **The Larkspur graph is illustrative.** Cosine scores and concept lists in Table 2 are chosen inputs, not embeddings of real handbook pages.
+- **The chunk counts come from the notebook's loader and splitter only.** Edge counts on the climate PDF depend on the embedding model and were not measured.
+
+## References
+
+1. Nir Diamant, [RAG Techniques: Graph RAG notebook](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/graph_rag.ipynb), the source of the notebook's code.
+2. Edge et al., [From Local to Global: A Graph RAG Approach to Query-Focused Summarization](https://arxiv.org/abs/2404.16130), arXiv 2404.16130.
+3. Meta, [Faiss documentation](https://faiss.ai/), the library behind the notebook's vector store; its flat index scores by L2 distance.
 
 ## Key Takeaways
 
@@ -149,7 +160,7 @@ No. No branch of the traversal checks that attribute, so it supplies no protecti
 <details>
 <summary>3. The snapshot retention chunk sits two edges from the cancellation seed, yet it never reaches the context. What in the traversal explains that?</summary>
 
-The loop adds a neighbour to the path the moment it discovers it, and later skips that neighbour when it is popped, so its own neighbours are never examined. The walk reaches the seeds and their direct neighbours only. Log the path and measure reach on a question whose evidence is two hops away before relying on the traversal.
+The loop adds a neighbour to the path the moment it discovers it, and later skips that neighbour when it is popped. Its own neighbours are never examined. The walk reaches the seeds and their direct neighbours only. Log the path and measure reach on a question whose evidence is two hops away before relying on the traversal.
 
 </details>
 

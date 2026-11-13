@@ -2,8 +2,9 @@
 
 *[M44 theory](../../../mandatory/theory/README.md) · Lesson 44.4 · Notebooks: [`04a_graphrag_with_milvus.ipynb`](../../notebook/04a_graphrag_with_milvus.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How an incidence matrix turns vector hits into a neighbourhood of relations, what each extra degree costs, and where identity errors break the walk -->
+<!-- format: approved -->
 
-## Graph expansion
+## Start with a passage that never names the subject
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lesson 44.3 answered corpus-wide questions from community reports. This lesson goes back to multi-hop questions, with no graph database at all: the graph lives in a few arrays beside a vector store.
 
 The notebook's question is "What contribution did the son of Euler's teacher make?" Answering it takes three hops: Euler's teacher was Johann Bernoulli, Johann's son was Daniel, and Daniel's contributions are in a passage that never mentions Euler. A flat search on the question scores passages against Euler and contributions, and the Daniel passage has little reason to rank. Larkspur has the same shape: cancellation leads to export, export to snapshot, and the snapshot passage holds the retention rule.
+
+## Graph expansion
 
 **Graph expansion** grows a set of retrieved entities or relations into their graph neighbourhood, a fixed number of steps at a time, before reranking picks what reaches the answer. The Milvus notebook stores three collections and two adjacency maps:
 
@@ -30,7 +33,7 @@ The notebook's question is "What contribution did the son of Euler's teacher mak
 
 Its four-passage Bernoulli dataset yields 26 entities and 22 relations, counted by running the notebook's preparation cells in the scratchpad.
 
-Let `B` be the entity-by-relation incidence matrix: `B[e,r]=1` when entity `e` takes part in relation `r`. Then `B Bᵀ` connects entities that share a relation, and `Bᵀ B` connects relations that share an entity. The notebook raises these to the target degree, multiplies the entity side by `B` to land on relations, takes the nonzero entries, and merges the candidates from the entity and relation seeds ([Milvus Graph RAG tutorial](https://milvus.io/docs/graph_rag_with_milvus.md)).
+Let `B` be the entity-by-relation incidence matrix: `B[e,r]=1` when entity `e` takes part in relation `r`. Then `B Bᵀ` connects entities that share a relation, and `Bᵀ B` connects relations that share an entity. The notebook raises these to the target degree, multiplies the entity side by `B` to land on relations, takes the nonzero entries, and merges the candidates from the entity and relation seeds.
 
 ```mermaid
 flowchart TD
@@ -48,16 +51,12 @@ The [interactive lab](interactive/expansion-lab.html) computes the entity-side r
 
 <!-- lab: interactive/expansion-lab.html -->
 
-With Cancellation selected, degree 0 reaches the cancellation-to-export and cancellation-to-billing relations. Each degree then adds two:
+Step through the degrees from the Cancellation seed, as the lab prints them:
 
-| Degree | Candidate relations | Distinct passages | Relations added |
-|---|---|---|---|
-| 0 | 2 | 2 | Cancellation enables Export; Cancellation stops Billing |
-| 1 | 4 | 3 | Export uses Snapshot; Billing links Refund |
-| 2 | 6 | 4 | Snapshot needs Storage; Refund needs Account |
-| 3 | 8 | 5 | Storage restored after Outage; Account affected by Outage |
-
-*Table 2: Expansion from the Cancellation seed, as the lab prints it.*
+<div class="walkthrough learning-widget" data-stepper id="degree-walkthrough">
+<p class="widget-intro">Step through expansion from the Cancellation seed on the lab fixture. Each degree keeps every earlier candidate.</p>
+<div class="step-controls" hidden role="group" aria-label="Expansion degrees"><button type="button" data-step="0" aria-pressed="false" aria-controls="deg-step-0">Degree 0</button><button type="button" data-step="1" aria-pressed="false" aria-controls="deg-step-1">Degree 1</button><button type="button" data-step="2" aria-pressed="false" aria-controls="deg-step-2">Degree 2</button><button type="button" data-step="3" aria-pressed="false" aria-controls="deg-step-3">Degree 3</button></div>
+<div class="step-panels"><section id="deg-step-0" class="step-panel" aria-labelledby="deg-heading-0"><h4 id="deg-heading-0">Degree 0: relations touching the seed</h4><dl><dt>Candidates</dt><dd>2 relations across 2 passages</dd><dt>Added</dt><dd>Cancellation enables Export; Cancellation stops Billing</dd></dl></section><section id="deg-step-1" class="step-panel" aria-labelledby="deg-heading-1"><h4 id="deg-heading-1">Degree 1: the notebook's setting</h4><dl><dt>Candidates</dt><dd>4 relations across 3 passages</dd><dt>Added</dt><dd>Export uses Snapshot, which the export question needs; Billing links Refund, which it does not</dd></dl></section><section id="deg-step-2" class="step-panel" aria-labelledby="deg-heading-2"><h4 id="deg-heading-2">Degree 2</h4><dl><dt>Candidates</dt><dd>6 relations across 4 passages</dd><dt>Added</dt><dd>Snapshot needs Storage; Refund needs Account</dd></dl></section><section id="deg-step-3" class="step-panel" aria-labelledby="deg-heading-3"><h4 id="deg-heading-3">Degree 3: the whole fixture</h4><dl><dt>Candidates</dt><dd>all 8 relations across all 5 passages</dd><dt>Added</dt><dd>Storage restored after Outage; Account affected by Outage</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 Starting from Outage gives the same relation counts and different passages: 1, 2, 4 and then all 5. The export question needs the degree 1 snapshot relation. The billing branch arrives at the same degree, reachable and irrelevant. Rerank relations against the question, then fetch and deduplicate their passages, and compare the candidate set before and after reranking against the golden evidence set. Keep the route for debugging; cite the passage.
 
@@ -69,7 +68,7 @@ The notebook's own data shows how fast a hub fills the set. We ran its expansion
 | Euler | 1 | 1 | 1 |
 | leonhard Euler | 1 | 1 | 1 |
 
-*Table 3: Expansion on the notebook's Bernoulli data (scratchpad run of its pure cells; no embedding calls).*
+*Table 2: Expansion on the notebook's Bernoulli data (scratchpad run of its pure cells; no embedding calls).*
 
 From "Leonhard Euler", one degree passes through Johann Bernoulli, who takes part in nine relations, and pulls in all four passages. We call this the **hub flood**. The candidate set now holds every passage in the corpus, and only the reranker and the final limit decide what the model reads.
 
@@ -84,13 +83,25 @@ The notebook's budgets sit at different stages:
 | Rerank | One model call; its one-shot example selects 3 relations | Which relations survive |
 | Context | 2 final passages | What the answer model reads |
 
-*Table 4: The notebook's budgets, read from its code.*
+*Table 3: The notebook's budgets, read from its code.*
 
 These control different things. Raising the seed count can enlarge the candidate set and the reranker's prompt while the final context stays at two passages. Bound the degree, the candidate relation count and the passage count before an expensive reranker runs. When a hub connects many unrelated policies, filter by product, relation type, version and access rights before following it. Record which budget stopped the expansion, so a missing passage can be traced to a stage.
 
-Treat identity mapping as part of retrieval correctness. The notebook's entities are raw strings from its triplets. "Euler", "Leonhard Euler" and "leonhard Euler" are three separate nodes, as are "the Bernoulli theorem" and "The Bernoulli theorem". Table 3 shows the cost: a seed that lands on the wrong spelling reaches one relation instead of ten. We call this the **split identity**. Normalise names and resolve aliases to stable IDs at indexing time.
+Treat identity mapping as part of retrieval correctness. The notebook's entities are raw strings from its triplets. "Euler", "Leonhard Euler" and "leonhard Euler" are three separate nodes, as are "the Bernoulli theorem" and "The Bernoulli theorem". Table 2 shows the cost: a seed that lands on the wrong spelling reaches one relation instead of ten. We call this the **split identity**. Normalise names and resolve aliases to stable IDs at indexing time.
 
 The same stable IDs keep vectors and adjacency in step. An operational index needs explicit updates to both on every source change. A fresh vector record with stale adjacency retrieves the right entity and still traverses the wrong policy graph.
+
+## Limits of this evidence
+
+- **No embeddings were computed.** Seeds in Table 2 and the lab are chosen by hand; a live vector search may land on a different spelling or a different entity.
+- **The reranker was not run.** Which three relations survive depends on the model; only the budgets in Table 3 come from code.
+- **Both graphs are tiny.** Eight relations and twenty-two relations show the mechanics; a production graph's hubs flood far more candidates.
+
+## References
+
+1. Milvus, [Graph RAG with Milvus](https://milvus.io/docs/graph_rag_with_milvus.md), the tutorial the notebook follows.
+2. Zilliz, [GraphRAG explained: enhancing RAG with knowledge graphs](https://zilliz.com/blog/graphrag-explained-enhance-rag-with-knowledge-graphs).
+3. Trivedi et al., [MuSiQue: Multihop Questions via Single-hop Question Composition](https://arxiv.org/abs/2108.00573), arXiv 2108.00573.
 
 ## Key Takeaways
 
