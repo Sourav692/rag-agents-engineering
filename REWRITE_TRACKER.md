@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 24 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 22
+**Modules:** Not started: 15 · Review draft: 0 · In progress: 0 · In PR: 9 · Live: 22
 
 ## Part I · AI Engineering Foundations
 
@@ -47,20 +47,20 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 16 | Retrievers & Hybrid Search | 6 | 6 | 0 / 6 | Not started |  |  |  |
-| 17 | Query Transformation & Routing | 8 | 8 | 0 / 8 | Not started |  |  |  |
-| 18 | Post-Retrieval Optimisation & Reranking | 6 | 6 | 0 / 6 | Not started |  |  |  |
-| 19 | End-to-End RAG Systems | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 20 | Multimodal RAG | 3 | 3 | 0 / 3 | Not started |  |  |  |
-| 21 | Framework Fluency: LlamaIndex | 4 | 4 | 0 / 4 | Not started |  |  |  |
+| 16 | Retrievers & Hybrid Search | 6 | 6 | 6 / 6 | In PR | 2026-11-14 | #76 | 16.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 17 | Query Transformation & Routing | 8 | 8 | 8 / 8 | In PR | 2026-11-14 | #76 | 17.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 18 | Post-Retrieval Optimisation & Reranking | 6 | 6 | 6 / 6 | In PR | 2026-11-14 | #76 | 18.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 19 | End-to-End RAG Systems | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #76 | 19.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 20 | Multimodal RAG | 3 | 3 | 3 / 3 | In PR | 2026-11-14 | #76 | 20.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 21 | Framework Fluency: LlamaIndex | 4 | 4 | 4 / 4 | In PR | 2026-11-14 | #76 | 21.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
 
 ## Part VI · Agent Foundations
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 22 | The Agent Loop & Tool Calling | 6 | 6 | 0 / 6 | Not started |  |  |  |
-| 23 | ReAct Agents & LangChain create_agent | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 24 | Agentic Workflow Patterns | 5 | 5 | 0 / 5 | Not started |  |  |  |
+| 22 | The Agent Loop & Tool Calling | 6 | 6 | 6 / 6 | In PR | 2026-11-14 | #76 | 22.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 23 | ReAct Agents & LangChain create_agent | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #76 | 23.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
+| 24 | Agentic Workflow Patterns | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #76 | 24.x approved format on branch content/m16-m24-approved; protect/validate/browser pass; pytest 32 pass; 0 broken links; site dry run all checks pass, no estHours change; PR pending |
 
 ## Part VII · Advanced Agents
 

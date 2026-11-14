@@ -2,6 +2,7 @@
 
 *[M17 theory](../README.md) · Lesson 17.5 · Notebooks: [`05a_hyde.ipynb`](../../notebook/05a_hyde.ipynb), [`05b_hyde_walkthrough.ipynb`](../../../optional/notebook/05b_hyde_walkthrough.ipynb) (optional), [`05c_hyde_rag_techniques.ipynb`](../../../optional/notebook/05c_hyde_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Search with an invented answer, because answers look like documents and questions do not -->
+<!-- format: approved -->
 
 ## HyDE
 
@@ -38,6 +39,19 @@ Here is the outage question searched three ways on the M10 TF-IDF index. The two
 
 *Table 1: The same question searched by itself and by two hypothetical answers (M10 index, TF-IDF; both answers illustrative).*
 
+<div class="learning-widget evidence-switcher" data-comparison id="hyde-switcher">
+<p class="widget-intro">Choose the search key for <em>What happens if my server goes down?</em> and compare what the index returns.</p>
+<div class="mode-controls" hidden role="group" aria-label="Search key">
+<button type="button" data-mode="question" aria-pressed="false" aria-controls="hyde-question">The question</button>
+<button type="button" data-mode="good" aria-pressed="false" aria-controls="hyde-good">A good guess</button>
+<button type="button" data-mode="jargon" aria-pressed="false" aria-controls="hyde-jargon">A jargon guess</button>
+</div>
+<section id="hyde-question" class="mode-panel" data-announcement="Question selected. Recall at 2 is 0.00."><h4>The question as the key</h4><dl><dt>Words that match</dt><dd>"server" only</dd><dt>Top 2</dt><dd><code>reboot</code> 0.416, <code>sizing</code> 0.389</dd><dt>Recall at 2</dt><dd>0.00</dd></dl></section>
+<section id="hyde-good" class="mode-panel" data-announcement="Good guess selected. Recall at 2 is 1.00."><h4>A good guess as the key</h4><dl><dt>Words that match</dt><dd>availability, outage, service credits, incident</dd><dt>Top 2</dt><dd><code>sla</code> 0.476, <code>incidents</code> 0.423</dd><dt>Recall at 2</dt><dd>1.00</dd></dl></section>
+<section id="hyde-jargon" class="mode-panel" data-announcement="Jargon guess selected. Recall at 2 is 0.00."><h4>A jargon guess as the key</h4><dl><dt>Words that match</dt><dd>data, loss, zone: none of them about outages in this handbook</dd><dt>Top 2</dt><dd><code>export</code> 0.511, <code>reboot</code> 0.275</dd><dt>Recall at 2</dt><dd>0.00</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 The good guess uses the handbook's words, "availability", "outage", "service credits", "incident", and finds both evidence chunks. The jargon guess describes how a different provider handles failure. Its words ("data", "loss", "zone") pull the search toward the export chunk. We call this **invented jargon**: a confident hypothetical answer written in vocabulary the corpus never uses.
 
 ## Two models, one index
@@ -59,9 +73,19 @@ The wrapper ships with built-in prompt templates inherited from the datasets the
 
 ## Several hypothetical answers
 
-The paper generates several hypothetical answers and averages their embeddings, so no single invention dominates the search vector. A jargon guess averaged with two good ones pulls the vector less.
+The paper generates several hypothetical answers and averages their embeddings. No single invention then dominates the search vector. A jargon guess averaged with two good ones pulls the vector less.
 
-LangChain's current wrapper cannot do this: its chain returns one string, so its averaging step always averages exactly one vector. `05a` generates three answers itself at temperature 0.8, embeds them and averages them, then checks how similar the three are to each other. A cosine similarity near 1.0 means the answers are near-identical, and the average bought nothing for three times the generation cost. The optional notebook `05b` builds HyDE by hand, then with LangChain's wrapper and a custom prompt; `05c` asks for one hypothetical document sized to the index's chunk length, so the search key and the chunks have the same shape.
+```mermaid
+flowchart LR
+    Q[/Question/] --> G["LLM writes 3 answers<br/>temperature 0.8"]
+    G --> E["Embed each<br/>answer"]
+    E --> M["Average the<br/>3 vectors"]
+    M --> S["Search the index<br/>by vector"]
+```
+
+*Figure 2: HyDE with several hypothetical answers. One search, with a key no single guess controls.*
+
+LangChain's current wrapper cannot do this: its chain returns one string, and its averaging step always averages exactly one vector. `05a` generates three answers itself at temperature 0.8, embeds them and averages them, then checks how similar the three are to each other. A cosine similarity near 1.0 means the answers are near-identical, and the average bought nothing for three times the generation cost. The optional notebook `05b` builds HyDE by hand, then with LangChain's wrapper and a custom prompt; `05c` asks for one hypothetical document sized to the index's chunk length, so the search key and the chunks have the same shape.
 
 ## When it helps and when it hurts
 
@@ -86,6 +110,17 @@ HyDE trades one LLM call for a better-shaped search key:
 4. **Route only short, vague questions** to HyDE; exact codes go to BM25 (M16), compound questions to decomposition.
 
 Lesson 17.6 takes those compound questions: one query that carries several needs.
+
+## Limits
+
+- **Table 1 uses TF-IDF and hand-written guesses.** HyDE is designed for dense embeddings; the M10 TF-IDF index shows the vocabulary effect clearly but not the full embedding-space effect. `05a` uses `text-embedding-3-small` and model-written answers, and prints chunks rather than recall.
+- **No threshold for "near-identical".** `05a` reports the mutual similarity of its three answers and says a value close to 1.0 means averaging adds little. It sets no cut-off; pick one from your own runs.
+- **One question, two guesses.** The page shows that the outcome depends on the guess's vocabulary, not how often a model writes each kind. Measure that on your golden set.
+
+## References
+
+1. Gao et al., [Precise zero-shot dense retrieval without relevance labels](https://arxiv.org/abs/2212.10496), 2022.
+2. LangChain, [HypotheticalDocumentEmbedder API reference](https://reference.langchain.com/python/langchain-classic/chains/hyde/base/HypotheticalDocumentEmbedder).
 
 ## Key Takeaways
 

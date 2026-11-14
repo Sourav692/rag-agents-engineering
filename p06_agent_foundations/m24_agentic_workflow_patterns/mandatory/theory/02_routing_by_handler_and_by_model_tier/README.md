@@ -2,6 +2,7 @@
 
 *[M24 theory](../README.md) · Lesson 24.2 · Notebooks: [`02a_routing_langgraph.ipynb`](../../notebook/02a_routing_langgraph.ipynb), [`02b_routing_by_model_tier.ipynb`](../../notebook/02b_routing_by_model_tier.ipynb), [`02c_routing_lcel_runnable_branch.ipynb`](../../../optional/notebook/02c_routing_lcel_runnable_branch.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: One label from a closed set picks the handler, and a cheap triage call decides who pays for reasoning -->
+<!-- format: approved -->
 
 ## Routing by handler
 
@@ -21,7 +22,17 @@ This lesson routes on two axes. The first picks a handler. The second, in the ne
 The content router in this lesson has the same two-part shape as the 24.1 gate: a model makes a small, constrained decision, and a pure function acts on it.
 
 - **A constrained classifier.** The model returns structured output whose only field is a content type limited to *story*, *poem* or *joke*. It cannot answer with a label the graph has no edge for.
-- **A pure condition function.** A dictionary maps the stored label to a node name, with *story* as the default, so even an unexpected label lands on a real node.
+- **A pure condition function.** A dictionary maps the stored label to a node name, with *story* as the default. Even an unexpected label lands on a real node.
+
+```mermaid
+flowchart LR
+    Q[/Request/] --> C["Classify<br/>story, poem or joke"]
+    C -- story --> S[Story handler]
+    C -- poem --> P[Poem handler]
+    C -- joke --> J[Joke handler]
+```
+
+*Figure 1: Routing by handler. The model writes one label; a lookup in code picks the single handler that runs.*
 
 Each request then costs exactly two LLM calls, one to classify and one in the chosen handler, however many handlers exist. A fourth category is one more allowed label, one node and one edge.
 
@@ -37,7 +48,7 @@ The recorded test uses phrasing that implies a category without naming it:
 
 *Table 1: Three requests, three correct routes, two LLM calls each.*
 
-The LCEL version of the same router counts the specialist chains it invokes and confirms that exactly one runs per request.
+The LCEL version dispatches with a branch runnable that runs exactly one specialist chain and must have a default. Its test calls the classifier a second time to print the label: that demo spends three calls per request, where the router alone needs two.
 
 ### Planted failures
 
@@ -54,7 +65,7 @@ For Larkspur the closed set is the ticket queue: billing, technical, sales. The 
 
 ## Routing by model tier
 
-The second router picks a **model**, not a handler. A cheap model triages each request as *easy* or *hard*. Easy work stays on the cheap model; hard work goes to a reasoning model, so reasoning prices are paid only on the traffic that needs them:
+The second router picks a **model**, not a handler. A cheap model triages each request as *easy* or *hard*. Easy work stays on the cheap model; hard work goes to a reasoning model. Reasoning prices are paid only on the traffic that needs them:
 
 ```mermaid
 flowchart LR
@@ -63,9 +74,9 @@ flowchart LR
     T -- hard --> R["Reasoning tier<br/>o4-mini, effort high"]
 ```
 
-*Figure 1: Routing by model tier. The triage call is the only extra cost on every request.*
+*Figure 2: Routing by model tier. The triage call is the only extra cost on every request.*
 
-Both answering nodes send the same prompt, so any difference in the answers belongs to the model. Two details matter on the first real call: o-series reasoning models accept only the default temperature, so the reasoning tier runs at 1, and the reasoning-effort setting only means something to a reasoning model.
+Both answering nodes send the same prompt: any difference in the answers belongs to the model. Two details matter on the first real call: o-series reasoning models accept only the default temperature, so the reasoning tier runs at 1, and the reasoning-effort setting only means something to a reasoning model.
 
 ### The workload and the three strategies
 
@@ -94,7 +105,7 @@ Read the table for its shape. Routed accuracy should sit near all-reasoning whil
 
 ### The router's confusion matrix
 
-The router predicts difficulty from the question text. It never observes it, so it makes mistakes, and they show up in a **confusion matrix**, a table of predicted against true labels:
+The router predicts difficulty from the question text. It never observes it. It makes mistakes, and they show up in a **confusion matrix**, a table of predicted against true labels:
 
 | | Sent to reasoning | Sent to cheap |
 |---|---|---|
@@ -123,26 +134,33 @@ flowchart TD
     H -->|no| C[Cheap tier]
 ```
 
-*Figure 2: Escalate on uncertainty before answering, not after a bad answer.*
+*Figure 3: Escalate on uncertainty before answering, not after a bad answer.*
 
 A measured detector can support a cheap-first fallback. Without one, escalate before answering.
 
 ## In practice: the 45-day refund question
 
-On Larkspur, *Can I get a refund after 45 days?* is the case to watch:
+On Larkspur, *Can I get a refund after 45 days?* is the case to watch. The handbook makes monthly plans non-refundable and prorates annual refunds after day 30: the unused whole months come back, minus a 15% early-termination fee.
 
-1. The handler router sends it to billing, correctly.
-2. The tier router sees what looks like a lookup and may label it *easy*.
-3. The answer needs proration arithmetic against the refund-window policy, so the cheap tier can return a confident wrong amount.
-4. Add questions like it to the labelled set the router is measured on, and re-read its confusion matrix after every triage-prompt change.
+<div class="walkthrough learning-widget" data-stepper id="refund-route-walkthrough">
+<p class="widget-intro">Step through both routers on the 45-day refund question (illustrative trace on the handbook's rule).</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the two routers"><button type="button" data-step="0" aria-pressed="false" aria-controls="refund-step-0">1. Pick a queue</button><button type="button" data-step="1" aria-pressed="false" aria-controls="refund-step-1">2. Triage</button><button type="button" data-step="2" aria-pressed="false" aria-controls="refund-step-2">3. Answer</button><button type="button" data-step="3" aria-pressed="false" aria-controls="refund-step-3">4. Measure</button></div>
+<div class="step-panels"><section id="refund-step-0" class="step-panel" aria-labelledby="refund-heading-0"><h4 id="refund-heading-0">1. Pick a queue</h4><dl><dt>Router</dt><dd>the handler router, labels billing, technical or sales</dd><dt>Decision</dt><dd>billing, which is correct</dd></dl></section><section id="refund-step-1" class="step-panel" aria-labelledby="refund-heading-1"><h4 id="refund-heading-1">2. Triage</h4><dl><dt>Router</dt><dd>the tier router, labels easy or hard from the question text alone</dd><dt>Risk</dt><dd>the question reads like a lookup and may be labelled easy</dd></dl></section><section id="refund-step-2" class="step-panel" aria-labelledby="refund-heading-2"><h4 id="refund-heading-2">3. Answer</h4><dl><dt>What the answer needs</dt><dd>the plan type, then for an annual plan the unused whole months (10 of 12 at day 45) minus the 15% fee</dd><dt>Silent downgrade</dt><dd>on the cheap tier, a confident wrong amount, with nothing in the reply that looks broken</dd></dl></section><section id="refund-step-3" class="step-panel" aria-labelledby="refund-heading-3"><h4 id="refund-heading-3">4. Measure</h4><dl><dt>Guard</dt><dd>add questions like this one, labelled hard, to the set the router is scored on</dd><dt>Check</dt><dd>re-read the confusion matrix after every triage-prompt change</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 Lesson 24.3 keeps all the work but runs it at once: several branches in parallel, merged into one answer.
 
 ## Limits of this evidence
 
-- **Seven questions.** One question moves accuracy by 14 points, so Table 4 shows a shape, not a ranking of models.
+- **Seven questions.** One question moves accuracy by 14 points. Table 4 shows a shape, not a ranking of models.
 - **Token-match grading.** An answer that states the right value in other words counts as wrong.
-- **One run.** Times and triage labels come from a single recorded run; a rerun can route differently.
+- **One run.** Times and triage labels come from a single recorded run; the notebook ships without outputs, and a rerun can route differently. We re-solved the seven expected answers by hand (search, B, 14 and the four easy values), and they hold.
+
+## References
+
+1. Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), December 2024: the routing pattern.
+2. LangChain, [LangGraph Graph API: conditional edges](https://docs.langchain.com/oss/python/langgraph/graph-api).
+3. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
+4. OpenAI, [Reasoning models](https://developers.openai.com/api/docs/guides/reasoning).
 
 ## Key Takeaways
 

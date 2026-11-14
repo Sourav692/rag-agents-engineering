@@ -2,6 +2,7 @@
 
 *[M19 theory](../README.md) · Lesson 19.3 · Notebooks: [`03a_explainable_retrieval.ipynb`](../../notebook/03a_explainable_retrieval.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: An explanation written after the ranking describes the text, not why it was ranked -->
+<!-- format: approved -->
 
 ## Explaining a retrieved chunk
 
@@ -26,7 +27,7 @@ flowchart LR
 
 *Figure 1: One retrieval, then one explanation call per chunk.*
 
-Three properties of this design decide where it is useful.
+Each explanation call receives two things: the query and one chunk's text. It does not receive the similarity score, the chunk's rank or the other chunks. Three properties of this design decide where it is useful.
 
 ## It costs one call per chunk
 
@@ -56,6 +57,19 @@ On the Larkspur handbook that matters. In the M10 TF-IDF index, *What happens if
 
 That reads as an explanation and is a rationalisation of a ranking error. We call it the **rationalised miss**. The chunk was ranked by similarity between two vectors; the paragraph is the model's reading of the query and the chunk side by side, written after the fact.
 
+Table 3 shows what the ranking actually did for that question. Scores were recomputed with scikit-learn's TF-IDF and English stop words over the twelve M10 chunks, which reproduces the M10 lab.
+
+| Rank | Chunk | TF-IDF score | Evidence for the question |
+|---|---|---|---|
+| 1 | `reboot` | 0.416 | No |
+| 2 | `sizing` | 0.389 | No |
+| 3 | `export` | 0.217 | No |
+| tied at 0 | `sla`, `incidents` | 0.000 | Yes |
+
+*Table 3: The real ranking for the outage question. Both evidence chunks score zero.*
+
+The score log tells an engineer the problem is vocabulary: "goes down" never meets "outage". The explanation for `reboot` hides it.
+
 > **Key distinction:** an explanation can guide a user and mislead an engineer. To debug retrieval, print the scores and the rank of the chunk you expected, never the explanation.
 
 ## Ask a question that can say no
@@ -68,9 +82,34 @@ A version that helps both readers changes the question:
 | One free-text paragraph | A structured result: relevant or not, a verbatim evidence quote, and the retriever's score |
 | Every retrieved chunk | Only the chunks the answer used, or the ones a user expands |
 
-*Table 3: From explainer to relevance grader.*
+*Table 4: From explainer to relevance grader.*
 
-The yes-or-no form is a **relevance grader**. On the `reboot` chunk it can return "no", with the score beside it, which is the signal the explainer could never give. [M28](../../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md) uses it to filter chunks and rewrite the query, and [M32.1](../../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#relevance-grading) adds a hallucination check and source highlighting on top.
+The yes-or-no form is a **relevance grader**. Figure 2 shows where it sits: the same retrieval, but each call returns a verdict that a filter can act on.
+
+```mermaid
+flowchart LR
+    Q[/Query/] --> R["Retriever<br/>chunks + scores"]
+    R --> G["LLM call per chunk:<br/>relevant yes or no<br/>+ evidence quote"]
+    G -->|yes| K["Keep, show quote<br/>and score"]
+    G -->|no| D["Drop, log rank<br/>and score"]
+```
+
+*Figure 2: The relevance grader. A verdict of "no" removes the chunk and leaves a trace an engineer can read.*
+
+On the `reboot` chunk it can return "no", with the score beside it, which is the signal the explainer could never give. [M28](../../../../../p08_agentic_rag/m28_retrieval_grading_rewriting/mandatory/theory/README.md) uses it to filter chunks and rewrite the query, and [M32.1](../../../../../p08_agentic_rag/m32_reliability_feedback/mandatory/theory/01_reliable_rag_relevance_checks_hallucination_checks_source_highlighting/README.md#relevance-grading) adds a hallucination check and source highlighting on top.
+
+The comparison below shows what each design returns for the `reboot` chunk on the outage question (*Illustrative* model replies; the scores are the real ones from Table 3).
+
+<div class="learning-widget evidence-switcher" data-comparison id="explain-switcher">
+<p class="widget-intro">Choose a design to see what it reports about the top-ranked chunk for "What happens if my server goes down?".</p>
+<div class="mode-controls" hidden role="group" aria-label="Explanation design"><button type="button" data-mode="explainer" aria-pressed="false" aria-controls="ex-explainer">Explainer (03a)</button><button type="button" data-mode="grader" aria-pressed="false" aria-controls="ex-grader">Relevance grader</button><button type="button" data-mode="log" aria-pressed="false" aria-controls="ex-log">Score log</button></div>
+<section id="ex-explainer" class="mode-panel" data-announcement="Explainer selected. It defends the chunk."><h4>Explainer</h4><dl><dt>Question asked</dt><dd>why is this context relevant?</dd><dt>Reply</dt><dd>"Rebooting is one way to recover a server that has gone down."</dd><dt>What a reader learns</dt><dd>a plausible reason; the ranking error is hidden</dd></dl></section>
+<section id="ex-grader" class="mode-panel" data-announcement="Relevance grader selected. It rejects the chunk."><h4>Relevance grader</h4><dl><dt>Question asked</dt><dd>is this context relevant? yes or no, with the deciding sentence</dd><dt>Reply</dt><dd>no; the chunk describes a manual reboot, not what happens during an outage; score 0.416</dd><dt>What a reader learns</dt><dd>the chunk should be dropped, and the top score was a weak signal</dd></dl></section>
+<section id="ex-log" class="mode-panel" data-announcement="Score log selected. Both evidence chunks score zero."><h4>Score log</h4><dl><dt>Question asked</dt><dd>none; no model call</dd><dt>Record</dt><dd><code>reboot</code> 0.416, <code>sizing</code> 0.389, <code>export</code> 0.217; <code>sla</code> and <code>incidents</code> 0</dd><dt>What a reader learns</dt><dd>the evidence never matched; the fix belongs in retrieval (embeddings or query rewriting), not in the prompt</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The grader serves the user and the filter; the score log serves the engineer. Neither needs the free-text paragraph.
 
 Two notes on running `03a` today. Its retriever call uses a method that the current LangChain core no longer has, so it raises an attribute error; the current call is the retriever's standard invoke. And the demo indexes three sentences with `k = 5`; FAISS returns all three, so each query gets three explanations, including two for texts about photosynthesis and global warming when the question is why the sky is blue. That is forced top-k (lesson 16.1) again, now with a paragraph defending each forced pick.
 
@@ -82,6 +121,20 @@ Two notes on running `03a` today. Its retriever call uses a method that the curr
 4. **Debug with ranks**, logged per query, never with explanation text.
 
 Lesson 19.4 leaves free text: Larkspur's server catalogue is a table, and a table row needs its own representation before it can be retrieved.
+
+## Limits
+
+- The explanation and grader replies on this page are illustrative. `03a` ships without outputs, and its demo corpus is three science sentences, not the handbook.
+- The TF-IDF scores come from the M10 index. `03a` ranks with OpenAI embeddings, which would score the outage question differently; the point about explanations not seeing scores holds for either.
+- A grader is also a model call. It can be wrong in both directions, so its verdicts need the same golden-set measurement as any other judge.
+- The missing retriever method was checked against the installed `langchain-core` 1.7.0.
+
+## References
+
+1. Jacovi and Goldberg, [their paper on faithful interpretability](https://arxiv.org/abs/2004.03685), 2020.
+2. Turpin et al., [Language Models Don't Always Say What They Think](https://arxiv.org/abs/2305.04388), 2023.
+3. Yan et al., [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884), 2024.
+4. scikit-learn, [TfidfVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html).
 
 ## Key Takeaways
 

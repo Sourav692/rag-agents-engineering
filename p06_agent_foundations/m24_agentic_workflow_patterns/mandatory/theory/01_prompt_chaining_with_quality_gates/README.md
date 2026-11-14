@@ -2,6 +2,7 @@
 
 *[M24 theory](../README.md) · Lesson 24.1 · Notebooks: [`01a_prompt_chaining_langgraph.ipynb`](../../notebook/01a_prompt_chaining_langgraph.ipynb), [`01b_prompt_chaining_structured_output.ipynb`](../../../optional/notebook/01b_prompt_chaining_structured_output.ipynb) (optional), [`01c_prompt_chaining_lcel.ipynb`](../../../optional/notebook/01c_prompt_chaining_lcel.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Who picks the next step, and the cheap check that stops a chain before it writes from nothing -->
+<!-- format: approved -->
 
 ## Workflow vs agent
 
@@ -19,6 +20,26 @@ A Larkspur customer writes *I want my money back for last month*. A useful reply
 ### Who picks the next step
 
 The distinction comes from Anthropic's *Building Effective Agents* (December 2024). In a **workflow**, LLM calls and tools run along code paths you defined in advance. In an **agent**, the model directs its own process: it picks the next tool, reads the result and decides when to stop. The ReAct agent of M23 is an agent. All five M24 patterns are workflows.
+
+In a workflow the refund reply's path exists before the ticket arrives. Every arrow below is an edge in your code:
+
+```mermaid
+flowchart LR
+    T[/Ticket/] --> X["Extract plan<br/>and date"] --> C["Check"] --> D["Draft"] --> P["Polish"] --> R[/Reply/]
+```
+
+*Figure 1: A workflow. The model writes inside each box; your code drew every arrow.*
+
+An agent has one loop instead. The model reads the history, chooses a tool or a final answer, and the loop runs until it stops:
+
+```mermaid
+flowchart LR
+    T[/Ticket/] --> M["Model picks<br/>the next step"]
+    M -->|tool call| U["Run the tool"] --> M
+    M -->|final answer| R[/Reply/]
+```
+
+*Figure 2: An agent. The number of trips round the loop is the model's choice, bounded only by a step limit.*
 
 The two differ in what you can know before a request runs:
 
@@ -82,7 +103,7 @@ flowchart LR
 ```
 <!-- animated: diagrams/gated-chain.anim.html -->
 
-*Figure 1: The gated chain. The gate can pass the key points on, send extraction round again, or stop the run with a reason.*
+*Figure 3: The gated chain. The gate can pass the key points on, send extraction round again, or stop the run with a reason.*
 
 We call the failure this prevents **writing from nothing**: later steps spend calls polishing a result whose input was never usable.
 
@@ -98,11 +119,11 @@ A gate is three separate pieces, and keeping them apart is what makes each one t
 
 *Table 4: Check, router and bound.*
 
-The counter uses a **reducer**, a rule for combining a node's update with the value already in state. Here the rule is addition, so each extraction's 1 accumulates into an attempt count.
+The counter uses a **reducer**, a rule for combining a node's update with the value already in state. Here the rule is addition: each extraction returns 1, and the 1s add up to an attempt count.
 
 ### Two recorded runs
 
-The two recorded runs take the two exits of Figure 1:
+The two recorded runs take the two exits of Figure 3:
 
 | Topic | Attempts | Gate verdicts | Ended at | LLM calls |
 |---|---|---|---|---|
@@ -113,14 +134,27 @@ The two recorded runs take the two exits of Figure 1:
 
 The second run spent three judge calls to avoid writing and polishing an email with no purpose. It also ended with a message a caller can show or log, which a crash or an empty email would not give.
 
+Replaying the graph with stub nodes in place of the model gives the same node order and call counts as the recorded runs. Choose an exit to follow it node by node:
+
+<div class="learning-widget evidence-switcher" data-comparison id="gate-exits">
+<p class="widget-intro">Follow each recorded topic through the gated chain, one node at a time.</p>
+<div class="mode-controls" hidden role="group" aria-label="Exit taken by the chain">
+<button type="button" data-mode="pass" aria-pressed="false" aria-controls="gate-exit-pass">Pass on attempt 1</button>
+<button type="button" data-mode="limit" aria-pressed="false" aria-controls="gate-exit-limit">Retry limit reached</button>
+</div>
+<section id="gate-exit-pass" class="mode-panel" data-announcement="Pass path selected. Four LLM calls, then the email."><h4>Deadline extension: the pass path</h4><dl><dt>Node order</dt><dd>extract_points, check_points, write_draft, polish_final</dd><dt>State at the end</dt><dd>attempt count 1, gate verdict true, a polished email</dd><dt>LLM calls</dt><dd>4: one each for extraction, the judge, the draft and the polish</dd></dl></section>
+<section id="gate-exit-limit" class="mode-panel" data-announcement="Retry limit selected. Six LLM calls and no email."><h4>The meaning of life: the retry-limit path</h4><dl><dt>Node order</dt><dd>extract_points and check_points three times, then fail_validation</dd><dt>State at the end</dt><dd>attempt count 3, gate verdict false, the stop message in place of an email</dd><dt>LLM calls</dt><dd>6: three extractions and three judge calls; the terminal node calls no model</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 ### Planted failures
 
 Each piece of the gate exists because something specific goes wrong without it:
 
 | Planted failure | What happens | The guard |
 |---|---|---|
-| A keyword gate ("mentions *request*, *deadline*, *support*") | Philosophical key points mention "support" and "progress", so vague topics pass | An LLM judge with a yes-or-no verdict and a reason |
-| Extractor at temperature 0 | A regenerated attempt can repeat the rejected key points, so all three tries fail the same way | Extract at 0.7, judge at 0 |
+| A keyword gate ("mentions *request*, *deadline*, *support*") | Philosophical key points mention "support" and "progress", and vague topics pass | An LLM judge with a yes-or-no verdict and a reason |
+| Extractor at temperature 0 | A regenerated attempt can repeat the rejected key points, and all three tries fail the same way | Extract at 0.7, judge at 0 |
 | A bug in the router that never returns `fail` | The reject edge loops forever | The recursion limit of 12 steps stops the run |
 | Typed output with useless content | Every field is present and the email still has no purpose | A schema checks shape; the gate still checks content |
 
@@ -133,7 +167,7 @@ Each piece of the gate exists because something specific goes wrong without it:
 The same gate appears in the two alternative builds of this lesson:
 
 - **LCEL** (LangChain Expression Language, which composes runnable steps with `|`): the gate is a step that passes the payload through or raises a rejection error. A retry wrapper re-runs extraction and gate together, playing the reject edge, and a fallback plays `fail_validation`.
-- **Structured output at every hop**: each step returns a validated object, so shape errors are caught without an extra judge call. Shape is all it checks.
+- **Structured output at every hop**: each step returns a validated object. Shape errors are caught without an extra judge call, and shape is all it checks.
 
 ## In practice: the Larkspur refund ticket
 
@@ -148,9 +182,16 @@ The refund reply follows the same chain:
 
 ## Limits of this evidence
 
-- **Two runs.** Table 5 comes from one recorded run per topic; a new run can extract different points and the judge can word its reasons differently.
-- **One judge.** The gate's verdicts were not compared against human labels, so its false-pass rate is unmeasured.
+- **Two runs.** Table 5 comes from one recorded `gpt-4o-mini` run per topic; the notebook ships without outputs. A new run can extract different points, and the judge can word its reasons differently. Our stub replay confirms the node order and call counts, not the verdicts.
+- **One judge.** The gate's verdicts were not compared against human labels. Its false-pass rate is unmeasured.
 - **Left out:** a gate per step. Add one after drafting when the draft itself can fail a check you can state, such as a missing policy citation.
+
+## References
+
+1. Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), December 2024.
+2. LangChain, [LangGraph Graph API: conditional edges and state reducers](https://docs.langchain.com/oss/python/langgraph/graph-api).
+3. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
+4. LangChain, [Runnable reference: with_retry and with_fallbacks](https://reference.langchain.com/python/langchain-core/runnables).
 
 ## Key Takeaways
 

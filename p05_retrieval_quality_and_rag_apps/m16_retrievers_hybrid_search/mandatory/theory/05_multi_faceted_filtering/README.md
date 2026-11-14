@@ -2,6 +2,7 @@
 
 *[M16 theory](../README.md) · Lesson 16.5 · Notebooks: [`05a_multi_faceted_filtering.ipynb`](../../notebook/05a_multi_faceted_filtering.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Ranking orders chunks; filters decide which chunks are allowed at all -->
+<!-- format: approved -->
 
 ## Four filters in sequence
 
@@ -40,13 +41,18 @@ Each filter removes a different kind of wrong chunk, at a different price:
 
 *Table 1: The four filters and their cost.*
 
-The order is a cost decision. Exact checks run first, and the one filter that calls the embedding model runs last, on whatever survives. Each filter is optional, so the same function serves a question with a known country and one without.
+The order is a cost decision. Exact checks run first, and the one filter that calls the embedding model runs last, on whatever survives. Each filter is optional. The same function serves a question with a known country and one without.
+
+<div class="walkthrough learning-widget" data-stepper id="filter-walkthrough">
+<p class="widget-intro">Step through the Chile question's top 10 as each filter reads it.</p>
+<div class="step-controls" hidden role="group" aria-label="Filters in the order 05a runs them"><button type="button" data-step="0" aria-pressed="false" aria-controls="filter-step-0">1. Metadata</button><button type="button" data-step="1" aria-pressed="false" aria-controls="filter-step-1">2. Score</button><button type="button" data-step="2" aria-pressed="false" aria-controls="filter-step-2">3. Keywords</button><button type="button" data-step="3" aria-pressed="false" aria-controls="filter-step-3">4. Diversity</button></div>
+<div class="step-panels"><section id="filter-step-0" class="step-panel" aria-labelledby="filter-heading-0"><h4 id="filter-heading-0">1. Metadata</h4><dl><dt>Reads</dt><dd>each chunk's <code>country</code> field</dd><dt>Keeps</dt><dd>chunks whose value equals Chile exactly; every key in the filter must match</dd><dt>Drops</dt><dd>customers from other countries that ranked high on similar wording</dd></dl></section><section id="filter-step-1" class="step-panel" aria-labelledby="filter-heading-1"><h4 id="filter-heading-1">2. Score</h4><dl><dt>Reads</dt><dd>the relevance score the search returned with each chunk</dd><dt>Keeps</dt><dd>scores of 0.35 or more</dd><dt>Drops</dt><dd>chunks that were in the top 10 only because 10 slots had to be filled</dd></dl></section><section id="filter-step-2" class="step-panel" aria-labelledby="filter-heading-2"><h4 id="filter-heading-2">3. Keywords</h4><dl><dt>Reads</dt><dd>the chunk text, lower-cased</dd><dt>Keeps</dt><dd>chunks containing every required keyword, here <code>chile</code></dd><dt>Drops</dt><dd>chunks whose text never names the term the evidence must contain</dd></dl></section><section id="filter-step-3" class="step-panel" aria-labelledby="filter-heading-3"><h4 id="filter-heading-3">4. Diversity</h4><dl><dt>Reads</dt><dd>an embedding of each survivor, one model call per chunk</dd><dt>Keeps</dt><dd>chunks in rank order, unless one already kept has cosine 0.9 or more with it</dd><dt>Drops</dt><dd>rows whose text is near-identical to a row already kept</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 The diversity filter is a hard cut at one similarity. MMR from lesson 16.4 makes the same trade softly, weighing redundancy against relevance with λ.
 
 ## Pre-filter or post-filter
 
-The four filters in `05a` only remove. They run on the 10 chunks the search returned, so if a Chilean customer ranked 11th, no filter brings it back. A strict combination can remove all ten and leave nothing. We call this **post-filter starvation**: the filter is right and the result is empty, because the search spent its slots on chunks the filter was always going to reject.
+The four filters in `05a` only remove. They run on the 10 chunks the search returned. If a Chilean customer ranked 11th, no filter brings it back. A strict combination can remove all ten and leave nothing. We call this **post-filter starvation**: the filter is right and the result is empty, because the search spent its slots on chunks the filter was always going to reject.
 
 When the condition is known before the search, push it into the store:
 
@@ -64,7 +70,7 @@ flowchart TB
 
 *Figure 2: The same condition before and after ranking. Only the pre-filter guarantees 10 matching chunks when 10 exist.*
 
-Chroma takes the condition as a filter argument on the similarity search and ranks only the matching chunks, so every one of the 10 slots goes to a match. Keep post-filters for conditions the store cannot express, such as the diversity check.
+Chroma takes the condition as a filter argument on the similarity search and ranks only the matching chunks. Every one of the 10 slots goes to a match. Keep post-filters for conditions the store cannot express, such as the diversity check.
 
 Here is the arithmetic of starvation, for a condition that one chunk in twenty satisfies and spread evenly through the ranking (*Illustrative*):
 
@@ -88,10 +94,21 @@ A filter can only test a field that exists. For the Larkspur handbook the useful
 
 1. **Pre-filter on version.** Every handbook query filters to the current `version` in the store, before ranking. That removes last year's refund policy outright.
 2. **Pre-filter on section** when the question names a topic the router is sure of, such as Refunds.
-3. **Post-filter on score** with the floor from lesson 16.1, so an out-of-scope question still returns nothing.
+3. **Post-filter on score** with the floor from lesson 16.1. An out-of-scope question still returns nothing.
 4. **Leave diversity to MMR** on the survivors, at the λ lesson 16.4 settled on.
 
 Lesson 16.6 steps back from single techniques and compares whole retriever patterns, including what they cost when they nest.
+
+## Limits of this evidence
+
+- **No counts from a run.** The walkthrough describes what each filter reads and drops. `05a` prints the survivors for its own data, and this page quotes none of them.
+- **Table 2 is arithmetic.** It assumes matches spread evenly through the ranking. Real matches cluster, which can make post-filtering better or worse.
+- **Thresholds belong to the setup.** The 0.35 floor and the 0.9 duplicate cut fit `all-MiniLM-L6-v2` on a customer table, not the Larkspur handbook.
+
+## References
+
+1. Chroma, [Metadata filtering](https://docs.trychroma.com/docs/querying-collections/metadata-filtering).
+2. LangChain, [Chroma integration](https://docs.langchain.com/oss/python/integrations/vectorstores/chroma), including filtered similarity search.
 
 ## Key Takeaways
 

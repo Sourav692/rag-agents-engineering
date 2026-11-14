@@ -2,6 +2,7 @@
 
 *[M21 theory](../README.md) · Lesson 21.1 · Notebooks: [`01a_simple_rag_with_llamaindex.ipynb`](../../notebook/01a_simple_rag_with_llamaindex.ipynb), [`01b_simple_csv_rag_with_llamaindex.ipynb`](../../../optional/notebook/01b_simple_csv_rag_with_llamaindex.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Same ideas, new names, and two defaults that change the chunks you get from the same numbers -->
+<!-- format: approved -->
 
 ## Nodes
 
@@ -50,15 +51,36 @@ Two differences change the chunks you get from the same settings.
 
 The absolute file path is part of every vector. Exclude fields from the embedding and LLM text on the Documents, before splitting, when they should be stored but not embedded.
 
-Splitting never crosses a Document boundary. Notebook `02a` uses the splitter's defaults, 1,024 tokens with 200 overlap, and every PDF page fits in one chunk, so the 33 pages become exactly 33 nodes. The page, not the chunk size, decides what a chunk is. On the Larkspur handbook the two sections load as two Documents; lesson 21.4 splits them into one node per sentence, 13 for refunds and 4 for exports.
+Splitting never crosses a Document boundary. Notebook `02a` uses the splitter's defaults, 1,024 tokens with 200 overlap, and every PDF page fits in one chunk. The 33 pages become exactly 33 nodes. The page, not the chunk size, decides what a chunk is. On the Larkspur handbook the two sections load as two Documents; lesson 21.4 splits them into one node per sentence, 13 for refunds and 4 for exports.
 
 ## What `01a`'s ingestion actually builds
 
-`01a` creates a FAISS index, passes it to an ingestion pipeline, then builds a vector store index from the nodes. With the installed `llama-index-core` 0.14.25 two things go wrong:
+`01a` creates a FAISS index, passes it to an ingestion pipeline, then builds a vector store index from the nodes. An **ingestion pipeline** runs a list of transformations over Documents, in order, and writes the result to the vector store it was given. As the notebook writes it, the list is a text cleaner and then the splitter:
+
+```mermaid
+flowchart LR
+    D[/"33 page Documents"/] --> C["TextCleaner<br/>edits Document text"]
+    C -. "error: text is read-only" .-> X(("stop"))
+    C --> SP["SentenceSplitter"] --> V[("FAISS store<br/>never reached")]
+```
+
+*Figure 1: `01a`'s pipeline as written. The cleaner sees Documents, not nodes.*
+
+The working order splits first, cleans the nodes, embeds them inside the pipeline, and only then hands FAISS to the index:
+
+```mermaid
+flowchart LR
+    D[/"33 page Documents"/] --> SP["SentenceSplitter<br/>123 nodes"] --> C["TextCleaner<br/>edits node text"] --> E["Embedding model<br/>123 calls"] --> V[("FAISS store<br/>123 vectors")]
+    V --> I["Index built on<br/>the FAISS store"]
+```
+
+*Figure 2: The fixed pipeline. The vectors live in the store the queries read.*
+
+With the installed `llama-index-core` 0.14.25 the notebook's version goes wrong in two ways:
 
 | Problem | Cause | Effect | Fix |
 |---|---|---|---|
-| **Cleaner crash** | The text cleaner comes before the splitter, so it receives Documents, whose text is read-only | An attribute error: Document's text has no setter | Put the cleaner after the splitter, as `02a` does; the 33 pages then become 123 nodes |
+| **Cleaner crash** | The text cleaner comes before the splitter and receives Documents, whose text is read-only | An attribute error: Document's text has no setter | Put the cleaner after the splitter, as `02a` does; the 33 pages then become 123 nodes |
 | **Empty store** | The pipeline has no embedding step, and it only adds nodes that already have an embedding to its store | FAISS holds 0 vectors; the index embeds the nodes again into the default in-memory store, which is what the notebook queries | Add the embedding model as the pipeline's last step, and build the index with FAISS as its storage |
 
 *Table 3: Two ingestion bugs in `01a`, repeated in every M21 notebook.*
@@ -85,13 +107,20 @@ sequenceDiagram
     S-->>QE: Response
 ```
 
-*Figure 1: A query engine's three stages.*
+*Figure 3: A query engine's three stages.*
 
 - **The retriever** embeds the question and returns the nearest nodes with their scores. The default is 2.
 - **The postprocessors** run in list order. `01a` passes none; lessons 21.3 and 21.4 add a reranker and a window replacement here.
 - **The synthesizer** puts the nodes' text into a prompt for the configured LLM. The default mode, compact, packs the nodes into as few prompts as the context window allows, then refines the answer across them.
 
 The response holds the answer and the source nodes it was built from, with their scores. `01a`'s evaluation reads both: the answer goes to correctness and faithfulness metrics, the source texts become the retrieval context for DeepEval's contextual relevancy metric. Logging the source nodes on every production query gives the same view without an evaluation run.
+
+The evaluation's first question, *What does climate change refer to?*, passes through the engine like this:
+
+<div class="walkthrough learning-widget" data-stepper id="engine-walkthrough">
+<p class="widget-intro">Step through one query and see what each stage reads and hands on.</p>
+<div class="step-controls" hidden role="group" aria-label="One question through a query engine"><button type="button" data-step="0" aria-pressed="false" aria-controls="engine-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="engine-step-1">2. Postprocess</button><button type="button" data-step="2" aria-pressed="false" aria-controls="engine-step-2">3. Synthesise</button><button type="button" data-step="3" aria-pressed="false" aria-controls="engine-step-3">4. Evaluate</button></div>
+<div class="step-panels"><section id="engine-step-0" class="step-panel" aria-labelledby="engine-heading-0"><h4 id="engine-heading-0">1. The retriever finds two nodes</h4><dl><dt>Reads</dt><dd>the question, embedded with the same model as the nodes</dd><dt>Hands on</dt><dd>the 2 nearest of the 123 nodes, each with its score</dd></dl></section><section id="engine-step-1" class="step-panel" aria-labelledby="engine-heading-1"><h4 id="engine-heading-1">2. No postprocessors run</h4><dl><dt>Reads</dt><dd>the two scored nodes</dd><dt>Hands on</dt><dd>the same two, unchanged, because <code>01a</code> configures none. Lesson 21.3 puts a reranker in this slot</dd></dl></section><section id="engine-step-2" class="step-panel" aria-labelledby="engine-heading-2"><h4 id="engine-heading-2">3. The synthesizer writes the answer</h4><dl><dt>Reads</dt><dd>the question and the two nodes' text</dd><dt>Does</dt><dd>packs both into one prompt (compact mode) and calls the LLM</dd><dt>Hands on</dt><dd>a response holding the answer and both source nodes</dd></dl></section><section id="engine-step-3" class="step-panel" aria-labelledby="engine-heading-3"><h4 id="engine-heading-3">4. The evaluation reads the response</h4><dl><dt>Reads</dt><dd>the answer, the two source texts and the reference answer from the question file</dd><dt>Scores</dt><dd>correctness and faithfulness from the answer, contextual relevancy from the source texts, each judged by <code>gpt-4o</code></dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 The engine can also run the retriever and postprocessors without the LLM, which is how lesson 21.4's lab was checked. Building the engine still needs an LLM: it resolves the configured model when created, and with none set and no OpenAI key it raises before any retrieval. Set a mock LLM for tests, or take a plain retriever from the index when you only need nodes.
 
@@ -109,6 +138,18 @@ A question about many rows, such as *how many customers are in Chile?*, gets the
 4. **Log source nodes** for every answer, as lesson 19.2 kept its context.
 
 Lesson 21.2 ports M16's hybrid retrieval, where LlamaIndex's defaults differ most.
+
+## Limits of this evidence
+
+- **Measured on one checkout.** The token counts, the 123 nodes and the two ingestion bugs come from `llama-index-core` 0.14.25 with a local `all-MiniLM-L6-v2` embedding model in place of OpenAI's. Another release can change the splitter's metadata accounting or the pipeline's error.
+- **No evaluation scores.** The notebooks ship without outputs, and `01a`'s evaluation calls `gpt-4o` as a judge on the one question the notebook asks. This page quotes none of its scores.
+- **Four characters per token is a rough rule.** Measure a ported chunk size with the splitter's own tokeniser rather than dividing by four.
+
+## References
+
+1. LlamaIndex, [Documents and Nodes](https://developers.llamaindex.ai/python/framework/module_guides/loading/documents_and_nodes/) documentation.
+2. LlamaIndex, [Ingestion Pipeline](https://developers.llamaindex.ai/python/framework/module_guides/loading/ingestion_pipeline/) documentation.
+3. LlamaIndex, [Query Engine](https://developers.llamaindex.ai/python/framework/module_guides/deploying/query_engine/) documentation.
 
 ## Key Takeaways
 

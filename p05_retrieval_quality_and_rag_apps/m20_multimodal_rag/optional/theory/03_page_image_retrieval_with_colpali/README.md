@@ -2,6 +2,7 @@
 
 *[M20 theory](../../../mandatory/theory/README.md) · Lesson 20.3 · Notebooks: [`03a_multimodal_rag_with_colpali.ipynb`](../../notebook/03a_multimodal_rag_with_colpali.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Retrieve the printed page itself, scored token by token against every patch -->
+<!-- format: approved -->
 
 ## Late interaction
 
@@ -15,6 +16,20 @@
 Lesson 20.1 ranked figures on a different scale from text; lesson 20.2 turned figures into text and trusted a vision model's reading forever. Both start by taking the page apart. ColPali keeps the page whole.
 
 Retrieval so far has used two kinds of model. A single-vector retriever squeezes a chunk into one vector and a question into another, and compares them once. A cross-encoder (M18) reads question and chunk together, which is accurate and too slow to run over a whole index.
+
+The single-vector design is the one every earlier retrieval lesson used:
+
+```mermaid
+flowchart LR
+    PG[/"Page or chunk"/] --> PE["Encoder"]
+    PE --> PV["One vector<br/>pooled in advance"]
+    Q[/"Question"/] --> QE["Encoder"]
+    QE --> QV["One vector"]
+    PV --> S["One dot product<br/>is the score"]
+    QV --> S
+```
+
+*Figure 1: Single-vector retrieval. Everything the page says is pooled into one vector before any question exists.*
 
 **Late interaction** sits between them. It encodes the document and the question separately, as with single vectors, so documents can be encoded ahead of time. It keeps one vector per token instead of one per text, and compares them only at the end. The comparison is called **MaxSim**:
 
@@ -38,7 +53,7 @@ flowchart LR
 ```
 <!-- animated: diagrams/maxsim.anim.html -->
 
-*Figure 1: MaxSim on one page. The figures are from a real run.*
+*Figure 2: MaxSim on one page. The figures are from a real run.*
 
 Notebook `03a`'s model needs a GPU stack, so the Larkspur lab pages were scored with `vidore/colSmol-256M`, a small model of the same family, through the ColPali engine library. Each 850 by 1100 page image became 1,139 vectors of 128 dimensions, and each question 24 vectors: its own tokens plus 10 end-of-utterance tokens the processor appends, which count in the sum like any other. The library's multi-vector scoring computes Table 1's steps; a hand-written version matched it to within 2e-6.
 
@@ -57,6 +72,11 @@ Here are a few of the 24 per-token maxima for *Which month missed the 99.95% ava
 *Table 2: Per-token maxima and page scores (`vidore/colSmol-256M`, the module's lab pages).*
 
 `month` scores 0.65 and 0.61 on pages 1 and 2, so it barely separates them. `availability` and `target` do: each finds a strong match on page 1 and nothing better than 0.28 elsewhere. One vector per page would have pooled those signals before the question was known. We call that loss **early pooling**; late interaction keeps the signals apart until the question arrives.
+
+<div class="walkthrough learning-widget" data-stepper id="maxsim-walkthrough">
+<p class="widget-intro">Step through how the availability question earns page 1 its score of 15.95.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of MaxSim scoring"><button type="button" data-step="0" aria-pressed="false" aria-controls="maxsim-step-0">1. Encode pages</button><button type="button" data-step="1" aria-pressed="false" aria-controls="maxsim-step-1">2. Encode question</button><button type="button" data-step="2" aria-pressed="false" aria-controls="maxsim-step-2">3. Best patch per token</button><button type="button" data-step="3" aria-pressed="false" aria-controls="maxsim-step-3">4. Sum</button></div>
+<div class="step-panels"><section id="maxsim-step-0" class="step-panel" aria-labelledby="maxsim-heading-0"><h4 id="maxsim-heading-0">1. Encode pages, ahead of time</h4><dl><dt>Input</dt><dd>each 850 by 1100 page image</dd><dt>Stored</dt><dd>1,139 patch vectors of 128 dimensions per page</dd></dl></section><section id="maxsim-step-1" class="step-panel" aria-labelledby="maxsim-heading-1"><h4 id="maxsim-heading-1">2. Encode the question, at query time</h4><dl><dt>Input</dt><dd>Which month missed the 99.95% availability target?</dd><dt>Output</dt><dd>24 vectors: 14 for the question's tokens and 10 appended end-of-utterance tokens</dd></dl></section><section id="maxsim-step-2" class="step-panel" aria-labelledby="maxsim-heading-2"><h4 id="maxsim-heading-2">3. Keep each token's best patch</h4><dl><dt>Compare</dt><dd>every token vector with all 1,139 patch vectors of a page</dd><dt>Keep</dt><dd>the maximum only: availability 0.75 and target 0.65 on page 1, nothing above 0.28 on the other pages</dd></dl></section><section id="maxsim-step-3" class="step-panel" aria-labelledby="maxsim-heading-3"><h4 id="maxsim-heading-3">4. Sum the maxima</h4><dl><dt>Page 1</dt><dd>9.04 from the question tokens plus 6.91 from the appended tokens, 15.95</dd><dt>Ranking</dt><dd>page 1 first, page 2 at 9.74, page 3 at 6.82</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 ## Page-level retrieval
 
@@ -115,6 +135,21 @@ Lower precision, pooled patch vectors, or a cheap first stage with MaxSim only o
 2. **Keep the handbook in text chunks**, with captions for its few figures.
 3. **Shortlist first**: a cheap single-vector search picks 20 pages, MaxSim reranks them.
 4. **Fix the token variable** and pin the device before deploying `03a`'s code.
+
+## Limits of this evidence
+
+- **A smaller model than the notebook's.** The Larkspur scores come from `vidore/colSmol-256M`, because `03a`'s `vidore/colpali-v1.2` needs a GPU stack. The mechanism is the same; the exact scores and margins will differ.
+- **Three pages.** Each lab page holds one topic, so clear margins are expected. A report whose pages share vocabulary will separate less.
+- **The appended tokens are not neutral.** They supply 6.91 of page 1's 15.95, and they reward whatever page they happen to match. On this corpus they favour the right page; that is an observation, not a guarantee.
+- **Storage figures are arithmetic.** About 583 KB per page assumes float32 and no compression; the page did not measure a real index.
+
+## References
+
+1. Khattab and Zaharia, [ColBERT: passage search by late interaction over BERT](https://arxiv.org/abs/2004.12832), SIGIR 2020.
+2. Faysse et al., [ColPali: Efficient Document Retrieval with Vision Language Models](https://arxiv.org/abs/2407.01449), 2024.
+3. Illuin Technology, [ColPali engine library](https://github.com/illuin-tech/colpali).
+4. Answer.AI, [byaldi](https://github.com/AnswerDotAI/byaldi).
+5. Hugging Face, [vidore/colSmol-256M model card](https://huggingface.co/vidore/colSmol-256M).
 
 ## Key Takeaways
 

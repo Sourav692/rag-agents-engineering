@@ -2,6 +2,7 @@
 
 *[M23 theory](../README.md) · Lesson 23.4 · Notebooks: [`04a_middleware.ipynb`](../../notebook/04a_middleware.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Hooks around every model and tool call: compress history, redact, cap, and pause a write for a person -->
+<!-- format: approved -->
 
 ## Middleware
 
@@ -17,6 +18,19 @@ Lesson 23.2 capped the loop with one middleware. This lesson opens the mechanism
 Larkspur's support agent may look up an account on its own, but sending the customer an email or issuing a refund must wait for a support engineer. The loop from lesson 23.2 has no place to wait. Rebuilding it as hand-wired graph nodes for every guard would mean rewriting the agent each time a rule is added.
 
 **Middleware** attaches hooks at fixed points of the agent loop: before the model call, after it, and around a model or tool call. Teams use it for observability (logging, timing), transformation (rewriting the prompt, filtering tools), control flow (retries, early exit) and guardrails (call limits, redaction, human approval).
+
+Each hook sits at a fixed point of one round of the loop:
+
+```mermaid
+flowchart LR
+    B["before model"] --> W["wrap model call<br/>model runs inside"]
+    W --> A["after model"]
+    A -- "tool calls" --> T["wrap tool call<br/>tool runs inside"]
+    T --> B
+    A -- "no tool call" --> E[end]
+```
+
+*Figure 1: Where middleware hooks run in one round of the agent loop.*
 
 ### Hooks are graph nodes
 
@@ -59,7 +73,7 @@ Summarisation needs a **trigger**, the point at which it fires, and a **keep** s
 *Table 3: History size per turn under each trigger. Token figures are a display estimate of characters divided by four.*
 
 - **A message count is predictable** but a poor proxy for pressure: ten short arithmetic turns and ten long tool results count the same.
-- **Tokens track what actually runs out.** The token run's history collapsed twice as long hotel listings piled up. The table's estimate is rough, so it does not show the exact point where the middleware's own counter crossed 550.
+- **Tokens track what actually runs out.** The token run's history collapsed twice as long hotel listings piled up. The table's estimate is rough and does not show the exact point where the middleware's own counter crossed 550.
 - **A fraction keeps its meaning when the model changes.** Seven tenths of the window means the same on a 128,000-token model and on one with a million; a hard-coded token count does not. The demo's tiny fractions only make it fire in six turns.
 
 A checkpointer keeps history across invocations, which is what gives summarisation a long history to work on and what lets an approval pause survive. Within one run, summarisation works on whatever history the run has.
@@ -106,17 +120,22 @@ sequenceDiagram
     A-->>U: final AIMessage
 ```
 
-*Figure 1: An approval round trip. The thread is checkpointed at the interrupt and nothing runs until the app resumes it.*
+*Figure 2: An approval round trip. The thread is checkpointed at the interrupt and nothing runs until the app resumes it.*
 
 The pause is a real suspension. The state is saved under the thread id, the agent returns an interrupt naming the pending calls, and the app resumes with one decision per gated call. The three decisions, from the recorded trails:
 
-| Decision | Tool runs? | Tool message the model receives | Final answer |
-|---|---|---|---|
-| Approve | Yes, with the model's arguments | Email sent to john@test.com with subject Hello | Confirms the email was sent |
-| Edit | Yes, with the reviewer's arguments | A note that a human reviewer replaced the call before it ran, that this was authorised, and not to re-issue the original | Reports the corrected recipient and subject |
-| Reject | No | The user rejected the call, the tool was not executed, and it should not be retried unless the user asks | Says it cannot send the email |
-
-*Table 5: Three decisions on the same send-email request.*
+<div class="learning-widget evidence-switcher" data-comparison id="decision-switcher">
+<p class="widget-intro">Choose the reviewer's decision on the same send-email request.</p>
+<div class="mode-controls" hidden role="group" aria-label="Reviewer decision">
+<button type="button" data-mode="approve" aria-pressed="false" aria-controls="decision-approve">Approve</button>
+<button type="button" data-mode="edit" aria-pressed="false" aria-controls="decision-edit">Edit</button>
+<button type="button" data-mode="reject" aria-pressed="false" aria-controls="decision-reject">Reject</button>
+</div>
+<section id="decision-approve" class="mode-panel" data-announcement="Approve selected. The tool runs as requested."><h4>Approve</h4><dl><dt>Tool runs</dt><dd>yes, with the model's arguments</dd><dt>Tool message</dt><dd>email sent to john@test.com with subject Hello</dd><dt>Final answer</dt><dd>confirms the email was sent</dd></dl></section>
+<section id="decision-edit" class="mode-panel" data-announcement="Edit selected. The tool runs with the reviewer's arguments."><h4>Edit</h4><dl><dt>Tool runs</dt><dd>yes, with the reviewer's arguments</dd><dt>Tool message</dt><dd>a note that a human reviewer replaced the call before it ran, that this was authorised, and not to re-issue the original</dd><dt>Final answer</dt><dd>reports the corrected recipient and subject</dd></dl></section>
+<section id="decision-reject" class="mode-panel" data-announcement="Reject selected. The tool does not run."><h4>Reject</h4><dl><dt>Tool runs</dt><dd>no</dd><dt>Tool message</dt><dd>the user rejected the call, the tool was not executed, and it should not be retried unless the user asks</dd><dt>Final answer</dt><dd>says it cannot send the email</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 The edit case started from a request with a wrong address. The reviewer replaced the recipient, subject and body, and the model's answer reported the reviewer's values, because the tool message told it what had happened. Prefer edit to reject when the call is right in kind and wrong in detail.
 
@@ -130,7 +149,7 @@ When the middleware interrupts, the AI message carrying the tool call is already
 | 1 | AI with a send-email tool call | Never answered |
 | 2 | Human: the new message | Where a tool message was required |
 
-*Table 6: The history after a new message on a paused thread.*
+*Table 5: The history after a new message on a paused thread.*
 
 The provider rejects the next model call (OpenAI, error 400): an assistant message with tool calls must be followed by tool messages responding to each call id, and the error points at index 2. We call this the **orphaned tool call**. The only valid next step on a paused thread is a resume with decisions. If the user wants a separate conversation, start a new thread.
 
@@ -147,6 +166,12 @@ The provider rejects the next model call (OpenAI, error 400): an assistant messa
 - **Toy tools.** The email, hotel and account tools are stubs; the approval trails show the mechanism, not a review workload.
 - **Rough token counts.** Table 3's tokens are characters divided by four, for display only.
 - **One version.** Hook names and node names come from the installed LangChain 1.x; they have changed between releases.
+
+## References
+
+- [LangChain: middleware overview](https://docs.langchain.com/oss/python/langchain/middleware/overview): hook points and custom middleware.
+- [LangChain: prebuilt middleware](https://docs.langchain.com/oss/python/langchain/middleware/built-in): summarisation, PII redaction and call limits.
+- [LangChain: human-in-the-loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop): interrupts, decisions and resuming a thread.
 
 ## Key Takeaways
 

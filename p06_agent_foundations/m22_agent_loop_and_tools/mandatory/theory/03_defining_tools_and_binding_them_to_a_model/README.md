@@ -2,6 +2,7 @@
 
 *[M22 theory](../README.md) · Lesson 22.3 · Notebooks: [`03a_defining_tools.ipynb`](../../notebook/03a_defining_tools.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: The model reads a description, never your code, so the description decides the call -->
+<!-- format: approved -->
 
 ## Tool schema
 
@@ -60,27 +61,18 @@ The validated version declares its arguments through a **validation model**, a P
 
 ## Three versions of the handbook search
 
-Here is Larkspur's handbook search defined three ways, with what the parameters part of each schema tells the model about its one argument, the query:
+Here is Larkspur's handbook search defined three ways. We planted one bad call against all three, the number 3 as the query:
 
-| Definition | What the model learns about the query |
-|---|---|
-| A function with an untyped query argument | It exists and is required. Nothing about its type or meaning |
-| The same function with the query typed as a string | It is a required string |
-| A validation model with a field description | It is a required string described as "Words to look up in the handbook, for example 'refund window'" |
+<div class="learning-widget evidence-switcher" data-comparison id="search-definitions">
+<p class="widget-intro">Choose a definition to see what its schema tells the model about the query, and what happens to the planted call.</p>
+<div class="mode-controls" hidden role="group" aria-label="Definition of the handbook search"><button type="button" data-mode="untyped" aria-pressed="false" aria-controls="def-untyped">Untyped</button><button type="button" data-mode="typed" aria-pressed="false" aria-controls="def-typed">Typed as a string</button><button type="button" data-mode="model" aria-pressed="false" aria-controls="def-model">Validation model</button></div>
+<section id="def-untyped" class="mode-panel" data-announcement="Untyped definition: the number 3 is accepted."><h4>A function with an untyped query argument</h4><dl><dt>Model learns</dt><dd>the query exists and is required; nothing about its type or meaning</dd><dt>Query = 3</dt><dd>accepted; the function runs with a number</dd></dl></section>
+<section id="def-typed" class="mode-panel" data-announcement="Typed definition: the number 3 is rejected."><h4>The same function, query typed as a string</h4><dl><dt>Model learns</dt><dd>the query is a required string</dd><dt>Query = 3</dt><dd>rejected before the function runs: "Input should be a valid string"</dd></dl></section>
+<section id="def-model" class="mode-panel" data-announcement="Validation model: the number 3 is rejected and the query is described."><h4>A validation model with a field description</h4><dl><dt>Model learns</dt><dd>a required string described as "Words to look up in the handbook, for example 'refund window'"</dd><dt>Query = 3</dt><dd>rejected before the function runs: "Input should be a valid string"</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-*Table 3: Three definitions of one tool, as the model sees them.*
-
-The full schema of the third version also carries a tool description: "Search the Larkspur Cloud handbook and return the two best-matching chunks. Use it for policy questions: billing, refunds, exports, outages, server sizing." That sentence says what the tool returns and which questions it is for, so the model can tell it apart from the server-status tool. The argument description says what a good query looks like.
-
-We planted one bad call against all three versions, the number 3 as the query:
-
-| Definition | Query = 3 |
-|---|---|
-| Untyped | Accepted; the function runs with a number |
-| Typed as a string | Rejected: "Input should be a valid string" |
-| Validation model | Rejected: "Input should be a valid string" |
-
-*Table 4: One planted call against three definitions.*
+The full schema of the third version also carries a tool description: "Search the Larkspur Cloud handbook and return the two best-matching chunks. Use it for policy questions: billing, refunds, exports, outages, server sizing." That sentence says what the tool returns and which questions it is for, and the model can tell it apart from the server-status tool. The argument description says what a good query looks like.
 
 The rejection happens before the function runs, which is where it belongs. Lesson 22.5 shows how that failure can come back to the model as a message it can read and correct.
 
@@ -94,13 +86,13 @@ LangChain's built-in tools carry their own schemas. The Wikipedia tool is named 
 | Description | The built-in one | Yours |
 | Argument | `query` | `tool_input` |
 
-*Table 5: What wrapping changes.*
+*Table 3: What wrapping changes.*
 
 The model now sends `tool_input`, and any prompt or test that expects `query` silently stops matching. We call that **argument drift**: the right value under the wrong key, which is still an invalid call.
 
 > **Pitfall: argument drift.** Whatever the source of a tool, inspect its final name, description and argument list before you trust it in a loop. That is exactly what the model will read.
 
-The from-scratch tools in lesson 22.1 described their arguments with Python type names inside a prompt. A native schema uses JSON Schema types (string, number) and travels in the API request itself, so the provider can return structured calls that match it.
+The from-scratch tools in lesson 22.1 described their arguments with Python type names inside a prompt. A native schema uses JSON Schema types (string, number) and travels in the API request itself. The provider can then return structured calls that match it.
 
 ## In practice: Larkspur's two tools
 
@@ -111,6 +103,18 @@ For Larkspur's agent, the schemas should leave no overlap for the model to guess
 3. **Before binding**: print each tool's name, description and arguments, and read them as the model will.
 
 A question such as *Is my server web-1 running, and does a reboot change its IP address?* then maps cleanly onto both tools, which lesson 22.4 traces message by message.
+
+## Limits
+
+- **Checked offline.** The schemas, the "abcabc" result, the rejections and the `tool_input` rename were checked against the installed `langchain-core` 1.7.0 with no model call. How much a better description improves a live model's tool choice is not measured here.
+- **Validation is shape only.** A schema can require a string; it cannot tell whether "refund window" is a sensible query. Lesson 22.5 evaluates the calls themselves.
+
+## References
+
+1. LangChain, [tools](https://docs.langchain.com/oss/python/langchain/tools).
+2. OpenAI, [function calling guide](https://platform.openai.com/docs/guides/function-calling).
+3. Pydantic, [fields](https://docs.pydantic.dev/latest/concepts/fields/).
+4. JSON Schema, [getting started](https://json-schema.org/learn/getting-started-step-by-step).
 
 ## Key Takeaways
 

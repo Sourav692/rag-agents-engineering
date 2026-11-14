@@ -2,6 +2,7 @@
 
 *[M23 theory](../../../mandatory/theory/README.md) · Lesson 23.5 · Notebooks: [`05a_intelligent_travel_assistant_agent.ipynb`](../../notebook/05a_intelligent_travel_assistant_agent.ipynb) (optional), [`05b_intelligent_travel_assistant_solution.ipynb`](../../notebook/05b_intelligent_travel_assistant_solution.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A small project: a create_agent ReAct agent with two live tools that turns a city name into attractions and weather -->
+<!-- format: approved -->
 
 ## The project: an intelligent travel assistant
 
@@ -33,7 +34,7 @@ flowchart LR
 | Piece | What it does | Built on |
 |---|---|---|
 | **Weather tool** | Calls the weather API in metric units and returns temperature, condition, humidity and wind, or the API's own reason for failing | The tool contract of lesson 22.3 |
-| **Web-search tool** | Finds three pages, fetches them in parallel with a 15-second wait each, converts each to text and keeps the first 1,500 characters | Lesson 22.3's tool contract; lesson 22.5's errors returned as text |
+| **Web-search tool** | Finds three pages, fetches them in parallel (a 10-second request timeout, then at most 15 seconds' wait for each result), converts each to text and keeps the first 1,500 characters | Lesson 22.3's tool contract; lesson 22.5's errors returned as text |
 | **System prompt** | States the use case: for any destination, search for attractions, get the weather, answer as bullets plus a weather summary | Lesson 23.2's factory |
 | **The agent** | The factory's ReAct loop with a model-call cap of 6 that ends the run quietly | Lessons 23.1 and 23.2 |
 
@@ -45,15 +46,12 @@ The exercise brief names the LangChain 0.x agent executor; the notebooks use the
 
 Ask *Kolkata*. Nothing in the word says what to fetch; the system prompt supplies that. The solution expects the run to take this shape:
 
-| Model call | What the model does | What comes back |
-|---|---|---|
-| 1 | Requests both tools in one turn, since neither needs the other | Two tool messages: the weather summary, and three page texts or short error strings |
-| 2 | Reads both observations | The answer: attraction bullets, then the weather |
-| 3 and on (only if a result is thin) | Searches again with other words | More page text, until the cap of 6 |
+<div class="walkthrough learning-widget" data-stepper id="kolkata-walkthrough">
+<p class="widget-intro">Step through the call order the solution expects for <em>Kolkata</em>.</p>
+<div class="step-controls" hidden role="group" aria-label="Model calls for a destination query"><button type="button" data-step="0" aria-pressed="false" aria-controls="kolkata-step-0">1. Both tools</button><button type="button" data-step="1" aria-pressed="false" aria-controls="kolkata-step-1">2. Answer</button><button type="button" data-step="2" aria-pressed="false" aria-controls="kolkata-step-2">3. Thin result</button></div>
+<div class="step-panels"><section id="kolkata-step-0" class="step-panel" aria-labelledby="kolkata-heading-0"><h4 id="kolkata-heading-0">1. Both tools</h4><dl><dt>Model call 1</dt><dd>requests the weather and the web search in one turn, since neither needs the other</dd><dt>What comes back</dt><dd>two tool messages: the weather summary, and three page texts or short error strings</dd></dl></section><section id="kolkata-step-1" class="step-panel" aria-labelledby="kolkata-heading-1"><h4 id="kolkata-heading-1">2. Answer</h4><dl><dt>Model call 2</dt><dd>reads both observations</dd><dt>Reply</dt><dd>attraction bullets, then the weather</dd></dl></section><section id="kolkata-step-2" class="step-panel" aria-labelledby="kolkata-heading-2"><h4 id="kolkata-heading-2">3. Thin result</h4><dl><dt>Model call 3 and on</dt><dd>only when a result is thin: it searches again with other words</dd><dt>Bound</dt><dd>the call cap of 6 ends the run quietly</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
-*Table 2: The expected call order for a destination query.*
-
-Results change by the hour, so the notebooks print no fixed answer; the solution prints the tools called and the model-call count, which is what a check can rely on. Before building the agent it binds both tools and asks *Show me local attractions in Bangalore and the weather in Bangalore*: the model should return two tool calls. If it returns one, fix the descriptions, not the agent.
+Results change by the hour, and the notebooks print no fixed answer; the solution prints the tools called and the model-call count, which is what a check can rely on. Before building the agent it binds both tools and asks *Show me local attractions in Bangalore and the weather in Bangalore*: the model should return two tool calls. If it returns one, fix the descriptions, not the agent.
 
 ## Design choices worth copying
 
@@ -65,17 +63,23 @@ Results change by the hour, so the notebooks print no fixed answer; the solution
 | **Cap model calls at 6** | Bounds cost if the agent keeps searching on a thin result (lesson 23.2's runaway loop) |
 | **No Thought and Action format in the prompt** | Native tool calls need none, and the format would leak into the answer (lesson 23.1) |
 
-*Table 3: Five choices and what each protects against.*
+*Table 2: Five choices and what each protects against.*
 
-The first row has lesson 22.5's cost: an error returned as text reaches the model as a normal result, so monitoring that counts errors never sees it.
+The first row has lesson 22.5's cost: an error returned as text reaches the model as a normal result. Monitoring that counts errors never sees it.
 
 ## Limits
 
 - **No expected answer.** Live search and weather mean a test can check behaviour (both tools called, then an answer) but not the text.
-- **Single turn.** No checkpointer, so a follow-up starts from nothing; the exercise's bonus tasks add memory, more tools, several cities and streaming.
+- **Single turn.** No checkpointer: a follow-up starts from nothing; the exercise's bonus tasks add memory, more tools, several cities and streaming.
 - **Blind truncation.** The first 1,500 characters can be a cookie banner rather than attractions.
 
 The notebooks need an OpenAI key, a Tavily key for search and an OpenWeatherMap key for weather.
+
+## References
+
+- [LangChain: agents](https://docs.langchain.com/oss/python/langchain/agents): the factory the solution uses.
+- [OpenWeather: current weather API](https://openweathermap.org/api/current): the weather tool's data source.
+- [Tavily documentation](https://docs.tavily.com): the search API behind the web-search tool.
 
 ## Key Takeaways
 

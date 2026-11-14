@@ -2,6 +2,7 @@
 
 *[M24 theory](../README.md) · Lesson 24.3 · Notebooks: [`03a_parallelization_langgraph.ipynb`](../../notebook/03a_parallelization_langgraph.ipynb), [`03b_parallelization_sectioning_and_voting.ipynb`](../../notebook/03b_parallelization_sectioning_and_voting.ipynb), [`03c_parallelization_lcel.ipynb`](../../../optional/notebook/03c_parallelization_lcel.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Run independent branches at once, merge them safely, and know what the slowest branch and a rate limit cost you -->
+<!-- format: approved -->
 
 ## Fan-out / fan-in
 
@@ -99,7 +100,17 @@ The same fan-out mechanics serve two different jobs, and they buy different thin
 
 ### The recorded security vote
 
-The voting graph gives each reviewer one concern (injection, secrets handling, input validation), and no reviewer sees another's vote. Each returns a structured vote, flagged or not, with a reason. The aggregator blocks the code when at least 2 of 3 reviewers flag it:
+The voting graph gives each reviewer one concern (injection, secrets handling, input validation), and no reviewer sees another's vote. Each returns a structured vote, flagged or not, with a reason, and appends it to one shared list:
+
+```mermaid
+flowchart LR
+    F[/Function/] --> I["injection<br/>review"] & S["secrets<br/>review"] & V["validation<br/>review"]
+    I & S & V --> A["aggregate<br/>count flags"] --> D[/BLOCK or APPROVE/]
+```
+
+*Figure 2: The voting graph. Three reviewers write to one votes list through a reducer; plain code counts the flags.*
+
+The aggregator calls no model. It blocks the code when at least 2 of 3 reviewers flag it:
 
 | Snippet | Injection | Secrets | Validation | Verdict |
 |---|---|---|---|---|
@@ -124,18 +135,33 @@ The unsafe run also shows a planted weakness. The validation reviewer flagged th
 
 ## In practice: Larkspur's outage reply
 
-Both uses appear in one Larkspur reply:
+Both uses appear in one Larkspur reply to an outage ticket, at different points. Choose a use to see what fans out and what the fan-in does (an illustrative design, not a recorded run):
 
-1. **Sectioning for evidence.** Fan out to the handbook index, the status page and the account. The answer waits for the slowest source, so each branch gets a timeout and a fallback value, and each result keeps its source label so the reply can cite it.
-2. **Voting before sending.** Three narrow reviewers check the draft: does it promise a refund the policy does not allow, does it quote the right refund window, does it commit to a support response time. A threshold over three narrow checks is easier to tune than one judge asked about everything.
+<div class="learning-widget evidence-switcher" data-comparison id="outage-fanout-uses">
+<p class="widget-intro">Compare the two fan-outs in Larkspur's outage reply.</p>
+<div class="mode-controls" hidden role="group" aria-label="Use of the fan-out">
+<button type="button" data-mode="sectioning" aria-pressed="false" aria-controls="use-sectioning">Sectioning for evidence</button>
+<button type="button" data-mode="voting" aria-pressed="false" aria-controls="use-voting">Voting before sending</button>
+</div>
+<section id="use-sectioning" class="mode-panel" data-announcement="Sectioning selected. Three lookups, one key each."><h4>Sectioning: gather the evidence</h4><dl><dt>Branches</dt><dd>the handbook's outage policy, the status page, the customer's account</dd><dt>State</dt><dd>one key per branch, each result keeping its source label for citation; no reducer</dd><dt>Fan-in</dt><dd>the drafting call, which waits for the slowest source; give each branch a timeout and a fallback value</dd><dt>Buys</dt><dd>latency</dd></dl></section>
+<section id="use-voting" class="mode-panel" data-announcement="Voting selected. Three narrow reviewers, one shared list."><h4>Voting: check the draft</h4><dl><dt>Branches</dt><dd>three narrow reviewers: a refund the policy does not allow, the wrong refund window, a promised support response time</dd><dt>State</dt><dd>one shared votes list, reducer required</dd><dt>Fan-in</dt><dd>plain code counting flags against a threshold; easier to tune than one judge asked about everything</dd><dt>Buys</dt><dd>confidence</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Lesson 24.4 removes the last fixed piece: an orchestrator decides at run time how many branches there are.
 
 ## Limits of this evidence
 
 - **One run per graph.** The LLM timings in Tables 2 and 3 come from one recorded run; another run will finish its branches at different times.
-- **Unanimous votes only.** Neither recorded snippet split the reviewers, so the threshold's effect is reasoned, not measured.
+- **Unanimous votes only.** Neither recorded snippet split the reviewers. The threshold's effect is reasoned, not measured.
 - **Left out:** per-branch timeouts and fallback values. Add them when a branch calls a service that can hang.
+- **What we re-ran.** Table 1 is a model-free run on langgraph 1.2.18, and we rechecked Table 3's schedule by hand. The LLM timings and votes are inherited from the recorded runs; the notebooks ship without outputs.
+
+## References
+
+1. Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), December 2024: sectioning and voting.
+2. LangChain, [LangGraph Graph API: parallel branches and reducers](https://docs.langchain.com/oss/python/langgraph/graph-api).
+3. LangChain, [Runnable reference: RunnableParallel and the max_concurrency setting](https://reference.langchain.com/python/langchain-core/runnables).
 
 ## Key Takeaways
 

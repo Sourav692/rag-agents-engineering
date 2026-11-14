@@ -2,6 +2,7 @@
 
 *[M16 theory](../README.md) · Lesson 16.2 · Notebooks: [`02a_dense_sparse_hybrid_retrieval.ipynb`](../../notebook/02a_dense_sparse_hybrid_retrieval.ipynb), [`02b_hybrid_search_rag.ipynb`](../../../optional/notebook/02b_hybrid_search_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Embeddings miss exact codes, keyword search misses paraphrase, so production retrieval runs both -->
+<!-- format: approved -->
 
 ## Dense vs sparse
 
@@ -27,7 +28,29 @@ A **dense** retriever turns every chunk and the question into an embedding, a ve
 
 *Table 1: Dense and sparse retrieval side by side.*
 
-An error code has no learned meaning for an embedding model, so its few characters move the chunk's vector very little. BM25 treats `e-4021` as one more token and a rare one, which is the case it weights most.
+Each retriever turns the question into a different object before it compares anything. The dense one compares positions in a learned space:
+
+```mermaid
+flowchart LR
+    Q[/"What does E-4021 mean?"/] --> M["Embedding model<br/>one vector"]
+    M --> S["Cosine similarity<br/>with every chunk vector"]
+    S --> R["err-4021<br/>at rank 5"]
+```
+
+*Figure 1: The dense path. Four look-alike error chunks sit closer to the question's vector.*
+
+The sparse one compares tokens, and never calls a model:
+
+```mermaid
+flowchart LR
+    Q[/"What does E-4021 mean?"/] --> T["Tokeniser<br/>what, does, e-4021, mean"]
+    T --> S["BM25 sum over<br/>matching tokens"]
+    S --> R["err-4021<br/>at rank 2"]
+```
+
+*Figure 2: The sparse path. The rare token `e-4021` carries a high idf and lifts the chunk that contains it.*
+
+An error code has no learned meaning for an embedding model. Its few characters move the chunk's vector very little. BM25 treats `e-4021` as one more token and a rare one, which is the case it weights most.
 
 The module's lab ranks the same 19 Larkspur chunks both ways, with BM25 and with `all-MiniLM-L6-v2` cosine similarity. Here is where each retriever puts the evidence for its seven golden questions:
 
@@ -43,7 +66,7 @@ The module's lab ranks the same 19 Larkspur chunks both ways, with BM25 and with
 
 *Table 2: Rank of each evidence chunk (computed with the lab's BM25 and `all-MiniLM-L6-v2`). "None" means BM25 gave the chunk a score of 0.*
 
-The pattern is the one Table 1 predicts. The downtime questions share no word with the `incidents` chunk ("root-cause report", "recovery"), so BM25 ranks it 9th or not at all, while the dense retriever puts it first. The code questions flip it: BM25 finds the code chunk at rank 1 or 2, and the dense retriever finds the look-alike codes first.
+The pattern is the one Table 1 predicts. The downtime questions share no word with the `incidents` chunk ("root-cause report", "recovery"). BM25 ranks it 9th or not at all, while the dense retriever puts it first. The code questions flip it: BM25 finds the code chunk at rank 1 or 2, and the dense retriever finds the look-alike codes first.
 
 > **Key distinction:** neither retriever is the better one. Each fails on a question type the other handles, so the golden set has to contain both types, or a switch from one to the other looks like a pure win.
 
@@ -58,7 +81,7 @@ flowchart LR
     E --> R["create_retrieval_chain<br/>stuff into the prompt"]
 ```
 
-*Figure 1: The hybrid chain in `02a`. Both retrievers see the same question; the ensemble merges their lists.*
+*Figure 3: The hybrid chain in `02a`. Both retrievers see the same question; the ensemble merges their lists.*
 
 The weights follow the order of the retrievers list: `02a` gives 0.7 to dense and 0.3 to BM25, and `02b` lists BM25 first with 0.5 each. The ensemble hands its merged list to a chain that stuffs every returned chunk into the prompt. Lesson 16.3 shows how the merge works and how those weights can bury a keyword hit.
 
@@ -75,11 +98,11 @@ The weights follow the order of the retrievers list: `02a` gives 0.7 to dense an
 
 *Table 3: The pieces of a BM25 term. The term-frequency part is `tf × (k1 + 1) / (tf + k1 × (1 - b + b × length / average length))`.*
 
-In plain TF-IDF a word that appears ten times counts ten times as much as one that appears once. A chunk that repeats "refund" ten times is not ten times as relevant, so BM25 bends the curve. Here is that curve for chunks of three lengths:
+In plain TF-IDF a word that appears ten times counts ten times as much as one that appears once. A chunk that repeats "refund" ten times is not ten times as relevant, and BM25 bends the curve to match. Here is that curve for chunks of three lengths:
 
 ![BM25 term-frequency saturation for chunks of half, average and double length](diagrams/bm25-saturation.svg)
 
-*Figure 2: Term-frequency weight against occurrences, with `k1 = 1.5` and `b = 0.75`.*
+*Figure 4: Term-frequency weight against occurrences, with `k1 = 1.5` and `b = 0.75`.*
 
 Reading four points off the curve, as multiples of the word's idf:
 
@@ -108,9 +131,21 @@ BM25 can only match tokens the tokeniser produces. LangChain's `BM25Retriever` u
 
 *Table 5: What whitespace splitting matches.*
 
-The question's `application` does not match `application.` with its full stop, and `LLMs?` does not match `LLM`. Case splits words too: `LangChain` (one sentence) and `Langchain` (two sentences) are separate tokens with idf 1.10 and 0.34. The retriever still returns `k = 3` sentences, so its third result scored 0 and was picked by tie order. We call this **token mismatch**: the evidence holds the word, and the index holds a different string.
+The question's `application` does not match `application.` with its full stop, and `LLMs?` does not match `LLM`. Case splits words too: `LangChain` (one sentence) and `Langchain` (two sentences) are separate tokens with idf 1.10 and 0.34. The retriever still returns `k = 3` sentences. Its third result scored 0 and was picked by tie order. We call this **token mismatch**: the evidence holds the word, and the index holds a different string.
 
-The fix is a tokeniser that lower-cases, strips punctuation and keeps hyphenated identifiers in one piece, passed to the retriever as its preprocessing function. On the same corpus it lifts the second sentence to 1.947, because `application` now matches. A code typed at the end of a question (`ORD-88213?`) becomes `ord-88213` and matches the chunk that contains it. The lab's BM25 in Table 2 uses this tokeniser.
+The fix is a tokeniser that lower-cases, strips punctuation and keeps hyphenated identifiers in one piece, passed to the retriever as its preprocessing function. The switcher reruns `02a`'s five sentences with each tokeniser (scores computed with `rank_bm25`).
+
+<div class="learning-widget evidence-switcher" data-comparison id="tokeniser-switcher">
+<p class="widget-intro">Choose a tokeniser and see what the question matches in each sentence.</p>
+<div class="mode-controls" hidden role="group" aria-label="BM25 tokeniser">
+<button type="button" data-mode="whitespace" aria-pressed="false" aria-controls="tok-whitespace">Whitespace (default)</button>
+<button type="button" data-mode="normalised" aria-pressed="false" aria-controls="tok-normalised">Lower-case, no punctuation</button>
+</div>
+<section id="tok-whitespace" class="mode-panel" data-announcement="Whitespace tokeniser. The LangChain sentence ranks first on build alone."><h4>Whitespace splitting</h4><dl><dt>Question tokens</dt><dd>How, can, I, build, an, application, using, LLMs?</dd><dt>Rank 1</dt><dd>LangChain helps build LLM applications, 1.261 (build)</dd><dt>Rank 2</dt><dd>Langchain can be used to develop agentic ai application, 0.973 (can)</dd><dt>Rank 3</dt><dd>a sentence scoring 0, picked by tie order</dd></dl></section>
+<section id="tok-normalised" class="mode-panel" data-announcement="Normalised tokeniser. The agentic application sentence moves to first."><h4>Lower-case, punctuation stripped, hyphens kept</h4><dl><dt>Question tokens</dt><dd>how, can, i, build, an, application, using, llms</dd><dt>Rank 1</dt><dd>Langchain can be used to develop agentic ai application, 1.947 (application, can)</dd><dt>Rank 2</dt><dd>LangChain helps build LLM applications, 1.261 (build)</dd><dt>Rank 3</dt><dd>still a sentence scoring 0: <code>llms</code> matches neither <code>llm</code> nor <code>applications</code></dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+ On the same corpus it lifts the agentic-application sentence to 1.947 and to first place, because `application` now matches. A code typed at the end of a question (`ORD-88213?`) becomes `ord-88213` and matches the chunk that contains it. The lab's BM25 in Table 2 uses this tokeniser.
 
 > **Pitfall: tuning around a token mismatch.** `LLMs` still misses `LLM` after the fix; matching word forms needs a stemmer. Tune `k1` and `b` only after the tokens are right, because the tokens decide what can match at all.
 
@@ -121,9 +156,21 @@ For Larkspur's support search, Table 2 says which questions need which half:
 1. **Keep the dense half** for questions worded unlike the handbook: downtime, "money back", "shut off".
 2. **Add BM25** for questions that quote an error code, a plan name (`LC-408`) or an order ID.
 3. **Tokenise for codes**: lower-case, strip punctuation, keep `e-4021` and `lc-408` whole. Check it on a pasted code with a trailing question mark.
-4. **Put both question types in the golden set**, so a change that helps one type and hurts the other shows up.
+4. **Put both question types in the golden set.** A change that helps one type and hurts the other then shows up.
 
 Running two retrievers gives two ranked lists for every question. Lesson 16.3 turns them into one.
+
+## Limits of this evidence
+
+- **Table 2 is one small corpus.** The ranks come from the lab's 19 chunks with `all-MiniLM-L6-v2`. `02a` embeds with `text-embedding-3-small`, which may rank the code chunks differently. The pattern to test for is the one Table 1 predicts, not these exact ranks.
+- **The tokeniser comparison is five sentences.** It shows the mechanism of token mismatch, not the size of the gain on a real index.
+- **Ensemble weights are not tuned here.** `02a` and `02b` set 0.7/0.3 and 0.5/0.5 without measuring them. Lesson 16.3 shows what the weights do.
+
+## References
+
+1. Robertson and Zaragoza, [The probabilistic relevance framework: BM25 and beyond](https://www.staff.city.ac.uk/~sbrp622/papers/foundations_bm25_review.pdf), Foundations and Trends in Information Retrieval, 2009.
+2. [rank-bm25](https://pypi.org/project/rank-bm25/), the BM25 implementation behind LangChain's BM25 retriever.
+3. LangChain reference, [EnsembleRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever).
 
 ## Key Takeaways
 

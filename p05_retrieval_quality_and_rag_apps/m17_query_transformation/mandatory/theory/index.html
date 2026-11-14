@@ -388,6 +388,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 1: Two questions and their evidence. The words barely overlap.</em></p>
 <p>The second pair shows the vocabulary gap at its smallest. The M10 TF-IDF index does not stem, so &ldquo;refund&rdquo; in the question never meets &ldquo;Refunds&rdquo; in the chunk, and the timing chunk scores 0.000 too. Embeddings (M13) close part of this gap, because they place paraphrases near each other, and the rest of this module closes more of it at query time.</p>
 <h2 id="rewriting-and-expansion">Rewriting and expansion</h2>
+<p>Plain RAG from M10 sends one text everywhere: the question as typed is both the search key and the question the model answers.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; R[Retriever]
+    R --&gt; A["Answer prompt&lt;br/&gt;chunks + question"]
+    Q --&gt; A
+</pre></figure>
+<p><em>Figure 1: Plain retrieval. The same text searches and gets answered: a vocabulary gap goes straight into the search.</em></p>
 <p><strong>Query expansion</strong> closes the vocabulary gap with one LLM call. Notebook <code>01a</code> asks the model to &ldquo;expand the following query to improve document retrieval by adding relevant synonyms, technical terms, and useful context&rdquo;, and the expanded text goes to the retriever. The original question still goes to the answer prompt:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; X["LLM expands it&lt;br/&gt;synonyms, terms"]
@@ -395,8 +402,16 @@ th:last-child, td:last-child { padding-right: 0; }
     R --&gt; A["Answer prompt&lt;br/&gt;chunks + original question"]
     Q -- unchanged --&gt; A
 </pre></figure>
-<p><em>Figure 1: Expansion. The retriever sees the enriched text; the model answers the question the user asked.</em></p>
+<p><em>Figure 2: Expansion. The retriever sees the enriched text; the model answers the question the user asked.</em></p>
 <p>The split matters. The expansion exists to find chunks, and an answer prompt built on it would answer a longer, slightly different question.</p>
+<h3>One question through notebook 01a</h3>
+<p>The notebook wires this split into one chain. Here is what each stage holds for its first question:</p>
+<div class="walkthrough learning-widget" data-stepper id="expansion-walkthrough">
+<p class="widget-intro">Step through one question in notebook 01a, from the index to the answer prompt.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the expansion chain"><button type="button" data-step="0" aria-pressed="false" aria-controls="expand-step-0">1. Index</button><button type="button" data-step="1" aria-pressed="false" aria-controls="expand-step-1">2. Expand</button><button type="button" data-step="2" aria-pressed="false" aria-controls="expand-step-2">3. Retrieve</button><button type="button" data-step="3" aria-pressed="false" aria-controls="expand-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="expand-step-0" class="step-panel" aria-labelledby="expand-heading-0"><h4 id="expand-heading-0">1. Index</h4><dl><dt>Chunks</dt><dd>a text file on LangChain and CrewAI, split into 300-character chunks with 50 characters of overlap</dd><dt>Vectors</dt><dd><code>all-MiniLM-L6-v2</code> embeddings in a FAISS store</dd></dl></section><section id="expand-step-1" class="step-panel" aria-labelledby="expand-heading-1"><h4 id="expand-heading-1">2. Expand</h4><dl><dt>Input</dt><dd><em>What types of memory does LangChain support?</em></dd><dt>Call</dt><dd>one <code>o4-mini</code> call with the expansion prompt: add synonyms, technical terms and useful context</dd><dt>Output</dt><dd>a longer query; its wording changes from run to run</dd></dl></section><section id="expand-step-2" class="step-panel" aria-labelledby="expand-heading-2"><h4 id="expand-heading-2">3. Retrieve</h4><dl><dt>Search key</dt><dd>the expanded text, not the question</dd><dt>Retriever</dt><dd>maximal marginal relevance over the FAISS store, top 5 chunks</dd></dl></section><section id="expand-step-3" class="step-panel" aria-labelledby="expand-heading-3"><h4 id="expand-heading-3">4. Answer</h4><dl><dt>Prompt</dt><dd>the 5 chunks as context, and the <em>original</em> question in the question slot</dd><dt>Calls so far</dt><dd>2 LLM calls and 1 retrieval for one question</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The notebook&rsquo;s second question, <em>CrewAI agents?</em>, is two words long. It is the kind of short query expansion was built for.</p>
 <p><code>01a</code> names the two costs. Every retrieval now waits for an LLM call. And expansion can <strong>dilute</strong> the query: each added term pulls the query vector toward more of the corpus, until it is near everything and close to nothing. Three or four well-chosen terms help; a paragraph of synonyms hurts.</p>
 <p>The optional notebook <code>01b</code> shows the neighbouring moves on one example: a rewrite that makes the query more specific, a step-back query that makes it broader, and decomposition into two to four sub-queries. Each gets its own lesson below.</p>
 <h2 id="which-transformation-closes-which-gap">Which transformation closes which gap</h2>
@@ -484,19 +499,40 @@ th:last-child, td:last-child { padding-right: 0; }
     E -- yes --&gt; MQ["Variants or HyDE&lt;br/&gt;18.2, 18.3, 18.5"]
     E -- no --&gt; P["Plain retrieval"]
 </pre></figure>
-<p><em>Figure 2: Pick a transformation by the question&rsquo;s gap. The lesson numbers in the boxes read 18.x; they mean lessons 17.2 to 17.8 of this module.</em></p>
+<p><em>Figure 3: Pick a transformation by the question&rsquo;s gap. The lesson numbers in the boxes read 18.x; they mean lessons 17.2 to 17.8 of this module.</em></p>
 <p>Plain retrieval is a valid exit. We call the opposite habit <strong>transform everything</strong>: running a technique on all traffic because it helped some of it.</p>
 <blockquote>
 <p><strong>Pitfall: transform everything.</strong> The M10 lab already retrieves both evidence chunks for <em>Can I export my data after I cancel my plan?</em> at <code>k = 2</code>. Every transformation on that question adds an LLM call and gains nothing. A router (lesson 17.7) makes the choice per question.</p>
 </blockquote>
 <h2 id="in-practice-larkspurrsquos-three-golden-questions">In practice: Larkspur&rsquo;s three golden questions</h2>
-<p>The three M10 golden questions each fall in a different box of Figure 2:</p>
-<ol>
-<li><strong>How long does a refund take?</strong> Short, and worded unlike the timing chunk. Variants or expansion (17.2, 17.3).</li>
-<li><strong>What happens if my server goes down?</strong> Worded unlike both evidence chunks; retrieval finds neither. Variants, with fusion to order the results (17.3).</li>
-<li><strong>Can I export my data after I cancel my plan?</strong> Already retrieved at <code>k = 2</code>. Plain retrieval.</li>
-</ol>
+<p>The three M10 golden questions each fall in a different box of Figure 3:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="golden-switcher">
+<p class="widget-intro">Choose a golden question to see its gap and the exit it takes in Figure 3.</p>
+<div class="mode-controls" hidden role="group" aria-label="Golden question">
+<button type="button" data-mode="refund" aria-pressed="false" aria-controls="golden-refund">Refund timing</button>
+<button type="button" data-mode="outage" aria-pressed="false" aria-controls="golden-outage">Server goes down</button>
+<button type="button" data-mode="export" aria-pressed="false" aria-controls="golden-export">Export after cancel</button>
+</div>
+<section id="golden-refund" class="mode-panel" data-announcement="Refund question selected. Variants or expansion."><h4>How long does a refund take?</h4><dl><dt>Gap</dt><dd>vocabulary: "refund" never meets "Refunds" in the unstemmed index, and the timing chunk scores 0.000</dd><dt>Exit</dt><dd>variants or expansion (17.2, 17.3)</dd></dl></section>
+<section id="golden-outage" class="mode-panel" data-announcement="Outage question selected. Variants with fusion."><h4>What happens if my server goes down?</h4><dl><dt>Gap</dt><dd>vocabulary: both evidence chunks score 0.000; the top three match only on "server"</dd><dt>Exit</dt><dd>variants, with fusion to order the results (17.3)</dd></dl></section>
+<section id="golden-export" class="mode-panel" data-announcement="Export question selected. Plain retrieval."><h4>Can I export my data after I cancel my plan?</h4><dl><dt>Gap</dt><dd>none: both evidence chunks are retrieved at <code>k = 2</code></dd><dt>Exit</dt><dd>plain retrieval; any transformation adds a call and gains nothing</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Lesson 17.2 starts on the first two with the simplest variant technique: ask the question three ways.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Two different indexes.</strong> The 0.000, 0.416 and 0.389 scores come from the M10 TF-IDF index of the Larkspur handbook. Notebook <code>01a</code> searches its own LangChain and CrewAI text with MiniLM embeddings, and prints expansions, not scores.</li>
+<li><strong>No recall measurement.</strong> Neither notebook compares retrieval with and without expansion on a labelled set. The dilution warning is a mechanism, not a measured threshold; measure on your own golden questions before keeping expansion on.</li>
+<li><strong>Model output varies.</strong> The expanded text comes from <code>o4-mini</code> and differs between runs. This page describes it rather than quoting it.</li>
+<li><strong>Call counts are from the code.</strong> Table 2 counts the calls each notebook makes per question, not the latency or price of those calls.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Jagerman et al., <a href="https://arxiv.org/abs/2305.03653" target="_blank" rel="noopener">Query expansion by prompting large language models</a>, 2023.</li>
+<li>Wang, Yang and Wei, <a href="https://arxiv.org/abs/2303.07678" target="_blank" rel="noopener">Query2doc: query expansion with large language models</a>, 2023.</li>
+<li>Ma et al., <a href="https://arxiv.org/abs/2305.14283" target="_blank" rel="noopener">Query rewriting for retrieval-augmented large language models</a>, 2023.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A question rarely looks like its answer: it differs in vocabulary (the user&rsquo;s words against the handbook&rsquo;s) and in shape (short and interrogative against long and declarative).</li>
@@ -529,6 +565,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 17.1 named the vocabulary gap and closed it with one expanded query. Expansion still produces a single query, and a single query is a single point in embedding space.</p>
 <p>If that point happens to sit far from how the handbook words the answer, the relevant chunks are missed, and nothing reports it. Retrieval fails silently: the top <code>k</code> is always full, as lesson 16.1 showed. The outage question in the M10 index retrieves <code>reboot</code>, <code>sizing</code> and <code>export</code> with confidence and neither evidence chunk.</p>
+<p>Single-query retrieval has one path from question to chunks:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; R["Retrieve top k&lt;br/&gt;for the question"]
+    R --&gt; A["Answer prompt&lt;br/&gt;+ question"]
+</pre></figure>
+<p><em>Figure 1: Single-query retrieval. One phrasing, one ranked list, and no way to see what it missed.</em></p>
 <p><strong>Multi-query retrieval</strong> asks an LLM to write several phrasings of the question, retrieves for each, and merges the results:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; V["LLM writes&lt;br/&gt;3 phrasings"]
@@ -536,8 +578,8 @@ th:last-child, td:last-child { padding-right: 0; }
     R --&gt; U["Flat union&lt;br/&gt;each chunk once"]
     U --&gt; A["Answer prompt&lt;br/&gt;+ original question"]
 </pre></figure>
-<p><em>Figure 1: Multi-query retrieval. One LLM call in, one retrieval per phrasing, one merged list out.</em></p>
-<p>Notebook <code>02a</code> asks for three phrasings, each targeting a different angle of the question. Its knowledge base is two LangChain blog posts, chunked at 400 tokens with 60 of overlap, and its baseline cell first records what the question alone retrieves, so the variants have something to beat.</p>
+<p><em>Figure 2: Multi-query retrieval. One LLM call in, one retrieval per phrasing, one merged list out.</em></p>
+<p>Notebook <code>02a</code> asks for three phrasings, each targeting a different facet of the question and using different vocabulary. Its knowledge base is two LangChain blog posts, chunked at 400 tokens with 60 of overlap and embedded with <code>text-embedding-3-small</code>, and its baseline cell first records what the question alone retrieves, so the variants have something to beat.</p>
 <h2 id="vocabulary-spread">Vocabulary spread</h2>
 <p>The mechanism is <strong>vocabulary spread</strong>: each phrasing reaches for different words, and each set of words lands near different chunks. <code>02a</code> illustrates it with three ways of asking about LangSmith. A definition question lands near product overviews, a debugging question near tracing and errors, a production question near reliability.</p>
 <p>The module&rsquo;s lab carries hand-written variants for the Larkspur golden questions, in the style of the <code>02a</code> prompt. Here are the first three for the outage question, each retrieving its top 4 from the M10 TF-IDF index:</p>
@@ -613,12 +655,30 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Flat union of three variants against the question as asked (same lab and index).</em></p>
+<p>Here is the outage row of Table 2 traced through the chain:</p>
+<div class="walkthrough learning-widget" data-stepper id="union-walkthrough">
+<p class="widget-intro">Step through the outage question from variants to the two chunks the answer prompt keeps.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of multi-query retrieval"><button type="button" data-step="0" aria-pressed="false" aria-controls="union-step-0">1. Variants</button><button type="button" data-step="1" aria-pressed="false" aria-controls="union-step-1">2. Retrieve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="union-step-2">3. Union</button><button type="button" data-step="3" aria-pressed="false" aria-controls="union-step-3">4. Cut at 2</button></div>
+<div class="step-panels"><section id="union-step-0" class="step-panel" aria-labelledby="union-heading-0"><h4 id="union-heading-0">1. Variants</h4><dl><dt>Input</dt><dd><em>What happens if my server goes down?</em></dd><dt>Output</dt><dd>three phrasings: compensation for an outage, communication during an incident, the guaranteed uptime</dd></dl></section><section id="union-step-1" class="step-panel" aria-labelledby="union-heading-1"><h4 id="union-heading-1">2. Retrieve</h4><dl><dt>Per phrasing</dt><dd>top 4 nonzero chunks from the M10 TF-IDF index</dd><dt>Evidence found</dt><dd><code>sla</code> by all three; <code>incidents</code> by the second only</dd></dl></section><section id="union-step-2" class="step-panel" aria-labelledby="union-heading-2"><h4 id="union-heading-2">3. Union</h4><dl><dt>Rule</dt><dd>each chunk once, keyed by its text, in order of first arrival</dd><dt>Result</dt><dd><code>sla</code>, <code>reboot</code>, <code>sizing</code>, <code>export</code>, <code>incidents</code></dd></dl></section><section id="union-step-3" class="step-panel" aria-labelledby="union-heading-3"><h4 id="union-heading-3">4. Cut at 2</h4><dl><dt>Kept</dt><dd><code>sla</code> and <code>reboot</code></dd><dt>Recall at 2</dt><dd>0.50: <code>incidents</code> was found and arrived 5th</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>Mean recall at 2 rises from 0.50 to 0.83. The outage row shows what the union cannot do. <code>incidents</code> was found, by the second variant, and still lands 5th, because the first variant&rsquo;s four chunks come first. The union knows nothing about rank or agreement: a chunk every variant ranked first looks the same as one that scraped into one list. We call this <strong>order by arrival</strong>, and lesson 17.3 replaces it with rank fusion.</p>
 <p><code>02a</code> ends with the check that keeps the technique honest: compare the merged chunks with the baseline. If the variants return what the original query returned, multi-query is pure overhead on that corpus, and the export question above is such a case.</p>
 <h2 id="two-silent-bugs">Two silent bugs</h2>
 <p>Both bugs below shipped in earlier versions of the notebooks, and neither raised an error.</p>
-<p><strong>The id-only merge.</strong> The original <code>get_unique_union()</code> in <code>02a</code> de-duplicated by document id and returned the ids, not the documents. Every LangChain document has an id attribute, so that branch always ran, and the answer prompt&rsquo;s context held a list of bare identifiers. The model answered from memory, fluently, and the output looked like a working RAG chain. The fix keys the merge by the chunk&rsquo;s text and returns the documents themselves; <code>02a</code> then asserts that the context contains real passage text.</p>
+<p><strong>The id-only merge.</strong> The original <code>get_unique_union()</code> in <code>02a</code> de-duplicated by document id and returned the ids, not the documents. Every LangChain document has an id attribute. That branch always ran, and the answer prompt&rsquo;s context held a list of bare identifiers. The model answered from memory, fluently, and the output looked like a working RAG chain. The fix keys the merge by the chunk&rsquo;s text and returns the documents themselves; <code>02a</code> then asserts that the context contains real passage text.</p>
 <p><strong>Junk variants.</strong> Parsing the LLM&rsquo;s reply by splitting it on newlines assumes exactly three bare lines. Models add headers, numbering, blank lines and preambles such as &ldquo;Here are three variations:&rdquo;, and each of those becomes a query sent to the retriever. The failure is intermittent: the same chain returns clean lines on one run and markdown on the next. <code>02a</code> binds a schema with structured output, so the reply is a list of exactly the phrasings. The optional notebooks <code>02b</code> and <code>02c</code> show the older approach, a regular expression that cleans the split text, and use the same pattern to generate five hypothetical answers for HyDE (lesson 17.5).</p>
+<p>The two parsing approaches handle the same untidy reply very differently. The reply below is illustrative, written in the shape the bug describes:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="parse-switcher">
+<p class="widget-intro">Choose how the reply is turned into queries. The model's reply: a preamble line, a blank line, then three numbered phrasings.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the reply is parsed">
+<button type="button" data-mode="split" aria-pressed="false" aria-controls="parse-split">Split on newlines</button>
+<button type="button" data-mode="schema" aria-pressed="false" aria-controls="parse-schema">Structured output</button>
+</div>
+<section id="parse-split" class="mode-panel" data-announcement="Newline split selected. Five queries, two of them junk."><h4>Split on newlines</h4><dl><dt>Queries sent</dt><dd>5: the preamble, an empty string and three numbered phrasings</dd><dt>Effect</dt><dd>two retrievals search for junk, and their chunks join the union; no error is raised</dd></dl></section>
+<section id="parse-schema" class="mode-panel" data-announcement="Structured output selected. Only the phrasings."><h4>Structured output with a <code>queries</code> list</h4><dl><dt>Queries sent</dt><dd>only the items of the <code>queries</code> list</dd><dt>Effect</dt><dd>no preamble or blank line can become a query; the field description asks for three</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <blockquote>
 <p><strong>Pitfall: fluent answers from an empty context.</strong> A RAG chain whose context is broken still answers. Print what the retriever handed to the prompt before judging the answer.</p>
 </blockquote>
@@ -656,13 +716,25 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Calls per question, against 1 and 1 for plain RAG.</em></p>
-<p>The retrievals are independent, so <code>02a</code> runs them as one parallel batch, and the wall-clock cost is roughly one retrieval plus one LLM call. The context also grows: the outage union holds 5 chunks where the original question returned 3.</p>
+<p>The retrievals are independent. <code>02a</code> runs them as one parallel batch, and the wall-clock cost is roughly one retrieval plus one LLM call. The context also grows: the outage union holds 5 chunks where the original question returned 3.</p>
 <h2 id="in-practice-multi-query-on-the-larkspur-handbook">In practice: multi-query on the Larkspur handbook</h2>
 <ol>
 <li><strong>Use it where the baseline misses.</strong> The refund and outage questions gain; the export question gains nothing.</li>
-<li><strong>Parse with a schema</strong> and log every phrasing, so a drifting or junk variant is visible in traces.</li>
+<li><strong>Parse with a schema</strong> and log every phrasing. A drifting or junk variant then shows up in traces.</li>
 <li><strong>Assert the context is text</strong>, not ids, in a test that runs on every change.</li>
 <li><strong>Cut by rank, not arrival.</strong> At two chunks the union drops <code>incidents</code>. Lesson 17.3 keeps the same variants and fixes the order.</li>
+</ol>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>The numbers come from the lab, not the notebook.</strong> Tables 1 and 2 use the module lab&rsquo;s hand-written variants on the M10 TF-IDF index. Notebook <code>02a</code> searches two blog posts with OpenAI embeddings, and its variants change on every run.</li>
+<li><strong>Three is requested, not enforced.</strong> The <code>queries</code> field is a plain list whose description asks for three phrasings. A reply with two or five still parses; count them if your cost budget depends on it.</li>
+<li><strong>Three golden questions are a small sample.</strong> The rise from 0.50 to 0.83 is three questions on one small handbook. Measure on your own labelled set before turning multi-query on everywhere.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/multi_query/MultiQueryRetriever" target="_blank" rel="noopener">MultiQueryRetriever API reference</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+<li>Rackauckas, <a href="https://arxiv.org/abs/2402.03367" target="_blank" rel="noopener">RAG-Fusion: a new take on retrieval-augmented generation</a>, 2024.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -871,7 +943,18 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Rank against agreement, computed by hand.</em></p>
-<p>At <code>k = 60</code> the three weak votes for <code>retention</code> beat the two strong votes for the evidence chunk. At <code>k = 1</code> the strong votes win. Mean recall over the three golden questions, from the lab:</p>
+<p>At <code>k = 60</code> the three weak votes for <code>retention</code> beat the two strong votes for the evidence chunk. At <code>k = 1</code> the strong votes win. Here is what that flip does to the two chunks the answer prompt receives:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="k-switcher">
+<p class="widget-intro">Choose a value of <code>k</code> for the refund question, cut at two chunks.</p>
+<div class="mode-controls" hidden role="group" aria-label="RRF constant k">
+<button type="button" data-mode="k60" aria-pressed="false" aria-controls="k-60">k = 60</button>
+<button type="button" data-mode="k1" aria-pressed="false" aria-controls="k-1">k = 1</button>
+</div>
+<section id="k-60" class="mode-panel" data-announcement="k equals 60 selected. Agreement wins; recall at 2 is 0.50."><h4><code>k = 60</code>: agreement counts most</h4><dl><dt>Head-to-head</dt><dd><code>retention</code> 0.0479 beats <code>refund-window</code> 0.0331</dd><dt>Refund recall at 2</dt><dd>0.50</dd><dt>Golden-set mean at 2</dt><dd>0.67</dd></dl></section>
+<section id="k-1" class="mode-panel" data-announcement="k equals 1 selected. Rank wins; recall at 2 is 1.00."><h4><code>k = 1</code>: rank position counts most</h4><dl><dt>Head-to-head</dt><dd><code>refund-window</code> 1.50 beats <code>retention</code> 0.83</dd><dt>Refund recall at 2</dt><dd>1.00</dd><dt>Golden-set mean at 2</dt><dd>0.83</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+<p>Mean recall over the three golden questions, from the lab:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -915,6 +998,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Add a reranker</strong> (M18) over the fused pool when distractors keep winning.</li>
 </ol>
 <p>Lesson 17.4 changes the question in a different direction: instead of rewording it, it asks a broader one.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Hand-written variants on a small index.</strong> Every number on this page comes from the lab: five hand-written variants per golden question over the twelve M10 chunks, scored with TF-IDF. Notebook <code>03a</code> generates its variants with a model, and they change on every run.</li>
+<li><strong>Three questions decide the <code>k</code> comparison.</strong> The 0.67 against 0.83 gap at two chunks comes from one question, refund, changing order. It shows that <code>k</code> can matter; it does not show which <code>k</code> suits another corpus.</li>
+<li><strong>Ranks count from 0.</strong> <code>03a</code> and the lab give first place rank 0, so each vote is worth slightly more than on M16&rsquo;s page, which counts from 1. Compare scores only within one convention.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Cormack, Clarke and Büttcher, <a href="https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf" target="_blank" rel="noopener">Reciprocal rank fusion outperforms Condorcet and individual rank learning methods</a>, SIGIR 2009.</li>
+<li>Rackauckas, <a href="https://arxiv.org/abs/2402.03367" target="_blank" rel="noopener">RAG-Fusion: a new take on retrieval-augmented generation</a>, 2024.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>RAG-Fusion retrieves for five phrasings and fuses the rankings with RRF, which rewards chunks many variants find; on the Larkspur outage question it lifts <code>incidents</code> from 5th to 3rd.</li>
@@ -960,6 +1054,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 1: Step-back retrieval. Two searches, one for specifics and one for background.</em></p>
 <p>The two contexts do different jobs. The original question&rsquo;s context supplies specifics; the step-back context supplies the background that can correct a premise. <code>04a</code> feeds both, plus the original question, to a community answer prompt written to take exactly those three inputs.</p>
+<p>Here is the Larkspur refund question through those stages. The step-back question is written by hand and the chunks come from the M10 index, as in Table 1 below:</p>
+<div class="walkthrough learning-widget" data-stepper id="stepback-walkthrough">
+<p class="widget-intro">Step through the monthly-plan refund question from the step-back call to the answer prompt.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of step-back retrieval"><button type="button" data-step="0" aria-pressed="false" aria-controls="stepback-step-0">1. Step back</button><button type="button" data-step="1" aria-pressed="false" aria-controls="stepback-step-1">2. Two searches</button><button type="button" data-step="2" aria-pressed="false" aria-controls="stepback-step-2">3. Combine</button><button type="button" data-step="3" aria-pressed="false" aria-controls="stepback-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="stepback-step-0" class="step-panel" aria-labelledby="stepback-heading-0"><h4 id="stepback-heading-0">1. Step back</h4><dl><dt>Input</dt><dd><em>Can I get a refund on my monthly plan?</em></dd><dt>Call</dt><dd>one LLM call, primed with the two worked examples of Table 2</dd><dt>Output</dt><dd><em>What is the refund policy for each plan type?</em></dd></dl></section><section id="stepback-step-1" class="step-panel" aria-labelledby="stepback-heading-1"><h4 id="stepback-heading-1">2. Two searches</h4><dl><dt>Original</dt><dd><code>refund-window</code>, <code>billing</code>, <code>sla</code></dd><dt>Step-back</dt><dd><code>refund-window</code>, <code>retention</code>, <code>cancel</code></dd><dt>Order</dt><dd>independent; they run in parallel</dd></dl></section><section id="stepback-step-2" class="step-panel" aria-labelledby="stepback-heading-2"><h4 id="stepback-heading-2">3. Combine</h4><dl><dt>Context</dt><dd>five distinct chunks; <code>refund-window</code> appears in both</dd><dt>New fact</dt><dd><code>cancel</code>: cancelling stops the next charge</dd></dl></section><section id="stepback-step-3" class="step-panel" aria-labelledby="stepback-heading-3"><h4 id="stepback-heading-3">4. Answer</h4><dl><dt>Prompt inputs</dt><dd>the original context, the step-back context and the original question</dd><dt>Answer it can now give</dt><dd>no refund on a monthly plan, and cancelling stops the next charge</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>Here are both questions for each example, with what each one surfaces:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -993,6 +1093,18 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Original against step-back retrieval. The Leonardo rows are <code>04a</code>&rsquo;s live web search; the Larkspur rows are the top 3 from the M10 TF-IDF index, with the step-back question written by hand.</em></p>
+<p>The same question with and without the second search:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="stepback-switcher">
+<p class="widget-intro">Choose which retrieval feeds the answer prompt for the monthly-plan refund question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval used">
+<button type="button" data-mode="plain" aria-pressed="false" aria-controls="stepback-plain">Original only</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="stepback-both">Original plus step-back</button>
+</div>
+<section id="stepback-plain" class="mode-panel" data-announcement="Original only selected. Three chunks, no cancel fact."><h4>Original only (plain RAG)</h4><dl><dt>Context</dt><dd>3 chunks: <code>refund-window</code>, <code>billing</code>, <code>sla</code></dd><dt>What the model can say</dt><dd>refunds apply to annual plans; nothing on what a monthly customer can do instead</dd><dt>Cost</dt><dd>1 LLM call, 1 retrieval</dd></dl></section>
+<section id="stepback-both" class="mode-panel" data-announcement="Original plus step-back selected. Five chunks, cancel fact included."><h4>Original plus step-back</h4><dl><dt>Context</dt><dd>5 distinct chunks, adding <code>retention</code> and <code>cancel</code></dd><dt>What the model can say</dt><dd>no refund on a monthly plan, but cancelling stops the next charge</dd><dt>Cost</dt><dd>2 LLM calls, 2 retrievals</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>On the Larkspur handbook the gain is small and honest. Both questions find <code>refund-window</code>, the chunk that states the annual-plan rule. The step-back question adds <code>cancel</code>, the fact the customer needs next, and the combined context holds five distinct chunks where the original held three. On a twelve-chunk handbook there is little background to miss; on the open web, <code>04a</code>&rsquo;s search results move from Gutenberg to Leonardo.</p>
 <h2 id="teaching-abstraction-by-example">Teaching abstraction by example</h2>
 <p>&ldquo;Make this question more general&rdquo; is hard to specify in prose. Too loose, and the model rewrites the question into something unrelated; too strict, and it barely changes anything. <code>04a</code> teaches the move with two worked examples instead:</p>
@@ -1061,7 +1173,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Plain against step-back RAG, from <code>04a</code>&rsquo;s comparison.</em></p>
-<p>The two retrievals are independent, so <code>04a</code> runs them in parallel, and the extra latency is mostly one short LLM call.</p>
+<p>The two retrievals are independent. <code>04a</code> runs them in parallel, and the extra latency is mostly one short LLM call.</p>
 <blockquote>
 <p><strong>Interview tip:</strong> step-back helps only when the corpus contains the broader background. On a narrow corpus, generalising returns the same documents, as the Larkspur rows of Table 1 nearly do.</p>
 </blockquote>
@@ -1073,6 +1185,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Skip direct lookups</strong> such as <em>What is the refund window?</em>, where the original question already matches the chunk.</li>
 </ol>
 <p>Lesson 17.5 attacks the other half of the asymmetry from lesson 17.1: not the question&rsquo;s scope, but its shape.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>The Leonardo rows are a live web search.</strong> <code>04a</code> searches DuckDuckGo with four results per query: its contexts change from run to run. When the search fails, the notebook&rsquo;s wrapper returns the placeholder &ldquo;(web search unavailable)&rdquo; instead of raising: the chain still answers, from no evidence. Print both contexts before judging an answer.</li>
+<li><strong>The Larkspur step-back question is hand-written.</strong> Table 1&rsquo;s Larkspur rows show what a good step-back question retrieves, not what a model wrote.</li>
+<li><strong>The answer prompt is pulled from a public hub.</strong> <code>04a</code> loads a community prompt at run time, which means its wording can change upstream. Pin or copy a prompt you depend on.</li>
+<li><strong>No accuracy measurement.</strong> The notebooks compare contexts, not answer accuracy. The paper&rsquo;s reported gains come from its own benchmarks and models.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Zheng et al., <a href="https://arxiv.org/abs/2310.06117" target="_blank" rel="noopener">Take a step back: evoking reasoning via abstraction in large language models</a>, 2023.</li>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-core/prompts/few_shot/FewShotChatMessagePromptTemplate" target="_blank" rel="noopener">FewShotChatMessagePromptTemplate API reference</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A specific question, especially one with a false premise, steers retrieval toward its assumption (the specificity trap): Leonardo&rsquo;s question finds Gutenberg.</li>
@@ -1141,6 +1265,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The same question searched by itself and by two hypothetical answers (M10 index, TF-IDF; both answers illustrative).</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="hyde-switcher">
+<p class="widget-intro">Choose the search key for <em>What happens if my server goes down?</em> and compare what the index returns.</p>
+<div class="mode-controls" hidden role="group" aria-label="Search key">
+<button type="button" data-mode="question" aria-pressed="false" aria-controls="hyde-question">The question</button>
+<button type="button" data-mode="good" aria-pressed="false" aria-controls="hyde-good">A good guess</button>
+<button type="button" data-mode="jargon" aria-pressed="false" aria-controls="hyde-jargon">A jargon guess</button>
+</div>
+<section id="hyde-question" class="mode-panel" data-announcement="Question selected. Recall at 2 is 0.00."><h4>The question as the key</h4><dl><dt>Words that match</dt><dd>"server" only</dd><dt>Top 2</dt><dd><code>reboot</code> 0.416, <code>sizing</code> 0.389</dd><dt>Recall at 2</dt><dd>0.00</dd></dl></section>
+<section id="hyde-good" class="mode-panel" data-announcement="Good guess selected. Recall at 2 is 1.00."><h4>A good guess as the key</h4><dl><dt>Words that match</dt><dd>availability, outage, service credits, incident</dd><dt>Top 2</dt><dd><code>sla</code> 0.476, <code>incidents</code> 0.423</dd><dt>Recall at 2</dt><dd>1.00</dd></dl></section>
+<section id="hyde-jargon" class="mode-panel" data-announcement="Jargon guess selected. Recall at 2 is 0.00."><h4>A jargon guess as the key</h4><dl><dt>Words that match</dt><dd>data, loss, zone: none of them about outages in this handbook</dd><dt>Top 2</dt><dd><code>export</code> 0.511, <code>reboot</code> 0.275</dd><dt>Recall at 2</dt><dd>0.00</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The good guess uses the handbook&rsquo;s words, &ldquo;availability&rdquo;, &ldquo;outage&rdquo;, &ldquo;service credits&rdquo;, &ldquo;incident&rdquo;, and finds both evidence chunks. The jargon guess describes how a different provider handles failure. Its words (&ldquo;data&rdquo;, &ldquo;loss&rdquo;, &ldquo;zone&rdquo;) pull the search toward the export chunk. We call this <strong>invented jargon</strong>: a confident hypothetical answer written in vocabulary the corpus never uses.</p>
 <h2 id="two-models-one-index">Two models, one index</h2>
 <p>HyDE always needs two models: an LLM to write and an embedding model to embed. The embedding model must be the one that built the index, or the vectors are not comparable. The index itself is built plainly. Documents are already answer-shaped, and indexing through an LLM would cost a generation per chunk.</p>
@@ -1170,8 +1307,15 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Notebook <code>05a</code> checks the first row: a document embedded through the HyDE wrapper matches its plain embedding. That pass-through makes the wrapper a drop-in. Hand it to a vector store as its embedding model, and indexing stays plain while every similarity search applies HyDE.</p>
 <p>The wrapper ships with built-in prompt templates inherited from the datasets the paper used; the general one asks the model to &ldquo;write a passage to answer the question&rdquo;. <code>05a</code> writes its own prompt instead, asking for an excerpt from technical documentation, so the hypothetical answer matches the genre of the indexed chunks.</p>
 <h2 id="several-hypothetical-answers">Several hypothetical answers</h2>
-<p>The paper generates several hypothetical answers and averages their embeddings, so no single invention dominates the search vector. A jargon guess averaged with two good ones pulls the vector less.</p>
-<p>LangChain&rsquo;s current wrapper cannot do this: its chain returns one string, so its averaging step always averages exactly one vector. <code>05a</code> generates three answers itself at temperature 0.8, embeds them and averages them, then checks how similar the three are to each other. A cosine similarity near 1.0 means the answers are near-identical, and the average bought nothing for three times the generation cost. The optional notebook <code>05b</code> builds HyDE by hand, then with LangChain&rsquo;s wrapper and a custom prompt; <code>05c</code> asks for one hypothetical document sized to the index&rsquo;s chunk length, so the search key and the chunks have the same shape.</p>
+<p>The paper generates several hypothetical answers and averages their embeddings. No single invention then dominates the search vector. A jargon guess averaged with two good ones pulls the vector less.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; G["LLM writes 3 answers&lt;br/&gt;temperature 0.8"]
+    G --&gt; E["Embed each&lt;br/&gt;answer"]
+    E --&gt; M["Average the&lt;br/&gt;3 vectors"]
+    M --&gt; S["Search the index&lt;br/&gt;by vector"]
+</pre></figure>
+<p><em>Figure 2: HyDE with several hypothetical answers. One search, with a key no single guess controls.</em></p>
+<p>LangChain&rsquo;s current wrapper cannot do this: its chain returns one string, and its averaging step always averages exactly one vector. <code>05a</code> generates three answers itself at temperature 0.8, embeds them and averages them, then checks how similar the three are to each other. A cosine similarity near 1.0 means the answers are near-identical, and the average bought nothing for three times the generation cost. The optional notebook <code>05b</code> builds HyDE by hand, then with LangChain&rsquo;s wrapper and a custom prompt; <code>05c</code> asks for one hypothetical document sized to the index&rsquo;s chunk length, so the search key and the chunks have the same shape.</p>
 <h2 id="when-it-helps-and-when-it-hurts">When it helps and when it hurts</h2>
 <p>HyDE trades one LLM call for a better-shaped search key:</p>
 <div class="sheet scroll"><table>
@@ -1217,6 +1361,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Route only short, vague questions</strong> to HyDE; exact codes go to BM25 (M16), compound questions to decomposition.</li>
 </ol>
 <p>Lesson 17.6 takes those compound questions: one query that carries several needs.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Table 1 uses TF-IDF and hand-written guesses.</strong> HyDE is designed for dense embeddings; the M10 TF-IDF index shows the vocabulary effect clearly but not the full embedding-space effect. <code>05a</code> uses <code>text-embedding-3-small</code> and model-written answers, and prints chunks rather than recall.</li>
+<li><strong>No threshold for &ldquo;near-identical&rdquo;.</strong> <code>05a</code> reports the mutual similarity of its three answers and says a value close to 1.0 means averaging adds little. It sets no cut-off; pick one from your own runs.</li>
+<li><strong>One question, two guesses.</strong> The page shows that the outcome depends on the guess&rsquo;s vocabulary, not how often a model writes each kind. Measure that on your golden set.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Gao et al., <a href="https://arxiv.org/abs/2212.10496" target="_blank" rel="noopener">Precise zero-shot dense retrieval without relevance labels</a>, 2022.</li>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-classic/chains/hyde/base/HypotheticalDocumentEmbedder" target="_blank" rel="noopener">HypotheticalDocumentEmbedder API reference</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>HyDE embeds an LLM-written answer instead of the question, because an answer-shaped text lands nearer the real passage; on the outage question a good guess lifts recall at 2 from 0.00 to 1.00.</li>
@@ -1249,6 +1404,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lessons 17.2 to 17.5 all produced better search keys for one need. Some questions carry two or three needs, and a better key for the whole question is still one key.</p>
 <p>A Larkspur customer writes <em>If I cancel my annual plan, do I get a refund, when does the money arrive, and how long is my data kept?</em> Three chunks answer it: <code>refund-window</code>, <code>refund-timing</code> and <code>retention</code>. Dense or sparse, retrieval gives the whole question one vector, which lands between the needs. With a top-k cut, the strongest needs crowd out the weakest. We call this the <strong>between-needs vector</strong>.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Compound question/] --&gt; V["One vector&lt;br/&gt;between the needs"]
+    V --&gt; K["Top k cut"]
+    K --&gt; A["Answer prompt&lt;br/&gt;+ question"]
+</pre></figure>
+<p><em>Figure 1: Single-query retrieval of a compound question. The strongest needs fill the top k.</em></p>
 <p>Here is the single query against three sub-questions on the M10 TF-IDF index:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1293,8 +1454,25 @@ th:last-child, td:last-child { padding-right: 0; }
     S2 --&gt; Y
     S3 --&gt; Y
 </pre></figure>
-<p><em>Figure 1: Decomposition. Each sub-question is a small RAG chain; the synthesis sees only their answers.</em></p>
-<p>The synthesis prompt sees the three question-and-answer pairs, never the retrieved chunks, so its context stays small however many sub-questions there were. Notebook <code>06a</code> asks <em>What is LangSmith, and why do we need it?</em>, a definition plus a justification. It splits its corpus into 100-token chunks so that each holds about one idea, and counts the unique chunks the three sub-questions reach against the single query&rsquo;s.</p>
+<p><em>Figure 2: Decomposition. Each sub-question is a small RAG chain; the synthesis sees only their answers.</em></p>
+<p>The same cancellation question, retrieved both ways:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="decompose-switcher">
+<p class="widget-intro">Choose how the three-part cancellation question is retrieved.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval approach">
+<button type="button" data-mode="single" aria-pressed="false" aria-controls="decompose-single">One query</button>
+<button type="button" data-mode="split" aria-pressed="false" aria-controls="decompose-split">Three sub-questions</button>
+</div>
+<section id="decompose-single" class="mode-panel" data-announcement="One query selected. Two of three evidence chunks."><h4>One query, top 3</h4><dl><dt>Retrieved</dt><dd><code>retention</code> 0.297, <code>refund-window</code> 0.290, <code>cancel</code> 0.184</dd><dt>Evidence found</dt><dd>2 of 3; <code>refund-timing</code> is not in the top 4</dd><dt>Calls</dt><dd>1 LLM call, 1 retrieval</dd></dl></section>
+<section id="decompose-split" class="mode-panel" data-announcement="Three sub-questions selected. All three evidence chunks."><h4>Three sub-questions, top 1 each</h4><dl><dt>Retrieved</dt><dd><code>refund-window</code> 0.394, <code>refund-timing</code> 0.200, <code>retention</code> 0.404</dd><dt>Evidence found</dt><dd>3 of 3</dd><dt>Calls</dt><dd>5 LLM calls, 3 retrievals</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The synthesis prompt sees the three question-and-answer pairs, never the retrieved chunks. Its context stays small however many sub-questions there were. Notebook <code>06a</code> asks <em>What is LangSmith, and why do we need it?</em>, a definition plus a justification. It splits its corpus into 100-token chunks so that each holds about one idea, and counts the unique chunks the three sub-questions reach against the single query&rsquo;s. The optional notebook <code>06b</code> builds the same pipeline step by step, with a comparison of standard and decomposition RAG.</p>
+<div class="walkthrough learning-widget" data-stepper id="decompose-walkthrough">
+<p class="widget-intro">Step through the cancellation question from the split to the synthesis.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of decomposition"><button type="button" data-step="0" aria-pressed="false" aria-controls="decompose-step-0">1. Split</button><button type="button" data-step="1" aria-pressed="false" aria-controls="decompose-step-1">2. Retrieve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="decompose-step-2">3. Sub-answers</button><button type="button" data-step="3" aria-pressed="false" aria-controls="decompose-step-3">4. Synthesize</button></div>
+<div class="step-panels"><section id="decompose-step-0" class="step-panel" aria-labelledby="decompose-heading-0"><h4 id="decompose-heading-0">1. Split</h4><dl><dt>Call</dt><dd>one LLM call with a <code>questions</code> list schema</dd><dt>Output</dt><dd>refund eligibility, refund timing, data retention</dd></dl></section><section id="decompose-step-1" class="step-panel" aria-labelledby="decompose-heading-1"><h4 id="decompose-heading-1">2. Retrieve</h4><dl><dt>Per sub-question</dt><dd>its own search, run in one parallel batch</dd><dt>Top chunks</dt><dd><code>refund-window</code>, <code>refund-timing</code>, <code>retention</code></dd></dl></section><section id="decompose-step-2" class="step-panel" aria-labelledby="decompose-heading-2"><h4 id="decompose-heading-2">3. Sub-answers</h4><dl><dt>Calls</dt><dd>three, one per sub-question, each seeing only its own chunks</dd><dt>Logged</dt><dd>every sub-question with its answer</dd></dl></section><section id="decompose-step-3" class="step-panel" aria-labelledby="decompose-heading-3"><h4 id="decompose-heading-3">4. Synthesize</h4><dl><dt>Input</dt><dd>the original question and three question-and-answer pairs; no chunks</dd><dt>Total</dt><dd>5 LLM calls and 3 retrievals</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h2 id="what-it-costs">What it costs</h2>
 <p>Decomposition is the most expensive technique in this module:</p>
 <div class="sheet scroll"><table>
@@ -1329,7 +1507,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Calls for three sub-questions, against 1 and 1 for plain RAG.</em></p>
-<p>The sub-questions are independent, so <code>06a</code> runs their chains as one parallel batch, which recovers most of the wall-clock time at the same token cost.</p>
+<p>The sub-questions are independent: <code>06a</code> runs their chains as one parallel batch, which recovers most of the wall-clock time at the same token cost.</p>
 <p>Errors propagate. A bad sub-question produces a confident wrong sub-answer, and the synthesis has no chunks to check it against. We call this the <strong>unchecked sub-answer</strong>. Log every sub-question and sub-answer, so a wrong final answer can be traced to the part that caused it.</p>
 <h2 id="get-the-list-right">Get the list right</h2>
 <p>The first version of <code>06a</code> asked for prose and split the reply on newlines. The prompt asked for sub-questions and then for &ldquo;multiple search queries&rdquo;, and the model returned both under markdown headers. The split produced about 18 items: headers, blank strings and bullets, each triggering a retrieval and an LLM call:</p>
@@ -1370,6 +1548,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Decompose when a single query misses a need.</strong> The three-part cancellation question above loses <code>refund-timing</code>; decomposition finds all three.</li>
 <li><strong>Skip it when the single query already covers both parts.</strong> <em>Can I export my data after I cancel my plan?</em> reads like two needs, yet the M10 lab retrieves both evidence chunks at <code>k = 2</code>, because one chunk says &ldquo;Export your data&rdquo; and the other &ldquo;After a plan is cancelled&rdquo;. Decomposing it costs four extra LLM calls for nothing.</li>
 <li><strong>Find the difference on the golden set</strong>, and let a router (lesson 17.7) send only the compound questions that need it.</li>
+</ol>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Sub-questions written by hand.</strong> Table 1&rsquo;s sub-questions follow the <code>06a</code> prompt&rsquo;s style, and its scores come from the M10 TF-IDF index. A model may split the question differently, or into two parts.</li>
+<li><strong>&ldquo;About 18&rdquo; is an observation, not a constant.</strong> The list explosion count comes from runs of the first notebook version; it varied with each reply&rsquo;s formatting.</li>
+<li><strong>No cap in the schema.</strong> The <code>questions</code> field is a plain list whose description asks for three. Add a length check before the per-question calls if the count drives your cost.</li>
+<li><strong>Sequential multi-hop is not covered.</strong> Here each sub-question is independent. A question whose second hop needs the first answer (find the plan, then its limit) needs the sub-questions answered in order.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Zhou et al., <a href="https://arxiv.org/abs/2205.10625" target="_blank" rel="noopener">Least-to-most prompting enables complex reasoning in large language models</a>, 2022.</li>
+<li>Press et al., <a href="https://arxiv.org/abs/2210.03350" target="_blank" rel="noopener">Measuring and narrowing the compositionality gap in language models</a>, 2022.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -1446,11 +1636,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: Logical against semantic routing.</em></p>
 <h2 id="the-llm-classifier">The LLM classifier</h2>
-<p>The first version of <code>07a</code> asked for the category as free text and compared it with exact strings. The model answered &ldquo;health &amp; fitness&rdquo; and &ldquo;travel guides&rdquo;, which match neither &ldquo;Health &amp; Fitness&rdquo; nor &ldquo;Travel Guide&rdquo;, so every branch fell through and the router returned nothing. The notebook still appeared to work. We call this the <strong>silent fall-through</strong>.</p>
-<p>The fix binds a schema with structured output whose destination field is a fixed set of the four route names, so no other value can come back, plus a one-sentence reasoning field that makes each decision readable in traces.</p>
+<p>The first version of <code>07a</code> asked for the category as free text and compared it with exact strings. The model answered &ldquo;health &amp; fitness&rdquo; and &ldquo;travel guides&rdquo;, which match neither &ldquo;Health &amp; Fitness&rdquo; nor &ldquo;Travel Guide&rdquo;: every branch fell through and the router returned nothing. The notebook still appeared to work. We call this the <strong>silent fall-through</strong>.</p>
+<p>The fix binds a schema with structured output whose destination field is a fixed set of the four route names, so no other value can come back, plus a one-sentence reasoning field that makes each decision readable in traces:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; C["LLM call with a schema&lt;br/&gt;destination + reasoning"]
+    C --&gt; D{"destination&lt;br/&gt;one of 4 names"}
+    D --&gt; P1["Route prompt&lt;br/&gt;or source"]
+</pre></figure>
+<p><em>Figure 1: The LLM classifier after the fix. Every question costs one LLM call, and only a listed name can come back.</em></p>
 <p>A fixed set guarantees a valid route, not a sensible one. Asked <em>What is the capital of France?</em>, the classifier still picks one of the four. We call this the <strong>forced route</strong>. A production router needs:</p>
 <ul>
-<li><strong>An &ldquo;other&rdquo; destination</strong>, so out-of-scope questions have somewhere honest to go.</li>
+<li><strong>An &ldquo;other&rdquo; destination</strong>: out-of-scope questions then have somewhere honest to go.</li>
 <li><strong>A regression set</strong> of questions with expected routes, because adding a route changes decisions on old questions.</li>
 <li><strong>A small model.</strong> Routing is classification; it rarely needs the model that writes answers.</li>
 </ul>
@@ -1466,7 +1662,7 @@ th:last-child, td:last-child { padding-right: 0; }
     M -- no --&gt; L
     M -- yes --&gt; R["Semantic route"]
 </pre></figure>
-<p><em>Figure 1: A semantic router with an LLM fallback. Most traffic pays for one embedding.</em></p>
+<p><em>Figure 2: A semantic router with an LLM fallback. Most traffic pays for one embedding.</em></p>
 <h2 id="larkspurrsquos-routes-scored">Larkspur&rsquo;s routes, scored</h2>
 <p>A Larkspur support assistant can route on the handbook&rsquo;s own sections. We gave each route two example questions and scored six test questions with <code>all-MiniLM-L6-v2</code>:</p>
 <div class="sheet scroll"><table>
@@ -1501,7 +1697,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Four Larkspur routes and their examples.</em></p>
-<p>Here are the scores, with the decision Figure 1&rsquo;s thresholds make:</p>
+<p>Here are the scores, with the decision Figure 2&rsquo;s thresholds make:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1558,6 +1754,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Route scores for six questions (<code>all-MiniLM-L6-v2</code>, highest similarity to each route&rsquo;s examples).</em></p>
+<p>We recomputed Table 3 with <code>all-MiniLM-L6-v2</code> and normalised vectors; every score and margin matches. The out-of-scope question shows how the three designs differ on one input:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="router-switcher">
+<p class="widget-intro">Choose a router design for <em>What is the capital of France?</em></p>
+<div class="mode-controls" hidden role="group" aria-label="Router design">
+<button type="button" data-mode="semantic" aria-pressed="false" aria-controls="router-semantic">Semantic only</button>
+<button type="button" data-mode="classifier" aria-pressed="false" aria-controls="router-classifier">Classifier, four routes</button>
+<button type="button" data-mode="guarded" aria-pressed="false" aria-controls="router-guarded">Guarded, with other</button>
+</div>
+<section id="router-semantic" class="mode-panel" data-announcement="Semantic only selected. Routed to billing."><h4>Semantic only</h4><dl><dt>Scores</dt><dd>billing 0.086, servers 0.078</dd><dt>Result</dt><dd>billing, returned like any other decision</dd><dt>Cost</dt><dd>one embedding call</dd></dl></section>
+<section id="router-classifier" class="mode-panel" data-announcement="Four-route classifier selected. A forced route."><h4>Classifier with four route names</h4><dl><dt>Result</dt><dd>one of the four names, because nothing else can come back: a forced route</dd><dt>Cost</dt><dd>one LLM call</dd></dl></section>
+<section id="router-guarded" class="mode-panel" data-announcement="Guarded router selected. Sent to the classifier, which can say other."><h4>Semantic with thresholds, classifier with an other route</h4><dl><dt>Check</dt><dd>top score 0.086 is under the 0.35 floor</dd><dt>Result</dt><dd>sent to the classifier, which can answer "other"</dd><dt>Cost</dt><dd>one embedding call plus one LLM call</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The guard catches the near-tie and the out-of-scope question. It also shows two limits. <em>Can I download my databases?</em> is a clear data question, but its top score of 0.325 falls under the floor, so it pays for a classifier call it did not need. And the outage-refund question belongs to billing and reliability at once; it passes with a margin of 0.045 and goes to billing alone. A margin floor of 0.05 would send it to the classifier.</p>
 <blockquote>
 <p><strong>Pitfall: borrowed thresholds.</strong> 0.35 and 0.02 were set for <code>text-embedding-3-small</code> on <code>07b</code>&rsquo;s routes. Scores from another model spread differently, as Table 3 shows. Set both thresholds on logged traffic for your own model and routes.</p>
@@ -1570,6 +1780,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Send cross-topic questions to both routes</strong> when the two top scores sit close, rather than forcing one.</li>
 </ol>
 <p>Routing chooses a destination. Lesson 17.8 makes a related move inside one source: it turns part of the question into a metadata filter.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>&ldquo;About 100 times cheaper&rdquo; is the notebooks&rsquo; estimate.</strong> <code>07a</code> and <code>07b</code> state it in their comparison tables; neither measures it. The ratio depends on the two models&rsquo; prices.</li>
+<li><strong>Six questions, two examples per route.</strong> Table 3 shows how the thresholds behave, not their error rate. Tune them on logged traffic with known routes.</li>
+<li><strong>The &ldquo;other&rdquo; route is a recommendation.</strong> <code>07a</code>&rsquo;s fixed set has the four topic names only; the &ldquo;other&rdquo; destination is this page&rsquo;s advice, not the notebook&rsquo;s code.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Aurelio AI, <a href="https://github.com/aurelio-labs/semantic-router" target="_blank" rel="noopener">Semantic Router</a>, open-source library.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+<li>Reimers and Gurevych, <a href="https://arxiv.org/abs/1908.10084" target="_blank" rel="noopener">Sentence-BERT: sentence embeddings using Siamese BERT-networks</a>, 2019.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Logical routing asks an LLM to choose; semantic routing picks the route whose examples are closest by embedding, about 100 times cheaper per query in <code>07a</code>&rsquo;s comparison.</li>
@@ -1602,6 +1824,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 17.7 routed whole questions to a destination. Some questions need a different split: part of the question is about meaning, and part is a condition on a fact.</p>
 <p>A Larkspur customer asks <em>Which plans have more than 8 GB of memory?</em> The three plan sheets (from the M16 lab corpus) say LC-204 has 4 GB, LC-408 16 GB and LC-816 32 GB. Similarity search ranks them by how much each sheet resembles the question:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; E["Embed the&lt;br/&gt;whole question"]
+    E --&gt; V["Rank chunks&lt;br/&gt;by similarity"]
+    V --&gt; K["Top k&lt;br/&gt;to the model"]
+</pre></figure>
+<p><em>Figure 1: Similarity search alone. The condition &ldquo;more than 8 GB&rdquo; is embedded with the rest and never evaluated.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1639,7 +1867,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Similarity scores for the memory question (<code>all-MiniLM-L6-v2</code>, M16 lab corpus).</em></p>
-<p>The three sheets score within 0.025 of each other, because they read alike. At <code>k = 3</code> the 4 GB plan is in the context, and the model has to notice that it fails the condition. &ldquo;More than 8&rdquo; has a vector, and the vector cannot perform a comparison. We call this the <strong>comparison blind spot</strong>.</p>
+<p>We recomputed Table 1 from the M16 lab&rsquo;s plan sheets with normalised <code>all-MiniLM-L6-v2</code> vectors; the four scores match. The three sheets score within 0.025 of each other, because they read alike. At <code>k = 3</code> the 4 GB plan is in the context, and the model has to notice that it fails the condition. &ldquo;More than 8&rdquo; has a vector, and the vector cannot perform a comparison. We call this the <strong>comparison blind spot</strong>.</p>
 <p>Notebook <code>08a</code> shows the same failure on a book catalogue. Asked for books rated above 4.5, plain similarity search returns books rated 4.3, because &ldquo;rated above 4.5&rdquo; sits near every book description that mentions ratings.</p>
 <h2 id="splitting-the-question">Splitting the question</h2>
 <p>A <strong>self-querying retriever</strong> puts an LLM in front of the retriever. The LLM splits the question into two parts, and each goes to the tool that can evaluate it:</p>
@@ -1650,7 +1878,7 @@ th:last-child, td:last-child { padding-right: 0; }
     S --&gt; V["Vector store&lt;br/&gt;search + filter"]
     F --&gt; V
 </pre></figure>
-<p><em>Figure 1: Self-querying. Meaning goes to the embeddings; facts go to the metadata index.</em></p>
+<p><em>Figure 2: Self-querying. Meaning goes to the embeddings; facts go to the metadata index.</em></p>
 <p><code>08a</code>&rsquo;s catalogue makes the division concrete. Each book&rsquo;s embedded text is a short thematic description, and its metadata holds seven attributes: title, author, year, genre, rating, language and country. The embedded text answers questions about themes; the metadata answers questions about facts. Here are the structured queries the LLM built:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1684,7 +1912,18 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Structured queries. The first three rows are <code>08a</code>&rsquo;s; the Larkspur row assumes the plan sheets carry a memory_gb field.</em></p>
-<p>The constraint is removed from the semantic query and re-expressed as a filter. A pure metadata lookup leaves almost nothing to embed, and a purely semantic question produces no filter and degrades to ordinary similarity search. For Larkspur, the filter keeps LC-408 and LC-816 and drops LC-204, whatever their similarity scores.</p>
+<p>The constraint is removed from the semantic query and re-expressed as a filter. A pure metadata lookup leaves almost nothing to embed, and a purely semantic question produces no filter and degrades to ordinary similarity search. For Larkspur, the filter keeps LC-408 and LC-816 and drops LC-204, whatever their similarity scores:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="filter-switcher">
+<p class="widget-intro">Choose the retriever for <em>Which plans have more than 8 GB of memory?</em> at <code>k = 3</code>.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retriever">
+<button type="button" data-mode="similarity" aria-pressed="false" aria-controls="filter-similarity">Similarity only</button>
+<button type="button" data-mode="selfquery" aria-pressed="false" aria-controls="filter-selfquery">Self-querying</button>
+</div>
+<section id="filter-similarity" class="mode-panel" data-announcement="Similarity only selected. The 4 GB plan is in the context."><h4>Similarity only</h4><dl><dt>Context</dt><dd>LC-816 (32 GB), LC-408 (16 GB), LC-204 (4 GB)</dd><dt>Risk</dt><dd>the model must notice that LC-204 fails the condition</dd></dl></section>
+<section id="filter-selfquery" class="mode-panel" data-announcement="Self-querying selected. Only the two qualifying plans."><h4>Self-querying (illustrative <code>memory_gb</code> field)</h4><dl><dt>Structured query</dt><dd>"plans", with memory_gb greater than 8</dd><dt>Context</dt><dd>LC-816 and LC-408 only; the store applied the comparison</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p><code>08a</code> exercises each comparison the filter language offers: equality on a category, a numeric greater-than, a range built from two comparisons joined by AND, and set membership built with OR.</p>
 <h2 id="the-schema-is-a-prompt">The schema is a prompt</h2>
 <p>The LLM cannot guess which fields exist. A list of attribute descriptions, one per field with a name, a type and a sentence, is written into the query-construction prompt. Two details carry weight:</p>
@@ -1723,6 +1962,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Four runs of one question through the query constructor (<code>08a</code>).</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="runs-switcher">
+<p class="widget-intro">Choose one of the three outcomes <code>08a</code> recorded for "rated above 4.5".</p>
+<div class="mode-controls" hidden role="group" aria-label="Query constructor output">
+<button type="button" data-mode="number" aria-pressed="false" aria-controls="runs-number">4.5 as a number</button>
+<button type="button" data-mode="string" aria-pressed="false" aria-controls="runs-string">"4.5" as a string</button>
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="runs-none">No filter</button>
+</div>
+<section id="runs-number" class="mode-panel" data-announcement="Number selected. Filtered correctly."><h4>Filter value 4.5 as a number (2 of 4 runs)</h4><dl><dt>Store</dt><dd>applies rating greater than 4.5</dd><dt>Visible?</dt><dd>yes: correct results</dd></dl></section>
+<section id="runs-string" class="mode-panel" data-announcement="String selected. The call raises an error."><h4>Filter value "4.5" as a string (1 of 4)</h4><dl><dt>Store</dt><dd>raises an error: a greater-than needs a number</dd><dt>Fix</dt><dd>coerce numeric filter values before the store sees them</dd></dl></section>
+<section id="runs-none" class="mode-panel" data-announcement="No filter selected. Silent fallback to similarity search."><h4>No filter at all (1 of 4)</h4><dl><dt>Store</dt><dd>plain similarity search; books rated 4.3 come back</dd><dt>Visible?</dt><dd>only if the structured query is logged beside the result</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Two failures hide in that table. The string value crashes the call, and <code>08a</code> fixes it by coercing numeric filter values before they reach the store. The missing filter is worse, because nothing fails: the retriever quietly falls back to similarity search. We call this the <strong>dropped filter</strong>. <code>08a</code>&rsquo;s helper prints the filter the LLM produced beside every result, so a dropped filter is visible.</p>
 <blockquote>
 <p><strong>Pitfall: an empty result is not &ldquo;nothing matched&rdquo;.</strong> A filter on &ldquo;annual&rdquo; when the metadata says &ldquo;Annual&rdquo;, or a field the schema never declared, returns zero chunks with no error. Log the structured query for every call, and treat an empty filtered result as a reason to retry without the filter or to ask the user.</p>
@@ -1733,9 +1985,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Write facets at ingestion</strong>: plan name, memory, vCPUs and traffic on the plan sheets; section, <code>version</code> and <code>date</code> on policy chunks.</li>
 <li><strong>Describe each field with a type and one sentence</strong>, numbers as numbers.</li>
 <li><strong>Coerce and log</strong> every structured query, and alert on calls where a question with a number produced no filter.</li>
-<li><strong>Route here only questions with a condition on a fact</strong> (Figure 2 in lesson 17.1); everything else keeps plain or transformed retrieval.</li>
+<li><strong>Route here only questions with a condition on a fact</strong> (Figure 3 in lesson 17.1); everything else keeps plain or transformed retrieval.</li>
 </ol>
 <p>This closes the query side of retrieval. M18 turns to the other side: what to do with the chunks once they come back.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>The Larkspur filter is illustrative.</strong> The M16 plan sheets carry their facts in text, not in a <code>memory_gb</code> field. The self-query row assumes that field was written at ingestion.</li>
+<li><strong>Four runs are a small sample.</strong> Table 3 shows that the constructor&rsquo;s output varies, not how often each failure occurs. Count outcomes on your own logged queries.</li>
+<li><strong>Filter syntax is store-specific.</strong> The translator renders one structured query into each store&rsquo;s filter language, and stores differ in which comparisons they support.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/self_query/base/SelfQueryRetriever" target="_blank" rel="noopener">SelfQueryRetriever API reference</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Embeddings compare meaning, not numbers (the comparison blind spot): the three Larkspur plan sheets score within 0.025 of each other for &ldquo;more than 8 GB&rdquo;, and the 4 GB plan makes the top 3.</li>
@@ -1811,7 +2074,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>RRF rewards agreement, and agreement on a distractor still counts. Tune <code>k</code> and the cut on your golden set instead of taking 60 on trust.</li>
 <li>Route cheaply by similarity, check the margin, and pay for an LLM classifier only when the margin is small.</li>
 </ul></article>
-    <nav class="toc" aria-label="M17 sections"><details open><summary>In M17</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#querydocument-asymmetry">Query–document asymmetry</a></li><li><a href="#rewriting-and-expansion">Rewriting and expansion</a></li><li><a href="#which-transformation-closes-which-gap">Which transformation closes which gap</a></li><li><a href="#in-practice-larkspurrsquos-three-golden-questions">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-question-one-point-in-space">One question, one point in space</a></li><li><a href="#vocabulary-spread">Vocabulary spread</a></li><li><a href="#merging-the-flat-union">Merging</a></li><li><a href="#two-silent-bugs">Two silent bugs</a></li><li><a href="#what-it-costs">What it costs</a></li><li><a href="#in-practice-multi-query-on-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#rrf">RRF</a></li><li><a href="#the-outage-question-fused">The outage question, fused</a></li><li><a href="#what-k-controls">What k controls</a></li><li><a href="#details-that-bite">Details that bite</a></li><li><a href="#in-practice-fusing-larkspurrsquos-variants">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-specificity-trap">The specificity trap</a></li><li><a href="#asking-the-broader-question">Asking the broader question</a></li><li><a href="#teaching-abstraction-by-example">Teaching abstraction by example</a></li><li><a href="#when-it-pays">When it pays</a></li><li><a href="#in-practice-step-back-on-larkspurrsquos-policy-questions">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hyde">HyDE</a></li><li><a href="#two-models-one-index">Two models, one index</a></li><li><a href="#several-hypothetical-answers">Several hypothetical answers</a></li><li><a href="#when-it-helps-and-when-it-hurts">When it helps and when it hurts</a></li><li><a href="#in-practice-testing-hyde-on-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#decomposing-compound-questions">Decomposing compound questions</a></li><li><a href="#what-it-costs">What it costs</a></li><li><a href="#get-the-list-right">Get the list right</a></li><li><a href="#in-practice-decomposition-on-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#logical-vs-semantic-routing">Logical vs semantic routing</a></li><li><a href="#the-llm-classifier">The LLM classifier</a></li><li><a href="#semantic-routing">Semantic routing</a></li><li><a href="#larkspurrsquos-routes-scored">Larkspur’s routes, scored</a></li><li><a href="#in-practice-routing-larkspurrsquos-questions">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#meaning-cannot-compare-numbers">Meaning cannot compare numbers</a></li><li><a href="#splitting-the-question">Splitting the question</a></li><li><a href="#the-schema-is-a-prompt">The schema is a prompt</a></li><li><a href="#when-the-filter-goes-wrong">When the filter goes wrong</a></li><li><a href="#in-practice-self-querying-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M17 sections"><details open><summary>In M17</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#querydocument-asymmetry">Query–document asymmetry</a></li><li><a href="#rewriting-and-expansion">Rewriting and expansion</a></li><li><a href="#which-transformation-closes-which-gap">Which transformation closes which gap</a></li><li><a href="#in-practice-larkspurrsquos-three-golden-questions">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-question-one-point-in-space">One question, one point in space</a></li><li><a href="#vocabulary-spread">Vocabulary spread</a></li><li><a href="#merging-the-flat-union">Merging</a></li><li><a href="#two-silent-bugs">Two silent bugs</a></li><li><a href="#what-it-costs">What it costs</a></li><li><a href="#in-practice-multi-query-on-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#rrf">RRF</a></li><li><a href="#the-outage-question-fused">The outage question, fused</a></li><li><a href="#what-k-controls">What k controls</a></li><li><a href="#details-that-bite">Details that bite</a></li><li><a href="#in-practice-fusing-larkspurrsquos-variants">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-specificity-trap">The specificity trap</a></li><li><a href="#asking-the-broader-question">Asking the broader question</a></li><li><a href="#teaching-abstraction-by-example">Teaching abstraction by example</a></li><li><a href="#when-it-pays">When it pays</a></li><li><a href="#in-practice-step-back-on-larkspurrsquos-policy-questions">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hyde">HyDE</a></li><li><a href="#two-models-one-index">Two models, one index</a></li><li><a href="#several-hypothetical-answers">Several hypothetical answers</a></li><li><a href="#when-it-helps-and-when-it-hurts">When it helps and when it hurts</a></li><li><a href="#in-practice-testing-hyde-on-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#decomposing-compound-questions">Decomposing compound questions</a></li><li><a href="#what-it-costs">What it costs</a></li><li><a href="#get-the-list-right">Get the list right</a></li><li><a href="#in-practice-decomposition-on-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#logical-vs-semantic-routing">Logical vs semantic routing</a></li><li><a href="#the-llm-classifier">The LLM classifier</a></li><li><a href="#semantic-routing">Semantic routing</a></li><li><a href="#larkspurrsquos-routes-scored">Larkspur’s routes, scored</a></li><li><a href="#in-practice-routing-larkspurrsquos-questions">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#meaning-cannot-compare-numbers">Meaning cannot compare numbers</a></li><li><a href="#splitting-the-question">Splitting the question</a></li><li><a href="#the-schema-is-a-prompt">The schema is a prompt</a></li><li><a href="#when-the-filter-goes-wrong">When the filter goes wrong</a></li><li><a href="#in-practice-self-querying-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

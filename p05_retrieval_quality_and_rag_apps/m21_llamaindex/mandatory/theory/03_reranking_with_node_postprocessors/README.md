@@ -2,6 +2,7 @@
 
 *[M21 theory](../README.md) · Lesson 21.3 · Notebooks: [`03a_reranking_with_llamaindex.ipynb`](../../notebook/03a_reranking_with_llamaindex.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: One slot between retrieval and synthesis, filled in list order, with defaults that change the model and the cut -->
+<!-- format: approved -->
 
 ## Postprocessors
 
@@ -25,7 +26,25 @@ flowchart LR
 
 *Figure 1: Two-stage retrieval in the postprocessor slot.*
 
-The two rerankers in `03a` fill that box differently:
+The two rerankers in `03a` fill that box differently. The **LLM reranker** shows the configured LLM a numbered batch of nodes and parses the relevance it writes back:
+
+```mermaid
+flowchart LR
+    N[/"10 nodes"/] --> B["Batches of 10<br/>numbered Doc 1 to 10"] --> L["LLM writes lines<br/>Doc: 9, Relevance: 7"] --> P["Parse lines<br/>unreadable ones vanish"] --> K[/"Sort by relevance,<br/>keep top_n"/]
+```
+
+*Figure 2: The LLM reranker. One call per batch; the score is the integer the model wrote.*
+
+The **cross-encoder reranker** reads the question and one node together, for every node, and lets a small model score the pair:
+
+```mermaid
+flowchart LR
+    N[/"10 nodes"/] --> PR["10 pairs<br/>question + node text"] --> CE["Cross-encoder<br/>one local pass"] --> K[/"Sort by raw score,<br/>keep top_n"/]
+```
+
+*Figure 3: The cross-encoder reranker. Every node gets a score; only the cut drops nodes.*
+
+Side by side, with `03a`'s settings:
 
 | | LLM rerank | Sentence-transformer rerank |
 |---|---|---|
@@ -40,7 +59,7 @@ The two rerankers in `03a` fill that box differently:
 
 Two failures follow from the table. The LLM reranker can return fewer nodes than asked, with integer scores that tie often: lesson 18.3's silent drop and score ties. The cross-encoder's defaults name a different model and a cut of 2, so a port that drops the arguments changes both. We call that the **default swap**. M18 compares the two families in depth ([LLM against cross-encoder reranking](../../../../m18_reranking_post_retrieval/mandatory/theory/03_llm_reranking_vs_cross_encoder_reranking/README.md)); in LlamaIndex both swap in the same list.
 
-The cross-encoder reads each node's embedding text, metadata included, so a long file path in metadata is part of every pair it scores (lesson 21.1).
+The cross-encoder reads each node's embedding text, metadata included. A long file path in metadata is part of every pair it scores (lesson 21.1).
 
 ## The handbook, reranked
 
@@ -71,7 +90,7 @@ The reranker brings the sentence that answers the question into the context. It 
 
 *Table 3: Five chunks under two models (local run).*
 
-The cross-encoder reorders the one-liners and keeps all three above the Paris passages. None of the one-liners names Paris, so neither model surfaced the passage that answers the question. The notebook runs this comparison with an LLM reranker and ships without output, so this page does not claim what that reranker returns. An LLM that knows Paris is the capital has knowledge the cross-encoder lacks, which is the case for paying for LLM reranking on questions like this.
+The cross-encoder reorders the one-liners and keeps all three above the Paris passages. None of the one-liners names Paris. Neither model surfaced the passage that answers the question. The notebook runs this comparison with an LLM reranker and ships without output, so this page does not claim what that reranker returns. An LLM that knows Paris is the capital has knowledge the cross-encoder lacks, which is the case for paying for LLM reranking on questions like this.
 
 The cell that sets up the example also carries a port bug. It builds each Document with LangChain's keyword for the text. LlamaIndex accepts the unknown keyword and creates a Document whose text is empty. The comparison function rebuilds the list with LlamaIndex's own keyword, so the comparison still works, but the first list is five empty Documents, and nothing warns. We call this the **silent keyword**.
 
@@ -86,16 +105,42 @@ Postprocessors see whatever the one before them produced. With lesson 21.4's win
 
 *Table 4: Two orders for a reranker and a window.*
 
+Follow the 45-day question through each order, with 10 sentences retrieved and the cross-encoder keeping 2:
+
+<div class="learning-widget evidence-switcher" data-comparison id="order-switcher">
+<p class="widget-intro">Choose the order of the two postprocessors and see what the cross-encoder judges and what the model reads.</p>
+<div class="mode-controls" hidden role="group" aria-label="Order of the reranker and the window">
+<button type="button" data-mode="rerank-first" aria-pressed="false" aria-controls="order-rerank-first">Reranker, then window</button>
+<button type="button" data-mode="window-first" aria-pressed="false" aria-controls="order-window-first">Window, then reranker</button>
+</div>
+<section id="order-rerank-first" class="mode-panel" data-announcement="Reranker first selected. The cross-encoder judges single sentences."><h4>Reranker, then window</h4><ul><li>The cross-encoder scores 10 single sentences and keeps the 30-day rule and the prorated rule (Table 2).</li><li>The window postprocessor then swaps each kept sentence for its neighbours.</li><li>The model reads two windows built around the right sentences.</li></ul></section>
+<section id="order-window-first" class="mode-panel" data-announcement="Window first selected. The cross-encoder judges whole windows."><h4>Window, then reranker</h4><ul><li>The window postprocessor first turns all 10 sentences into windows of up to seven sentences.</li><li>The cross-encoder scores 10 long passages, and neighbouring hits share most of their text.</li><li>Inputs are several times longer, and the scores in Table 2 no longer apply.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 Decide which text the reranker should judge, and write the list in that order.
 
 ## In practice: reranking Larkspur's sentences
 
 1. **Retrieve 10 sentences, rerank, keep 3**, passing the model and the cut explicitly.
 2. **Cut by count**, not at a score of zero.
-3. **Window after reranking** for the handbook, so the cross-encoder judges sentences and the model reads windows.
+3. **Window after reranking** for the handbook: the cross-encoder judges sentences and the model reads windows.
 4. **Assert Documents have text** after building them, to catch the silent keyword.
 
 Lesson 21.4 adds that window.
+
+## Limits of this evidence
+
+- **Local models only.** Tables 2 and 3 are local runs of `all-MiniLM-L6-v2` and the ms-marco cross-encoder. The LLM reranker's output is not quoted, because `03a` ships without outputs and its answer changes with the model.
+- **The window-first order is described, not measured.** No run here scores whole windows with the cross-encoder.
+- **Defaults from one release.** The model names and cuts in Table 1 are those of `llama-index-core` 0.14.25.
+
+## References
+
+1. Nogueira and Cho, [Passage Re-ranking with BERT](https://arxiv.org/abs/1901.04085), 2019.
+2. Sun et al., [Is ChatGPT Good at Search? Investigating Large Language Models as Re-Ranking Agents](https://arxiv.org/abs/2304.09542), 2023.
+3. LlamaIndex, [Node Postprocessor](https://developers.llamaindex.ai/python/framework/module_guides/querying/node_postprocessors/) documentation.
+4. Sentence Transformers, [Cross-Encoders](https://www.sbert.net/examples/cross_encoder/applications/README.html) documentation.
 
 ## Key Takeaways
 

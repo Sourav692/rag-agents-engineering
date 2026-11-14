@@ -2,6 +2,7 @@
 
 *[M17 theory](../README.md) · Lesson 17.7 · Notebooks: [`07a_routing_with_llm_classifier.ipynb`](../../notebook/07a_routing_with_llm_classifier.ipynb), [`07b_semantic_routing.ipynb`](../../notebook/07b_semantic_routing.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Decide where a question goes before anything answers it, cheaply when you can and carefully when you must -->
+<!-- format: approved -->
 
 ## Logical vs semantic routing
 
@@ -33,13 +34,22 @@ The two fail in different ways:
 
 ## The LLM classifier
 
-The first version of `07a` asked for the category as free text and compared it with exact strings. The model answered "health & fitness" and "travel guides", which match neither "Health & Fitness" nor "Travel Guide", so every branch fell through and the router returned nothing. The notebook still appeared to work. We call this the **silent fall-through**.
+The first version of `07a` asked for the category as free text and compared it with exact strings. The model answered "health & fitness" and "travel guides", which match neither "Health & Fitness" nor "Travel Guide": every branch fell through and the router returned nothing. The notebook still appeared to work. We call this the **silent fall-through**.
 
-The fix binds a schema with structured output whose destination field is a fixed set of the four route names, so no other value can come back, plus a one-sentence reasoning field that makes each decision readable in traces.
+The fix binds a schema with structured output whose destination field is a fixed set of the four route names, so no other value can come back, plus a one-sentence reasoning field that makes each decision readable in traces:
+
+```mermaid
+flowchart LR
+    Q[/Question/] --> C["LLM call with a schema<br/>destination + reasoning"]
+    C --> D{"destination<br/>one of 4 names"}
+    D --> P1["Route prompt<br/>or source"]
+```
+
+*Figure 1: The LLM classifier after the fix. Every question costs one LLM call, and only a listed name can come back.*
 
 A fixed set guarantees a valid route, not a sensible one. Asked *What is the capital of France?*, the classifier still picks one of the four. We call this the **forced route**. A production router needs:
 
-- **An "other" destination**, so out-of-scope questions have somewhere honest to go.
+- **An "other" destination**: out-of-scope questions then have somewhere honest to go.
 - **A regression set** of questions with expected routes, because adding a route changes decisions on old questions.
 - **A small model.** Routing is classification; it rarely needs the model that writes answers.
 
@@ -61,7 +71,7 @@ flowchart TD
     M -- yes --> R["Semantic route"]
 ```
 
-*Figure 1: A semantic router with an LLM fallback. Most traffic pays for one embedding.*
+*Figure 2: A semantic router with an LLM fallback. Most traffic pays for one embedding.*
 
 ## Larkspur's routes, scored
 
@@ -76,7 +86,7 @@ A Larkspur support assistant can route on the handbook's own sections. We gave e
 
 *Table 2: Four Larkspur routes and their examples.*
 
-Here are the scores, with the decision Figure 1's thresholds make:
+Here are the scores, with the decision Figure 2's thresholds make:
 
 | Question | Top route | Runner-up | Margin | Decision at 0.35 and 0.02 |
 |---|---|---|---|---|
@@ -88,6 +98,21 @@ Here are the scores, with the decision Figure 1's thresholds make:
 | *What is the capital of France?* | billing 0.086 | servers 0.078 | 0.008 | classifier |
 
 *Table 3: Route scores for six questions (`all-MiniLM-L6-v2`, highest similarity to each route's examples).*
+
+We recomputed Table 3 with `all-MiniLM-L6-v2` and normalised vectors; every score and margin matches. The out-of-scope question shows how the three designs differ on one input:
+
+<div class="learning-widget evidence-switcher" data-comparison id="router-switcher">
+<p class="widget-intro">Choose a router design for <em>What is the capital of France?</em></p>
+<div class="mode-controls" hidden role="group" aria-label="Router design">
+<button type="button" data-mode="semantic" aria-pressed="false" aria-controls="router-semantic">Semantic only</button>
+<button type="button" data-mode="classifier" aria-pressed="false" aria-controls="router-classifier">Classifier, four routes</button>
+<button type="button" data-mode="guarded" aria-pressed="false" aria-controls="router-guarded">Guarded, with other</button>
+</div>
+<section id="router-semantic" class="mode-panel" data-announcement="Semantic only selected. Routed to billing."><h4>Semantic only</h4><dl><dt>Scores</dt><dd>billing 0.086, servers 0.078</dd><dt>Result</dt><dd>billing, returned like any other decision</dd><dt>Cost</dt><dd>one embedding call</dd></dl></section>
+<section id="router-classifier" class="mode-panel" data-announcement="Four-route classifier selected. A forced route."><h4>Classifier with four route names</h4><dl><dt>Result</dt><dd>one of the four names, because nothing else can come back: a forced route</dd><dt>Cost</dt><dd>one LLM call</dd></dl></section>
+<section id="router-guarded" class="mode-panel" data-announcement="Guarded router selected. Sent to the classifier, which can say other."><h4>Semantic with thresholds, classifier with an other route</h4><dl><dt>Check</dt><dd>top score 0.086 is under the 0.35 floor</dd><dt>Result</dt><dd>sent to the classifier, which can answer "other"</dd><dt>Cost</dt><dd>one embedding call plus one LLM call</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 The guard catches the near-tie and the out-of-scope question. It also shows two limits. *Can I download my databases?* is a clear data question, but its top score of 0.325 falls under the floor, so it pays for a classifier call it did not need. And the outage-refund question belongs to billing and reliability at once; it passes with a margin of 0.045 and goes to billing alone. A margin floor of 0.05 would send it to the classifier.
 
@@ -101,6 +126,18 @@ The guard catches the near-tie and the out-of-scope question. It also shows two 
 4. **Send cross-topic questions to both routes** when the two top scores sit close, rather than forcing one.
 
 Routing chooses a destination. Lesson 17.8 makes a related move inside one source: it turns part of the question into a metadata filter.
+
+## Limits
+
+- **"About 100 times cheaper" is the notebooks' estimate.** `07a` and `07b` state it in their comparison tables; neither measures it. The ratio depends on the two models' prices.
+- **Six questions, two examples per route.** Table 3 shows how the thresholds behave, not their error rate. Tune them on logged traffic with known routes.
+- **The "other" route is a recommendation.** `07a`'s fixed set has the four topic names only; the "other" destination is this page's advice, not the notebook's code.
+
+## References
+
+1. Aurelio AI, [Semantic Router](https://github.com/aurelio-labs/semantic-router), open-source library.
+2. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
+3. Reimers and Gurevych, [Sentence-BERT: sentence embeddings using Siamese BERT-networks](https://arxiv.org/abs/1908.10084), 2019.
 
 ## Key Takeaways
 

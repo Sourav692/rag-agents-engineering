@@ -2,6 +2,7 @@
 
 *[M18 theory](../README.md) · Lesson 18.5 · Notebooks: [`05a_context_enrichment_window.ipynb`](../../notebook/05a_context_enrichment_window.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Retrieve with small chunks, answer with the passage around them -->
+<!-- format: approved -->
 
 ## Enrichment windows
 
@@ -26,7 +27,7 @@ Notebook `05a` splits the text into fixed-size character chunks and stores each 
 
 ## How long a window is
 
-Neighbouring chunks start `chunk_size - chunk_overlap` characters apart, so a window of three chunks covers `2 × (chunk_size - chunk_overlap) + chunk_size` characters. `05a` runs two examples:
+Neighbouring chunks start `chunk_size - chunk_overlap` characters apart. A window of three chunks covers `2 × (chunk_size - chunk_overlap) + chunk_size` characters. `05a` runs two examples:
 
 | Example in `05a` | Split (size / overlap) | Retrieved chunk | Window | Growth |
 |---|---|---|---|---|
@@ -35,9 +36,24 @@ Neighbouring chunks start `chunk_size - chunk_overlap` characters apart, so a wi
 
 *Table 1: Window length at two splits.*
 
-The more the chunks already overlap, the less a neighbour adds. Either way the growth comes out of the context budget from lesson 18.4, so a pipeline that widens each hit usually keeps fewer hits.
+The more the chunks already overlap, the less a neighbour adds. Either way the growth comes out of the context budget from lesson 18.4. A pipeline that widens each hit usually keeps fewer hits.
 
-For Larkspur's refund section at M12's 300-character split, the window around chunk 2 holds chunks 1 to 3, so the 100 GB condition at the start of chunk 3 arrives with the rule it limits.
+The join must drop exactly the split's overlap. We replayed `05a`'s split and join on its AI-history passage (250 / 20, the window around chunk 3) with three overlap values:
+
+<div class="learning-widget evidence-switcher" data-comparison id="join-switcher">
+<p class="widget-intro">Choose the overlap passed to the join, with the split fixed at 250 / 20.</p>
+<div class="mode-controls" hidden role="group" aria-label="Overlap passed to the join">
+<button type="button" data-mode="match" aria-pressed="false" aria-controls="join-match">20, the split's</button>
+<button type="button" data-mode="zero" aria-pressed="false" aria-controls="join-zero">0</button>
+<button type="button" data-mode="large" aria-pressed="false" aria-controls="join-large">100</button>
+</div>
+<section id="join-match" class="mode-panel" data-announcement="Overlap 20 selected. The window matches the source."><h4>Overlap 20, matching the split</h4><dl><dt>Window</dt><dd>710 characters</dd><dt>Against the source</dt><dd>identical to the source passage</dd></dl></section>
+<section id="join-zero" class="mode-panel" data-announcement="Overlap 0 selected. Text repeats."><h4>Overlap 0</h4><dl><dt>Window</dt><dd>750 characters</dd><dt>Against the source</dt><dd>40 characters repeated, 20 at each join: "funding and interest" appears twice</dd></dl></section>
+<section id="join-large" class="mode-panel" data-announcement="Overlap 100 selected. Text is deleted."><h4>Overlap 100</h4><dl><dt>Window</dt><dd>550 characters</dd><dt>Against the source</dt><dd>160 characters deleted, 80 at each join, with no error</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+For Larkspur's refund section at M12's 300-character split, the window around chunk 2 holds chunks 1 to 3. The 100 GB condition at the start of chunk 3 arrives with the rule it limits.
 
 Here is the same question with and without the window:
 
@@ -47,6 +63,13 @@ Here is the same question with and without the window:
 | Window, chunks 1 to 3 | ✓ | No: the account went over 100 GB |
 
 *Table 2: The boundary cut, with and without a window (illustrative answers).*
+
+Here is the window being built for that question, in the order `05a`'s function runs:
+
+<div class="walkthrough learning-widget" data-stepper id="window-walkthrough">
+<p class="widget-intro">Step through one enrichment window on Larkspur's refund section.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of building a window"><button type="button" data-step="0" aria-pressed="false" aria-controls="win-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="win-step-1">2. Find neighbours</button><button type="button" data-step="2" aria-pressed="false" aria-controls="win-step-2">3. Order</button><button type="button" data-step="3" aria-pressed="false" aria-controls="win-step-3">4. Join</button></div>
+<div class="step-panels"><section id="win-step-0" class="step-panel" aria-labelledby="win-heading-0"><h4 id="win-heading-0">1. Retrieve one chunk</h4><dl><dt>Input</dt><dd>the annual-plan refund question</dd><dt>Output</dt><dd>chunk 2, ending at "used less than"; its metadata carries index 2</dd></dl></section><section id="win-step-1" class="step-panel" aria-labelledby="win-heading-1"><h4 id="win-heading-1">2. Find the neighbours</h4><dl><dt>Range</dt><dd>indexes 1 to 3, one each side, clamped at 0 for the first chunk</dd><dt>Lookup</dt><dd>one store scan per index in <code>05a</code>; a key-value lookup in production</dd></dl></section><section id="win-step-2" class="step-panel" aria-labelledby="win-heading-2"><h4 id="win-heading-2">3. Put them in order</h4><dl><dt>Sort</dt><dd>by index, so the text reads 1, 2, 3 whatever order the lookups returned</dd><dt>Missing</dt><dd>a neighbour past the end of the document is skipped; the window is shorter</dd></dl></section><section id="win-step-3" class="step-panel" aria-labelledby="win-heading-3"><h4 id="win-heading-3">4. Join, dropping the overlap</h4><dl><dt>Join</dt><dd>trim the overlap from the end of the text so far, then append the next chunk</dd><dt>Sent</dt><dd>one passage in which the 100 GB condition follows the rule it limits</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 ## Where the demo breaks
 
@@ -73,6 +96,18 @@ The last row has a second effect. Two hits next to each other produce overlappin
 4. **Add a boundary-cut golden question** (the 100 GB condition) so a change of splitter that moves the cut is caught.
 
 Lesson 18.6 replaces the fixed window with a segment whose length the reranker's scores decide.
+
+## Limits
+
+- **Lengths are replayed, not run end to end.** The 710, 750 and 550 figures come from `05a`'s own split and join code on its passage, without the embedding retriever. The 800-character window is the formula; the climate PDF was not re-run.
+- **The Larkspur boundary comes from M12.** The cut after "used less than" belongs to M12's 300-character split of the refund section. Another splitter moves it.
+- **Answers are illustrative.** Table 2's answers show the effect of the missing condition; no model call produced them.
+
+## References
+
+1. LangChain, [Parent document retriever](https://reference.langchain.com/python/langchain-classic/retrievers/parent_document_retriever/ParentDocumentRetriever).
+2. LlamaIndex, [Sentence window node parser](https://developers.llamaindex.ai/python/framework-api-reference/node_parsers/sentence_window/).
+3. Liu et al., [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172), 2023.
 
 ## Key Takeaways
 

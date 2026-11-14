@@ -335,7 +335,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Diagnose</strong> the planted failures: bad JSON, an unknown tool, a missing argument, a runaway loop, a lenient critic.</li>
 </ul>
 </blockquote>
-<p>An <strong>agent</strong> is a model inside a loop that can act on the world. This lesson builds the loop&rsquo;s three classic shapes by hand, with no framework in between.</p>
+<p>An <strong>agent</strong> is a model inside a loop that can act on the world. This lesson builds the loop&rsquo;s three classic shapes by hand.</p>
 <p>A Larkspur customer asks support <em>How long does a refund take?</em> The model does not know Larkspur&rsquo;s policy; the answer sits in the support handbook. So the model replies with a request, <em>search the handbook for &ldquo;refund timeline&rdquo;</em>, and then nothing happens. The model only writes text.</p>
 <p>The model decides. Your application acts.</p>
 <p>That split leaves two jobs every agent has to do:</p>
@@ -368,7 +368,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <td><strong>Reflection</strong></td>
 <td>Draft, critique, redraft</td>
 <td>The critic approves, or after a set number of rounds</td>
-<td>2 to 7 with a three-round limit</td>
+<td>2 to 6 with a three-round limit</td>
 </tr>
 <tr>
 <td><strong>Tool use</strong></td>
@@ -385,14 +385,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The three patterns compared by loop body and stopping rule.</em></p>
-<p>The counts come from a re-implementation where a scripted policy stands in for the model. The parsing, checking and looping are real; the model&rsquo;s choices are not.</p>
+<p>The counts come from a re-implementation of the notebooks&rsquo; loops with a scripted model.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> every pattern has two kinds of exit. One belongs to the model (an approval, an answer, a final-response tag). The other belongs to you (a round limit). A loop with only the model&rsquo;s exit is not finished.</p>
 </blockquote>
 <h2 id="pattern-1-one-round-of-tool-use">Pattern 1: one round of tool use</h2>
 <p>Here tools are described in the system prompt and the model writes its calls as text, which shows what native tool calling (lesson 22.4) later automates.</p>
 <h3>The contract the model reads</h3>
-<p>A <strong>tool</strong> is a function plus a description the model can read: its name, its docstring, and each argument with its type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format. A vague docstring makes a vague tool, because the model never sees the function body.</p>
+<p>A <strong>tool</strong> is a function plus a description the model can read: its name, its docstring, and each argument with its type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format. The model never sees the function body, and a vague docstring makes a vague tool.</p>
 <h3>The request is only a string</h3>
 <p>Asked <em>What&rsquo;s the current temperature in Madrid, in Celsius?</em>, the model does not answer. It writes a tagged call naming the weather tool, with Madrid as the location and celsius as the unit. Nothing has run yet. The whole round looks like this:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
@@ -426,6 +426,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 3: Validate in this order. Each failure becomes a specific message the model can act on.</em></p>
 <p>The last step converts each argument to its declared type, so &ldquo;5&rdquo; becomes the number 5 when the tool wants a number. For Madrid the observation is 25 celsius, and a second model call turns it into a sentence.</p>
+<p>The notebooks&rsquo; agents make only that last check: a missing tag, bad JSON, an unknown name or a missing argument raises an exception and ends the run. The gatekeeper above is the hardened version.</p>
 <h3>Planted failures</h3>
 <p>We planted five broken calls, each a mistake models really make, and one run with type conversion switched off:</p>
 <div class="sheet scroll"><table>
@@ -463,10 +464,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Five planted calls and one unguarded run.</em></p>
-<p>The first four never reach a tool; each comes back as an error the model can correct. The last row is the dangerous one: Python repeats the text five times and returns a wrong answer with no error. We call that a <strong>stringly-typed answer</strong>: the failure no exception reports.</p>
+<p>The first four never reach a tool. The last row is the dangerous one: Python repeats the text five times and returns a wrong answer with no error. We call that a <strong>stringly-typed answer</strong>: the failure no exception reports.</p>
 <h3>Where one round breaks</h3>
 <p>Now a harder task: <em>sum 1234 and 5678, multiply the result by 5, then take the natural log.</em></p>
-<p>Each call needs the result of the one before it, but in one round the model must write every argument before any tool has run. It can fill in the sum; the multiplication needs 6,912 and the log needs 34,560, and neither exists yet.</p>
+<p>In one round the model must write every argument before any tool has run. It can fill in the sum, but the multiplication needs 6,912 and the log needs 34,560, and neither exists yet.</p>
 <p>We call this <strong>one-shot blindness</strong>: a single round can run independent calls side by side, but it cannot chain dependent ones.</p>
 <h2 id="pattern-2-react-planning">Pattern 2: ReAct planning</h2>
 <p><strong>ReAct</strong> (reason plus act) interleaves reasoning and acting: the model writes a thought, takes an action, reads the observation, and repeats. In the text protocol that is four kinds of message:</p>
@@ -477,7 +478,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Final response</strong>: the answer, which ends the loop.</li>
 </ul>
 <h3>The loop and its two exits</h3>
-<p>On each round the model gets the whole history. A final response ends the loop. Otherwise your code runs every call through the same gatekeeper and appends one observation per call, so by round two 6,912 is in the model&rsquo;s context.</p>
+<p>On each round the model gets the whole history. A final response ends the loop. Otherwise your code runs every call through the same gatekeeper and appends one observation per call. By round two, 6,912 is in the model&rsquo;s context.</p>
 <figure class="sheet chart"><pre class="mermaid">stateDiagram-v2
     [*] --&gt; Think
     Think --&gt; Act: tool call
@@ -502,38 +503,12 @@ th:last-child, td:last-child { padding-right: 0; }
     M--&gt;&gt;C: response, about 10.45
 </pre></figure>
 <p><em>Figure 5: ReAct on a three-step dependent task. Each tool argument comes from the previous observation.</em></p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Round</th>
-<th>The model wrote</th>
-<th>Observation sent back</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Sum 1234 and 5678</td>
-<td>6912</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Multiply 6912 by 5</td>
-<td>34560</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Natural log of 34560</td>
-<td>10.450452222917992</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Final response: about 10.45</td>
-<td>none, the loop returns</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: The scripted ReAct run, four model calls.</em></p>
+<div class="walkthrough learning-widget" data-stepper id="react-rounds">
+<p class="widget-intro">Step through the scripted ReAct run. Each round is one model call.</p>
+<div class="step-controls" hidden role="group" aria-label="Rounds of the ReAct run"><button type="button" data-step="1" aria-pressed="false" aria-controls="react-round-1">Round 1</button><button type="button" data-step="2" aria-pressed="false" aria-controls="react-round-2">Round 2</button><button type="button" data-step="3" aria-pressed="false" aria-controls="react-round-3">Round 3</button><button type="button" data-step="4" aria-pressed="false" aria-controls="react-round-4">Round 4</button></div>
+<div class="step-panels"><section id="react-round-1" class="step-panel"><h4>Round 1: sum</h4><dl><dt>Model writes</dt><dd>a thought and a call to sum 1234 and 5678</dd><dt>Observation</dt><dd>6912, appended to the history</dd></dl></section><section id="react-round-2" class="step-panel"><h4>Round 2: multiply</h4><dl><dt>Model reads</dt><dd>the whole history, including 6912</dd><dt>Model writes</dt><dd>a call to multiply 6912 by 5</dd><dt>Observation</dt><dd>34560</dd></dl></section><section id="react-round-3" class="step-panel"><h4>Round 3: log</h4><dl><dt>Model writes</dt><dd>a call to take the natural log of 34560</dd><dt>Observation</dt><dd>10.450452222917992</dd></dl></section><section id="react-round-4" class="step-panel"><h4>Round 4: final response</h4><dl><dt>Model writes</dt><dd>a final response: about 10.45</dd><dt>Your code</dt><dd>finds the response tag and returns; four model calls in all</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next round</button></div></div>
+
 <p>Every argument after round one came from an observation.</p>
 <h3>Planted failure: the runaway loop</h3>
 <p>A model that never writes a final response never stops on its own. We planted a stubborn policy that calls the handbook search every round, capped at five rounds, and reran the arithmetic task with a cap of two, below the number of dependent steps:</p>
@@ -548,24 +523,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>Arithmetic task, cap of 2</td>
-<td>2</td>
-<td>Stopped by the cap, no answer</td>
+<td>2 in the loop, 1 after it</td>
+<td>Cap hit before the log step</td>
 </tr>
 <tr>
 <td>Stubborn search, cap of 5</td>
-<td>5</td>
-<td>Stopped by the cap, no answer</td>
+<td>5 in the loop, 1 after it</td>
+<td>Cap hit, no final response</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Two capped runs.</em></p>
-<p>Without the cap, the stubborn run never ends. We call that a <strong>runaway loop</strong>, and it bills for every round. Reaching the cap means the run stopped, not that the task was done, so the loop needs a fallback reply that says so. The first row shows the opposite risk: a cap below the task&rsquo;s depth stops the agent before it can finish.</p>
+<p><em>Table 3: Two capped runs. The notebook&rsquo;s agent makes one more model call after the cap.</em></p>
+<p>Without the cap, the stubborn run never ends. We call that a <strong>runaway loop</strong>, and it bills for every round. Reaching the cap means the run stopped, not that the task was done. The notebook&rsquo;s agent then asks the model once more and returns whatever it writes, even a half-finished tool call; a fixed fallback reply is safer. The first row shows the opposite risk: a cap below the task&rsquo;s depth stops the agent before it can finish.</p>
 <h3>What the loop costs</h3>
-<p>Each ReAct round resends the whole history, so round <em>k</em> pays again for everything in rounds 1 to <em>k</em> minus 1. Four rounds cost more than twice the input tokens of one round of tool use, and the gap widens every round. We call that <strong>context creep</strong>.</p>
-<blockquote>
-<p><strong>Interview tip:</strong> asked why not always use ReAct, answer with latency and cost. Each round is a full model call that waits for the last one, and the prompt grows every time. Use the smallest loop that solves the task.</p>
-</blockquote>
-<p>ReAct fixes reach and chaining. A weak answer from good tools needs a different loop.</p>
+<p>Each ReAct round resends the whole history: round <em>k</em> pays again for rounds 1 to <em>k</em> minus 1. The gap over one round of tool use widens every round. We call that <strong>context creep</strong>.</p>
+<p>A weak answer from good tools needs a different loop.</p>
 <h2 id="pattern-3-reflection">Pattern 3: reflection</h2>
 <p><strong>Reflection</strong> improves an output by critiquing it and trying again. One persona writes a draft, a second persona reviews it against the task and returns either a list of fixes or an approval, and the writer revises.</p>
 <figure class="sheet chart"><pre class="mermaid">stateDiagram-v2
@@ -602,17 +574,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>Never approves</td>
 <td>3</td>
-<td>7</td>
+<td>6</td>
 <td>Round limit reached</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: Reflection with three planted critics.</em></p>
-<p>The lenient critic ends the loop after one review, so reflection costs two calls and improves nothing. The never-satisfied critic is the reflection version of a runaway loop, and the limit stops it at 1 + 2 × 3 = 7 calls.</p>
+<p><em>Table 4: Reflection with three planted critics.</em></p>
+<p>The lenient critic ends the loop after one review: two calls, no improvement. The never-satisfied critic is the reflection version of a runaway loop, and the limit stops it at 2 × 3 = 6 calls. The agent then returns the last draft, which no critique has seen.</p>
 <blockquote>
 <p><strong>Pitfall: the lenient critic.</strong> If the reviewer prompt is soft, reflection quietly becomes a single generation that costs double. Tell the critic exactly what good means.</p>
 </blockquote>
-<p>One guard worth copying: each side keeps only its system prompt plus the latest exchange, so earlier drafts are not resent. M25 covers reflection in full.</p>
+<p>One guard worth copying: each side keeps only its system prompt plus the latest exchange, and earlier drafts are not resent. M25 covers reflection in full.</p>
 <h2 id="choosing-a-pattern">Choosing a pattern</h2>
 <p>Choosing is a short decision:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -649,9 +621,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Model calls</td>
-<td>1 + 2 × rounds</td>
+<td>2 × rounds</td>
 <td>2</td>
-<td>rounds + 1</td>
+<td>tool rounds + 1</td>
 </tr>
 <tr>
 <td>Main risk</td>
@@ -661,7 +633,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: Trade-offs at a glance.</em></p>
+<p><em>Table 5: Trade-offs at a glance.</em></p>
 <p>The patterns combine. A production support agent often runs ReAct to gather evidence, then a reflection pass to check the draft answer against that evidence.</p>
 <h2 id="in-practice-the-larkspur-refund-question">In practice: the Larkspur refund question</h2>
 <p>Back to the customer. The loop is the one traced above; only the tool changes:</p>
@@ -670,22 +642,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>The gatekeeper checks the call, runs the search and returns the top handbook chunks as an observation.</li>
 <li>The model writes its final response, quoting the chunks it was given.</li>
 </ol>
-<p>That is retrieval as a tool: your code touched the handbook, and the observation carried the evidence back. The round cap stops a search that never satisfies the model.</p>
-<blockquote>
-<p><strong>Key distinction:</strong> native tool calling (lesson 22.4) moves the tool description into the API request and returns structured calls with ids, so most of the gatekeeper&rsquo;s parsing failures disappear. The loop in Figure 4 stays the same, and so does your responsibility for the round cap.</p>
-</blockquote>
+<p>That is retrieval as a tool: your code touched the handbook, and the observation carried the evidence back. Native tool calling (lesson 22.4) moves the tool description into the API request and returns structured calls with ids. Most parsing failures disappear; the loop in Figure 4 and your round cap stay.</p>
 <h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
-<li><strong>No live model.</strong> Every model reply in Tables 2 to 5 is scripted. The planted failures cover the common shapes, not how often they happen.</li>
-<li><strong>Text protocol only.</strong> Native tool calling changes the parsing, not the loop.</li>
+<li><strong>No live model.</strong> Every model reply in Tables 2 to 4 is scripted; the parsing, checking and looping are real. The planted failures cover the common shapes, not how often they happen.</li>
+<li><strong>Left out on purpose:</strong> retries with backoff (add them for a real API), history trimming (once tasks need many rounds), parallel tool execution and per-round tracing (before the first production user).</li>
 </ul>
-<p>Left out on purpose, and when to add it:</p>
-<ul>
-<li><strong>Retries with backoff</strong>: when you call a real API, which returns rate limits and timeouts.</li>
-<li><strong>History trimming or summaries</strong>: once a task regularly needs more than a handful of rounds.</li>
-<li><strong>Parallel tool execution</strong>: when one round requests several slow, independent calls.</li>
-<li><strong>Tracing every round</strong>: before the first production user; a runaway loop is invisible without it.</li>
-</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Yao et al., <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct: reasoning and acting together in language models</a> (arXiv 2210.03629).</li>
+<li>Madaan et al., <a href="https://arxiv.org/abs/2303.17651" target="_blank" rel="noopener">Self-Refine: iterative refinement with self-feedback</a> (arXiv 2303.17651).</li>
+<li>The Neural Maze, <a href="https://github.com/neural-maze/agentic-patterns-course" target="_blank" rel="noopener">agentic patterns from scratch</a>, the MIT-licensed code the notebooks adapt.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/function-calling" target="_blank" rel="noopener">function calling guide</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The model never runs a tool. It writes a call as text; your code parses, checks, converts and runs it, and the result goes back as an observation.</li>
@@ -781,8 +750,14 @@ th:last-child, td:last-child { padding-right: 0; }
     Note over A: final response
 </pre></figure>
 <p><em>Figure 2: The dependent call. The story id travels from the first observation into the second call.</em></p>
+<div class="walkthrough learning-widget" data-stepper id="hn-two-step">
+<p class="widget-intro">Step through what the agent's history holds after each model call. Stories and comments are live; no fixed values are shown.</p>
+<div class="step-controls" hidden role="group" aria-label="Model calls for the two-step question"><button type="button" data-step="1" aria-pressed="false" aria-controls="hn-step-1">1. Stories</button><button type="button" data-step="2" aria-pressed="false" aria-controls="hn-step-2">2. Comments</button><button type="button" data-step="3" aria-pressed="false" aria-controls="hn-step-3">3. Answer</button></div>
+<div class="step-panels"><section id="hn-step-1" class="step-panel"><h4>1. Ask for the top story</h4><dl><dt>Model reads</dt><dd>the persona prompt, the three tool signatures and the question</dd><dt>Model writes</dt><dd>a thought and a call to the stories tool with a limit of 1</dd><dt>Observation</dt><dd>title, url, score and the story id</dd></dl></section><section id="hn-step-2" class="step-panel"><h4>2. Ask for its comments</h4><dl><dt>Model reads</dt><dd>the history, now holding the story id</dd><dt>Model writes</dt><dd>a call to the comments tool with that id and a limit of 5</dd><dt>Observation</dt><dd>five top-level comments</dd></dl></section><section id="hn-step-3" class="step-panel"><h4>3. Answer</h4><dl><dt>Model reads</dt><dd>both observations</dd><dt>Model writes</dt><dd>a final response; the loop returns after three model calls</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next call</button></div></div>
+
 <p>This is the chaining that one round of tool use cannot do (lesson 22.1&rsquo;s one-shot blindness). The loop handles it with no code specific to this question: the model reads the id in the observation and writes the next call. A question that needs only the story list takes one tool call.</p>
-<p>The answers change with Hacker News, so the notebook prints no fixed result. What stays the same from run to run is the order of the calls.</p>
+<p>The answers change with Hacker News, and the notebook prints no fixed result. What stays the same from run to run is the order of the calls.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
 <div class="sheet scroll"><table>
 <thead>
@@ -818,11 +793,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The fourth row has a cost lesson 22.5 names: a failure returned as text reaches the model as a normal result, so monitoring that counts errors never sees it.</p>
 <h2 id="limits">Limits</h2>
 <ul>
-<li><strong>Live data.</strong> Answers differ on every run, so there is no expected answer to compare against. To test the bot, check behaviour: which tools it called, in what order, with which ids.</li>
+<li><strong>Live data.</strong> Answers differ on every run, with no expected answer to compare against. To test the bot, check behaviour: which tools it called, in what order, with which ids.</li>
 <li><strong>Growing memory.</strong> The app puts every earlier answer in front of each new question. The prompt grows each turn (lesson 22.1&rsquo;s context creep), and the user&rsquo;s earlier questions are not kept, only the bot&rsquo;s answers.</li>
-<li><strong>No round cap in the app.</strong> The app relies on the ReAct agent&rsquo;s own default limit. A production version would set it explicitly and show a fallback reply when it is reached.</li>
+<li><strong>No round cap in the app.</strong> The app relies on the ReAct agent&rsquo;s default of 10 rounds. After the cap, that agent asks the model once more and returns the raw reply (lesson 22.1). A production version would set the cap explicitly and show a fixed fallback reply.</li>
 </ul>
 <p>The notebook runs with an OpenAI key; the Hacker News API needs none. It writes the tools, the bot and the app as files beside itself, and the chat app runs separately with Streamlit.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Hacker News, <a href="https://github.com/HackerNews/API" target="_blank" rel="noopener">official API documentation</a>.</li>
+<li>The Neural Maze, <a href="https://github.com/neural-maze/agentic-patterns-course" target="_blank" rel="noopener">agentic patterns from scratch</a>, the MIT-licensed library the project adapts.</li>
+<li>Streamlit, <a href="https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state" target="_blank" rel="noopener">session state</a>.</li>
+<li>Yao et al., <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct: reasoning and acting together in language models</a> (arXiv 2210.03629).</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A pattern becomes a product when its code is importable: the same agent class serves a notebook, a script and a chat app.</li>
@@ -922,55 +904,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Key distinction:</strong> a type in the schema does two jobs. It tells the model what to send, and it lets the framework refuse what the model sends wrongly, before your code runs.</p>
 </blockquote>
 <h2 id="three-versions-of-the-handbook-search">Three versions of the handbook search</h2>
-<p>Here is Larkspur&rsquo;s handbook search defined three ways, with what the parameters part of each schema tells the model about its one argument, the query:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Definition</th>
-<th>What the model learns about the query</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>A function with an untyped query argument</td>
-<td>It exists and is required. Nothing about its type or meaning</td>
-</tr>
-<tr>
-<td>The same function with the query typed as a string</td>
-<td>It is a required string</td>
-</tr>
-<tr>
-<td>A validation model with a field description</td>
-<td>It is a required string described as &ldquo;Words to look up in the handbook, for example &lsquo;refund window&rsquo;&rdquo;</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: Three definitions of one tool, as the model sees them.</em></p>
-<p>The full schema of the third version also carries a tool description: &ldquo;Search the Larkspur Cloud handbook and return the two best-matching chunks. Use it for policy questions: billing, refunds, exports, outages, server sizing.&rdquo; That sentence says what the tool returns and which questions it is for, so the model can tell it apart from the server-status tool. The argument description says what a good query looks like.</p>
-<p>We planted one bad call against all three versions, the number 3 as the query:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Definition</th>
-<th>Query = 3</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Untyped</td>
-<td>Accepted; the function runs with a number</td>
-</tr>
-<tr>
-<td>Typed as a string</td>
-<td>Rejected: &ldquo;Input should be a valid string&rdquo;</td>
-</tr>
-<tr>
-<td>Validation model</td>
-<td>Rejected: &ldquo;Input should be a valid string&rdquo;</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 4: One planted call against three definitions.</em></p>
+<p>Here is Larkspur&rsquo;s handbook search defined three ways. We planted one bad call against all three, the number 3 as the query:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="search-definitions">
+<p class="widget-intro">Choose a definition to see what its schema tells the model about the query, and what happens to the planted call.</p>
+<div class="mode-controls" hidden role="group" aria-label="Definition of the handbook search"><button type="button" data-mode="untyped" aria-pressed="false" aria-controls="def-untyped">Untyped</button><button type="button" data-mode="typed" aria-pressed="false" aria-controls="def-typed">Typed as a string</button><button type="button" data-mode="model" aria-pressed="false" aria-controls="def-model">Validation model</button></div>
+<section id="def-untyped" class="mode-panel" data-announcement="Untyped definition: the number 3 is accepted."><h4>A function with an untyped query argument</h4><dl><dt>Model learns</dt><dd>the query exists and is required; nothing about its type or meaning</dd><dt>Query = 3</dt><dd>accepted; the function runs with a number</dd></dl></section>
+<section id="def-typed" class="mode-panel" data-announcement="Typed definition: the number 3 is rejected."><h4>The same function, query typed as a string</h4><dl><dt>Model learns</dt><dd>the query is a required string</dd><dt>Query = 3</dt><dd>rejected before the function runs: "Input should be a valid string"</dd></dl></section>
+<section id="def-model" class="mode-panel" data-announcement="Validation model: the number 3 is rejected and the query is described."><h4>A validation model with a field description</h4><dl><dt>Model learns</dt><dd>a required string described as "Words to look up in the handbook, for example 'refund window'"</dd><dt>Query = 3</dt><dd>rejected before the function runs: "Input should be a valid string"</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The full schema of the third version also carries a tool description: &ldquo;Search the Larkspur Cloud handbook and return the two best-matching chunks. Use it for policy questions: billing, refunds, exports, outages, server sizing.&rdquo; That sentence says what the tool returns and which questions it is for, and the model can tell it apart from the server-status tool. The argument description says what a good query looks like.</p>
 <p>The rejection happens before the function runs, which is where it belongs. Lesson 22.5 shows how that failure can come back to the model as a message it can read and correct.</p>
 <h2 id="check-a-wrapped-tool-before-you-bind-it">Check a wrapped tool before you bind it</h2>
 <p>LangChain&rsquo;s built-in tools carry their own schemas. The Wikipedia tool is named <code>wikipedia</code> and takes one string argument, <code>query</code>. Wrapping it in a generic tool with your own name and description changes that argument&rsquo;s name to the generic <code>tool_input</code>:</p>
@@ -1000,12 +944,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: What wrapping changes.</em></p>
+<p><em>Table 3: What wrapping changes.</em></p>
 <p>The model now sends <code>tool_input</code>, and any prompt or test that expects <code>query</code> silently stops matching. We call that <strong>argument drift</strong>: the right value under the wrong key, which is still an invalid call.</p>
 <blockquote>
 <p><strong>Pitfall: argument drift.</strong> Whatever the source of a tool, inspect its final name, description and argument list before you trust it in a loop. That is exactly what the model will read.</p>
 </blockquote>
-<p>The from-scratch tools in lesson 22.1 described their arguments with Python type names inside a prompt. A native schema uses JSON Schema types (string, number) and travels in the API request itself, so the provider can return structured calls that match it.</p>
+<p>The from-scratch tools in lesson 22.1 described their arguments with Python type names inside a prompt. A native schema uses JSON Schema types (string, number) and travels in the API request itself. The provider can then return structured calls that match it.</p>
 <h2 id="in-practice-larkspurrsquos-two-tools">In practice: Larkspur&rsquo;s two tools</h2>
 <p>For Larkspur&rsquo;s agent, the schemas should leave no overlap for the model to guess about:</p>
 <ol>
@@ -1014,6 +958,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Before binding</strong>: print each tool&rsquo;s name, description and arguments, and read them as the model will.</li>
 </ol>
 <p>A question such as <em>Is my server web-1 running, and does a reboot change its IP address?</em> then maps cleanly onto both tools, which lesson 22.4 traces message by message.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Checked offline.</strong> The schemas, the &ldquo;abcabc&rdquo; result, the rejections and the <code>tool_input</code> rename were checked against the installed <code>langchain-core</code> 1.7.0 with no model call. How much a better description improves a live model&rsquo;s tool choice is not measured here.</li>
+<li><strong>Validation is shape only.</strong> A schema can require a string; it cannot tell whether &ldquo;refund window&rdquo; is a sensible query. Lesson 22.5 evaluates the calls themselves.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/tools" target="_blank" rel="noopener">tools</a>.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/function-calling" target="_blank" rel="noopener">function calling guide</a>.</li>
+<li>Pydantic, <a href="https://docs.pydantic.dev/latest/concepts/fields/" target="_blank" rel="noopener">fields</a>.</li>
+<li>JSON Schema, <a href="https://json-schema.org/learn/getting-started-step-by-step" target="_blank" rel="noopener">getting started</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The model reads only the schema: name, description and parameters, never the function body. A vague description gives wrong or missing calls however good the code is.</li>
@@ -1104,45 +1060,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Matching ids only records which request a result belongs to. It does not prove the tool ran correctly or that the server was actually checked.</p>
 <h3>Counting messages in a two-tool run</h3>
-<p>The M22 lab&rsquo;s two-tool question shows the whole trace on Larkspur&rsquo;s tools:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>#</th>
-<th>Message</th>
-<th>Content</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td>Human</td>
-<td><em>Is my server web-1 running, and does a reboot change its IP address?</em></td>
-</tr>
-<tr>
-<td>1</td>
-<td>AI</td>
-<td>Two calls: server status for web-1, and a handbook search for &ldquo;reboot server IP address&rdquo;</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Tool</td>
-<td>web-1: running</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Tool</td>
-<td>The reboot chunk (score 0.747): &ldquo;You can reboot a server from the console. A reboot takes about a minute and does not change the server IP address.&rdquo; The sizing chunk follows with a score of 0.156</td>
-</tr>
-<tr>
-<td>4</td>
-<td>AI</td>
-<td>The answer, with no tool calls</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 2: The two-tool trace, five messages.</em></p>
-<p>Five messages, two of them tool results. The scores are real TF-IDF scores over the M10 handbook chunks; the model&rsquo;s turns are scripted. Message count is a cheap diagnostic: a single-tool question takes four messages, so six on the same question means an extra round, which lesson 22.5 traces to a malformed first call.</p>
+<p>The tool-error lab in lesson 22.5 runs the two-tool question on Larkspur&rsquo;s tools. Step through the five messages the history holds:</p>
+<div class="walkthrough learning-widget" data-stepper id="web1-trace">
+<p class="widget-intro">Each stage adds messages to the history. The model's turns are scripted; the handbook scores are real.</p>
+<div class="step-controls" hidden role="group" aria-label="Messages in the two-tool trace"><button type="button" data-step="0" aria-pressed="false" aria-controls="web1-msg-0">0. Human</button><button type="button" data-step="1" aria-pressed="false" aria-controls="web1-msg-1">1. AI</button><button type="button" data-step="2" aria-pressed="false" aria-controls="web1-msg-2">2 and 3. Tools</button><button type="button" data-step="4" aria-pressed="false" aria-controls="web1-msg-4">4. AI</button></div>
+<div class="step-panels"><section id="web1-msg-0" class="step-panel"><h4>Message 0: the question</h4><dl><dt>Human message</dt><dd><em>Is my server web-1 running, and does a reboot change its IP address?</em></dd></dl></section><section id="web1-msg-1" class="step-panel"><h4>Message 1: two calls in one reply</h4><dl><dt>AI message</dt><dd>empty text and two tool calls, each with its own id: server status for web-1, and a handbook search for "reboot server IP address"</dd></dl></section><section id="web1-msg-2" class="step-panel"><h4>Messages 2 and 3: one result per call</h4><dl><dt>Tool message for the status call</dt><dd>web-1: running</dd><dt>Tool message for the search call</dt><dd>the reboot chunk (score 0.747): "A reboot takes about a minute and does not change the server IP address", then the sizing chunk (0.156)</dd></dl></section><section id="web1-msg-4" class="step-panel"><h4>Message 4: the answer</h4><dl><dt>AI message</dt><dd>the answer, with no tool calls; the loop ends</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next message</button></div></div>
+
+<p>Five messages, two of them tool results. The scores are TF-IDF scores over the lab&rsquo;s twelve handbook chunks; we re-ran them with scikit-learn and they match. Message count is a cheap diagnostic: a single-tool question takes four messages. Six on the same question means an extra round, which lesson 22.5 traces to a malformed first call.</p>
 <p>A model without native tool calling needs the text protocol from lesson 22.1 instead: tool descriptions in the system prompt and your code parsing the call out of the reply. Nothing guarantees valid JSON, a real tool name or every argument, so use it only when the model leaves no choice.</p>
 <h2 id="the-augmented-llm">The augmented LLM</h2>
 <p>LangGraph can take over the dispatch. The graph has three pieces:</p>
@@ -1182,19 +1107,44 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Two questions through the one-shot graph.</em></p>
+<p><em>Table 2: Two questions through the one-shot graph.</em></p>
 <p>The second run ends on a tool message. Nobody reads the result, the user gets no sentence, and a second call that depends on the first is impossible. We call that <strong>stopping at the tool</strong>.</p>
-<p>That graph is an <strong>augmented LLM</strong>: a model that can use tools once, but not a loop. One more edge, from the tool node back to the model node (the dashed line), makes it an agent. The model then reads each result and decides whether to call another tool or answer, which is the loop in the module&rsquo;s mental model.</p>
+<p>That graph is an <strong>augmented LLM</strong>: a model that can use tools once, but not a loop. One more edge, from the tool node back to the model node (the dashed line), makes it an agent:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    S([START]) --&gt; L["agent&lt;br/&gt;bound model"]
+    L --&gt; C{tool calls?}
+    C -- yes --&gt; T["tools&lt;br/&gt;ToolNode"]
+    C -- no --&gt; E([END])
+    T --&gt; L
+</pre></figure>
+<p><em>Figure 3: The agent loop in notebook 05a. The tool node returns to the model, and only a reply with no tool calls reaches the end.</em></p>
+<p>The model then reads each result and decides whether to call another tool or answer, which is the loop in the module&rsquo;s mental model.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> an augmented LLM ends on whatever the tools return; an agent ends when the model writes a reply with no tool calls. The difference is one edge, and it changes the final message from a tool result to an answer.</p>
 </blockquote>
 <h2 id="in-practice-the-web-1-question">In practice: the web-1 question</h2>
 <p>Run the web-1 question through both graphs:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="graph-switcher">
+<p class="widget-intro">Choose a graph to see where the web-1 run ends and what the customer receives.</p>
+<div class="mode-controls" hidden role="group" aria-label="Graph for the web-1 question"><button type="button" data-mode="augmented" aria-pressed="false" aria-controls="graph-augmented">Augmented LLM</button><button type="button" data-mode="loop" aria-pressed="false" aria-controls="graph-loop">Agent loop</button></div>
+<section id="graph-augmented" class="mode-panel" data-announcement="Augmented LLM selected. The run ends on a tool message."><h4>Augmented LLM (Figure 2)</h4><dl><dt>Path</dt><dd>model, router, tool node, end</dd><dt>Last message</dt><dd>the handbook chunk, a tool message</dd><dt>Customer sees</dt><dd>raw tool output, no sentence</dd></dl></section>
+<section id="graph-loop" class="mode-panel" data-announcement="Agent loop selected. The run ends on an answer."><h4>Agent loop (Figure 3)</h4><dl><dt>Path</dt><dd>model, tool node, model, end</dd><dt>Last message</dt><dd>an AI message with no tool calls</dd><dt>Customer sees</dt><dd>web-1 is running, and a reboot does not change its IP address</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>In both runs each tool message carries its call id, and the model can tell the status from the handbook chunk. Lesson 22.5 adds what happens when one of those calls fails.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Scripted model turns.</strong> The web-1 trace scripts the model&rsquo;s replies; only the tool results and scores are computed. A live model may split the two lookups across two replies.</li>
+<li><strong>One provider&rsquo;s rule.</strong> The orphaned-call rejection is OpenAI&rsquo;s behaviour; check other providers before relying on it.</li>
+</ul>
+<h2 id="references">References</h2>
 <ol>
-<li><strong>Augmented LLM</strong>: the model requests both lookups, the tool node runs them, and the run ends on the handbook chunk. The customer sees raw tool output.</li>
-<li><strong>Agent loop</strong>: the same two tool messages go back to the model, which answers that web-1 is running and that a reboot does not change its IP address. The final message is an AI message with no tool calls.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/models#tool-calling" target="_blank" rel="noopener">tool calling</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/workflows-agents" target="_blank" rel="noopener">LangGraph workflows and agents</a>.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/function-calling" target="_blank" rel="noopener">function calling guide</a>.</li>
+<li>Anthropic, <a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Building effective agents</a>, source of the augmented LLM term.</li>
 </ol>
-<p>In both runs each tool message carries its call id, so the model can tell the status from the handbook chunk. Lesson 22.5 adds what happens when one of those calls fails.</p>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A model with tools bound returns an AI message with tool calls and runs nothing. Independent calls arrive together in one reply, saving a round trip.</li>
@@ -1226,7 +1176,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 22.4 closed the loop from the tool node back to the model. This lesson asks what travels along that edge when a call fails.</p>
-<p>A Larkspur customer asks the support agent <em>Is my server web-9 up?</em> The customer has no server called web-9, so the status tool raises an error. With LangGraph&rsquo;s default settings, that error escapes the graph and the customer gets no answer at all.</p>
+<p>A Larkspur customer asks the support agent <em>Is my server web-9 up?</em> The customer has no server called web-9, and the status tool raises an error. With LangGraph&rsquo;s default settings, that error escapes the graph and the customer gets no answer at all.</p>
 <h3>The loop and its trace</h3>
 <p>The agent loop has two nodes. The <strong>agent node</strong> calls the model. The <strong>tool node</strong> runs every tool call the model asked for and appends one tool message per call. An edge from the tool node back to the agent node lets the model read the results, and a router ends the run when the last model reply has no tool calls:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -1236,9 +1186,9 @@ th:last-child, td:last-child { padding-right: 0; }
     A --&gt;|no tool calls| E([Answer])
 </pre></figure>
 <p><em>Figure 1: The agent loop. Every tool result goes back to the model before the run can end.</em></p>
-<p>The message list is the run&rsquo;s trace. For the Larkspur export question it holds four messages: the question, one model reply requesting the handbook search, its tool message, and the final answer. The status-and-reboot question holds five, because one reply requests two tools. Message count helps diagnose extra work, but it does not say whether the answer is correct.</p>
+<p>The message list is the run&rsquo;s trace: four messages for a one-tool question, five when one reply requests two tools (lesson 22.4). Message count shows extra work, not whether the answer is correct.</p>
 <h3>Two places a call can fail</h3>
-<p>To isolate the tool node, we fed it a hand-written model reply with one call, so every result is deterministic. The tool checks a customer&rsquo;s servers, web-1 and db-1, and raises an error naming the real servers when asked about any other:</p>
+<p>To isolate the tool node, we fed it a hand-written model reply with one call, which keeps every result deterministic. The tool checks a customer&rsquo;s servers, web-1 and db-1, and raises an error naming the real servers when asked about any other:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1302,7 +1252,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Two failures under three settings.</em></p>
-<p>Of the three, only <code>True</code> turns both failures into messages the model can read. The default catches the model&rsquo;s mistakes but not the tool&rsquo;s, which is why the web-9 question crashes under it. This behaviour depends on the installed version, so check it again after an upgrade.</p>
+<p>Of the three, only <code>True</code> turns both failures into messages the model can read. The default catches the model&rsquo;s mistakes but not the tool&rsquo;s, which is why the web-9 question crashes under it. We re-ran the table on langgraph 1.2.18 with <code>langgraph-prebuilt</code> 1.1.1; check it again after an upgrade.</p>
 <h3>What the model does next</h3>
 <p>An error message lets the model recover, but it does not make it recover: the model still has to read the message and choose a sensible next step. Here is the web-9 run under <code>True</code>. The tool message is LangGraph&rsquo;s real output; the model&rsquo;s two turns are scripted:</p>
 <div class="sheet scroll"><table>
@@ -1416,13 +1366,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 5: Returning an error versus catching an exception.</em></p>
-<p>The setting also accepts a custom message, an exception type or a group of types (catch only those), or a function that formats the message. Either way, write error messages the model can act on: what was wrong and what would work, as the web-9 message lists the valid servers. Return only information the customer is allowed to see.</p>
+<p>The setting also accepts a custom message, an exception type or a group of types (catch only those), or a function that formats the message. Either way, write error messages the model can act on, as the web-9 message lists the valid servers, and return only what the customer may see.</p>
 <blockquote>
 <p><strong>Pitfall: the successful failure.</strong> A tool that returns an error string completes normally, so its tool message has status <em>success</em>. Only a caught exception produces status <em>error</em>. Monitoring that counts error statuses misses every failure a tool reports as text.</p>
 </blockquote>
 <p>Letting an exception escape is also a choice, and it has a cost: your application code must then log the failed run and give the user a fallback reply.</p>
 <h2 id="tool-call-evaluation">Tool-call evaluation</h2>
-<p>A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. Each of those is a different failure, so score them separately, from the same trace.</p>
+<p>A run can finish and still be wrong. The refund question answers correctly under the default setting, yet its first call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id or ignores what the tool returned can also produce a fluent answer. Each is a different failure: score them separately, from the same trace.</p>
 <h3>Three dimensions</h3>
 <div class="sheet scroll"><table>
 <thead>
@@ -1451,7 +1401,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 6: The three scores and where each comes from.</em></p>
-<p>Separate scores tell you what to fix: a selection drop after a description change points at the description, an input drop at the schema and the generated arguments. Confirm the cause from the failing calls before changing either.</p>
+<p>Separate scores tell you what to fix: a selection drop after a description change points at the description, an input drop at the schema. Confirm the cause from the failing calls first.</p>
 <h3>Scoring selection and input from the trace</h3>
 <p>The first two dimensions need no model at all. Give each golden question its expected calls:</p>
 <ul>
@@ -1485,14 +1435,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 7: The trace scorer on two lab runs.</em></p>
 <p>Both runs chose the right tools. The refund run&rsquo;s first call is flagged because it passed <code>q</code> instead of <code>query</code>; the lab&rsquo;s trace marks the same call &ldquo;right tool, missing query&rdquo;.</p>
-<p>That scorer is deliberately small. It does not check types, query relevance, call order or duplicate calls, and it assumes it knows every tool name. A production scorer validates against the real tool schemas and flags unknown tool names before looking up their required fields.</p>
+<p>That scorer is deliberately small. It does not check types, query relevance, call order or duplicate calls, and it assumes it knows every tool name. A production scorer validates against the real tool schemas and flags unknown names.</p>
 <h3>Judging synthesis</h3>
 <p><strong>Synthesis</strong> measures whether the final answer uses the returned facts correctly, and that needs judgement. An <strong>LLM judge</strong> is another model asked to grade the trace against explicit criteria: give it the question, the tool requests, the tool results and the final answer, and ask for a score from 1 to 5 on each of the three dimensions plus a short justification.</p>
 <p>One recorded judgement shows the shape. The trace asks <em>Calculate 15% of 250 and check weather in Paris</em>; the agent calls a calculator (37.5) and a simulated weather tool (65°F, partly cloudy), and its answer includes both. The judge scored it 5, 5 and 5. That is one recorded judgement on a practice trace, not a Larkspur result, and a new judge call may disagree.</p>
 <blockquote>
 <p><strong>Pitfall: the self-grading judge.</strong> In that recording the judge is the agent&rsquo;s own model, which tends to be lenient on its own work. Use a different, ideally stronger, model, and check its scores against a few human-graded runs before you trust a trend.</p>
 </blockquote>
-<p>Two more cautions. The score fields there are plain whole numbers, so nothing rejects a 7 unless you add a range check. And a single trace scored 5 out of 5 proves little: scores mean something across a fixed golden set, compared before and after one change, as M10&rsquo;s baseline-first method does for retrieval.</p>
+<p>Two more cautions. The score fields are plain whole numbers, and nothing rejects a 7 without a range check. And one trace scored 5 out of 5 proves little: scores mean something across a fixed golden set, before and after one change, as in M10&rsquo;s baseline-first method.</p>
 <h3>Counting what never finishes</h3>
 <p>Per-call scores miss the runs that never produce an answer. Log three counts per run as well:</p>
 <ul>
@@ -1500,13 +1450,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Error tool messages per tool</strong>: which tool fails, and how often.</li>
 <li><strong>Crashed runs</strong>: the web-9 question under the default has no answer to score at all.</li>
 </ul>
-<p>Those counts are cheap and catch both of the lab&rsquo;s failures. A web-9 run where the model asks for exactly what the customer said passes selection and input; its failure belongs to the tool&rsquo;s error handling, and only the crashed-run count records it.</p>
+<p>Those counts are cheap and catch both of the lab&rsquo;s failures. A crashed web-9 run passes selection and input, because the model asked for exactly what the customer said; only the crashed-run count records it.</p>
 <h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>Scripted model turns.</strong> Every model reply in Tables 3, 4 and 7 is scripted; only the tool messages and error texts are LangGraph&rsquo;s real output.</li>
 <li><strong>One version.</strong> Table 2 is the behaviour of the pinned LangGraph version; the settings have changed between releases.</li>
-<li><strong>One judgement.</strong> The synthesis example is a single recorded score, so it shows the method, not the judge&rsquo;s reliability.</li>
+<li><strong>One judgement.</strong> The synthesis example is a single recorded score: it shows the method, not the judge&rsquo;s reliability.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://reference.langchain.com/python/langgraph.prebuilt/tool_node/ToolNode" target="_blank" rel="noopener">ToolNode API reference</a>, including <code>handle_tool_errors</code>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/langsmith/trajectory-evals" target="_blank" rel="noopener">evaluating agent trajectories</a>.</li>
+<li>Zheng et al., <a href="https://arxiv.org/abs/2306.05685" target="_blank" rel="noopener">Judging LLM-as-a-judge with MT-Bench and Chatbot Arena</a> (arXiv 2306.05685).</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Choose error routing explicitly. In the tested version, the default tool node returns the missing-argument error to the model but re-raises the tool&rsquo;s own error; <code>True</code> returns both.</li>
@@ -1634,28 +1590,14 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 2: What each path gives you.</em></p>
 <h3>The policy gap</h3>
 <p>The gap between &ldquo;the model asked&rdquo; and &ldquo;the model sees the result&rdquo; is where policy lives. We call it the <strong>policy gap</strong>. In the recorded example, a guarded version of the client-side lookup refuses any city outside an allow-list:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Question</th>
-<th>Guarded client-side lookup</th>
-<th>Hosted search</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Population of Lisbon</td>
-<td>Runs; the model answers</td>
-<td>Runs; the model answers</td>
-</tr>
-<tr>
-<td>Population of Pyongyang</td>
-<td>Refused with an error; the model says it cannot retrieve that population</td>
-<td>Would run; nothing of yours sits between the call and the result</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: An allow-list in the policy gap.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="policy-gap">
+<p class="widget-intro">Choose a path to see what happens to the same two questions when an allow-list is needed.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the population lookup runs"><button type="button" data-mode="client" aria-pressed="false" aria-controls="gap-client">Guarded client-side lookup</button><button type="button" data-mode="hosted" aria-pressed="false" aria-controls="gap-hosted">Hosted search</button></div>
+<section id="gap-client" class="mode-panel" data-announcement="Client-side selected. The allow-list refuses Pyongyang."><h4>Guarded client-side lookup</h4><dl><dt>Population of Lisbon</dt><dd>runs; the model answers</dd><dt>Population of Pyongyang</dt><dd>refused with an error by your code; the model says it cannot retrieve that population</dd><dt>Where the check sits</dt><dd>between the call and the result, in your process</dd></dl></section>
+<section id="gap-hosted" class="mode-panel" data-announcement="Hosted selected. Both questions would run."><h4>Hosted search</h4><dl><dt>Population of Lisbon</dt><dd>runs; the model answers</dd><dt>Population of Pyongyang</dt><dd>would run; nothing of yours sits between the call and the result</dd><dt>Where the check sits</dt><dd>nowhere you control</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Allow-lists, tenant scoping, redaction of personal data and spend caps all sit in that gap. Choosing a hosted tool means choosing not to have it.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> a hosted tool can be well run and still impossible to govern. What decides the placement is whether anything must happen between the call and the result.</p>
@@ -1684,8 +1626,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Visibility by hosted tool.</em></p>
-<p>Code interpreter is also configurable: the recorded example sets a memory ceiling and turns network access off, so the sandbox works only on data you supplied. What you still cannot do is approve the code before it runs, veto one call, or replace it with a stub in a test.</p>
+<p><em>Table 3: Visibility by hosted tool.</em></p>
+<p>Code interpreter is also configurable: notebook 06b sets a 1 GB memory ceiling and turns network access off, and the sandbox then works only on data you supplied. What you still cannot do is approve the code before it runs, veto one call, or replace it with a stub in a test.</p>
 <p>Image generation adds a different caution. The agent describes what it <em>meant</em> to draw, and only showing the image to a vision model reveals what it actually drew. We call that <strong>narrated output</strong>: a description of the result that nobody checked against the result. The model also has to leave the tool alone when a turn asks for advice rather than an image, and the recorded example checks that it does.</p>
 <h2 id="choosing-where-each-tool-runs">Choosing where each tool runs</h2>
 <p>The decision follows the data the tool touches:</p>
@@ -1709,8 +1651,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>One run per path.</strong> The latencies in Table 1 come from a single recorded run each; measure on your own traffic before deciding anything on speed.</li>
-<li><strong>One provider.</strong> The visibility in Table 4 is what OpenAI&rsquo;s hosted tools returned in the recorded examples; other providers expose more or less.</li>
+<li><strong>One provider.</strong> The visibility in Table 3 is what OpenAI&rsquo;s hosted tools returned in the recorded examples; other providers expose more or less.</li>
+<li><strong>Not re-run.</strong> The notebooks ship without outputs, and the timings and the provider&rsquo;s query in Table 1 come from an earlier recorded run that we did not repeat.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/function-calling" target="_blank" rel="noopener">function calling guide</a>.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/tools-web-search" target="_blank" rel="noopener">web search tool</a>.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/tools-code-interpreter" target="_blank" rel="noopener">code interpreter tool</a>.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/tools-image-generation" target="_blank" rel="noopener">image generation tool</a>.</li>
+<li>Model Context Protocol, <a href="https://modelcontextprotocol.io/introduction" target="_blank" rel="noopener">introduction</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A hosted tool runs on the provider&rsquo;s side and returns the result folded into the reply. You lose the policy gap, where your code can log, refuse, redact or cache a call.</li>
@@ -1786,7 +1737,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Every tool failure must come back as a tool result the model can read. Set <code>handle_tool_errors</code> deliberately and test it with a tool that raises.</li>
 <li>Run tools that touch customer data in your own code, where you can log, refuse and stub them. Hosted tools fit general-purpose capabilities where you have nothing to enforce.</li>
 </ul></article>
-    <nav class="toc" aria-label="M22 sections"><details open><summary>In M22</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#why-the-model-cannot-run-the-tool">Why the model cannot run the tool</a></li><li><a href="#agent-loop">Agent loop</a></li><li><a href="#pattern-1-one-round-of-tool-use">Pattern 1</a></li><li><a href="#pattern-2-react-planning">Pattern 2</a></li><li><a href="#pattern-3-reflection">Pattern 3</a></li><li><a href="#choosing-a-pattern">Choosing a pattern</a></li><li><a href="#in-practice-the-larkspur-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-hacker-news-chatbot">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-two-step-question">Following a two-step question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tool-schema">Tool schema</a></li><li><a href="#types-do-two-jobs">Types do two jobs</a></li><li><a href="#three-versions-of-the-handbook-search">Three versions of the handbook search</a></li><li><a href="#check-a-wrapped-tool-before-you-bind-it">Check a wrapped tool before you bind it</a></li><li><a href="#in-practice-larkspurrsquos-two-tools">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#native-tool-calls-and-the-message-trace">Native tool calls and the message trace</a></li><li><a href="#the-augmented-llm">The augmented LLM</a></li><li><a href="#in-practice-the-web-1-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#where-tool-errors-go">Where tool errors go</a></li><li><a href="#tool-call-evaluation">Tool-call evaluation</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hosted-vs-client-side-tools">Hosted vs client-side tools</a></li><li><a href="#choosing-where-each-tool-runs">Choosing where each tool runs</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M22 sections"><details open><summary>In M22</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#why-the-model-cannot-run-the-tool">Why the model cannot run the tool</a></li><li><a href="#agent-loop">Agent loop</a></li><li><a href="#pattern-1-one-round-of-tool-use">Pattern 1</a></li><li><a href="#pattern-2-react-planning">Pattern 2</a></li><li><a href="#pattern-3-reflection">Pattern 3</a></li><li><a href="#choosing-a-pattern">Choosing a pattern</a></li><li><a href="#in-practice-the-larkspur-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-hacker-news-chatbot">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-two-step-question">Following a two-step question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tool-schema">Tool schema</a></li><li><a href="#types-do-two-jobs">Types do two jobs</a></li><li><a href="#three-versions-of-the-handbook-search">Three versions of the handbook search</a></li><li><a href="#check-a-wrapped-tool-before-you-bind-it">Check a wrapped tool before you bind it</a></li><li><a href="#in-practice-larkspurrsquos-two-tools">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#native-tool-calls-and-the-message-trace">Native tool calls and the message trace</a></li><li><a href="#the-augmented-llm">The augmented LLM</a></li><li><a href="#in-practice-the-web-1-question">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#where-tool-errors-go">Where tool errors go</a></li><li><a href="#tool-call-evaluation">Tool-call evaluation</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#hosted-vs-client-side-tools">Hosted vs client-side tools</a></li><li><a href="#choosing-where-each-tool-runs">Choosing where each tool runs</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

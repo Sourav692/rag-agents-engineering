@@ -2,6 +2,7 @@
 
 *[M23 theory](../README.md) · Lesson 23.2 · Notebooks: [`02a_react_with_create_agent.ipynb`](../../notebook/02a_react_with_create_agent.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: The loop from lesson 23.1, prepackaged: what the factory builds, and how to stop a loop that finds nothing -->
+<!-- format: approved -->
 
 ## create_agent
 
@@ -39,7 +40,35 @@ Because the result is a graph, everything from M08 and M09 applies to it. Stream
 
 ### Dependent and independent calls
 
-The loop is fixed, but the model decides how much to do in each turn. Two recorded runs with stub tools show the difference:
+The loop is fixed, but the model decides how much to do in each turn. When one call needs another's result, each call waits for its own model turn:
+
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant T as Tools
+    M->>T: stock price
+    T-->>M: price
+    M->>T: email quoting the price
+    T-->>M: sent
+    M->>M: answer
+```
+
+*Figure 2: Dependent calls. The email cannot be written before the price arrives, which costs three model calls.*
+
+When no call needs another, the model asks for all of them in one reply:
+
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant T as Tools
+    M->>T: weather Bangalore, weather Mumbai, 25 times 4
+    T-->>M: three results
+    M->>M: answer
+```
+
+*Figure 3: Independent calls. Three lookups share one turn, and the run takes two model calls.*
+
+Two recorded runs with stub tools show the difference:
 
 | Request | Model turn 1 | Model turn 2 | Model turn 3 | Model calls |
 |---|---|---|---|---|
@@ -48,8 +77,8 @@ The loop is fixed, but the model decides how much to do in each turn. Two record
 
 *Table 2: Dependent calls take a turn each; independent calls share one.*
 
-- **Dependent calls take one turn each.** The email body needs the price, so the email call cannot be written until the price comes back as an observation.
-- **Independent calls share a turn.** None of the three lookups needs another's result, so the model requested all three in one reply and the tool node ran them before the model's second and last call.
+- **Dependent calls take one turn each.** The email body needs the price. The email call cannot be written until the price comes back as an observation.
+- **Independent calls share a turn.** None of the three lookups needs another's result. The model requested all three in one reply, and the tool node ran them before the model's second and last call.
 
 A third case costs one call: given only a restaurant search tool, the agent answered *Who are the members of the A-Team?* from its own knowledge without searching, because the tool's description said it covers the restaurant.
 
@@ -82,7 +111,7 @@ Older material builds this loop with an agent executor or LangGraph's prebuilt R
 
 *Table 4: What replaces what.*
 
-Renaming the function is not enough: the factory has no prompt argument, so old code that passes one fails with a type error until it is renamed to the system prompt. LangGraph's prebuilt ReAct agent is deprecated since LangGraph v1.0.
+Renaming the function is not enough: the factory has no prompt argument. Old code that passes one fails with a type error until it is renamed to the system prompt. LangGraph's prebuilt ReAct agent is deprecated since LangGraph v1.0.
 
 Tools come in three weights: ready-made ones from the community package (an LLM-backed calculator, for example), a decorated function, and a tool class that carries configuration such as which vector store to search. In every case the model chooses tools by name and description, so the description is prompt text.
 
@@ -99,6 +128,11 @@ A loop that decides its own length can run long. The recorded failure uses a res
 *Table 5: One answerless index, three agents, the same cap.*
 
 The second row is a **runaway loop**: the agent rewords its search and gets the same answerless questions back each time. The cap bounded the bill, but the user still has no opening hours, and the message they see was written by the middleware, not the model.
+
+<div class="walkthrough learning-widget" data-stepper id="runaway-walkthrough">
+<p class="widget-intro">Step through the persistent agent's run under a cap of 3 model calls.</p>
+<div class="step-controls" hidden role="group" aria-label="Rounds of the runaway loop"><button type="button" data-step="0" aria-pressed="false" aria-controls="runaway-step-0">1. Search</button><button type="button" data-step="1" aria-pressed="false" aria-controls="runaway-step-1">2. Reword</button><button type="button" data-step="2" aria-pressed="false" aria-controls="runaway-step-2">3. Reword again</button><button type="button" data-step="3" aria-pressed="false" aria-controls="runaway-step-3">4. Cap</button></div>
+<div class="step-panels"><section id="runaway-step-0" class="step-panel" aria-labelledby="runaway-heading-0"><h4 id="runaway-heading-0">1. Search</h4><dl><dt>Model call</dt><dd>1 of 3; asks the FAQ tool when the restaurant opens</dd><dt>Observation</dt><dd>four FAQ questions, no answers, no opening hours</dd></dl></section><section id="runaway-step-1" class="step-panel" aria-labelledby="runaway-heading-1"><h4 id="runaway-heading-1">2. Reword</h4><dl><dt>Model call</dt><dd>2 of 3; the prompt forbids admitting failure, and it searches with other words</dd><dt>Observation</dt><dd>answerless questions again</dd></dl></section><section id="runaway-step-2" class="step-panel" aria-labelledby="runaway-heading-2"><h4 id="runaway-heading-2">3. Reword again</h4><dl><dt>Model call</dt><dd>3 of 3; a third wording</dd><dt>Observation</dt><dd>the same kind of result; nothing in the index can answer</dd></dl></section><section id="runaway-step-3" class="step-panel" aria-labelledby="runaway-heading-3"><h4 id="runaway-heading-3">4. Cap</h4><dl><dt>Before call 4</dt><dd>the middleware counts 3 calls against a limit of 3 and does not call the model</dd><dt>User receives</dt><dd>"Model call limits exceeded: run limit (3/3)", appended by the middleware</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 ### Fix what the model sees before raising the cap
 
@@ -129,9 +163,9 @@ flowchart TD
     X -->|error| R[Raise an error]
 ```
 
-*Figure 2: The cap is checked before the model runs, so the last allowed call is the one that matters.*
+*Figure 4: The cap is checked before the model runs, and the last allowed call is the one that matters.*
 
-The check runs before the call, so a run that needs four model calls is cut off at a cap of 3 even when its evidence is already in the message list. In the [lesson 23.1 lab](../01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) the three golden questions need 2, 3 and 4 calls:
+The check runs before the call. A run that needs four model calls is cut off at a cap of 3 even when its evidence is already in the message list. In the [lesson 23.1 lab](../01_the_react_loop_in_langgraph_tool_calling_vs_react/interactive/react-loop-lab.html) the three golden questions need 2, 3 and 4 calls:
 
 | Cap | Export (needs 2) | Refund (needs 3) | Outage (needs 4) | Answered |
 |---|---|---|---|---|
@@ -149,10 +183,16 @@ We call the stopped-with-evidence rows the **starved final call**: the cap spent
 - **One recorded run each.** A live model may search a different number of times; the persistent agent's three searches are one run.
 - **A scripted model in Table 7.** The lab's counts are computed, but its searches are the ones a model might write.
 
+## References
+
+- [LangChain: agents](https://docs.langchain.com/oss/python/langchain/agents): what `create_agent` builds and its arguments.
+- [LangChain: prebuilt middleware](https://docs.langchain.com/oss/python/langchain/middleware/built-in): the model-call limit and its exit behaviours.
+- [LangChain v1 migration guide](https://docs.langchain.com/oss/python/migrate/langchain-v1): the 0.x to 1.x mapping in Table 4.
+
 ## Key Takeaways
 
-- `create_agent` returns the ReAct loop as a compiled LangGraph graph, so streaming, checkpointers and thread-id memory work as usual. Pass a system prompt; the old prompt argument fails with a type error.
-- Dependent tool calls take one model turn each and independent ones share a turn, so the same loop costs 2 or 3 model calls depending on the task.
+- `create_agent` returns the ReAct loop as a compiled LangGraph graph: streaming, checkpointers and thread-id memory work as usual. Pass a system prompt; the old prompt argument fails with a type error.
+- Dependent tool calls take one model turn each and independent ones share a turn. The same loop costs 2 or 3 model calls depending on the task.
 - When an agent loops without an answer, fix the data, the retrieval depth, the result format and the tool description first. A higher cap buys more attempts; a cap below what your golden questions need starves the final answering call.
 
 ## Check yourself

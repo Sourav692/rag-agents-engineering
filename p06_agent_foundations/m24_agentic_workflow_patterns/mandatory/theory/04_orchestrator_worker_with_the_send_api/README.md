@@ -2,6 +2,7 @@
 
 *[M24 theory](../README.md) · Lesson 24.4 · Notebooks: [`04a_orchestrator_worker_send_api.ipynb`](../../notebook/04a_orchestrator_worker_send_api.ipynb), [`04b_orchestrator_worker_lcel_map.ipynb`](../../../optional/notebook/04b_orchestrator_worker_lcel_map.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Let a planner decide how many workers run, and make sure the plan, not the wiring, drives them -->
+<!-- format: approved -->
 
 ## Dynamic fan-out with Send
 
@@ -100,7 +101,16 @@ Each guard answers one way the plan stops driving execution:
 
 ### Send compared with LCEL's map
 
-LCEL can express the fan-out by mapping one runnable over the plan's list. It covers the shape, with four gaps:
+LCEL can express the fan-out by mapping one runnable over the plan's list. There is no graph state: the plan goes in, a list of results comes out, in input order.
+
+```mermaid
+flowchart LR
+    Q[/Question/] --> O["Planner chain<br/>returns a plan"] --> M["worker.map()<br/>one call per item"] --> L["Ordered list<br/>of results"] --> S[Synthesizer] --> A[/Answer/]
+```
+
+*Figure 2: The same fan-out in LCEL. One runnable is mapped over the plan; nothing is checkpointed between steps.*
+
+It covers the shape, with four gaps:
 
 | | LangGraph `Send` | LCEL map |
 |---|---|---|
@@ -115,13 +125,12 @@ The LCEL notebook plants a failing worker to show the third row: the mapped call
 
 ## In practice: decomposing the export question
 
-This is the shape of query decomposition (M17) and of the module lab:
+This is the shape of query decomposition (M17), applied to the golden question. The trace below is illustrative; its plan matches the model-free run in Tables 3 and 4.
 
-1. The orchestrator splits *Can I export my data after I cancel my plan?* into "how do I export?" and "what happens to my data after I cancel?".
-2. Two workers each retrieve and answer one sub-question. Their evidence is the `export` and `retention` chunks of the M10 golden set.
-3. The synthesizer writes one reply from both, in plan order.
-4. *How long does a refund take?* gets a plan of one item; a one-item plan can skip the fan-out and answer directly.
-5. An empty plan returns a fixed reply instead of ending silently, and the plan size has a cap.
+<div class="walkthrough learning-widget" data-stepper id="export-plan-walkthrough">
+<p class="widget-intro">Step through the export question from plan to reply, then the two edge cases.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the export question"><button type="button" data-step="0" aria-pressed="false" aria-controls="export-step-0">1. Plan</button><button type="button" data-step="1" aria-pressed="false" aria-controls="export-step-1">2. Dispatch</button><button type="button" data-step="2" aria-pressed="false" aria-controls="export-step-2">3. Merge</button><button type="button" data-step="3" aria-pressed="false" aria-controls="export-step-3">4. Edge cases</button></div>
+<div class="step-panels"><section id="export-step-0" class="step-panel" aria-labelledby="export-heading-0"><h4 id="export-heading-0">1. Plan</h4><dl><dt>Input</dt><dd><em>Can I export my data after I cancel my plan?</em></dd><dt>Plan</dt><dd>two items: how do I export, and what happens to my data after I cancel</dd></dl></section><section id="export-step-1" class="step-panel" aria-labelledby="export-heading-1"><h4 id="export-heading-1">2. Dispatch</h4><dl><dt>Sends</dt><dd>two, one per item, each carrying only its own sub-question</dd><dt>Evidence</dt><dd>one worker retrieves the <code>export</code> chunk, the other the <code>retention</code> chunk of the M10 golden set</dd></dl></section><section id="export-step-2" class="step-panel" aria-labelledby="export-heading-2"><h4 id="export-heading-2">3. Merge</h4><dl><dt>Finish order</dt><dd>whichever worker returns first, retention in our run</dd><dt>Results key</dt><dd>export, then retention: plan order, and the synthesizer writes one reply from both</dd></dl></section><section id="export-step-3" class="step-panel" aria-labelledby="export-heading-3"><h4 id="export-heading-3">4. Edge cases</h4><dl><dt>One item</dt><dd><em>How long does a refund take?</em> plans one item and can skip the fan-out</dd><dt>No items</dt><dd>an empty plan returns a fixed reply instead of ending silently, and the plan size has a cap in code</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 Lesson 24.5 adds the last ingredient the patterns so far lack: a loop that goes back and tries again.
 
@@ -129,6 +138,13 @@ Lesson 24.5 adds the last ingredient the patterns so far lack: a loop that goes 
 
 - **Model-free traces.** Tables 3 and 4 come from our own graph of the same shape with hand-written plans; the notebook's live planner was not rerun.
 - **Padded plans from one model.** The five-section result is the notebook's report for `gpt-4o-mini` with that prompt; other models pad differently.
+- **Rerun on 14 November 2026.** We repeated Tables 3 and 4 on langgraph 1.2.18 with the same delays, and both reproduce.
+
+## References
+
+1. Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), December 2024: orchestrator-workers.
+2. LangChain, [LangGraph Graph API: Send and map-reduce](https://docs.langchain.com/oss/python/langgraph/graph-api).
+3. LangChain, [Runnable reference: map and batch](https://reference.langchain.com/python/langchain-core/runnables).
 
 ## Key Takeaways
 

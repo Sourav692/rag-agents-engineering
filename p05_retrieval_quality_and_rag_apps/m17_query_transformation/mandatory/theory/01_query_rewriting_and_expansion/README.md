@@ -2,6 +2,7 @@
 
 *[M17 theory](../README.md) · Lesson 17.1 · Notebooks: [`01a_query_expansion.ipynb`](../../notebook/01a_query_expansion.ipynb), [`01b_query_transformations_rag_techniques.ipynb`](../../../optional/notebook/01b_query_transformations_rag_techniques.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A question rarely looks like its answer, so change the question before you search -->
+<!-- format: approved -->
 
 ## Query–document asymmetry
 
@@ -34,6 +35,17 @@ The second pair shows the vocabulary gap at its smallest. The M10 TF-IDF index d
 
 ## Rewriting and expansion
 
+Plain RAG from M10 sends one text everywhere: the question as typed is both the search key and the question the model answers.
+
+```mermaid
+flowchart LR
+    Q[/Question/] --> R[Retriever]
+    R --> A["Answer prompt<br/>chunks + question"]
+    Q --> A
+```
+
+*Figure 1: Plain retrieval. The same text searches and gets answered: a vocabulary gap goes straight into the search.*
+
 **Query expansion** closes the vocabulary gap with one LLM call. Notebook `01a` asks the model to "expand the following query to improve document retrieval by adding relevant synonyms, technical terms, and useful context", and the expanded text goes to the retriever. The original question still goes to the answer prompt:
 
 ```mermaid
@@ -44,9 +56,20 @@ flowchart LR
     Q -- unchanged --> A
 ```
 
-*Figure 1: Expansion. The retriever sees the enriched text; the model answers the question the user asked.*
+*Figure 2: Expansion. The retriever sees the enriched text; the model answers the question the user asked.*
 
 The split matters. The expansion exists to find chunks, and an answer prompt built on it would answer a longer, slightly different question.
+
+### One question through notebook 01a
+
+The notebook wires this split into one chain. Here is what each stage holds for its first question:
+
+<div class="walkthrough learning-widget" data-stepper id="expansion-walkthrough">
+<p class="widget-intro">Step through one question in notebook 01a, from the index to the answer prompt.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the expansion chain"><button type="button" data-step="0" aria-pressed="false" aria-controls="expand-step-0">1. Index</button><button type="button" data-step="1" aria-pressed="false" aria-controls="expand-step-1">2. Expand</button><button type="button" data-step="2" aria-pressed="false" aria-controls="expand-step-2">3. Retrieve</button><button type="button" data-step="3" aria-pressed="false" aria-controls="expand-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="expand-step-0" class="step-panel" aria-labelledby="expand-heading-0"><h4 id="expand-heading-0">1. Index</h4><dl><dt>Chunks</dt><dd>a text file on LangChain and CrewAI, split into 300-character chunks with 50 characters of overlap</dd><dt>Vectors</dt><dd><code>all-MiniLM-L6-v2</code> embeddings in a FAISS store</dd></dl></section><section id="expand-step-1" class="step-panel" aria-labelledby="expand-heading-1"><h4 id="expand-heading-1">2. Expand</h4><dl><dt>Input</dt><dd><em>What types of memory does LangChain support?</em></dd><dt>Call</dt><dd>one <code>o4-mini</code> call with the expansion prompt: add synonyms, technical terms and useful context</dd><dt>Output</dt><dd>a longer query; its wording changes from run to run</dd></dl></section><section id="expand-step-2" class="step-panel" aria-labelledby="expand-heading-2"><h4 id="expand-heading-2">3. Retrieve</h4><dl><dt>Search key</dt><dd>the expanded text, not the question</dd><dt>Retriever</dt><dd>maximal marginal relevance over the FAISS store, top 5 chunks</dd></dl></section><section id="expand-step-3" class="step-panel" aria-labelledby="expand-heading-3"><h4 id="expand-heading-3">4. Answer</h4><dl><dt>Prompt</dt><dd>the 5 chunks as context, and the <em>original</em> question in the question slot</dd><dt>Calls so far</dt><dd>2 LLM calls and 1 retrieval for one question</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+The notebook's second question, *CrewAI agents?*, is two words long. It is the kind of short query expansion was built for.
 
 `01a` names the two costs. Every retrieval now waits for an LLM call. And expansion can **dilute** the query: each added term pulls the query vector toward more of the corpus, until it is near everything and close to nothing. Three or four well-chosen terms help; a paragraph of synonyms hurts.
 
@@ -86,7 +109,7 @@ flowchart TD
     E -- no --> P["Plain retrieval"]
 ```
 
-*Figure 2: Pick a transformation by the question's gap. The lesson numbers in the boxes read 18.x; they mean lessons 17.2 to 17.8 of this module.*
+*Figure 3: Pick a transformation by the question's gap. The lesson numbers in the boxes read 18.x; they mean lessons 17.2 to 17.8 of this module.*
 
 Plain retrieval is a valid exit. We call the opposite habit **transform everything**: running a technique on all traffic because it helped some of it.
 
@@ -94,13 +117,35 @@ Plain retrieval is a valid exit. We call the opposite habit **transform everythi
 
 ## In practice: Larkspur's three golden questions
 
-The three M10 golden questions each fall in a different box of Figure 2:
+The three M10 golden questions each fall in a different box of Figure 3:
 
-1. **How long does a refund take?** Short, and worded unlike the timing chunk. Variants or expansion (17.2, 17.3).
-2. **What happens if my server goes down?** Worded unlike both evidence chunks; retrieval finds neither. Variants, with fusion to order the results (17.3).
-3. **Can I export my data after I cancel my plan?** Already retrieved at `k = 2`. Plain retrieval.
+<div class="learning-widget evidence-switcher" data-comparison id="golden-switcher">
+<p class="widget-intro">Choose a golden question to see its gap and the exit it takes in Figure 3.</p>
+<div class="mode-controls" hidden role="group" aria-label="Golden question">
+<button type="button" data-mode="refund" aria-pressed="false" aria-controls="golden-refund">Refund timing</button>
+<button type="button" data-mode="outage" aria-pressed="false" aria-controls="golden-outage">Server goes down</button>
+<button type="button" data-mode="export" aria-pressed="false" aria-controls="golden-export">Export after cancel</button>
+</div>
+<section id="golden-refund" class="mode-panel" data-announcement="Refund question selected. Variants or expansion."><h4>How long does a refund take?</h4><dl><dt>Gap</dt><dd>vocabulary: "refund" never meets "Refunds" in the unstemmed index, and the timing chunk scores 0.000</dd><dt>Exit</dt><dd>variants or expansion (17.2, 17.3)</dd></dl></section>
+<section id="golden-outage" class="mode-panel" data-announcement="Outage question selected. Variants with fusion."><h4>What happens if my server goes down?</h4><dl><dt>Gap</dt><dd>vocabulary: both evidence chunks score 0.000; the top three match only on "server"</dd><dt>Exit</dt><dd>variants, with fusion to order the results (17.3)</dd></dl></section>
+<section id="golden-export" class="mode-panel" data-announcement="Export question selected. Plain retrieval."><h4>Can I export my data after I cancel my plan?</h4><dl><dt>Gap</dt><dd>none: both evidence chunks are retrieved at <code>k = 2</code></dd><dt>Exit</dt><dd>plain retrieval; any transformation adds a call and gains nothing</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Lesson 17.2 starts on the first two with the simplest variant technique: ask the question three ways.
+
+## Limits
+
+- **Two different indexes.** The 0.000, 0.416 and 0.389 scores come from the M10 TF-IDF index of the Larkspur handbook. Notebook `01a` searches its own LangChain and CrewAI text with MiniLM embeddings, and prints expansions, not scores.
+- **No recall measurement.** Neither notebook compares retrieval with and without expansion on a labelled set. The dilution warning is a mechanism, not a measured threshold; measure on your own golden questions before keeping expansion on.
+- **Model output varies.** The expanded text comes from `o4-mini` and differs between runs. This page describes it rather than quoting it.
+- **Call counts are from the code.** Table 2 counts the calls each notebook makes per question, not the latency or price of those calls.
+
+## References
+
+1. Jagerman et al., [Query expansion by prompting large language models](https://arxiv.org/abs/2305.03653), 2023.
+2. Wang, Yang and Wei, [Query2doc: query expansion with large language models](https://arxiv.org/abs/2303.07678), 2023.
+3. Ma et al., [Query rewriting for retrieval-augmented large language models](https://arxiv.org/abs/2305.14283), 2023.
 
 ## Key Takeaways
 

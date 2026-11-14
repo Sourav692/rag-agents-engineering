@@ -2,6 +2,7 @@
 
 *[M21 theory](../README.md) · Lesson 21.4 · Notebooks: [`04a_context_enrichment_window_with_llamaindex.ipynb`](../../notebook/04a_context_enrichment_window_with_llamaindex.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Embed one sentence, answer from seven, and pay for the window in stored metadata -->
+<!-- format: approved -->
 
 ## Sentence window
 
@@ -43,6 +44,13 @@ The window size defaults to 3, seven sentences in all, as `04a`'s comment says, 
 
 On the Larkspur handbook the parser makes 17 nodes: 13 sentences in the refunds section and 4 in exports. The first sentence of each section carries the section title with it, because Punkt does not split at a blank line.
 
+The 45-day question at window size 1, one sentence retrieved, moves through the two pieces like this:
+
+<div class="walkthrough learning-widget" data-stepper id="window-walkthrough">
+<p class="widget-intro">Step through one question and see where the window is stored, where it is used and what the model finally reads.</p>
+<div class="step-controls" hidden role="group" aria-label="One question through a sentence window"><button type="button" data-step="0" aria-pressed="false" aria-controls="window-step-0">1. Index</button><button type="button" data-step="1" aria-pressed="false" aria-controls="window-step-1">2. Retrieve</button><button type="button" data-step="2" aria-pressed="false" aria-controls="window-step-2">3. Replace</button><button type="button" data-step="3" aria-pressed="false" aria-controls="window-step-3">4. Synthesise</button></div>
+<div class="step-panels"><section id="window-step-0" class="step-panel" aria-labelledby="window-heading-0"><h4 id="window-heading-0">1. The parser stores windows</h4><dl><dt>Writes</dt><dd>17 sentence nodes, each with its own sentence as text and its neighbours in a window field</dd><dt>Embeds</dt><dd>the sentence only; the window field is excluded</dd></dl></section><section id="window-step-1" class="step-panel" aria-labelledby="window-heading-1"><h4 id="window-heading-1">2. Retrieval matches one sentence</h4><dl><dt>Reads</dt><dd>the question's embedding against 17 sentence embeddings</dd><dt>Returns</dt><dd>the 30-day full-refund rule, 142 characters, which does not answer the question</dd></dl></section><section id="window-step-2" class="step-panel" aria-labelledby="window-heading-2"><h4 id="window-heading-2">3. The postprocessor swaps in the window</h4><dl><dt>Reads</dt><dd>the node's window field</dd><dt>Writes</dt><dd>the window as the node's text: the sentence and one neighbour on each side, 284 characters, now including the prorated rule</dd></dl></section><section id="window-step-3" class="step-panel" aria-labelledby="window-heading-3"><h4 id="window-heading-3">4. The model reads the window</h4><dl><dt>Reads</dt><dd>the question and 284 characters</dd><dt>Can answer</dt><dd>yes: a prorated refund after day 30, from the sentence retrieval never returned</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 ## One window per question
 
 The [interactive sentence-window lab](interactive/sentence-window-lab.html) runs that index with `all-MiniLM-L6-v2` (the notebook uses OpenAI's `text-embedding-3-small`, which scores differently), lets you move the window size from 0 (postprocessor off) to 5 and the retrieved count between 1 and 2, and shows what the model receives. Its windows are a port of the parser's join, checked against the real LlamaIndex pipeline on all 30 settings of question, window and `k`: the same retrieved sentences, the same scores and the same window text, character for character. At one retrieved sentence:
@@ -61,7 +69,7 @@ Four behaviours follow:
 
 - **The window changes what the model reads, never what is retrieved.** Every sentence scores the same at every window size, because the window is excluded from the embedding. Tuning the window size cannot fix a retrieval miss.
 - **Each question needs a different window.** The 45-day question needs 1, the refund-timing sentence answers alone, and the export question needs the "Settings, then Data" sentence two places back. One global size over-sends for some questions and under-sends for others.
-- **The Document boundary caps the window.** The exports section has four sentences, so every window from 2 up sends the same 272 characters. That limit helps when sections are independent and hurts when the answer spans two of them.
+- **The Document boundary caps the window.** The exports section has four sentences. Every window from 2 up sends the same 272 characters. That limit helps when sections are independent and hurts when the answer spans two of them.
 - **Two hits can send the same sentences twice.** At 2 retrieved, the refund-timing question gets its sentence and the 30-day rule two places before it. At window 3 their windows share 5 sentences, and the model reads 1,241 characters to cover 9 distinct sentences. We call this **window overlap**, as in lesson 18.5; merge overlapping windows before synthesis.
 
 ## What stored windows cost
@@ -78,6 +86,16 @@ The window is stored, not computed at query time. Each node holds its window and
 
 We call this the **stored window**: at the default size, the handbook's metadata is 6.75 times its text, held in the docstore or the vector store's payload for every node.
 
+The alternative computes the window at query time instead of storing it:
+
+```mermaid
+flowchart LR
+    R["Retrieve<br/>top-k chunks"] --> LK["Look up neighbours<br/>by chunk index"] --> J["Join chunk<br/>and neighbours"] --> L["Synthesizer<br/>reads windows"]
+    S[("Chunk store<br/>text only")] -.-> LK
+```
+
+*Figure 2: A query-time window, as in M18. Nothing extra is stored; each query pays for the lookup.*
+
 > **Key distinction:** [M18's enrichment windows](../../../../m18_reranking_post_retrieval/mandatory/theory/05_context_enrichment_windows/README.md) do the same job with character chunks and a neighbour lookup at query time. LlamaIndex moves the work to indexing time and the unit to the sentence, and pays in storage instead of lookups.
 
 `04a` compares the sentence window against a sentence-splitter index at its 1,024-token default, both retrieving one node. Both of `04a`'s pipelines are handed the same FAISS store, which stays empty for the reason in [21.1](../01_simple_pdf_and_csv_rag_in_llamaindex/README.md#nodes); each index builds its own in-memory store.
@@ -90,6 +108,17 @@ We call this the **stored window**: at the default size, the handbook's metadata
 4. **Budget the metadata**: 6.75 times the text at the default size, for every node.
 
 This completes M21's port: the same pipeline as M16 to M18, with its differences named.
+
+## Limits of this evidence
+
+- **The lab's model, not the notebook's.** Every number comes from the module's lab with `all-MiniLM-L6-v2`; `04a`'s `text-embedding-3-small` can retrieve a different sentence for the same question.
+- **Seventeen sentences.** Three questions over a short handbook show the behaviours; they do not size a window for a larger corpus. Choose it on your own golden set.
+- **Punkt decides the units.** A sentence tokenizer that keeps a section title on the first sentence, or splits an abbreviation, changes every window.
+
+## References
+
+1. LlamaIndex, [Metadata Replacement and Node Sentence Window](https://developers.llamaindex.ai/python/examples/node_postprocessor/metadatareplacementdemo/) example.
+2. Kiss and Strunk, [Unsupervised Multilingual Sentence Boundary Detection](https://doi.org/10.1162/coli.2006.32.4.485), Computational Linguistics, 2006.
 
 ## Key Takeaways
 

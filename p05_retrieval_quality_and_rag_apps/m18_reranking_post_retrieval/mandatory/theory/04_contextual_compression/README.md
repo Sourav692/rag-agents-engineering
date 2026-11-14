@@ -2,6 +2,7 @@
 
 *[M18 theory](../README.md) · Lesson 18.4 · Notebooks: [`04a_contextual_compression.ipynb`](../../notebook/04a_contextual_compression.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Every step after retrieval saves or spends one budget, and compression saves it by trusting an LLM with the source -->
+<!-- format: approved -->
 
 ## Context budget
 
@@ -42,7 +43,7 @@ A pipeline that expands each hit to its neighbours can afford it by keeping five
 
 ## Extraction
 
-**Contextual compression** cuts each retrieved chunk down to the parts that bear on the question. Notebook `04a` uses an LLM chain extractor, wrapping a small chat model at temperature 0, inside the contextual compression retriever, the same wrapper lesson 18.2 used for the cross-encoder. For each retrieved chunk the extractor asks the LLM to copy out only the relevant parts; a chunk with nothing relevant comes back empty and is dropped. A question-answering chain then answers from what is left.
+**Contextual compression** cuts each retrieved chunk down to the parts that bear on the question. Notebook `04a` uses an LLM chain extractor, wrapping `gpt-4o-mini` at temperature 0, inside the contextual compression retriever, the same wrapper lesson 18.2 used for the cross-encoder. For each retrieved chunk the extractor asks the LLM to copy out only the relevant parts; a chunk with nothing relevant comes back empty and is dropped. A question-answering chain then answers from what is left.
 
 All three post-retrieval moves fill the same slot:
 
@@ -55,6 +56,23 @@ flowchart LR
 ```
 
 *Figure 1: The compressor slot. The retriever and the chain stay the same whichever compressor fills it.*
+
+The three compressors do different things to the same chunk. Here is the `refund-window` chunk for *Can I get a full refund on my annual plan?*:
+
+<div class="learning-widget evidence-switcher" data-comparison id="compressor-switcher">
+<p class="widget-intro">Choose the compressor in the slot and see what reaches the prompt (illustrative outputs).</p>
+<div class="mode-controls" hidden role="group" aria-label="Compressor in the slot">
+<button type="button" data-mode="rerank" aria-pressed="false" aria-controls="comp-rerank">Rerank</button>
+<button type="button" data-mode="extract" aria-pressed="false" aria-controls="comp-extract">Extract</button>
+<button type="button" data-mode="filter" aria-pressed="false" aria-controls="comp-filter">Filter</button>
+</div>
+<section id="comp-rerank" class="mode-panel" data-announcement="Rerank selected. The whole chunk is kept."><h4>Rerank</h4><dl><dt>Decides</dt><dd>the chunk's place in the list</dd><dt>Reaches the prompt</dt><dd>all 121 characters, condition included</dd><dt>Budget</dt><dd>saved only by the cut after ranking</dd></dl></section>
+<section id="comp-extract" class="mode-panel" data-announcement="Extract selected. The chunk is shortened by an LLM."><h4>Extract</h4><dl><dt>Decides</dt><dd>which words of the chunk to copy out</dd><dt>Reaches the prompt</dt><dd>a shorter span; faithful if it keeps "less than 100 GB", lossy if not</dd><dt>Budget</dt><dd>saved per chunk, at one LLM call per chunk</dd></dl></section>
+<section id="comp-filter" class="mode-panel" data-announcement="Filter selected. The chunk is kept whole or dropped."><h4>Filter</h4><dl><dt>Decides</dt><dd>keep or drop, nothing in between</dd><dt>Reaches the prompt</dt><dd>all 121 characters, or nothing if the reply is not exactly "True"</dd><dt>Budget</dt><dd>saved by whole chunks, at one LLM call per chunk</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Only the extractor rewrites text the model will read. That is where the next section's failure lives.
 
 Here is what extraction does to one Larkspur chunk for *How long does a refund take?*:
 
@@ -76,20 +94,32 @@ Compression has the same risk as M12's propositions: an LLM sits between the sou
 
 *Table 4: A planted lossy extraction (illustrative).*
 
-The lossy version reads as more relevant, because the traffic condition looks like detail. We call this the **dropped qualifier**: the extractor keeps the rule and removes the condition that limits it, and the model gives a confident wrong answer to a customer who used 400 GB.
+The lossy version reads as more relevant: the traffic condition looks like detail. We call this the **dropped qualifier**: the extractor keeps the rule and removes the condition that limits it, and the model gives a confident wrong answer to a customer who used 400 GB.
 
 > **Pitfall: the dropped qualifier.** Check compressed context for faithfulness on golden questions whose answers carry conditions, and keep each chunk's id so the citation points at the full source text, not the extract.
 
-Filtering has a simpler failure. The optional `02b` notebook asks a small model whether each chunk suits the question and keeps it only if the reply equals the string "True" exactly. A reply of "True." with a full stop drops the chunk. We call this **string-match judging**. Ask for structured output, as lesson 18.3's pointwise reranker does, instead of matching text.
+Filtering has a simpler failure. The optional `02b` notebook asks `gpt-4o-mini` whether each chunk suits the question and keeps it only if the reply equals the string "True" exactly. A reply of "True." with a full stop drops the chunk. Its prompt also asks the model to assess relevance, completeness and accuracy before concluding, which invites a sentence of reasoning ahead of the verdict, and that reply fails the match too. We call this **string-match judging**. Ask for structured output, as lesson 18.3's pointwise reranker does, instead of matching text.
 
 ## In practice: spending Larkspur's budget
 
 1. **Rerank and cut to 5** before any compression; never pay an LLM call per chunk on 50 candidates.
-2. **Compress only long chunks.** Larkspur's handbook chunks are one or two sentences, so extraction saves little and risks the dropped qualifier; it pays on long policy pages.
+2. **Compress only long chunks.** Larkspur's handbook chunks are one or two sentences. Extraction saves little there and risks the dropped qualifier; it pays on long policy pages.
 3. **Keep chunk ids through compression**, and cite the full chunk.
 4. **Add a golden question with a condition** (the 100 GB limit) and check the answer states it.
 
 Compression shrinks a chunk to fit. Lesson 18.5 does the opposite, for answers that run past a chunk's edge.
+
+## Limits
+
+- **Extractions are illustrative.** Tables 3 and 4 show plausible outputs on the lab's handbook text. Notebook `04a` runs on its own sample document and ships without outputs. No extraction here is a recorded model reply.
+- **Budget figures are arithmetic.** Table 2 uses `05a`'s 400-character chunks with 200 of overlap. Token counts and prices vary by model.
+- **Faithfulness is not measured.** How often an extractor drops a qualifier depends on the model and prompt; the page shows the failure, not its rate.
+
+## References
+
+1. LangChain, [Contextual compression retriever](https://reference.langchain.com/python/langchain-classic/retrievers/contextual_compression/ContextualCompressionRetriever).
+2. LangChain, [LLMChainExtractor](https://reference.langchain.com/python/langchain-classic/retrievers/document_compressors/chain_extract/LLMChainExtractor).
+3. Liu et al., [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172), 2023.
 
 ## Key Takeaways
 

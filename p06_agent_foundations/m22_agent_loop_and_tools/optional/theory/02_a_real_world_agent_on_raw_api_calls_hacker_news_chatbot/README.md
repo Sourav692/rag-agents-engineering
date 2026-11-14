@@ -2,6 +2,7 @@
 
 *[M22 theory](../../../mandatory/theory/README.md) · Lesson 22.2 · Notebooks: [`02a_real_world_agent_hacker_news_chatbot.ipynb`](../../notebook/02a_real_world_agent_hacker_news_chatbot.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A small project: the hand-built ReAct agent from lesson 22.1, three live tools and a chat app -->
+<!-- format: approved -->
 
 ## The project: a Hacker News chatbot
 
@@ -62,9 +63,15 @@ sequenceDiagram
 
 *Figure 2: The dependent call. The story id travels from the first observation into the second call.*
 
+<div class="walkthrough learning-widget" data-stepper id="hn-two-step">
+<p class="widget-intro">Step through what the agent's history holds after each model call. Stories and comments are live; no fixed values are shown.</p>
+<div class="step-controls" hidden role="group" aria-label="Model calls for the two-step question"><button type="button" data-step="1" aria-pressed="false" aria-controls="hn-step-1">1. Stories</button><button type="button" data-step="2" aria-pressed="false" aria-controls="hn-step-2">2. Comments</button><button type="button" data-step="3" aria-pressed="false" aria-controls="hn-step-3">3. Answer</button></div>
+<div class="step-panels"><section id="hn-step-1" class="step-panel"><h4>1. Ask for the top story</h4><dl><dt>Model reads</dt><dd>the persona prompt, the three tool signatures and the question</dd><dt>Model writes</dt><dd>a thought and a call to the stories tool with a limit of 1</dd><dt>Observation</dt><dd>title, url, score and the story id</dd></dl></section><section id="hn-step-2" class="step-panel"><h4>2. Ask for its comments</h4><dl><dt>Model reads</dt><dd>the history, now holding the story id</dd><dt>Model writes</dt><dd>a call to the comments tool with that id and a limit of 5</dd><dt>Observation</dt><dd>five top-level comments</dd></dl></section><section id="hn-step-3" class="step-panel"><h4>3. Answer</h4><dl><dt>Model reads</dt><dd>both observations</dd><dt>Model writes</dt><dd>a final response; the loop returns after three model calls</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next call</button></div></div>
+
 This is the chaining that one round of tool use cannot do (lesson 22.1's one-shot blindness). The loop handles it with no code specific to this question: the model reads the id in the observation and writes the next call. A question that needs only the story list takes one tool call.
 
-The answers change with Hacker News, so the notebook prints no fixed result. What stays the same from run to run is the order of the calls.
+The answers change with Hacker News, and the notebook prints no fixed result. What stays the same from run to run is the order of the calls.
 
 ## Design choices worth copying
 
@@ -82,11 +89,18 @@ The fourth row has a cost lesson 22.5 names: a failure returned as text reaches 
 
 ## Limits
 
-- **Live data.** Answers differ on every run, so there is no expected answer to compare against. To test the bot, check behaviour: which tools it called, in what order, with which ids.
+- **Live data.** Answers differ on every run, with no expected answer to compare against. To test the bot, check behaviour: which tools it called, in what order, with which ids.
 - **Growing memory.** The app puts every earlier answer in front of each new question. The prompt grows each turn (lesson 22.1's context creep), and the user's earlier questions are not kept, only the bot's answers.
-- **No round cap in the app.** The app relies on the ReAct agent's own default limit. A production version would set it explicitly and show a fallback reply when it is reached.
+- **No round cap in the app.** The app relies on the ReAct agent's default of 10 rounds. After the cap, that agent asks the model once more and returns the raw reply (lesson 22.1). A production version would set the cap explicitly and show a fixed fallback reply.
 
 The notebook runs with an OpenAI key; the Hacker News API needs none. It writes the tools, the bot and the app as files beside itself, and the chat app runs separately with Streamlit.
+
+## References
+
+1. Hacker News, [official API documentation](https://github.com/HackerNews/API).
+2. The Neural Maze, [agentic patterns from scratch](https://github.com/neural-maze/agentic-patterns-course), the MIT-licensed library the project adapts.
+3. Streamlit, [session state](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state).
+4. Yao et al., [ReAct: reasoning and acting together in language models](https://arxiv.org/abs/2210.03629) (arXiv 2210.03629).
 
 ## Key Takeaways
 

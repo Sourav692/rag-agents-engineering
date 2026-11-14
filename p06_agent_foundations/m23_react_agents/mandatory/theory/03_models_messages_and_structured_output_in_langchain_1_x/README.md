@@ -2,6 +2,7 @@
 
 *[M23 theory](../README.md) · Lesson 23.3 · Notebooks: [`03c_structured_output.ipynb`](../../notebook/03c_structured_output.ipynb), [`03a_model_integration.ipynb`](../../../optional/notebook/03a_model_integration.ipynb) (optional), [`03b_messages.ipynb`](../../../optional/notebook/03b_messages.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: What crosses the model boundary in each direction, and how to get fields a program can check instead of prose -->
+<!-- format: approved -->
 
 ## Messages: what the model sees
 
@@ -40,15 +41,15 @@ The recorded weather agent shows a trace that looks broken when printed as text:
 
 *Table 2: Four messages from one agent run. The empty AI message is the tool call.*
 
-Message 1 is the **empty-looking tool call**: when the model only calls a tool, its text is empty and the payload sits in the tool calls. Some providers add a short preamble beside the call, so an AI message can carry text, a call, both or neither. Print both fields when you debug a run.
+Message 1 is the **empty-looking tool call**: when the model only calls a tool, its text is empty and the payload sits in the tool calls. Some providers add a short preamble beside the call. An AI message can carry text, a call, both or neither. Print both fields when you debug a run.
 
 Every AI message also reports its token usage, split into input and output because the two are billed at different rates. A short exchange in the recorded messages notebook used 47 input and 8 output tokens.
 
 ### One interface for every provider
 
-LangChain's model initializer builds a chat model from a string such as a provider prefix and a model name, so switching from OpenAI to Gemini or Groq is a one-string change and everything downstream (invoke, stream, batch, tool binding) stays the same. Provider classes remain for settings only one provider has.
+LangChain's model initializer builds a chat model from a string such as a provider prefix and a model name. Switching from OpenAI to Gemini or Groq is a one-string change and everything downstream (invoke, stream, batch, tool binding) stays the same. Provider classes remain for settings only one provider has.
 
-Streaming changes when the user sees text, not how much is generated. In one recorded run, the streamed answer showed its first words after 0.56 s and finished after 1.90 s; a separate non-streamed call returned its whole answer after 3.42 s. The two calls generated different text, so only the first-word time is a fair comparison.
+Streaming changes when the user sees text, not how much is generated. In one recorded run, the streamed answer showed its first words after 0.56 s and finished after 1.90 s; a separate non-streamed call returned its whole answer after 3.42 s. The two calls generated different text; only the first-word time is a fair comparison.
 
 ## Structured output
 
@@ -66,8 +67,20 @@ flowchart TD
 
 *Figure 1: The same schema on a model or on an agent.*
 
-- **On a model.** Wrapping a model with a schema returns a new runnable whose result is an instance of the schema; the original model is unchanged. The judge in lesson 23.1 is built this way, so its scores arrive as fields.
+- **On a model.** Wrapping a model with a schema returns a new runnable whose result is an instance of the schema; the original model is unchanged. The judge in lesson 23.1 is built this way, and its scores arrive as fields.
 - **On an agent.** Passing a schema as the agent's response format runs the loop as usual and adds a structured response next to the messages in the result. The recorded contact-extraction agent returned both keys, with the name, email and phone filled in.
+
+The agent path differs from the model path in when the schema applies. Tools run first, and only the reply that ends the loop is shaped by the schema:
+
+```mermaid
+flowchart LR
+    Q[Question] --> M[Model]
+    M -- "tool call" --> T[Tools]
+    T --> M
+    M -- "final reply<br/>matches schema" --> R["Result<br/>messages plus<br/>structured response"]
+```
+
+*Figure 2: A schema on an agent. The loop is unchanged; the schema shapes its last reply.*
 
 The same question asked both ways shows the difference:
 
@@ -110,28 +123,38 @@ Each row was checked offline against the schema converter and validator installe
 
 The fourth row is the **silent default**: the code reads as optional and documented, and the model receives a required field with no description.
 
-> **Pitfall: the forced number.** A ticket schema with a required refund amount makes the model write a number for every conversation, including those that mention no refund. Make the field optional with a default of none, so zero and "no refund" stay distinct. An optional field permits abstention; it does not check that a number the model does write is true.
+> **Pitfall: the forced number.** A ticket schema with a required refund amount makes the model write a number for every conversation, including those that mention no refund. Make the field optional with a default of none. Zero and "no refund" then stay distinct. An optional field permits abstention; it does not check that a number the model does write is true.
 
 ### Descriptions and capability
 
-Field descriptions reach the model as part of the schema, so they are prompt text: "the movie's rating out of 10" tells the model the scale it would otherwise guess. Before switching models, check that the new one supports structured output. LangChain 1.1 added a capability profile per model, sourced from the open models.dev data; for the course's default model it reports structured output and tool calling as supported and a 128,000-token input limit.
+Field descriptions reach the model as part of the schema. They are prompt text: "the movie's rating out of 10" tells the model the scale it would otherwise guess. Before switching models, check that the new one supports structured output. LangChain 1.1 added a capability profile per model, sourced from the open models.dev data; for the course's default model it reports structured output and tool calling as supported and a 128,000-token input limit.
 
 ## In practice: Larkspur's ticket fields
 
-1. Declare a Pydantic ticket schema: a category from a fixed list, a priority, and a refund amount that is optional with a default of none, each with a description written as an instruction (units, allowed values).
-2. Pass it as the support agent's response format and read the structured response, so the loop still runs its tools first.
-3. Where a model is called directly, keep the raw message, log parse failures and token usage, and branch on the error instead of catching it.
-4. Check the capability profile before swapping in a different model.
+The ticket fields go into the support agent in four steps.
+
+<div class="walkthrough learning-widget" data-stepper id="ticket-walkthrough">
+<p class="widget-intro">Step through adding ticket fields to Larkspur's support agent.</p>
+<div class="step-controls" hidden role="group" aria-label="Steps for the ticket schema"><button type="button" data-step="0" aria-pressed="false" aria-controls="ticket-step-0">1. Declare</button><button type="button" data-step="1" aria-pressed="false" aria-controls="ticket-step-1">2. Attach</button><button type="button" data-step="2" aria-pressed="false" aria-controls="ticket-step-2">3. Keep the raw reply</button><button type="button" data-step="3" aria-pressed="false" aria-controls="ticket-step-3">4. Check the model</button></div>
+<div class="step-panels"><section id="ticket-step-0" class="step-panel" aria-labelledby="ticket-heading-0"><h4 id="ticket-heading-0">1. Declare</h4><dl><dt>Schema</dt><dd>a Pydantic ticket: category from a fixed list, priority, and a refund amount that is optional with a default of none</dd><dt>Descriptions</dt><dd>written as instructions, with units and allowed values</dd></dl></section><section id="ticket-step-1" class="step-panel" aria-labelledby="ticket-heading-1"><h4 id="ticket-heading-1">2. Attach</h4><dl><dt>Where</dt><dd>the support agent's response format</dd><dt>Effect</dt><dd>the loop still runs its tools first; the program reads the structured response</dd></dl></section><section id="ticket-step-2" class="step-panel" aria-labelledby="ticket-heading-2"><h4 id="ticket-heading-2">3. Keep the raw reply</h4><dl><dt>Where a model is called directly</dt><dd>keep the raw message alongside the parsed one</dd><dt>Effect</dt><dd>token usage is logged, and a parse failure is a value to branch on instead of an exception</dd></dl></section><section id="ticket-step-3" class="step-panel" aria-labelledby="ticket-heading-3"><h4 id="ticket-heading-3">4. Check the model</h4><dl><dt>Before a swap</dt><dd>read the new model's capability profile</dd><dt>Look for</dt><dd>structured output and tool calling marked as supported</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 ## Limits of this evidence
 
 - **One model.** The movie and contact runs used one small OpenAI model; another provider may use a different mechanism to enforce the schema.
 - **Live answers.** The movie fields and the rating come from the model's own knowledge, recorded once; the planted failures in Table 5 are deterministic.
 - **Timings from single runs.** The streaming numbers are one run each and depend on load.
+- **Table 5 rechecked.** We reran all six declarations against the installed Pydantic and LangChain converter; the results match.
+
+## References
+
+- [LangChain: messages](https://docs.langchain.com/oss/python/langchain/messages): message types, content and token usage.
+- [LangChain: structured output](https://docs.langchain.com/oss/python/langchain/structured-output): response formats on agents and models.
+- [Pydantic: fields](https://pydantic.dev/docs/validation/latest/concepts/fields/): defaults, descriptions and validation.
+- [models.dev](https://models.dev): the open model data behind capability profiles.
 
 ## Key Takeaways
 
-- The message list is everything the model sees. An AI message that calls a tool usually has empty text, with the payload in its tool calls, so debug with both fields.
+- The message list is everything the model sees. An AI message that calls a tool usually has empty text, with the payload in its tool calls: debug with both fields.
 - Ask for a schema when code consumes the output: on a model it returns a schema instance, on an agent it adds a structured response next to the messages. Keep the raw message for token usage and parse errors.
 - Use Pydantic when data crosses a trust boundary, write field descriptions as instructions, and make fields optional when the source may not contain them. Inside a typed dictionary, a Pydantic-style default is silently dropped.
 

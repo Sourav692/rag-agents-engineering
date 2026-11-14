@@ -2,6 +2,7 @@
 
 *[M17 theory](../README.md) · Lesson 17.4 · Notebooks: [`04a_step_back_prompting.ipynb`](../../notebook/04a_step_back_prompting.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A narrow question retrieves its premise; a broader one retrieves what settles it -->
+<!-- format: approved -->
 
 ## The specificity trap
 
@@ -37,6 +38,13 @@ flowchart LR
 
 The two contexts do different jobs. The original question's context supplies specifics; the step-back context supplies the background that can correct a premise. `04a` feeds both, plus the original question, to a community answer prompt written to take exactly those three inputs.
 
+Here is the Larkspur refund question through those stages. The step-back question is written by hand and the chunks come from the M10 index, as in Table 1 below:
+
+<div class="walkthrough learning-widget" data-stepper id="stepback-walkthrough">
+<p class="widget-intro">Step through the monthly-plan refund question from the step-back call to the answer prompt.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of step-back retrieval"><button type="button" data-step="0" aria-pressed="false" aria-controls="stepback-step-0">1. Step back</button><button type="button" data-step="1" aria-pressed="false" aria-controls="stepback-step-1">2. Two searches</button><button type="button" data-step="2" aria-pressed="false" aria-controls="stepback-step-2">3. Combine</button><button type="button" data-step="3" aria-pressed="false" aria-controls="stepback-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="stepback-step-0" class="step-panel" aria-labelledby="stepback-heading-0"><h4 id="stepback-heading-0">1. Step back</h4><dl><dt>Input</dt><dd><em>Can I get a refund on my monthly plan?</em></dd><dt>Call</dt><dd>one LLM call, primed with the two worked examples of Table 2</dd><dt>Output</dt><dd><em>What is the refund policy for each plan type?</em></dd></dl></section><section id="stepback-step-1" class="step-panel" aria-labelledby="stepback-heading-1"><h4 id="stepback-heading-1">2. Two searches</h4><dl><dt>Original</dt><dd><code>refund-window</code>, <code>billing</code>, <code>sla</code></dd><dt>Step-back</dt><dd><code>refund-window</code>, <code>retention</code>, <code>cancel</code></dd><dt>Order</dt><dd>independent; they run in parallel</dd></dl></section><section id="stepback-step-2" class="step-panel" aria-labelledby="stepback-heading-2"><h4 id="stepback-heading-2">3. Combine</h4><dl><dt>Context</dt><dd>five distinct chunks; <code>refund-window</code> appears in both</dd><dt>New fact</dt><dd><code>cancel</code>: cancelling stops the next charge</dd></dl></section><section id="stepback-step-3" class="step-panel" aria-labelledby="stepback-heading-3"><h4 id="stepback-heading-3">4. Answer</h4><dl><dt>Prompt inputs</dt><dd>the original context, the step-back context and the original question</dd><dt>Answer it can now give</dt><dd>no refund on a monthly plan, and cancelling stops the next charge</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 Here are both questions for each example, with what each one surfaces:
 
 | | Question searched | What it surfaces |
@@ -47,6 +55,19 @@ Here are both questions for each example, with what each one surfaces:
 | Step-back | *What is the refund policy for each plan type?* | `refund-window`, `retention`, `cancel` |
 
 *Table 1: Original against step-back retrieval. The Leonardo rows are `04a`'s live web search; the Larkspur rows are the top 3 from the M10 TF-IDF index, with the step-back question written by hand.*
+
+The same question with and without the second search:
+
+<div class="learning-widget evidence-switcher" data-comparison id="stepback-switcher">
+<p class="widget-intro">Choose which retrieval feeds the answer prompt for the monthly-plan refund question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval used">
+<button type="button" data-mode="plain" aria-pressed="false" aria-controls="stepback-plain">Original only</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="stepback-both">Original plus step-back</button>
+</div>
+<section id="stepback-plain" class="mode-panel" data-announcement="Original only selected. Three chunks, no cancel fact."><h4>Original only (plain RAG)</h4><dl><dt>Context</dt><dd>3 chunks: <code>refund-window</code>, <code>billing</code>, <code>sla</code></dd><dt>What the model can say</dt><dd>refunds apply to annual plans; nothing on what a monthly customer can do instead</dd><dt>Cost</dt><dd>1 LLM call, 1 retrieval</dd></dl></section>
+<section id="stepback-both" class="mode-panel" data-announcement="Original plus step-back selected. Five chunks, cancel fact included."><h4>Original plus step-back</h4><dl><dt>Context</dt><dd>5 distinct chunks, adding <code>retention</code> and <code>cancel</code></dd><dt>What the model can say</dt><dd>no refund on a monthly plan, but cancelling stops the next charge</dd><dt>Cost</dt><dd>2 LLM calls, 2 retrievals</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 On the Larkspur handbook the gain is small and honest. Both questions find `refund-window`, the chunk that states the annual-plan rule. The step-back question adds `cancel`, the fact the customer needs next, and the combined context holds five distinct chunks where the original held three. On a twelve-chunk handbook there is little background to miss; on the open web, `04a`'s search results move from Gutenberg to Leonardo.
 
@@ -80,7 +101,7 @@ Step-back doubles the calls of plain RAG:
 
 *Table 3: Plain against step-back RAG, from `04a`'s comparison.*
 
-The two retrievals are independent, so `04a` runs them in parallel, and the extra latency is mostly one short LLM call.
+The two retrievals are independent. `04a` runs them in parallel, and the extra latency is mostly one short LLM call.
 
 > **Interview tip:** step-back helps only when the corpus contains the broader background. On a narrow corpus, generalising returns the same documents, as the Larkspur rows of Table 1 nearly do.
 
@@ -92,6 +113,18 @@ The two retrievals are independent, so `04a` runs them in parallel, and the extr
 4. **Skip direct lookups** such as *What is the refund window?*, where the original question already matches the chunk.
 
 Lesson 17.5 attacks the other half of the asymmetry from lesson 17.1: not the question's scope, but its shape.
+
+## Limits
+
+- **The Leonardo rows are a live web search.** `04a` searches DuckDuckGo with four results per query: its contexts change from run to run. When the search fails, the notebook's wrapper returns the placeholder "(web search unavailable)" instead of raising: the chain still answers, from no evidence. Print both contexts before judging an answer.
+- **The Larkspur step-back question is hand-written.** Table 1's Larkspur rows show what a good step-back question retrieves, not what a model wrote.
+- **The answer prompt is pulled from a public hub.** `04a` loads a community prompt at run time, which means its wording can change upstream. Pin or copy a prompt you depend on.
+- **No accuracy measurement.** The notebooks compare contexts, not answer accuracy. The paper's reported gains come from its own benchmarks and models.
+
+## References
+
+1. Zheng et al., [Take a step back: evoking reasoning via abstraction in large language models](https://arxiv.org/abs/2310.06117), 2023.
+2. LangChain, [FewShotChatMessagePromptTemplate API reference](https://reference.langchain.com/python/langchain-core/prompts/few_shot/FewShotChatMessagePromptTemplate).
 
 ## Key Takeaways
 
