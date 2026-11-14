@@ -2,6 +2,7 @@
 
 *[M23 theory](../README.md) · Lesson 23.1 · Notebooks: [`01a_react_agent_langgraph.ipynb`](../../notebook/01a_react_agent_langgraph.ipynb), [`01b_tool_calling_vs_react.ipynb`](../../notebook/01b_tool_calling_vs_react.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: One edge turns a tool call into an agent; what the loop buys, what it costs, and how the call travels -->
+<!-- format: approved -->
 
 ## Reason–act–observe
 
@@ -16,11 +17,11 @@ Module M22 built the agent loop by hand: a model that requests tools, a node tha
 
 Larkspur's support agent gets *How long does a refund take?* Its first handbook search returns the refund-window passage and misses the one that says how many days a refund takes. A single tool call ends there, with half the evidence; finding the rest means reading the result and searching again.
 
-**ReAct** (reason plus act) is an agent that plans one step at a time: it reasons about the next step, calls a tool, observes the result and reasons again, until it replies without asking for a tool (Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*, ICLR 2023).
+**ReAct** (reason plus act) is an agent that plans one step at a time: it reasons about the next step, calls a tool, observes the result and reasons again, until it replies without asking for a tool. The pattern comes from the ReAct paper by Yao and colleagues (ICLR 2023), listed under References.
 
 ### The message list is the trace
 
-In LangGraph the whole run lives in one state key: a list of messages that only ever grows, so every model call sees everything that came before. Each part of the loop leaves one kind of message:
+In LangGraph the whole run lives in one state key: a list of messages that only ever grows. Every model call sees everything that came before. Each part of the loop leaves one kind of message:
 
 | Message | Written by | What it holds |
 |---|---|---|
@@ -73,7 +74,7 @@ The recorded comparison asks both graphs one question whose second half depends 
 
 The ReAct run's answer combines both observations. The loop costs nothing when no tool is needed: *Explain AI in 2 bullets* went straight to the end in one model call.
 
-> **Pitfall: the lenient judge.** The notebook then asks an LLM judge to score both runs. It gave the raw-result handoff 7 out of 10 for task completion, though the user received only search results, and the ReAct run 10. The judge was the agent's own model. A score that rewards an answer nobody wrote measures the judge, so check its scores against a few runs you grade yourself (lesson 22.5).
+> **Pitfall: the lenient judge.** The notebook then asks an LLM judge to score both runs. It gave the raw-result handoff 7 out of 10 for task completion, though the user received only search results, and the ReAct run 10. The judge was the agent's own model. A score that rewards an answer nobody wrote measures the judge. Check its scores against a few runs you grade yourself (lesson 22.5).
 
 ## Measuring the loop on Larkspur
 
@@ -96,9 +97,18 @@ Read the evidence and completion columns separately:
 - **The loop recovers vocabulary mismatch by rewording.** The refund question's first search misses the refund-timing chunk, which says "Refunds" where the question says "refund". The second search, written after reading the first result, finds it. The outage question needs three searches: its own words and "server outage" both rank the reboot and sizing chunks first, and "what happens during an outage incident" returns the incidents and SLA chunks.
 - **A cap set too low cuts off the answer, not the search.** At a cap of 3 the outage run holds both evidence chunks when it stops; lesson 23.2 sizes the cap.
 
+The refund run in the lab, with its scripted searches and computed scores:
+
+<div class="walkthrough learning-widget" data-stepper id="refund-walkthrough">
+<p class="widget-intro">Step through the ReAct run for <em>How long does a refund take?</em> in the lab.</p>
+<div class="step-controls" hidden role="group" aria-label="Rounds of the refund run"><button type="button" data-step="0" aria-pressed="false" aria-controls="refund-step-0">1. Ask</button><button type="button" data-step="1" aria-pressed="false" aria-controls="refund-step-1">2. First search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="refund-step-2">3. Reword</button><button type="button" data-step="3" aria-pressed="false" aria-controls="refund-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="refund-step-0" class="step-panel" aria-labelledby="refund-heading-0"><h4 id="refund-heading-0">1. Ask</h4><dl><dt>Message list</dt><dd>one human message: the question</dd><dt>Model call 1</dt><dd>no evidence yet, and it requests a search with the question's own words</dd></dl></section><section id="refund-step-1" class="step-panel" aria-labelledby="refund-heading-1"><h4 id="refund-heading-1">2. First search</h4><dl><dt>Observation</dt><dd><code>refund-window</code> (0.227) and <code>reboot</code> (0.194)</dd><dt>Evidence recall</dt><dd>0.50; the single-shot graph would end here and hand these two chunks to the user</dd></dl></section><section id="refund-step-2" class="step-panel" aria-labelledby="refund-heading-2"><h4 id="refund-heading-2">3. Reword</h4><dl><dt>Model call 2</dt><dd>reads the observation and searches for "how many days until refunds reach my payment method"</dd><dt>Observation</dt><dd><code>refund-timing</code> (0.656) and <code>retention</code> (0.100); recall is now 1.00</dd></dl></section><section id="refund-step-3" class="step-panel" aria-labelledby="refund-heading-3"><h4 id="refund-heading-3">4. Answer</h4><dl><dt>Model call 3</dt><dd>both evidence chunks are on the list; it replies without a tool call and the router ends the run</dd><dt>Cost</dt><dd>3 model calls and about 243 tokens of context read, against 1 call and about 7 tokens for the single shot</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+The second search could only be written after the first came back. That dependency is the case for the loop.
+
 ### What each round costs
 
-Every model call rereads the whole message list, so a round costs more than the one before it. The lab estimates the context each run reads as characters divided by four:
+Every model call rereads the whole message list, and each round costs more than the one before it. The lab estimates the context each run reads as characters divided by four:
 
 | Question | Single shot: calls, tokens read | ReAct: calls, tokens read |
 |---|---|---|
@@ -106,13 +116,38 @@ Every model call rereads the whole message list, so a round costs more than the 
 | Refund | 1, about 7 | 3, about 243 |
 | Outage | 1, about 9 | 4, about 451 |
 
-*Table 4: Context read per run in the lab (characters divided by four, so approximate).*
+*Table 4: Context read per run in the lab (characters divided by four, an approximation).*
 
 The outage run reads about 50 times the context of its single search to go from 0.00 to 1.00 evidence. Context grows faster than the call count because each round carries every earlier observation: lesson 22.1's context creep, measured.
 
 ## Native tool calls vs text-based ReAct
 
-The ReAct paper predates tool-calling APIs. It drove the loop with text: the prompt listed the tools and asked the model to write *Thought*, *Action* and *Action Input* lines. The framework stopped generation at *Observation*, parsed the action out of the text, ran the tool and pasted the result back. **Native tool calling** moves the same loop onto structured tool calls returned by the provider, so nothing is parsed from prose:
+The ReAct paper predates tool-calling APIs. It drove the loop with text: the prompt listed the tools and asked the model to write *Thought*, *Action* and *Action Input* lines. The framework stopped generation at *Observation*, parsed the action out of the text, ran the tool and pasted the result back. **Native tool calling** moves the same loop onto structured tool calls returned by the provider, so nothing is parsed from prose.
+
+In text-based ReAct the action exists only as characters. A parser reads them back out, and whatever it extracts is what the tool receives:
+
+```mermaid
+flowchart LR
+    M["Model writes text<br/>Thought, Action,<br/>Action Input"] --> P["Parser<br/>pattern match"]
+    P --> T[Tool]
+    T --> O["Observation<br/>pasted into the prompt"]
+    O --> M
+```
+
+*Figure 2: Text-based ReAct. The parser is the transport, and it passes on quotes and stray whitespace.*
+
+With native tool calling the provider returns the action as a structured field. The tool node reads the name and arguments directly:
+
+```mermaid
+flowchart LR
+    M["Model returns<br/>an AI message<br/>with tool calls"] --> N["Tool node<br/>runs each call"]
+    N --> T["Tool messages<br/>one per call id"]
+    T --> M
+```
+
+*Figure 3: Native tool calling. No parsing step, and several calls can travel in one reply.*
+
+The two transports differ on five points:
 
 | | Native tool calling | Text-based ReAct |
 |---|---|---|
@@ -151,17 +186,24 @@ flowchart TD
     T -->|no| X["Text ReAct<br/>clean every input"]
 ```
 
-*Figure 2: Use a workflow when the path is known; otherwise a native loop wherever the model supports it.*
+*Figure 4: Use a workflow when the path is known; otherwise a native loop wherever the model supports it.*
 
 ## Limits of this evidence
 
 - **A scripted model in the lab.** The retrieval and counts are computed; a live model may reword differently or stop earlier.
 - **One recorded run per comparison.** The multi-hop run, the judge scores and the quoted-argument failure are single runs with one small model; the quoted argument is frequent with that model, not certain, and live search results change between runs.
+- **Lab numbers rerun in the lab's engine.** Every question and cap matches the tables; scikit-learn was not rerun.
+
+## References
+
+- [The ReAct paper (Yao et al., ICLR 2023)](https://arxiv.org/abs/2210.03629): the Thought, Action and Observation format.
+- [LangGraph: workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents): the agent loop as a graph.
+- [LangChain: tools](https://docs.langchain.com/oss/python/langchain/tools): tool names, descriptions and arguments.
 
 ## Key Takeaways
 
 - A ReAct agent reasons about one step, calls a tool, reads the result and repeats until it replies without a tool call. The edge from the tool node back to the model is what turns a single-shot graph into that loop.
-- On the Larkspur golden questions the loop lifts mean evidence recall from 0.50 to 1.00, for 9 model calls instead of 3. Every round rereads the whole message list, so the outage run reads about 451 tokens against 9 for one search.
+- On the Larkspur golden questions the loop lifts mean evidence recall from 0.50 to 1.00, for 9 model calls instead of 3. Every round rereads the whole message list: the outage run reads about 451 tokens against 9 for one search.
 - Prefer native tool calls to text-based ReAct: no parsing, parallel calls in one turn and no quoted-argument failures. Use a fixed workflow when the steps are known.
 
 ## Check yourself
@@ -169,7 +211,7 @@ flowchart TD
 <details>
 <summary>1. Why does adding one edge from the tools node back to the agent turn a single-shot graph into a ReAct agent?</summary>
 
-With the edge from tools to the end, the last message is the tool message, so the user gets raw search results and no search can build on another. With the edge back to the agent, the run returns to the model after every observation, so each search can use what earlier results found. The run ends when the model replies without a tool call.
+With the edge from tools to the end, the last message is the tool message. The user gets raw search results and no search can build on another. With the edge back to the agent, the run returns to the model after every observation, so each search can use what earlier results found. The run ends when the model replies without a tool call.
 
 </details>
 
