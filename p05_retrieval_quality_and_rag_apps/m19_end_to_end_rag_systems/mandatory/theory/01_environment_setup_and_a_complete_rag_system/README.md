@@ -137,7 +137,7 @@ The optional `01c` notebook builds the same pipeline on FAISS from one climate-c
 
 ## References
 
-1. Lewis et al., [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401), 2020.
+1. Lewis et al., [the original retrieval-augmented generation paper](https://arxiv.org/abs/2005.11401), 2020.
 2. OpenAI, [New embedding models and API updates](https://openai.com/index/new-embedding-models-and-api-updates/), January 2024.
 3. Chroma, [Configure a collection's distance function](https://docs.trychroma.com/docs/collections/configure).
 4. Douze et al., [The Faiss library](https://arxiv.org/abs/2401.08281), 2024.

@@ -131,7 +131,7 @@ Lesson 19.4 leaves free text: Larkspur's server catalogue is a table, and a tabl
 
 ## References
 
-1. Jacovi and Goldberg, [Towards Faithfully Interpretable NLP Systems](https://arxiv.org/abs/2004.03685), 2020.
+1. Jacovi and Goldberg, [their paper on faithful interpretability](https://arxiv.org/abs/2004.03685), 2020.
 2. Turpin et al., [Language Models Don't Always Say What They Think](https://arxiv.org/abs/2305.04388), 2023.
 3. Yan et al., [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884), 2024.
 4. scikit-learn, [TfidfVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html).
