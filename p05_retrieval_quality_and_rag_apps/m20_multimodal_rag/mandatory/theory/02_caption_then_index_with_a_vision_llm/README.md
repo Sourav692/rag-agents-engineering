@@ -2,6 +2,7 @@
 
 *[M20 theory](../README.md) · Lesson 20.2 · Notebooks: [`02a_multimodal_rag_with_captioning.ipynb`](../../notebook/02a_multimodal_rag_with_captioning.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Turn every figure into text once, at index time, and write the caption for the questions it must answer -->
+<!-- format: approved -->
 
 ## Captioning
 
@@ -67,6 +68,8 @@ The first misses at `k = 1` because the paragraph repeats the question's words. 
 
 `02a`'s prompt asks for a summary "well optimized for retrieval". Retrieval needs less than the answer does. A short caption that names the chart and leaves out the values, such as "Bar chart of monthly availability in Q2 against a target line.", still ranks 2, 3 and 2 for the three lab questions. It is found, and it cannot answer: nothing in it says May or 99.91%. We call this the **findable but empty** caption.
 
+The two captions below differ only in what they hold, and the ranking cannot tell them apart:
+
 | Caption | Rank for the availability question | Can it answer? |
 |---|---|---|
 | "Bar chart of monthly availability in Q2 against a target line." | 2 | ✗ No month, no value |
@@ -83,7 +86,50 @@ Write the caption prompt for the questions the figure must answer:
 
 > **Pitfall: a misread caption, trusted forever.** A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval finds the wrong number with full confidence.
 
-`02a` already keeps each image's file name in its caption's metadata. That is enough to retrieve on the caption and then send the original image to a vision model at answer time, so the caption only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML ([M11, lesson 11.4](../../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md)) keeps rows and columns that a caption would have to describe in prose.
+`02a` already keeps each image's file name in its caption's metadata. That makes a second design possible, and the two differ in what the answer model reads.
+
+In **caption-only answering**, `02a`'s design, the caption is both the search key and the evidence. Whatever the captioner wrote is all the answer model ever sees of the figure:
+
+```mermaid
+flowchart LR
+    Q[/"Question"/] --> X[("Index<br/>chunks and captions")]
+    X --> C["Top caption<br/>as text"]
+    C --> M["Text answer model"]
+```
+
+*Figure 2: Caption-only answering. The caption is the evidence, so a misread or missing value reaches the answer.*
+
+In **caption as a pointer**, the caption only finds the figure. Its metadata names the image file, and the original image goes to a vision model with the question:
+
+```mermaid
+flowchart LR
+    Q[/"Question"/] --> X[("Index<br/>chunks and captions")]
+    X --> C["Top caption<br/>with image file"]
+    C --> F[/"Original figure"/]
+    F --> M["Vision answer model"]
+    Q --> M
+```
+
+*Figure 3: Caption as a pointer. The caption only has to be findable; the answer model reads the printed figure.*
+
+The availability question shows what each choice puts in front of the answer model:
+
+<div class="learning-widget evidence-switcher" data-comparison id="caption-switcher">
+<p class="widget-intro">Choose a caption design for Figure 1, and see what the answer model receives for the availability question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Caption design for Figure 1">
+<button type="button" data-mode="short" aria-pressed="false" aria-controls="cap-short">Short caption</button>
+<button type="button" data-mode="values" aria-pressed="false" aria-controls="cap-values">Values-first caption</button>
+<button type="button" data-mode="pointer" aria-pressed="false" aria-controls="cap-pointer">Caption as pointer</button>
+</div>
+<section id="cap-short" class="mode-panel" data-announcement="Short caption selected. Found, and cannot answer."><h4>Short caption, answer from caption</h4><dl><dt>Rank</dt><dd>2, so it arrives at k = 2</dd><dt>Model reads</dt><dd>a bar chart of monthly availability against a target line</dd><dt>Result</dt><dd>findable but empty: no month and no value to report</dd></dl></section>
+<section id="cap-values" class="mode-panel" data-announcement="Values-first caption selected. The caption carries the answer."><h4>Values-first caption, answer from caption</h4><dl><dt>Rank</dt><dd>2, the same as the short caption</dd><dt>Model reads</dt><dd>April 99.98%, May 99.91%, June 99.97%, and May below the 99.95% line</dd><dt>Result</dt><dd>answers May, if the captioner read every value correctly</dd></dl></section>
+<section id="cap-pointer" class="mode-panel" data-announcement="Caption as pointer selected. The model reads the original figure."><h4>Any caption, answer from the image</h4><dl><dt>Rank</dt><dd>whatever the caption earns; it only has to arrive</dd><dt>Model reads</dt><dd>the original Figure 1 image, beside the question</dd><dt>Result</dt><dd>a misread caption no longer reaches the answer, at the cost of one vision call per query</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Caption-only answering is cheaper per query; the pointer design is safer when values matter.
+
+Where a PDF has a real text layer, an element-level parser that returns each table as HTML ([M11, lesson 11.4](../../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/04_pdf_and_word_parser_comparison_and_element_level_parsing/README.md)) keeps rows and columns that a caption would have to describe in prose.
 
 ## In practice: captioning Larkspur's reports
 
@@ -93,6 +139,20 @@ Write the caption prompt for the questions the figure must answer:
 4. **Test with chart-only questions**, such as the May availability, never with a question the text answers.
 
 Lesson 20.3 skips extraction altogether and retrieves the page as an image.
+
+## Limits of this evidence
+
+- **The lab's captions are written by hand.** They follow `02a`'s prompt the way a vision model would, and are labelled representative. The scores and ranks are real `all-MiniLM-L6-v2` outputs on them; a real captioner's wording moves the ranks.
+- **`02a` uses different models.** It embeds with Cohere and captions with a Gemini vision model; the lab uses a small local embedder. The ranking argument holds across embedders, the exact scores do not.
+- **The extractor's reach is narrow.** PyMuPDF returned three raster images from the Attention paper. Vector figures were never captioned, so a pipeline built this way silently skips them.
+- **No answers were scored.** The page measures whether a caption is found and what it holds, not whether a model then answers correctly.
+
+## References
+
+1. Vaswani et al., [Attention Is All You Need](https://arxiv.org/abs/1706.03762), 2017, the PDF `02a` indexes.
+2. PyMuPDF, [documentation](https://pymupdf.readthedocs.io/en/latest/).
+3. Cohere, [Embed models](https://docs.cohere.com/docs/cohere-embed).
+4. Hugging Face, [sentence-transformers/all-MiniLM-L6-v2 model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
 
 ## Key Takeaways
 
