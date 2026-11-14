@@ -1,29 +1,29 @@
 # M01.6 Theory: Concurrency: threads, processes, the GIL and asyncio (22 runnable scripts)
 
 *[M01 theory](../../../mandatory/theory/README.md) · Lesson 1.6 · Notebooks: [`06a_concurrency_scripts`](../../notebook/06a_concurrency_scripts) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Overlap the waits, cap the calls, and know which shared write a pause can corrupt -->
+<!-- format: approved -->
 
 ## asyncio
 
-A coroutine, written `async def`, is a function that can pause. Each `await` is a pause point: while one coroutine waits for a network reply, the event loop runs another. One thread and one loop can keep many waits overlapping. Scripts 13 to 18 build this up:
+> **What you'll learn**
+>
+> - **Explain** how one event loop overlaps many network waits, and what caps the speed-up.
+> - **Diagnose** a sync call inside async code that turns any concurrency limit into a for loop.
+> - **Choose** between asyncio, threads and processes for a given workload.
+> - **Diagnose** a race and a deadlock, and name the guard for each.
 
-- **13:** `asyncio.run(brew_chai())` starts an event loop and runs one coroutine to completion.
-- **14:** `asyncio.gather` runs three coroutines that each `await asyncio.sleep(3)`; the waits overlap, so the three take about 3 s instead of 9.
-- **15:** the same pattern with real HTTP: three `aiohttp` requests to an endpoint that delays 2 s overlap in one `ClientSession`.
-- **16 and 17:** `loop.run_in_executor` hands a blocking function to a `ThreadPoolExecutor`, or CPU-bound work to a `ProcessPoolExecutor`, and awaits the result without stopping the loop.
-- **18:** a daemon thread keeps logging while the loop runs a coroutine.
+An evaluation of eight Larkspur handbook questions takes 11 seconds. A teammate wraps the calls in `async def` and a semaphore of 4, expecting about 3 seconds, and the run still takes 11. The code is concurrent on paper. One call that never pauses holds everything else up.
 
-A model call is a network wait of a second or more, and RAG work is full of independent ones: a golden-set evaluation, a batch of embedding requests, one question sent to several retrievers. `gather` starts them together. A `Semaphore` caps how many are in flight, because every provider enforces a rate limit:
+A **coroutine**, written `async def`, is a function that can pause. Each `await` is a pause point: while one coroutine waits for a network reply, the **event loop** runs another. One thread and one loop can keep many waits overlapping. Scripts 13 to 18 build this up:
 
-```python
-sem = asyncio.Semaphore(2)
+- **13**: `asyncio.run` starts an event loop and runs one coroutine to completion.
+- **14**: `asyncio.gather` runs three coroutines that each sleep for 3 s; the waits overlap and the three take about 3 s instead of 9.
+- **15**: the same pattern with real HTTP: three `aiohttp` requests to an endpoint that delays 2 s overlap in one session.
+- **16 and 17**: `loop.run_in_executor` hands a blocking function to a thread pool, or CPU-bound work to a process pool, and awaits the result without stopping the loop.
+- **18**: a daemon thread keeps logging while the loop runs a coroutine.
 
-async def ask(question):
-    async with sem:                          # waits here while two calls are in flight
-        return await llm.ainvoke(question)
-
-async def main(questions):
-    return await asyncio.gather(*(ask(q) for q in questions))
-```
+A model call is a network wait of a second or more, and RAG work is full of independent ones: a golden-set evaluation, a batch of embedding requests, one question sent to several retrievers. `gather` starts them together. A **semaphore** caps how many are in flight, because every provider enforces a rate limit. Each call first acquires the semaphore, waiting there while the limit is reached, then awaits the model and releases its slot.
 
 With eight Larkspur handbook questions and a semaphore of 2, each queued call starts the moment a slot frees up:
 
@@ -46,7 +46,9 @@ gantt
 ```
 <!-- animated: diagrams/semaphore.anim.html -->
 
-The call times are representative; the schedule is what asyncio does with them. The [interactive lab](interactive/asyncio-concurrency-lab.html) runs that schedule for every limit from 1 to 8. Its JavaScript scheduler matches real `asyncio.gather` with `asyncio.Semaphore` (Python 3.12, on a virtual clock) on all 128 call intervals (eight calls at eight limits, with each client), start and end within 1e-15 s:
+*Figure 1: Eight calls through a semaphore of 2. Call times are representative; the schedule is what asyncio does with them.*
+
+The [interactive lab](interactive/asyncio-concurrency-lab.html) runs that schedule for every limit from 1 to 8. Its JavaScript scheduler was checked against real `asyncio.gather` with `asyncio.Semaphore` on a virtual clock (Python 3.12), and a rerun of real asyncio at scaled-down times gives the same wall times:
 
 | Semaphore limit | Wall time | Faster than one at a time |
 |---|---|---|
@@ -57,23 +59,27 @@ The call times are representative; the schedule is what asyncio does with them. 
 | 7 or 8 | 2.6 s | 4.2× |
 | Any, with a sync client | 11.0 s | 1.0× |
 
+*Table 1: Wall time for the eight calls by semaphore limit.*
+
 Three things follow from the table:
 
 - **A semaphore of 1 is a for loop.** The wall time is the sum of the calls, 11.0 s.
 - **The slowest call sets the floor.** *What happens if my server goes down?* takes 2.6 s, so no limit beats 2.6 s, and from 7 on a higher limit changes nothing. Going from 4 to 8 saves 0.5 s; going from 1 to 2 saved 5.4 s. Pick the limit from the provider's rate limit, then measure.
-- **A call that never awaits blocks everything.** `llm.invoke`, `requests.get` and `time.sleep` inside `async def` hold the event loop until they return, so no other coroutine starts and the eight calls run one after another at any limit. Use the async method (`ainvoke`, `aiohttp`), or move the sync call to a thread with `await asyncio.to_thread(llm.invoke, question)`, which is what script 16 does with `run_in_executor`.
+- **A call that never awaits blocks everything.** `llm.invoke`, `requests.get` and `time.sleep` inside `async def` hold the event loop until they return. No other coroutine starts, and the eight calls run one after another at any limit. We call this a **blocked loop**. Use the async method (`ainvoke`, `aiohttp`), or move the sync call to a thread with `asyncio.to_thread`, which is what script 16 does with `run_in_executor`.
 
 <!-- lab: interactive/asyncio-concurrency-lab.html -->
 
-Two more rules for production runs. `gather` raises the first exception to the caller while the other calls keep running; pass `return_exceptions=True` to get every result and every error back in order, so one failed question does not hide the other seven. And in a Jupyter notebook an event loop is already running, so `asyncio.run(main())` raises `RuntimeError`; write `await main()` in the cell instead.
+Two more rules for production runs. `gather` raises the first exception to the caller while the other calls keep running; pass `return_exceptions=True` to get every result and every error back in order; one failed question then cannot hide the other seven. And in a Jupyter notebook an event loop is already running and `asyncio.run` raises `RuntimeError`; await the main coroutine directly in the cell instead.
 
 ## Threads, processes and the GIL
 
-CPython's global interpreter lock (GIL) lets one thread execute Python bytecode at a time. A thread gives up the GIL while it sleeps or waits on I/O, so threads overlap waiting (scripts 01 and 05 to 07: brewing, toasting, three downloads) but not pure-Python computation. Script 03 runs two threads that each count to 100 million and script 04 runs the same count in two processes; time both on your machine. Each process has its own interpreter and its own GIL, so the processes can use two cores.
+CPython's **global interpreter lock** (GIL) lets one thread execute Python bytecode at a time. A thread gives up the GIL while it sleeps or waits on I/O. Threads therefore overlap waiting (scripts 01 and 05 to 07: brewing, toasting, three downloads) but not pure-Python computation. Script 03 runs two threads that each count to 100 million and script 04 runs the same count in two processes; time both on your machine. Each process has its own interpreter and its own GIL, and the processes can use two cores.
 
-Processes cost more. Each starts a new interpreter, its arguments are pickled across, and it shares no memory by default: script 11 sends a result back through a `multiprocessing.Queue`, and script 12 shares one counter through a `Value`. On macOS and Windows a new process imports your script again, which is why scripts 02, 04 and 10 put their start-up code under `if __name__ == "__main__":`.
+Processes cost more. Each starts a new interpreter, its arguments are pickled across, and it shares no memory by default: script 11 sends a result back through a `multiprocessing.Queue`, and script 12 shares one counter through a `Value`. On macOS and Windows a new process imports your script again, which is why scripts 02, 04 and 10 put their start-up code under a main guard.
 
 Scripts 09 and 10 make the same comparison, but 10 counts to a billion per process against 10 million per thread in 09, a hundred times the work. Compare 03 with 04 instead.
+
+The choice comes down to what the work waits on:
 
 ```mermaid
 flowchart TD
@@ -83,29 +89,29 @@ flowchart TD
     Q2 -- no --> T["Threads, or<br/>asyncio.to_thread"]
 ```
 
-Daemon threads (script 19) are killed when the main program exits, which suits a background logger; a regular thread (script 20) keeps the process alive until it returns, so one stuck in a loop keeps the program from ever exiting.
+*Figure 2: Choosing asyncio, threads or processes.*
+
+Daemon threads (script 19) are killed when the main program exits, which suits a background logger. A regular thread (script 20) keeps the process alive until it returns, and one stuck in a loop keeps the program from ever exiting.
 
 ## Races and deadlocks
 
-A race happens when two flows of control read shared state, one changes it, and the other writes back a value computed from the stale read. Script 21 has two threads each run `chai_stock += 1` 100,000 times. On CPython 3.12 it printed 200,000 in all three runs on the machine these pages were written on: the interpreter rarely switches threads inside `+=`, which hides the race without removing it. Put `time.sleep(0)` between the read and the write and two threads of 1,000 increments ended at 1,075 and 1,030 of 2,000.
+A **race** happens when two flows of control read shared state, one changes it, and the other writes back a value computed from the stale read. Script 21 has two threads each add 1 to a shared stock count 100,000 times. On CPython 3.12 it printed 200,000 in all three runs on the machine these pages were written on: the interpreter rarely switches threads inside `+=`, which hides the race without removing it. Put `time.sleep(0)` between the read and the write and two threads of 1,000 increments lose most of their work: a rerun for this page ended at 1,001 and 1,019 of 2,000, and the count changes every run.
 
-asyncio has the same bug in a form that never hides. Code between two `await`s runs without interruption, so a race needs an `await` between the read and the write, and a model call is exactly that:
+asyncio has the same bug in a form that never hides. Code between two `await`s runs without interruption. A race therefore needs an `await` between the read and the write, and a model call is exactly that. Eight coroutines under `gather` each track spending around an awaited model call:
 
-```python
-spent = 0
+| Moment | Coroutine 1 | Coroutines 2 to 8 | `spent` |
+|---|---|---|---|
+| Read | copies `spent` (0) | each copies `spent` (0) before anyone writes | 0 |
+| Await | waits for the model | wait for the model | 0 |
+| Write back | writes its copy plus 1 | each writes its copy plus 1 | 1 |
 
-async def ask(cost):
-    global spent
-    v = spent
-    await asyncio.sleep(0.01)                # the model call
-    spent = v + cost                         # writes back a stale total
-```
+*Table 2: The stale write-back in asyncio. Rerun on Python 3.12, `spent` ends at 1 on every run, not 8.*
 
-Eight of these under `gather` leave `spent` at 1, not 8, on every run: all eight read 0 before any of them writes. Updating after the `await` (`spent += cost` on one line) gives 8; an `asyncio.Lock` around the read and the write also works.
+Updating after the `await`, in one statement with no pause inside it, gives 8; an `asyncio.Lock` around the read and the write also works.
 
-For threads the fix is a lock around the read-modify-write. Script 08 wraps the increment in `with lock:` and ten threads of 100,000 reach exactly 1,000,000; script 12 does the same across four processes with `counter.get_lock()` and reaches 400,000.
+For threads the fix is a lock around the read-modify-write. Script 08 wraps the increment in a lock and ten threads of 100,000 reach exactly 1,000,000; script 12 does the same across four processes with the counter's own lock and reaches 400,000.
 
-Locks bring the opposite failure. In script 22, task 1 holds lock A and waits for B while task 2 holds B and waits for A, so both wait forever:
+Locks bring the opposite failure, a **deadlock**. In script 22, task 1 holds lock A and waits for B while task 2 holds B and waits for A, so both wait forever:
 
 ```mermaid
 flowchart LR
@@ -115,7 +121,22 @@ flowchart LR
     A -- held by --> T1
 ```
 
-Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or use `lock.acquire(timeout=5)` so a thread fails with a visible error instead of hanging.
+*Figure 3: The wait cycle in script 22.*
+
+Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or acquire with a timeout so a thread fails with a visible error instead of hanging.
+
+## Limits of this evidence
+
+- **Representative call times.** The eight durations in Figure 1 are illustrative. The schedule and Table 1 follow from them exactly, but real calls vary from run to run.
+- **Scaled rerun.** Table 1 was rerun with real asyncio at a two-thousandth of the durations, not at full length against a provider.
+- **Races are timing-dependent.** The thread counts with `time.sleep(0)` change every run, and script 21's 200,000 depends on the interpreter's switching; it is not proof that `+=` is safe.
+- **Script comments.** Script 10's own comment calls its loop ten times the work of script 09; the ranges in the code make it a hundred times.
+
+## References
+
+1. Python, [coroutines and tasks](https://docs.python.org/3/library/asyncio-task.html), covering `gather`, `return_exceptions` and `to_thread`.
+2. Python, [asyncio synchronisation primitives](https://docs.python.org/3/library/asyncio-sync.html), for `Semaphore` and `Lock`.
+3. Python, [glossary entry for the global interpreter lock](https://docs.python.org/3/glossary.html#term-global-interpreter-lock).
 
 ## Key Takeaways
 
