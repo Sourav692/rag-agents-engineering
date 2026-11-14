@@ -89,7 +89,7 @@ Inserting a new `pro` plan and then a duplicate `starter` in one block raises `I
 | 5 | 0.5 | 0.2 |
 | 12 | 0.5 | 0.08 |
 
-*Table 3: The M10 baseline from one `GROUP BY k`, rounded to two places.*
+*Table 3: The M10 baseline from one grouped query per k, rounded to two places.*
 
 For MySQL and PostgreSQL, notebook 04b passes `pd.read_sql` a SQLAlchemy engine built from a connection URL that names the driver, user, password, host and database. The engine manages the connections for you.
 
