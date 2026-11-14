@@ -6,31 +6,31 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 9 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 37
+**Modules:** Not started: 0 · Review draft: 0 · In progress: 9 · In PR: 0 · Live: 37
 
 ## Part I · AI Engineering Foundations
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Python & Data Toolkit Refresher | 6 | 3 | 0 / 3 | Not started |  |  |  |
-| 2 | LLM Provider APIs & Model Selection | 4 | 4 | 0 / 4 | Not started |  |  |  |
-| 3 | Hugging Face Models & Gradio Demos | 5 | 3 | 0 / 3 | Not started |  |  |  |
+| 1 | Python & Data Toolkit Refresher | 6 | 3 | 0 / 3 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
+| 2 | LLM Provider APIs & Model Selection | 4 | 4 | 0 / 4 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
+| 3 | Hugging Face Models & Gradio Demos | 5 | 3 | 0 / 3 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
 
 ## Part II · Prompt & Context Engineering
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 4 | Prompt Engineering Patterns | 4 | 4 | 0 / 4 | Not started |  |  |  |
-| 5 | Multimodal Prompting | 3 | 3 | 0 / 3 | Not started |  |  |  |
+| 4 | Prompt Engineering Patterns | 4 | 4 | 0 / 4 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
+| 5 | Multimodal Prompting | 3 | 3 | 0 / 3 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
 
 ## Part III · LLM Application Frameworks: LangChain & LangGraph
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 6 | LangChain Core: Models, Prompts & Parsers | 7 | 7 | 0 / 7 | Not started |  |  |  |
-| 7 | LCEL, Runnables & Chains | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 8 | LangGraph Core: Graphs, State & Control Flow | 5 | 5 | 0 / 5 | Not started |  |  |  |
-| 9 | LangGraph Runtime: Persistence, HITL & Streaming | 6 | 6 | 0 / 6 | Not started |  |  |  |
+| 6 | LangChain Core: Models, Prompts & Parsers | 7 | 7 | 0 / 7 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
+| 7 | LCEL, Runnables & Chains | 5 | 5 | 0 / 5 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
+| 8 | LangGraph Core: Graphs, State & Control Flow | 5 | 5 | 0 / 5 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
+| 9 | LangGraph Runtime: Persistence, HITL & Streaming | 6 | 6 | 0 / 6 | In progress | 2026-11-14 |  | approved-format rewrite started 2026-11-14 (worktree forks) |
 
 ## Part IV · RAG Foundations: Ingestion & Indexing
 
