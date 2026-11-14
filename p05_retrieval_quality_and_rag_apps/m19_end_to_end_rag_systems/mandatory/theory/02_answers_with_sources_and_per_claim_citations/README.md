@@ -2,6 +2,7 @@
 
 *[M19 theory](../README.md) · Lesson 19.2 · Notebooks: [`02a_rag_system_with_sources.ipynb`](../../notebook/02a_rag_system_with_sources.ipynb), [`02b_rag_system_with_citations.ipynb`](../../notebook/02b_rag_system_with_citations.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Keep the chunks the model read, ask for verbatim quotes, and check every quote in code -->
+<!-- format: approved -->
 
 ## Returning the sources
 
@@ -27,7 +28,21 @@ Both M19.2 notebooks first run the M15 contextual retrieval notebook ([M15.5](..
 
 Shown as stored, a 0-based page tells a reader "page 0", or sends them to the page before the right one. Add 1 when you display it. We call this the **off-by-one page**.
 
-Notebook `02a` keeps the retrieved documents in the chain's output instead of formatting them away. The retriever's result and the question go into a dictionary, and a pass-through step runs the answer chain on that dictionary and adds the answer beside them. The output holds three things: the five context documents, the question, and the response. The retriever runs once, so the chunks the user sees are the chunks the model read.
+### Sources at the answer level
+
+Notebook `02a` keeps the retrieved documents in the chain's output instead of formatting them away. The retriever's result and the question go into a dictionary, and a pass-through step runs the answer chain on that dictionary and adds the answer beside them. Figure 1 shows the shape.
+
+```mermaid
+flowchart LR
+    Q[/Question/] --> D["Dictionary<br/>context = 5 documents<br/>question"]
+    D --> A["Answer chain<br/>formats text, calls model"]
+    D --> O[/"Output<br/>context, question, response"/]
+    A --> O
+```
+
+*Figure 1: The `02a` chain. The answer chain reads the same five documents that the output keeps.*
+
+The output holds three things: the five context documents, the question, and the response. The retriever runs once. The chunks the user sees are therefore the chunks the model read.
 
 This is source attribution at the answer level: the reader gets a list of five sources and has to find the supporting sentence in each.
 
@@ -41,7 +56,7 @@ Notebook `02b` asks for more: which chunk supports the answer, and the exact sen
 | `source` | Where the chunk came from | Shown to the reader |
 | `title` | The document's title | Shown to the reader |
 | `page` | The page in the source | Sends a reader to the right place in a long PDF |
-| `quotes` | Verbatim sentences from that chunk | The part a machine can check: a quote either appears in the chunk or it does not |
+| `quotes` | Verbatim sentences from that chunk, as one string | The part a machine can check: a quote either appears in the chunk or it does not |
 
 *Table 2: The fields of `02b`'s citation record. The schema returns a list of these.*
 
@@ -61,9 +76,9 @@ sequenceDiagram
     App->>App: check quotes
 ```
 
-*Figure 1: Answer first, then citations, then a check in code.*
+*Figure 2: Answer first, then citations, then a check in code.*
 
-The answer chain prints each chunk's id, source, title and page above its text, so the model can copy real ids into its citations. On the Larkspur handbook, *Can I get a refund on my annual plan?* should produce one citation (*Illustrative*: a representative output, not a recorded run):
+The answer chain prints each chunk's id, source, title and page above its text, which lets the model copy real ids into its citations. On the Larkspur handbook, *Can I get a refund on my annual plan?* should produce one citation (*Illustrative*: a representative output, not a recorded run):
 
 | Field | Value |
 |---|---|
@@ -73,6 +88,19 @@ The answer chain prints each chunk's id, source, title and page above its text, 
 | `quotes` | An annual plan can get a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic. |
 
 *Table 3: A citation for the refund question (illustrative).*
+
+The two notebooks hand the reader different things for the same question. The comparison below puts 19.1's chain beside them, using the refund question (*Illustrative* outputs).
+
+<div class="learning-widget evidence-switcher" data-comparison id="output-switcher">
+<p class="widget-intro">Choose a chain to see what a Larkspur agent receives for the refund question, and what they can check.</p>
+<div class="mode-controls" hidden role="group" aria-label="Chain output"><button type="button" data-mode="answer" aria-pressed="false" aria-controls="out-answer">Answer only (19.1)</button><button type="button" data-mode="sources" aria-pressed="false" aria-controls="out-sources">Answer and sources (02a)</button><button type="button" data-mode="cited" aria-pressed="false" aria-controls="out-cited">Checked citations (02b)</button></div>
+<section id="out-answer" class="mode-panel" data-announcement="Answer only selected. Nothing to check against."><h4>Answer only</h4><dl><dt>Returned</dt><dd>the answer text</dd><dt>Model calls</dt><dd>one</dd><dt>What the agent can check</dt><dd>nothing; the five chunks were formatted away</dd></dl></section>
+<section id="out-sources" class="mode-panel" data-announcement="Answer and sources selected. The agent searches five chunks."><h4>Answer and sources</h4><dl><dt>Returned</dt><dd>the answer, the question and the five documents with metadata</dd><dt>Model calls</dt><dd>one</dd><dt>What the agent can check</dt><dd>every chunk the model read; finding the supporting sentence is their job</dd></dl></section>
+<section id="out-cited" class="mode-panel" data-announcement="Checked citations selected. The agent sees the quoted sentence."><h4>Checked citations</h4><dl><dt>Returned</dt><dd>the answer, the documents and a citation naming <code>refund-window</code>, page 2, with the 100 GB sentence quoted</dd><dt>Model calls</dt><dd>two</dd><dt>What the agent can check</dt><dd>the quoted sentence, already confirmed in code to appear in the chunk it names</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The second call doubles the model cost per question. It buys a quote that code can test, which is the step answer-level sources leave to a person.
 
 ## What the schema does not guarantee
 
@@ -95,7 +123,7 @@ So check every citation in code before showing it: look the chunk up by id, norm
 
 Drop or flag the citations that fail, and track the failure rate as a production metric. A rising rate means the prompt, the model or the chunk text changed.
 
-> **Pitfall: a citation prompt that sees a Python object.** `02b`'s citation chain passes the list of retrieved documents straight into its prompt, so the model reads the documents' programming representation, metadata and all, rather than the formatted text the answer chain saw. Format the chunks the same way for both calls.
+> **Pitfall: a citation prompt that sees a Python object.** `02b`'s citation chain passes the list of retrieved documents straight into its prompt. The model reads the documents' programming representation, metadata and all, rather than the formatted text the answer chain saw. Format the chunks the same way for both calls.
 
 ## In practice: cited answers for Larkspur
 
@@ -105,6 +133,18 @@ Drop or flag the citations that fail, and track the failure rate as a production
 4. **Alert on the failure rate**, per model and prompt version.
 
 Citations show which chunk supports an answer. Lesson 19.3 asks a related question about retrieval itself: why a chunk was retrieved at all.
+
+## Limits
+
+- The refund citation and the four planted quotes are illustrative. The notebooks' own runs use Wikipedia and paper questions, and ship without outputs.
+- A passing substring check proves the quote exists in the chunk. It does not prove the quote supports the claim, or that the answer states the rule completely.
+- `02b`'s display code also matches on page: a citation with the right id but a wrong page gets no context either. The quote check on this page is an addition; the notebook only highlights.
+
+## References
+
+1. Gao et al., [Enabling Large Language Models to Generate Text with Citations](https://arxiv.org/abs/2305.14627), 2023.
+2. Liu et al., [Evaluating Verifiability in Generative Search Engines](https://arxiv.org/abs/2304.09848), 2023.
+3. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
 
 ## Key Takeaways
 

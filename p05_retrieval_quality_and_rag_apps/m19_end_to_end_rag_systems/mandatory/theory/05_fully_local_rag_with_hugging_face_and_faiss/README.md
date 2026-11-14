@@ -2,6 +2,7 @@
 
 *[M19 theory](../README.md) · Lesson 19.5 · Notebooks: [`05a_local_rag_huggingface_faiss.ipynb`](../../notebook/05a_local_rag_huggingface_faiss.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Local is a property of every component, and one remote call is enough to send the data out -->
+<!-- format: approved -->
 
 ## Local inference
 
@@ -14,7 +15,7 @@
 
 Lessons 19.1 to 19.4 called a hosted embedding model and a hosted chat model. Some Larkspur customers sign contracts that say support tickets and the handbook may not leave their network. For them, every model call is a question of where the data goes.
 
-**Local inference** means a model runs on hardware you control, so its inputs never cross the network. Notebook `05a` replaces every OpenAI call with open models:
+**Local inference** means a model runs on hardware you control and its inputs never cross the network. Notebook `05a` replaces every OpenAI call with open models:
 
 | Setting | Value |
 |---|---|
@@ -46,7 +47,22 @@ flowchart LR
 
 *Figure 1: `05a` as written. Indexing is local; generation is not.*
 
-We call this the **half-local pipeline**. The notebook's own comparison table lists data privacy as "Stays local", which is true only for indexing. Its next steps name the fix: swap the endpoint client for a local pipeline that loads the model weights and generates in your process.
+We call this the **half-local pipeline**. The notebook's own comparison table lists data privacy as "Stays local", which is true only for indexing. Its next steps name the fix: swap the endpoint client for a local pipeline that loads the model weights and generates in your process. Figure 2 shows that version.
+
+```mermaid
+flowchart TB
+    subgraph local["Your machine"]
+        D[/PDF/] --> E["bge-base-en-v1.5<br/>768-dim vectors"] --> F[("FAISS<br/>saved to disk")]
+        Q[/Question/] --> R["Retrieve k = 3"]
+        F --> R
+        R -- "prompt with chunks" --> Z["zephyr-7b-beta<br/>weights loaded in process"]
+        Z --> A[/Answer/]
+    end
+```
+
+*Figure 2: The fully offline pipeline. The prompt never leaves the machine; the weights and the memory to run them must be on it.*
+
+Table 2 sets the two side by side, component by component.
 
 | Component | `05a` as written | Fully offline |
 |---|---|---|
@@ -56,6 +72,17 @@ We call this the **half-local pipeline**. The notebook's own comparison table li
 | Data leaving the machine | Every prompt, chunks included | None |
 
 *Table 2: Half-local against fully offline.*
+
+The comparison below follows one Larkspur support ticket through three deployments: the hosted pipeline of lessons 19.1 to 19.4, `05a` as written, and the fully offline version.
+
+<div class="learning-widget evidence-switcher" data-comparison id="locality-switcher">
+<p class="widget-intro">Choose a deployment to see which steps keep a customer's ticket on their network.</p>
+<div class="mode-controls" hidden role="group" aria-label="Deployment"><button type="button" data-mode="hosted" aria-pressed="false" aria-controls="loc-hosted">Hosted (19.1 to 19.4)</button><button type="button" data-mode="half" aria-pressed="false" aria-controls="loc-half">05a as written</button><button type="button" data-mode="offline" aria-pressed="false" aria-controls="loc-offline">Fully offline</button></div>
+<section id="loc-hosted" class="mode-panel" data-announcement="Hosted selected. Text leaves at indexing and at every question."><h4>Hosted</h4><dl><dt>Indexing</dt><dd>every chunk is sent to a hosted embedding model</dd><dt>Each question</dt><dd>the question goes out to be embedded, then the prompt with its chunks goes out to the chat model</dd><dt>Leaves the network</dt><dd>the whole handbook once, and every ticket and its chunks per question</dd></dl></section>
+<section id="loc-half" class="mode-panel" data-announcement="05a as written selected. The prompt leaves at generation."><h4><code>05a</code> as written</h4><dl><dt>Indexing</dt><dd>local: bge on CPU, FAISS in memory</dd><dt>Each question</dt><dd>embedded and retrieved locally; the prompt with three chunks goes to the Inference API</dd><dt>Leaves the network</dt><dd>every ticket and its three chunks: the half-local pipeline</dd></dl></section>
+<section id="loc-offline" class="mode-panel" data-announcement="Fully offline selected. Nothing leaves the machine."><h4>Fully offline</h4><dl><dt>Indexing</dt><dd>local, with the index saved to disk by this pipeline</dd><dt>Each question</dt><dd>embedded, retrieved and answered in process</dd><dt>Leaves the network</dt><dd>nothing; the cost moves to hardware, latency and model downloads done in advance</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ## What local costs
 
@@ -78,7 +105,7 @@ Two smaller things to change when you reuse `05a`'s code:
 
 *Table 3: Two reuse bugs in `05a`.*
 
-On a fixed FAISS index the two retrievals return the same list, so the double retrieval only costs an extra search. On an index that updates between the calls, the sources shown could differ from the context the model read.
+On a fixed FAISS index the two retrievals return the same list, and the double retrieval only costs an extra search. On an index that updates between the calls, the sources shown could differ from the context the model read.
 
 `05a`'s fallback evaluation counts expected keywords in each answer, such as "carbon dioxide" and "methane". Substring matching rewards any answer that mentions the words, right or wrong. Treat it as a smoke test, and use the golden-set metrics from [M10](../../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/README.md) for decisions.
 
@@ -90,6 +117,19 @@ On a fixed FAISS index the two retrievals return the same list, so the double re
 4. **Write and load the index yourself**, never from a shared location.
 
 This completes the M19 system: grounded, cited, explainable, table-aware and deployable where the data must stay.
+
+## Limits
+
+- No model was run for this page. The configuration comes from `05a`'s code; whether the Inference API still serves `zephyr-7b-beta` changes over time, and the half-local finding holds for any remote endpoint.
+- The double retrieval was re-run with a counting retriever and stub model: two retriever calls with the parallel step, one with lesson 19.2's pass-through pattern.
+- Tokens per second and memory needs depend on the machine; the page quotes none because the notebook measures none.
+
+## References
+
+1. BAAI, [bge-base-en-v1.5 model card](https://huggingface.co/BAAI/bge-base-en-v1.5).
+2. Hugging Face, [zephyr-7b-beta model card](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta).
+3. Python Software Foundation, [pickle: Python object serialisation](https://docs.python.org/3/library/pickle.html).
+4. Douze et al., [The Faiss library](https://arxiv.org/abs/2401.08281), 2024.
 
 ## Key Takeaways
 

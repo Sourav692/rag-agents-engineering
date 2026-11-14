@@ -2,6 +2,7 @@
 
 *[M19 theory](../README.md) · Lesson 19.4 · Notebooks: [`04a_structured_data_rag.ipynb`](../../notebook/04a_structured_data_rag.ipynb), [`04b_simple_csv_rag.ipynb`](../../../optional/notebook/04b_simple_csv_rag.ipynb) (optional), [`04c_json_rag.ipynb`](../../../optional/notebook/04c_json_rag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Embed what carries meaning, filter what carries magnitude, and never average a sample -->
+<!-- format: approved -->
 
 ## Record representation
 
@@ -89,6 +90,15 @@ The [interactive sample-or-population lab](interactive/sample-or-population-lab.
 
 Each of these comes back as a fluent, specific answer. We call this the **sample average**: an answer computed over the rows retrieval happened to return, presented as a fact about the whole table. `04a`'s comparison names the difference between the two approaches: query generation fails loudly (a bad query raises an error or returns nothing), and retrieval fails quietly (it answers from whatever it retrieved).
 
+The walkthrough follows the average-price question at `k = 4` with description-only text, using the lab's rankings, and then the route that answers it.
+
+<div class="walkthrough learning-widget" data-stepper id="average-walkthrough">
+<p class="widget-intro">Step through the question to see where the sample average is born and how routing removes it.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the average-price question"><button type="button" data-step="0" aria-pressed="false" aria-controls="avg-step-0">1. Retrieve</button><button type="button" data-step="1" aria-pressed="false" aria-controls="avg-step-1">2. Read the sample</button><button type="button" data-step="2" aria-pressed="false" aria-controls="avg-step-2">3. Answer</button><button type="button" data-step="3" aria-pressed="false" aria-controls="avg-step-3">4. Route instead</button></div>
+<div class="step-panels"><section id="avg-step-0" class="step-panel" aria-labelledby="avg-heading-0"><h4 id="avg-heading-0">1. Retrieve</h4><dl><dt>Input</dt><dd>"What is the average monthly price of a Larkspur server?"</dd><dt>Top four rows</dt><dd><code>ls-small</code>, <code>ls-nano</code>, <code>ls-large</code>, <code>ls-medium</code>: the general-purpose descriptions sit closest to a question about servers in general</dd></dl></section><section id="avg-step-1" class="step-panel" aria-labelledby="avg-heading-1"><h4 id="avg-heading-1">2. Read the sample</h4><dl><dt>Prices in context</dt><dd>$20, $5, $80 and $40</dd><dt>Missing</dt><dd>six rows, including <code>ls-gpu-1</code> at $480, which ranks last for this question</dd></dl></section><section id="avg-step-2" class="step-panel" aria-labelledby="avg-heading-2"><h4 id="avg-heading-2">3. Answer</h4><dl><dt>Computed</dt><dd>$145 over four rows: $36.25</dd><dt>Presented as</dt><dd>the average Larkspur price, with nothing to say it covers four rows of ten</dd></dl></section><section id="avg-step-3" class="step-panel" aria-labelledby="avg-heading-3"><h4 id="avg-heading-3">4. Route instead</h4><dl><dt>Router decision</dt><dd>aggregate: the question needs every row</dd><dt>Query engine</dt><dd>averages all ten prices, $1,025 in total: $102.50</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+Raising `k` only moves the cliff. At `k = 9` the answer is $60.56, still wrong, because the one row that drags the average up is the one retrieval ranks last.
+
 ## Routing a table question
 
 So route by the kind of question, not the kind of data:
@@ -122,6 +132,18 @@ flowchart TD
 4. **Send semantic search only the descriptive questions**, such as a server for a memory-hungry database.
 
 Lesson 19.5 keeps the same pipeline and moves it onto your own hardware.
+
+## Limits
+
+- The server catalogue is fictional, and `04a` itself runs on a property-listings CSV and a support-ticket JSON. The catalogue numbers come from the lab, which scores rows with `all-MiniLM-L6-v2`; an OpenAI embedding model would rank them differently.
+- Every lab number on this page was recomputed from the lab's own row and similarity data. The model's answers in Table 4 are what a careful reader of the top-k rows would compute, not recorded model outputs.
+- The router in `04a` is one classification prompt. It can misroute a question, and a misrouted aggregate still produces a sample average.
+
+## References
+
+1. Chroma, [Metadata filtering](https://docs.trychroma.com/docs/querying-collections/metadata-filtering).
+2. Sentence Transformers, [all-MiniLM-L6-v2 model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
+3. Hong et al., [Next-Generation Database Interfaces: A Survey of LLM-based Text-to-SQL](https://arxiv.org/abs/2406.08426), 2024.
 
 ## Key Takeaways
 
