@@ -2,6 +2,7 @@
 
 *[M27 theory](../README.md) · Lesson 27.2 · Notebooks: [`02a_research_assistant_agent.ipynb`](../../notebook/02a_research_assistant_agent.ipynb), [`02b_competitive_intelligence_agent.ipynb`](../../../optional/notebook/02b_competitive_intelligence_agent.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A small project: two web-research agents, budgeted tools, memory, and a source check in code -->
+<!-- format: approved -->
 
 ## The project: research and market-brief agents
 
@@ -58,11 +59,48 @@ The assistant's memory test asks three questions on one thread. The last one onl
 
 *Table 2: Three turns on one thread. The data is live, and no values are fixed.*
 
-Ask turn 3 on a fresh thread and the agent cannot know which two cities you mean. It either asks, or picks two cities of its own and answers confidently. We call that a **phantom referent**: a follow-up answered about something the conversation never named.
+The notebook asks turn 3 twice: once to an agent with no checkpointer, and once on the thread that holds turns 1 and 2. The two set-ups differ only in what the agent reads before it answers.
 
-The check after turn 3 reads the temperatures from the weather results stored in the thread, finds the hotter city and tests whether the answer's first line names it. It never trusts the model's own comparison.
+```mermaid
+flowchart LR
+    Q["Turn 3 alone<br/>which city is hotter?"] --> A["Agent<br/>no checkpointer"]
+    A --> R[/"Asks which cities,<br/>or picks two itself"/]
+```
 
-The analyst's brief gets the same treatment for sources. To see the check fail, the notebook appends one invented competitor to a real brief:
+*Figure 2: Without memory. The agent sees one message and no weather results.*
+
+```mermaid
+flowchart LR
+    T[("thread_id<br/>weather-chat-1<br/>turns 1 and 2")] --> A["Agent<br/>InMemorySaver"]
+    Q["Turn 3<br/>which city is hotter?"] --> A
+    A --> R[/"Names one of the<br/>two stored cities"/]
+```
+
+*Figure 3: With memory. The checkpointer loads the earlier turns, tool results included, before the model runs.*
+
+<div class="learning-widget evidence-switcher" data-comparison id="memory-switcher">
+<p class="widget-intro">Choose how the agent receives the follow-up, and see what it has to work with.</p>
+<div class="mode-controls" hidden role="group" aria-label="Agent memory set-up">
+<button type="button" data-mode="stateless" aria-pressed="false" aria-controls="memory-stateless">Fresh thread</button>
+<button type="button" data-mode="thread" aria-pressed="false" aria-controls="memory-thread">Same thread</button>
+</div>
+<section id="memory-stateless" class="mode-panel" data-announcement="Fresh thread selected. The agent has no cities to compare."><h4>Fresh thread, no checkpointer</h4><dl><dt>Messages read</dt><dd>one: the follow-up</dd><dt>Weather results</dt><dd>none</dd><dt>Likely answer</dt><dd>a question back, or two cities the user never named</dd><dt>Answer check</dt><dd>nothing to check against</dd></dl></section>
+<section id="memory-thread" class="mode-panel" data-announcement="Same thread selected. The agent compares the two stored results."><h4>Same thread, InMemorySaver</h4><dl><dt>Messages read</dt><dd>every message of turns 1 and 2, then the follow-up</dd><dt>Weather results</dt><dd>Bangalore and Dubai, as the tool returned them</dd><dt>Likely answer</dt><dd>one of the two cities, with no new tool call</dd><dt>Answer check</dt><dd>compares the first line with the hotter city in the stored results</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Without the thread the agent cannot know which two cities you mean. We call that failure a **phantom referent**: a follow-up answered about something the conversation never named.
+
+The check after turn 3 reads the temperatures from the weather results stored in the thread, keyed by the city name the agent asked for (the API can report Bangalore as "Bengaluru"). It finds the hotter city and tests whether the answer's first line names it. It never trusts the model's own comparison.
+
+The analyst's brief gets the same treatment for sources.
+
+<div class="walkthrough learning-widget" data-stepper id="grounding-walkthrough">
+<p class="widget-intro">Step through one analyst run, from the question to the grounding check.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of an analyst run"><button type="button" data-step="0" aria-pressed="false" aria-controls="ground-step-0">1. Ask</button><button type="button" data-step="1" aria-pressed="false" aria-controls="ground-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="ground-step-2">3. Brief</button><button type="button" data-step="3" aria-pressed="false" aria-controls="ground-step-3">4. Check</button></div>
+<div class="step-panels"><section id="ground-step-0" class="step-panel" aria-labelledby="ground-heading-0"><h4 id="ground-heading-0">1. Ask</h4><dl><dt>Question</dt><dd>the top five clothing-store competitors near Koramangala, Bangalore, and their busiest hours</dd></dl></section><section id="ground-step-1" class="step-panel" aria-labelledby="ground-heading-1"><h4 id="ground-heading-1">2. Search</h4><dl><dt>Tool</dt><dd>the search tool, five results per call, as many calls as the agent chooses</dd><dt>Kept in the run</dt><dd>every result URL, inside the tool messages</dd></dl></section><section id="ground-step-2" class="step-panel" aria-labelledby="ground-heading-2"><h4 id="ground-heading-2">3. Brief</h4><dl><dt>Output</dt><dd>a typed brief: area, audience, competitors with one evidence URL each, opportunities, risks, data gaps</dd><dt>Busiest hours</dt><dd>belong under data gaps unless a search result gave them</dd></dl></section><section id="ground-step-3" class="step-panel" aria-labelledby="ground-heading-3"><h4 id="ground-heading-3">4. Check</h4><dl><dt>Compare</dt><dd>each evidence URL with the set of URLs the searches returned in this run</dd><dt>Report</dt><dd>how many competitors cite a seen URL, and the name and URL of each one that does not</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+To see the check fail, the notebook appends one invented competitor to a real brief:
 
 | Competitor entry | Evidence URL | In this run's search results |
 |---|---|---|
@@ -91,7 +129,16 @@ The analyst's brief gets the same treatment for sources. To see the check fail, 
 - **Memory lives in the process.** The in-memory checkpointer loses every thread on restart.
 - **Snippets are weaker evidence.** A blocked or slow page leaves the agent a two-line snippet.
 
-The assistant needs OpenAI, Tavily and OpenWeatherMap keys, and the analyst needs OpenAI and Tavily.
+The assistant needs OpenAI, Tavily and OpenWeatherMap keys, and the analyst needs OpenAI and Tavily. We did not run either agent for this page: it describes what the notebooks' code checks, and quotes no live results.
+
+## References
+
+1. LangChain, [Agents](https://docs.langchain.com/oss/python/langchain/agents).
+2. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
+3. LangChain, [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence).
+4. Tavily, [Search API reference](https://docs.tavily.com/documentation/api-reference/endpoint/search).
+5. OpenWeather, [Current weather data API](https://openweathermap.org/api/current).
+6. Microsoft, [MarkItDown](https://github.com/microsoft/markitdown).
 
 ## Key Takeaways
 

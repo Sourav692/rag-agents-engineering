@@ -2,6 +2,7 @@
 
 *[M27 theory](../README.md) · Lesson 27.1 · Notebooks: [`01a_dry_run_harness.ipynb`](../../notebook/01a_dry_run_harness.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Preview the effect, pause for a person, and publish only the exact text they approved -->
+<!-- format: approved -->
 
 ## The post nobody previewed
 
@@ -84,6 +85,16 @@ With a trustworthy preview in hand, the next job is to stop the run until someon
 
 **An approval gate is a node that pauses the run, hands the preview to a reviewer and resumes only with their decision.** In the harness the gate is the review node. It calls `interrupt()` with three things: the question, the preview and the fingerprint.
 
+```mermaid
+flowchart LR
+    P["propose<br/>model drafts the post"] --> D["dry_run<br/>preview + fingerprint"]
+    D --> R["review<br/>interrupt()"]
+    R -->|approve| U["publish<br/>fingerprint rechecked"]
+    R -->|anything else| X["cancel<br/>nothing published"]
+```
+
+*Figure 3: The harness graph in notebook 01a. Only one branch can reach the feed, and it checks the fingerprint again first.*
+
 ### Parking and resuming the same thread
 
 LangGraph stops the run at that call, saves its state in the checkpointer under the run's `thread_id`, and returns the payload to the caller under `__interrupt__`. Nothing more happens until someone invokes the graph again with `Command(resume=decision)` on the same thread:
@@ -105,7 +116,7 @@ sequenceDiagram
     G->>G: publish or cancel
 ```
 
-*Figure 3: One pause and one resume. The state waits in the checkpointer for as long as the reviewer takes.*
+*Figure 4: One pause and one resume. The state waits in the checkpointer for as long as the reviewer takes.*
 
 The notebook wraps that exchange in a small pause-and-resume loop: invoke, and while the result holds an interrupt, pass the payload to a reviewer function and resume with its answer. Only the reviewer function changes between uses:
 
@@ -143,15 +154,22 @@ A console, a script and a web form all feed the same rule, and the audit entry k
 
 The second rule is the one that catches **post-approval drift**, any change between what the reviewer read and what is about to run. The notebook plants it by editing the paused post directly in the checkpointed state, appending " Buy now!!!", and then approving.
 
-The [approval-gate lab](interactive/approval-gate-lab.html) runs the same harness in the page, with the decision rule and the SHA-256 fingerprint ported from the reference implementation. Checked against the reference graph on 315 runs (3 drafts, 3 kinds of edit, 35 typed answers), it agrees on every final status, fingerprint and audit entry. With the eu-west post approved:
+The [approval-gate lab](interactive/approval-gate-lab.html) runs the same harness in the page, with the decision rule and the SHA-256 fingerprint ported from the reference implementation. Checked against the reference graph on 315 runs (3 drafts, 3 kinds of edit, 35 typed answers), it agrees on every final status, fingerprint and audit entry. With the eu-west post approved at `c4e9e330698e`, three versions of the post reach the publish node:
 
-| Change after the preview | Fingerprint at publish | Final status |
-|---|---|---|
-| None | `c4e9e330698e` | `PUBLISHED as post_1` |
-| "72 hours" edited to "48 hours" | `11673ae3c1d4` | `REFUSED: the post differs from the approved preview` |
-| " Buy now!!!" appended (the notebook's test) | `78879f196e7d` | `REFUSED: the post differs from the approved preview` |
+<div class="learning-widget evidence-switcher" data-comparison id="drift-switcher">
+<p class="widget-intro">Choose what happens to the eu-west post between the approval and the publish node.</p>
+<div class="mode-controls" hidden role="group" aria-label="Change after the preview">
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="drift-none">No change</button>
+<button type="button" data-mode="small" aria-pressed="false" aria-controls="drift-small">72 hours to 48 hours</button>
+<button type="button" data-mode="append" aria-pressed="false" aria-controls="drift-append">Buy now appended</button>
+</div>
+<section id="drift-none" class="mode-panel" data-announcement="No change selected. The post publishes."><h4>No change</h4><dl><dt>Fingerprint at publish</dt><dd><code>c4e9e330698e</code>, the approved one</dd><dt>Final status</dt><dd><code>PUBLISHED as post_1</code></dd><dt>Feed</dt><dd>one post</dd></dl></section>
+<section id="drift-small" class="mode-panel" data-announcement="Small edit selected. The publish node refuses."><h4>"72 hours" edited to "48 hours"</h4><dl><dt>Fingerprint at publish</dt><dd><code>11673ae3c1d4</code></dd><dt>Final status</dt><dd><code>REFUSED: the post differs from the approved preview</code></dd><dt>Feed</dt><dd>empty; the audit log still shows the <code>approve</code></dd></dl></section>
+<section id="drift-append" class="mode-panel" data-announcement="Appended line selected. The publish node refuses."><h4>" Buy now!!!" appended (the notebook's test)</h4><dl><dt>Fingerprint at publish</dt><dd><code>78879f196e7d</code></dd><dt>Final status</dt><dd><code>REFUSED: the post differs from the approved preview</code></dd><dt>Feed</dt><dd>empty; the audit log still shows the <code>approve</code></dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-*Table 4: One approval, three versions of the post. The fingerprints were recomputed from the lab's post text.*
+We recomputed all three fingerprints from the lab's post text with Python's `hashlib`, and they match the lab.
 
 <!-- lab: interactive/approval-gate-lab.html -->
 
@@ -163,13 +181,12 @@ The same pause exists ready-made. `HumanInTheLoopMiddleware` from [M23's middlew
 
 ## In practice: the eu-west status post
 
-Here is the whole harness on Larkspur's post, in the order the graph runs it:
+Here is the whole harness on Larkspur's post, in the order the graph runs it.
 
-1. **Propose.** The model drafts the post and its hashtags as structured output.
-2. **Dry run.** Its own node renders the text and computes `c4e9e330698e`. The feed is still empty.
-3. **Review.** The graph pauses and the checkpointer holds the run. The on-call lead reads the preview.
-4. **Decide.** The lead types `approve`. The audit log records the reviewer, the reason, the fingerprint and the time.
-5. **Publish.** The recomputed fingerprint matches, and the post goes out as `post_1`. An edit in the meantime would have been refused.
+<div class="walkthrough learning-widget" data-stepper id="harness-walkthrough">
+<p class="widget-intro">Step through one run of the harness on the eu-west post.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the approval harness"><button type="button" data-step="0" aria-pressed="false" aria-controls="harness-step-0">1. Propose</button><button type="button" data-step="1" aria-pressed="false" aria-controls="harness-step-1">2. Dry run</button><button type="button" data-step="2" aria-pressed="false" aria-controls="harness-step-2">3. Review</button><button type="button" data-step="3" aria-pressed="false" aria-controls="harness-step-3">4. Decide</button><button type="button" data-step="4" aria-pressed="false" aria-controls="harness-step-4">5. Publish</button></div>
+<div class="step-panels"><section id="harness-step-0" class="step-panel" aria-labelledby="harness-heading-0"><h4 id="harness-heading-0">1. Propose</h4><dl><dt>Input</dt><dd>the request to post that the eu-west outage is resolved</dd><dt>Output</dt><dd>the post body and its hashtags as structured output; nothing rendered yet</dd></dl></section><section id="harness-step-1" class="step-panel" aria-labelledby="harness-heading-1"><h4 id="harness-heading-1">2. Dry run</h4><dl><dt>Node</dt><dd>its own node, which runs once</dd><dt>State written</dt><dd>the rendered preview and fingerprint <code>c4e9e330698e</code></dd><dt>Feed</dt><dd>still empty, checked by reading it back</dd></dl></section><section id="harness-step-2" class="step-panel" aria-labelledby="harness-heading-2"><h4 id="harness-heading-2">3. Review</h4><dl><dt>Call</dt><dd><code>interrupt()</code> with the question, the preview and the fingerprint</dd><dt>State</dt><dd>saved in the checkpointer under the run's <code>thread_id</code>; the on-call lead reads the preview</dd></dl></section><section id="harness-step-3" class="step-panel" aria-labelledby="harness-heading-3"><h4 id="harness-heading-3">4. Decide</h4><dl><dt>Resume</dt><dd><code>Command(resume=...)</code> on the same thread; the review node re-runs and <code>interrupt()</code> returns the answer</dd><dt>Decision</dt><dd>the lead types <code>approve</code>; the audit log records reviewer, reason, fingerprint and time</dd></dl></section><section id="harness-step-4" class="step-panel" aria-labelledby="harness-heading-4"><h4 id="harness-heading-4">5. Publish</h4><dl><dt>Check</dt><dd>the fingerprint is recomputed from the post in state and compared with the approved one</dd><dt>Result</dt><dd>they match, and the post goes out as <code>post_1</code>; an edit in the meantime would have been refused</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 Lesson 27.2 builds agents that only read: they search the web and return a brief. Their risk is a wrong claim, and the guard moves from a person's approval to checks in code.
 
@@ -180,6 +197,15 @@ The harness tested an unclear answer and an edit after the preview, on a mock fe
 - **Staleness.** The fingerprint covers the text, not the world it describes. A post approved four hours later still matches even if the incident reopened. Add an approval expiry or a precondition checked at publish time.
 - **Persistence.** The in-memory checkpointer loses a paused run on restart. Add SQLite or Postgres before reviewers answer from another process.
 - **Reviewer quality.** Nothing measures whether approvals are read. Add approval-rate and time-to-decision monitoring.
+- **No model in our check.** The fingerprints and statuses on this page come from the lab and its fixed post text. The notebook's own posts are drafted by `gpt-4o-mini`: their text and fingerprints differ on every run.
+
+## References
+
+1. LangChain, [LangGraph interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts).
+2. LangChain, [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence).
+3. LangChain, [Human-in-the-loop middleware](https://docs.langchain.com/oss/python/langchain/human-in-the-loop).
+4. HashiCorp, [terraform plan command](https://developer.hashicorp.com/terraform/cli/commands/plan).
+5. Python Software Foundation, [hashlib: secure hashes and message digests](https://docs.python.org/3/library/hashlib.html).
 
 ## Key Takeaways
 
@@ -206,7 +232,7 @@ The fingerprint at publish is `11673ae3c1d4`, not the approved `c4e9e330698e`, s
 <details>
 <summary>3. A reviewer answers the approval prompt with yes. Does the post go out, and why is that the right behaviour?</summary>
 
-No. The gate fails closed: the answer is stripped and lowercased, and only the exact word `approve` approves, so `yes` and `approved` are rejections, logged as unclear answers. An ambiguous answer should never publish.
+No. The gate fails closed: the answer is stripped and lowercased, and only the exact word `approve` approves. `yes` and `approved` are rejections, logged as unclear answers. An ambiguous answer should never publish.
 
 </details>
 
