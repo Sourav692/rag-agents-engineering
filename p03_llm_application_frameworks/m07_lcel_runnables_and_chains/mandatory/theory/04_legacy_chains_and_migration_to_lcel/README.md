@@ -2,6 +2,7 @@
 
 *[M07 theory](../README.md) · Lesson 7.4 · Notebooks: [`04a_Chain_Migrations.ipynb`](../../notebook/04a_Chain_Migrations.ipynb), [`04b_Basics_of_Chains.ipynb`](../../../optional/notebook/04b_Basics_of_Chains.ipynb) (optional), [`04c_Chains_Basics_and_OutputParsers.ipynb`](../../../optional/notebook/04c_Chains_Basics_and_OutputParsers.ipynb) (optional), [`04d_Advanced_Chains.ipynb`](../../../optional/notebook/04d_Advanced_Chains.ipynb) (optional), [`04e_Chain_Migration_Advanced.ipynb`](../../../optional/notebook/04e_Chain_Migration_Advanced.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Where the pre-1.x chain classes went, why some of them never warn, and how to replace each one without breaking its callers -->
+<!-- format: approved -->
 
 ## Legacy chains to LCEL
 
@@ -14,7 +15,7 @@
 
 Lessons 7.1 to 7.3 built chains as pipes. Older code did not. Larkspur's billing FAQ service was written on LangChain 0.x with `RetrievalQA`, a prompt pulled from the prompt hub, and `load_summarize_chain` for weekly digests. After the upgrade to 1.x its first import fails with `ModuleNotFoundError: No module named 'langchain.chains'`. Repointing the imports makes it run again, and the digest job prints no warning at all. This page explains why "it runs" and "it warns about nothing" do not mean "it is current", and how to finish the move.
 
-### Where the old classes went
+## Where the old classes went
 
 Before LCEL, LangChain packaged each pattern as a class. In 1.x those classes left the `langchain` package. They live in the compatibility package `langchain-classic`, still run, and carry deprecation markers. We read the markers from the installed `langchain-classic` 1.0.8 source:
 
@@ -43,7 +44,7 @@ Each class has a short pipe that replaces it. The column that matters most for a
 
 We confirmed the output shapes with a fake chat model. `LLMChain` on `{"adjective": "funny"}` returned `{'adjective': 'funny', 'text': ...}`, and `RetrievalQA` on a refund question returned `{'query': ..., 'result': ...}`. A caller that reads `result["result"]` breaks the moment it receives a bare string. We call that a **shape break**, and it is the main thing a migration has to manage.
 
-### How loud a legacy chain is
+## How loud a legacy chain is
 
 You might expect the deprecation markers to warn on every use. We counted the warnings each legacy pattern emits on the installed versions, each in a fresh process:
 
@@ -59,7 +60,7 @@ Notebook 05b shows the last row: the loader returns a deprecated `StuffDocuments
 
 This is the **silent deprecation**: code that keeps working until 2.0 removes it, with nothing in the logs to say so. Audits should grep for imports from `langchain_classic` rather than wait for warnings.
 
-### The prompt hub raises
+## The prompt hub raises
 
 `langchain_classic.hub.pull` is deprecated since 1.0.6 and hands the request to the LangSmith SDK. The installed `langsmith` refuses public prompts by owner and name unless the caller opts in, raising `ValueError: Pulling a public prompt by owner/name is disabled by default because prompts may contain untrusted serialized LangChain objects.` A hub prompt is a serialized LangChain object, so loading one can configure a model's base URL, headers or other constructor arguments. Notebook 04a lists the options in order of preference:
 
@@ -67,7 +68,7 @@ This is the **silent deprecation**: code that keeps working until 2.0 removes it
 - **Opt in through the SDK**: pull it with `dangerously_pull_public_prompt=True` and accept the risk.
 - **Keep `hub.pull`**: deprecated, and it raises.
 
-### A caller-safe migration
+## A caller-safe migration
 
 The order matters more than the speed. Each step leaves a service that runs:
 
@@ -81,11 +82,24 @@ flowchart LR
 
 *Figure 1: A staged migration. The service runs after every step.*
 
-1. Repoint the imports to `langchain_classic` so the service runs on 1.x unchanged.
-2. Replace one chain with its pipe behind the same function.
-3. Map the output shape: callers that read `result["result"]` from `RetrievalQA` now receive the string itself. The function wraps it back into the old dict until the callers move.
-4. Replace `chain(...)` and `.run()` with `.invoke()`.
-5. Run a fixed question set through old and new versions and compare answers before you delete the old class.
+Follow one `RetrievalQA` chain through the stages and watch what the caller sees at each:
+
+<div class="walkthrough learning-widget" data-stepper id="migration-walkthrough">
+<p class="widget-intro">Step through the migration of the FAQ service's <code>RetrievalQA</code> chain. Each stage names what runs and what its caller receives.</p>
+<div class="step-controls" hidden role="group" aria-label="Migration stages">
+<button type="button" data-step="imports" aria-pressed="false" aria-controls="mig-imports">1. Repoint imports</button>
+<button type="button" data-step="swap" aria-pressed="false" aria-controls="mig-swap">2. Swap the chain</button>
+<button type="button" data-step="shape" aria-pressed="false" aria-controls="mig-shape">3. Map the shape</button>
+<button type="button" data-step="invoke" aria-pressed="false" aria-controls="mig-invoke">4. Switch to invoke</button>
+<button type="button" data-step="compare" aria-pressed="false" aria-controls="mig-compare">5. Compare, then delete</button>
+</div>
+<section id="mig-imports" class="step-panel"><h4>Repoint the imports</h4><p>Imports move from <code>langchain.chains</code> to <code>langchain_classic</code>. The legacy class runs on 1.x unchanged, and the caller still receives <code>{'query': ..., 'result': ...}</code>.</p></section>
+<section id="mig-swap" class="step-panel"><h4>Swap one chain behind its function</h4><p>Inside the same function, the dict, prompt, model and parser pipe replaces <code>RetrievalQA</code>. The pipe takes the question string and returns the answer string.</p></section>
+<section id="mig-shape" class="step-panel"><h4>Map the output shape</h4><p>The function wraps that string back into the old dict until every caller reads a string. Without this stage, a caller reading <code>result["result"]</code> hits the shape break.</p></section>
+<section id="mig-invoke" class="step-panel"><h4>Replace the old call style</h4><p>Calls written as <code>chain(...)</code> or <code>.run()</code> become <code>.invoke()</code>. The one deprecation warning the service printed, for the call style, disappears.</p></section>
+<section id="mig-compare" class="step-panel"><h4>Compare answers, then delete</h4><p>A fixed question set runs through the old and the new chain. When the answers agree, the old class and its import go.</p></section>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><button type="button" data-walk="next">Next</button><p class="step-status" aria-live="polite"></p></div>
+</div>
 
 The optional notebooks show more legacy classes and their LCEL forms. Notebook 04b builds `LLMChain` and `SimpleSequentialChain`, 04c adds `StructuredOutputParser`, 04d covers `SequentialChain` and the router class `MultiPromptChain` (whose LCEL form is lesson 7.3's `RunnableBranch`), and 04e rewrites `ConversationalRetrievalChain` as a rephrase pipe followed by a retrieval pipe.
 
@@ -100,6 +114,18 @@ For the billing FAQ service the plan runs like this:
 5. Run the service's fixed set of billing questions through both versions, then remove the `langchain_classic` dependency.
 
 Lesson 7.5 writes out those three summarisation pipes and shows how to choose between them.
+
+## Limits of this evidence
+
+- **Versions pinned by this course.** The markers in Table 1 and the counts in Table 3 come from `langchain-classic` 1.0.8, `langchain-core` 1.7.0 and `langsmith` 0.14.14, each warning count from a fresh process with a fake chat model. Another release can change which helpers warn.
+- **No real migration was run.** The FAQ service, its three imports and its callers are a scenario. The staged plan was not timed or tested against a live service.
+- **The hub error is current behaviour.** The refusal comes from the installed `langsmith` client. A later release may open public pulls again or remove `hub.pull` entirely.
+
+## References
+
+1. LangChain, [LangChain v1 migration guide](https://docs.langchain.com/oss/python/migrate/langchain-v1), on what moved to `langchain-classic` and how to replace it.
+2. LangChain, [LangChain v1 release notes](https://docs.langchain.com/oss/python/releases/langchain-v1), on the slimmer `langchain` package and the compatibility package.
+3. LangSmith, [managing prompts programmatically](https://docs.langchain.com/langsmith/manage-prompts-programmatically), on pulling prompts through the SDK.
 
 ## Key Takeaways
 
