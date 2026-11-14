@@ -2,6 +2,7 @@
 
 *[M26 theory](../README.md) · Lesson 26.3 · Notebooks: [`03a_simple_coding_agent.py`](../../notebook/03a_simple_coding_agent.py), [`03b_long_term_memory_agent.py`](../../../optional/notebook/03b_long_term_memory_agent.py) (optional), [`03c_skills`](../../../optional/notebook/03c_skills) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Configure a harness instead of wiring a graph, then check what its backend and memory really do -->
+<!-- format: approved -->
 
 ## Deep-agent harness
 
@@ -86,6 +87,13 @@ The `memory-manager` skill shows what the full body holds once read:
 
 *Table 2: The `memory-manager` skill body, read only when a memory task comes up.*
 
+The path from a request to a loaded skill, for an engineer who asks the assistant to remember a preference:
+
+<div class="walkthrough learning-widget" data-stepper id="skill-walkthrough">
+<p class="widget-intro">Step through how the memory-manager skill goes from one line in the prompt to full instructions.</p>
+<div class="step-controls" hidden role="group" aria-label="Loading a skill on demand"><button type="button" data-step="0" aria-pressed="false" aria-controls="skill-step-0">1. Prompt</button><button type="button" data-step="1" aria-pressed="false" aria-controls="skill-step-1">2. Match</button><button type="button" data-step="2" aria-pressed="false" aria-controls="skill-step-2">3. Read</button><button type="button" data-step="3" aria-pressed="false" aria-controls="skill-step-3">4. Follow</button></div>
+<div class="step-panels"><section id="skill-step-0" class="step-panel" aria-labelledby="skill-heading-0"><h4 id="skill-heading-0">1. The prompt lists every skill briefly</h4><dl><dt>Context holds</dt><dd>eight name and description pairs from the frontmatter, and no skill bodies</dd></dl></section><section id="skill-step-1" class="step-panel" aria-labelledby="skill-heading-1"><h4 id="skill-heading-1">2. The request matches a description</h4><dl><dt>Request</dt><dd>remember that I want refund answers as a checklist</dd><dt>Model decides</dt><dd>the memory-manager description covers saving preferences</dd></dl></section><section id="skill-step-2" class="step-panel" aria-labelledby="skill-heading-2"><h4 id="skill-heading-2">3. The full body is read</h4><dl><dt>Call</dt><dd><code>read_file</code> on the skill's <code>SKILL.md</code> under <code>/skills/</code></dd><dt>Context gains</dt><dd>the workflow, recall, categories and forgetting rules in Table 2</dd></dl></section><section id="skill-step-3" class="step-panel" aria-labelledby="skill-heading-3"><h4 id="skill-heading-3">4. The instructions guide the action</h4><dl><dt>Does</dt><dd>saves the note under the preference category</dd><dt>Other skills</dt><dd>still cost one line each</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 Because the model matches a task against the description alone, a description that does not say when the skill applies is a skill that never loads. We call this a **silent skill**. Adding eight more skills is cheap in tokens, but each new description has to be distinct enough that the model picks the right one.
 
 ## The backend decides what can run
@@ -101,6 +109,21 @@ The backend is where files live and whether a command can run at all. Two settin
 *Table 3: Three backend settings and what they really do.*
 
 We call the middle row **sandbox by name**: a flag whose name promises isolation the code does not provide. The library does ship a separate `LangSmithSandbox` backend, but the script never selects it.
+
+The same request, *run the billing script's tests*, under each choice:
+
+<div class="learning-widget evidence-switcher" data-comparison id="backend-switcher">
+<p class="widget-intro">Choose a backend and see what happens when the agent calls execute.</p>
+<div class="mode-controls" hidden role="group" aria-label="Backend for the support deep agent">
+<button type="button" data-mode="virtual" aria-pressed="false" aria-controls="backend-virtual">Virtual-mode files</button>
+<button type="button" data-mode="localshell" aria-pressed="false" aria-controls="backend-localshell">USE_SANDBOX=true</button>
+<button type="button" data-mode="sandbox" aria-pressed="false" aria-controls="backend-sandbox">Real sandbox with approval</button>
+</div>
+<section id="backend-virtual" class="mode-panel" data-announcement="Virtual-mode files selected. Execute returns an error."><h4>Virtual-mode files (the default)</h4><ul><li>File tools work on paths anchored under the root; <code>..</code> is blocked.</li><li><code>execute</code> returns an error, so no test runs.</li><li>Safe for drafting files, useless for checking them.</li></ul></section>
+<section id="backend-localshell" class="mode-panel" data-announcement="LocalShellBackend selected. The command runs on the host."><h4>USE_SANDBOX=true</h4><ul><li>The script selects <code>LocalShellBackend</code>.</li><li>The test command runs on your machine with your permissions, and so would any other command the model writes.</li><li>Nothing pauses for a person: sandbox by name.</li></ul></section>
+<section id="backend-sandbox" class="mode-panel" data-announcement="Sandbox with approval selected. The command waits for a person."><h4>Real sandbox with approval</h4><ul><li>A sandbox backend such as <code>LangSmithSandbox</code> runs the command away from the host.</li><li><code>interrupt_on</code> pauses before each <code>execute</code> until a person approves it.</li><li>The tests run, and a person sees every command first.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 The choice of backend follows from what the agent needs to run:
 
@@ -154,6 +177,11 @@ The module's deployed design, described in [the deep agent overview](../../../..
 
 - **No recorded run.** The scripts need a model-serving endpoint and a Tavily key. This page describes their configuration and the library's behaviour rather than a measured run.
 - **One library version.** Tool names and backend behaviour are those of `deepagents` 0.7.32. Check them again after an upgrade.
+
+## References
+
+1. LangChain, [Deep Agents overview](https://docs.langchain.com/oss/python/deepagents/overview) documentation.
+2. Anthropic, [Equipping agents for the real world with Agent Skills](https://www.anthropic.com/research/equipping-agents-for-the-real-world-with-agent-skills), 2025.
 
 ## Key Takeaways
 

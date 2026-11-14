@@ -2,6 +2,7 @@
 
 *[M25 theory](../README.md) · Lesson 25.3 · Notebooks: [`03a_reflection_agents.ipynb`](../../notebook/03a_reflection_agents.ipynb), [`03b_reflexion_agents.ipynb`](../../notebook/03b_reflexion_agents.ipynb), [`03c_reflection_architecture.ipynb`](../../../optional/notebook/03c_reflection_architecture.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A critic with only its own opinion polishes style, and a critic that can look things up or run tests fixes facts -->
+<!-- format: approved -->
 
 ## Reflection: a writer and a critic
 
@@ -16,7 +17,7 @@ Lessons 25.1 and 25.2 checked whether a search result answered its step. This le
 
 Larkspur's status team wants an agent that drafts a short post after an incident, under 180 words. A reflection loop sounds ideal: a writer drafts, a critic says what is weak, the writer revises. In practice the critic asks for "a statistic to build trust", the writer adds "99.99% uptime", and the post grows past its limit. The handbook guarantees 99.95%, and nothing in the loop ever looked.
 
-A **reflection agent** is one model playing two roles in a loop. The **generator** drafts and revises. The **critic** (or reflector) reviews the latest draft and returns free-text, actionable feedback. The idea comes from Self-Refine (Madaan et al., 2023). The reflection notebook drafts LinkedIn posts. The mechanism is the same for Larkspur's status post:
+A **reflection agent** is one model playing two roles in a loop. The **generator** drafts and revises. The **critic** (or reflector) reviews the latest draft and returns free-text, actionable feedback. The idea comes from Self-Refine (Madaan et al., 2023). The reflection notebook drafts LinkedIn posts about developer tools; the mechanism is the same for Larkspur's status post:
 
 ```mermaid
 sequenceDiagram
@@ -33,22 +34,24 @@ sequenceDiagram
 
 *Figure 1: The reflection loop with the notebook's cap of three drafts, the first draft plus two revisions.*
 
-In LangGraph the whole exchange is one message list, and two details make it work. The generator sees each critique as the next human message and answers it with a revised draft. The critic sees the conversation with the roles swapped, which makes the writer's drafts arrive as the user's input it has to review. A pure router counts the drafts written and stops at `MAX_DRAFTS = 3`.
+### One message list, two points of view
+
+In LangGraph the whole exchange is one message list, and two details make it work. The generator sees each critique as the next human message and answers it with a revised draft. The critic sees the conversation with the roles swapped: the brief stays first, and the writer's drafts arrive as the user's input it has to review. A pure router counts the drafts written and stops at `MAX_DRAFTS = 3`.
 
 The finished state holds six messages:
 
-| # | Role the writer sees | Content |
-|---|---|---|
-| 1 | Human | The brief: an incident post under 180 words |
-| 2 | AI | Draft 1 |
-| 3 | Human | Critique 1 |
-| 4 | AI | Draft 2 |
-| 5 | Human | Critique 2 |
-| 6 | AI | Draft 3, the answer |
+| # | Role the writer sees | Role the critic sees | Content |
+|---|---|---|---|
+| 1 | Human | Human | The brief: an incident post under 180 words |
+| 2 | AI | Human | Draft 1 |
+| 3 | Human | AI | Critique 1 |
+| 4 | AI | Human | Draft 2 |
+| 5 | Human | AI | Critique 2 |
+| 6 | AI | | Draft 3, the answer |
 
-*Table 1: The message trace of one reflection run. The router counts the AI messages.*
+*Table 1: The message trace of one reflection run. The router counts the AI messages; the critic never reviews draft 3.*
 
-Two LLM calls per round, plus the first draft, gives 5 calls for three drafts. The cap is a count in code. In an agentic version the critic could also decide when the draft is good enough, which needs a cap even more, because a critic can be too easily satisfied or never satisfied.
+Two LLM calls per round, plus the first draft, gives 5 calls for three drafts. The cap is a count in code. A critic that decides when the draft is good enough needs a cap even more, because it can be too easily satisfied or never satisfied.
 
 ## Where self-critique stops helping
 
@@ -70,7 +73,19 @@ The fix for the unchecked rule is to check it in code. Word counts, required phr
 
 The optional reflection-architecture notebook runs the smallest structured version: generate, critique, refine, once, with no loop. Each role returns a typed object. The critique has fields `has_errors`, `is_efficient`, a list of suggested improvements and a summary. Its verdict becomes a claim we can test.
 
-The task is a duration parser that turns strings like "1h30m" or "2h5m10s" into seconds. The request says nothing about bad input. Ten hidden tests, which neither generator nor critic sees, define what a reasonable user expects:
+```mermaid
+flowchart LR
+    U[/Request/] --> G["Generator<br/>draft code"]
+    G --> C["Critic<br/>has_errors, is_efficient,<br/>improvements"]
+    C --> R["Refiner<br/>refined code"]
+    R --> E[/Final code/]
+    G -.-> T{{"Hidden tests<br/>run in code"}}
+    R -.-> T
+```
+
+*Figure 2: The structured pass is three calls in a line. Hidden tests outside the graph score the draft and the refined code.*
+
+The task is a duration parser that turns strings like "1h30m" or "2h5m10s" into seconds. The request says nothing about bad input. Ten hidden tests, which no role sees, define what a reasonable user expects:
 
 | Group | Inputs | Expected |
 |---|---|---|
@@ -80,15 +95,15 @@ The task is a duration parser that turns strings like "1h30m" or "2h5m10s" into 
 
 *Table 3: The ten hidden tests, run in code against the draft and the refined version.*
 
-The notebook runs the whole pass four times and compares the critic's belief with the measured score. Refinement helps when the critique happens to name what the tests check ("validate the input", "raise a ValueError for unknown units"). It is not reliable. Across runs the refined code can pass the same number of tests as the draft, or fewer, when a refiner "simplifies" the parser with a regular expression and drops validation. One run is an anecdote, which is why the comparison repeats.
+The notebook runs the pass four times and compares the critic's belief with the measured score. Refinement helps when the critique happens to name what the tests check ("validate the input", "raise a ValueError for unknown units"). It is not reliable. Across runs the refined code can pass the same number of tests as the draft, or fewer, when a refiner "simplifies" the parser with a regular expression and drops validation. One run is an anecdote, which is why the comparison repeats.
 
 > **Pitfall: self-bias.** A critic that cannot run the code, look up the fact or see the rule's check will sound equally confident when it is wrong. Treat its verdict as a hypothesis and measure the output.
 
 ## Reflexion: critique backed by search
 
-**Reflexion** (Shinn et al., 2023) extends reflection in two ways: the critique must say what is missing, and the gaps turn into external research that the revision has to cite. In the paper an **actor** attempts the task, an evaluator scores it, and a self-reflection step writes a verbal lesson that is kept in memory for the next attempt. The paper reports a Reflexion agent reaching 91% pass@1 on the HumanEval coding benchmark against 80% for GPT-4 without it, and 130 of 134 AlfWorld tasks solved.
+**Reflexion** (Shinn et al., 2023) extends reflection in two ways: the critique must say what is missing, and the gaps turn into external research that the revision has to cite. In the paper an **actor** attempts the task, an evaluator scores it, and a self-reflection step writes a verbal lesson kept in an episodic memory for the next attempt. The paper reports 91% pass@1 on the HumanEval coding benchmark against 80% for GPT-4, and 130 of 134 AlfWorld tasks completed by ReAct with Reflexion.
 
-The Reflexion notebook implements the within-task form with a search tool:
+The Reflexion notebook implements a within-task form with a search tool and no memory across tasks:
 
 ```mermaid
 flowchart LR
@@ -100,13 +115,18 @@ flowchart LR
     N -- yes --> A[/Cited answer/]
 ```
 
-*Figure 2: The Reflexion loop. The model's own queries are what the search step runs.*
+*Figure 3: The Reflexion loop. The model's own queries are what the search step runs.*
 
 Three design decisions carry the pattern:
 
-- **One structured response.** The draft holds the answer, a reflection with two fields (what is missing, what is superfluous) and 1 to 3 research queries. The schema is bound as a tool the model must call, and the response arrives as a tool call that a tool node can "execute" by running its queries.
+- **One structured response.** The draft holds the answer, a reflection with two fields (what is missing, what is superfluous) and 1 to 3 research queries. The schema is bound as a tool the model must call. The response arrives as a tool call that a tool node can "execute" by running its queries.
 - **Strict schemas, with a retry behind them.** Without OpenAI's strict schema mode, `gpt-4o-mini` left out the revision's required sources field in 3 of 4 test calls, often on every retry. A responder that feeds the validation error back and asks again (up to 3 attempts) stays as the fallback for providers without strict mode.
-- **A revisor that must change something.** With the first guidelines the revision copied the draft almost word for word, attached sources without citing them and re-issued the same queries. Two added rules (add at least one fact from the results, cite it as a numbered reference) and a temperature of 0.7 fixed that, because at temperature 0 a second revision repeated the first.
+- **A revisor that must change something.** With the first guidelines the revision copied the draft almost word for word, attached sources without citing them and re-issued the same queries. Two added rules (add at least one fact from the results, cite it as a numbered reference) and a temperature of 0.7 fixed that in the recorded runs; at temperature 0 a second revision repeated the first.
+
+<div class="walkthrough learning-widget" data-stepper id="reflexion-walkthrough">
+<p class="widget-intro">Step through one Reflexion run and see what each stage reads and adds.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one Reflexion run"><button type="button" data-step="0" aria-pressed="false" aria-controls="rx-step-0">1. Draft</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rx-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rx-step-2">3. Revise</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rx-step-3">4. Search again</button><button type="button" data-step="4" aria-pressed="false" aria-controls="rx-step-4">5. Final revision</button></div>
+<div class="step-panels"><section id="rx-step-0" class="step-panel" aria-labelledby="rx-heading-0"><h4 id="rx-heading-0">1. Draft with critique</h4><dl><dt>Reads</dt><dd>the question</dd><dt>Adds</dt><dd>one tool call holding the answer, what is missing, what is superfluous and 1 to 3 queries</dd></dl></section><section id="rx-step-1" class="step-panel" aria-labelledby="rx-heading-1"><h4 id="rx-heading-1">2. Run the draft's queries</h4><dl><dt>Reads</dt><dd>the queries inside the tool call</dd><dt>Adds</dt><dd>one tool message with up to three results per query; no model call</dd></dl></section><section id="rx-step-2" class="step-panel" aria-labelledby="rx-heading-2"><h4 id="rx-heading-2">3. Revision 1</h4><dl><dt>Reads</dt><dd>question, draft, critique and results</dd><dt>Adds</dt><dd>a cited answer, a sources list and new queries that must differ from those already searched</dd></dl></section><section id="rx-step-3" class="step-panel" aria-labelledby="rx-heading-3"><h4 id="rx-heading-3">4. Run revision 1's queries</h4><dl><dt>Why</dt><dd>the router counts one revision, below the cap of two, so it routes back to search</dd></dl></section><section id="rx-step-4" class="step-panel" aria-labelledby="rx-heading-4"><h4 id="rx-heading-4">5. Revision 2, the answer</h4><dl><dt>Then</dt><dd>the router counts two revisions and ends; code checks length, citations and sources</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 The cost of one run follows from the graph:
 
@@ -123,7 +143,7 @@ The cost of one run follows from the graph:
 
 The router counts revisions directly. The notebook's first version counted trailing messages, which hid the real limit. After the run, code checks the guidelines itself: a body of at most 300 words, numbered citations in the text and at least one source URL. The model's claim to have followed them is not evidence.
 
-> **Key distinction:** reflection asks "what would make this better?" and answers from memory. Reflexion asks "what is missing?" and goes to get it.
+> **Key distinction:** reflection asks "what would make this better?" and answers from memory. Reflexion asks "what is missing?" and goes to get it. A citation still has to support its claim; the code check only confirms one exists.
 
 ## Choosing a critic
 
@@ -139,33 +159,52 @@ flowchart TD
     X -- no --> R["Plain reflection<br/>style and tone"]
 ```
 
-*Figure 3: Pick the strongest critic the task allows, and fall back to plain reflection only for judgment calls.*
+*Figure 4: Pick the strongest critic the task allows, and fall back to plain reflection only for judgment calls.*
 
 | | Reflection | Structured pass | Reflexion | Execution critic |
 |---|---|---|---|---|
 | Evidence the critic uses | Its own opinion | Its own opinion, typed | Search results | Exceptions and test results |
 | Catches style problems | ✓ | ✓ | ✓ | ✗ |
-| Catches invented facts | ✗ | ✗ | ✓ | ✗ |
-| Catches broken code | ✗ | Sometimes | ✗ | ✓ |
+| Catches invented facts | ✗ | ✗ | ✓, when the sources support the fix | ✗ |
+| Catches broken code | ✗ | Only bugs it imagines | ✗ | ✓ |
 | LLM calls for 2 revisions | 5 | 3 (one pass) | 3 plus searches | 1 per attempt |
 
 *Table 5: The critics side by side.*
 
+<div class="learning-widget evidence-switcher" data-comparison id="critic-switcher">
+<p class="widget-intro">Give the same incident draft, 214 words and claiming 99.99% uptime, to each critic and see what it can catch. The draft is illustrative.</p>
+<div class="mode-controls" hidden role="group" aria-label="Critic for the incident draft">
+<button type="button" data-mode="reflection" aria-pressed="false" aria-controls="critic-reflection">Plain reflection</button>
+<button type="button" data-mode="code" aria-pressed="false" aria-controls="critic-code">Check in code</button>
+<button type="button" data-mode="reflexion" aria-pressed="false" aria-controls="critic-reflexion">Reflexion on the handbook</button>
+</div>
+<section id="critic-reflection" class="mode-panel" data-announcement="Plain reflection selected. Tone improves; both errors survive."><h4>Plain reflection</h4><ul><li>Suggests a stronger opening and a clearer apology.</li><li>Counts nothing and has no source for the uptime figure: both errors survive.</li></ul></section>
+<section id="critic-code" class="mode-panel" data-announcement="Check in code selected. The length fails; the figure passes unchecked."><h4>Check in code</h4><ul><li>Fails the post at 214 words against 180 and checks the status-page link.</li><li>Says nothing about 99.99%: a word count cannot tell a true number from an invented one.</li></ul></section>
+<section id="critic-reflexion" class="mode-panel" data-announcement="Reflexion selected. The figure is corrected from the handbook."><h4>Reflexion on the handbook</h4><ul><li>The critique names "uptime figure unverified", the query retrieves the SLA chunk, and the revision cites 99.95% monthly availability.</li><li>Length still needs the code check.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 ## In practice: Larkspur's incident post
 
-For the status team's post, the choices combine:
+No single critic catches both errors, and the status team's post combines them:
 
 1. **Draft and critique** with a reflection loop for tone and clarity, capped at three drafts.
 2. **Check the limit in code**: the word count and the required link to the status page.
-3. **Ground every number** Reflexion-style, with the handbook as the search tool. The critique names "uptime figure unverified", the query retrieves the SLA chunk, and the revision cites 99.95% monthly availability and the 72-hour root-cause report.
+3. **Ground every number** Reflexion-style, with the handbook as the search tool: 99.95% monthly availability and the 72-hour root-cause report.
 4. **Score in code** after the loop, and route a post that still fails to a person.
+
+## Limits of this evidence
+
+- **Recorded runs, one model.** Table 2 and the Reflexion fixes come from the notebooks' `gpt-4o-mini` runs; the drift past 180 words varies from run to run.
+- **Paper figures are paper-reported**, from a setup with memory across attempts that the notebook does not reproduce.
+- **The Larkspur post is illustrative.** 99.95% and 72 hours are handbook text; the 214-word draft was written for this page.
 
 Lesson 25.4 makes the fact check stricter by answering one question per claim in a call that never sees the draft.
 
 ## References
 
 1. Madaan et al., [Self-Refine: Iterative Refinement with Self-Feedback](https://arxiv.org/abs/2303.17651), NeurIPS 2023.
-2. Shinn et al., [Reflexion: Language Agents with Verbal Reinforcement Learning](https://arxiv.org/abs/2303.11366), 2023.
+2. Shinn et al., [Reflexion: Language Agents with Verbal Reinforcement Learning](https://arxiv.org/abs/2303.11366), NeurIPS 2023.
 
 ## Key Takeaways
 

@@ -2,6 +2,7 @@
 
 *[M26 theory](../README.md) · Lesson 26.1 · Notebooks: [`01a_web_research_agent.ipynb`](../../notebook/01a_web_research_agent.ipynb), [`01b_swe_agent_applied.ipynb`](../../../optional/notebook/01b_swe_agent_applied.ipynb) (optional), [`01c_browser_agent_computer_use.ipynb`](../../../optional/notebook/01c_browser_agent_computer_use.ipynb) (optional), [`01d_vision_driven_computer_use.ipynb`](../../../optional/notebook/01d_vision_driven_computer_use.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: One agent loop, four environments: what changes is the observation, the success signal and the cap -->
+<!-- format: approved -->
 
 ## Planned pipeline vs ReAct loop
 
@@ -12,11 +13,9 @@
 > - **Explain** what changes when the loop moves to files, a browser and a screen.
 > - **Diagnose** a coding, browser or vision agent from what the environment shows, not what the agent says.
 
-[M23](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) built the ReAct loop with `create_agent`, and M25 weighed plan-and-execute against it. This lesson puts both to work, first on research and then in three environments where the agent's actions change things.
-
 Larkspur Cloud's support team wants a researcher that drafts a weekly outage summary. The first version plans three searches up front. One week the status page moved, the first search returns nothing, and the summary goes out with an empty "Root cause" section. Nothing in the run noticed, because the plan was fixed before any result came back.
 
-The notebook builds both designs on one topic, *Artificial Intelligence in Healthcare*. A **planned pipeline** writes every search before running any of them. A **ReAct researcher** chooses its next search after reading the last result:
+[M23](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/README.md) built the ReAct loop with `create_agent`, and M25 weighed plan-and-execute against it. This lesson puts both to work on research, then moves the loop into three environments where the agent's actions change things. The notebook builds both research designs on one topic, *Artificial Intelligence in Healthcare*:
 
 ```mermaid
 flowchart TB
@@ -33,9 +32,34 @@ flowchart TB
 
 *Figure 1: The two research paths. The pipeline runs straight through. The loop goes back to the model after every search.*
 
-The pipeline's state carries more than messages: the topic, the planned questions, a dictionary of results per question merged by a custom reducer, the report, and a log that appends one line per node. Each node returns only the keys it changes. No edge goes back to planning. The pipeline cannot notice an empty search or follow a lead, and a failed search simply becomes an empty result.
+### The planned pipeline
 
-The ReAct researcher is `create_agent` with one `web_search` tool and a prompt that asks for one search per turn, 3 to 5 in all. `ModelCallLimitMiddleware` from [M23's call limits](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/02_react_with_langchain_create_agent/README.md#call-limits-and-runaway-loops) bounds the loop in code.
+A **planned pipeline** writes every search before running any of them. Its state carries more than messages: the topic, the planned questions, a dictionary of results per question merged by a custom reducer, the report, and a log that appends one line per node. Each node returns only the keys it changes.
+
+```mermaid
+flowchart LR
+    Q["Topic"] --> P["Plan<br/>3 questions"]
+    P --> S["Run each search"]
+    S --> R["Write report"]
+```
+
+*Figure 2: The planned pipeline on its own. No edge leads back to planning.*
+
+No edge goes back to planning. The pipeline cannot notice an empty search or follow a lead, and a failed search simply becomes an empty result.
+
+### The ReAct researcher
+
+A **ReAct researcher** chooses its next search after reading the last result. It is `create_agent` with one `web_search` tool and a prompt that asks for one search per turn, 3 to 5 in all. `ModelCallLimitMiddleware` from [M23's call limits](../../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/02_react_with_langchain_create_agent/README.md#call-limits-and-runaway-loops) bounds the loop in code, at 8 model calls in the notebook.
+
+```mermaid
+flowchart LR
+    Q["Topic"] --> A["Model picks<br/>next search"]
+    A -->|query| S["web_search"]
+    S -->|results| A
+    A -->|"done or capped"| R["Report"]
+```
+
+*Figure 3: The ReAct researcher on its own. Every result returns to the model before the next search.*
 
 One recorded live run produced these counts:
 
@@ -63,6 +87,21 @@ The two designs trade predictability for adaptivity:
 
 *Table 2: What each research shape gives you.*
 
+The comparison below follows the moved status page through each design. The Larkspur run is illustrative; neither notebook searched it.
+
+<div class="learning-widget evidence-switcher" data-comparison id="research-switcher">
+<p class="widget-intro">Choose a research design and see what happens when the first search returns nothing.</p>
+<div class="mode-controls" hidden role="group" aria-label="Research design for the weekly outage summary">
+<button type="button" data-mode="planned" aria-pressed="false" aria-controls="research-planned">Planned pipeline</button>
+<button type="button" data-mode="react" aria-pressed="false" aria-controls="research-react">ReAct agent</button>
+<button type="button" data-mode="hybrid" aria-pressed="false" aria-controls="research-hybrid">Plan, then react</button>
+</div>
+<section id="research-planned" class="mode-panel" data-announcement="Planned pipeline selected. The empty result ships."><h4>Planned pipeline</h4><ul><li>The plan holds three fixed questions; the root-cause search returns an empty result.</li><li>The empty result is stored under its question and the report node writes an empty Root cause section.</li><li>Cost stays at three searches. Nothing flags the gap.</li></ul></section>
+<section id="research-react" class="mode-panel" data-announcement="ReAct agent selected. The model searches again."><h4>ReAct agent</h4><ul><li>The model reads the empty result and chooses a different query on its next turn.</li><li>The search count is no longer known in advance; the call cap ends the run if no query succeeds.</li><li>The report's sections depend on what the searches found.</li></ul></section>
+<section id="research-hybrid" class="mode-panel" data-announcement="Plan then react selected. The section step retries."><h4>Plan, then react</h4><ul><li>The plan fixes the report's sections, so the summary keeps its shape every week.</li><li>The root-cause step checks for an empty result and searches again within its own cap.</li><li>A section still empty at the cap is marked as missing rather than shipped blank.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 The decision comes down to whether the report's shape is known before the first search:
 
 ```mermaid
@@ -74,9 +113,9 @@ flowchart TD
     S -->|no| R["ReAct agent<br/>with a call cap"]
 ```
 
-*Figure 2: Choosing a research shape. The hybrid keeps the plan's sections and lets each step search adaptively.*
+*Figure 4: Choosing a research shape. The hybrid keeps the plan's sections and lets each step search adaptively.*
 
-Many production researchers sit in the middle: plan the sections first, then let each section's step react to what it finds. M24 treats the pipeline side as workflow patterns. Larkspur's weekly summary keeps its plan because the sections are fixed. Each section still needs a check for an empty result and a retry, or the empty "Root cause" section ships again.
+Many production researchers sit in the middle, and M24 treats the pipeline side as workflow patterns. Larkspur's weekly summary keeps its plan because the sections are fixed. Each section still needs a check for an empty result and a retry, or the empty "Root cause" section ships again.
 
 The same loop now leaves the web and starts changing files, pages and screens.
 
@@ -115,16 +154,12 @@ A green suite is still not proof of a good change. A common deviation with the s
 
 ### Browser agent: grade the cart
 
-The browser notebook turns `screenshot_text`, `click`, `type_text` and `navigate` into ordinary tools over a deterministic mock shop. The agent never sees the shop's code, only the page text each action returns. Driving the shop by hand first shows the path the agent has to find:
+The browser notebook turns `screenshot_text`, `click`, `type_text` and `navigate` into ordinary tools over a deterministic mock shop. The agent never sees the shop's code, only the page text each action returns. Driving the shop by hand first shows the path the agent has to find. The four steps below come from running the notebook's mock browser.
 
-| Action | Page after it | Cart |
-|---|---|---|
-| `type_text(search_box, "wireless mouse")` | Home | 0 |
-| `click(search_button)` | Search results, two mice | 0 |
-| `click(result_0)` | Logitech M185, $14.99 | 0 |
-| `click(add_to_cart)` | Same product page | 1 |
-
-*Table 5: The manual drive, from running the notebook's mock browser. Four actions put one item in the cart.*
+<div class="walkthrough learning-widget" data-stepper id="browser-walkthrough">
+<p class="widget-intro">Step through the manual drive that puts one item in the cart.</p>
+<div class="step-controls" hidden role="group" aria-label="Manual drive of the mock shop"><button type="button" data-step="0" aria-pressed="false" aria-controls="drive-step-0">1. Type</button><button type="button" data-step="1" aria-pressed="false" aria-controls="drive-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="drive-step-2">3. Open</button><button type="button" data-step="3" aria-pressed="false" aria-controls="drive-step-3">4. Add</button></div>
+<div class="step-panels"><section id="drive-step-0" class="step-panel" aria-labelledby="drive-heading-0"><h4 id="drive-heading-0">1. Type the query</h4><dl><dt>Action</dt><dd><code>type_text(search_box, "wireless mouse")</code></dd><dt>Page after it</dt><dd>Home</dd><dt>Cart</dt><dd>0</dd></dl></section><section id="drive-step-1" class="step-panel" aria-labelledby="drive-heading-1"><h4 id="drive-heading-1">2. Run the search</h4><dl><dt>Action</dt><dd><code>click(search_button)</code></dd><dt>Page after it</dt><dd>Search results, two mice</dd><dt>Cart</dt><dd>0</dd></dl></section><section id="drive-step-2" class="step-panel" aria-labelledby="drive-heading-2"><h4 id="drive-heading-2">3. Open the first result</h4><dl><dt>Action</dt><dd><code>click(result_0)</code></dd><dt>Page after it</dt><dd>Logitech M185, $14.99</dd><dt>Cart</dt><dd>0</dd></dl></section><section id="drive-step-3" class="step-panel" aria-labelledby="drive-heading-3"><h4 id="drive-heading-3">4. Add to cart</h4><dl><dt>Action</dt><dd><code>click(add_to_cart)</code></dd><dt>Page after it</dt><dd>Same product page</dd><dt>Cart</dt><dd>1, the only state the grader reads</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 Two things change once actions change state. The turn cap becomes a safety bound, because each extra click mutates the shop. And success is graded on `browser.cart`, never on the agent's reply. A wrong element id returns an `ERROR:` line plus the current page, which lets the agent correct itself on the next turn.
 
@@ -139,13 +174,13 @@ The vision notebook removes the text description. The agent gets a real PNG of a
 | `gpt-4o` | raw | 3 | 26 | 15 | 2 |
 | `gpt-4o` | with ruler, 2× | 3 | 22 | 9 | 2 |
 
-*Table 6: Vision runs recorded in the notebook. Single-digit run counts on one synthetic screen: indicative only.*
+*Table 5: Vision runs recorded in the notebook. Single-digit run counts on one synthetic screen: indicative only.*
 
 The small model knew it wanted the `+` button and kept clicking the wrong row, even though every miss was fed back to it. A miss raises no error and changes nothing on screen, and the loop just repeats. We call this the **no-op loop**, and the step cap in code is the only thing that ends it.
 
-A coordinate ruler drawn over the screenshot fixed the vertical axis and broke the horizontal one. The miss count improved, but the error had moved rather than gone. Only the per-click log showed that. One ruled run also ended with "quantity set and coupon applied" when neither had happened, which is why the notebook asserts on the screen's state.
+A coordinate ruler drawn over the screenshot fixed the vertical axis and broke the horizontal one. The miss count improved, but the error had moved rather than gone, and only the per-click log showed that. One ruled run also ended with "quantity set and coupon applied" when neither had happened, which is why the notebook asserts on the screen's state.
 
-Cost runs against intuition here. In the notebook's measurement a raw screenshot cost `gpt-4o-mini` 14,175 prompt tokens ($0.0021) and `gpt-4o` 433 tokens ($0.0011). The stronger model was half the price per screenshot as well as more accurate.
+Cost runs against intuition here. In the notebook's measurement a raw screenshot cost `gpt-4o-mini` 14,175 prompt tokens ($0.0021) and `gpt-4o` 433 tokens ($0.0011). At those recorded prices the stronger model was half the price per screenshot as well as more accurate. Prices change: treat the figures as that run's.
 
 Used as a frontend tester, the click log gives three outcomes rather than two:
 
@@ -155,26 +190,32 @@ Used as a frontend tester, the click log gives three outcomes rather than two:
 | Hit the control, state unchanged | fail, the UI is broken | frontend |
 | Never hit the control | errored, the UI is unverified | the agent's owner |
 
-*Table 7: Three test outcomes from the click log. Reporting the third as a failure sends someone hunting a bug that may not exist.*
+*Table 6: Three test outcomes from the click log. Reporting the third as a failure sends someone hunting a bug that may not exist.*
 
 If a selector or an accessibility tree is available, use it. Coordinates are the fallback when nothing else is exposed.
 
 ## In practice: Larkspur's control-panel agent
 
-Larkspur wants an agent that resizes a customer's server from the control panel after a support ticket approves it.
+Larkspur wants an agent that resizes a customer's server from the control panel after a support ticket approves it. This design is illustrative.
 
-1. **Prefer selectors.** The panel has an accessibility tree. The agent acts on named elements, as the browser agent does, and pixels stay out of the loop.
-2. **Grade on the panel.** Success is the server's new size read back from the API, the equivalent of reading the cart, never the agent's confirmation.
-3. **Cap the loop in code.** Each click changes a live account. The cap is a safety bound sized just above a clean run.
-4. **Log every action.** The action log separates "the resize button is broken" from "the agent never found it".
+1. **Prefer selectors.** The panel has an accessibility tree. The agent acts on named elements, as the browser agent does.
+2. **Grade on the panel.** Success is the server's new size read back from the API, the equivalent of reading the cart.
+3. **Cap the loop in code.** Each click changes a live account. The cap sits just above a clean run.
+4. **Log every action.** The log separates "the resize button is broken" from "the agent never found it".
 
 Lesson 26.2 adds a second agent that checks the first one's work.
 
 ## Limits of this evidence
 
 - **One live research run.** Table 1 is a single recorded run, and a rerun will give different counts.
-- **A few vision runs on one screen.** Table 6 separates 100% from 41% misses clearly, but three runs cannot separate the two `gpt-4o` rows.
+- **A few vision runs on one screen.** Table 5 separates 100% from 41% misses clearly, but three runs cannot separate the two `gpt-4o` rows.
 - **Mock environments.** The shop and the checkout page are simulations. A real browser adds scrolling, overlays and timing, which these notebooks do not test.
+
+## References
+
+1. Yao et al., [ReAct, the paper on combining reasoning and acting in language models](https://arxiv.org/abs/2210.03629), 2022.
+2. Yang et al., [SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793), 2024.
+3. LangChain, [Agents](https://docs.langchain.com/oss/python/langchain/agents) documentation.
 
 ## Key Takeaways
 

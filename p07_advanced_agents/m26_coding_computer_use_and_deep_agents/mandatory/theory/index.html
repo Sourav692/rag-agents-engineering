@@ -221,9 +221,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Diagnose</strong> a coding, browser or vision agent from what the environment shows, not what the agent says.</li>
 </ul>
 </blockquote>
-<p><a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html">M23</a> built the ReAct loop with <code>create_agent</code>, and M25 weighed plan-and-execute against it. This lesson puts both to work, first on research and then in three environments where the agent&rsquo;s actions change things.</p>
 <p>Larkspur Cloud&rsquo;s support team wants a researcher that drafts a weekly outage summary. The first version plans three searches up front. One week the status page moved, the first search returns nothing, and the summary goes out with an empty &ldquo;Root cause&rdquo; section. Nothing in the run noticed, because the plan was fixed before any result came back.</p>
-<p>The notebook builds both designs on one topic, <em>Artificial Intelligence in Healthcare</em>. A <strong>planned pipeline</strong> writes every search before running any of them. A <strong>ReAct researcher</strong> chooses its next search after reading the last result:</p>
+<p><a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html">M23</a> built the ReAct loop with <code>create_agent</code>, and M25 weighed plan-and-execute against it. This lesson puts both to work on research, then moves the loop into three environments where the agent&rsquo;s actions change things. The notebook builds both research designs on one topic, <em>Artificial Intelligence in Healthcare</em>:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
     subgraph pipe["Planned pipeline"]
         direction TB
@@ -236,8 +235,24 @@ th:last-child, td:last-child { padding-right: 0; }
     end
 </pre></figure>
 <p><em>Figure 1: The two research paths. The pipeline runs straight through. The loop goes back to the model after every search.</em></p>
-<p>The pipeline&rsquo;s state carries more than messages: the topic, the planned questions, a dictionary of results per question merged by a custom reducer, the report, and a log that appends one line per node. Each node returns only the keys it changes. No edge goes back to planning. The pipeline cannot notice an empty search or follow a lead, and a failed search simply becomes an empty result.</p>
-<p>The ReAct researcher is <code>create_agent</code> with one <code>web_search</code> tool and a prompt that asks for one search per turn, 3 to 5 in all. <code>ModelCallLimitMiddleware</code> from <a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html#call-limits-and-runaway-loops">M23&rsquo;s call limits</a> bounds the loop in code.</p>
+<h3>The planned pipeline</h3>
+<p>A <strong>planned pipeline</strong> writes every search before running any of them. Its state carries more than messages: the topic, the planned questions, a dictionary of results per question merged by a custom reducer, the report, and a log that appends one line per node. Each node returns only the keys it changes.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Topic"] --&gt; P["Plan&lt;br/&gt;3 questions"]
+    P --&gt; S["Run each search"]
+    S --&gt; R["Write report"]
+</pre></figure>
+<p><em>Figure 2: The planned pipeline on its own. No edge leads back to planning.</em></p>
+<p>No edge goes back to planning. The pipeline cannot notice an empty search or follow a lead, and a failed search simply becomes an empty result.</p>
+<h3>The ReAct researcher</h3>
+<p>A <strong>ReAct researcher</strong> chooses its next search after reading the last result. It is <code>create_agent</code> with one <code>web_search</code> tool and a prompt that asks for one search per turn, 3 to 5 in all. <code>ModelCallLimitMiddleware</code> from <a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html#call-limits-and-runaway-loops">M23&rsquo;s call limits</a> bounds the loop in code, at 8 model calls in the notebook.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Topic"] --&gt; A["Model picks&lt;br/&gt;next search"]
+    A --&gt;|query| S["web_search"]
+    S --&gt;|results| A
+    A --&gt;|"done or capped"| R["Report"]
+</pre></figure>
+<p><em>Figure 3: The ReAct researcher on its own. Every result returns to the model before the next search.</em></p>
 <p>One recorded live run produced these counts:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -306,6 +321,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: What each research shape gives you.</em></p>
+<p>The comparison below follows the moved status page through each design. The Larkspur run is illustrative; neither notebook searched it.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="research-switcher">
+<p class="widget-intro">Choose a research design and see what happens when the first search returns nothing.</p>
+<div class="mode-controls" hidden role="group" aria-label="Research design for the weekly outage summary">
+<button type="button" data-mode="planned" aria-pressed="false" aria-controls="research-planned">Planned pipeline</button>
+<button type="button" data-mode="react" aria-pressed="false" aria-controls="research-react">ReAct agent</button>
+<button type="button" data-mode="hybrid" aria-pressed="false" aria-controls="research-hybrid">Plan, then react</button>
+</div>
+<section id="research-planned" class="mode-panel" data-announcement="Planned pipeline selected. The empty result ships."><h4>Planned pipeline</h4><ul><li>The plan holds three fixed questions; the root-cause search returns an empty result.</li><li>The empty result is stored under its question and the report node writes an empty Root cause section.</li><li>Cost stays at three searches. Nothing flags the gap.</li></ul></section>
+<section id="research-react" class="mode-panel" data-announcement="ReAct agent selected. The model searches again."><h4>ReAct agent</h4><ul><li>The model reads the empty result and chooses a different query on its next turn.</li><li>The search count is no longer known in advance; the call cap ends the run if no query succeeds.</li><li>The report's sections depend on what the searches found.</li></ul></section>
+<section id="research-hybrid" class="mode-panel" data-announcement="Plan then react selected. The section step retries."><h4>Plan, then react</h4><ul><li>The plan fixes the report's sections, so the summary keeps its shape every week.</li><li>The root-cause step checks for an empty result and searches again within its own cap.</li><li>A section still empty at the cap is marked as missing rather than shipped blank.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The decision comes down to whether the report&rsquo;s shape is known before the first search:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q[New research task] --&gt; S{"Report shape&lt;br/&gt;known up front?"}
@@ -314,8 +343,8 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt;|no| H["Plan, then let&lt;br/&gt;each step react"]
     S --&gt;|no| R["ReAct agent&lt;br/&gt;with a call cap"]
 </pre></figure>
-<p><em>Figure 2: Choosing a research shape. The hybrid keeps the plan&rsquo;s sections and lets each step search adaptively.</em></p>
-<p>Many production researchers sit in the middle: plan the sections first, then let each section&rsquo;s step react to what it finds. M24 treats the pipeline side as workflow patterns. Larkspur&rsquo;s weekly summary keeps its plan because the sections are fixed. Each section still needs a check for an empty result and a retry, or the empty &ldquo;Root cause&rdquo; section ships again.</p>
+<p><em>Figure 4: Choosing a research shape. The hybrid keeps the plan&rsquo;s sections and lets each step search adaptively.</em></p>
+<p>Many production researchers sit in the middle, and M24 treats the pipeline side as workflow patterns. Larkspur&rsquo;s weekly summary keeps its plan because the sections are fixed. Each section still needs a check for an empty result and a retry, or the empty &ldquo;Root cause&rdquo; section ships again.</p>
 <p>The same loop now leaves the web and starts changing files, pages and screens.</p>
 <h2 id="the-same-loop-in-other-environments">The same loop in other environments</h2>
 <p>The three applied notebooks keep the <code>agent ⇄ tools</code> graph from M23 and change only the tools and the environment. What moves is the observation, what counts as success, and how hard the cap has to work:</p>
@@ -402,39 +431,12 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The tool surface is deliberately narrow. Every path is reduced to a filename inside the scratch folder, and a hallucinated absolute path cannot reach the repository. The test tool runs one fixed <code>pytest</code> command with a 30-second timeout. The model chooses <em>when</em> tests run, never <em>what</em> command runs. That constrains the tools. It does not isolate hostile code, which needs a container or a hosted sandbox.</p>
 <p>A green suite is still not proof of a good change. A common deviation with the small model is an extra edit, such as <code>is_palindrome</code> rewritten to stop calling <code>reverse_string</code>. The tests pass and the agent changed code no failing test pointed at. We call this a <strong>silent extra edit</strong>. Only a diff of the files before and after shows it, and only re-running the tests outside the loop confirms the agent did not just claim success.</p>
 <h3>Browser agent: grade the cart</h3>
-<p>The browser notebook turns <code>screenshot_text</code>, <code>click</code>, <code>type_text</code> and <code>navigate</code> into ordinary tools over a deterministic mock shop. The agent never sees the shop&rsquo;s code, only the page text each action returns. Driving the shop by hand first shows the path the agent has to find:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Action</th>
-<th>Page after it</th>
-<th>Cart</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>type_text(search_box, "wireless mouse")</code></td>
-<td>Home</td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>click(search_button)</code></td>
-<td>Search results, two mice</td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>click(result_0)</code></td>
-<td>Logitech M185, $14.99</td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>click(add_to_cart)</code></td>
-<td>Same product page</td>
-<td>1</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 5: The manual drive, from running the notebook&rsquo;s mock browser. Four actions put one item in the cart.</em></p>
+<p>The browser notebook turns <code>screenshot_text</code>, <code>click</code>, <code>type_text</code> and <code>navigate</code> into ordinary tools over a deterministic mock shop. The agent never sees the shop&rsquo;s code, only the page text each action returns. Driving the shop by hand first shows the path the agent has to find. The four steps below come from running the notebook&rsquo;s mock browser.</p>
+<div class="walkthrough learning-widget" data-stepper id="browser-walkthrough">
+<p class="widget-intro">Step through the manual drive that puts one item in the cart.</p>
+<div class="step-controls" hidden role="group" aria-label="Manual drive of the mock shop"><button type="button" data-step="0" aria-pressed="false" aria-controls="drive-step-0">1. Type</button><button type="button" data-step="1" aria-pressed="false" aria-controls="drive-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="drive-step-2">3. Open</button><button type="button" data-step="3" aria-pressed="false" aria-controls="drive-step-3">4. Add</button></div>
+<div class="step-panels"><section id="drive-step-0" class="step-panel" aria-labelledby="drive-heading-0"><h4 id="drive-heading-0">1. Type the query</h4><dl><dt>Action</dt><dd><code>type_text(search_box, "wireless mouse")</code></dd><dt>Page after it</dt><dd>Home</dd><dt>Cart</dt><dd>0</dd></dl></section><section id="drive-step-1" class="step-panel" aria-labelledby="drive-heading-1"><h4 id="drive-heading-1">2. Run the search</h4><dl><dt>Action</dt><dd><code>click(search_button)</code></dd><dt>Page after it</dt><dd>Search results, two mice</dd><dt>Cart</dt><dd>0</dd></dl></section><section id="drive-step-2" class="step-panel" aria-labelledby="drive-heading-2"><h4 id="drive-heading-2">3. Open the first result</h4><dl><dt>Action</dt><dd><code>click(result_0)</code></dd><dt>Page after it</dt><dd>Logitech M185, $14.99</dd><dt>Cart</dt><dd>0</dd></dl></section><section id="drive-step-3" class="step-panel" aria-labelledby="drive-heading-3"><h4 id="drive-heading-3">4. Add to cart</h4><dl><dt>Action</dt><dd><code>click(add_to_cart)</code></dd><dt>Page after it</dt><dd>Same product page</dd><dt>Cart</dt><dd>1, the only state the grader reads</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>Two things change once actions change state. The turn cap becomes a safety bound, because each extra click mutates the shop. And success is graded on <code>browser.cart</code>, never on the agent&rsquo;s reply. A wrong element id returns an <code>ERROR:</code> line plus the current page, which lets the agent correct itself on the next turn.</p>
 <h3>Vision agent: when the observation is pixels</h3>
 <p>The vision notebook removes the text description. The agent gets a real PNG of a checkout page and must click by coordinates. Recognising a control and locating it turn out to be different abilities. Every run made while writing the notebook is in the table:</p>
@@ -484,10 +486,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 6: Vision runs recorded in the notebook. Single-digit run counts on one synthetic screen: indicative only.</em></p>
+<p><em>Table 5: Vision runs recorded in the notebook. Single-digit run counts on one synthetic screen: indicative only.</em></p>
 <p>The small model knew it wanted the <code>+</code> button and kept clicking the wrong row, even though every miss was fed back to it. A miss raises no error and changes nothing on screen, and the loop just repeats. We call this the <strong>no-op loop</strong>, and the step cap in code is the only thing that ends it.</p>
-<p>A coordinate ruler drawn over the screenshot fixed the vertical axis and broke the horizontal one. The miss count improved, but the error had moved rather than gone. Only the per-click log showed that. One ruled run also ended with &ldquo;quantity set and coupon applied&rdquo; when neither had happened, which is why the notebook asserts on the screen&rsquo;s state.</p>
-<p>Cost runs against intuition here. In the notebook&rsquo;s measurement a raw screenshot cost <code>gpt-4o-mini</code> 14,175 prompt tokens ($0.0021) and <code>gpt-4o</code> 433 tokens ($0.0011). The stronger model was half the price per screenshot as well as more accurate.</p>
+<p>A coordinate ruler drawn over the screenshot fixed the vertical axis and broke the horizontal one. The miss count improved, but the error had moved rather than gone, and only the per-click log showed that. One ruled run also ended with &ldquo;quantity set and coupon applied&rdquo; when neither had happened, which is why the notebook asserts on the screen&rsquo;s state.</p>
+<p>Cost runs against intuition here. In the notebook&rsquo;s measurement a raw screenshot cost <code>gpt-4o-mini</code> 14,175 prompt tokens ($0.0021) and <code>gpt-4o</code> 433 tokens ($0.0011). At those recorded prices the stronger model was half the price per screenshot as well as more accurate. Prices change: treat the figures as that run&rsquo;s.</p>
 <p>Used as a frontend tester, the click log gives three outcomes rather than two:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -515,23 +517,29 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 7: Three test outcomes from the click log. Reporting the third as a failure sends someone hunting a bug that may not exist.</em></p>
+<p><em>Table 6: Three test outcomes from the click log. Reporting the third as a failure sends someone hunting a bug that may not exist.</em></p>
 <p>If a selector or an accessibility tree is available, use it. Coordinates are the fallback when nothing else is exposed.</p>
 <h2 id="in-practice-larkspurrsquos-control-panel-agent">In practice: Larkspur&rsquo;s control-panel agent</h2>
-<p>Larkspur wants an agent that resizes a customer&rsquo;s server from the control panel after a support ticket approves it.</p>
+<p>Larkspur wants an agent that resizes a customer&rsquo;s server from the control panel after a support ticket approves it. This design is illustrative.</p>
 <ol>
-<li><strong>Prefer selectors.</strong> The panel has an accessibility tree. The agent acts on named elements, as the browser agent does, and pixels stay out of the loop.</li>
-<li><strong>Grade on the panel.</strong> Success is the server&rsquo;s new size read back from the API, the equivalent of reading the cart, never the agent&rsquo;s confirmation.</li>
-<li><strong>Cap the loop in code.</strong> Each click changes a live account. The cap is a safety bound sized just above a clean run.</li>
-<li><strong>Log every action.</strong> The action log separates &ldquo;the resize button is broken&rdquo; from &ldquo;the agent never found it&rdquo;.</li>
+<li><strong>Prefer selectors.</strong> The panel has an accessibility tree. The agent acts on named elements, as the browser agent does.</li>
+<li><strong>Grade on the panel.</strong> Success is the server&rsquo;s new size read back from the API, the equivalent of reading the cart.</li>
+<li><strong>Cap the loop in code.</strong> Each click changes a live account. The cap sits just above a clean run.</li>
+<li><strong>Log every action.</strong> The log separates &ldquo;the resize button is broken&rdquo; from &ldquo;the agent never found it&rdquo;.</li>
 </ol>
 <p>Lesson 26.2 adds a second agent that checks the first one&rsquo;s work.</p>
 <h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>One live research run.</strong> Table 1 is a single recorded run, and a rerun will give different counts.</li>
-<li><strong>A few vision runs on one screen.</strong> Table 6 separates 100% from 41% misses clearly, but three runs cannot separate the two <code>gpt-4o</code> rows.</li>
+<li><strong>A few vision runs on one screen.</strong> Table 5 separates 100% from 41% misses clearly, but three runs cannot separate the two <code>gpt-4o</code> rows.</li>
 <li><strong>Mock environments.</strong> The shop and the checkout page are simulations. A real browser adds scrolling, overlays and timing, which these notebooks do not test.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Yao et al., <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct, the paper on combining reasoning and acting in language models</a>, 2022.</li>
+<li>Yang et al., <a href="https://arxiv.org/abs/2405.15793" target="_blank" rel="noopener">SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering</a>, 2024.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/agents" target="_blank" rel="noopener">Agents</a> documentation.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A planned pipeline fixes its searches up front. Its cost is predictable and one fixed test covers it, but it cannot react to an empty result. A ReAct researcher picks each search after reading the last one and needs a call cap.</li>
@@ -562,8 +570,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Two small games</strong>, FLAMES and Tic-Tac-Toe, built by the pair and checked against hand-written references.</li>
 </ul>
 </blockquote>
-<p>Lesson 26.1 graded a coding agent on a test suite someone had already written. This project asks a second agent to supply the critique. It is the critique-and-revise (reflection) pattern from <a href="../../../m25_planning_reflection_reasoning/mandatory/theory/index.html">M25</a>, with a <strong>generator</strong> (the developer) and a <strong>reflector</strong> (the tester) taking turns on one shared conversation.</p>
-<p>The project adds no new pattern. It shows what two agents in one loop need: a stop rule no model can talk its way past, a safe-enough way to run model-written code, and a line between a test that ran and a test the tester only imagined.</p>
+<p>Lesson 26.1 graded a coding agent on a test suite someone had already written. Larkspur Cloud&rsquo;s billing team has no such suite for a new proration helper, and a reviewer agent that reports &ldquo;9 out of 10, all tests pass&rdquo; sounds like one. This project asks a second agent to supply the critique, and then checks how much that critique is worth.</p>
+<p>It is the critique-and-revise (reflection) pattern from <a href="../../../m25_planning_reflection_reasoning/mandatory/theory/index.html">M25</a>, with a <strong>generator</strong> (the developer) and a <strong>reflector</strong> (the tester) taking turns on one shared conversation. The project adds no new pattern. It shows what two agents in one loop need: a stop rule no model can talk its way past, a safe-enough way to run model-written code, and a line between a test that ran and a test the tester only imagined.</p>
 <h2 id="architecture">Architecture</h2>
 <p>The graph has two nodes and one decision:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -626,6 +634,12 @@ th:last-child, td:last-child { padding-right: 0; }
     R--&gt;&gt;R: count 1, cap 1, stop
 </pre></figure>
 <p><em>Figure 2: One reflection round. The developer speaks twice, the tester once.</em></p>
+<p>The same round, one state change at a time:</p>
+<div class="walkthrough learning-widget" data-stepper id="round-walkthrough">
+<p class="widget-intro">Step through one reflection round with a cap of 1 and watch the counter decide the stop.</p>
+<div class="step-controls" hidden role="group" aria-label="One reflection round"><button type="button" data-step="0" aria-pressed="false" aria-controls="round-step-0">1. Draft</button><button type="button" data-step="1" aria-pressed="false" aria-controls="round-step-1">2. Route</button><button type="button" data-step="2" aria-pressed="false" aria-controls="round-step-2">3. Critique</button><button type="button" data-step="3" aria-pressed="false" aria-controls="round-step-3">4. Revise</button><button type="button" data-step="4" aria-pressed="false" aria-controls="round-step-4">5. Stop</button></div>
+<div class="step-panels"><section id="round-step-0" class="step-panel" aria-labelledby="round-heading-0"><h4 id="round-heading-0">1. Developer drafts</h4><dl><dt>Reads</dt><dd>the task</dd><dt>Does</dt><dd>writes draft 1, and may run it with the Python tool inside its own loop of at most 12 steps</dd><dt>Counter</dt><dd>0</dd></dl></section><section id="round-step-1" class="step-panel" aria-labelledby="round-heading-1"><h4 id="round-heading-1">2. Router checks the count</h4><dl><dt>Reads</dt><dd>count 0, cap 1</dd><dt>Decides</dt><dd>go on to the tester</dd></dl></section><section id="round-step-2" class="step-panel" aria-labelledby="round-heading-2"><h4 id="round-heading-2">3. Tester critiques</h4><dl><dt>Reads</dt><dd>the whole conversation, with no tools</dd><dt>Writes</dt><dd>tests, an estimated pass rate, a score and fixes, added as a user message</dd><dt>Counter</dt><dd>1</dd></dl></section><section id="round-step-3" class="step-panel" aria-labelledby="round-heading-3"><h4 id="round-heading-3">4. Developer revises</h4><dl><dt>Reads</dt><dd>the conversation including the critique</dd><dt>Does</dt><dd>writes draft 2 with the fixes</dd></dl></section><section id="round-step-4" class="step-panel" aria-labelledby="round-heading-4"><h4 id="round-heading-4">5. Router stops</h4><dl><dt>Reads</dt><dd>count 1, cap 1</dd><dt>Decides</dt><dd>end, whatever the tester said. Draft 2 is the final code</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>The loop&rsquo;s arithmetic holds for any cap. Stub nodes that only append a message, with zero model calls, give these counts:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -664,6 +678,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 2: Stub runs from the notebook&rsquo;s own graph builder. The developer runs r + 1 times, the tester r times, and the recursion limit leaves 3 spare steps as a second guard.</em></p>
 <p>After the run, code checks how many times each agent spoke and whether the last answer holds a Python block that parses. Parsing does not prove the game is right.</p>
 <p>A hand-written reference does. For John and Jane it finds 4 letters left, crosses out M, L, F, A and S in turn, and lands on Enemy. The notebook records two mistakes one model run made: it restarted counting from the start of FLAMES after each removal, and read S as &ldquo;Sister&rdquo; rather than &ldquo;Sibling&rdquo;. The Tic-Tac-Toe reference plays three scripted games (a win, a draw, a move onto an occupied square) and all three end as expected.</p>
+<h2 id="what-the-testerrsquos-verdict-is-worth">What the tester&rsquo;s verdict is worth</h2>
+<p>The tester&rsquo;s report can rest on three kinds of evidence, and they are not equally strong. The comparison uses the same FLAMES draft that restarted its count after each removal.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="verdict-switcher">
+<p class="widget-intro">Choose where the verdict comes from and see what it can catch.</p>
+<div class="mode-controls" hidden role="group" aria-label="Source of the tester's verdict">
+<button type="button" data-mode="estimated" aria-pressed="false" aria-controls="verdict-estimated">Tester without tools</button>
+<button type="button" data-mode="executed" aria-pressed="false" aria-controls="verdict-executed">Tester runs its tests</button>
+<button type="button" data-mode="reference" aria-pressed="false" aria-controls="verdict-reference">Hand-written reference</button>
+</div>
+<section id="verdict-estimated" class="mode-panel" data-announcement="Tester without tools selected. The pass rate is an estimate."><h4>Tester without tools (the notebook's design)</h4><ul><li>The tests exist only as text in the report; nothing executes them.</li><li>The pass rate and score are the model's estimates. A counting bug can pass if the tester reasons it through the same wrong way.</li><li>Cost: one model call per round.</li></ul></section>
+<section id="verdict-executed" class="mode-panel" data-announcement="Tester runs its tests selected. The results are real."><h4>Tester runs its tests</h4><ul><li>Given the Python tool, the tester executes the tests it wrote, so a failure is a real failure.</li><li>The tests are still the tester's own; a test built on the same misreading of the rules still passes.</li><li>Cost: roughly twice the tester's calls.</li></ul></section>
+<section id="verdict-reference" class="mode-panel" data-announcement="Reference selected. The answer is checked against a fact."><h4>Hand-written reference</h4><ul><li>Code compares the draft's output for John and Jane against the reference's Enemy.</li><li>Restarting the count at F after each removal lands on Love, so the draft fails the check with no model call.</li><li>Cost: someone writes the reference once.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>We call the first mode&rsquo;s number an <strong>estimated pass rate</strong>. It is useful as a list of fixes and worthless as a gate.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
 <div class="sheet scroll"><table>
 <thead>
@@ -695,15 +725,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: Six choices and what each protects against.</em></p>
+<p><em>Table 3: Five choices and what each protects against.</em></p>
 <h2 id="limits">Limits</h2>
 <ul>
-<li><strong>The tester estimates.</strong> It has no tools. Its pass percentage and score are the model&rsquo;s estimates, not executed results. We call this an <strong>estimated pass rate</strong>. Giving it the Python tool makes the results real, at roughly twice the cost.</li>
+<li><strong>The tester estimates.</strong> It has no tools, so its pass percentage and score are an estimated pass rate, not executed results. Giving it the Python tool makes the results real, at roughly twice the cost.</li>
 <li><strong>Fixed rounds, not &ldquo;until the tests pass&rdquo;.</strong> The loop stops at the cap even if the tester still lists failures. The module&rsquo;s lab brief asks for iteration until tests pass, which needs a router that also reads an executed test result.</li>
 <li><strong>A guard, not a sandbox.</strong> The Python tool runs model-written code with your user&rsquo;s permissions. It can still read your files and reach the network, and anything beyond a demo needs a container or a hosted sandbox (lesson 26.3).</li>
 <li><strong>No recorded model run.</strong> The notebook ships without outputs and the drafts change each run. This page quotes only the deterministic checks.</li>
 </ul>
 <p>The notebook needs an OpenAI key for the two agents. The stub runs, the tool guards and both references run without one.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Madaan et al., <a href="https://arxiv.org/abs/2303.17651" target="_blank" rel="noopener">Self-Refine: Iterative Refinement with Self-Feedback</a>, 2023.</li>
+<li>LangGraph, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API overview</a> documentation.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Stop a two-agent loop with a counter in state and a pure router, back it with a <code>recursion_limit</code>, and prove the counts with stub nodes before spending a model call.</li>
@@ -843,6 +878,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The <code>memory-manager</code> skill body, read only when a memory task comes up.</em></p>
+<p>The path from a request to a loaded skill, for an engineer who asks the assistant to remember a preference:</p>
+<div class="walkthrough learning-widget" data-stepper id="skill-walkthrough">
+<p class="widget-intro">Step through how the memory-manager skill goes from one line in the prompt to full instructions.</p>
+<div class="step-controls" hidden role="group" aria-label="Loading a skill on demand"><button type="button" data-step="0" aria-pressed="false" aria-controls="skill-step-0">1. Prompt</button><button type="button" data-step="1" aria-pressed="false" aria-controls="skill-step-1">2. Match</button><button type="button" data-step="2" aria-pressed="false" aria-controls="skill-step-2">3. Read</button><button type="button" data-step="3" aria-pressed="false" aria-controls="skill-step-3">4. Follow</button></div>
+<div class="step-panels"><section id="skill-step-0" class="step-panel" aria-labelledby="skill-heading-0"><h4 id="skill-heading-0">1. The prompt lists every skill briefly</h4><dl><dt>Context holds</dt><dd>eight name and description pairs from the frontmatter, and no skill bodies</dd></dl></section><section id="skill-step-1" class="step-panel" aria-labelledby="skill-heading-1"><h4 id="skill-heading-1">2. The request matches a description</h4><dl><dt>Request</dt><dd>remember that I want refund answers as a checklist</dd><dt>Model decides</dt><dd>the memory-manager description covers saving preferences</dd></dl></section><section id="skill-step-2" class="step-panel" aria-labelledby="skill-heading-2"><h4 id="skill-heading-2">3. The full body is read</h4><dl><dt>Call</dt><dd><code>read_file</code> on the skill's <code>SKILL.md</code> under <code>/skills/</code></dd><dt>Context gains</dt><dd>the workflow, recall, categories and forgetting rules in Table 2</dd></dl></section><section id="skill-step-3" class="step-panel" aria-labelledby="skill-heading-3"><h4 id="skill-heading-3">4. The instructions guide the action</h4><dl><dt>Does</dt><dd>saves the note under the preference category</dd><dt>Other skills</dt><dd>still cost one line each</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>Because the model matches a task against the description alone, a description that does not say when the skill applies is a skill that never loads. We call this a <strong>silent skill</strong>. Adding eight more skills is cheap in tokens, but each new description has to be distinct enough that the model picks the right one.</p>
 <h2 id="the-backend-decides-what-can-run">The backend decides what can run</h2>
 <p>The backend is where files live and whether a command can run at all. Two settings in the scripts look safer than they are:</p>
@@ -874,6 +915,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Three backend settings and what they really do.</em></p>
 <p>We call the middle row <strong>sandbox by name</strong>: a flag whose name promises isolation the code does not provide. The library does ship a separate <code>LangSmithSandbox</code> backend, but the script never selects it.</p>
+<p>The same request, <em>run the billing script&rsquo;s tests</em>, under each choice:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="backend-switcher">
+<p class="widget-intro">Choose a backend and see what happens when the agent calls execute.</p>
+<div class="mode-controls" hidden role="group" aria-label="Backend for the support deep agent">
+<button type="button" data-mode="virtual" aria-pressed="false" aria-controls="backend-virtual">Virtual-mode files</button>
+<button type="button" data-mode="localshell" aria-pressed="false" aria-controls="backend-localshell">USE_SANDBOX=true</button>
+<button type="button" data-mode="sandbox" aria-pressed="false" aria-controls="backend-sandbox">Real sandbox with approval</button>
+</div>
+<section id="backend-virtual" class="mode-panel" data-announcement="Virtual-mode files selected. Execute returns an error."><h4>Virtual-mode files (the default)</h4><ul><li>File tools work on paths anchored under the root; <code>..</code> is blocked.</li><li><code>execute</code> returns an error, so no test runs.</li><li>Safe for drafting files, useless for checking them.</li></ul></section>
+<section id="backend-localshell" class="mode-panel" data-announcement="LocalShellBackend selected. The command runs on the host."><h4>USE_SANDBOX=true</h4><ul><li>The script selects <code>LocalShellBackend</code>.</li><li>The test command runs on your machine with your permissions, and so would any other command the model writes.</li><li>Nothing pauses for a person: sandbox by name.</li></ul></section>
+<section id="backend-sandbox" class="mode-panel" data-announcement="Sandbox with approval selected. The command waits for a person."><h4>Real sandbox with approval</h4><ul><li>A sandbox backend such as <code>LangSmithSandbox</code> runs the command away from the host.</li><li><code>interrupt_on</code> pauses before each <code>execute</code> until a person approves it.</li><li>The tests run, and a person sees every command first.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The choice of backend follows from what the agent needs to run:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     N{"Agent must&lt;br/&gt;run code?"} --&gt;|no| V["FilesystemBackend&lt;br/&gt;virtual mode"]
@@ -967,6 +1022,11 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>No recorded run.</strong> The scripts need a model-serving endpoint and a Tavily key. This page describes their configuration and the library&rsquo;s behaviour rather than a measured run.</li>
 <li><strong>One library version.</strong> Tool names and backend behaviour are those of <code>deepagents</code> 0.7.32. Check them again after an upgrade.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/deepagents/overview" target="_blank" rel="noopener">Deep Agents overview</a> documentation.</li>
+<li>Anthropic, <a href="https://www.anthropic.com/research/equipping-agents-for-the-real-world-with-agent-skills" target="_blank" rel="noopener">Equipping agents for the real world with Agent Skills</a>, 2025.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A deep agent is one orchestrator configured with file tools, sub-agents through <code>task</code>, skills and a backend. Only a sub-agent&rsquo;s final message returns, which keeps the orchestrator&rsquo;s context small.</li>
@@ -1040,7 +1100,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A tester that only reads code estimates. A tester that runs code measures. Pay for the measurement when the result matters.</li>
 <li>A deep agent&rsquo;s safety comes from its harness: check which backend actually runs, which tools each sub-agent has, and which user key its memory uses.</li>
 </ul></article>
-    <nav class="toc" aria-label="M26 sections"><details open><summary>In M26</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#planned-pipeline-vs-react-loop">Planned pipeline vs ReAct loop</a></li><li><a href="#choosing-a-research-shape">Choosing a research shape</a></li><li><a href="#the-same-loop-in-other-environments">The same loop in other environments</a></li><li><a href="#in-practice-larkspurrsquos-control-panel-agent">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-developer-and-tester-pair">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-flames-request">Following one FLAMES request</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deep-agent-harness">Deep-agent harness</a></li><li><a href="#sub-agents-keep-context-small">Sub-agents keep context small</a></li><li><a href="#skills-load-only-when-a-task-needs-them">Skills load only when a task needs them</a></li><li><a href="#the-backend-decides-what-can-run">The backend decides what can run</a></li><li><a href="#three-layers-of-memory">Three layers of memory</a></li><li><a href="#in-practice-larkspurrsquos-support-deep-agent">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M26 sections"><details open><summary>In M26</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#planned-pipeline-vs-react-loop">Planned pipeline vs ReAct loop</a></li><li><a href="#choosing-a-research-shape">Choosing a research shape</a></li><li><a href="#the-same-loop-in-other-environments">The same loop in other environments</a></li><li><a href="#in-practice-larkspurrsquos-control-panel-agent">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-developer-and-tester-pair">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-flames-request">Following one FLAMES request</a></li><li><a href="#what-the-testerrsquos-verdict-is-worth">What the tester’s verdict is worth</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#deep-agent-harness">Deep-agent harness</a></li><li><a href="#sub-agents-keep-context-small">Sub-agents keep context small</a></li><li><a href="#skills-load-only-when-a-task-needs-them">Skills load only when a task needs them</a></li><li><a href="#the-backend-decides-what-can-run">The backend decides what can run</a></li><li><a href="#three-layers-of-memory">Three layers of memory</a></li><li><a href="#in-practice-larkspurrsquos-support-deep-agent">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

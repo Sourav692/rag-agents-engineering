@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 24 · Review draft: 3 · In progress: 0 · In PR: 6 · Live: 13
+**Modules:** Not started: 24 · Review draft: 0 · In progress: 0 · In PR: 9 · Live: 13
 
 ## Part I · AI Engineering Foundations
 
@@ -66,9 +66,9 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 0 / 7 | Review draft | 2026-11-13 |  | 25.1 to 25.7 and overview rewritten; HTML: site-export/part-vii-advanced-agents/index.html; structural/browser checks passed; source application pending. |
-| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 0 / 3 | Review draft | 2026-11-13 |  | 26.1 to 26.3 and overview rewritten; HTML: site-export/part-vii-advanced-agents/index.html; structural/browser checks passed; source application pending. |
-| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 0 / 5 | Review draft | 2026-11-13 |  | 27.1 to 27.5 and overview rewritten; HTML: site-export/part-vii-advanced-agents/index.html; structural/browser checks and SQL fixture checks passed; source application pending. |
+| 25 | Planning, Reflection & Reasoning Patterns | 7 | 7 | 7 / 7 | In PR | 2026-11-14 | #75 | 25.1-25.7 approved format on branch content/m25-m27-approved; protect/validate/browser pass; pytest 32 pass, 0 broken links; PR pending |
+| 26 | Coding, Computer-Use & Deep Agents | 3 | 3 | 3 / 3 | In PR | 2026-11-14 | #75 | 26.1-26.3 approved format on branch content/m25-m27-approved; protect/validate/browser pass; pytest 32 pass, 0 broken links; PR pending |
+| 27 | Human Approval & Applied Single-Agent Builds | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #75 | 27.1-27.5 approved format on branch content/m25-m27-approved; protect/validate/browser pass; pytest 32 pass, 0 broken links; PR pending |
 
 ## Part VIII · Agentic RAG
 
