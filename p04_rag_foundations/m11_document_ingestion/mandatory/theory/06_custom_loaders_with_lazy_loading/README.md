@@ -2,6 +2,7 @@
 
 *[M11 theory](../README.md) · Lesson 11.6 · Notebooks: [`06a_custom_loader.ipynb`](../../notebook/06a_custom_loader.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A generator streams the corpus, so memory stays flat and a crash loses one batch -->
+<!-- format: approved -->
 
 ## Lazy loading
 
@@ -18,7 +19,7 @@ The first version builds a list of every ticket and returns it. On the million-t
 
 A loader has two methods. `load()` returns a list: the whole corpus sits in memory before anything else runs. `lazy_load()` is a **generator**: it yields one Document at a time, and the pipeline can split, embed and upsert in batches while the loader keeps reading.
 
-The custom loader in this lesson, a ticket loader, implements only `lazy_load()`. It walks the API page by page from a `since` date and yields one Document per ticket, already in the module's schema:
+Notebook `06a` shows the pattern on the smallest possible source: a loader that reads a text file line by line and yields one Document per line, with `source` and a `line_number` counted from 0. Its three-line test file gives three Documents. The ticket loader below applies the same pattern to Larkspur's API and is a design for this page, not code from the notebook. It implements only `lazy_load()`, walks the API page by page from a `since` date and yields one Document per ticket, already in the module's schema:
 
 | Document field | Filled from |
 |---|---|
@@ -28,7 +29,7 @@ The custom loader in this lesson, a ticket loader, implements only `lazy_load()`
 | `date` | The ticket's `updated_at` |
 | `tenant_id` | The customer's organisation, for access control (lesson 11.1) |
 
-*Table 1: What the ticket loader puts in each Document.*
+*Table 1: What the ticket loader puts in each Document (a design, illustrative).*
 
 `BaseLoader` derives `load()` from `lazy_load()`. Implementing the generator gives you both methods. The indexer pulls Documents one at a time and sends batches downstream:
 
@@ -72,6 +73,18 @@ For the backfill and the nightly updates after it, the ticket loader runs in fou
 
 > **Next:** M12 takes the Documents this module produced and decides where to cut them into chunks.
 
+## Limits
+
+- **The ticket loader is a design.** Larkspur's ticket API, its `since` argument and the million-ticket backfill are this page's scenario. The notebook proves only the generator pattern, on a three-line file.
+- **Table 2's sizes are assumptions.** 2 KB per ticket and per chunk are round figures chosen to show the scale. Python objects, embeddings and the HTTP client add memory that the table leaves out.
+- **A checkpoint is not idempotence.** Resuming from the last stored `updated_at` can resend the batch that was in flight when the job died. Stable ids such as `ticket:` plus the ticket id make that resend overwrite rather than duplicate.
+- **`load()` still exists.** `BaseLoader` builds it by draining `lazy_load()` into a list. A caller who uses `load()` gets the load-all stall back.
+
+## References
+
+1. LangChain reference, [BaseLoader](https://reference.langchain.com/python/langchain-core/document_loaders/base/BaseLoader), the interface whose `load()` collects `lazy_load()`.
+2. Python, [Functional programming HOWTO](https://docs.python.org/3/howto/functional.html), whose generators section explains `yield`.
+
 ## Key Takeaways
 
 - `load()` holds the whole corpus in memory as a list, while `lazy_load()` yields one Document at a time so splitting and upserting run in batches alongside reading.
@@ -90,7 +103,7 @@ For the backfill and the nightly updates after it, the ticket loader runs in fou
 <details>
 <summary>2. The ticket loader ingests a million tickets and crashes part-way through. How much work is lost, and what lets you resume?</summary>
 
-Only the current batch, as long as you record a checkpoint: the last id or `updated_at` written. The loader takes a `since` argument and passes it to the paginated API, so a restart can begin from the checkpoint instead of the first ticket.
+Only the current batch, as long as you record a checkpoint: the last id or `updated_at` written. The loader takes a `since` argument and passes it to the paginated API. A restart can then begin from the checkpoint instead of the first ticket.
 
 </details>
 
