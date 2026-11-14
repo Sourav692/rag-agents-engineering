@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.7 · Notebooks: [`07a_smart_bot_section1.ipynb`](../../notebook/07a_smart_bot_section1.ipynb), [`07f_output_parsers_demo.ipynb`](../../../optional/notebook/07f_output_parsers_demo.ipynb) (optional), [`07g_output_parsers_final.ipynb`](../../../optional/notebook/07g_output_parsers_final.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Sending the schema to the provider instead of the prompt, what that does and does not stop, and a Q&A bot that always returns the same type -->
+<!-- format: approved -->
 
 ## Structured output
 
@@ -105,6 +106,18 @@ For the lab brief, the same shape answers Larkspur's refund question:
 5. Batch with `return_exceptions=True` and trace every call.
 
 > **Interview tip:** structured output removes a class of format failures; it does not validate meaning. Name the check you still run after it.
+
+## Limits of this evidence
+
+- **No provider was tested here.** Table 1's third row is the documented behaviour of providers that support structured output. How strictly a reply is held to the schema depends on the provider and on whether LangChain sends the schema as a native output format or as a tool, and this page ran neither.
+- **The batch check used a stub.** Table 3 was run with a stand-in step on `langchain-core` 1.7.0, which shows the batch behaviour exactly but says nothing about how often a real model call fails.
+- **SmartQABot was read, not run.** The fallback, the tracing and the batch method come from notebook 07a's code; the notebook ships without outputs and needs an OpenAI key, and a LangSmith key for the traces.
+
+## References
+
+1. LangChain, [structured output](https://docs.langchain.com/oss/python/langchain/structured-output), on the two ways a schema is enforced: by the provider's native output format or through a tool call.
+2. LangChain, [models](https://docs.langchain.com/oss/python/langchain/models), on `with_structured_output` and the chat models that support it.
+3. LangChain reference, [Runnable batch](https://reference.langchain.com/python/langchain-core/runnables/base/Runnable/batch), on running inputs concurrently and `return_exceptions`.
 
 ## Key Takeaways
 

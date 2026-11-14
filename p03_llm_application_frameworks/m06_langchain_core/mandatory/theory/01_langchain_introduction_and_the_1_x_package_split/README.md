@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.1 · Notebooks: [`01a_LangChain_Introduction.ipynb`](../../notebook/01a_LangChain_Introduction.ipynb), [`01b_Package_Split_and_Imports_LangChain_v1.ipynb`](../../notebook/01b_Package_Split_and_Imports_LangChain_v1.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Where every LangChain class lives in 1.x, and how the exception class tells you whether a module moved, a name moved or a package is missing -->
+<!-- format: approved -->
 
 ## The 1.x package split
 
@@ -101,6 +102,18 @@ For the Larkspur script, the error classes give the order of work:
 > **Key distinction:** a `ModuleNotFoundError` names a path, an `ImportError` names a symbol. Fix the path for the first and the import source for the second.
 
 Lesson 6.2 takes the middle part of Figure 2, the chat model, and shows what stays the same when its provider changes.
+
+## Limits of this evidence
+
+- **One environment, one date.** Every error class in Table 2 was observed on `langchain` 1.4.7, `langchain-core` 1.7.0 and `langchain-classic` 1.0.8. A later release can add a forwarding shim or remove a classic module, so re-run the audit after an upgrade instead of trusting the table.
+- **Import success is not behaviour.** The audit proves only that a path imports or fails. A class imported from `langchain_classic` can still behave differently from its 0.x version, and no import check shows that.
+- **The memory advice is a design choice.** `ConversationBufferMemory` still works from `langchain_classic.memory`. Replacing it with a checkpointer is the course's recommendation, following the 1.x migration guide, not something the library enforces.
+
+## References
+
+1. LangChain, [the 1.x migration guide](https://docs.langchain.com/oss/python/migrate/langchain-v1), on what moved to `langchain-classic` and what to use instead.
+2. LangChain, [the 1.0 release notes](https://docs.langchain.com/oss/python/releases/langchain-v1), on the slimmed `langchain` package and the new agent loop.
+3. LangChain, [short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory), on conversation state kept by a checkpointer with a thread id.
 
 ## Key Takeaways
 

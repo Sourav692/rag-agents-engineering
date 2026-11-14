@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.2 · Notebooks: [`02a_Commercial_LLMs_with_LangChain.ipynb`](../../notebook/02a_Commercial_LLMs_with_LangChain.ipynb), [`02b_Commercial_LLMs_Natively.ipynb`](../../../optional/notebook/02b_Commercial_LLMs_Natively.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: One response object for every provider: what a LangChain chat model takes, what it returns, and what a provider swap does not keep the same -->
+<!-- format: approved -->
 
 ## Two SDKs, two response shapes
 
@@ -107,6 +108,18 @@ For the Larkspur comparison, the chat model reduces the work to this:
 > **Interview tip:** "LangChain makes models interchangeable" is half true. The call shape is interchangeable. The behaviour is not, and a strong answer says how you would measure the difference.
 
 Lesson 6.3 runs the same chain on open-source models, locally and hosted.
+
+## Limits of this evidence
+
+- **No model was called for this page.** The three ways of building a chain and the `ChatPromptValue` were checked with a stub model on `langchain-core` 1.7.0. The notebooks call the real APIs and ship without outputs, so no reply text or token count here comes from a run.
+- **`length` is OpenAI's word.** The truncated-reply signal in `.response_metadata` is provider-specific, both its key and its value. Check what each provider reports before writing a check that reads it.
+- **Model ids move.** Table 4 lists the ids the notebooks use. Providers retire ids on their own schedule, so a notebook can fail on a model name long after its code stopped changing.
+
+## References
+
+1. LangChain, [models](https://docs.langchain.com/oss/python/langchain/models), on the chat model interface, `invoke`, `batch`, `stream` and `init_chat_model`.
+2. LangChain reference, [init_chat_model](https://reference.langchain.com/python/langchain/chat_models/base/init_chat_model), on the provider-and-model string.
+3. LangChain, [messages](https://docs.langchain.com/oss/python/langchain/messages), on the `AIMessage` fields, including token usage and response metadata.
 
 ## Key Takeaways
 

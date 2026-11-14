@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.4 · Notebooks: [`04a_LangChain_Inputs_and_Outputs.ipynb`](../../notebook/04a_LangChain_Inputs_and_Outputs.ipynb), [`04b_LLM_vs_ChatModel.ipynb`](../../notebook/04b_LLM_vs_ChatModel.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Why the model forgets the last turn unless you resend it, and what happens to roles when messages reach a completion model -->
+<!-- format: approved -->
 
 ## Messages
 
@@ -105,6 +106,19 @@ We ran both conversions with `langchain-core` 1.7.0 on Larkspur inputs:
 
 *Table 5: The two conversions, traced.*
 
+The switcher sends the same two Larkspur messages to each interface and shows what the model actually reads.
+
+<div class="learning-widget evidence-switcher" data-comparison id="interface-switcher">
+<p class="widget-intro">Choose the model interface and compare what happens to the system rule "Answer only from the passages."</p>
+<div class="mode-controls" hidden role="group" aria-label="Model interface receiving the messages">
+<button type="button" data-mode="chat" aria-pressed="false" aria-controls="mode-chat">Chat model</button>
+<button type="button" data-mode="completion" aria-pressed="false" aria-controls="mode-completion">Completion model</button>
+</div>
+<section id="mode-chat" class="mode-panel" data-announcement="Chat model: the roles survive"><h4>Chat model: the roles survive</h4><dl><dt>Conversion</dt><dd>the prompt value's message form: two messages, a system message and a human message</dd><dt>What the model reads</dt><dd>the rule in the system role, which the model was trained to treat as an instruction for the whole conversation</dd><dt>Consequence</dt><dd>the rule stays an instruction for every answer, including the follow-up turns appended later</dd></dl></section>
+<section id="mode-completion" class="mode-panel" data-announcement="Completion model: the roles are flattened"><h4>Completion model: the roles are flattened</h4><dl><dt>Conversion</dt><dd>the prompt value's string form: one block of text with a "System:" line and a "Human:" line</dd><dt>What the model reads</dt><dd>two lines of ordinary text to continue, with nothing marking the first as an instruction</dd><dt>Consequence</dt><dd>the rule is a hint the model may follow or ignore: the flattened role</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 A string sent to a chat model becomes one `HumanMessage`, and nothing is lost. A message list sent to a completion model is flattened into plain text lines, which the model continues like any other text. We call this **the flattened role**: the system instruction becomes a hint instead of a role the model was trained to follow. That is why every chain in this course uses a chat model, and why a completion model appears only in notebook 04b, for contrast.
 
 > **Pitfall: the flattened role.** A system rule that works on a chat model can be ignored by a completion model given the same messages. Check the base class before blaming the prompt.
@@ -119,6 +133,18 @@ For Larkspur's follow-up, the fix is in the app:
 4. Cap the list at a few turns, or summarise older ones, and watch input tokens per turn.
 
 Lesson 6.5 moves the list into a template, with the history in a placeholder and the passages and question in their own slots.
+
+## Limits of this evidence
+
+- **The conversions were traced, not answered.** Table 5 and the dict conversion come from running `langchain-core` 1.7.0 without a model. How often a completion model ignores a flattened system rule was not measured; "may ignore" is the honest claim.
+- **Table 2 counts messages, not tokens.** The growth is exact in turns. The bill per turn depends on how long each answer is, which the notebook's replies decide and the page does not measure.
+- **The base classes are this environment's.** Table 4 was checked on the installed partner packages. A provider can ship a chat class for a model that was a completion model before, so check the class, not the model name.
+
+## References
+
+1. LangChain, [messages](https://docs.langchain.com/oss/python/langchain/messages), on the message classes, their roles and the dict form.
+2. LangChain reference, [ChatPromptTemplate](https://reference.langchain.com/python/langchain-core/prompts/chat/ChatPromptTemplate), on templates that produce message lists and the prompt value they return.
+3. LangChain, [short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory), on keeping and trimming a conversation's history.
 
 ## Key Takeaways
 
