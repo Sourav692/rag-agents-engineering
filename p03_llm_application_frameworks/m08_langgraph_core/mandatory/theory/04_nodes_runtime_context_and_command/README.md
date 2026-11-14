@@ -2,6 +2,7 @@
 
 *[M08 theory](../README.md) · Lesson 8.4 · Notebooks: [`04a_Node_Patterns.ipynb`](../../notebook/04a_Node_Patterns.ipynb), [`04b_Runtime_Context.ipynb`](../../notebook/04b_Runtime_Context.ipynb), [`04c_Command_Objects.ipynb`](../../notebook/04c_Command_Objects.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: What a node can ask for besides the state, and how a node writes and routes in one return with Command -->
+<!-- format: approved -->
 
 ## A route with no reason
 
@@ -91,6 +92,19 @@ flowchart TB
 
 *Figure 2: A conditional edge splits writing and routing across two functions. `Command` does both in one return.*
 
+Both designs can route the refund question with its reason. They differ in what each function returns and in how a typo fails:
+
+<div class="learning-widget evidence-switcher" data-comparison id="route-switcher">
+<p class="widget-intro">Choose how <code>classify</code> routes the refund question and records the reason for the route.</p>
+<div class="mode-controls" hidden role="group" aria-label="How classify routes the refund question">
+<button type="button" data-mode="edge" aria-pressed="false" aria-controls="route-edge">Conditional edge</button>
+<button type="button" data-mode="command" aria-pressed="false" aria-controls="route-command">Command</button>
+</div>
+<section id="route-edge" class="mode-panel" data-announcement="Conditional edge. Two functions share the route name."><h4>Conditional edge: <code>classify</code> writes, a router reads</h4><dl><dt><code>classify</code> returns</dt><dd><code>route</code> billing and the reason "matched <em>refund</em>"</dd><dt>The router returns</dt><dd>the name billing, read from <code>route</code></dd><dt>A misspelled name</dt><dd>with the destination list passed, a <code>KeyError</code> at run time</dd><dt>Risk</dt><dd>two functions must agree on every route name</dd></dl></section>
+<section id="route-command" class="mode-panel" data-announcement="Command. One return writes and routes."><h4><code>Command</code>: one return does both</h4><dl><dt><code>classify</code> returns</dt><dd><code>Command</code> with <code>route</code> and the reason as the update, and billing as the <code>goto</code></dd><dt>The router</dt><dd>none; no edge leaves <code>classify</code></dd><dt>A misspelled <code>goto</code></dt><dd>a logged warning and a run that ends with no answer: the silent dead end</dd><dt>Risk</dt><dd>nothing checks the target, so a test must</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 ### The Command traps
 
 The node's return annotation, `Command[Literal["warn_user", "success"]]`, looks like a check, and the notebook calls it compile-time safety. On LangGraph 1.2.18 it only draws the graph. We planted one case per assumption:
@@ -137,6 +151,17 @@ In this design `classify` takes the runtime parameter and returns a `Command`:
 4. **The guard.** A test runs one question per route and asserts that every run ends with an `answer` key. A misspelled `goto` fails that test instead of shipping as a silent dead end.
 
 > **Next lesson:** the final state still returns every key, including the reason and the message history. Lesson 8.5 decides what a caller may send and receive, and where per-call settings such as the reply language go.
+
+## Limits of this evidence
+
+- **Rerun without a model.** Tables 2 to 4 come from the notebooks' graphs and planted variations of them, rerun on LangGraph 1.2.18. None of the three notebooks calls a model.
+- **The Larkspur design is illustrative.** The route reason, the database client in context and the per-route test are a design for the running example; no notebook builds them.
+- **The annotation behaviour is version-specific.** That the `Literal` return annotation only draws the graph, and that an unknown `goto` is logged and ignored, were observed on LangGraph 1.2.18. The notebook's own Markdown calls the annotation compile-time safety, which this version does not provide.
+
+## References
+
+1. LangChain, [LangGraph Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api), on node signatures, runtime context and `Command`.
+2. LangChain, [Using the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api), with examples of combining control flow and state updates in one node.
 
 ## Key Takeaways
 

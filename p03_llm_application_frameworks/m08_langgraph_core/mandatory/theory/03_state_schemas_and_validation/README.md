@@ -2,6 +2,7 @@
 
 *[M08 theory](../README.md) · Lesson 8.3 · Notebooks: [`03a_Different_Graph_States.ipynb`](../../notebook/03a_Different_Graph_States.ipynb), [`03b_Pydantic_State_Validation.ipynb`](../../notebook/03b_Pydantic_State_Validation.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Four kinds of state schema, where each one catches a bad input, and the two things even Pydantic state never checks -->
+<!-- format: approved -->
 
 ## A number where a question goes
 
@@ -57,7 +58,7 @@ The validation notebook builds a one-key graph (`name: str`) whose node appends 
 |---|---|---|
 | `TypedDict`, `name` is 123 | `TypeError: unsupported operand type(s) for +: 'int' and 'str'` | inside the node |
 | `TypedDict`, `name` missing | `KeyError: 'name'` | inside the node |
-| dataclass, `name` is 123 | the node receives the `int` 123; no error | nowhere |
+| dataclass, `name` is 123 | the node receives the `int` 123 unchecked; it fails only if it treats the value as text | inside the node, or nowhere |
 | Pydantic, `name` is 123 | `ValidationError`; no node runs | at `invoke` |
 | Pydantic, `name` missing | `ValidationError`; no node runs | at `invoke` |
 | Pydantic, "5" for an `int` field | the node receives the `int` 5; the returned state still holds the string "5" | converted for nodes only |
@@ -87,6 +88,21 @@ flowchart TD
 
 *Figure 1: Where a bad input stops. Only a Pydantic state schema stops it before the first node.*
 
+The same widget bug under three schemas, rerun on LangGraph 1.2.18 with a stub `classify` that lowercases the question and splits it into words:
+
+<div class="learning-widget evidence-switcher" data-comparison id="schema-switcher">
+<p class="widget-intro">Choose the state schema and send the ticket number 123 as the Larkspur question.</p>
+<div class="mode-controls" hidden role="group" aria-label="State schema for the Larkspur support graph">
+<button type="button" data-mode="typeddict" aria-pressed="false" aria-controls="schema-typeddict">TypedDict</button>
+<button type="button" data-mode="dataclass" aria-pressed="false" aria-controls="schema-dataclass">Dataclass</button>
+<button type="button" data-mode="pydantic" aria-pressed="false" aria-controls="schema-pydantic">Pydantic</button>
+</div>
+<section id="schema-typeddict" class="mode-panel" data-announcement="TypedDict. The run fails inside classify."><h4>TypedDict state</h4><dl><dt>At <code>invoke</code></dt><dd>accepted; nothing checks the type</dd><dt>Nodes that ran</dt><dd><code>classify</code>, once</dd><dt>Result</dt><dd><code>AttributeError</code>: an <code>int</code> has no <code>lower</code>; a late failure that names an operation, not the field</dd></dl></section>
+<section id="schema-dataclass" class="mode-panel" data-announcement="Dataclass. The run fails inside classify."><h4>Dataclass state</h4><dl><dt>At <code>invoke</code></dt><dd>accepted; the dataclass builds an instance without checking types</dd><dt>Nodes that ran</dt><dd><code>classify</code>, once</dd><dt>Result</dt><dd>the same <code>AttributeError</code>, from the same line of the node</dd></dl></section>
+<section id="schema-pydantic" class="mode-panel" data-announcement="Pydantic. The run stops at invoke."><h4>Pydantic state</h4><dl><dt>At <code>invoke</code></dt><dd>rejected: <code>ValidationError</code>, the question should be a valid string</dd><dt>Nodes that ran</dt><dd>none</dd><dt>Result</dt><dd>the error names the <code>question</code> field, and no model call is made</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 The validation notebook also runs a message graph under `TypedDict` and Pydantic state. Both end with the same three messages, all `HumanMessage`: Pydantic changes nothing about reducers, and lesson 8.1's speaker drift happens under either schema.
 
 ### Which schema, when
@@ -115,6 +131,19 @@ For Larkspur the question arrives from a web widget, and the state schema itself
 4. **The caller reads the result.** `invoke` returns a plain `dict` holding every key. Lesson 8.5 narrows that to the answer alone.
 
 > **Next lesson:** every node so far has taken one argument, the state. Lesson 8.4 shows what else a node can ask for, and how a node can route the run by itself.
+
+## Limits of this evidence
+
+- **Small graphs, planted inputs.** Tables 2 and 3 and the switcher come from the notebooks' graphs and small variations of them, rerun on LangGraph 1.2.18 and Pydantic 2.14. No model was called.
+- **What a dataclass node does with a bad value depends on the node.** The dataclass accepts the number either way. A node that formats it into a string carries on with a wrong value; one that calls a string method fails, as the switcher shows.
+- **The input-schema trap is version-specific.** That a Pydantic input schema on a `TypedDict` state did not check types was observed on LangGraph 1.2.18. Retest it before relying on either behaviour.
+- **Cost of validation not measured.** "Small next to a model call" is a judgement, not a benchmark.
+
+## References
+
+1. LangChain, [LangGraph Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api), on state schemas, including `TypedDict`, dataclass and Pydantic state.
+2. Pydantic, [Models](https://pydantic.dev/docs/validation/latest/concepts/models/), on validation and type conversion of model fields.
+3. Python documentation, [typing](https://docs.python.org/3/library/typing.html), which defines `TypedDict` and notes that the Python runtime does not enforce type annotations.
 
 ## Key Takeaways
 
