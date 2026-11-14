@@ -2,6 +2,7 @@
 
 *[M11 theory](../README.md) · Lesson 11.4 · Notebooks: [`04a_pdf_loader.ipynb`](../../notebook/04a_pdf_loader.ipynb), [`04b_ms_word_loader.ipynb`](../../../optional/notebook/04b_ms_word_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Page-level text flattens layout, while elements keep sections, tables and boilerplate apart -->
+<!-- format: approved -->
 
 ## Element-level parsing
 
@@ -20,9 +21,9 @@ A **page-level parser** returns the page as one string. An **element-level parse
 
 ![Page-level versus element-level parsing](diagrams/page-to-elements.svg)
 
-*Figure 1: The same handbook page as one page-level string and as one typed Document per region, each linked to its section title.
+*Figure 1: The same handbook page as one page-level string and as one typed Document per region, each linked to its section title.*
 
-Here is what the three PDF loaders in the notebook produce from the handbook page:
+The lab below writes out what each of the three PDF loaders in notebook `04a` returns for a page like this by default. Its outputs are representative, not a run: no handbook PDF ships with the repo.
 
 | | `PyPDFLoader` | `PyMuPDFLoader` | `UnstructuredPDFLoader`, element mode, `hi_res` |
 |---|---|---|---|
@@ -33,7 +34,7 @@ Here is what the three PDF loaders in the notebook produce from the handbook pag
 | Page number | `page` (0-based) | `page` (0-based) | `page_number` (1-based) |
 | Speed and dependencies | Fast, pure Python | Fastest; AGPL licence | Slowest; layout models and system packages |
 
-*Table 1: Three PDF loaders on page 7 of the Larkspur handbook.*
+*Table 1: Three PDF loaders on page 7 of the Larkspur handbook (representative outputs from the lab, written to each loader's defaults).*
 
 The comparison has three consequences for retrieval, two of them failures we name:
 
@@ -59,7 +60,7 @@ flowchart TD
 
 *Figure 2: Choosing between page-level and element-level parsing. Plain prose goes to the fast parsers.*
 
-The licence row of Table 1 matters as well: PyMuPDF is the fastest, but its AGPL licence can rule it out for a product you ship.
+The licence row of Table 1 matters as well. PyMuPDF is the fastest, but it is released under the AGPL (or a commercial licence), which can rule it out for a product you ship.
 
 Word and Markdown files have the same switch. In the Word notebook, the Unstructured Word loader returns the file as one Document by default. In element mode with by-title chunking it returns pieces of at most 3,000 characters and starts a new one at every heading. Lesson 11.2 does the same for Markdown: single mode gives one Document, element mode one per heading, paragraph or list item.
 
@@ -74,6 +75,19 @@ For the handbook PDF, the parser choice follows the page:
 5. **Send plain prose pages to PyPDF**, which is faster and needs no system packages.
 
 > **Next:** lesson 11.5 loads sources from outside the file system, web pages, transcripts and papers, and a whole mixed folder at once.
+
+## Limits
+
+- **The page and its outputs are representative.** The handbook PDF, its page 7 and every Document in Table 1 and the lab are written by hand to show each loader's defaults. Exact text depends on the program that produced the PDF, so run notebook `04a` on your own files before choosing.
+- **The table result needs `hi_res`.** The lab notes that Unstructured's `fast` strategy finds no tables and fewer headers. Table 1's ten elements assume `hi_res` with table structure inference, which is the slow path.
+- **No timings were measured.** The speed row ranks the loaders by what they do (pure Python text extraction against layout models). It is not a benchmark on this corpus.
+
+## References
+
+1. Unstructured, [Partitioning](https://docs.unstructured.io/open-source/core-functionality/partitioning), on PDF strategies such as `fast` and `hi_res`.
+2. Unstructured, [Document elements](https://docs.unstructured.io/open-source/concepts/document-elements), on `Header`, `Footer`, `Table` and the HTML form of a table.
+3. [pypdf documentation](https://pypdf.readthedocs.io/en/stable/), the pure Python parser behind `PyPDFLoader`.
+4. PyMuPDF, [About](https://pymupdf.readthedocs.io/en/latest/about.html), including its AGPL and commercial licences.
 
 ## Key Takeaways
 

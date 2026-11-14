@@ -461,17 +461,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>3.0×</td>
 <td>Dot: first; Euclidean: last of 10</td>
 <td>Dot: first; Euclidean: last of 10</td>
-<td>Dot and Euclidean both rank it last</td>
+<td>Euclidean: last; dot product still #8</td>
 </tr>
 </tbody>
 </table></div>
 <p><em>Table 3: Where <code>plans-overview</code> ranks as its length grows, from the lab.</em></p>
 <p>We call this <strong>length bias</strong>: a ranking that follows vector length instead of meaning. The table shows three things about it:</p>
 <ul>
-<li><strong>A small length difference reorders close scores.</strong> For the refund question, dot product prefers the pricing page from 1.15× onward. Its cosine with the question is 0.866 against <code>refund-timing</code>&rsquo;s 0.998, and that gap is all the stretch has to overcome.</li>
+<li><strong>A small length difference reorders close scores.</strong> For the refund question, dot product prefers the pricing page from 1.15× onward. Its cosine with the question is 0.866 against <code>refund-timing</code>&rsquo;s 0.998, and that gap is all the stretch has to overcome. The export question needs about 1.3×, because the gap there is wider (0.766 against 0.995).</li>
 <li><strong>Cosine never moves.</strong> In every row, cosine ranks the evidence first and <code>plans-overview</code> third or worse. Normalising every vector first gives the same result for all three metrics.</li>
-<li><strong>Length cannot rescue a wrong direction.</strong> For the outage question <code>plans-overview</code> points away (cosine -0.122), so a longer vector only makes its dot product more negative.</li>
+<li><strong>Length cannot rescue a wrong direction.</strong> For the outage question <code>plans-overview</code> points away (cosine -0.122). A longer vector makes its dot product more negative. It stays 8th of 10 at every length, while Euclidean distance pushes it to last from 1.5× onward.</li>
 </ul>
+<p>The same stretch therefore moves one chunk in opposite directions depending on the metric. Dot product pulls it towards the top when its angle is close enough, and Euclidean distance pushes it towards the bottom. Only cosine reports the angle alone.</p>
 <figure class="lab-embed"><iframe src="01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html" title="Cosine, dot and Euclidean, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Cosine, dot and Euclidean. <a href="01_embedding_fundamentals_similarity_metrics_and_model_selection/interactive/similarity-metrics-lab.html">Open full screen</a></figcaption></figure>
 <p>Two cautions apply whatever the metric. Cosine scores are not probabilities, and their range differs between models. A threshold such as &ldquo;answer only above 0.7&rdquo; (notebook 13.2&rsquo;s optional tutorial gives bands like this) has to be re-measured after a model change. Embeddings also encode topic more than truth: notebook 13.1 warns that a sentence and its negation embed close together, so &ldquo;the plan is refundable&rdquo; and &ldquo;the plan is not refundable&rdquo; can retrieve each other. We call that <strong>negation blindness</strong>. Negation, numeric comparison and exact identifiers such as invoice numbers are weak spots, which hybrid search in M16 addresses.</p>
 <h2 id="the-same-model-on-both-sides">The same model on both sides</h2>
@@ -498,9 +499,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Store the model name and dimensions</strong> in the index metadata, and check them at query time.</li>
 <li><strong>Add a negation case to the golden set</strong>, such as a monthly-plan refund question, to watch for negation blindness.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> lesson 13.2 looks at the hosted models themselves, and what their dimensions cost to store and search.</p>
-</blockquote>
+<p>Lesson 13.2 looks at the hosted models themselves, and at what their dimensions cost to store and search.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The lab is two-dimensional and hand-placed.</strong> Its angles were chosen to make the rankings visible. Table 3 shows the mechanism, not how far real chunk vectors differ in length. The lab&rsquo;s scores are computed, and they match scikit-learn&rsquo;s.</li>
+<li><strong>The mismatch symptom is the notebook&rsquo;s description.</strong> Notebook 13.1 ships without outputs, and the near-zero top-1 score comes from its text, not from a run recorded here. Treat &ldquo;near zero&rdquo; as a direction to look in, and measure your own baseline range first.</li>
+<li><strong>The norm of 1.0 is a property of the OpenAI models.</strong> It holds for <code>text-embedding-3-*</code> as their documentation states. A different provider or a local model needs the same check before you trust any metric.</li>
+<li><strong>Six documents choose nothing.</strong> The notebook&rsquo;s model comparisons run on six well-separated texts. They demonstrate the procedure; lesson 13.3 explains what a golden set needs before it can separate models.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://developers.openai.com/api/docs/guides/embeddings" target="_blank" rel="noopener">Vector embeddings guide</a>, including the note that its embeddings are normalised to length 1.</li>
+<li>scikit-learn, <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html" target="_blank" rel="noopener">cosine_similarity</a>, the reference the lab&rsquo;s scores were checked against.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Print the norm of one vector from any new model. With unit-length vectors, cosine, dot product and Euclidean distance rank chunks identically; otherwise use cosine or normalise first.</li>
@@ -639,6 +650,23 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Margin</strong>, the correct document&rsquo;s similarity minus the best wrong document&rsquo;s. It keeps shrinking as dimensions fall, and a shrinking margin is where recall will break on a large corpus with near-duplicates, such as Larkspur&rsquo;s <code>refund-window</code> and <code>refund-timing</code> chunks.</li>
 </ul>
 <p>The notebook&rsquo;s most useful row is <code>3-large</code> truncated to 1536: a stronger model at the same index cost as <code>3-small</code>. Run the same comparison on the M10 golden set before you pick a size. Treat the choice as permanent, because changing dimensions means re-embedding every chunk and querying with the new setting.</p>
+<p>The two bills move independently, and the switcher puts them side by side for one million handbook-sized chunks. The embedding bill is Table 1&rsquo;s price times 125 million tokens, paid once. The index size is Table 2&rsquo;s arithmetic, held for as long as the index serves queries.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="dimension-switcher">
+<p class="widget-intro">Choose a model and dimensions setting for one million chunks of 500 characters, and compare the one-off bill with the running one.</p>
+<div class="mode-controls" hidden role="group" aria-label="Model and dimensions setting">
+<button type="button" data-mode="small" aria-pressed="false" aria-controls="dims-small">3-small at 1536</button>
+<button type="button" data-mode="large" aria-pressed="false" aria-controls="dims-large">3-large at 3072</button>
+<button type="button" data-mode="large-cut" aria-pressed="false" aria-controls="dims-large-cut">3-large at 1536</button>
+<button type="button" data-mode="small-cut" aria-pressed="false" aria-controls="dims-small-cut">3-small at 512</button>
+</div>
+<section id="dims-small" class="mode-panel" data-announcement="3-small at 1536. 2.50 dollars once, 6.1 gigabytes held."><h4>3-small at 1536 (the baseline)</h4><dl><dt>Embedding bill, once</dt><dd>$2.50</dd><dt>Index memory, every day</dt><dd>6.1 GB</dd><dt>What to measure</dt><dd>this is the reference row for recall and margin</dd></dl></section>
+<section id="dims-large" class="mode-panel" data-announcement="3-large at 3072. 16.25 dollars once, 12.3 gigabytes held."><h4>3-large at 3072 (the "bigger is better" move)</h4><dl><dt>Embedding bill, once</dt><dd>$16.25</dd><dt>Index memory, every day</dt><dd>12.3 GB, twice the baseline, and twice the arithmetic per search</dd><dt>What to measure</dt><dd>whether the margin gain on the golden set pays for a doubled index</dd></dl></section>
+<section id="dims-large-cut" class="mode-panel" data-announcement="3-large at 1536. 16.25 dollars once, 6.1 gigabytes held."><h4>3-large truncated to 1536</h4><dl><dt>Embedding bill, once</dt><dd>$16.25: the price is per token, and truncation does not change it</dd><dt>Index memory, every day</dt><dd>6.1 GB, the same as the baseline</dd><dt>What to measure</dt><dd>its margin against 3-small at 1536, at equal running cost</dd></dl></section>
+<section id="dims-small-cut" class="mode-panel" data-announcement="3-small at 512. 2.50 dollars once, 2.0 gigabytes held."><h4>3-small truncated to 512</h4><dl><dt>Embedding bill, once</dt><dd>$2.50</dd><dt>Index memory, every day</dt><dd>2.0 GB, a third of the baseline</dd><dt>What to measure</dt><dd>whether the margin between <code>refund-window</code> and <code>refund-timing</code> holds</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The one-off bills differ by about $14. The running costs differ by a factor of six between the smallest and largest index, and that difference is paid every day the index is up.</p>
 <h2 id="in-practice-sizing-the-larkspur-index">In practice: sizing the Larkspur index</h2>
 <p>For the handbook, the model and dimension choice takes four steps:</p>
 <ol>
@@ -647,9 +675,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Try a shorter setting</strong>, such as 512, only if memory is the constraint, and keep it only if the margin holds.</li>
 <li><strong>Record the model and dimensions</strong> in the index metadata (lesson 13.1), since every query must use the same pair.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> lesson 13.3 compares these hosted models with open models that run on your own machines.</p>
-</blockquote>
+<p>Lesson 13.3 compares these hosted models with open models that run on your own machines.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Prices are the notebooks&rsquo; figures.</strong> Table 1 and the switcher use the per-token prices written into the lesson 13.2 notebooks. Providers change prices, so budget from the current price list.</li>
+<li><strong>Memory is raw vector storage.</strong> Table 2 counts 4 bytes per number and nothing else. A real index adds its graph or list structures, and compression lowers the total.</li>
+<li><strong>&ldquo;Twice the cost per search&rdquo; is a rule of thumb.</strong> Similarity arithmetic grows with dimensions, but an approximate index visits only part of the corpus, and its own settings matter as much (<a href="../../../m14_vector_stores/mandatory/theory/index.html">M14</a>).</li>
+<li><strong>The sweep has six queries.</strong> The notebook ships without outputs, and its six well-separated documents saturate recall@1. Its table shows the method; your golden set gives the numbers.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://openai.com/index/new-embedding-models-and-api-updates/" target="_blank" rel="noopener">New embedding models and API updates</a>, 2024, introducing the <code>text-embedding-3</code> models and the dimensions setting.</li>
+<li>Kusupati and others, <a href="https://arxiv.org/abs/2205.13147" target="_blank" rel="noopener">Matryoshka representation learning</a>, 2022, the training method that front-loads information.</li>
+<li>OpenAI, <a href="https://developers.openai.com/api/docs/guides/embeddings" target="_blank" rel="noopener">Vector embeddings guide</a>, on reducing dimensions.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Embedding the corpus is a small one-off bill; dimensions are paid on every query in memory and compute. One million 1536-dimension vectors take about 6.1 GB as 32-bit floats.</li>
@@ -725,7 +764,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td><code>mixedbread-ai/mxbai-embed-large-v1</code></td>
-<td>Not printed in the notebook</td>
+<td>1024, per its model card (03c prints the length, but ships without outputs)</td>
 <td>Loaded in 03c as a second open model to compare with OpenAI</td>
 </tr>
 </tbody>
@@ -793,9 +832,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Add hard negatives</strong> to the golden set: <code>cancel</code> for the export question, <code>refund-window</code> for the refund-timing question, and a &ldquo;bandwidth&rdquo; paraphrase for the plans page.</li>
 <li><strong>Score recall, margin, latency and cost</strong> for each, and keep the documents on Larkspur&rsquo;s machines if policy requires it.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> lesson 13.4 turns to running embeddings in production: batching the calls and caching the results.</p>
-</blockquote>
+<p>Lesson 13.4 turns to running embeddings in production: batching the calls and caching the results.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The model descriptions are the notebooks&rsquo; own.</strong> &ldquo;Fast&rdquo;, &ldquo;higher quality&rdquo; and &ldquo;slowest&rdquo; in Table 1 come from the notebooks&rsquo; comparison tables, not from a timed run or a retrieval score on the handbook.</li>
+<li><strong>The &ldquo;bandwidth&rdquo; miss is a planted case.</strong> It shows how a domain miss looks; whether a given model makes it is something only a run on the golden set can tell.</li>
+<li><strong>Leaderboard scores move.</strong> MTEB adds models and tasks over time, so a shortlist taken from it has a date. Record when you took it.</li>
+<li><strong>Self-hosting costs are not priced here.</strong> Table 2 names the trade without numbers, because hardware and operations costs depend on the team and the load.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Muennighoff and others, <a href="https://arxiv.org/abs/2210.07316" target="_blank" rel="noopener">MTEB: Massive Text Embedding Benchmark</a>, 2022.</li>
+<li>Sentence Transformers, <a href="https://sbert.net/" target="_blank" rel="noopener">documentation</a>, covering the models in Table 1 and the normalisation setting.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/embeddings/huggingfacehub" target="_blank" rel="noopener">Hugging Face embeddings integration</a>, the wrapper the notebooks use.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Poor domain fit raises no error; it shows up as the wrong chunk ranked first. Use leaderboards for a shortlist and your own golden set, with hard negatives, for the decision.</li>
@@ -850,8 +900,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Namespace</td>
-<td>The model name and its dimensions</td>
-<td>Keeps two models&rsquo; vectors under different keys</td>
+<td>A fixed label, <code>exercise</code> (notebook 13.1 uses the model name)</td>
+<td>Keeps two models&rsquo; vectors under different keys, if the label names the model</td>
 </tr>
 <tr>
 <td>Key encoder</td>
@@ -866,6 +916,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The cache settings, as notebook 13.4 sets them.</em></p>
+<p>A fixed label such as <code>exercise</code> keeps the demo&rsquo;s keys apart from other caches, but it does not change when the model does. Notebook 13.1&rsquo;s own note asks for the model name <em>and</em> its dimensions setting, and that is the rule this page uses.</p>
 <p>Each lookup builds a key from the namespace and a hash of the text:</p>
 <figure class="anim sheet" aria-labelledby="anim-cache-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The embedding cache, scrolls sideways on a narrow screen">
@@ -919,7 +970,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p><em>Figure 1: One cache lookup. Only a miss reaches the billed model.</em></p>
-<p>A cache entry therefore matches only the exact text under the exact namespace. To see what that means for the Larkspur handbook, the 12 chunks of the M10 lab were run through the real cache-backed embeddings with a counting stand-in for the API (LangChain&rsquo;s deterministic fake embedding, so the counts are exact and free):</p>
+<p>A cache entry therefore matches only the exact text under the exact namespace. To see what that means for the Larkspur handbook, the 12 chunks of the M10 interactive lab were run through the real cache-backed embeddings, with a SHA-256 key encoder, a local file store and a counting stand-in for the API (LangChain&rsquo;s deterministic fake embedding, so the counts are exact and free):</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -957,11 +1008,32 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Five indexing runs through the cache on the 12 handbook chunks.</em></p>
-<p>Each run shows one property of the cache:</p>
+<p>Each run shows one property of the cache. The walkthrough follows the five runs in order, with what each one sends, stores and teaches.</p>
+<div class="walkthrough learning-widget" data-stepper id="cache-runs">
+<p class="widget-intro">Step through the five indexing runs and see which texts reach the model and what the store holds afterwards.</p>
+<div class="step-controls" hidden role="group" aria-label="Indexing runs through the cache">
+<button type="button" data-step="first" aria-pressed="false" aria-controls="run-first">1. First index</button>
+<button type="button" data-step="repeat" aria-pressed="false" aria-controls="run-repeat">2. Same again</button>
+<button type="button" data-step="edit" aria-pressed="false" aria-controls="run-edit">3. One edit</button>
+<button type="button" data-step="own-ns" aria-pressed="false" aria-controls="run-own-ns">4. Own namespace</button>
+<button type="button" data-step="shared-ns" aria-pressed="false" aria-controls="run-shared-ns">5. Shared namespace</button>
+</div>
+<section id="run-first" class="step-panel"><h4>Run 1: an empty cache</h4><dl><dt>Sent to the model</dt><dd>12 of 12 texts, all misses</dd><dt>Store afterwards</dt><dd>12 keys, one per chunk</dd><dt>What it shows</dt><dd>the first index costs what it would cost without a cache</dd></dl></section>
+<section id="run-repeat" class="step-panel"><h4>Run 2: the same 12 texts</h4><dl><dt>Sent to the model</dt><dd>0 of 12; every key is found</dd><dt>Store afterwards</dt><dd>12 keys, and the vectors returned are identical to run 1's</dd><dt>What it shows</dt><dd>re-running a notebook or a pipeline is free for unchanged text</dd></dl></section>
+<section id="run-edit" class="step-panel"><h4>Run 3: <code>refund-window</code> says 200 GB instead of 100 GB</h4><dl><dt>Sent to the model</dt><dd>1 of 12: the edited text hashes to a new key</dd><dt>Store afterwards</dt><dd>13 keys; the pre-edit vector is still there</dd><dt>What it shows</dt><dd>re-indexing costs the edit, and old entries stay until you clear them (<strong>stale entries</strong>)</dd></dl></section>
+<section id="run-own-ns" class="step-panel"><h4>Run 4: a second model under its own namespace</h4><dl><dt>Sent to the model</dt><dd>12 of 12; no key matches, because the namespace is part of every key</dd><dt>Store afterwards</dt><dd>25 keys: two models' vectors, kept apart</dd><dt>What it shows</dt><dd>a model swap with a namespaced cache pays once and mixes nothing</dd></dl></section>
+<section id="run-shared-ns" class="step-panel"><h4>Run 5: two models, both with the default empty namespace</h4><dl><dt>Sent to the model</dt><dd>0 of 12; the second model's requests find the first model's keys</dd><dt>Store afterwards</dt><dd>12 keys, shared by both models</dd><dt>What it shows</dt><dd>the second model gets the first model's vectors with no error (<strong>shared namespace</strong>)</dd></dl></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
+
 <ul>
 <li><strong>Re-indexing after an edit costs the edit.</strong> When M12&rsquo;s chunking changes only some chunks, only those are embedded again. Chunks whose text is unchanged hit the cache.</li>
-<li><strong>Old entries stay.</strong> Run 3 leaves the pre-edit vector in the store. A file store grows until you clear it. Give it a home you can delete or expire. We call these <strong>stale entries</strong>.</li>
-<li><strong>The namespace is part of correctness.</strong> The cache defaults to an empty namespace. Run 5 swaps the model and gets the old model&rsquo;s vectors back with no error: an index mixing two vector spaces, the mismatch from <a href="#the-same-model-on-both-sides">lesson 13.1</a>. We call this a <strong>shared namespace</strong>, and it is the opening failure.</li>
+<li><strong>Old entries stay.</strong> A file store grows until you clear it. Give it a home you can delete or expire.</li>
+<li><strong>The namespace is part of correctness.</strong> The cache defaults to an empty namespace. Run 5 swaps the model and gets the old model&rsquo;s vectors back: an index mixing two vector spaces, the mismatch from <a href="#the-same-model-on-both-sides">lesson 13.1</a>. The shared namespace is the opening failure.</li>
 </ul>
 <p>Notebook 13.4 writes its cache to a temporary folder, and the cache is discarded when the cell ends.</p>
 <h2 id="batching">Batching</h2>
@@ -996,14 +1068,23 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Expire the store</strong> on a schedule, or delete a namespace when its model is retired, to clear stale entries.</li>
 <li><strong>Use a shared byte store</strong>, such as Redis, once more than one worker indexes.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> lesson 13.5 compares embedding models on Databricks with automatic judges, and shows why one metric is not enough.</p>
-</blockquote>
+<p>Lesson 13.5 compares embedding models on Databricks with automatic judges, and shows why one metric is not enough.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The counts come from a stand-in model.</strong> Table 2 replays the real cache class with a deterministic fake embedding. The counts are exact; the timings and the bill of a real model are not part of the replay.</li>
+<li><strong>The batching comparison is the notebook&rsquo;s description.</strong> Notebook 13.1 prints the speed-up and the largest per-number difference, but it ships without outputs. Treat &ldquo;about 1.0&rdquo; as its claim, and expect the timing to vary with load.</li>
+<li><strong>A file store is one machine&rsquo;s cache.</strong> Several indexing workers need a shared byte store, and its expiry policy is a decision this page does not make for you.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/embeddings/cache/CacheBackedEmbeddings" target="_blank" rel="noopener">CacheBackedEmbeddings</a>, including the namespace and key encoder settings.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/embeddings/index" target="_blank" rel="noopener">Caching embeddings</a>, on wrapping a model with a byte store.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>An embedding cache keys each vector on namespace plus a hash of the text, so re-indexing after an edit pays only for the changed chunks. Old entries stay until you clear them.</li>
 <li>Put the model name and dimensions in the cache namespace. The default empty namespace silently returns the old model&rsquo;s vectors after a model swap.</li>
-<li>Embed the corpus with batched <code>embed_documents</code>, not a loop of <code>embed_query</code>. The two paths differ by numerical noise, so never compare vectors for exact equality.</li>
+<li>Embed the corpus with batched <code>embed_documents</code>, not a loop of <code>embed_query</code>. The two paths differ by numerical noise: never compare vectors for exact equality.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
@@ -1024,7 +1105,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>What you&rsquo;ll build</strong></p>
 <ul>
 <li>Embeddings of one small corpus from three open models, stored side by side in one table.</li>
-<li>One vector search index per model, so each model is searched on its own vectors.</li>
+<li>One vector search index per model: each model is searched on its own vectors.</li>
 <li>A retriever per model that embeds the question with that same model and returns the top 5.</li>
 <li>An MLflow evaluation that grades every model&rsquo;s retrieval with two automatic judges.</li>
 </ul>
@@ -1181,8 +1262,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Eight documents and 15 queries cannot settle a model choice.</strong> They show the method. The corpus is generic machine-learning sentences, not the Larkspur handbook, and it has no hard negatives (lesson 13.3).</li>
 <li><strong>Groundedness grades retrieved text here.</strong> The app returns the retrieved text itself as its response, so groundedness measures how well that excerpt matches its own sources, not an LLM&rsquo;s answer.</li>
 <li><strong>No labelled evidence.</strong> Both scores come from LLM judges, and there is no recall@k against known evidence chunks. Run the M10 golden set beside the judges.</li>
+<li><strong>Top 5 of 8 caps relevance for every model.</strong> Each query retrieves five of the eight documents, and most queries match only one or two of them by topic. Most retrieved documents therefore cannot be relevant, which keeps every model&rsquo;s relevance score far below 1.</li>
+<li><strong>The rankings read the whole experiment.</strong> The notebook&rsquo;s summary and ranking tables take every run logged to the experiment. An earlier run of the same notebook counts too. Check the run names before quoting a winner.</li>
 <li><strong>What it needs to run:</strong> a Databricks workspace with Vector Search and MLflow&rsquo;s GenAI evaluation. The catalog and schema names are hard-coded to one user&rsquo;s workspace and must be changed, and the three indexes are created by hand in the UI before the evaluation cell runs.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>MLflow, <a href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/predefined/" target="_blank" rel="noopener">Predefined LLM judges</a>, covering the retrieval relevance and retrieval groundedness scorers.</li>
+<li>Li and others, <a href="https://arxiv.org/abs/2308.03281" target="_blank" rel="noopener">Towards general text embeddings with multi-stage contrastive learning</a>, 2023, the GTE models.</li>
+<li>Xiao and others, <a href="https://arxiv.org/abs/2309.07597" target="_blank" rel="noopener">C-Pack: packed resources for general Chinese embeddings</a>, 2023, which introduced the BGE models.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Give each candidate model its own index and its own evaluation run, and embed every question with the same model as its index.</li>
@@ -1196,7 +1285,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>2. MiniLM and GTE tie for best retrieval relevance at 0.36, while BGE scores best on groundedness at 0.8667. Which model do you choose?</summary>
-<p>It depends on which metric the product needs, which you should decide before reading the results. Eight documents and 15 queries also cannot settle the choice, so rerun the comparison on your own golden set before committing.</p>
+<p>It depends on which metric the product needs, which you should decide before reading the results. Eight documents and 15 queries also cannot settle the choice. Rerun the comparison on your own golden set before committing.</p>
 </details>
 <details>
 <summary>3. A colleague cites the groundedness scores as proof that BGE gives more trustworthy answers. What is wrong with that reading?</summary>
@@ -1258,7 +1347,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Wrap the embedder in <code>CacheBackedEmbeddings</code> with a namespace that names the model and its dimensions, so re-runs and small edits cost almost nothing.</li>
 <li>Choose a model on your own documents and questions, use the same model on both sides, and record it in the index metadata so a mismatch fails loudly.</li>
 </ul></article>
-    <nav class="toc" aria-label="M13 sections"><details open><summary>In M13</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#cosine-similarity">Cosine similarity</a></li><li><a href="#the-same-model-on-both-sides">The same model on both sides</a></li><li><a href="#in-practice-choosing-the-metric-for-the-larkspur-index">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#vector-dimensionality">Vector dimensionality</a></li><li><a href="#shortening-a-vector-with-dimensions">Shortening a vector with dimensions</a></li><li><a href="#in-practice-sizing-the-larkspur-index">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#domain-fit">Domain fit</a></li><li><a href="#measuring-fit">Measuring fit</a></li><li><a href="#in-practice-an-open-model-shortlist-for-larkspur">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-cache">Embedding cache</a></li><li><a href="#batching">Batching</a></li><li><a href="#in-practice-the-larkspur-nightly-re-index">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-an-embedding-model-bake-off-on-databricks">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-query-through-the-bake-off">Following one query through the bake-off</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M13 sections"><details open><summary>In M13</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#cosine-similarity">Cosine similarity</a></li><li><a href="#the-same-model-on-both-sides">The same model on both sides</a></li><li><a href="#in-practice-choosing-the-metric-for-the-larkspur-index">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#vector-dimensionality">Vector dimensionality</a></li><li><a href="#shortening-a-vector-with-dimensions">Shortening a vector with dimensions</a></li><li><a href="#in-practice-sizing-the-larkspur-index">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#domain-fit">Domain fit</a></li><li><a href="#measuring-fit">Measuring fit</a></li><li><a href="#in-practice-an-open-model-shortlist-for-larkspur">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-cache">Embedding cache</a></li><li><a href="#batching">Batching</a></li><li><a href="#in-practice-the-larkspur-nightly-re-index">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-an-embedding-model-bake-off-on-databricks">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-query-through-the-bake-off">Following one query through the bake-off</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

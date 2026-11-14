@@ -2,6 +2,7 @@
 
 *[M15 theory](../README.md) · Lesson 15.5 · Notebooks: [`05a_contextual_chunk_headers.ipynb`](../../notebook/05a_contextual_chunk_headers.ipynb), [`05b_contextual_retrieval_rag_system.ipynb`](../../notebook/05b_contextual_retrieval_rag_system.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Put the context a chunk lost back into its text before it is embedded -->
+<!-- format: approved -->
 
 ## Contextual chunk headers
 
@@ -28,9 +29,30 @@ It also reports results on KITE, an end-to-end benchmark of 50 questions over fo
 
 ![Answer grade on KITE without and with contextual chunk headers](diagrams/kite-results.svg)
 
-*Figure 1: Answer grade on KITE without and with contextual chunk headers, as notebook 05a reports it.*
+*Figure 1: Answer grade on KITE without and with contextual chunk headers, from the KITE table of dsRAG, the project notebook 05a comes from.*
 
-The average rises from 4.72 to 6.04, a 27.9% increase by the notebook's figure. The gain is largest on the BVP Cloud 10-Ks (2.6 to 6.3) and smallest on the Sourcegraph handbook (5.7 to 5.8). On FinanceBench the notebook reports 83% against a 19% baseline, but for CCH and relevant segment extraction together, so the share due to headers is unknown.
+The average rises from 4.72 to 6.04, a 27.9% increase by the notebook's figure. The gain is largest on the BVP Cloud 10-Ks (2.6 to 6.3) and smallest on the Sourcegraph handbook (5.7 to 5.8).
+
+> **Pitfall: the notebook's copy of the table.** Its rows read 45.5 and 45.7 for AI Papers, 5.3 for BVP Cloud and 5.1 to 6.4 for the Supreme Court opinions, and those rows do not average to 4.72 and 6.04. The dsRAG project's own table has 4.5, 4.7, 6.3, 6.1 and 7.4, which do. Figure 1 uses those values, although the label inside the drawing names the notebook.
+
+On FinanceBench the notebook reports 83% against a 19% baseline, but for CCH and relevant segment extraction together. The share due to headers is unknown.
+
+The switcher shows what gets embedded for the Larkspur outage chunk under each option. The header follows 05a's format; the written context is illustrative, in the style 05b asks for.
+
+<div class="learning-widget evidence-switcher" data-comparison id="context-switcher">
+<p class="widget-intro">Choose what to prepend to the outage chunk and see what the embedding can match.</p>
+<div class="mode-controls" hidden role="group" aria-label="Context added to the outage chunk">
+<button type="button" data-mode="bare" aria-pressed="false" aria-controls="ctx-bare">Bare chunk</button>
+<button type="button" data-mode="header" aria-pressed="false" aria-controls="ctx-header">Contextual header</button>
+<button type="button" data-mode="written" aria-pressed="false" aria-controls="ctx-written">Written context</button>
+</div>
+<section id="ctx-bare" class="mode-panel" data-announcement="Bare chunk. Nothing in the text says these are outage credits."><h4>Bare chunk</h4><dl><dt>Embedded text</dt><dd>The credits are not added automatically. You claim them by opening a ticket in the Billing category within 30 days of the incident.</dd><dt>Shares with the outage question</dt><dd>"credits", "automatically". Nothing says outage or service.</dd><dt>Cost</dt><dd>None.</dd></dl></section>
+<section id="ctx-header" class="mode-panel" data-announcement="Header added. The section title now names outages and service credits."><h4>Contextual header</h4><dl><dt>Embedded text</dt><dd>Document Title: Larkspur Cloud handbook, Outages and service credits. Then the chunk.</dd><dt>Shares with the outage question</dt><dd>"credits", "automatically", "outages", "service".</dd><dt>Cost</dt><dd>None when the title and section path are already in metadata.</dd></dl></section>
+<section id="ctx-written" class="mode-panel" data-announcement="Written context added. One model call per chunk with the whole page in the prompt."><h4>Written context (illustrative)</h4><dl><dt>Embedded text</dt><dd>Focuses on claiming service credits after an outage drops a region below 99.95% availability. Then the chunk.</dd><dt>Shares with the outage question</dt><dd>As the header, plus where the chunk sits: after the 10% and 25% credit rules.</dd><dt>Cost</dt><dd>One model call per chunk, with the whole page in the prompt.</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The header already supplies the words the bare chunk lacked. The written context adds position inside the page, which a header that is the same for every chunk cannot say.
 
 Two rules from the notebook: use the same header-plus-chunk text in the reranker that you embedded, and show the header to the LLM with each result so it reads the chunk in context. For the handbook, the header can come from structure you already have: M12's `MarkdownHeaderTextSplitter` puts the section path in metadata, and M11 keeps titles in metadata, which is not embedded until you copy it into the text.
 
@@ -49,7 +71,7 @@ flowchart LR
 
 *Figure 2: Contextual retrieval. An LLM reads the whole document and writes a context for each chunk.*
 
-Notebook 05b builds a small RAG system this way. PDF pages are loaded with `PyMuPDFLoader` and split at `chunk_size=3500` with no overlap. For every chunk, `generate_chunk_context` sends the full document and the chunk to `gpt-4o-mini` with instructions to "Provide a concise context (3-4 sentences max) for this chunk", phrased as "Focuses on …". The context and chunk go into Chroma with `hnsw:space` set to cosine, next to Wikipedia documents indexed without context, and a `k=5` similarity retriever feeds a "stuff" prompt. The notebook gives context to only two of the twelve sample PDFs (the file names must contain "attention", "transformer" or "vision"), because the whole document has to fit in the prompt; its note says this is "to handle GPT4 out of context error".
+Notebook 05b builds a small RAG system this way. PDF pages are loaded with `PyMuPDFLoader` and split at `chunk_size=3500` with no overlap. For every chunk, `generate_chunk_context` sends the full document and the chunk to `gpt-4o-mini` with instructions to "Provide a concise context (3-4 sentences max) for this chunk", phrased as "Focuses on …". The context and chunk go into Chroma with `hnsw:space` set to cosine, next to Wikipedia documents indexed without context, and a `k=5` similarity retriever feeds a "stuff" prompt. The notebook gives context to only two of the twelve sample PDFs (the file paths must contain "attention", "transformer" or "vision" in lower case, which skips `Transformer.pdf` and `Vision Transformers.pdf`), because the whole document has to fit in the prompt; its note says this is "to handle GPT4 out of context error".
 
 Anthropic introduced the technique in [Introducing Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) (September 2024). Its example adds "This chunk is from an SEC filing on ACME corp's performance in Q2 2023; the previous quarter's revenue was $314 million." before the chunk "The company's revenue grew by 3% over the previous quarter." Its reported results, on its own datasets:
 
@@ -77,7 +99,19 @@ For the chunk about claiming credits, start with the cheaper fix:
 3. **Re-run the golden set.** Move to contextual retrieval only if headers fall short.
 4. **Check the document fits the prompt** before contextual retrieval: each handbook page is short enough, a long report may not be.
 
-> **Next:** M16 searches these chunks with keywords as well as vectors, and combines the two rankings.
+M16 searches these chunks with keywords as well as vectors, and combines the two rankings.
+
+## Limits of this evidence
+
+- **The 0.1 and 0.92 are one chunk and one query**, reported by notebook 05a, which ships without outputs. They show the mechanism, not a typical gain.
+- **KITE is small and graded by an LLM**: 50 questions over four document sets, scored 0 to 10. Its numbers are the dsRAG authors', not rerun here.
+- **Anthropic's percentages come from its own datasets** and its own embedding, keyword and reranking setup. They still have to hold on the handbook's golden set.
+- **Notebook 05b measures nothing.** It builds the index and answers sample questions; it does not compare contextual chunks with plain ones.
+
+## References
+
+1. Anthropic, [Introducing Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval), September 2024.
+2. dsRAG, [the project page with the KITE results](https://github.com/D-Star-AI/dsRAG), the source of notebook 05a and Figure 1's values.
 
 ## Key Takeaways
 

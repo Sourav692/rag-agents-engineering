@@ -2,6 +2,7 @@
 
 *[M10 theory](../README.md) · Lesson 10.2 · Notebooks: [`02a_indexing_from_scratch.ipynb`](../../notebook/02a_indexing_from_scratch.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: k decides what the model reads, and no k rescues a chunk that scores zero -->
+<!-- format: approved -->
 
 ## Top-k
 
@@ -43,9 +44,9 @@ The [interactive lab](interactive/top-k-retrieval-lab.html) indexes the twelve c
 | *Can I export my data after I cancel my plan?* | R 0.50 · P 1.00 | **R 1.00 · P 1.00** | R 1.00 · P 0.40 | R 1.00 · P 0.17 |
 | *How long does a refund take?* | R 0.50 · P 1.00 | R 0.50 · P 0.50 | R 0.50 · P 0.20 | R 0.50 · P 0.08 |
 | *What happens if my server goes down?* | R 0.00 · P 0.00 | R 0.00 · P 0.00 | R 0.00 · P 0.00 | R 0.00 · P 0.00 |
-| Context sent (≈ tokens) | ~30 | ~60 | ~150 | ~348 |
+| Context sent for the export question (≈ tokens) | ~30 | ~60 | ~150 | ~348 |
 
-*Table 2: Recall and precision at four values of k, from the lab. Tokens use the four-characters-per-token rule of thumb.*
+*Table 2: Recall and precision at four values of k, from the lab. A chunk that scores 0 never counts as found, even when a large k includes it. Tokens use the four-characters-per-token rule of thumb.*
 
 Each question fails in its own way:
 
@@ -101,9 +102,16 @@ For the handbook, the choice of `k` comes from the lab in four steps:
 3. **Note the flat lines.** The refund and outage questions never improve. They go on the list for lesson 10.3, which changes the representation.
 4. **Record the baseline at `k = 2`.** Mean recall@2 is (1.00 + 0.50 + 0.00) / 3 = 0.50, and mean precision@2 is also 0.50. Lesson 10.5 makes this the number every later change must beat.
 
+## Limits of this evidence
+
+- **Three questions, twelve chunks.** The lab's golden set is small enough to read by hand. Each question has two evidence chunks, so recall moves in steps of 0.50, and one question can swing the mean by a third.
+- **The token row is an estimate.** It divides characters by four. A real tokenizer gives other counts, though the growth with `k` is the same.
+- **The notebook uses another corpus.** Notebook `02a` builds the same kind of TF-IDF index over four example sentences and returns only the nearest one, `k = 1`, as a cosine distance. Every number on this page comes from the lab, whose scoring follows scikit-learn's defaults (English stop words, smoothed inverse document frequency, unit-length rows).
+
 ## References
 
-1. Liu, N. F., et al. *Lost in the Middle: How Language Models Use Long Contexts*. arXiv:2307.03172, July 2023; Transactions of the ACL, 2024. [arxiv.org/abs/2307.03172](https://arxiv.org/abs/2307.03172)
+1. Liu, N. F., et al. [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172), 2023, on why the middle of a long context is used less reliably.
+2. scikit-learn, [Text feature extraction](https://scikit-learn.org/stable/modules/feature_extraction.html#text-feature-extraction), covering the TF-IDF weighting the lab reproduces.
 
 ## Key Takeaways
 

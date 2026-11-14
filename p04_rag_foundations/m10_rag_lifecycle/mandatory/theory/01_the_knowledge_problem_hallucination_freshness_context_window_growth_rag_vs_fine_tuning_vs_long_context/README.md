@@ -2,6 +2,7 @@
 
 *[M10 theory](../README.md) · Lesson 10.1 · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Facts belong in an index you control, because the weights go stale and cite nothing -->
+<!-- format: approved -->
 
 ## Parametric vs non-parametric knowledge
 
@@ -78,14 +79,40 @@ flowchart TD
 
 ## In practice: the March refund change
 
-When the refund policy changed in March 2026, a RAG assistant needed four steps and no retraining:
+The same policy change lands differently under each approach. The switcher follows the 45-day customer's question through all three, using only the properties in Table 2.
+
+<div class="learning-widget evidence-switcher" data-comparison id="refund-change-switcher">
+<p class="widget-intro">Choose an approach and see what the March change costs and what the 45-day customer is told afterwards.</p>
+<div class="mode-controls" hidden role="group" aria-label="Approach used to add the new refund terms">
+<button type="button" data-mode="rag" aria-pressed="false" aria-controls="change-rag">RAG</button>
+<button type="button" data-mode="finetune" aria-pressed="false" aria-controls="change-finetune">Fine-tuning</button>
+<button type="button" data-mode="longcontext" aria-pressed="false" aria-controls="change-longcontext">Long context</button>
+</div>
+<section id="change-rag" class="mode-panel" data-announcement="RAG. Re-index one page; the answer cites it."><h4>RAG: re-index one page</h4><dl><dt>Work for the change</dt><dd>edit the refund page, then re-index that page only</dd><dt>What the customer is told</dt><dd>prorated refund of the unused whole months, minus the 15% fee, with the refund page as the source</dd><dt>Remaining risk</dt><dd>retrieval misses the proration chunk, which lesson 10.2 learns to measure</dd></dl></section>
+<section id="change-finetune" class="mode-panel" data-announcement="Fine-tuning. Retrain; still no citation."><h4>Fine-tuning: retrain the model</h4><dl><dt>Work for the change</dt><dd>build training examples for the new terms and retrain</dd><dt>What the customer is told</dt><dd>whatever the retrained weights produce, with no source to check it against</dd><dt>Remaining risk</dt><dd>the next policy change needs another retraining run</dd></dl></section>
+<section id="change-longcontext" class="mode-panel" data-announcement="Long context. Edit the prompt; every call pays for the whole handbook."><h4>Long context: edit the prompt</h4><dl><dt>Work for the change</dt><dd>replace the refund page in the prompt</dd><dt>What the customer is told</dt><dd>the right terms, if the model finds the refund paragraph among every other page</dd><dt>Remaining risk</dt><dd>every question pays for the whole handbook in tokens, and the handbook can outgrow the window</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Only the RAG row updates a single fact and returns a source. Under RAG the change needed four steps and no retraining:
 
 1. **The policy team edits the refund page.** The new text adds proration after day 30, minus the 15% early-termination fee.
 2. **Re-index that page.** Load it, split it, embed the new chunks and replace the old ones in the index.
 3. **Ask the 45-day question again.** The assistant now retrieves the proration chunk, answers from it and cites the page.
 4. **Keep the question.** Add it to the set of test questions, and the next policy change gets checked the same way.
 
-> **Next:** step 2 hides the core mechanism, an index that scores every chunk against a question. Lesson 10.2 builds one from scratch with TF-IDF.
+Step 2 hides the core mechanism, an index that scores every chunk against a question. Lesson 10.2 builds one from scratch with TF-IDF.
+
+## Limits of this evidence
+
+- **The March change is a scenario.** The Larkspur handbook in this course holds only the current refund terms (full refund within 30 days, then proration minus 15%). The earlier policy and its date are part of the story, not a file you can open.
+- **Table 2 compares properties, not measurements.** No cost, latency or accuracy figure on this page was measured. Lesson 10.2 starts measuring, and lesson 10.5 turns those measurements into a baseline.
+- **This lesson has no notebook.** The comparison is conceptual. M45 measures what fine-tuning changes in practice.
+
+## References
+
+1. Lewis, P., et al. [The original retrieval-augmented generation paper](https://arxiv.org/abs/2005.11401), 2020, which pairs a retriever over an external index with a generator.
+2. Liu, N. F., et al. [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172), 2023, on how the position of evidence in a long prompt changes how well a model uses it.
 
 ## Key Takeaways
 

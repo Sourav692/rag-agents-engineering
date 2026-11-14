@@ -2,6 +2,7 @@
 
 *[M15 theory](../README.md) · Lesson 15.3 · Notebooks: [`03a_hierarchical_indices.ipynb`](../../notebook/03a_hierarchical_indices.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Pick the page first and the chunk second, and a page the first tier misses hides every chunk on it -->
+<!-- format: approved -->
 
 ## Top-down search
 
@@ -37,10 +38,22 @@ Notebook 03a builds both tiers from one PDF with `encode_pdf_hierarchical`:
 
 `retrieve_hierarchical(query, summary_store, detailed_store, k_summaries=3, k_chunks=5)` runs the summary search, then for each summary calls `similarity_search(query, k=5, filter=…)` with a filter that keeps only chunks whose `page` matches. The result is up to 15 chunks, grouped by page in the order the summary tier ranked the pages.
 
+Following the notebook's question, *What is the greenhouse effect?*, through the two tiers:
+
+| Stage | Searches | Keeps | Passes on |
+|---|---|---|---|
+| Summary tier | One summary per PDF page | The top 3 summaries | Their 3 page numbers, in rank order |
+| Detail tier, once per page | The detail store, filtered to that page | Up to 5 chunks | The chunks, grouped under their page |
+| Result | | Up to 3 × 5 chunks | One list for the prompt |
+
+*Table 1: Top-down search in notebook 03a, stage by stage.*
+
+The filter has a catch the notebook does not mention. FAISS applies a filter after the search: it fetches the 20 nearest chunks from the whole detail store (`fetch_k=20` by default), then keeps those on the chosen page. A chosen page whose chunks are not in that global top 20 returns fewer than 5 chunks, possibly none. We call this **filter starvation**. Raising `fetch_k` fixes it, at the cost of a wider search per page.
+
 What the two tiers buy:
 
 - **Pages compete as wholes.** A page summary says what the page is about. A broad question ("What is the greenhouse effect?") lands on the right pages before any chunk-level detail is compared.
-- **Chunks compete only with their neighbours.** A chunk with matching words on an unrelated page never enters the result.
+- **Off-page chunks never enter the result.** A chunk with matching words on an unrelated page is filtered out, however well it scores. It can still take one of the 20 fetched slots and starve the chosen page.
 
 And what they cost:
 
@@ -50,17 +63,28 @@ And what they cost:
 
 ## In practice: section summaries for the Larkspur handbook
 
-For the Larkspur handbook, each section ("Refunds and cancellations", "Outages and service credits", "Data export and retention") would be one summary. *Do I get service credits automatically after an outage?* would pick the outage summary first and then compare only that section's chunks, so a refund chunk about "Credits from SLA breaches" cannot crowd it out. Three settings keep it that way:
+For the Larkspur handbook, each section ("Refunds and cancellations", "Outages and service credits", "Data export and retention") would be one summary. *Do I get service credits automatically after an outage?* would pick the outage summary first and then keep only that section's chunks. A refund chunk about "Credits from SLA breaches" cannot reach the prompt. Four settings keep it that way:
 
 1. **One summary per section**, regenerated whenever the section changes.
 2. **A prompt budget set by both numbers**: 3 sections × 5 chunks is up to 15 chunks per question.
-3. **A log of the sections chosen** for every question, which lets a miss be traced to the summary tier.
+3. **A `fetch_k` large enough** that each chosen section still yields its chunks; with three short sections, fetching every chunk costs little.
+4. **A log of the sections chosen** for every question, which lets a miss be traced to the summary tier.
 
-> **Next:** lesson 15.4 changes the key again, from what a chunk says to the questions a reader would ask about it.
+Lesson 15.4 changes the key again, from what a chunk says to the questions a reader would ask about it.
+
+## Limits of this evidence
+
+- **No result is recorded.** Notebook 03a ships without outputs and prints no comparison with a flat index. Nothing here shows that two tiers retrieve better on its climate PDF.
+- **The animation is illustrative.** It uses the notebook's parameters (3 and 5), but which pages and chunks light up is made up.
+- **The Larkspur outcome is reasoned, not run.** The handbook was not indexed in two tiers for this lesson.
+
+## References
+
+1. Sarthi and others, [RAPTOR: recursive abstractive processing for tree-organised retrieval](https://arxiv.org/abs/2401.18059), 2024. A deeper version of the summary tier: clusters of chunks summarised level by level into a tree.
 
 ## Key Takeaways
 
-- A hierarchical index picks the best pages from a summary tier, then searches chunks only inside them. Chunks compete with their neighbours, not with look-alikes on unrelated pages.
+- A hierarchical index picks the best pages from a summary tier, then keeps only chunks from those pages. FAISS filters after fetching the top 20 chunks overall. Set `fetch_k` high enough that a chosen page is not starved.
 - The summary tier caps recall: a page it misses is never searched. Log which pages it chose so a miss can be traced.
 - Summaries cost one LLM call per page and go stale when pages change. The model receives up to `k_summaries × k_chunks` chunks, so both numbers set the prompt budget.
 
@@ -69,21 +93,21 @@ For the Larkspur handbook, each section ("Refunds and cancellations", "Outages a
 <details>
 <summary>1. For the question about service credits after an outage, why can a refund chunk about credits from SLA breaches not crowd out the answer?</summary>
 
-The question first picks the best section summaries, so the outage summary wins as a whole. The detail search then runs only inside the chosen pages, and chunks compete only with their neighbours. A chunk with matching words on an unrelated page never enters the result.
+The question first picks the best section summaries, and the outage summary wins as a whole. The detail search then keeps only chunks from the chosen pages. A chunk with matching words on an unrelated page is filtered out, however well it scores.
 
 </details>
 
 <details>
 <summary>2. With 3 summaries and 5 chunks per summary, how many chunks can reach the model, and what happens if you raise the chunk count to 10?</summary>
 
-Up to 15 chunks, because the result size is `k_summaries × k_chunks`. Raising `k_chunks` to 10 allows up to 30, so changing either number changes the prompt budget.
+Up to 15 chunks, because the result size is `k_summaries × k_chunks`. Raising `k_chunks` to 10 allows up to 30. Changing either number changes the prompt budget.
 
 </details>
 
 <details>
 <summary>3. A chunk that would score well against the question never appears in the results. Which tier do you check first, and what should you log?</summary>
 
-The summary tier. If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose, so a miss can be traced to the tier that caused it.
+The summary tier. If the right page is not in the top 3 summaries, its chunks are never searched, however well they would score. Log which pages the summary tier chose; then a miss can be traced to the tier that caused it.
 
 </details>
 

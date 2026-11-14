@@ -2,6 +2,7 @@
 
 *[M14 theory](../README.md) · Lesson 14.2 · Notebooks: [`02a_chromadb.ipynb`](../../notebook/02a_chromadb.ipynb), [`02b_faiss.ipynb`](../../notebook/02b_faiss.ipynb), [`02c_vector_stores_in_practice.ipynb`](../../../optional/notebook/02c_vector_stores_in_practice.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Approximate search gives up a recall guarantee for speed, and its misses look like normal results -->
+<!-- format: approved -->
 
 ## ANN search
 
@@ -27,6 +28,20 @@ Approximate nearest-neighbour (ANN) indexes give up the guarantee to visit only 
 
 *Figure 1: An HNSW search enters at the top layer, walks greedily towards the query and ends at layer 0 (schematic).*
 
+IVF works from a coarser map. It assigns every vector to its nearest centroid when the index is built, then a query compares itself with the centroids and scans only the closest lists:
+
+```mermaid
+flowchart LR
+    Q[/"Refund question"/] --> C["Compare with<br/>every centroid"]
+    C --> P["Keep the nearest<br/>probes lists"]
+    P --> S["Scan only<br/>those lists"]
+    S --> K["Top k from<br/>the scanned lists"]
+```
+
+*Figure 2: An IVF search. A neighbour that sits in an unprobed list is never seen (schematic).*
+
+The two failure points differ. HNSW can stop its greedy walk in a local neighbourhood that does not hold the true nearest chunk. IVF can leave the true nearest chunk in a list it did not probe, which is likely when the chunk sits near the border between two clusters.
+
 Each knob moves recall against speed or memory:
 
 | Knob | What it controls | Chroma 1.5.9 default | pgvector default |
@@ -40,7 +55,7 @@ Each knob moves recall against speed or memory:
 
 The Chroma values are what `collection.configuration_json` reports for a new collection in the course environment, and the pgvector values are from the [pgvector README](https://github.com/pgvector/pgvector). Defaults are a starting point. To tune them, measure recall@k of the ANN index against an exact search on your own queries, and raise `ef_search` until the misses stop mattering for the golden set.
 
-An ANN miss raises no error, and we call it a **silent ANN miss**. An index that skips the refund chunk returns the next-best chunk with a normal-looking score, so a recall drop after the corpus grows shows up as worse answers, not as an error.
+An ANN miss raises no error, and we call it a **silent ANN miss**. An index that skips the refund chunk returns the next-best chunk with a normal-looking score. A recall drop after the corpus grows shows up only as worse answers.
 
 ## Chroma or FAISS
 
@@ -57,7 +72,29 @@ Both run inside your Python process with no server. They differ in what they do 
 
 *Table 2: Chroma and FAISS compared.*
 
-The filter difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged `t="no"` that sat close to the query and 3 tagged `t="yes"` further away. `similarity_search(q, k=3, filter={"t": "yes"})` returned 0 results, because none of the 3 was among the 20 nearest candidates; with `fetch_k=28` it returned all 3. Chroma, asked for `k=5` with a filter only 2 entries match, returned those 2. We call the FAISS case a **starved post-filter**: the filter runs on too few candidates. The same check in table form:
+The filter difference comes from where each store applies it. Chroma narrows the candidates first:
+
+```mermaid
+flowchart LR
+    Q[/"Query + filter<br/>t = yes, k = 5"/] --> F["Keep entries<br/>that match"]
+    F --> R["Rank the<br/>2 matches"]
+    R --> O["Return 2"]
+```
+
+*Figure 3: Chroma applies the filter inside the store, before ranking.*
+
+The FAISS wrapper ranks first and filters what it fetched:
+
+```mermaid
+flowchart LR
+    Q[/"Query + filter<br/>t = yes, k = 3"/] --> R["Rank all vectors<br/>keep 20 nearest"]
+    R --> F["Drop entries<br/>with t = no"]
+    F --> O["Return 0"]
+```
+
+*Figure 4: The FAISS wrapper filters in Python after ranking `fetch_k=20` candidates.*
+
+The difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged `t="no"` that sat close to the query and 3 tagged `t="yes"` further away. `similarity_search(q, k=3, filter={"t": "yes"})` returned 0 results, because none of the 3 was among the 20 nearest candidates; with `fetch_k=28` it returned all 3. Chroma, asked for `k=5` with a filter only 2 entries match, returned those 2. We call the FAISS case a **starved post-filter**: the filter runs on too few candidates. The same check in table form:
 
 | Store and query | Matching entries | Returned |
 |---|---|---|
@@ -80,10 +117,25 @@ For the handbook on one machine, the choices follow from Tables 1 to 3:
 
 > **Next:** lesson 14.3 moves the index off your machine, to managed stores, and looks at what decides which entries one query can see.
 
+## Limits of this evidence
+
+- **No recall measurement here.** The notebooks index a handful of chunks, where exact and approximate search agree. The page states the recall trade-off from the algorithms; it shows no measured recall@k.
+- **A planted case.** Table 3 uses hand-made two-dimensional vectors placed to starve the filter, not real embeddings. It shows the mechanism; how often it bites depends on how selective your filters are.
+- **Defaults are versioned.** Table 1's Chroma values come from Chroma 1.5.9 in the course environment and the pgvector values from its README. Both can change between releases.
+- **The figures are schematic.** Figures 1 and 2 show the search shape, not a real index's layer counts or cluster sizes.
+
+## References
+
+1. Malkov and Yashunin, [the HNSW paper on approximate nearest-neighbour search with layered small-world graphs](https://arxiv.org/abs/1603.09320) (2016).
+2. Johnson, Douze and Jégou, [Billion-scale similarity search with GPUs](https://arxiv.org/abs/1702.08734), the paper behind the FAISS library and its IVF indexes.
+3. FAISS wiki, [Faiss indexes](https://github.com/facebookresearch/faiss/wiki/Faiss-indexes), listing the flat, HNSW and IVF index types.
+4. Chroma, [Configure collections](https://docs.trychroma.com/docs/collections/configure), on the HNSW settings and distance space.
+5. pgvector, [README](https://github.com/pgvector/pgvector), for its HNSW and IVF defaults and query settings.
+
 ## Key Takeaways
 
 - ANN indexes such as HNSW and IVF trade the guaranteed top `k` for speed, and a miss raises no error. Measure recall@k against exact search and raise `ef_search` until misses stop mattering.
-- Chroma filters inside the store before ranking; the FAISS wrapper filters after ranking `fetch_k=20` candidates, so a selective filter can return nothing.
+- Chroma filters inside the store before ranking; the FAISS wrapper filters after ranking `fetch_k=20` candidates. A selective filter can then return nothing.
 - Start with Chroma for anything you will update, use FAISS for a static read-heavy corpus, and move to a hosted store for concurrent writers or several machines.
 
 ## Check yourself

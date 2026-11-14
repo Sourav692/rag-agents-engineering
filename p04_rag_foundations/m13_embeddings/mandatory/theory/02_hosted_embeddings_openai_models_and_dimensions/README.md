@@ -2,6 +2,7 @@
 
 *[M13 theory](../README.md) · Lesson 13.2 · Notebooks: [`02a_openai_embeddings.ipynb`](../../notebook/02a_openai_embeddings.ipynb), [`02b_openai_embeddings_tutorial.ipynb`](../../../optional/notebook/02b_openai_embeddings_tutorial.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Embedding the corpus is a one-off bill, and dimensions cost memory and compute on every query -->
+<!-- format: approved -->
 
 ## Vector dimensionality
 
@@ -71,6 +72,25 @@ Shorter vectors are worse. The open question is how much worse on your data for 
 
 The notebook's most useful row is `3-large` truncated to 1536: a stronger model at the same index cost as `3-small`. Run the same comparison on the M10 golden set before you pick a size. Treat the choice as permanent, because changing dimensions means re-embedding every chunk and querying with the new setting.
 
+The two bills move independently, and the switcher puts them side by side for one million handbook-sized chunks. The embedding bill is Table 1's price times 125 million tokens, paid once. The index size is Table 2's arithmetic, held for as long as the index serves queries.
+
+<div class="learning-widget evidence-switcher" data-comparison id="dimension-switcher">
+<p class="widget-intro">Choose a model and dimensions setting for one million chunks of 500 characters, and compare the one-off bill with the running one.</p>
+<div class="mode-controls" hidden role="group" aria-label="Model and dimensions setting">
+<button type="button" data-mode="small" aria-pressed="false" aria-controls="dims-small">3-small at 1536</button>
+<button type="button" data-mode="large" aria-pressed="false" aria-controls="dims-large">3-large at 3072</button>
+<button type="button" data-mode="large-cut" aria-pressed="false" aria-controls="dims-large-cut">3-large at 1536</button>
+<button type="button" data-mode="small-cut" aria-pressed="false" aria-controls="dims-small-cut">3-small at 512</button>
+</div>
+<section id="dims-small" class="mode-panel" data-announcement="3-small at 1536. 2.50 dollars once, 6.1 gigabytes held."><h4>3-small at 1536 (the baseline)</h4><dl><dt>Embedding bill, once</dt><dd>$2.50</dd><dt>Index memory, every day</dt><dd>6.1 GB</dd><dt>What to measure</dt><dd>this is the reference row for recall and margin</dd></dl></section>
+<section id="dims-large" class="mode-panel" data-announcement="3-large at 3072. 16.25 dollars once, 12.3 gigabytes held."><h4>3-large at 3072 (the "bigger is better" move)</h4><dl><dt>Embedding bill, once</dt><dd>$16.25</dd><dt>Index memory, every day</dt><dd>12.3 GB, twice the baseline, and twice the arithmetic per search</dd><dt>What to measure</dt><dd>whether the margin gain on the golden set pays for a doubled index</dd></dl></section>
+<section id="dims-large-cut" class="mode-panel" data-announcement="3-large at 1536. 16.25 dollars once, 6.1 gigabytes held."><h4>3-large truncated to 1536</h4><dl><dt>Embedding bill, once</dt><dd>$16.25: the price is per token, and truncation does not change it</dd><dt>Index memory, every day</dt><dd>6.1 GB, the same as the baseline</dd><dt>What to measure</dt><dd>its margin against 3-small at 1536, at equal running cost</dd></dl></section>
+<section id="dims-small-cut" class="mode-panel" data-announcement="3-small at 512. 2.50 dollars once, 2.0 gigabytes held."><h4>3-small truncated to 512</h4><dl><dt>Embedding bill, once</dt><dd>$2.50</dd><dt>Index memory, every day</dt><dd>2.0 GB, a third of the baseline</dd><dt>What to measure</dt><dd>whether the margin between <code>refund-window</code> and <code>refund-timing</code> holds</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The one-off bills differ by about $14. The running costs differ by a factor of six between the smallest and largest index, and that difference is paid every day the index is up.
+
 ## In practice: sizing the Larkspur index
 
 For the handbook, the model and dimension choice takes four steps:
@@ -80,7 +100,20 @@ For the handbook, the model and dimension choice takes four steps:
 3. **Try a shorter setting**, such as 512, only if memory is the constraint, and keep it only if the margin holds.
 4. **Record the model and dimensions** in the index metadata (lesson 13.1), since every query must use the same pair.
 
-> **Next:** lesson 13.3 compares these hosted models with open models that run on your own machines.
+Lesson 13.3 compares these hosted models with open models that run on your own machines.
+
+## Limits of this evidence
+
+- **Prices are the notebooks' figures.** Table 1 and the switcher use the per-token prices written into the lesson 13.2 notebooks. Providers change prices, so budget from the current price list.
+- **Memory is raw vector storage.** Table 2 counts 4 bytes per number and nothing else. A real index adds its graph or list structures, and compression lowers the total.
+- **"Twice the cost per search" is a rule of thumb.** Similarity arithmetic grows with dimensions, but an approximate index visits only part of the corpus, and its own settings matter as much ([M14](../../../../m14_vector_stores/mandatory/theory/README.md)).
+- **The sweep has six queries.** The notebook ships without outputs, and its six well-separated documents saturate recall@1. Its table shows the method; your golden set gives the numbers.
+
+## References
+
+1. OpenAI, [New embedding models and API updates](https://openai.com/index/new-embedding-models-and-api-updates/), 2024, introducing the `text-embedding-3` models and the dimensions setting.
+2. Kusupati and others, [Matryoshka representation learning](https://arxiv.org/abs/2205.13147), 2022, the training method that front-loads information.
+3. OpenAI, [Vector embeddings guide](https://developers.openai.com/api/docs/guides/embeddings), on reducing dimensions.
 
 ## Key Takeaways
 

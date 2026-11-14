@@ -2,13 +2,14 @@
 
 *[M13 theory](../../../mandatory/theory/README.md) · Lesson 13.5 · Notebooks: [`05a_compare_embedding_models_databricks.ipynb`](../../notebook/05a_compare_embedding_models_databricks.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Score candidate embedding models with automatic retrieval judges, and decide which metric you need first -->
+<!-- format: approved -->
 
 ## The project: an embedding model bake-off on Databricks
 
 > **What you'll build**
 >
 > - Embeddings of one small corpus from three open models, stored side by side in one table.
-> - One vector search index per model, so each model is searched on its own vectors.
+> - One vector search index per model: each model is searched on its own vectors.
 > - A retriever per model that embeds the question with that same model and returns the top 5.
 > - An MLflow evaluation that grades every model's retrieval with two automatic judges.
 
@@ -86,7 +87,15 @@ The smallest model tied for best relevance, and the ranking reversed on the seco
 - **Eight documents and 15 queries cannot settle a model choice.** They show the method. The corpus is generic machine-learning sentences, not the Larkspur handbook, and it has no hard negatives (lesson 13.3).
 - **Groundedness grades retrieved text here.** The app returns the retrieved text itself as its response, so groundedness measures how well that excerpt matches its own sources, not an LLM's answer.
 - **No labelled evidence.** Both scores come from LLM judges, and there is no recall@k against known evidence chunks. Run the M10 golden set beside the judges.
+- **Top 5 of 8 caps relevance for every model.** Each query retrieves five of the eight documents, and most queries match only one or two of them by topic. Most retrieved documents therefore cannot be relevant, which keeps every model's relevance score far below 1.
+- **The rankings read the whole experiment.** The notebook's summary and ranking tables take every run logged to the experiment. An earlier run of the same notebook counts too. Check the run names before quoting a winner.
 - **What it needs to run:** a Databricks workspace with Vector Search and MLflow's GenAI evaluation. The catalog and schema names are hard-coded to one user's workspace and must be changed, and the three indexes are created by hand in the UI before the evaluation cell runs.
+
+## References
+
+1. MLflow, [Predefined LLM judges](https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/predefined/), covering the retrieval relevance and retrieval groundedness scorers.
+2. Li and others, [Towards general text embeddings with multi-stage contrastive learning](https://arxiv.org/abs/2308.03281), 2023, the GTE models.
+3. Xiao and others, [C-Pack: packed resources for general Chinese embeddings](https://arxiv.org/abs/2309.07597), 2023, which introduced the BGE models.
 
 ## Key Takeaways
 
@@ -106,7 +115,7 @@ Each index holds vectors from one model, and vectors from different models live 
 <details>
 <summary>2. MiniLM and GTE tie for best retrieval relevance at 0.36, while BGE scores best on groundedness at 0.8667. Which model do you choose?</summary>
 
-It depends on which metric the product needs, which you should decide before reading the results. Eight documents and 15 queries also cannot settle the choice, so rerun the comparison on your own golden set before committing.
+It depends on which metric the product needs, which you should decide before reading the results. Eight documents and 15 queries also cannot settle the choice. Rerun the comparison on your own golden set before committing.
 
 </details>
 

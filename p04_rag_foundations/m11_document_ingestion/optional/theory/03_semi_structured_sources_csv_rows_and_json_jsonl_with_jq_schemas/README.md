@@ -2,6 +2,7 @@
 
 *[M11 theory](../../../mandatory/theory/README.md) · Lesson 11.3 · Notebooks: [`03a_csv_loader.ipynb`](../../notebook/03a_csv_loader.ipynb) (optional), [`03b_json_loader.ipynb`](../../notebook/03b_json_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: The record you choose is the smallest thing retrieval can return, and each field goes in the text, the metadata or both -->
+<!-- format: approved -->
 
 ## One record, one Document
 
@@ -23,7 +24,7 @@ The CSV loader makes one Document per row. Each line of `page_content` is `colum
 | `page_content` | Five lines: `plan: Business`, `vcpu: 4`, `memory_gb: 16`, `traffic_tb: 5`, `price_usd: 48` |
 | `metadata` | `source`: `plans.csv`, `row`: 1 |
 
-*Table 1: The Business row of `plans.csv` as a Document, with default settings.*
+*Table 1: The Business row of `plans.csv` as a Document, with default settings. `plans.csv` is a three-row file written for this page from the pricing table in lesson 11.4's lab; every row in this lesson's tables comes from running the CSV loader in `langchain-community` 0.4.2 on it.*
 
 The Unstructured CSV loader goes the other way and returns the whole file as one table Document. Use it when the question is about the table as a whole. Use the row loader when each row answers a question on its own, as the Business memory question does.
 
@@ -64,6 +65,21 @@ The CSV loader takes three settings for this: `content_columns`, `metadata_colum
 
 *Table 3: Four CSV loader settings, the failure each caused and its guard.*
 
+The switcher shows the Business row's Document under three of these settings, as the loader returned them.
+
+<div class="learning-widget evidence-switcher" data-comparison id="csv-settings">
+<p class="widget-intro">Choose a setting and compare what gets embedded with what lands in metadata for the Business row.</p>
+<div class="mode-controls" hidden role="group" aria-label="CSV loader setting">
+<button type="button" data-mode="default" aria-pressed="false" aria-controls="csv-default">Defaults</button>
+<button type="button" data-mode="metaonly" aria-pressed="false" aria-controls="csv-metaonly">Metadata columns only</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="csv-both">Content and metadata columns</button>
+</div>
+<section id="csv-default" class="mode-panel" data-announcement="Defaults. Every column is embedded and metadata holds only the file and row."><h4>Defaults</h4><dl><dt>Embedded text</dt><dd>all five lines, from plan Business to price 48</dd><dt>Metadata</dt><dd>source plans.csv, row 1</dd><dt>Effect</dt><dd>the Business question matches; no exact filter on plan or price exists</dd></dl></section>
+<section id="csv-metaonly" class="mode-panel" data-announcement="Metadata columns only. Business leaves the embedded text."><h4>Metadata columns plan and price, no content columns</h4><dl><dt>Embedded text</dt><dd>vcpu 4, memory 16, traffic 5; the plan name is gone</dd><dt>Metadata</dt><dd>source, row 1, plan Business, price as the string 48</dd><dt>Effect</dt><dd>text-stripped column: the word Business is no longer embedded, and a price range filter compares strings</dd></dl></section>
+<section id="csv-both" class="mode-panel" data-announcement="Content and metadata columns. Plan is in both places."><h4>Content columns plan, vcpu, memory; metadata columns plan and price</h4><dl><dt>Embedded text</dt><dd>plan Business, vcpu 4, memory 16</dd><dt>Metadata</dt><dd>source, row 1, plan Business, price as the string 48</dd><dt>Effect</dt><dd>the plan can be matched and filtered; the price still needs a cast before a range filter</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 The JSON loader splits the same decision across two arguments. `content_key` names the field that becomes `page_content`, and a metadata function copies the fields you want to filter on. The notebook copies `sender_name` and `timestamp_ms`, so a query can ask for one person's messages in a time range.
 
 The two loaders also disagree on provenance. The JSON loader stores `source` as an absolute path and counts `seq_num` from 1. The CSV loader writes `source` as you passed it and counts `row` from 0. Lesson 11.5 maps these differences onto one schema.
@@ -72,13 +88,25 @@ The two loaders also disagree on provenance. The JSON loader stores `source` as 
 
 To answer both *How much memory does Business have?* and *Which plans cost under $50?* from the same file:
 
-1. **One Document per row**, so each plan can be retrieved on its own.
-2. **`plan` in both the text and the metadata**, so it can be matched by similarity and filtered exactly.
+1. **One Document per row.** Each plan can then be retrieved on its own.
+2. **`plan` in both the text and the metadata.** It can be matched by similarity and filtered exactly.
 3. **`price_usd` cast to a number** in metadata, for range filters.
-4. **`source` kept as the file path**, with `row` beside it, so a citation can open the right file at the right row.
+4. **`source` kept as the file path**, with `row` beside it. A citation can then open the right file at the right row.
 5. **Count empty Documents** after the load, which catches a column or jq path that missed.
 
 > **Next:** lesson 11.4 returns to files with layout, PDFs and Word documents, where the parser decides what text exists at all.
+
+## Limits
+
+- **`plans.csv` is written for this page.** It holds the three plans from lesson 11.4's lab page, not the Markdown handbook's server sizes. The loader behaviour in Tables 1 and 3 is real: each row was produced by the CSV loader on that file.
+- **The notebook files are small.** The header-as-row case uses the notebook's five-row `data.csv`, and Table 2 uses its `chat_data.json` with 11 messages. A real export has more record shapes, and more ways for a jq path to miss.
+- **Loader conventions can change.** The 0-based `row`, the 1-based `seq_num` and the string values were read from `langchain-community` 0.4.2. Check them again after an upgrade.
+
+## References
+
+1. jq, [Manual](https://jqlang.org/manual/), on path expressions such as `.messages[]`.
+2. [JSON Lines](https://jsonlines.org/), the one-object-per-line format the loader's line flag reads.
+3. LangChain, [Document loaders](https://docs.langchain.com/oss/python/integrations/document_loaders), including the CSV and JSON loaders.
 
 ## Key Takeaways
 
@@ -105,7 +133,7 @@ The text becomes `vcpu: 4`, `memory_gb: 16` and `traffic_tb: 5`, because `metada
 <details>
 <summary>3. A five-row CSV loads as six Documents, and the first one reads Property ID: Property_ID. What caused it?</summary>
 
-The loader was given new `fieldnames` to rename columns on a file that already has a header row, so the header was read as a data row. Rename the columns in the file instead, or drop that first Document.
+The loader was given new `fieldnames` to rename columns on a file that already has a header row. The loader read the header as a data row. Rename the columns in the file instead, or drop that first Document.
 
 </details>
 

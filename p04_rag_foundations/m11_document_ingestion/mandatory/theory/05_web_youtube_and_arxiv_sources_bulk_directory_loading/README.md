@@ -2,6 +2,7 @@
 
 *[M11 theory](../README.md) · Lesson 11.5 · Notebooks: [`05a_url_loader.ipynb`](../../notebook/05a_url_loader.ipynb), [`05b_youtube_transcript_loader.ipynb`](../../../optional/notebook/05b_youtube_transcript_loader.ipynb) (optional), [`05c_research_paper_loader.ipynb`](../../../optional/notebook/05c_research_paper_loader.ipynb) (optional), [`05d_directory_loader.ipynb`](../../../optional/notebook/05d_directory_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Every loader names its metadata differently, so map each one onto one schema right after loading -->
+<!-- format: approved -->
 
 ## Routing a mixed folder
 
@@ -36,7 +37,7 @@ Loading the folder is the easy half. Each loader writes its own metadata, with i
 | `YoutubeLoader` | video, or time window | `source` (the video id); with chunks also `start_seconds`, `start_timestamp` |
 | `ArxivLoader` | paper | `Published`, `Title`, `Authors`, `Summary`; no `source` at all |
 
-*Table 1: What eight loaders put in metadata.*
+*Table 1: What eight loaders put in metadata. The two PDF rows also copy whatever document-information fields the PDF's producer wrote, such as `author`, `title` or `subject`, so their key sets vary from file to file.*
 
 None of these fill the lab's five fields (`source`, `type`, `section`, `page`, `date`) the same way. Map each loader's output onto the schema in one place, right after loading and before splitting, so every later stage sees one shape:
 
@@ -80,7 +81,7 @@ Remote sources fail more quietly than files, because the loader returns whatever
 
 **YouTube transcripts.** By default the YouTube loader returns one Document per video, with the video id as `source`. In chunked transcript mode it returns one Document per time window (120 seconds by default; the notebook uses 10 and 15), and each `source` becomes the video URL with a start time, so a citation opens the video at that moment. Adding the video's title and author needs another network call, which is where the notebook's SSL errors come from.
 
-**arXiv papers.** The arXiv loader downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost. A citation can name the paper but not the page. `Published` holds the date of the latest version, not the first submission. The loader fetches up to 100 papers by default, and it can return only the abstracts, which is often enough for a "find me papers about X" index and far cheaper to embed.
+**arXiv papers.** The arXiv loader downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost, and by default the text is cut to its first 4,000 characters, a limit the notebook leaves in place. We call this a **clipped paper**: the Document looks complete and holds only the opening pages. Raise or remove the limit when the full text matters, and compare the character count with the page count. A citation can name the paper but not the page. `Published` holds the date of the latest version, not the first submission. The loader fetches up to 100 papers by default, and it can return only the abstracts, which is often enough for a "find me papers about X" index and far cheaper to embed.
 
 ## In practice: the Larkspur nightly job
 
@@ -92,6 +93,18 @@ For the lab's mixed folder, the nightly job runs in this order:
 4. **Count files against distinct `source` values.** Five files in, five sources out, or the run fails loudly instead of skipping silently.
 
 > **Next:** lesson 11.6 writes a loader for a source no library covers, Larkspur's ticket API, and makes it stream.
+
+## Limits
+
+- **Three loaders were read, not run.** The web, YouTube and arXiv rows of Table 1 and their defaults (crawl depth 2, status check off, 120-second windows, up to 100 papers, the 4,000-character cut) come from the `langchain-community` 0.4.2 source, because they need the network. The file loaders were run on `data/sample/`.
+- **The lab has not been run.** The M11 lab's results table is still pending. The five-files-in, five-sources-out check is the design, not a measured result.
+- **Two notebooks turn off certificate checks.** The YouTube and arXiv notebooks disable HTTPS certificate verification for the whole process to get past local SSL errors. That is a workaround for a laptop, never a setting for a production job.
+
+## References
+
+1. LangChain, [Document loaders](https://docs.langchain.com/oss/python/integrations/document_loaders), covering the directory, web, YouTube and arXiv loaders.
+2. arXiv, [API user manual](https://info.arxiv.org/help/api/index.html), the query interface the arXiv loader calls.
+3. Unstructured, [Partitioning](https://docs.unstructured.io/open-source/core-functionality/partitioning), the generic file loader a directory loader falls back to.
 
 ## Key Takeaways
 
@@ -118,7 +131,7 @@ Compare the number of files in the folder with the number of distinct `source` v
 <details>
 <summary>3. A web crawl indexes a 404 error page, and a page that renders in the browser comes back almost empty. What causes each?</summary>
 
-The recursive URL loader does not check the response status by default. Error responses become Documents and get indexed. Turn the check on. The loader fetches HTML and does not run JavaScript, so a browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.
+The recursive URL loader does not check the response status by default. Error responses become Documents and get indexed. Turn the check on. The loader fetches HTML and does not run JavaScript. A browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.
 
 </details>
 

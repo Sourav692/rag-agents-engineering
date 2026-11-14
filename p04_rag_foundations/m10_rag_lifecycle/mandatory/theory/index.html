@@ -489,16 +489,39 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 2: A first-pass choice between the three approaches. When you need both a house voice and current facts, combine fine-tuning with RAG.</em></p>
 <h2 id="in-practice-the-march-refund-change">In practice: the March refund change</h2>
-<p>When the refund policy changed in March 2026, a RAG assistant needed four steps and no retraining:</p>
+<p>The same policy change lands differently under each approach. The switcher follows the 45-day customer&rsquo;s question through all three, using only the properties in Table 2.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="refund-change-switcher">
+<p class="widget-intro">Choose an approach and see what the March change costs and what the 45-day customer is told afterwards.</p>
+<div class="mode-controls" hidden role="group" aria-label="Approach used to add the new refund terms">
+<button type="button" data-mode="rag" aria-pressed="false" aria-controls="change-rag">RAG</button>
+<button type="button" data-mode="finetune" aria-pressed="false" aria-controls="change-finetune">Fine-tuning</button>
+<button type="button" data-mode="longcontext" aria-pressed="false" aria-controls="change-longcontext">Long context</button>
+</div>
+<section id="change-rag" class="mode-panel" data-announcement="RAG. Re-index one page; the answer cites it."><h4>RAG: re-index one page</h4><dl><dt>Work for the change</dt><dd>edit the refund page, then re-index that page only</dd><dt>What the customer is told</dt><dd>prorated refund of the unused whole months, minus the 15% fee, with the refund page as the source</dd><dt>Remaining risk</dt><dd>retrieval misses the proration chunk, which lesson 10.2 learns to measure</dd></dl></section>
+<section id="change-finetune" class="mode-panel" data-announcement="Fine-tuning. Retrain; still no citation."><h4>Fine-tuning: retrain the model</h4><dl><dt>Work for the change</dt><dd>build training examples for the new terms and retrain</dd><dt>What the customer is told</dt><dd>whatever the retrained weights produce, with no source to check it against</dd><dt>Remaining risk</dt><dd>the next policy change needs another retraining run</dd></dl></section>
+<section id="change-longcontext" class="mode-panel" data-announcement="Long context. Edit the prompt; every call pays for the whole handbook."><h4>Long context: edit the prompt</h4><dl><dt>Work for the change</dt><dd>replace the refund page in the prompt</dd><dt>What the customer is told</dt><dd>the right terms, if the model finds the refund paragraph among every other page</dd><dt>Remaining risk</dt><dd>every question pays for the whole handbook in tokens, and the handbook can outgrow the window</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Only the RAG row updates a single fact and returns a source. Under RAG the change needed four steps and no retraining:</p>
 <ol>
 <li><strong>The policy team edits the refund page.</strong> The new text adds proration after day 30, minus the 15% early-termination fee.</li>
 <li><strong>Re-index that page.</strong> Load it, split it, embed the new chunks and replace the old ones in the index.</li>
 <li><strong>Ask the 45-day question again.</strong> The assistant now retrieves the proration chunk, answers from it and cites the page.</li>
 <li><strong>Keep the question.</strong> Add it to the set of test questions, and the next policy change gets checked the same way.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> step 2 hides the core mechanism, an index that scores every chunk against a question. Lesson 10.2 builds one from scratch with TF-IDF.</p>
-</blockquote>
+<p>Step 2 hides the core mechanism, an index that scores every chunk against a question. Lesson 10.2 builds one from scratch with TF-IDF.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The March change is a scenario.</strong> The Larkspur handbook in this course holds only the current refund terms (full refund within 30 days, then proration minus 15%). The earlier policy and its date are part of the story, not a file you can open.</li>
+<li><strong>Table 2 compares properties, not measurements.</strong> No cost, latency or accuracy figure on this page was measured. Lesson 10.2 starts measuring, and lesson 10.5 turns those measurements into a baseline.</li>
+<li><strong>This lesson has no notebook.</strong> The comparison is conceptual. M45 measures what fine-tuning changes in practice.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Lewis, P., et al. <a href="https://arxiv.org/abs/2005.11401" target="_blank" rel="noopener">The original retrieval-augmented generation paper</a>, 2020, which pairs a retriever over an external index with a generator.</li>
+<li>Liu, N. F., et al. <a href="https://arxiv.org/abs/2307.03172" target="_blank" rel="noopener">Lost in the Middle: How Language Models Use Long Contexts</a>, 2023, on how the position of evidence in a long prompt changes how well a model uses it.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Knowledge in the weights goes stale, misses private data, cannot cite a source and stays fluent when wrong. RAG answers from passages retrieved from an index you control.</li>
@@ -594,7 +617,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>R 0.00 · P 0.00</td>
 </tr>
 <tr>
-<td>Context sent (≈ tokens)</td>
+<td>Context sent for the export question (≈ tokens)</td>
 <td>~30</td>
 <td>~60</td>
 <td>~150</td>
@@ -602,7 +625,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Recall and precision at four values of k, from the lab. Tokens use the four-characters-per-token rule of thumb.</em></p>
+<p><em>Table 2: Recall and precision at four values of k, from the lab. A chunk that scores 0 never counts as found, even when a large k includes it. Tokens use the four-characters-per-token rule of thumb.</em></p>
 <p>Each question fails in its own way:</p>
 <ul>
 <li><strong>Ranking problem</strong> (export): both evidence chunks score above zero, and <code>k = 2</code> retrieves them. Past that, each extra chunk is noise. Precision falls from 1.00 to 0.17 while the prompt grows almost sixfold.</li>
@@ -671,9 +694,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Note the flat lines.</strong> The refund and outage questions never improve. They go on the list for lesson 10.3, which changes the representation.</li>
 <li><strong>Record the baseline at <code>k = 2</code>.</strong> Mean recall@2 is (1.00 + 0.50 + 0.00) / 3 = 0.50, and mean precision@2 is also 0.50. Lesson 10.5 makes this the number every later change must beat.</li>
 </ol>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Three questions, twelve chunks.</strong> The lab&rsquo;s golden set is small enough to read by hand. Each question has two evidence chunks, so recall moves in steps of 0.50, and one question can swing the mean by a third.</li>
+<li><strong>The token row is an estimate.</strong> It divides characters by four. A real tokenizer gives other counts, though the growth with <code>k</code> is the same.</li>
+<li><strong>The notebook uses another corpus.</strong> Notebook <code>02a</code> builds the same kind of TF-IDF index over four example sentences and returns only the nearest one, <code>k = 1</code>, as a cosine distance. Every number on this page comes from the lab, whose scoring follows scikit-learn&rsquo;s defaults (English stop words, smoothed inverse document frequency, unit-length rows).</li>
+</ul>
 <h2 id="references">References</h2>
 <ol>
-<li>Liu, N. F., et al. <em>Lost in the Middle: How Language Models Use Long Contexts</em>. arXiv:2307.03172, July 2023; Transactions of the ACL, 2024. <a href="https://arxiv.org/abs/2307.03172" target="_blank" rel="noopener">arxiv.org/abs/2307.03172</a></li>
+<li>Liu, N. F., et al. <a href="https://arxiv.org/abs/2307.03172" target="_blank" rel="noopener">Lost in the Middle: How Language Models Use Long Contexts</a>, 2023, on why the middle of a long context is used less reliably.</li>
+<li>scikit-learn, <a href="https://scikit-learn.org/stable/modules/feature_extraction.html#text-feature-extraction" target="_blank" rel="noopener">Text feature extraction</a>, covering the TF-IDF weighting the lab reproduces.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -745,7 +775,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>When every vector has length 1, the cosine is the plain dot product. OpenAI&rsquo;s embeddings come normalised that way, and sentence-transformers returns them so when asked to normalise.</p>
 <p>The question and the chunks must go through the same model. Two models produce vectors in different spaces, so the cosine between a vector from one and a vector from the other means nothing. We call that a <strong>space mismatch</strong>. Notebook 03a avoids it by sending both sides through one embedding function, and it follows that changing the embedding model means re-embedding the whole corpus (M13).</p>
 <h2 id="embeddings-against-tf-idf">Embeddings against TF-IDF</h2>
-<p>The comparison below uses the 12 Larkspur chunks and three golden questions from the <a href="02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html">lesson 10.2 lab</a>. It embeds every chunk and question with <code>all-MiniLM-L6-v2</code>, a small model (384 numbers per vector) that runs locally, so anyone can reproduce the scores. Notebook 03a uses OpenAI&rsquo;s <code>text-embedding-3-small</code>, whose scores will differ.</p>
+<p>The comparison below uses the 12 Larkspur chunks and three golden questions from the <a href="02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html">lesson 10.2 lab</a>. It embeds every chunk and question with <code>all-MiniLM-L6-v2</code>, a small model (384 numbers per vector) that runs locally. Anyone can reproduce the scores. Notebook 03a uses OpenAI&rsquo;s <code>text-embedding-3-small</code>, whose scores will differ.</p>
 <p>With two evidence chunks per question, recall moves in steps of 0.50:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -789,9 +819,23 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The three questions move in three directions:</p>
 <ul>
 <li><strong>Word-form miss, fixed</strong> (refund): the embedding model places &ldquo;Refunds&rdquo; and &ldquo;refund&rdquo; close together, and <code>refund-timing</code>, which scored 0 under TF-IDF, ranks first.</li>
-<li><strong>Vocabulary gap, narrowed</strong> (outage): both evidence chunks now reach the top three, though <code>reboot</code> still ranks first because rebooting a server is close in meaning to a server going down. The top three scores sit within 0.137 of each other, so a small change to the question can reorder them.</li>
+<li><strong>Vocabulary gap, narrowed</strong> (outage): both evidence chunks now reach the top three, though <code>reboot</code> still ranks first because rebooting a server is close in meaning to a server going down. The top three scores sit within 0.137 of each other. A small change to the question can reorder them.</li>
 <li><strong>Topic drift</strong> (export): embeddings lose a question TF-IDF answered. The question is half about cancelling, so the <code>cancel</code> chunk (0.561) outranks <code>export</code> (0.479). TF-IDF matched the literal word &ldquo;export&rdquo; and found both evidence chunks at <code>k = 2</code>.</li>
 </ul>
+<p>The switcher puts each question&rsquo;s two top-three lists side by side. TF-IDF scores are cosines between TF-IDF vectors. The two columns are not on one scale: compare the order, not the numbers.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="retriever-switcher">
+<p class="widget-intro">Choose a golden question and compare the top three chunks each retriever sends. Evidence chunks are marked.</p>
+<div class="mode-controls" hidden role="group" aria-label="Golden question compared">
+<button type="button" data-mode="refund" aria-pressed="false" aria-controls="cmp-refund">Refund</button>
+<button type="button" data-mode="outage" aria-pressed="false" aria-controls="cmp-outage">Outage</button>
+<button type="button" data-mode="export" aria-pressed="false" aria-controls="cmp-export">Export</button>
+</div>
+<section id="cmp-refund" class="mode-panel" data-announcement="Refund. Embeddings fix the word-form miss."><h4>How long does a refund take? (word-form miss, fixed)</h4><dl><dt>TF-IDF top three</dt><dd><code>refund-window</code> 0.227 (evidence), <code>reboot</code> 0.194, then a chunk scoring 0</dd><dt>Embedding top three</dt><dd><code>refund-timing</code> 0.766 (evidence), <code>refund-window</code> 0.608 (evidence), <code>support</code> 0.297</dd><dt>Recall at k = 2</dt><dd>0.50 under TF-IDF, 1.00 with embeddings</dd></dl></section>
+<section id="cmp-outage" class="mode-panel" data-announcement="Outage. Embeddings narrow the vocabulary gap."><h4>What happens if my server goes down? (vocabulary gap, narrowed)</h4><dl><dt>TF-IDF top three</dt><dd><code>reboot</code> 0.416, <code>sizing</code> 0.389, <code>export</code> 0.217; both evidence chunks score 0</dd><dt>Embedding top three</dt><dd><code>reboot</code> 0.394, <code>incidents</code> 0.314 (evidence), <code>sla</code> 0.257 (evidence)</dd><dt>Recall at k = 2</dt><dd>0.00 under TF-IDF, 0.50 with embeddings, 1.00 at k = 3</dd></dl></section>
+<section id="cmp-export" class="mode-panel" data-announcement="Export. Embeddings lose a question TF-IDF answered."><h4>Can I export my data after I cancel my plan? (topic drift)</h4><dl><dt>TF-IDF top three</dt><dd><code>retention</code> 0.372 (evidence), <code>export</code> 0.369 (evidence), <code>cancel</code> 0.261</dd><dt>Embedding top three</dt><dd><code>retention</code> 0.817 (evidence), <code>cancel</code> 0.561, <code>export</code> 0.479 (evidence)</dd><dt>Recall at k = 2</dt><dd>1.00 under TF-IDF, 0.50 with embeddings</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Topic drift is the general weakness. Embeddings measure how close two texts are in topic, which is a different thing from whether a chunk contains the answer. The two retrievers suit different questions:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -832,9 +876,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Check every question, not only the mean.</strong> The export question fell from 1.00 to 0.50 at <code>k = 2</code>. Lesson 10.5&rsquo;s rule keeps a change only when it breaks nothing. This one needs <code>k = 3</code> or hybrid search before it can become the baseline.</li>
 <li><strong>Set any score threshold from the golden set.</strong> It has to sit below 0.394, the outage question&rsquo;s best match, and it has to be re-checked whenever the model changes.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> lesson 10.4 replaces the hand-built index with a LangChain vector store, which keeps the embedding model and runs the search for you.</p>
-</blockquote>
+<p>Lesson 10.4 replaces the hand-built index with a LangChain vector store, which keeps the embedding model and runs the search for you.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>A stand-in model.</strong> Every score on this page comes from <code>all-MiniLM-L6-v2</code>, run locally on the lab&rsquo;s 12 chunks. Notebook <code>03a</code> uses OpenAI&rsquo;s <code>text-embedding-3-small</code> on its own example sentences, and its distances differ; the three directions above are this model&rsquo;s, on this corpus.</li>
+<li><strong>Three questions.</strong> One export question shows topic drift. It does not tell you how often embeddings lose to TF-IDF on a real query log, which only a larger golden set can show.</li>
+<li><strong>No threshold was tuned here.</strong> The 0.394 ceiling for a threshold comes from one question. Setting a real threshold needs many logged questions of each kind (M16).</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Reimers, N. and Gurevych, I., <a href="https://arxiv.org/abs/1908.10084" target="_blank" rel="noopener">the paper on sentence embeddings from siamese networks</a>, 2019, which describes the training approach behind the sentence-transformers models.</li>
+<li>Hugging Face, <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener">the all-MiniLM-L6-v2 model card</a>, with its 384-dimension output and intended use.</li>
+<li>OpenAI, <a href="https://platform.openai.com/docs/guides/embeddings" target="_blank" rel="noopener">Vector embeddings guide</a>, which notes that its embeddings are normalised to length 1.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Embeddings score chunks by the cosine between their vectors, which lets paraphrases and word forms match. Embed questions and chunks with the same model. Changing it means re-embedding the corpus.</li>
@@ -867,13 +921,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lessons 10.2 and 10.3 built the index by hand: embed each chunk, keep the vectors in an array, fit a nearest-neighbour search, embed the question, look up its neighbours. This lesson hands that work to a library.</p>
 <p>A teammate reruns the indexing cell to pick up an edit to the handbook, then asks <em>How long does a refund take?</em> The top three comes back with <code>refund-timing</code> twice. Nothing raised an error, and the index now holds every chunk twice.</p>
-<p>Notebook 04a does the hand-built work through two LangChain interfaces, <code>Embeddings</code> and <code>VectorStore</code>. Each step maps onto one call:</p>
+<p>LangChain splits the hand-built work between two interfaces, <code>Embeddings</code> and <code>VectorStore</code>. Notebook 04a covers the first two rows below: it embeds a list of sentences with <code>embed_documents</code>, then builds a Chroma store with <code>from_texts</code>. The search rows belong to the same <code>VectorStore</code> interface, which lesson 10.5&rsquo;s notebook calls on a FAISS store. Each step maps onto one call:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Step</th>
 <th>By hand (notebook 03a)</th>
-<th>LangChain with Chroma (notebook 04a)</th>
+<th>LangChain vector store</th>
 </tr>
 </thead>
 <tbody>
@@ -921,7 +975,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Figure 1: Building and querying a Chroma store. The store holds the embedding object and calls it on both sides.</em></p>
 <p>Because the store keeps the embedding object, the question always goes through the same model as the chunks, and the space mismatch from lesson 10.3 cannot happen by accident. <code>Embeddings</code> has separate methods for documents and queries because some models encode questions and passages differently. For OpenAI&rsquo;s models the two do the same thing: the query method embeds a one-item list of documents.</p>
 <h2 id="three-defaults-that-change-the-results">Three defaults that change the results</h2>
-<p>Three defaults in notebook 04a surprise people the first time. Each one fails without an error:</p>
+<p>Three defaults surprise people the first time. Notebook 04a&rsquo;s <code>from_texts</code> call relies on all of them, and each one fails without an error:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -953,7 +1007,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Three defaults and the failure each one causes.</em></p>
-<p>The second row is <strong>silent duplication</strong>: every chunk counted twice, so duplicates crowd evidence out of the top <code>k</code>. It is the failure in the opening example.</p>
+<p>The second row is <strong>silent duplication</strong>: every chunk counted twice. The duplicates crowd evidence out of the top <code>k</code>. It is the failure in the opening example. The 24 entries and the doubled <code>refund-timing</code> come from running the 12 Larkspur chunks through <code>from_texts</code> twice.</p>
 <p>The notebook imports <code>Chroma</code> from the community integrations package, which now warns that it is being sunset. This repo depends on <code>langchain-chroma</code>, which provides the same class.</p>
 <h2 id="distance-not-similarity">Distance, not similarity</h2>
 <p>Chroma ranks by distance, and its default metric is squared Euclidean (L2) distance. Lower numbers from <code>similarity_search_with_score</code> mean closer chunks. For vectors of length 1 the two measures are tied by distance = 2 - 2 × cosine, so L2 and cosine rank chunks in the same order. On the 12 Larkspur chunks, embedded with <code>all-MiniLM-L6-v2</code> as in lesson 10.3 (langchain-chroma 1.1.0, chromadb 1.5.9):</p>
@@ -1009,21 +1063,41 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Pitfall: metric mismatch.</strong> Choose the metric when you create the collection, by setting its HNSW space to cosine in the collection metadata. Then <code>similarity_search_with_score</code> returns 1 - cosine (0.606 for <code>reboot</code>), the relevance score is the cosine itself (0.394), and the same 0.2 threshold returns <code>reboot</code>, <code>incidents</code> and <code>sla</code>. The ranking does not change.</p>
 </blockquote>
+<div class="learning-widget evidence-switcher" data-comparison id="space-switcher">
+<p class="widget-intro">Choose the collection's space and follow the outage question's top three through a 0.2 relevance threshold.</p>
+<div class="mode-controls" hidden role="group" aria-label="Distance space set when the collection is created">
+<button type="button" data-mode="l2" aria-pressed="false" aria-controls="space-l2">Default space (L2)</button>
+<button type="button" data-mode="cosine" aria-pressed="false" aria-controls="space-cosine">Cosine space</button>
+</div>
+<section id="space-l2" class="mode-panel" data-announcement="Default L2 space. The threshold returns nothing."><h4>Default space: squared L2 distance</h4><dl><dt>Distance (lower is closer)</dt><dd><code>reboot</code> 1.212, <code>incidents</code> 1.371, <code>sla</code> 1.487</dd><dt>Relevance score</dt><dd>0.143, 0.030 and -0.051, from 1 - distance / √2</dd><dt>Threshold 0.2 returns</dt><dd>no chunks, with a warning that relevance scores must lie between 0 and 1</dd></dl></section>
+<section id="space-cosine" class="mode-panel" data-announcement="Cosine space. The threshold returns all three chunks."><h4>Cosine space, set at creation</h4><dl><dt>Distance (lower is closer)</dt><dd><code>reboot</code> 0.606, <code>incidents</code> 0.686, <code>sla</code> 0.743</dd><dt>Relevance score</dt><dd>0.394, 0.314 and 0.257: the cosines from lesson 10.3</dd><dt>Threshold 0.2 returns</dt><dd><code>reboot</code>, <code>incidents</code> and <code>sla</code>, in the same order as before</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The metric is fixed when the collection is created. Changing it means building a new collection (M14).</p>
 <h2 id="in-practice-a-larkspur-index-that-reruns-safely">In practice: a Larkspur index that reruns safely</h2>
 <p>For the handbook, each guard from this page becomes one decision made before the first run:</p>
 <ol>
-<li><strong>Name the collection</strong> <code>handbook</code> and pass each chunk&rsquo;s id (<code>refund-timing</code>, <code>sla</code>, and so on), so a rerun overwrites instead of duplicating.</li>
+<li><strong>Name the collection</strong> <code>handbook</code> and pass each chunk&rsquo;s id (<code>refund-timing</code>, <code>sla</code>, and so on). A rerun then overwrites instead of duplicating.</li>
 <li><strong>Set the space to cosine</strong> at creation. Relevance scores are then cosines, and thresholds behave.</li>
 <li><strong>Set a persist directory</strong> if the index must survive a kernel restart.</li>
 <li><strong>Set <code>k = 2</code></strong> from lesson 10.2, and check that a 0.2 threshold still returns all three outage candidates.</li>
 </ol>
-<blockquote>
-<p><strong>Next:</strong> lesson 10.5 puts the store into the full lifecycle, adds the generation step, and records the baseline every later module must beat.</p>
-</blockquote>
+<p>Lesson 10.5 puts the store into the full lifecycle, adds the generation step, and records the baseline every later module must beat.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Replayed, not taken from the notebook.</strong> Notebook 04a stops after building its store and prints no scores. Tables 2 and 3 and the switcher come from rerunning the 12 Larkspur chunks through <code>langchain-chroma</code> 1.1.0 and <code>chromadb</code> 1.5.9 with <code>all-MiniLM-L6-v2</code>, the versions this course&rsquo;s lock file pins.</li>
+<li><strong>Defaults move between releases.</strong> The default <code>k</code>, the default collection name and the relevance formula are library choices. Check them again after an upgrade.</li>
+<li><strong>Unit-length vectors assumed.</strong> The tie between L2 and cosine order holds only for normalised vectors. A model that returns unnormalised vectors can rank differently under the two metrics.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/chroma" target="_blank" rel="noopener">Chroma integration</a>, covering <code>from_texts</code>, ids, persistence and search methods.</li>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/collections/configure" target="_blank" rel="noopener">Configure collections</a>, on choosing the distance space when a collection is created.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>A LangChain vector store keeps the embedding object and embeds the question for you, so both sides always use the same model.</li>
+<li>A LangChain vector store keeps the embedding object and embeds the question for you. Both sides always use the same model.</li>
 <li>Set <code>k</code> explicitly, pass <code>ids=</code> so a rerun overwrites instead of duplicating, and set <code>persist_directory</code> if the index must survive a restart.</li>
 <li>Chroma ranks by squared L2 distance by default, which breaks relevance-score thresholds. Create the collection with cosine space if you plan to filter on scores.</li>
 </ul>
@@ -1038,7 +1112,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. A retriever with score_threshold 0.2 returns nothing for the outage question, though its top three chunks have cosine above 0.25. Why, and what is the fix?</summary>
-<p>The relevance score converts L2 distance with 1 - distance / √2, which assumes a range the distances do not keep to: <code>reboot</code> gets 0.143 and the <code>sla</code> evidence chunk -0.051. Create the collection with its HNSW space set to cosine, so the relevance score is the cosine itself and the same threshold returns <code>reboot</code>, <code>incidents</code> and <code>sla</code>. The metric is fixed at creation, so this means a new collection (M14).</p>
+<p>The relevance score converts L2 distance with 1 - distance / √2, which assumes a range the distances do not keep to: <code>reboot</code> gets 0.143 and the <code>sla</code> evidence chunk -0.051. Create the collection with its HNSW space set to cosine, so the relevance score is the cosine itself and the same threshold returns <code>reboot</code>, <code>incidents</code> and <code>sla</code>. The metric is fixed at creation, which means a new collection (M14).</p>
 </details>
 <h2 id="indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</h2>
 <p class="lesson-of">Lesson 10.5: The RAG lifecycle and a measured baseline. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m10_rag_lifecycle/mandatory/notebook/05a_rag_lifecycle_and_baseline.ipynb" target="_blank" rel="noopener"><code>05a_rag_lifecycle_and_baseline.ipynb</code></a></p>
@@ -1324,6 +1398,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Interview tip:</strong> when someone reports a mean improvement, ask for the per-question rows. A better average can hide a question type the change broke.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The notebook builds the pipeline; the lab gives the row.</strong> Notebook <code>05a</code> runs load, split, embed (FAISS with <code>text-embedding-3-small</code>), retrieve and generate over its own restaurant text and a PDF, and prints scores for the diagnosis check. It keeps no golden set and computes no recall. Table 3 comes from the lesson 10.2 lab, and the embedding comparison from lesson 10.3.</li>
+<li><strong>A retrieval-only row.</strong> The Larkspur baseline has recall and precision but no answer correctness, faithfulness, latency or cost yet. Those columns are added when a module measures them (M19 for answers).</li>
+<li><strong>Three questions decide nothing alone.</strong> The 20 to 50 question range is this course&rsquo;s working rule for a first golden set, not a statistical threshold. With three questions, one regression is a third of the set.</li>
+<li><strong>Table 4 is a map, not a measurement.</strong> Its rows follow the notebook&rsquo;s own failure list. The order code <code>ORD-88213</code> is an illustration, not a handbook entry.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LlamaIndex, <a href="https://developers.llamaindex.ai/python/framework/module_guides/evaluating/" target="_blank" rel="noopener">Evaluating</a>, defining retrieval metrics such as hit rate and mean reciprocal rank.</li>
+<li>Ragas, <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/" target="_blank" rel="noopener">Context recall</a>, a recall measure computed against reference answers.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>RAG runs in two phases: indexing (load, split, embed, store) and query (retrieve, augment, generate). Each step has one job and one typical failure.</li>
@@ -1399,7 +1485,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><code>k</code> trades recall against precision, tokens and latency. If a chunk scores zero, no <code>k</code> will retrieve it; fix the representation instead.</li>
 <li>Record a baseline on a frozen golden set, change one stage at a time, and keep only the changes that beat it.</li>
 </ul></article>
-    <nav class="toc" aria-label="M10 sections"><details open><summary>In M10</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#parametric-vs-non-parametric-knowledge">Parametric vs non-parametric knowledge</a></li><li><a href="#rag-fine-tuning-and-long-context">RAG, fine-tuning and long context</a></li><li><a href="#in-practice-the-march-refund-change">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-k">Top-k</a></li><li><a href="#what-an-extra-chunk-costs">What an extra chunk costs</a></li><li><a href="#in-practice-picking-k-for-the-larkspur-baseline">In practice</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-similarity">Embedding similarity</a></li><li><a href="#embeddings-against-tf-idf">Embeddings against TF-IDF</a></li><li><a href="#in-practice-switching-the-larkspur-baseline-to-embeddings">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#what-langchain-replaces">What LangChain replaces</a></li><li><a href="#three-defaults-that-change-the-results">Three defaults that change the results</a></li><li><a href="#distance-not-similarity">Distance, not similarity</a></li><li><a href="#in-practice-a-larkspur-index-that-reruns-safely">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</a></li><li><a href="#baseline-first-optimisation">Baseline-first optimisation</a></li><li><a href="#in-practice-the-first-change-against-the-larkspur-baseline">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M10 sections"><details open><summary>In M10</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#parametric-vs-non-parametric-knowledge">Parametric vs non-parametric knowledge</a></li><li><a href="#rag-fine-tuning-and-long-context">RAG, fine-tuning and long context</a></li><li><a href="#in-practice-the-march-refund-change">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#top-k">Top-k</a></li><li><a href="#what-an-extra-chunk-costs">What an extra chunk costs</a></li><li><a href="#in-practice-picking-k-for-the-larkspur-baseline">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#embedding-similarity">Embedding similarity</a></li><li><a href="#embeddings-against-tf-idf">Embeddings against TF-IDF</a></li><li><a href="#in-practice-switching-the-larkspur-baseline-to-embeddings">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#what-langchain-replaces">What LangChain replaces</a></li><li><a href="#three-defaults-that-change-the-results">Three defaults that change the results</a></li><li><a href="#distance-not-similarity">Distance, not similarity</a></li><li><a href="#in-practice-a-larkspur-index-that-reruns-safely">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#indexing-vs-retrieval-vs-generation">Indexing vs retrieval vs generation</a></li><li><a href="#baseline-first-optimisation">Baseline-first optimisation</a></li><li><a href="#in-practice-the-first-change-against-the-larkspur-baseline">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

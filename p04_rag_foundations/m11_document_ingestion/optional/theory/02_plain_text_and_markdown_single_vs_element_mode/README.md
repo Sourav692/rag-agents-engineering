@@ -2,6 +2,7 @@
 
 *[M11 theory](../../../mandatory/theory/README.md) · Lesson 11.2 · Notebooks: [`02a_text_loader.ipynb`](../../notebook/02a_text_loader.ipynb) (optional), [`02b_markdown_loader.ipynb`](../../notebook/02b_markdown_loader.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Single mode gives one Document per file, and element mode gives one per heading, paragraph and list item -->
+<!-- format: approved -->
 
 ## Single mode and element mode
 
@@ -54,7 +55,7 @@ Across all 13 handbook files, element mode returns 78 elements:
 
 *Table 2: Element categories across the 13 Larkspur handbook files.*
 
-The two tables are where the mode matters most. Each `Table` element has a flat text form and an HTML form. The flat form of the server-size table starts "Size vCPUs Memory Included outbound traffic Small 2 4 GB 1 TB per month Medium 4 16 GB…", so once a splitter cuts it, "16 GB" no longer sits under a column name. Keep each table as one piece and give the model its HTML form; lesson 11.4 meets the same problem in a PDF.
+The two tables are where the mode matters most. Each `Table` element has a flat text form and an HTML form. The flat form of the server-size table starts "Size vCPUs Memory Included outbound traffic Small 2 4 GB 1 TB per month Medium 4 16 GB…". Once a splitter cuts it, "16 GB" no longer sits under a column name. Keep each table as one piece and give the model its HTML form; lesson 11.4 meets the same problem in a PDF.
 
 The plain text loader is still the right choice in one case. A Markdown-aware splitter (M12) cuts on the heading marks and needs them in the text:
 
@@ -76,6 +77,18 @@ For the handbook, element mode does the most work at load time:
 4. **Hand the rest to the splitter** (M12) with `section` attached, and put the section name into the chunk text as well, since metadata is not embedded.
 
 > **Next:** lesson 11.3 moves to sources that already come in records, CSV rows and JSON objects, where the choice is which record becomes one Document.
+
+## Limits
+
+- **One version, one corpus.** Tables 1 and 2 were rerun with unstructured 0.27.37 on the 13 handbook files and matched the figures above. Another Unstructured release can classify a short line differently. Recount after an upgrade.
+- **The notebooks use another file.** Notebook `02b` loads the LangChain README from `data/sample/`, and its element counts are its own. The handbook numbers here come from the same loaders on the Larkspur files.
+- **Element mode guesses.** `Title`, `ListItem` and `Table` are labels Unstructured infers from the Markdown. A bold line or an unusual list can land in the wrong category. Spot-check the categories before relying on `parent_id` for sections.
+
+## References
+
+1. LangChain, [Unstructured integration](https://docs.langchain.com/oss/python/integrations/document_loaders/unstructured_file), on single and element modes.
+2. Unstructured, [Document elements](https://docs.unstructured.io/open-source/concepts/document-elements), the element types and their metadata, including `parent_id`.
+3. Unstructured, [Partitioning](https://docs.unstructured.io/open-source/core-functionality/partitioning), on how a file is broken into elements.
 
 ## Key Takeaways
 

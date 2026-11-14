@@ -2,6 +2,7 @@
 
 *[M10 theory](../README.md) · Lesson 10.3 · Notebooks: [`03a_retrieval_strategies.ipynb`](../../notebook/03a_retrieval_strategies.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Embeddings match meaning across word forms, and can lose the literal word TF-IDF caught -->
+<!-- format: approved -->
 
 ## Embedding similarity
 
@@ -42,7 +43,7 @@ The question and the chunks must go through the same model. Two models produce v
 
 ## Embeddings against TF-IDF
 
-The comparison below uses the 12 Larkspur chunks and three golden questions from the [lesson 10.2 lab](../02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html). It embeds every chunk and question with `all-MiniLM-L6-v2`, a small model (384 numbers per vector) that runs locally, so anyone can reproduce the scores. Notebook 03a uses OpenAI's `text-embedding-3-small`, whose scores will differ.
+The comparison below uses the 12 Larkspur chunks and three golden questions from the [lesson 10.2 lab](../02_indexing_from_scratch_with_tf_idf_and_nearest_neighbours/interactive/top-k-retrieval-lab.html). It embeds every chunk and question with `all-MiniLM-L6-v2`, a small model (384 numbers per vector) that runs locally. Anyone can reproduce the scores. Notebook 03a uses OpenAI's `text-embedding-3-small`, whose scores will differ.
 
 With two evidence chunks per question, recall moves in steps of 0.50:
 
@@ -57,8 +58,23 @@ With two evidence chunks per question, recall moves in steps of 0.50:
 The three questions move in three directions:
 
 - **Word-form miss, fixed** (refund): the embedding model places "Refunds" and "refund" close together, and `refund-timing`, which scored 0 under TF-IDF, ranks first.
-- **Vocabulary gap, narrowed** (outage): both evidence chunks now reach the top three, though `reboot` still ranks first because rebooting a server is close in meaning to a server going down. The top three scores sit within 0.137 of each other, so a small change to the question can reorder them.
+- **Vocabulary gap, narrowed** (outage): both evidence chunks now reach the top three, though `reboot` still ranks first because rebooting a server is close in meaning to a server going down. The top three scores sit within 0.137 of each other. A small change to the question can reorder them.
 - **Topic drift** (export): embeddings lose a question TF-IDF answered. The question is half about cancelling, so the `cancel` chunk (0.561) outranks `export` (0.479). TF-IDF matched the literal word "export" and found both evidence chunks at `k = 2`.
+
+The switcher puts each question's two top-three lists side by side. TF-IDF scores are cosines between TF-IDF vectors. The two columns are not on one scale: compare the order, not the numbers.
+
+<div class="learning-widget evidence-switcher" data-comparison id="retriever-switcher">
+<p class="widget-intro">Choose a golden question and compare the top three chunks each retriever sends. Evidence chunks are marked.</p>
+<div class="mode-controls" hidden role="group" aria-label="Golden question compared">
+<button type="button" data-mode="refund" aria-pressed="false" aria-controls="cmp-refund">Refund</button>
+<button type="button" data-mode="outage" aria-pressed="false" aria-controls="cmp-outage">Outage</button>
+<button type="button" data-mode="export" aria-pressed="false" aria-controls="cmp-export">Export</button>
+</div>
+<section id="cmp-refund" class="mode-panel" data-announcement="Refund. Embeddings fix the word-form miss."><h4>How long does a refund take? (word-form miss, fixed)</h4><dl><dt>TF-IDF top three</dt><dd><code>refund-window</code> 0.227 (evidence), <code>reboot</code> 0.194, then a chunk scoring 0</dd><dt>Embedding top three</dt><dd><code>refund-timing</code> 0.766 (evidence), <code>refund-window</code> 0.608 (evidence), <code>support</code> 0.297</dd><dt>Recall at k = 2</dt><dd>0.50 under TF-IDF, 1.00 with embeddings</dd></dl></section>
+<section id="cmp-outage" class="mode-panel" data-announcement="Outage. Embeddings narrow the vocabulary gap."><h4>What happens if my server goes down? (vocabulary gap, narrowed)</h4><dl><dt>TF-IDF top three</dt><dd><code>reboot</code> 0.416, <code>sizing</code> 0.389, <code>export</code> 0.217; both evidence chunks score 0</dd><dt>Embedding top three</dt><dd><code>reboot</code> 0.394, <code>incidents</code> 0.314 (evidence), <code>sla</code> 0.257 (evidence)</dd><dt>Recall at k = 2</dt><dd>0.00 under TF-IDF, 0.50 with embeddings, 1.00 at k = 3</dd></dl></section>
+<section id="cmp-export" class="mode-panel" data-announcement="Export. Embeddings lose a question TF-IDF answered."><h4>Can I export my data after I cancel my plan? (topic drift)</h4><dl><dt>TF-IDF top three</dt><dd><code>retention</code> 0.372 (evidence), <code>export</code> 0.369 (evidence), <code>cancel</code> 0.261</dd><dt>Embedding top three</dt><dd><code>retention</code> 0.817 (evidence), <code>cancel</code> 0.561, <code>export</code> 0.479 (evidence)</dd><dt>Recall at k = 2</dt><dd>1.00 under TF-IDF, 0.50 with embeddings</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Topic drift is the general weakness. Embeddings measure how close two texts are in topic, which is a different thing from whether a chunk contains the answer. The two retrievers suit different questions:
 
@@ -83,7 +99,19 @@ Moving the handbook index from TF-IDF to embeddings takes four steps, and the la
 3. **Check every question, not only the mean.** The export question fell from 1.00 to 0.50 at `k = 2`. Lesson 10.5's rule keeps a change only when it breaks nothing. This one needs `k = 3` or hybrid search before it can become the baseline.
 4. **Set any score threshold from the golden set.** It has to sit below 0.394, the outage question's best match, and it has to be re-checked whenever the model changes.
 
-> **Next:** lesson 10.4 replaces the hand-built index with a LangChain vector store, which keeps the embedding model and runs the search for you.
+Lesson 10.4 replaces the hand-built index with a LangChain vector store, which keeps the embedding model and runs the search for you.
+
+## Limits of this evidence
+
+- **A stand-in model.** Every score on this page comes from `all-MiniLM-L6-v2`, run locally on the lab's 12 chunks. Notebook `03a` uses OpenAI's `text-embedding-3-small` on its own example sentences, and its distances differ; the three directions above are this model's, on this corpus.
+- **Three questions.** One export question shows topic drift. It does not tell you how often embeddings lose to TF-IDF on a real query log, which only a larger golden set can show.
+- **No threshold was tuned here.** The 0.394 ceiling for a threshold comes from one question. Setting a real threshold needs many logged questions of each kind (M16).
+
+## References
+
+1. Reimers, N. and Gurevych, I., [the paper on sentence embeddings from siamese networks](https://arxiv.org/abs/1908.10084), 2019, which describes the training approach behind the sentence-transformers models.
+2. Hugging Face, [the all-MiniLM-L6-v2 model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2), with its 384-dimension output and intended use.
+3. OpenAI, [Vector embeddings guide](https://platform.openai.com/docs/guides/embeddings), which notes that its embeddings are normalised to length 1.
 
 ## Key Takeaways
 
