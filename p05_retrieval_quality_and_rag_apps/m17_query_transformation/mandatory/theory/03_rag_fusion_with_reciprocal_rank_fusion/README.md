@@ -2,6 +2,7 @@
 
 *[M17 theory](../README.md) · Lesson 17.3 · Notebooks: [`03a_rag_fusion.ipynb`](../../notebook/03a_rag_fusion.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Fuse the rankings of several phrasings, so chunks many variants agree on rise to the top -->
+<!-- format: approved -->
 
 ## RRF
 
@@ -66,7 +67,19 @@ In the refund question they do. Two variants rank `refund-window` 1st and 2nd (r
 
 *Table 2: Rank against agreement, computed by hand.*
 
-At `k = 60` the three weak votes for `retention` beat the two strong votes for the evidence chunk. At `k = 1` the strong votes win. Mean recall over the three golden questions, from the lab:
+At `k = 60` the three weak votes for `retention` beat the two strong votes for the evidence chunk. At `k = 1` the strong votes win. Here is what that flip does to the two chunks the answer prompt receives:
+
+<div class="learning-widget evidence-switcher" data-comparison id="k-switcher">
+<p class="widget-intro">Choose a value of <code>k</code> for the refund question, cut at two chunks.</p>
+<div class="mode-controls" hidden role="group" aria-label="RRF constant k">
+<button type="button" data-mode="k60" aria-pressed="false" aria-controls="k-60">k = 60</button>
+<button type="button" data-mode="k1" aria-pressed="false" aria-controls="k-1">k = 1</button>
+</div>
+<section id="k-60" class="mode-panel" data-announcement="k equals 60 selected. Agreement wins; recall at 2 is 0.50."><h4><code>k = 60</code>: agreement counts most</h4><dl><dt>Head-to-head</dt><dd><code>retention</code> 0.0479 beats <code>refund-window</code> 0.0331</dd><dt>Refund recall at 2</dt><dd>0.50</dd><dt>Golden-set mean at 2</dt><dd>0.67</dd></dl></section>
+<section id="k-1" class="mode-panel" data-announcement="k equals 1 selected. Rank wins; recall at 2 is 1.00."><h4><code>k = 1</code>: rank position counts most</h4><dl><dt>Head-to-head</dt><dd><code>refund-window</code> 1.50 beats <code>retention</code> 0.83</dd><dt>Refund recall at 2</dt><dd>1.00</dd><dt>Golden-set mean at 2</dt><dd>0.83</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+ Mean recall over the three golden questions, from the lab:
 
 | Chunks sent | Question as asked (M10) | Flat union | RRF `k = 1` | RRF `k = 5`, `60` or `1000` |
 |---|---|---|---|---|
@@ -91,6 +104,17 @@ Every merge beats the question as asked. At three chunks every RRF setting beats
 4. **Add a reranker** (M18) over the fused pool when distractors keep winning.
 
 Lesson 17.4 changes the question in a different direction: instead of rewording it, it asks a broader one.
+
+## Limits
+
+- **Hand-written variants on a small index.** Every number on this page comes from the lab: five hand-written variants per golden question over the twelve M10 chunks, scored with TF-IDF. Notebook `03a` generates its variants with a model, and they change on every run.
+- **Three questions decide the `k` comparison.** The 0.67 against 0.83 gap at two chunks comes from one question, refund, changing order. It shows that `k` can matter; it does not show which `k` suits another corpus.
+- **Ranks count from 0.** `03a` and the lab give first place rank 0, so each vote is worth slightly more than on M16's page, which counts from 1. Compare scores only within one convention.
+
+## References
+
+1. Cormack, Clarke and Büttcher, [Reciprocal rank fusion outperforms Condorcet and individual rank learning methods](https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf), SIGIR 2009.
+2. Rackauckas, [RAG-Fusion: a new take on retrieval-augmented generation](https://arxiv.org/abs/2402.03367), 2024.
 
 ## Key Takeaways
 

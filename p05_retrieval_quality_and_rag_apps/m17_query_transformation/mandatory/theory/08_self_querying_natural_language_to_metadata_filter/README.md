@@ -2,6 +2,7 @@
 
 *[M17 theory](../README.md) · Lesson 17.8 · Notebooks: [`08a_self_querying_retrieval.ipynb`](../../notebook/08a_self_querying_retrieval.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Embeddings compare meaning, not numbers, so let an LLM turn the factual half of a question into a filter -->
+<!-- format: approved -->
 
 ## Meaning cannot compare numbers
 
@@ -16,6 +17,15 @@ Lesson 17.7 routed whole questions to a destination. Some questions need a diffe
 
 A Larkspur customer asks *Which plans have more than 8 GB of memory?* The three plan sheets (from the M16 lab corpus) say LC-204 has 4 GB, LC-408 16 GB and LC-816 32 GB. Similarity search ranks them by how much each sheet resembles the question:
 
+```mermaid
+flowchart LR
+    Q[/Question/] --> E["Embed the<br/>whole question"]
+    E --> V["Rank chunks<br/>by similarity"]
+    V --> K["Top k<br/>to the model"]
+```
+
+*Figure 1: Similarity search alone. The condition "more than 8 GB" is embedded with the rest and never evaluated.*
+
 | Rank | Chunk | Similarity | More than 8 GB? |
 |---|---|---|---|
 | 1 | `plan-816` (32 GB) | 0.599 | ✓ |
@@ -25,7 +35,7 @@ A Larkspur customer asks *Which plans have more than 8 GB of memory?* The three 
 
 *Table 1: Similarity scores for the memory question (`all-MiniLM-L6-v2`, M16 lab corpus).*
 
-The three sheets score within 0.025 of each other, because they read alike. At `k = 3` the 4 GB plan is in the context, and the model has to notice that it fails the condition. "More than 8" has a vector, and the vector cannot perform a comparison. We call this the **comparison blind spot**.
+We recomputed Table 1 from the M16 lab's plan sheets with normalised `all-MiniLM-L6-v2` vectors; the four scores match. The three sheets score within 0.025 of each other, because they read alike. At `k = 3` the 4 GB plan is in the context, and the model has to notice that it fails the condition. "More than 8" has a vector, and the vector cannot perform a comparison. We call this the **comparison blind spot**.
 
 Notebook `08a` shows the same failure on a book catalogue. Asked for books rated above 4.5, plain similarity search returns books rated 4.3, because "rated above 4.5" sits near every book description that mentions ratings.
 
@@ -42,7 +52,7 @@ flowchart LR
     F --> V
 ```
 
-*Figure 1: Self-querying. Meaning goes to the embeddings; facts go to the metadata index.*
+*Figure 2: Self-querying. Meaning goes to the embeddings; facts go to the metadata index.*
 
 `08a`'s catalogue makes the division concrete. Each book's embedded text is a short thematic description, and its metadata holds seven attributes: title, author, year, genre, rating, language and country. The embedded text answers questions about themes; the metadata answers questions about facts. Here are the structured queries the LLM built:
 
@@ -55,7 +65,18 @@ flowchart LR
 
 *Table 2: Structured queries. The first three rows are `08a`'s; the Larkspur row assumes the plan sheets carry a memory_gb field.*
 
-The constraint is removed from the semantic query and re-expressed as a filter. A pure metadata lookup leaves almost nothing to embed, and a purely semantic question produces no filter and degrades to ordinary similarity search. For Larkspur, the filter keeps LC-408 and LC-816 and drops LC-204, whatever their similarity scores.
+The constraint is removed from the semantic query and re-expressed as a filter. A pure metadata lookup leaves almost nothing to embed, and a purely semantic question produces no filter and degrades to ordinary similarity search. For Larkspur, the filter keeps LC-408 and LC-816 and drops LC-204, whatever their similarity scores:
+
+<div class="learning-widget evidence-switcher" data-comparison id="filter-switcher">
+<p class="widget-intro">Choose the retriever for <em>Which plans have more than 8 GB of memory?</em> at <code>k = 3</code>.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retriever">
+<button type="button" data-mode="similarity" aria-pressed="false" aria-controls="filter-similarity">Similarity only</button>
+<button type="button" data-mode="selfquery" aria-pressed="false" aria-controls="filter-selfquery">Self-querying</button>
+</div>
+<section id="filter-similarity" class="mode-panel" data-announcement="Similarity only selected. The 4 GB plan is in the context."><h4>Similarity only</h4><dl><dt>Context</dt><dd>LC-816 (32 GB), LC-408 (16 GB), LC-204 (4 GB)</dd><dt>Risk</dt><dd>the model must notice that LC-204 fails the condition</dd></dl></section>
+<section id="filter-selfquery" class="mode-panel" data-announcement="Self-querying selected. Only the two qualifying plans."><h4>Self-querying (illustrative <code>memory_gb</code> field)</h4><dl><dt>Structured query</dt><dd>"plans", with memory_gb greater than 8</dd><dt>Context</dt><dd>LC-816 and LC-408 only; the store applied the comparison</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 `08a` exercises each comparison the filter language offers: equality on a category, a numeric greater-than, a range built from two comparisons joined by AND, and set membership built with OR.
 
@@ -82,6 +103,19 @@ The query constructor is an LLM, so its output varies between runs. `08a` asked 
 
 *Table 3: Four runs of one question through the query constructor (`08a`).*
 
+<div class="learning-widget evidence-switcher" data-comparison id="runs-switcher">
+<p class="widget-intro">Choose one of the three outcomes <code>08a</code> recorded for "rated above 4.5".</p>
+<div class="mode-controls" hidden role="group" aria-label="Query constructor output">
+<button type="button" data-mode="number" aria-pressed="false" aria-controls="runs-number">4.5 as a number</button>
+<button type="button" data-mode="string" aria-pressed="false" aria-controls="runs-string">"4.5" as a string</button>
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="runs-none">No filter</button>
+</div>
+<section id="runs-number" class="mode-panel" data-announcement="Number selected. Filtered correctly."><h4>Filter value 4.5 as a number (2 of 4 runs)</h4><dl><dt>Store</dt><dd>applies rating greater than 4.5</dd><dt>Visible?</dt><dd>yes: correct results</dd></dl></section>
+<section id="runs-string" class="mode-panel" data-announcement="String selected. The call raises an error."><h4>Filter value "4.5" as a string (1 of 4)</h4><dl><dt>Store</dt><dd>raises an error: a greater-than needs a number</dd><dt>Fix</dt><dd>coerce numeric filter values before the store sees them</dd></dl></section>
+<section id="runs-none" class="mode-panel" data-announcement="No filter selected. Silent fallback to similarity search."><h4>No filter at all (1 of 4)</h4><dl><dt>Store</dt><dd>plain similarity search; books rated 4.3 come back</dd><dt>Visible?</dt><dd>only if the structured query is logged beside the result</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 Two failures hide in that table. The string value crashes the call, and `08a` fixes it by coercing numeric filter values before they reach the store. The missing filter is worse, because nothing fails: the retriever quietly falls back to similarity search. We call this the **dropped filter**. `08a`'s helper prints the filter the LLM produced beside every result, so a dropped filter is visible.
 
 > **Pitfall: an empty result is not "nothing matched".** A filter on "annual" when the metadata says "Annual", or a field the schema never declared, returns zero chunks with no error. Log the structured query for every call, and treat an empty filtered result as a reason to retry without the filter or to ask the user.
@@ -93,9 +127,20 @@ Two failures hide in that table. The string value crashes the call, and `08a` fi
 1. **Write facets at ingestion**: plan name, memory, vCPUs and traffic on the plan sheets; section, `version` and `date` on policy chunks.
 2. **Describe each field with a type and one sentence**, numbers as numbers.
 3. **Coerce and log** every structured query, and alert on calls where a question with a number produced no filter.
-4. **Route here only questions with a condition on a fact** (Figure 2 in lesson 17.1); everything else keeps plain or transformed retrieval.
+4. **Route here only questions with a condition on a fact** (Figure 3 in lesson 17.1); everything else keeps plain or transformed retrieval.
 
 This closes the query side of retrieval. M18 turns to the other side: what to do with the chunks once they come back.
+
+## Limits
+
+- **The Larkspur filter is illustrative.** The M16 plan sheets carry their facts in text, not in a `memory_gb` field. The self-query row assumes that field was written at ingestion.
+- **Four runs are a small sample.** Table 3 shows that the constructor's output varies, not how often each failure occurs. Count outcomes on your own logged queries.
+- **Filter syntax is store-specific.** The translator renders one structured query into each store's filter language, and stores differ in which comparisons they support.
+
+## References
+
+1. LangChain, [SelfQueryRetriever API reference](https://reference.langchain.com/python/langchain-classic/retrievers/self_query/base/SelfQueryRetriever).
+2. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
 
 ## Key Takeaways
 
