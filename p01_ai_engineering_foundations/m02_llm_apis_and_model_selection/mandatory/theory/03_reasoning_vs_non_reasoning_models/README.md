@@ -1,10 +1,21 @@
 # M02.3 Theory: Reasoning vs non-reasoning models
 
 *[M02 theory](../README.md) · Lesson 2.3 · Notebooks: [`03a_Reasoning_vs_NonReasoning.ipynb`](../../notebook/03a_Reasoning_vs_NonReasoning.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: A reasoning model thinks before it answers and bills you for thinking you never see -->
+<!-- format: approved -->
 
 ## Reasoning models
 
-"Think step by step" is a prompt: you ask an ordinary model to write its working into the answer, and you can read every word. A reasoning model is trained to work before it answers. It produces reasoning tokens internally, decides how many to spend, and returns only the conclusion. The notebook sums up the difference in three rows:
+> **What you'll learn**
+>
+> - **Explain** how a reasoning model differs from prompting an ordinary model to think step by step.
+> - **Calculate** a call's real cost when most of its output tokens are hidden.
+> - **Diagnose** an effort setting that never reached the model.
+> - **Choose** between a fast model and a reasoning model for a given question.
+
+A team switches the Larkspur generator to a reasoning model, estimates the new bill from the length of the replies, and on a short answer is off by a factor of 57 (an illustrative case, priced in Figure 1). The replies were the same length as before. Almost everything they paid for was text they never received.
+
+"Think step by step" is a prompt: you ask an ordinary model to write its working into the answer, and you can read every word. A **reasoning model** is trained to work before it answers. It produces reasoning tokens internally, decides how many to spend, and returns only the conclusion. The notebook sums up the difference in three rows:
 
 | | Non-reasoning | Reasoning |
 |---|---|---|
@@ -12,12 +23,16 @@
 | Can you read the reasoning | Yes, it is in the response | Usually no |
 | What you are billed for | What you can see | What you can see, plus what you cannot |
 
+*Table 1: Prompted thinking against a reasoning model.*
+
 The notebook runs the same prompt through `gpt-4o-mini` (fast) and `o4-mini` (reasoning) and records four numbers per call: seconds, output tokens, reasoning tokens and whether the answer was right. Its `PRICING` constants, which it tells you to replace with today's prices, are USD per million tokens:
 
 | Model | Input | Output |
 |---|---|---|
 | `gpt-4o-mini` | 0.15 | 0.60 |
 | `o4-mini` | 1.10 | 4.40 |
+
+*Table 2: The notebook's prices, USD per million tokens. They date from when the notebook was written.*
 
 At those prices `o4-mini` costs 7.3 times as much per token, in and out, before it spends a single reasoning token. The two tasks are chosen to land on opposite sides of the decision:
 
@@ -28,20 +43,24 @@ At those prices `o4-mini` costs 7.3 times as much per token, in and out, before 
 
 `completion_tokens` is what you are charged for at the output rate. `reasoning_tokens`, under `usage.completion_tokens_details`, is the part of it you never receive. The notebook's cost function makes that explicit:
 
-```python
-# reasoning tokens are already inside completion_tokens; they bill at the output rate
-cost = (prompt_tokens / 1e6) * input_price + (completion_tokens / 1e6) * output_price
-visible = completion_tokens - reasoning_tokens
-```
+| Quantity | How the notebook computes it |
+|---|---|
+| Cost | prompt tokens × input price + completion tokens × output price, each per million |
+| Reasoning tokens | already inside completion tokens, billed at the output rate |
+| Visible tokens | completion tokens minus reasoning tokens |
+
+*Table 3: The notebook's cost arithmetic. Reasoning tokens are never added on top; they are already counted.*
 
 On a short answer the hidden part is almost all of the bill. The figure prices one `o4-mini` call on the first problem of lesson 2.4: 38 prompt tokens counted with `o200k_base`, a three-token answer (`12:25`), and 700 reasoning tokens, the lab's representative medium setting.
 
 ![One o4-mini call to scale: 38 prompt tokens, 700 reasoning tokens and a 3-token answer; reasoning is 98% of the $0.003135 bill, 57 times what the prompt and reply text alone would cost](diagrams/invisible-bill.svg)
 
-Two habits follow:
+*Figure 1: One `o4-mini` call to scale. The arithmetic was recomputed from the notebook's prices.*
+
+We call the gap the **invisible bill**. Two habits follow:
 
 - **Never estimate spend from the reply text.** Priced from its prompt and reply, that call costs $0.000055; the bill says $0.003135. Log `usage` per request and sum it.
-- **Check that reasoning tokens move.** The fast model reports 0. If a reasoning model also reports 0, or the count stays flat while you raise the effort in lesson 2.4, the parameter never reached the model, and any conclusion about effort is drawn from a test that never ran.
+- **Check that reasoning tokens move.** The fast model reports 0. If a reasoning model also reports 0, or the count stays flat while you raise the effort in lesson 2.4, the parameter never reached the model. We call that a **dead dial**: any conclusion about effort is drawn from a test that never ran.
 
 ## When reasoning pays
 
@@ -58,13 +77,32 @@ flowchart TD
     Q3 -- no --> RM["Reasoning model<br/>set effort, lesson 2.4"]
 ```
 
-For the Larkspur generator:
+*Figure 2: Choosing between a fast model and a reasoning model.*
 
-- ***How long does a refund take?*** The answer is one sentence of the `refund-timing` chunk. This is Task B's shape, and a reasoning model only adds latency and cost.
-- ***Can I get a refund after 45 days?*** The model has to combine the 30-day window, the plan type and the proration rule. A wrong amount turns into a support ticket, so this is Task A's shape.
-- **Benchmark both kinds.** Run your own hard case and your own easy case through both models. A benchmark of hard cases alone recommends the reasoning model for everything, including the lookups that make up most of the traffic.
+<div class="learning-widget evidence-switcher" data-comparison id="question-switcher">
+<p class="widget-intro">Run two Larkspur questions down the chain in Figure 2 and see where each one lands.</p>
+<div class="mode-controls" hidden role="group" aria-label="Larkspur question">
+<button type="button" data-mode="timing" aria-pressed="false" aria-controls="q-timing">How long does a refund take?</button>
+<button type="button" data-mode="window" aria-pressed="false" aria-controls="q-window">Refund after 45 days?</button>
+</div>
+<section id="q-timing" class="mode-panel" data-announcement="Refund time: fast model."><h4>How long does a refund take?</h4><dl><dt>Answer in one chunk</dt><dd>yes, one sentence of the <code>refund-timing</code> chunk</dd><dt>Shape</dt><dd>Task B, an extraction</dd><dt>Verdict</dt><dd>fast model; a reasoning model adds only latency and cost</dd></dl></section>
+<section id="q-window" class="mode-panel" data-announcement="Refund after 45 days: reasoning model."><h4>Can I get a refund after 45 days?</h4><dl><dt>Answer in one chunk</dt><dd>no, it combines the 30-day window, the plan type and the proration rule</dd><dt>Cost of a wrong answer</dt><dd>a wrong amount turns into a support ticket</dd><dt>Verdict</dt><dd>Task A's shape: a reasoning model, with effort swept in lesson 2.4</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+**Benchmark both kinds.** Run your own hard case and your own easy case through both models. A benchmark of hard cases alone recommends the reasoning model for everything, including the lookups that make up most of the traffic.
 
 Sending each question to the right model at run time is routing by model tier, built in [M24 lesson 24.2](../../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/02_routing_by_handler_and_by_model_tier/README.md#routing-by-model-tier).
+
+## Limits of this evidence
+
+- **Representative token count.** The 700 reasoning tokens in Figure 1 are the lab's representative medium setting, not a measured call; the notebook ships without outputs. The prompt and answer tokens were counted with `o200k_base`.
+- **Prices date.** Table 2 holds the notebook's prices, which it tells you to replace. The 7.3 ratio and the dollar figures move with them; the hidden share of the bill depends only on `o4-mini`'s own input and output prices.
+- **Two tasks.** Task A and Task B show the two ends of the decision. They are not a benchmark of either model.
+
+## References
+
+1. OpenAI, [reasoning models guide](https://developers.openai.com/api/docs/guides/reasoning), on reasoning tokens, how they are billed and how to read them from `usage`.
 
 ## Key Takeaways
 
