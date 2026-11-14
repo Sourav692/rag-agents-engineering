@@ -392,6 +392,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A business key (<code>ticket_id</code>, <code>article_id</code>) when the source has one.</li>
 </ul>
 <p>For Larkspur, <code>refunds.md::0</code> names the refund-window chunk no matter how often the folder is re-read. When the policy changes, the pipeline can delete or overwrite exactly that entry.</p>
+<p>The three ID schemes behave differently over three nightly runs of the ten-chunk handbook, with the refund window cut from 30 days to 14 before the third run. The counts below are arithmetic on the rules above, not a measured run.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="id-scheme-switcher">
+<p class="widget-intro">Choose an ID scheme and see what the store holds after three nightly runs, the last one after the refund edit.</p>
+<div class="mode-controls" hidden role="group" aria-label="Chunk ID scheme">
+<button type="button" data-mode="minted" aria-pressed="false" aria-controls="ids-minted">Run-minted UUID</button>
+<button type="button" data-mode="location" aria-pressed="false" aria-controls="ids-location">Source and position</button>
+<button type="button" data-mode="hash" aria-pressed="false" aria-controls="ids-hash">Content hash</button>
+</div>
+<section id="ids-minted" class="mode-panel" data-announcement="Run-minted IDs. Thirty entries after three runs."><h4>Run-minted UUID</h4><dl><dt>Entries after each run</dt><dd>10, then 20, then 30</dd><dt>Refund window</dt><dd>two copies of the 30-day rule and one of the 14-day rule</dd><dt>Outcome</dt><dd>the copies fill the top-k slots, and no ID names the old chunk for deletion</dd></dl></section>
+<section id="ids-location" class="mode-panel" data-announcement="Source and position IDs. Ten entries, the edit overwrites."><h4>Source and position (<code>refunds.md::0</code>)</h4><dl><dt>Entries after each run</dt><dd>10, 10, 10</dd><dt>Refund window</dt><dd>the third run writes the 14-day text under the same ID and replaces the 30-day entry</dd><dt>Outcome</dt><dd>correct, as long as the chunk keeps its position in the file</dd></dl></section>
+<section id="ids-hash" class="mode-panel" data-announcement="Content-hash IDs. Eleven entries, the old rule stays."><h4>Content hash, no cleanup</h4><dl><dt>Entries after each run</dt><dd>10, 10, 11</dd><dt>Refund window</dt><dd>the edited text has a new hash and is added; the 30-day entry keeps its old hash and stays</dd><dt>Outcome</dt><dd>re-runs are free, but an edit leaves a stale chunk until something deletes it (lesson 14.5)</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The content-hash row is why lesson 14.5 pairs hash IDs with a record manager: the hash makes unchanged chunks free, and the record manager remembers which hashes a source used to have.</p>
 <h2 id="what-a-score-means">What a score means</h2>
 <p><code>similarity_search_with_score</code> returns a number per result, and its meaning depends on the backend:</p>
 <div class="sheet scroll"><table>
@@ -433,13 +448,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Reopening a store fails silently in two ways:</p>
 <ul>
 <li><strong>Silent empty collection.</strong> A wrong collection name does it. <code>Chroma(collection_name="typo", persist_directory=...)</code> creates a new, empty collection. Its count is 0, every search returns nothing, and no error is raised.</li>
-<li><strong>Model swap on reopen.</strong> A wrong embedding model does it. The store opens and searches return results, but the query vector and the stored vectors come from different models, so the ranking means nothing.</li>
+<li><strong>Model swap on reopen.</strong> A wrong embedding model does it. The store opens and searches return results, but the query vector and the stored vectors come from different models. The ranking means nothing.</li>
 </ul>
 <p>The notebook turns both into startup errors with an <code>open_store()</code> check: refuse an empty collection, and compare the stored vector&rsquo;s dimension with the live model&rsquo;s. The dimension check misses a model swap with equal dimensions (<code>text-embedding-3-large</code> truncated to 1,536 against <code>text-embedding-3-small</code>), so also store the model name in the collection&rsquo;s metadata and assert it.</p>
 <h2 id="in-practice-a-larkspur-index-that-survives-re-runs">In practice: a Larkspur index that survives re-runs</h2>
 <p>For the handbook store, each rule on this page becomes one decision:</p>
 <ol>
-<li><strong>Derive every ID from the document</strong>, such as <code>refunds.md::0</code> for the refund-window chunk, so a re-read overwrites it.</li>
+<li><strong>Derive every ID from the document</strong>, such as <code>refunds.md::0</code> for the refund-window chunk. A re-read then overwrites it.</li>
 <li><strong>Update by ID</strong> when a policy changes: delete and insert under the same ID.</li>
 <li><strong>Read the scores from the store</strong> before setting any threshold, and set it from Larkspur&rsquo;s own known-good and known-bad queries.</li>
 <li><strong>Check at startup</strong> that the collection is not empty, that the vector dimension matches the live model, and that the stored model name matches.</li>
@@ -447,6 +462,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> lesson 14.2 opens the index itself: how embedded stores find nearest neighbours without comparing every vector.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>A toy corpus.</strong> The 6 and 7 entry counts come from the notebook&rsquo;s six company-policy documents. The ID-scheme counts above are arithmetic on the same rules, not a measured nightly run.</li>
+<li><strong>Backends move.</strong> The <code>l2</code> default and the score directions in Table 2 are those of Chroma 1.5.9 and LangChain&rsquo;s FAISS wrapper in the course environment. Check them again after an upgrade.</li>
+<li><strong>Position-based IDs have their own failure.</strong> <code>refunds.md::0</code> survives a re-read, but inserting a paragraph above it shifts every later index. Lesson 14.5&rsquo;s content hashes avoid that, at the price of needing cleanup.</li>
+<li><strong>The startup check is partial.</strong> Dimension and model-name checks catch a swapped model. They cannot catch a collection that was loaded from the wrong folder with the right model.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/collections/configure" target="_blank" rel="noopener">Configure collections</a>, on a collection&rsquo;s distance space and index settings.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/chroma" target="_blank" rel="noopener">Chroma integration</a>, covering add, update, delete and search by ID.</li>
+<li>Python documentation, <a href="https://docs.python.org/3/library/pickle.html" target="_blank" rel="noopener">the pickle module</a>, whose warning explains why loading an untrusted FAISS docstore is unsafe.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>No store edits a vector in place; an update deletes and re-inserts under the same ID. Derive IDs from the document, such as <code>source::page::chunk_index</code> or a content hash, never from the run.</li>
@@ -487,6 +515,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <figure class="diagram"><img src="02_embedded_stores_chroma_and_faiss/diagrams/hnsw-layers.svg" width="800" height="470" alt="Three layers of one HNSW index. Layer 0 holds every vector, linked to its near neighbours; each higher layer keeps a random subset with longer links. A search enters at the top layer, moves greedily to the neighbour closest to the query, drops a layer when no neighbour is closer, and ends at layer 0 beside the query. The drawing is schematic, not measured."></figure>
 <p><em>Figure 1: An HNSW search enters at the top layer, walks greedily towards the query and ends at layer 0 (schematic).</em></p>
+<p>IVF works from a coarser map. It assigns every vector to its nearest centroid when the index is built, then a query compares itself with the centroids and scans only the closest lists:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Refund question"/] --&gt; C["Compare with&lt;br/&gt;every centroid"]
+    C --&gt; P["Keep the nearest&lt;br/&gt;probes lists"]
+    P --&gt; S["Scan only&lt;br/&gt;those lists"]
+    S --&gt; K["Top k from&lt;br/&gt;the scanned lists"]
+</pre></figure>
+<p><em>Figure 2: An IVF search. A neighbour that sits in an unprobed list is never seen (schematic).</em></p>
+<p>The two failure points differ. HNSW can stop its greedy walk in a local neighbourhood that does not hold the true nearest chunk. IVF can leave the true nearest chunk in a list it did not probe, which is likely when the chunk sits near the border between two clusters.</p>
 <p>Each knob moves recall against speed or memory:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -526,7 +563,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: The HNSW and IVF settings, with Chroma&rsquo;s and pgvector&rsquo;s defaults.</em></p>
 <p>The Chroma values are what <code>collection.configuration_json</code> reports for a new collection in the course environment, and the pgvector values are from the <a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">pgvector README</a>. Defaults are a starting point. To tune them, measure recall@k of the ANN index against an exact search on your own queries, and raise <code>ef_search</code> until the misses stop mattering for the golden set.</p>
-<p>An ANN miss raises no error, and we call it a <strong>silent ANN miss</strong>. An index that skips the refund chunk returns the next-best chunk with a normal-looking score, so a recall drop after the corpus grows shows up as worse answers, not as an error.</p>
+<p>An ANN miss raises no error, and we call it a <strong>silent ANN miss</strong>. An index that skips the refund chunk returns the next-best chunk with a normal-looking score. A recall drop after the corpus grows shows up only as worse answers.</p>
 <h2 id="chroma-or-faiss">Chroma or FAISS</h2>
 <p>Both run inside your Python process with no server. They differ in what they do beyond the search:</p>
 <div class="sheet scroll"><table>
@@ -571,7 +608,21 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Chroma and FAISS compared.</em></p>
-<p>The filter difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged <code>t="no"</code> that sat close to the query and 3 tagged <code>t="yes"</code> further away. <code>similarity_search(q, k=3, filter={"t": "yes"})</code> returned 0 results, because none of the 3 was among the 20 nearest candidates; with <code>fetch_k=28</code> it returned all 3. Chroma, asked for <code>k=5</code> with a filter only 2 entries match, returned those 2. We call the FAISS case a <strong>starved post-filter</strong>: the filter runs on too few candidates. The same check in table form:</p>
+<p>The filter difference comes from where each store applies it. Chroma narrows the candidates first:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Query + filter&lt;br/&gt;t = yes, k = 5"/] --&gt; F["Keep entries&lt;br/&gt;that match"]
+    F --&gt; R["Rank the&lt;br/&gt;2 matches"]
+    R --&gt; O["Return 2"]
+</pre></figure>
+<p><em>Figure 3: Chroma applies the filter inside the store, before ranking.</em></p>
+<p>The FAISS wrapper ranks first and filters what it fetched:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Query + filter&lt;br/&gt;t = yes, k = 3"/] --&gt; R["Rank all vectors&lt;br/&gt;keep 20 nearest"]
+    R --&gt; F["Drop entries&lt;br/&gt;with t = no"]
+    F --&gt; O["Return 0"]
+</pre></figure>
+<p><em>Figure 4: The FAISS wrapper filters in Python after ranking <code>fetch_k=20</code> candidates.</em></p>
+<p>The difference shows up as missing results. In a check run for this page, a FAISS store held 25 chunks tagged <code>t="no"</code> that sat close to the query and 3 tagged <code>t="yes"</code> further away. <code>similarity_search(q, k=3, filter={"t": "yes"})</code> returned 0 results, because none of the 3 was among the 20 nearest candidates; with <code>fetch_k=28</code> it returned all 3. Chroma, asked for <code>k=5</code> with a filter only 2 entries match, returned those 2. We call the FAISS case a <strong>starved post-filter</strong>: the filter runs on too few candidates. The same check in table form:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -611,10 +662,25 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> lesson 14.3 moves the index off your machine, to managed stores, and looks at what decides which entries one query can see.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No recall measurement here.</strong> The notebooks index a handful of chunks, where exact and approximate search agree. The page states the recall trade-off from the algorithms; it shows no measured recall@k.</li>
+<li><strong>A planted case.</strong> Table 3 uses hand-made two-dimensional vectors placed to starve the filter, not real embeddings. It shows the mechanism; how often it bites depends on how selective your filters are.</li>
+<li><strong>Defaults are versioned.</strong> Table 1&rsquo;s Chroma values come from Chroma 1.5.9 in the course environment and the pgvector values from its README. Both can change between releases.</li>
+<li><strong>The figures are schematic.</strong> Figures 1 and 2 show the search shape, not a real index&rsquo;s layer counts or cluster sizes.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Malkov and Yashunin, <a href="https://arxiv.org/abs/1603.09320" target="_blank" rel="noopener">the HNSW paper on approximate nearest-neighbour search with layered small-world graphs</a> (2016).</li>
+<li>Johnson, Douze and Jégou, <a href="https://arxiv.org/abs/1702.08734" target="_blank" rel="noopener">Billion-scale similarity search with GPUs</a>, the paper behind the FAISS library and its IVF indexes.</li>
+<li>FAISS wiki, <a href="https://github.com/facebookresearch/faiss/wiki/Faiss-indexes" target="_blank" rel="noopener">Faiss indexes</a>, listing the flat, HNSW and IVF index types.</li>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/collections/configure" target="_blank" rel="noopener">Configure collections</a>, on the HNSW settings and distance space.</li>
+<li>pgvector, <a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">README</a>, for its HNSW and IVF defaults and query settings.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>ANN indexes such as HNSW and IVF trade the guaranteed top <code>k</code> for speed, and a miss raises no error. Measure recall@k against exact search and raise <code>ef_search</code> until misses stop mattering.</li>
-<li>Chroma filters inside the store before ranking; the FAISS wrapper filters after ranking <code>fetch_k=20</code> candidates, so a selective filter can return nothing.</li>
+<li>Chroma filters inside the store before ranking; the FAISS wrapper filters after ranking <code>fetch_k=20</code> candidates. A selective filter can then return nothing.</li>
 <li>Start with Chroma for anything you will update, use FAISS for a static read-heavy corpus, and move to a hosted store for concurrent writers or several machines.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -690,24 +756,59 @@ th:last-child, td:last-child { padding-right: 0; }
     N2 --&gt; R2["Records&lt;br/&gt;id + vector + metadata"]
 </pre></figure>
 <p><em>Figure 1: A Pinecone index with two namespaces. Every read and write targets one namespace.</em></p>
-<p>The Pinecone notebook creates a serverless index named <code>rag</code> with <code>dimension=1024</code> and <code>metric="cosine"</code>, and asks OpenAI&rsquo;s <code>text-embedding-3-small</code> for 1,024 dimensions to match. The index&rsquo;s dimension cannot change, so the embedding model and its output size are part of the index&rsquo;s identity. The Astra DB notebook does the same with <code>dimensions=1024</code> and passes <code>namespace=None</code>, so the store falls back to the <code>ASTRA_DB_KEYSPACE</code> environment variable or the database&rsquo;s default namespace.</p>
-<p>Pinecone&rsquo;s <a href="https://docs.pinecone.io/guides/index-data/indexing-overview" target="_blank" rel="noopener">indexing overview</a> says reads and writes &ldquo;always target one namespace&rdquo;, that namespaces are created on first upsert, and that you can isolate customers with &ldquo;one namespace per customer&rdquo;. A query in one namespace cannot return another namespace&rsquo;s records, which is a stronger boundary than a metadata filter that a caller can leave out. In LangChain, <code>PineconeVectorStore</code> takes the namespace as an argument.</p>
+<p>The Pinecone notebook creates a serverless index named <code>rag</code> with <code>dimension=1024</code> and <code>metric="cosine"</code>, and asks OpenAI&rsquo;s <code>text-embedding-3-small</code> for 1,024 dimensions to match. The index&rsquo;s dimension cannot change, so the embedding model and its output size are part of the index&rsquo;s identity. The Astra DB notebook does the same with <code>dimensions=1024</code> and passes <code>namespace=None</code>. The store then falls back to the <code>ASTRA_DB_KEYSPACE</code> environment variable or the database&rsquo;s default namespace.</p>
+<p>Pinecone&rsquo;s <a href="https://docs.pinecone.io/guides/index-data/indexing-overview" target="_blank" rel="noopener">indexing overview</a> says reads and writes &ldquo;always target one namespace&rdquo;, that namespaces are created automatically on upsert or ahead of time, and that you can isolate customers with &ldquo;one namespace per customer&rdquo;. A query in one namespace cannot return another namespace&rsquo;s records. In LangChain, <code>PineconeVectorStore</code> takes the namespace as an argument.</p>
+<p>The alternative keeps every tenant in one container and tells them apart by a metadata field:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Acme's question"/] --&gt; B{"Filter on&lt;br/&gt;tenant = acme?"}
+    B -- yes --&gt; A["Acme's runbooks&lt;br/&gt;only"]
+    B -- omitted --&gt; ALL["Every tenant's&lt;br/&gt;runbooks"]
+</pre></figure>
+<p><em>Figure 2: One shared collection with a tenant field. The boundary holds only when every caller sends the filter.</em></p>
+<p>Both layouts answer Acme&rsquo;s question correctly when the code is right. They differ in what a mistake costs:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="tenant-switcher">
+<p class="widget-intro">Choose a layout and a caller, and see which entries Acme's question can reach.</p>
+<div class="mode-controls" hidden role="group" aria-label="Tenant layout and caller">
+<button type="button" data-mode="filter-ok" aria-pressed="false" aria-controls="tenant-filter-ok">Shared, filter sent</button>
+<button type="button" data-mode="filter-missing" aria-pressed="false" aria-controls="tenant-filter-missing">Shared, filter omitted</button>
+<button type="button" data-mode="namespace" aria-pressed="false" aria-controls="tenant-namespace">Namespace per tenant</button>
+</div>
+<section id="tenant-filter-ok" class="mode-panel" data-announcement="Shared collection with the filter. Acme sees only its own entries."><h4>Shared collection, filter sent</h4><dl><dt>Searched</dt><dd>entries whose tenant field is <code>acme</code></dd><dt>Can reach</dt><dd>Acme's runbooks only</dd><dt>Depends on</dt><dd>every code path adding the filter</dd></dl></section>
+<section id="tenant-filter-missing" class="mode-panel" data-announcement="Shared collection without the filter. Every tenant's runbooks are reachable."><h4>Shared collection, filter omitted (leaky filter boundary)</h4><dl><dt>Searched</dt><dd>the whole collection</dd><dt>Can reach</dt><dd>every customer's runbooks, ranked only by similarity</dd><dt>Depends on</dt><dd>nothing: no error is raised</dd></dl></section>
+<section id="tenant-namespace" class="mode-panel" data-announcement="Namespace per tenant. Other tenants are unreachable."><h4>Namespace per tenant</h4><dl><dt>Searched</dt><dd>the <code>tenant-acme</code> namespace</dd><dt>Can reach</dt><dd>Acme's runbooks only; another namespace cannot appear in the results</dd><dt>Depends on</dt><dd>the service choosing the namespace, never the caller</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The namespace is the stronger boundary. A query that names no namespace searches the default one: a missing argument narrows the search instead of widening it.</p>
 <p>The record manager in lesson 14.5 has a namespace too: <code>SQLRecordManager("pgvector/vectordb", db_url=...)</code>. It scopes the record manager&rsquo;s keys, not the vectors. Keep one record-manager namespace per collection. If two collections share one, a <code>full</code> cleanup run on either deletes the other&rsquo;s keys. We call that a <strong>shared record-manager namespace</strong>.</p>
 <p>For Larkspur, the public handbook goes in one collection or namespace. Customer-specific runbooks, if they arrive, go in their own namespaces. Re-indexing the handbook then never touches customer data, and a customer&rsquo;s query cannot reach another customer&rsquo;s text.</p>
 <h2 id="when-a-managed-store-earns-its-cost">When a managed store earns its cost</h2>
 <p>The managed stores take the same LangChain calls as Chroma: <code>add_documents</code>, <code>similarity_search(query, k, filter=...)</code>, <code>as_retriever(...)</code>. The Pinecone notebook filters with <code>{"source": "tweet"}</code> and runs a retriever with <code>search_type="similarity_score_threshold"</code> and <code>score_threshold=0.4</code>, a threshold that only means something on that index&rsquo;s cosine scale. Switching stores changes the setup and the bill; the calls stay the same.</p>
-<p>Lesson 14.1&rsquo;s notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index, so the embedding model goes with you, and the IDs you derived in lesson 14.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 14.4), has no API key to manage, no network hop and no bill per query.</p>
+<p>Lesson 14.1&rsquo;s notebook gives the rule: move to a hosted store when you need concurrent writers, horizontal scale or managed availability, and not before. The move is a re-index. The embedding model goes with you, and the IDs you derived in lesson 14.1 make the second load as idempotent as the first. Until then an embedded store, or pgvector in a Postgres you already run (lesson 14.4), has no API key to manage, no network hop and no bill per query.</p>
 <h2 id="in-practice-separating-the-handbook-from-customer-data">In practice: separating the handbook from customer data</h2>
 <p>For Larkspur, the containers follow the boundaries the business needs:</p>
 <ol>
-<li><strong>Keep the public handbook in its own collection or namespace</strong>, so re-indexing it never touches customer data.</li>
+<li><strong>Keep the public handbook in its own collection or namespace.</strong> Re-indexing it then never touches customer data.</li>
 <li><strong>Give each customer&rsquo;s runbooks their own namespace</strong>, chosen by the service that builds the query, never by the caller.</li>
-<li><strong>Use one record-manager namespace per collection</strong> (lesson 14.5), so a cleanup run cannot reach another collection&rsquo;s keys.</li>
+<li><strong>Use one record-manager namespace per collection</strong> (lesson 14.5). A cleanup run then cannot reach another collection&rsquo;s keys.</li>
 <li><strong>Stay on an embedded store or pgvector</strong> until concurrent writers, horizontal scale or managed availability are needed.</li>
 </ol>
 <blockquote>
 <p><strong>Next:</strong> lesson 14.4 filters inside one container, with Postgres and pgvector.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Not run here.</strong> Both managed-store notebooks need an account and an API key, and this page quotes their settings, not their output.</li>
+<li><strong>Managed services move.</strong> The namespace rules quoted from Pinecone&rsquo;s documentation were checked in November 2026; plans, limits and defaults change without a library upgrade.</li>
+<li><strong>The switcher is illustrative.</strong> No tenant runbooks exist in the course data. The three panels apply the stated rules to a hypothetical Acme tenant.</li>
+<li><strong>A namespace is not the whole of access control.</strong> It stops one query reaching another tenant&rsquo;s records. Who may call the service, and with which namespace, is still the application&rsquo;s job.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Pinecone, <a href="https://docs.pinecone.io/guides/index-data/indexing-overview" target="_blank" rel="noopener">Indexing overview</a>, on indexes, namespaces and multitenancy.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/pinecone" target="_blank" rel="noopener">Pinecone integration</a>, on <code>PineconeVectorStore</code> and its namespace argument.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/pgvector" target="_blank" rel="noopener">PGVector integration</a>, on collections stored as rows.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A Pinecone index fixes its dimension and metric at creation, so the embedding model and output size are part of its identity. Changing either means a new index.</li>
@@ -769,7 +870,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Filter forms PGVector accepts.</em></p>
-<p>PGVector accepts <code>$eq</code>, <code>$ne</code>, <code>$lt</code>, <code>$lte</code>, <code>$gt</code>, <code>$gte</code>, <code>$in</code>, <code>$nin</code>, <code>$between</code>, <code>$exists</code>, <code>$like</code>, <code>$ilike</code>, <code>$and</code>, <code>$or</code> and <code>$not</code>. Stores share most of this syntax but differ at the edges. The two-key dict that PGVector reads as AND makes Chroma raise <code>ValueError: Expected where to have exactly one operator</code>, so write <code>$and</code> when code may move between stores.</p>
+<p>PGVector accepts <code>$eq</code>, <code>$ne</code>, <code>$lt</code>, <code>$lte</code>, <code>$gt</code>, <code>$gte</code>, <code>$in</code>, <code>$nin</code>, <code>$between</code>, <code>$exists</code>, <code>$like</code>, <code>$ilike</code>, <code>$and</code>, <code>$or</code> and <code>$not</code>. Stores share most of this syntax but differ at the edges. The two-key dict that PGVector reads as AND makes Chroma raise <code>ValueError: Expected where to have exactly one operator</code>. Write <code>$and</code> when code may move between stores.</p>
 <p>Filters are exact. <code>"Engineering"</code> does not match <code>"engineering"</code>, the <strong>case-split filter</strong> from lesson 11.1, and a field that was never written matches nothing. Normalise metadata at ingestion (M11) so the filter has something consistent to match.</p>
 <p>A filter is not access control, and relying on one as a boundary is the <strong>filter-as-access-control</strong> mistake. Lesson 14.1&rsquo;s notebook makes the point: a caller who omits the filter sees everything. For tenant isolation, enforce the filter in the service that builds the query, or use a namespace or a separate collection per tenant (lesson 14.3).</p>
 <h2 id="filtering-before-or-after-the-search">Filtering before or after the search</h2>
@@ -781,21 +882,55 @@ th:last-child, td:last-child { padding-right: 0; }
     POST --&gt; PD["Drop non-matches&lt;br/&gt;can return fewer than k"]
 </pre></figure>
 <p><em>Figure 1: Pre-filtering and post-filtering on the same question.</em></p>
-<p><strong>Pre-filtering</strong> restricts the candidates, then ranks them. If at least <code>k</code> entries match, you get <code>k</code>. LangChain&rsquo;s PGVector builds one SQL query, <code>WHERE collection_id = … AND &lt;filter&gt;</code> then <code>ORDER BY distance</code>, and it creates no vector index of its own, so Postgres compares the query with every matching row: an exact, pre-filtered search.</p>
+<p><strong>Pre-filtering</strong> restricts the candidates, then ranks them. If at least <code>k</code> entries match, you get <code>k</code>. LangChain&rsquo;s PGVector builds one SQL query, <code>WHERE collection_id = … AND &lt;filter&gt;</code> then <code>ORDER BY distance</code>, and it creates no vector index of its own. Postgres therefore compares the query with every matching row: an exact, pre-filtered search.</p>
 <p><strong>Post-filtering</strong> ranks first, then drops what fails the filter. LangChain&rsquo;s FAISS wrapper does this on <code>fetch_k=20</code> candidates (lesson 14.2). A selective filter can return fewer than <code>k</code> results or none.</p>
 <p>Adding an ANN index to pgvector moves it towards post-filtering. The <a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">pgvector README</a> says: &ldquo;With approximate indexes, filtering is applied <em>after</em> the index is scanned.&rdquo; Its example: if a condition matches 10% of rows, an HNSW scan with the default <code>hnsw.ef_search</code> of 40 leaves &ldquo;only 4 rows&rdquo; on average. From version 0.8.0, iterative index scans (<code>SET hnsw.iterative_scan = strict_order</code> or <code>relaxed_order</code>) keep scanning until enough rows pass the filter.</p>
+<p>With an HNSW index, the filter moves to after the scan:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Query + filter&lt;br/&gt;matches 10% of rows"/] --&gt; H["HNSW scan&lt;br/&gt;ef_search 40"]
+    H --&gt; F["Keep rows that&lt;br/&gt;pass the filter"]
+    F --&gt; O["About 4 rows&lt;br/&gt;whatever k is"]
+</pre></figure>
+<p><em>Figure 2: pgvector with an HNSW index, using the README&rsquo;s 10% example.</em></p>
+<p>The same filtered query takes three paths in pgvector, depending on the index and one setting:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="pgvector-filter-switcher">
+<p class="widget-intro">Choose how the table is indexed and see how many rows a filter matching 10% of rows can return when the query asks for k of 5.</p>
+<div class="mode-controls" hidden role="group" aria-label="pgvector index and scan setting">
+<button type="button" data-mode="exact" aria-pressed="false" aria-controls="pg-exact">No vector index</button>
+<button type="button" data-mode="hnsw" aria-pressed="false" aria-controls="pg-hnsw">HNSW, default scan</button>
+<button type="button" data-mode="iterative" aria-pressed="false" aria-controls="pg-iterative">HNSW, iterative scan</button>
+</div>
+<section id="pg-exact" class="mode-panel" data-announcement="No vector index. Pre-filtering returns 5."><h4>No vector index (LangChain's PGVector as created)</h4><dl><dt>Order of work</dt><dd>filter every row, then rank the matches exactly</dd><dt>Rows returned</dt><dd>5, as long as at least 5 rows match</dd><dt>Cost</dt><dd>one distance per matching row, which grows with the table</dd></dl></section>
+<section id="pg-hnsw" class="mode-panel" data-announcement="HNSW with the default scan. About 4 rows on average."><h4>HNSW index, default scan</h4><dl><dt>Order of work</dt><dd>scan about 40 candidates, then filter them</dd><dt>Rows returned</dt><dd>about 4 on average, and fewer for a rarer filter: a short result set</dd><dt>Cost</dt><dd>fast, and flat as the table grows</dd></dl></section>
+<section id="pg-iterative" class="mode-panel" data-announcement="HNSW with iterative scans. Scans more until 5 rows pass."><h4>HNSW index, iterative scan (pgvector 0.8.0 or later)</h4><dl><dt>Order of work</dt><dd>scan, filter, and scan more of the index while too few rows pass</dd><dt>Rows returned</dt><dd>5, unless the scan reaches its limit first</dd><dt>Cost</dt><dd>more work for rare filters, bounded by a maximum number of scanned rows</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The symptom of post-filtering is a query that asks for <code>k = 5</code> and gets 2, a <strong>short result set</strong>, as in the opening example. Log <code>len(results)</code> beside <code>k</code> on every filtered query; raising <code>k</code> hides the problem without fixing it.</p>
 <h2 id="in-practice-filtered-search-over-the-larkspur-handbook">In practice: filtered search over the Larkspur handbook</h2>
 <p>For the handbook in pgvector, filters follow four rules:</p>
 <ol>
 <li><strong>Normalise metadata at ingestion</strong> (M11), so <code>section = "Refunds"</code> matches every refund chunk.</li>
-<li><strong>Write filters with explicit <code>$and</code> and <code>$or</code></strong>, so the code still runs if the store changes.</li>
+<li><strong>Write filters with explicit <code>$and</code> and <code>$or</code>.</strong> The code then still runs if the store changes.</li>
 <li><strong>Enforce the tenant filter in the service</strong>, or use a namespace per tenant (lesson 14.3).</li>
 <li><strong>After adding an HNSW index, turn on iterative scans</strong> and log the result count beside <code>k</code> on every filtered query.</li>
 </ol>
 <blockquote>
 <p><strong>Next:</strong> lesson 14.5 keeps the store itself correct as the handbook changes, with the Indexing API.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The opening numbers are illustrative.</strong> The 2-of-5 result is a worked example of a short result set, not a measured run. The 10% and 4-row figures are the pgvector README&rsquo;s own example.</li>
+<li><strong>The notebook runs without a vector index.</strong> Its restaurant collection is searched exactly and never shows the post-filter case; that part rests on the pgvector README.</li>
+<li><strong>Operator lists drift.</strong> The operator set above is that of <code>langchain_postgres</code> 0.0.19 in the course environment.</li>
+<li><strong>A filter is only as good as its metadata.</strong> None of the guards here helps when the field was never written or written inconsistently.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>pgvector, <a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">README</a>, on filtering with approximate indexes and iterative index scans.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/pgvector" target="_blank" rel="noopener">PGVector integration</a>, on metadata filters and their operators.</li>
+<li>PostgreSQL documentation, <a href="https://www.postgresql.org/docs/current/gin.html" target="_blank" rel="noopener">GIN indexes</a>, the index type used on the JSONB metadata column.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>PGVector turns a metadata filter into a <code>WHERE</code> clause on JSONB metadata. Filters match exactly, so normalise values at ingestion, and write <code>$and</code> so filters stay portable.</li>
@@ -875,7 +1010,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Figure 1: One batch through the Indexing API: one new chunk written, one stale key deleted.</em></p>
 <p>Known hashes are skipped and only have their timestamp refreshed. New hashes are embedded and written under the hash as their ID. Writing the same chunk twice overwrites instead of duplicating. Then every key in the batch is stamped with a time no earlier than the run&rsquo;s start. Cleanup deletes keys whose stamp is older than the run&rsquo;s start: the chunks this run never saw.</p>
 <p>An edited chunk is a new hash. The lab&rsquo;s refund edit comes back as <code>{'num_added': 1, 'num_updated': 0, 'num_skipped': 9, 'num_deleted': 1}</code>. In <code>langchain-core</code> 1.7.0, <code>num_updated</code> counts only chunks re-written because of <code>force_update=True</code>, which re-embeds chunks whose hash is already known; the notebook&rsquo;s comments describe changed content as &ldquo;updated&rdquo;, but changed text shows up as one add and one delete.</p>
-<p>The hash covers text and metadata and nothing else. Add a metadata field to every chunk or change the splitter, and every hash changes. The next run then re-embeds the whole corpus. Change the embedding model, and no hash changes, so the next run skips everything and leaves the old vectors in place. For a model change, build a new collection with its own record-manager namespace, or run once with <code>force_update=True</code>.</p>
+<p>The hash covers text and metadata and nothing else. Add a metadata field to every chunk, and every hash changes; change the splitter&rsquo;s settings, and every chunk whose text moves gets a new hash. The next run then re-embeds most or all of the corpus. Change the embedding model, and no hash changes. The next run skips everything and leaves the old vectors in place. For a model change, build a new collection with its own record-manager namespace, or run once with <code>force_update=True</code>.</p>
 <p>The notebook&rsquo;s own sequence, replayed for this page with in-memory stores in place of Postgres, returns the numbers its comments expect. Seven chunks of <code>bella_vista.txt</code> go in under <code>cleanup=None</code>. After one chunk is edited, one removed and one added, the second <code>None</code> run adds 2, skips 5, deletes 0 and leaves 9 entries in the store: the old version and the removed chunk are both still there. The third run, under <code>incremental</code>, adds 2 and deletes 6. An empty batch under <code>incremental</code> changes nothing; under <code>full</code> it deletes all 5 remaining entries.</p>
 <h2 id="choosing-a-cleanup-mode">Choosing a cleanup mode</h2>
 <p><code>cleanup</code> decides which keys a run may delete. <code>incremental</code> and <code>scoped_full</code> need <code>source_id_key</code>, because they delete by source.</p>
@@ -911,7 +1046,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The four cleanup modes.</em></p>
-<p>The <a href="05_incremental_indexing_indexing_api_and_record_manager/interactive/record-manager-lab.html">interactive lab</a> runs a JavaScript port of <code>index()</code> over the Larkspur folder. Across 26,920 sequences of 1 to 6 runs (100,761 <code>index()</code> calls, every folder state and mode, batch sizes 100 and 3), its counts, stored IDs and record-manager keys match <code>langchain_core</code> 1.7.0 in every call. Starting from a store loaded with all 10 chunks, one more run gives:</p>
+<p>The <a href="05_incremental_indexing_indexing_api_and_record_manager/interactive/record-manager-lab.html">interactive lab</a> runs a JavaScript port of <code>index()</code> over the Larkspur folder. The port follows <code>langchain_core</code> 1.7.0 line by line. For this page, all 20 cells of Table 3 were rerun through both the lab&rsquo;s port and the real <code>index()</code> with in-memory stores, and they agree. Starting from a store loaded with all 10 chunks, one more run gives:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -964,7 +1099,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <figure class="lab-embed"><iframe src="05_incremental_indexing_indexing_api_and_record_manager/interactive/record-manager-lab.html" title="The record manager and cleanup modes, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The record manager and cleanup modes. <a href="05_incremental_indexing_indexing_api_and_record_manager/interactive/record-manager-lab.html">Open full screen</a></figcaption></figure>
 <ul>
 <li><strong>Stale pile-up under <code>None</code>.</strong> It is the opening example. After the refund edit the store holds 11 chunks, and the golden question can retrieve the 30-day rule and the 14-day rule side by side. Switch <code>refunds.md</code> back to 30 days and run again: 0 added, because the 30-day hash was never removed, and now the 14-day chunk is the stale one.</li>
-<li><strong>Invisible deletion under <code>incremental</code>.</strong> It handles edits but cannot see deleted files. It cleans a source only when that source sends at least one chunk. A file removed from the folder sends none, so its chunks stay until a <code>full</code> run or an explicit <code>delete()</code> by ID.</li>
+<li><strong>Invisible deletion under <code>incremental</code>.</strong> It handles edits but cannot see deleted files. It cleans a source only when that source sends at least one chunk. A file removed from the folder sends none, and its chunks stay until a <code>full</code> run or an explicit <code>delete()</code> by ID.</li>
 <li><strong>Partial-load wipe under <code>full</code>.</strong> It treats &ldquo;not returned&rdquo; as &ldquo;deleted&rdquo;. It is the only mode that removes a deleted file, and the only one that wipes the store when the loader returns a partial folder or nothing at all. Run it only over the whole corpus, and refuse to run it when the loader returns far fewer files than last time.</li>
 <li><strong><code>scoped_full</code> matches <code>incremental</code> at this size.</strong> The difference appears when one source&rsquo;s chunks span several batches: <code>incremental</code> cleans after each batch and does redundant work, while <code>scoped_full</code> collects the sources it saw and cleans once at the end.</li>
 </ul>
@@ -979,6 +1114,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> M15 changes what gets indexed: summaries, parent documents and questions in place of raw chunks.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>In-memory replays.</strong> The bella_vista counts and Table 3 come from <code>langchain_core</code> 1.7.0 with an in-memory record manager and store and a stand-in embedding. The notebook&rsquo;s Postgres run was not repeated; the counts match its own comments.</li>
+<li><strong>A ten-chunk folder.</strong> One batch holds the whole corpus. The <code>incremental</code> and <code>scoped_full</code> difference, and the per-batch cost, only appear when a source spans several batches.</li>
+<li><strong>The file-count guard is an addition.</strong> LangChain has no such check; the threshold for &ldquo;far fewer files&rdquo; is yours to set.</li>
+<li><strong><code>num_updated</code> semantics are versioned.</strong> Its meaning, and the SHA-1 default, are those of <code>langchain_core</code> 1.7.0.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-core/indexing/api/index" target="_blank" rel="noopener">the <code>index()</code> function</a>, with its cleanup modes, <code>source_id_key</code>, <code>force_update</code> and <code>key_encoder</code>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/pgvector" target="_blank" rel="noopener">PGVector integration</a>, the store the notebook indexes into.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The Indexing API hashes each chunk&rsquo;s text and metadata into its ID, so unchanged chunks are skipped and an edit is one add plus one delete. A model change alters no hash and needs a rebuild.</li>
@@ -1054,7 +1201,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Filter before the search when the filter is selective; after-search filtering silently returns fewer than <code>k</code>.</li>
 <li>Sync with the Indexing API and <code>cleanup="incremental"</code> keyed on <code>source</code>. Use <code>full</code> only when the loader returns the whole corpus, and never on a batch that might be empty.</li>
 </ul></article>
-    <nav class="toc" aria-label="M14 sections"><details open><summary>In M14</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stable-ids-and-the-missing-update">Stable IDs and the missing update</a></li><li><a href="#what-a-score-means">What a score means</a></li><li><a href="#persisting-and-reopening">Persisting and reopening</a></li><li><a href="#in-practice-a-larkspur-index-that-survives-re-runs">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#ann-search">ANN search</a></li><li><a href="#chroma-or-faiss">Chroma or FAISS</a></li><li><a href="#in-practice-larkspurrsquos-embedded-store">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#collections-and-namespaces">Collections and namespaces</a></li><li><a href="#when-a-managed-store-earns-its-cost">When a managed store earns its cost</a></li><li><a href="#in-practice-separating-the-handbook-from-customer-data">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#metadata-filters">Metadata filters</a></li><li><a href="#filtering-before-or-after-the-search">Filtering before or after the search</a></li><li><a href="#in-practice-filtered-search-over-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#idempotent-re-indexing">Idempotent re-indexing</a></li><li><a href="#choosing-a-cleanup-mode">Choosing a cleanup mode</a></li><li><a href="#in-practice-the-larkspur-sync-schedule">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M14 sections"><details open><summary>In M14</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#stable-ids-and-the-missing-update">Stable IDs and the missing update</a></li><li><a href="#what-a-score-means">What a score means</a></li><li><a href="#persisting-and-reopening">Persisting and reopening</a></li><li><a href="#in-practice-a-larkspur-index-that-survives-re-runs">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#ann-search">ANN search</a></li><li><a href="#chroma-or-faiss">Chroma or FAISS</a></li><li><a href="#in-practice-larkspurrsquos-embedded-store">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#collections-and-namespaces">Collections and namespaces</a></li><li><a href="#when-a-managed-store-earns-its-cost">When a managed store earns its cost</a></li><li><a href="#in-practice-separating-the-handbook-from-customer-data">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#metadata-filters">Metadata filters</a></li><li><a href="#filtering-before-or-after-the-search">Filtering before or after the search</a></li><li><a href="#in-practice-filtered-search-over-the-larkspur-handbook">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#idempotent-re-indexing">Idempotent re-indexing</a></li><li><a href="#choosing-a-cleanup-mode">Choosing a cleanup mode</a></li><li><a href="#in-practice-the-larkspur-sync-schedule">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

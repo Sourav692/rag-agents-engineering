@@ -449,7 +449,7 @@ th:last-child, td:last-child { padding-right: 0; }
     S --&gt; C["Answer with citation&lt;br/&gt;source + page + section"]
 </pre></figure>
 <p><em>Figure 2: A metadata pre-filter narrows the index before similarity search runs.</em></p>
-<p>The M11 lab asks for one shared schema across PDF, DOCX, Markdown, CSV and a web page, with five fields: <code>source</code>, <code>type</code>, <code>section</code>, <code>page</code>, <code>date</code>. On the handbook page, the loaders fill different parts of it:</p>
+<p>The M11 lab asks for one shared schema across PDF, DOCX, Markdown, CSV and a web page, with five fields: <code>source</code>, <code>type</code>, <code>section</code>, <code>page</code>, <code>date</code>. On page 7 of the handbook PDF used in lesson 11.4&rsquo;s parser lab, the loaders fill different parts of it:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -471,7 +471,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: How much of the lab&rsquo;s five-field schema each PDF loader fills on the handbook page.</em></p>
+<p><em>Table 3: How much of the lab&rsquo;s five-field schema each PDF loader fills on the handbook page (representative output from lesson 11.4&rsquo;s lab, written to show each loader&rsquo;s defaults).</em></p>
 <p>A filled field can still be wrong for your purpose. The file&rsquo;s modification time is not the policy date. Take <code>date</code> from your CMS.</p>
 <p>Three hard constraints shape the design, and each has a failure we name:</p>
 <div class="sheet scroll"><table>
@@ -490,8 +490,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Value types are restricted</td>
-<td>Chroma 1.5, the version this course installs, accepts <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>None</code> and non-empty lists of one of those types. A nested dict, an empty list or a mixed list such as <code>[1, "x"]</code> fails the write</td>
-<td>Flatten values before you index</td>
+<td>Chroma 1.5, the version this course installs, accepts <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code> and non-empty lists of one of those types. A <code>None</code> value, a nested dict, an empty list or a mixed list such as <code>[1, "x"]</code> fails the write</td>
+<td>Flatten values and drop unset fields before you index</td>
 </tr>
 <tr>
 <td>Filters match exactly</td>
@@ -500,7 +500,21 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Three constraints on metadata, the failure each one causes and its guard.</em></p>
+<p><em>Table 4: Three constraints on metadata, the failure each one causes and its guard. The type and case rows were checked against Chroma 1.5.9: each failing value raised an error on <code>add</code>, and a filter for &ldquo;Engineering&rdquo; returned no ids for a chunk stored as &ldquo;engineering&rdquo;.</em></p>
+<p>The first and third constraints pull in opposite directions for one field, the section name. The switcher places it three ways for the refund chunk and two requests: a question that says &ldquo;refunds&rdquo;, and a filter that asks for the Refunds section only.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="section-placement">
+<p class="widget-intro">Choose where the section name lives and see which request can find the refund chunk. The outcomes follow from the two constraints above.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the section name is stored">
+<button type="button" data-mode="meta" aria-pressed="false" aria-controls="place-meta">Metadata only</button>
+<button type="button" data-mode="text" aria-pressed="false" aria-controls="place-text">Text only</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="place-both">Both</button>
+</div>
+<section id="place-meta" class="mode-panel" data-announcement="Metadata only. The filter works and the title never reaches the embedding."><h4>Metadata only</h4><dl><dt>Embedded text</dt><dd>the refund rules, with no section name</dd><dt>Question naming "refunds"</dt><dd>matches only through the rule words; the section name adds nothing (invisible title)</dd><dt>Filter on the Refunds section</dt><dd>works, provided the stored value and the filter use the same case</dd></dl></section>
+<section id="place-text" class="mode-panel" data-announcement="Text only. Similarity sees the section name and no filter can select it."><h4>Text only</h4><dl><dt>Embedded text</dt><dd>a short "Refunds" header, then the rules</dd><dt>Question naming "refunds"</dt><dd>the header word is embedded with the chunk and can help it match</dd><dt>Filter on the Refunds section</dt><dd>impossible: there is no field to match exactly</dd></dl></section>
+<section id="place-both" class="mode-panel" data-announcement="Both. The chunk can be matched and filtered."><h4>Both</h4><dl><dt>Embedded text</dt><dd>a short "Refunds" header, then the rules</dd><dt>Question naming "refunds"</dt><dd>can match through the header</dd><dt>Filter on the Refunds section</dt><dd>works on the normalised metadata value</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h2 id="in-practice-a-schema-for-the-larkspur-handbook">In practice: a schema for the Larkspur handbook</h2>
 <p>For the refund chunk in the opening example, the schema decisions come before the first load:</p>
 <ol>
@@ -512,6 +526,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> lesson 11.2 starts with the simplest sources, plain text and Markdown, where the single choice is whether one file becomes one Document or many.</p>
 </blockquote>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>The handbook PDF page is a teaching page.</strong> The Larkspur handbook in this repo ships as 13 Markdown files. Page 7 and Table 3 come from lesson 11.4&rsquo;s lab, which writes each loader&rsquo;s output by hand to show its defaults. Run the loaders on your own PDFs before trusting the field counts.</li>
+<li><strong>Type rules belong to one store.</strong> Table 4&rsquo;s value rules were checked on Chroma 1.5.9. Other vector stores accept other types, and some flatten or drop fields without an error.</li>
+<li><strong>The switcher is reasoning, not a measurement.</strong> Whether a header word moves a chunk up the ranking depends on the embedding model and the rest of the chunk. M15 measures contextual chunk headers on a real corpus.</li>
+<li><strong><code>GenericLoader</code> is not in the notebooks.</strong> Notebooks <code>01a</code> and <code>01b</code> use bundled loaders only. Figure 1&rsquo;s composed path follows LangChain&rsquo;s loader and blob parser interfaces.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/document_loaders" target="_blank" rel="noopener">Document loaders</a>, the list of built-in loaders and the Document they return.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-core/document_loaders/base/BaseBlobParser" target="_blank" rel="noopener">BaseBlobParser</a>, the parser interface that turns a blob into Documents.</li>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/collections/add-data" target="_blank" rel="noopener">Adding data to a collection</a>, including the metadata value types.</li>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/querying-collections/metadata-filtering" target="_blank" rel="noopener">Metadata filtering</a>, on exact-match filters.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A loader fetches the source and a parser turns bytes into text. When the extracted text is wrong, swap the parser.</li>
@@ -619,7 +647,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Element categories across the 13 Larkspur handbook files.</em></p>
-<p>The two tables are where the mode matters most. Each <code>Table</code> element has a flat text form and an HTML form. The flat form of the server-size table starts &ldquo;Size vCPUs Memory Included outbound traffic Small 2 4 GB 1 TB per month Medium 4 16 GB…&rdquo;, so once a splitter cuts it, &ldquo;16 GB&rdquo; no longer sits under a column name. Keep each table as one piece and give the model its HTML form; lesson 11.4 meets the same problem in a PDF.</p>
+<p>The two tables are where the mode matters most. Each <code>Table</code> element has a flat text form and an HTML form. The flat form of the server-size table starts &ldquo;Size vCPUs Memory Included outbound traffic Small 2 4 GB 1 TB per month Medium 4 16 GB…&rdquo;. Once a splitter cuts it, &ldquo;16 GB&rdquo; no longer sits under a column name. Keep each table as one piece and give the model its HTML form; lesson 11.4 meets the same problem in a PDF.</p>
 <p>The plain text loader is still the right choice in one case. A Markdown-aware splitter (M12) cuts on the heading marks and needs them in the text:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -655,6 +683,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> lesson 11.3 moves to sources that already come in records, CSV rows and JSON objects, where the choice is which record becomes one Document.</p>
 </blockquote>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>One version, one corpus.</strong> Tables 1 and 2 were rerun with unstructured 0.27.37 on the 13 handbook files and matched the figures above. Another Unstructured release can classify a short line differently. Recount after an upgrade.</li>
+<li><strong>The notebooks use another file.</strong> Notebook <code>02b</code> loads the LangChain README from <code>data/sample/</code>, and its element counts are its own. The handbook numbers here come from the same loaders on the Larkspur files.</li>
+<li><strong>Element mode guesses.</strong> <code>Title</code>, <code>ListItem</code> and <code>Table</code> are labels Unstructured infers from the Markdown. A bold line or an unusual list can land in the wrong category. Spot-check the categories before relying on <code>parent_id</code> for sections.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/document_loaders/unstructured_file" target="_blank" rel="noopener">Unstructured integration</a>, on single and element modes.</li>
+<li>Unstructured, <a href="https://docs.unstructured.io/open-source/concepts/document-elements" target="_blank" rel="noopener">Document elements</a>, the element types and their metadata, including <code>parent_id</code>.</li>
+<li>Unstructured, <a href="https://docs.unstructured.io/open-source/core-functionality/partitioning" target="_blank" rel="noopener">Partitioning</a>, on how a file is broken into elements.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Single mode gives one Document per file. Element mode gives one per title, paragraph, list item or table, each with a <code>category</code> and a <code>parent_id</code> that links it to its heading.</li>
@@ -706,7 +746,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: The Business row of <code>plans.csv</code> as a Document, with default settings.</em></p>
+<p><em>Table 1: The Business row of <code>plans.csv</code> as a Document, with default settings. <code>plans.csv</code> is a three-row file written for this page from the pricing table in lesson 11.4&rsquo;s lab; every row in this lesson&rsquo;s tables comes from running the CSV loader in <code>langchain-community</code> 0.4.2 on it.</em></p>
 <p>The Unstructured CSV loader goes the other way and returns the whole file as one table Document. Use it when the question is about the table as a whole. Use the row loader when each row answers a question on its own, as the Business memory question does.</p>
 <p>The JSON loader has no fixed record. A <strong>jq schema</strong> is a path expression that says where one Document starts, and the notebook&rsquo;s <code>chat_data.json</code> shows how much it decides:</p>
 <div class="sheet scroll"><table>
@@ -784,20 +824,46 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Four CSV loader settings, the failure each caused and its guard.</em></p>
+<p>The switcher shows the Business row&rsquo;s Document under three of these settings, as the loader returned them.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="csv-settings">
+<p class="widget-intro">Choose a setting and compare what gets embedded with what lands in metadata for the Business row.</p>
+<div class="mode-controls" hidden role="group" aria-label="CSV loader setting">
+<button type="button" data-mode="default" aria-pressed="false" aria-controls="csv-default">Defaults</button>
+<button type="button" data-mode="metaonly" aria-pressed="false" aria-controls="csv-metaonly">Metadata columns only</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="csv-both">Content and metadata columns</button>
+</div>
+<section id="csv-default" class="mode-panel" data-announcement="Defaults. Every column is embedded and metadata holds only the file and row."><h4>Defaults</h4><dl><dt>Embedded text</dt><dd>all five lines, from plan Business to price 48</dd><dt>Metadata</dt><dd>source plans.csv, row 1</dd><dt>Effect</dt><dd>the Business question matches; no exact filter on plan or price exists</dd></dl></section>
+<section id="csv-metaonly" class="mode-panel" data-announcement="Metadata columns only. Business leaves the embedded text."><h4>Metadata columns plan and price, no content columns</h4><dl><dt>Embedded text</dt><dd>vcpu 4, memory 16, traffic 5; the plan name is gone</dd><dt>Metadata</dt><dd>source, row 1, plan Business, price as the string 48</dd><dt>Effect</dt><dd>text-stripped column: the word Business is no longer embedded, and a price range filter compares strings</dd></dl></section>
+<section id="csv-both" class="mode-panel" data-announcement="Content and metadata columns. Plan is in both places."><h4>Content columns plan, vcpu, memory; metadata columns plan and price</h4><dl><dt>Embedded text</dt><dd>plan Business, vcpu 4, memory 16</dd><dt>Metadata</dt><dd>source, row 1, plan Business, price as the string 48</dd><dt>Effect</dt><dd>the plan can be matched and filtered; the price still needs a cast before a range filter</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The JSON loader splits the same decision across two arguments. <code>content_key</code> names the field that becomes <code>page_content</code>, and a metadata function copies the fields you want to filter on. The notebook copies <code>sender_name</code> and <code>timestamp_ms</code>, so a query can ask for one person&rsquo;s messages in a time range.</p>
 <p>The two loaders also disagree on provenance. The JSON loader stores <code>source</code> as an absolute path and counts <code>seq_num</code> from 1. The CSV loader writes <code>source</code> as you passed it and counts <code>row</code> from 0. Lesson 11.5 maps these differences onto one schema.</p>
 <h2 id="in-practice-planscsv-for-the-larkspur-assistant">In practice: <code>plans.csv</code> for the Larkspur assistant</h2>
 <p>To answer both <em>How much memory does Business have?</em> and <em>Which plans cost under $50?</em> from the same file:</p>
 <ol>
-<li><strong>One Document per row</strong>, so each plan can be retrieved on its own.</li>
-<li><strong><code>plan</code> in both the text and the metadata</strong>, so it can be matched by similarity and filtered exactly.</li>
+<li><strong>One Document per row.</strong> Each plan can then be retrieved on its own.</li>
+<li><strong><code>plan</code> in both the text and the metadata.</strong> It can be matched by similarity and filtered exactly.</li>
 <li><strong><code>price_usd</code> cast to a number</strong> in metadata, for range filters.</li>
-<li><strong><code>source</code> kept as the file path</strong>, with <code>row</code> beside it, so a citation can open the right file at the right row.</li>
+<li><strong><code>source</code> kept as the file path</strong>, with <code>row</code> beside it. A citation can then open the right file at the right row.</li>
 <li><strong>Count empty Documents</strong> after the load, which catches a column or jq path that missed.</li>
 </ol>
 <blockquote>
 <p><strong>Next:</strong> lesson 11.4 returns to files with layout, PDFs and Word documents, where the parser decides what text exists at all.</p>
 </blockquote>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong><code>plans.csv</code> is written for this page.</strong> It holds the three plans from lesson 11.4&rsquo;s lab page, not the Markdown handbook&rsquo;s server sizes. The loader behaviour in Tables 1 and 3 is real: each row was produced by the CSV loader on that file.</li>
+<li><strong>The notebook files are small.</strong> The header-as-row case uses the notebook&rsquo;s five-row <code>data.csv</code>, and Table 2 uses its <code>chat_data.json</code> with 11 messages. A real export has more record shapes, and more ways for a jq path to miss.</li>
+<li><strong>Loader conventions can change.</strong> The 0-based <code>row</code>, the 1-based <code>seq_num</code> and the string values were read from <code>langchain-community</code> 0.4.2. Check them again after an upgrade.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>jq, <a href="https://jqlang.org/manual/" target="_blank" rel="noopener">Manual</a>, on path expressions such as <code>.messages[]</code>.</li>
+<li><a href="https://jsonlines.org/" target="_blank" rel="noopener">JSON Lines</a>, the one-object-per-line format the loader&rsquo;s line flag reads.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/document_loaders" target="_blank" rel="noopener">Document loaders</a>, including the CSV and JSON loaders.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>For CSV and JSON, decide which record becomes one Document: the CSV loader gives one per row, and the jq schema sets the record for the JSON loader. Count empty Documents after every load.</li>
@@ -815,7 +881,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. A five-row CSV loads as six Documents, and the first one reads Property ID: Property_ID. What caused it?</summary>
-<p>The loader was given new <code>fieldnames</code> to rename columns on a file that already has a header row, so the header was read as a data row. Rename the columns in the file instead, or drop that first Document.</p>
+<p>The loader was given new <code>fieldnames</code> to rename columns on a file that already has a header row. The loader read the header as a data row. Rename the columns in the file instead, or drop that first Document.</p>
 </details>
 <h2 id="element-level-parsing">Element-level parsing</h2>
 <p class="lesson-of">Lesson 11.4: PDF and Word: parser comparison and element-level parsing. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m11_document_ingestion/mandatory/notebook/04a_pdf_loader.ipynb" target="_blank" rel="noopener"><code>04a_pdf_loader.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m11_document_ingestion/optional/notebook/04b_ms_word_loader.ipynb" target="_blank" rel="noopener"><code>04b_ms_word_loader.ipynb</code></a> (optional)</p>
@@ -832,8 +898,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A customer asks the Larkspur assistant <em>Which plan has 16 GB of memory?</em> Page 7 of the handbook PDF holds the answer in its pricing table. The page was loaded as plain text and then split, and the chunk that reaches the model reads &ldquo;Business 4 16 GB 5 TB $48&rdquo;: the values are there, but the column names stayed in another chunk. The model cannot tell which number is the memory.</p>
 <p>A <strong>page-level parser</strong> returns the page as one string. An <strong>element-level parser</strong> (Unstructured, in element mode) returns one Document per layout element, each with a <code>category</code> such as <code>Title</code>, <code>NarrativeText</code>, <code>Table</code>, <code>ListItem</code>, <code>Header</code> or <code>Footer</code>:</p>
 <figure class="diagram"><img src="04_pdf_and_word_parser_comparison_and_element_level_parsing/diagrams/page-to-elements.svg" width="800" height="430" alt="A two-column handbook page with a header, two section titles, paragraphs, a table, list items and a footer. Page-level parsing turns it into one Document whose text mixes all regions. Element-level parsing turns it into one typed Document per region, linked to its section title by parent_id."></figure>
-<p>*Figure 1: The same handbook page as one page-level string and as one typed Document per region, each linked to its section title.</p>
-<p>Here is what the three PDF loaders in the notebook produce from the handbook page:</p>
+<p><em>Figure 1: The same handbook page as one page-level string and as one typed Document per region, each linked to its section title.</em></p>
+<p>The lab below writes out what each of the three PDF loaders in notebook <code>04a</code> returns for a page like this by default. Its outputs are representative, not a run: no handbook PDF ships with the repo.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -882,7 +948,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: Three PDF loaders on page 7 of the Larkspur handbook.</em></p>
+<p><em>Table 1: Three PDF loaders on page 7 of the Larkspur handbook (representative outputs from the lab, written to each loader&rsquo;s defaults).</em></p>
 <p>The comparison has three consequences for retrieval, two of them failures we name:</p>
 <ul>
 <li><strong>Boilerplate echo.</strong> If every chunk starts with &ldquo;Larkspur Cloud · Customer Handbook&rdquo;, every chunk shares that text, and similarity between chunks from different pages rises. Drop <code>Header</code> and <code>Footer</code> elements, or strip repeated lines from page-level text.</li>
@@ -900,7 +966,7 @@ th:last-child, td:last-child { padding-right: 0; }
     B -- no --&gt; C["Page-level&lt;br/&gt;PyPDF or PyMuPDF"]
 </pre></figure>
 <p><em>Figure 2: Choosing between page-level and element-level parsing. Plain prose goes to the fast parsers.</em></p>
-<p>The licence row of Table 1 matters as well: PyMuPDF is the fastest, but its AGPL licence can rule it out for a product you ship.</p>
+<p>The licence row of Table 1 matters as well. PyMuPDF is the fastest, but it is released under the AGPL (or a commercial licence), which can rule it out for a product you ship.</p>
 <p>Word and Markdown files have the same switch. In the Word notebook, the Unstructured Word loader returns the file as one Document by default. In element mode with by-title chunking it returns pieces of at most 3,000 characters and starts a new one at every heading. Lesson 11.2 does the same for Markdown: single mode gives one Document, element mode one per heading, paragraph or list item.</p>
 <h2 id="in-practice-page-7-of-the-larkspur-handbook">In practice: page 7 of the Larkspur handbook</h2>
 <p>For the handbook PDF, the parser choice follows the page:</p>
@@ -914,6 +980,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> lesson 11.5 loads sources from outside the file system, web pages, transcripts and papers, and a whole mixed folder at once.</p>
 </blockquote>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>The page and its outputs are representative.</strong> The handbook PDF, its page 7 and every Document in Table 1 and the lab are written by hand to show each loader&rsquo;s defaults. Exact text depends on the program that produced the PDF, so run notebook <code>04a</code> on your own files before choosing.</li>
+<li><strong>The table result needs <code>hi_res</code>.</strong> The lab notes that Unstructured&rsquo;s <code>fast</code> strategy finds no tables and fewer headers. Table 1&rsquo;s ten elements assume <code>hi_res</code> with table structure inference, which is the slow path.</li>
+<li><strong>No timings were measured.</strong> The speed row ranks the loaders by what they do (pure Python text extraction against layout models). It is not a benchmark on this corpus.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Unstructured, <a href="https://docs.unstructured.io/open-source/core-functionality/partitioning" target="_blank" rel="noopener">Partitioning</a>, on PDF strategies such as <code>fast</code> and <code>hi_res</code>.</li>
+<li>Unstructured, <a href="https://docs.unstructured.io/open-source/concepts/document-elements" target="_blank" rel="noopener">Document elements</a>, on <code>Header</code>, <code>Footer</code>, <code>Table</code> and the HTML form of a table.</li>
+<li><a href="https://pypdf.readthedocs.io/en/stable/" target="_blank" rel="noopener">pypdf documentation</a>, the pure Python parser behind <code>PyPDFLoader</code>.</li>
+<li>PyMuPDF, <a href="https://pymupdf.readthedocs.io/en/latest/about.html" target="_blank" rel="noopener">About</a>, including its AGPL and commercial licences.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Element-level parsing returns one Document per layout element with a <code>category</code>, so headers and footers can be dropped and each piece knows its section.</li>
@@ -1004,7 +1083,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: What eight loaders put in metadata.</em></p>
+<p><em>Table 1: What eight loaders put in metadata. The two PDF rows also copy whatever document-information fields the PDF&rsquo;s producer wrote, such as <code>author</code>, <code>title</code> or <code>subject</code>, so their key sets vary from file to file.</em></p>
 <p>None of these fill the lab&rsquo;s five fields (<code>source</code>, <code>type</code>, <code>section</code>, <code>page</code>, <code>date</code>) the same way. Map each loader&rsquo;s output onto the schema in one place, right after loading and before splitting, so every later stage sees one shape:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     A["PyPDF&lt;br/&gt;page from 0"] --&gt; M["Map to schema&lt;br/&gt;right after load"]
@@ -1082,7 +1161,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Two web-loader defaults and the failure each one causes.</em></p>
 <p><strong>YouTube transcripts.</strong> By default the YouTube loader returns one Document per video, with the video id as <code>source</code>. In chunked transcript mode it returns one Document per time window (120 seconds by default; the notebook uses 10 and 15), and each <code>source</code> becomes the video URL with a start time, so a citation opens the video at that moment. Adding the video&rsquo;s title and author needs another network call, which is where the notebook&rsquo;s SSL errors come from.</p>
-<p><strong>arXiv papers.</strong> The arXiv loader downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost. A citation can name the paper but not the page. <code>Published</code> holds the date of the latest version, not the first submission. The loader fetches up to 100 papers by default, and it can return only the abstracts, which is often enough for a &ldquo;find me papers about X&rdquo; index and far cheaper to embed.</p>
+<p><strong>arXiv papers.</strong> The arXiv loader downloads each matching PDF, reads it with PyMuPDF, and joins every page into one Document. The page numbers are lost, and by default the text is cut to its first 4,000 characters, a limit the notebook leaves in place. We call this a <strong>clipped paper</strong>: the Document looks complete and holds only the opening pages. Raise or remove the limit when the full text matters, and compare the character count with the page count. A citation can name the paper but not the page. <code>Published</code> holds the date of the latest version, not the first submission. The loader fetches up to 100 papers by default, and it can return only the abstracts, which is often enough for a &ldquo;find me papers about X&rdquo; index and far cheaper to embed.</p>
 <h2 id="in-practice-the-larkspur-nightly-job">In practice: the Larkspur nightly job</h2>
 <p>For the lab&rsquo;s mixed folder, the nightly job runs in this order:</p>
 <ol>
@@ -1094,6 +1173,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> lesson 11.6 writes a loader for a source no library covers, Larkspur&rsquo;s ticket API, and makes it stream.</p>
 </blockquote>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Three loaders were read, not run.</strong> The web, YouTube and arXiv rows of Table 1 and their defaults (crawl depth 2, status check off, 120-second windows, up to 100 papers, the 4,000-character cut) come from the <code>langchain-community</code> 0.4.2 source, because they need the network. The file loaders were run on <code>data/sample/</code>.</li>
+<li><strong>The lab has not been run.</strong> The M11 lab&rsquo;s results table is still pending. The five-files-in, five-sources-out check is the design, not a measured result.</li>
+<li><strong>Two notebooks turn off certificate checks.</strong> The YouTube and arXiv notebooks disable HTTPS certificate verification for the whole process to get past local SSL errors. That is a workaround for a laptop, never a setting for a production job.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/document_loaders" target="_blank" rel="noopener">Document loaders</a>, covering the directory, web, YouTube and arXiv loaders.</li>
+<li>arXiv, <a href="https://info.arxiv.org/help/api/index.html" target="_blank" rel="noopener">API user manual</a>, the query interface the arXiv loader calls.</li>
+<li>Unstructured, <a href="https://docs.unstructured.io/open-source/core-functionality/partitioning" target="_blank" rel="noopener">Partitioning</a>, the generic file loader a directory loader falls back to.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Route each file type in a mixed folder to its own loader. With silent errors on, compare the file count with the distinct <code>source</code> values to catch skipped files.</li>
@@ -1111,7 +1202,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. A web crawl indexes a 404 error page, and a page that renders in the browser comes back almost empty. What causes each?</summary>
-<p>The recursive URL loader does not check the response status by default. Error responses become Documents and get indexed. Turn the check on. The loader fetches HTML and does not run JavaScript, so a browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.</p>
+<p>The recursive URL loader does not check the response status by default. Error responses become Documents and get indexed. Turn the check on. The loader fetches HTML and does not run JavaScript. A browser-rendered page comes back as an empty shell. Flag Documents whose text is much shorter than the HTML they came from.</p>
 </details>
 <h2 id="lazy-loading">Lazy loading</h2>
 <p class="lesson-of">Lesson 11.6: Custom loaders with lazy loading. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p04_rag_foundations/m11_document_ingestion/mandatory/notebook/06a_custom_loader.ipynb" target="_blank" rel="noopener"><code>06a_custom_loader.ipynb</code></a></p>
@@ -1127,7 +1218,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Lesson 11.5 loaded files and web sources with loaders that already exist. Larkspur&rsquo;s support tickets live behind its own paginated API. No library loader covers them, and we write one.</p>
 <p>The first version builds a list of every ticket and returns it. On the million-ticket backfill, the job&rsquo;s memory grows for hours, the machine kills it, and the index holds nothing, because no Document could be split or embedded until the whole list was complete. We call this a <strong>load-all stall</strong>.</p>
 <p>A loader has two methods. <code>load()</code> returns a list: the whole corpus sits in memory before anything else runs. <code>lazy_load()</code> is a <strong>generator</strong>: it yields one Document at a time, and the pipeline can split, embed and upsert in batches while the loader keeps reading.</p>
-<p>The custom loader in this lesson, a ticket loader, implements only <code>lazy_load()</code>. It walks the API page by page from a <code>since</code> date and yields one Document per ticket, already in the module&rsquo;s schema:</p>
+<p>Notebook <code>06a</code> shows the pattern on the smallest possible source: a loader that reads a text file line by line and yields one Document per line, with <code>source</code> and a <code>line_number</code> counted from 0. Its three-line test file gives three Documents. The ticket loader below applies the same pattern to Larkspur&rsquo;s API and is a design for this page, not code from the notebook. It implements only <code>lazy_load()</code>, walks the API page by page from a <code>since</code> date and yields one Document per ticket, already in the module&rsquo;s schema:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1158,7 +1249,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: What the ticket loader puts in each Document.</em></p>
+<p><em>Table 1: What the ticket loader puts in each Document (a design, illustrative).</em></p>
 <p><code>BaseLoader</code> derives <code>load()</code> from <code>lazy_load()</code>. Implementing the generator gives you both methods. The indexer pulls Documents one at a time and sends batches downstream:</p>
 <figure class="anim sheet" aria-labelledby="anim-lazy-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The lazy loading loop, scrolls sideways on a narrow screen">
@@ -1264,6 +1355,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next:</strong> M12 takes the Documents this module produced and decides where to cut them into chunks.</p>
 </blockquote>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>The ticket loader is a design.</strong> Larkspur&rsquo;s ticket API, its <code>since</code> argument and the million-ticket backfill are this page&rsquo;s scenario. The notebook proves only the generator pattern, on a three-line file.</li>
+<li><strong>Table 2&rsquo;s sizes are assumptions.</strong> 2 KB per ticket and per chunk are round figures chosen to show the scale. Python objects, embeddings and the HTTP client add memory that the table leaves out.</li>
+<li><strong>A checkpoint is not idempotence.</strong> Resuming from the last stored <code>updated_at</code> can resend the batch that was in flight when the job died. Stable ids such as <code>ticket:</code> plus the ticket id make that resend overwrite rather than duplicate.</li>
+<li><strong><code>load()</code> still exists.</strong> <code>BaseLoader</code> builds it by draining <code>lazy_load()</code> into a list. A caller who uses <code>load()</code> gets the load-all stall back.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-core/document_loaders/base/BaseLoader" target="_blank" rel="noopener">BaseLoader</a>, the interface whose <code>load()</code> collects <code>lazy_load()</code>.</li>
+<li>Python, <a href="https://docs.python.org/3/howto/functional.html" target="_blank" rel="noopener">Functional programming HOWTO</a>, whose generators section explains <code>yield</code>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li><code>load()</code> holds the whole corpus in memory as a list, while <code>lazy_load()</code> yields one Document at a time so splitting and upserting run in batches alongside reading.</li>
@@ -1277,7 +1380,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>2. The ticket loader ingests a million tickets and crashes part-way through. How much work is lost, and what lets you resume?</summary>
-<p>Only the current batch, as long as you record a checkpoint: the last id or <code>updated_at</code> written. The loader takes a <code>since</code> argument and passes it to the paginated API, so a restart can begin from the checkpoint instead of the first ticket.</p>
+<p>Only the current batch, as long as you record a checkpoint: the last id or <code>updated_at</code> written. The loader takes a <code>since</code> argument and passes it to the paginated API. A restart can then begin from the checkpoint instead of the first ticket.</p>
 </details>
 <details>
 <summary>3. A teammate writes a custom loader that overrides load and builds a list of every record. Which method should they implement instead?</summary>
@@ -1339,7 +1442,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Write the metadata schema down before the first ingest, including access control, and normalise values at load time.</li>
 <li>Stream with <code>lazy_load</code>, batch the downstream work, and validate counts after every run.</li>
 </ul></article>
-    <nav class="toc" aria-label="M11 sections"><details open><summary>In M11</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#loader-vs-parser">Loader vs parser</a></li><li><a href="#metadata-schema">Metadata schema</a></li><li><a href="#in-practice-a-schema-for-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#single-mode-and-element-mode">Single mode and element mode</a></li><li><a href="#what-element-mode-finds-in-the-handbook">What element mode finds in the handbook</a></li><li><a href="#in-practice-loading-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-record-one-document">One record, one Document</a></li><li><a href="#content-fields-and-metadata-fields">Content fields and metadata fields</a></li><li><a href="#in-practice-planscsv-for-the-larkspur-assistant">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#element-level-parsing">Element-level parsing</a></li><li><a href="#choosing-a-parser">Choosing a parser</a></li><li><a href="#in-practice-page-7-of-the-larkspur-handbook">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-a-mixed-folder">Routing a mixed folder</a></li><li><a href="#web-pages-transcripts-and-papers">Web pages, transcripts and papers</a></li><li><a href="#in-practice-the-larkspur-nightly-job">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#lazy-loading">Lazy loading</a></li><li><a href="#in-practice-the-larkspur-ticket-backfill">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M11 sections"><details open><summary>In M11</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#loader-vs-parser">Loader vs parser</a></li><li><a href="#metadata-schema">Metadata schema</a></li><li><a href="#in-practice-a-schema-for-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#single-mode-and-element-mode">Single mode and element mode</a></li><li><a href="#what-element-mode-finds-in-the-handbook">What element mode finds in the handbook</a></li><li><a href="#in-practice-loading-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-record-one-document">One record, one Document</a></li><li><a href="#content-fields-and-metadata-fields">Content fields and metadata fields</a></li><li><a href="#in-practice-planscsv-for-the-larkspur-assistant">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#element-level-parsing">Element-level parsing</a></li><li><a href="#choosing-a-parser">Choosing a parser</a></li><li><a href="#in-practice-page-7-of-the-larkspur-handbook">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#routing-a-mixed-folder">Routing a mixed folder</a></li><li><a href="#web-pages-transcripts-and-papers">Web pages, transcripts and papers</a></li><li><a href="#in-practice-the-larkspur-nightly-job">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#lazy-loading">Lazy loading</a></li><li><a href="#in-practice-the-larkspur-ticket-backfill">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
