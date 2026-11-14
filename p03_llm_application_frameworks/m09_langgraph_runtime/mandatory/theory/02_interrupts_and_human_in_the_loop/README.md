@@ -2,6 +2,7 @@
 
 *[M09 theory](../README.md) · Lesson 9.2 · Notebooks: [`02a_HITL_Mechanics.ipynb`](../../notebook/02a_HITL_Mechanics.ipynb), [`02b_LangGraph_Interrupt_Primitive.ipynb`](../../notebook/02b_LangGraph_Interrupt_Primitive.ipynb), [`02c_HITL_Patterns.ipynb`](../../notebook/02c_HITL_Patterns.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a graph stops mid-run for a person, waits for days without holding a worker, and continues with their answer -->
+<!-- format: approved -->
 
 ## A refund that must wait for billing
 
@@ -51,6 +52,29 @@ We ran the refund graph offline with stub nodes and an `InMemorySaver` to watch 
 *Table 1: refund-99 across the pause (offline run, LangGraph 1.2.18).*
 
 A dashboard finds parked refunds by reading `next`: a thread whose `next` is `("human_gate",)` is waiting for billing.
+
+The walkthrough follows the same run one stage at a time, with what the thread holds at each point.
+
+<div class="walkthrough learning-widget" data-stepper id="refund-99-pause-walkthrough">
+<p class="widget-intro">Step through refund-99 from the first call to the approval and see what the caller holds, what the saver holds and which nodes run.</p>
+<div class="step-controls" hidden role="group" aria-label="refund-99 across the pause" data-columns="2">
+<button type="button" data-step="first" aria-pressed="false" aria-controls="pause-first">First call</button>
+<button type="button" data-step="parked" aria-pressed="false" aria-controls="pause-parked">Parked</button>
+<button type="button" data-step="resume" aria-pressed="false" aria-controls="pause-resume">Resume</button>
+<button type="button" data-step="finish" aria-pressed="false" aria-controls="pause-finish">Finish</button>
+</div>
+<section id="pause-first" class="step-panel"><h4>1. Triage, assess, then stop at the gate</h4><p>The request goes in. <code>triage</code> and <code>assess</code> run once each, and <code>assess</code> sets the risk to high. <code>human_gate</code> starts, reaches <code>interrupt()</code> and stops there. The caller gets the state so far plus <code>__interrupt__</code> carrying the question for billing.</p></section>
+<section id="pause-parked" class="step-panel"><h4>2. Saved state, no worker</h4><p>The thread holds 4 checkpoints and its <code>next</code> is <code>human_gate</code>. No process is waiting inside <code>invoke</code>. A deploy can restart every worker, and the refund survives as saved state in the checkpointer.</p></section>
+<section id="pause-resume" class="step-panel"><h4>3. The gate runs again from its first line</h4><p>Any worker calls invoke with <code>Command(resume="approve")</code> on refund-99. The saver loads the thread, and <code>human_gate</code> starts from the top. This time <code>interrupt()</code> returns "approve". The gate has now run 2 times; <code>triage</code> and <code>assess</code> still once.</p></section>
+<section id="pause-finish" class="step-panel"><h4>4. Execute and done</h4><p>The gate's decision routes to <code>execute</code>, then <code>done</code>. The thread holds 7 checkpoints and an empty <code>next</code>: finished. The caller gets the final state with no <code>__interrupt__</code> key.</p></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
+
+Stage 3 is where the mechanism surprises people, and the rules below follow from it.
 
 ### Three rules that follow
 
@@ -135,6 +159,18 @@ Put together, the high-risk path through the desk runs like this:
 > **Key distinction:** the checkpointer makes the wait safe for the state. It does nothing for code that runs twice. Step 4 is why the approval notice belongs in its own node before the gate.
 
 What else runs twice around the gate, and how to count it, is the subject of the lab in [lesson 9.6](../06_state_management_in_practice/README.md#resume-and-side-effects). [Lesson 9.3](../03_subgraphs/README.md) first moves the gate into a graph of its own.
+
+## Limits of this evidence
+
+- **Stub nodes, no model.** Tables 1 and 4 and the walkthrough come from offline runs with stub nodes and `InMemorySaver` on LangGraph 1.2.18, rerun on 14 November 2026. The `RuntimeError` text and the compile-time pause without an `__interrupt__` key were rerun too.
+- **The rubber-stamp column is read, not run.** The state-management notebook's gate never reads the resume value, so its result follows from the code.
+- **The validation loop is a replay.** Table 2 replays the mechanics notebook's age node; the notebook ships without outputs.
+- **The two-day wait is a scenario.** Nothing here measured a real approval queue or a deploy during a pause.
+
+## References
+
+1. LangChain documentation, [Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts): `interrupt()`, `Command(resume=...)`, the rule that a resumed node restarts from its first line, and compile-time breakpoints.
+2. LangChain documentation, [Persistence in LangGraph](https://docs.langchain.com/oss/python/langgraph/persistence): why an interrupt needs a checkpointer and a thread.
 
 ## Key Takeaways
 

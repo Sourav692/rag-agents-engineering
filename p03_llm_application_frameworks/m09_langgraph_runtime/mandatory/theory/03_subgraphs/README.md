@@ -2,6 +2,7 @@
 
 *[M09 theory](../README.md) · Lesson 9.3 · Notebooks: [`03a_Subgraphs.ipynb`](../../notebook/03a_Subgraphs.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a compiled graph becomes one node of another, what state crosses the boundary, and what checkpoints, interrupts and streams do inside it -->
+<!-- format: approved -->
 
 ## One graph inside another
 
@@ -85,6 +86,21 @@ flowchart LR
 
 Resuming re-runs only the interrupted child node. `check` kept its saved result in both forms. The wrapper is different: it is the parent's node, and the parent's node is the one that was interrupted, so the wrapper function runs again from its first line. Any parent-side code before the call into the child repeats. This is the **double-run gate** from lesson 9.2, one level up.
 
+The switcher puts the two nesting forms side by side for the same approval child, paused at its gate and then resumed.
+
+<div class="learning-widget evidence-switcher" data-comparison id="nesting-form-switcher">
+<p class="widget-intro">Choose a nesting form and compare what the parent sees while the child waits, what runs on resume and what comes back out.</p>
+<div class="mode-controls" hidden role="group" aria-label="Nesting form for the approval child">
+<button type="button" data-mode="direct" aria-pressed="false" aria-controls="nest-direct">Added directly</button>
+<button type="button" data-mode="wrapper" aria-pressed="false" aria-controls="nest-wrapper">Behind a wrapper</button>
+</div>
+<section id="nest-direct" class="mode-panel" data-announcement="Added directly: the gate runs twice, nothing else repeats."><h4>Added directly</h4><p><strong>While paused:</strong> the parent's <code>next</code> names the subgraph node, <code>approval</code>; with <code>subgraphs=True</code> the child's own <code>next</code> is <code>gate</code>.</p><p><strong>On resume:</strong> <code>check</code> keeps its saved result (1 run) and <code>gate</code> runs again (2 runs). No parent code repeats.</p><p><strong>Out of the child:</strong> its whole final state, filtered to the keys the parent declares. A shared add-reducer list echoes.</p></section>
+<section id="nest-wrapper" class="mode-panel" data-announcement="Behind a wrapper: the gate and the wrapper both run twice."><h4>Behind a wrapper</h4><p><strong>While paused:</strong> the same picture: the parent waits at <code>approval</code>, the child at <code>gate</code>.</p><p><strong>On resume:</strong> <code>check</code> runs once and <code>gate</code> twice, and the wrapper function also runs again from its first line (2 runs). Code above the call into the child repeats.</p><p><strong>Out of the child:</strong> only what the wrapper copies back, such as <code>decision</code>. No echoed log.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The wrapper buys control over what comes out of the child, and pays for it with one more place where code runs twice.
+
 ## Choosing a subgraph or plain nodes
 
 A subgraph costs a boundary: a schema to keep in step, a mapping or a shared reducer to reason about, and one more level in streams and state. It pays for that boundary in four situations:
@@ -112,6 +128,17 @@ The desk nests the eligibility agent like this:
 > **Pitfall: one reducer, two graphs.** If the agent and the refund graph both declare `events` with an add reducer and the agent is added directly, every event written before eligibility appears twice in the audit trail.
 
 [Lesson 9.4](../04_async_and_streaming/README.md) looks at streaming itself: which events a caller can ask for while any of these graphs runs.
+
+## Limits of this evidence
+
+- **Stub children, no model.** Tables 1 and 2, the paused `next` values and the `approval:<task id>` namespace come from offline runs with stub nodes on LangGraph 1.2.18, rerun on 14 November 2026. The notebook's weather agent needs a model key and was not run.
+- **The eligibility agent is a design.** The Larkspur eligibility subgraph in the In practice section is this module's example. The notebook nests a weather agent.
+- **One level of nesting.** Every run here nests one child in one parent. Deeper nesting and subgraphs with their own checkpointer were not tested.
+
+## References
+
+1. LangChain documentation, [Subgraphs](https://docs.langchain.com/oss/python/langgraph/use-subgraphs): adding a compiled graph as a node, calling it from a node with different keys, and viewing or streaming subgraph state.
+2. LangChain documentation, [Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api): state schemas and reducers, which decide what the parent keeps.
 
 ## Key Takeaways
 
