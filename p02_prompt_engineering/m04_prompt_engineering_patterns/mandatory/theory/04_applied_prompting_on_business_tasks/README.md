@@ -2,6 +2,7 @@
 
 *[M04 theory](../README.md) · Lesson 4.4 · Notebooks: [`04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb`](../../notebook/04a_gpt_4o_and_llama_3_2_real_world_tasks.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How the patterns combine into production prompts with delimiters, staged refinement and an output contract that code validates -->
+<!-- format: approved -->
 
 ## A ticket reply nobody parsed
 
@@ -129,9 +130,35 @@ The same contract triages Larkspur support tickets. The handbook already defines
 3. **Ground the draft reply.** The `response` field is filled by the answer step from lesson 4.3, from the retrieved handbook passages only.
 4. **Validate before routing.** Parse the JSON, check every field is present and the category is one of the three, retry once with the error, and send a second failure to a person.
 
-The Portuguese ticket from the opening now arrives as `Technical`, with an English translation and a draft that points to the reboot instructions. A reply with a misspelt field fails validation, gets one retry, and reaches a person instead of a default queue.
+The walkthrough follows the Portuguese ticket from the opening through those four steps. The replies are illustrative, not model output.
+
+<div class="walkthrough learning-widget" data-stepper id="ticket-contract-walkthrough">
+<p class="widget-intro">Step through one ticket and see what the validator reads, what it decides and where the ticket goes.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the ticket triage contract">
+<button type="button" data-step="reply" aria-pressed="false" aria-controls="ticket-reply">First reply</button>
+<button type="button" data-step="check" aria-pressed="false" aria-controls="ticket-check">Validation</button>
+<button type="button" data-step="retry" aria-pressed="false" aria-controls="ticket-retry">One retry</button>
+<button type="button" data-step="route" aria-pressed="false" aria-controls="ticket-route">Routing</button>
+</div>
+<section id="ticket-reply" class="step-panel"><h4>The first reply breaks the contract</h4><p>The model detects Portuguese and translates the ticket, but spells one field name wrong and writes the category as a sentence: "the customer's server has stopped".</p></section>
+<section id="ticket-check" class="step-panel"><h4>Validation names the fault</h4><p>The JSON parses, but the category field is missing under its contract name, and its value is not one of Billing, Technical or Security. Nothing is routed. The validator writes an error that lists both faults.</p></section>
+<section id="ticket-retry" class="step-panel"><h4>One retry with the error</h4><p>The same prompt goes back with the error appended. The second reply has all six fields and the category <code>Technical</code>. It passes the same check.</p></section>
+<section id="ticket-route" class="step-panel"><h4>Routed, or handed to a person</h4><p>The ticket lands in the Technical queue with an English translation and a draft that points to the reboot instructions. Had the retry failed too, the ticket would go to a person, never to the default queue.</p></section>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><button type="button" data-walk="next">Next</button><p class="step-status" aria-live="polite"></p></div>
+</div>
 
 > **Key distinction:** the prompt asks for a contract; only code enforces it.
+
+## Limits of this evidence
+
+- **No model outputs.** Notebook 04a ships without outputs, so no reply on this page is a real one. The opening ticket, the walkthrough and the Larkspur contract are illustrative.
+- **Half the notebook no longer runs.** Every Llama call uses the retired `llama-3.2-90b-vision-preview` id (lesson 4.3), and the first such call stops the notebook until the id is changed.
+- **Delimiters were not tested against an attack.** The claim that they make a hidden instruction easier to ignore, without guaranteeing it, rests on the reference below.
+
+## References
+
+1. Greshake, K., et al. [Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173), 2023, on instructions hidden in the data a model reads.
+2. White, J., et al. [A Prompt Pattern Catalog to Enhance Prompt Engineering with ChatGPT](https://arxiv.org/abs/2302.11382), 2023, for the persona and template patterns the five tasks combine.
 
 ## Key Takeaways
 

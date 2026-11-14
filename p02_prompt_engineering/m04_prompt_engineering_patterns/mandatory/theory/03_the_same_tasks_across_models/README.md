@@ -2,6 +2,7 @@
 
 *[M04 theory](../README.md) · Lesson 4.3 · Notebooks: [`03a_openai_gpt_4o_mini.ipynb`](../../notebook/03a_openai_gpt_4o_mini.ipynb), [`03b_google_gemini_1_5_flash.ipynb`](../../../optional/notebook/03b_google_gemini_1_5_flash.ipynb) (optional), [`03c_meta_llama_3_2_90b_groq.ipynb`](../../../optional/notebook/03c_meta_llama_3_2_90b_groq.ipynb) (optional), [`03d_meta_llama_3_2_1b_huggingface.ipynb`](../../../optional/notebook/03d_meta_llama_3_2_1b_huggingface.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How to compare models fairly by holding the prompt set fixed, swapping one wrapper, and scoring every task against your own answers -->
+<!-- format: approved -->
 
 ## A model swap with no test set
 
@@ -95,7 +96,7 @@ We call this the **leaky test**: the examples share text with the inputs, and th
 
 ### Keep the model id in one place
 
-Provider ids are retired. Groq shut down `llama-3.2-90b-vision-preview` on 14 April 2025 and names `meta-llama/llama-4-scout-17b-16e-instruct` as the replacement ([Groq deprecations](https://console.groq.com/docs/deprecations), checked 9 November 2026). Notebook 03c and the Llama half of notebook 04a call that id and fail until it is changed. We call this **id rot**. With the id inside `get_completion`, the fix is one line.
+Provider ids are retired. Groq shut down `llama-3.2-90b-vision-preview` on 14 April 2025 and names `meta-llama/llama-4-scout-17b-16e-instruct` as the replacement ([Groq deprecations](https://console.groq.com/docs/deprecations), checked 9 November 2026). Notebook 03c and the Llama half of notebook 04a call that id and fail until it is changed. We call this **id rot**. Notebook 03c keeps the id only as the default of `get_completion`, so its fix is one line. Notebook 04a writes the Llama id 12 times, and 03a and 03b repeat their ids in every call, which turns the same fix into a search through the notebook.
 
 Access can also change. The 1B model in 03d is gated: the notebook asks you to request access from Meta on Hugging Face before the first call works.
 
@@ -123,9 +124,35 @@ To compare candidate models on it:
 3. Score each answer for support: every claim must appear in the passages. Fluency earns nothing.
 4. Include the five golden questions the handbook cannot answer. For those, the refusal line is the only correct reply.
 
-Take *What happens if my server goes down?* with only the reboot passage retrieved. A model that adds status-page advice or service credits from general knowledge fails step 3, however good the advice sounds. The answer either sticks to the reboot instructions or uses the refusal line.
+Take *What happens if my server goes down?* with only the reboot passage retrieved. The handbook does cover service credits, on its availability page, but that page was not retrieved. The switcher scores three candidate answers against the one passage the model saw.
+
+<div class="learning-widget evidence-switcher" data-comparison id="support-score-switcher">
+<p class="widget-intro">Choose a candidate answer and see how the support check in step 3 scores it. The answers are illustrative, not model output.</p>
+<div class="mode-controls" hidden role="group" aria-label="Candidate answer to the server question">
+<button type="button" data-mode="reboot" aria-pressed="false" aria-controls="answer-reboot">Reboot only</button>
+<button type="button" data-mode="credits" aria-pressed="false" aria-controls="answer-credits">Adds credits</button>
+<button type="button" data-mode="refuse" aria-pressed="false" aria-controls="answer-refuse">Refusal line</button>
+</div>
+<section id="answer-reboot" class="mode-panel" data-announcement="Reboot only. Supported."><h4>Reboot only: supported</h4><dl><dt>Claims</dt><dd>reboot the server from the console when its region shows healthy</dd><dt>In the passage</dt><dd>every claim</dd><dt>Score</dt><dd>pass, although it leaves out the credits a full answer would mention</dd></dl></section>
+<section id="answer-credits" class="mode-panel" data-announcement="Adds credits. Unsupported claim."><h4>Adds credits: unsupported</h4><dl><dt>Claims</dt><dd>the reboot steps, plus service credits on the next invoice</dd><dt>In the passage</dt><dd>the reboot steps only; the credits came from outside the passages, even though the handbook happens to agree</dd><dt>Score</dt><dd>fail: the check cannot tell a lucky guess from a fabrication</dd></dl></section>
+<section id="answer-refuse" class="mode-panel" data-announcement="Refusal line. Too cautious here."><h4>Refusal line: too cautious</h4><dl><dt>Claims</dt><dd>none</dd><dt>In the passage</dt><dd>the passage does answer part of the question</dd><dt>Score</dt><dd>wrong for this question; the refusal line is right only when no passage answers</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The missing credits are a retrieval failure, and a model that fills them in hides it from the support score. Lesson 10.5 measures retrieval separately for that reason.
 
 > **Interview tip:** when asked how to choose between models, describe the frozen prompt set and the per-task checks before naming any model.
+
+## Limits of this evidence
+
+- **No model outputs.** The notebooks ship without outputs, and this page compares no model's scores. Table 2 holds the checks and answers we read from the notebooks' own inputs.
+- **The Larkspur swap and its week of drift are illustrative.**
+- **Provider facts move.** The Groq retirement date was checked on its deprecations page on 14 November 2026; other ids and client versions are as the notebooks pin them.
+
+## References
+
+1. Groq, [model deprecations](https://console.groq.com/docs/deprecations), listing `llama-3.2-90b-vision-preview` as shut down on 14 April 2025.
+2. Liang, P., et al. [Holistic Evaluation of Language Models](https://arxiv.org/abs/2211.09110), 2022, on comparing models across a fixed set of scenarios and metrics.
 
 ## Key Takeaways
 

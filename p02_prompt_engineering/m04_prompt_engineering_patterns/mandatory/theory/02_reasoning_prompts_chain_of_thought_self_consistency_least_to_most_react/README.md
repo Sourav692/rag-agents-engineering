@@ -2,6 +2,7 @@
 
 *[M04 theory](../README.md) · Lesson 4.2 · Notebooks: [`02a_advanced_prompt_engineering_patterns.ipynb`](../../notebook/02a_advanced_prompt_engineering_patterns.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: When to ask a model for its steps, when sampling several answers and voting helps or hurts, and when reasoning needs a tool -->
+<!-- format: approved -->
 
 ## A question that needs steps
 
@@ -202,10 +203,18 @@ flowchart TD
 
 *Table 7: The four reasoning prompts compared.*
 
+## Limits of this evidence
+
+- **No model outputs.** Notebook 02a ships without outputs, so this page quotes no answer to the field goal question. Tables 2 and 6 come from the notebook's text and the installed agent code.
+- **The vote table is a model of independent paths.** Table 4 is exact for that model (we recomputed it in Python, including N = 4), not a measurement on real samples.
+- **The refund decomposition is hand-written.** No least-to-most run produced Table 3.
+
 ## References
 
-1. Wang, X. et al. (2022). [Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171). arXiv:2203.11171.
-2. Yao, S. et al. (2022). [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629). arXiv:2210.03629.
+1. Wei, J., et al. [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903), 2022, the few-shot form with worked steps.
+2. Zhou, D., et al. [Least-to-Most Prompting Enables Complex Reasoning in Large Language Models](https://arxiv.org/abs/2205.10625), 2022.
+3. Wang, X., et al. [Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171), 2022.
+4. Yao, S., et al. [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629), 2022.
 
 ## Key Takeaways
 
