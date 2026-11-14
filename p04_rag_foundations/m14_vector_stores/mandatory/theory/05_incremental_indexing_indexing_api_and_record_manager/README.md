@@ -2,6 +2,7 @@
 
 *[M14 theory](../README.md) · Lesson 14.5 · Notebooks: [`05a_indexing_api.ipynb`](../../notebook/05a_indexing_api.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A record manager makes re-indexing idempotent, and the cleanup mode decides what each run may delete -->
+<!-- format: approved -->
 
 ## Idempotent re-indexing
 
@@ -52,7 +53,7 @@ Known hashes are skipped and only have their timestamp refreshed. New hashes are
 
 An edited chunk is a new hash. The lab's refund edit comes back as `{'num_added': 1, 'num_updated': 0, 'num_skipped': 9, 'num_deleted': 1}`. In `langchain-core` 1.7.0, `num_updated` counts only chunks re-written because of `force_update=True`, which re-embeds chunks whose hash is already known; the notebook's comments describe changed content as "updated", but changed text shows up as one add and one delete.
 
-The hash covers text and metadata and nothing else. Add a metadata field to every chunk or change the splitter, and every hash changes. The next run then re-embeds the whole corpus. Change the embedding model, and no hash changes, so the next run skips everything and leaves the old vectors in place. For a model change, build a new collection with its own record-manager namespace, or run once with `force_update=True`.
+The hash covers text and metadata and nothing else. Add a metadata field to every chunk, and every hash changes; change the splitter's settings, and every chunk whose text moves gets a new hash. The next run then re-embeds most or all of the corpus. Change the embedding model, and no hash changes. The next run skips everything and leaves the old vectors in place. For a model change, build a new collection with its own record-manager namespace, or run once with `force_update=True`.
 
 The notebook's own sequence, replayed for this page with in-memory stores in place of Postgres, returns the numbers its comments expect. Seven chunks of `bella_vista.txt` go in under `cleanup=None`. After one chunk is edited, one removed and one added, the second `None` run adds 2, skips 5, deletes 0 and leaves 9 entries in the store: the old version and the removed chunk are both still there. The third run, under `incremental`, adds 2 and deletes 6. An empty batch under `incremental` changes nothing; under `full` it deletes all 5 remaining entries.
 
@@ -69,7 +70,7 @@ The notebook's own sequence, replayed for this page with in-memory stores in pla
 
 *Table 2: The four cleanup modes.*
 
-The [interactive lab](interactive/record-manager-lab.html) runs a JavaScript port of `index()` over the Larkspur folder. Across 26,920 sequences of 1 to 6 runs (100,761 `index()` calls, every folder state and mode, batch sizes 100 and 3), its counts, stored IDs and record-manager keys match `langchain_core` 1.7.0 in every call. Starting from a store loaded with all 10 chunks, one more run gives:
+The [interactive lab](interactive/record-manager-lab.html) runs a JavaScript port of `index()` over the Larkspur folder. The port follows `langchain_core` 1.7.0 line by line. For this page, all 20 cells of Table 3 were rerun through both the lab's port and the real `index()` with in-memory stores, and they agree. Starting from a store loaded with all 10 chunks, one more run gives:
 
 | Change, then one run | `None` | `incremental` | `scoped_full` | `full` |
 |---|---|---|---|---|
@@ -84,7 +85,7 @@ The [interactive lab](interactive/record-manager-lab.html) runs a JavaScript por
 <!-- lab: interactive/record-manager-lab.html -->
 
 - **Stale pile-up under `None`.** It is the opening example. After the refund edit the store holds 11 chunks, and the golden question can retrieve the 30-day rule and the 14-day rule side by side. Switch `refunds.md` back to 30 days and run again: 0 added, because the 30-day hash was never removed, and now the 14-day chunk is the stale one.
-- **Invisible deletion under `incremental`.** It handles edits but cannot see deleted files. It cleans a source only when that source sends at least one chunk. A file removed from the folder sends none, so its chunks stay until a `full` run or an explicit `delete()` by ID.
+- **Invisible deletion under `incremental`.** It handles edits but cannot see deleted files. It cleans a source only when that source sends at least one chunk. A file removed from the folder sends none, and its chunks stay until a `full` run or an explicit `delete()` by ID.
 - **Partial-load wipe under `full`.** It treats "not returned" as "deleted". It is the only mode that removes a deleted file, and the only one that wipes the store when the loader returns a partial folder or nothing at all. Run it only over the whole corpus, and refuse to run it when the loader returns far fewer files than last time.
 - **`scoped_full` matches `incremental` at this size.** The difference appears when one source's chunks span several batches: `incremental` cleans after each batch and does redundant work, while `scoped_full` collects the sources it saw and cleans once at the end.
 
@@ -98,6 +99,18 @@ For the handbook, the modes combine into one schedule:
 4. **One clock for every writer.** The SQL record manager keeps the keys in the same Postgres as the vectors and reads the time from the database. An update raises a time-sync error if that clock reads earlier than the run's start.
 
 > **Next:** M15 changes what gets indexed: summaries, parent documents and questions in place of raw chunks.
+
+## Limits of this evidence
+
+- **In-memory replays.** The bella_vista counts and Table 3 come from `langchain_core` 1.7.0 with an in-memory record manager and store and a stand-in embedding. The notebook's Postgres run was not repeated; the counts match its own comments.
+- **A ten-chunk folder.** One batch holds the whole corpus. The `incremental` and `scoped_full` difference, and the per-batch cost, only appear when a source spans several batches.
+- **The file-count guard is an addition.** LangChain has no such check; the threshold for "far fewer files" is yours to set.
+- **`num_updated` semantics are versioned.** Its meaning, and the SHA-1 default, are those of `langchain_core` 1.7.0.
+
+## References
+
+1. LangChain reference, [the `index()` function](https://reference.langchain.com/python/langchain-core/indexing/api/index), with its cleanup modes, `source_id_key`, `force_update` and `key_encoder`.
+2. LangChain, [PGVector integration](https://docs.langchain.com/oss/python/integrations/vectorstores/pgvector), the store the notebook indexes into.
 
 ## Key Takeaways
 
