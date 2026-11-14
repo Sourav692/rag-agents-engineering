@@ -347,7 +347,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose</strong> a first defence for questions the index cannot answer.</li>
 </ul>
 </blockquote>
-<p>Part IV ended with a working pipeline: load, chunk, embed, store, retrieve the top <code>k</code>. This module changes only the retrieve step, so it starts with what a retriever is.</p>
+<p>Part IV ended with a working pipeline: load, chunk, embed, store, retrieve the top <code>k</code>. This module changes only the retrieve step. It starts with what a retriever is.</p>
 <p>A Larkspur customer asks <em>Can I rent a GPU server for model training?</em> Larkspur does not sell GPU servers, and the handbook says nothing about them. Plain similarity search returns three chunks anyway, the three plan sheets, and the model is asked to answer from them.</p>
 <p>A <strong>retriever</strong> is any object that takes a query string and returns a list of documents. In LangChain that is one method, <code>invoke(query)</code>. The signature is the whole contract, which is why retrievers stack: a wrapper that calls another retriever and post-processes its list is itself a retriever.</p>
 <p>Here is how three wrappers sit around one vector store:</p>
@@ -429,6 +429,21 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Relevance scores, in-scope against out-of-scope (cosine similarity, <code>all-MiniLM-L6-v2</code>).</em></p>
 <p>Similarity search sends all six chunks. A floor of 0.3 sends the two refund chunks for the first question and nothing for the second, which is the right answer: the index holds nothing to say about GPUs.</p>
+<p>The two modes differ in one step: whether the retriever may hand over an empty list. Plain similarity search has no such step:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"GPU question"/] --&gt; S["Sort all 19 chunks&lt;br/&gt;by similarity"]
+    S --&gt; K["Keep the first 3&lt;br/&gt;0.206, 0.200, 0.183"]
+    K --&gt; M["Model answers&lt;br/&gt;from plan sheets"]
+</pre></figure>
+<p><em>Figure 2: Forced top-k. Three chunks always reach the model, however low they score.</em></p>
+<p>A score threshold adds a test after the sort, and an empty result takes its own route:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"GPU question"/] --&gt; S["Sort by&lt;br/&gt;relevance"]
+    S --&gt; F{"Any chunk&lt;br/&gt;at least 0.3?"}
+    F -- yes --&gt; M["Model answers&lt;br/&gt;from those chunks"]
+    F -- no --&gt; R["Fixed reply&lt;br/&gt;not covered"]
+</pre></figure>
+<p><em>Figure 3: The threshold guard. The GPU question takes the &ldquo;no&rdquo; branch and the model is never called.</em></p>
 <h2 id="distance-or-relevance-two-score-directions">Distance or relevance: two score directions</h2>
 <p>A score threshold is the first defence against forced top-k, and it goes wrong in a predictable way, because vector stores report scores in two directions:</p>
 <ul>
@@ -459,6 +474,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: The same chunk, two scores.</em></p>
 <p>Comparing a distance with a threshold written for relevance inverts the filter: the closest chunks have the smallest distances and are the first to be cut. We call this the <strong>flipped threshold</strong>. Print a known-good pair and a known-bad pair before trusting any threshold.</p>
+<p>The switcher applies three rules to Table 2&rsquo;s top 3 for both questions. The distances are 1 minus each relevance score, as Chroma computes them in cosine space.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="threshold-switcher">
+<p class="widget-intro">Choose a rule and see which of Table 2's chunks reach the model for each question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Score rule applied to the top 3">
+<button type="button" data-mode="topk" aria-pressed="false" aria-controls="rule-topk">No threshold</button>
+<button type="button" data-mode="relevance" aria-pressed="false" aria-controls="rule-relevance">Relevance at least 0.3</button>
+<button type="button" data-mode="flipped" aria-pressed="false" aria-controls="rule-flipped">Distance at least 0.3</button>
+</div>
+<section id="rule-topk" class="mode-panel" data-announcement="No threshold. Both questions send three chunks."><h4>No threshold (forced top-k)</h4><dl><dt>Refund question</dt><dd><code>refund-timing</code>, <code>refund-window</code>, <code>support</code></dd><dt>GPU question</dt><dd>three plan sheets, relevance 0.18 to 0.21</dd><dt>Outcome</dt><dd>the GPU answer is built from unrelated chunks</dd></dl></section>
+<section id="rule-relevance" class="mode-panel" data-announcement="Relevance threshold. The GPU question returns nothing."><h4>Relevance at least 0.3</h4><dl><dt>Refund question</dt><dd><code>refund-timing</code> (0.770) and <code>refund-window</code> (0.608); <code>support</code> (0.297) is cut</dd><dt>GPU question</dt><dd>nothing passes</dd><dt>Outcome</dt><dd>the refund answer has its evidence and the GPU question gets the fixed reply</dd></dl></section>
+<section id="rule-flipped" class="mode-panel" data-announcement="Flipped threshold. The best refund chunk is cut and the plan sheets pass."><h4>Distance at least 0.3 (flipped threshold)</h4><dl><dt>Refund question</dt><dd><code>refund-window</code> (distance 0.392) and <code>support</code> (0.703); <code>refund-timing</code> (0.230), the best match, is cut</dd><dt>GPU question</dt><dd>all three plan sheets pass, at distances 0.794 to 0.817</dd><dt>Outcome</dt><dd>worse than no threshold: the best evidence is gone and the unrelated chunks stay</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p><code>01a</code> also builds a custom retriever that does the conversion itself, keeps chunks above a threshold (0.51 for <em>what is the financial capital of India?</em>), and writes the rounded score into each chunk&rsquo;s metadata. That habit pays off later: a logged score can be plotted, and a threshold can then be tuned from real distributions rather than copied.</p>
 <blockquote>
 <p><strong>Pitfall: a portable threshold.</strong> A threshold belongs to one embedding model and one distance function on one corpus. Table 2&rsquo;s 0.3 works for <code>all-MiniLM-L6-v2</code> here; another model spreads the same questions over a different range. Re-tune it whenever the model changes.</p>
@@ -480,9 +509,22 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Re-tune on model change.</strong> A new embedding model means a new floor.</li>
 </ol>
 <p>The guard handles questions the handbook cannot answer. Lesson 16.2 turns to questions it can answer but the embedding retriever still misses.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>One model, one corpus.</strong> Table 2&rsquo;s scores come from <code>all-MiniLM-L6-v2</code> over the lab&rsquo;s 19 handbook chunks. The notebook&rsquo;s OpenAI embeddings place the same questions at other values, and its floor is its own.</li>
+<li><strong>Two questions are not a calibration.</strong> They show the gap a floor needs. Setting the floor in production takes many logged questions of each kind.</li>
+<li><strong>A floor cannot judge an answerable question.</strong> A chunk can score above 0.3 and still lack the fact asked for. Lesson 16.2 and later modules treat that case.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/knowledge-base" target="_blank" rel="noopener">Build a semantic search engine</a>, covering vector stores and retrievers.</li>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/collections/configure" target="_blank" rel="noopener">Configure collections</a>, on the distance function a collection uses.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/multi_query/MultiQueryRetriever" target="_blank" rel="noopener">MultiQueryRetriever</a>.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/contextual_compression/ContextualCompressionRetriever" target="_blank" rel="noopener">ContextualCompressionRetriever</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>Every retriever exposes <code>invoke(query)</code> and returns documents, so multi-query, compression and ensemble wrappers stack without the chain noticing.</li>
+<li>Every retriever exposes <code>invoke(query)</code> and returns documents. Multi-query, compression and ensemble wrappers therefore stack without the chain noticing.</li>
 <li>Similarity search always returns <code>k</code> chunks (forced top-k): the GPU question gets three plan sheets at 0.18 to 0.21. A score threshold lets the retriever return nothing.</li>
 <li>Check whether a store reports a distance (lower is closer) or a relevance score (higher is closer), and tune any threshold per embedding model from logged scores.</li>
 </ul>
@@ -545,7 +587,21 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Dense and sparse retrieval side by side.</em></p>
-<p>An error code has no learned meaning for an embedding model, so its few characters move the chunk&rsquo;s vector very little. BM25 treats <code>e-4021</code> as one more token and a rare one, which is the case it weights most.</p>
+<p>Each retriever turns the question into a different object before it compares anything. The dense one compares positions in a learned space:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"What does E-4021 mean?"/] --&gt; M["Embedding model&lt;br/&gt;one vector"]
+    M --&gt; S["Cosine similarity&lt;br/&gt;with every chunk vector"]
+    S --&gt; R["err-4021&lt;br/&gt;at rank 5"]
+</pre></figure>
+<p><em>Figure 1: The dense path. Four look-alike error chunks sit closer to the question&rsquo;s vector.</em></p>
+<p>The sparse one compares tokens, and never calls a model:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"What does E-4021 mean?"/] --&gt; T["Tokeniser&lt;br/&gt;what, does, e-4021, mean"]
+    T --&gt; S["BM25 sum over&lt;br/&gt;matching tokens"]
+    S --&gt; R["err-4021&lt;br/&gt;at rank 2"]
+</pre></figure>
+<p><em>Figure 2: The sparse path. The rare token <code>e-4021</code> carries a high idf and lifts the chunk that contains it.</em></p>
+<p>An error code has no learned meaning for an embedding model. Its few characters move the chunk&rsquo;s vector very little. BM25 treats <code>e-4021</code> as one more token and a rare one, which is the case it weights most.</p>
 <p>The module&rsquo;s lab ranks the same 19 Larkspur chunks both ways, with BM25 and with <code>all-MiniLM-L6-v2</code> cosine similarity. Here is where each retriever puts the evidence for its seven golden questions:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -602,7 +658,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Rank of each evidence chunk (computed with the lab&rsquo;s BM25 and <code>all-MiniLM-L6-v2</code>). &ldquo;None&rdquo; means BM25 gave the chunk a score of 0.</em></p>
-<p>The pattern is the one Table 1 predicts. The downtime questions share no word with the <code>incidents</code> chunk (&ldquo;root-cause report&rdquo;, &ldquo;recovery&rdquo;), so BM25 ranks it 9th or not at all, while the dense retriever puts it first. The code questions flip it: BM25 finds the code chunk at rank 1 or 2, and the dense retriever finds the look-alike codes first.</p>
+<p>The pattern is the one Table 1 predicts. The downtime questions share no word with the <code>incidents</code> chunk (&ldquo;root-cause report&rdquo;, &ldquo;recovery&rdquo;). BM25 ranks it 9th or not at all, while the dense retriever puts it first. The code questions flip it: BM25 finds the code chunk at rank 1 or 2, and the dense retriever finds the look-alike codes first.</p>
 <blockquote>
 <p><strong>Key distinction:</strong> neither retriever is the better one. Each fails on a question type the other handles, so the golden set has to contain both types, or a switch from one to the other looks like a pure win.</p>
 </blockquote>
@@ -614,7 +670,7 @@ th:last-child, td:last-child { padding-right: 0; }
     S --&gt; E
     E --&gt; R["create_retrieval_chain&lt;br/&gt;stuff into the prompt"]
 </pre></figure>
-<p><em>Figure 1: The hybrid chain in <code>02a</code>. Both retrievers see the same question; the ensemble merges their lists.</em></p>
+<p><em>Figure 3: The hybrid chain in <code>02a</code>. Both retrievers see the same question; the ensemble merges their lists.</em></p>
 <p>The weights follow the order of the retrievers list: <code>02a</code> gives 0.7 to dense and 0.3 to BM25, and <code>02b</code> lists BM25 first with 0.5 each. The ensemble hands its merged list to a chain that stuffs every returned chunk into the prompt. Lesson 16.3 shows how the merge works and how those weights can bury a keyword hit.</p>
 <h2 id="bm25">BM25</h2>
 <p><strong>BM25</strong> scores a chunk by summing one term for every query word the chunk contains. Each term multiplies how rare the word is by how often it appears in the chunk, with two corrections that plain TF-IDF lacks:</p>
@@ -650,9 +706,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The pieces of a BM25 term. The term-frequency part is <code>tf × (k1 + 1) / (tf + k1 × (1 - b + b × length / average length))</code>.</em></p>
-<p>In plain TF-IDF a word that appears ten times counts ten times as much as one that appears once. A chunk that repeats &ldquo;refund&rdquo; ten times is not ten times as relevant, so BM25 bends the curve. Here is that curve for chunks of three lengths:</p>
+<p>In plain TF-IDF a word that appears ten times counts ten times as much as one that appears once. A chunk that repeats &ldquo;refund&rdquo; ten times is not ten times as relevant, and BM25 bends the curve to match. Here is that curve for chunks of three lengths:</p>
 <figure class="diagram"><img src="02_dense_sparse_hybrid_retrieval_with_bm25_and_ensembleretriever/diagrams/bm25-saturation.svg" width="800" height="440" alt="Contribution of one query term to the BM25 score, as a multiple of its idf, against how often the term appears in the chunk, with rank_bm25 defaults k1 = 1.5 and b = 0.75. For an average-length chunk the first occurrence is worth 1.00, the second brings it to 1.43, and ten occurrences reach 2.17, below the ceiling of 2.5. A chunk half the average length gets 1.29 for one occurrence; one twice the average gets 0.69."></figure>
-<p><em>Figure 2: Term-frequency weight against occurrences, with <code>k1 = 1.5</code> and <code>b = 0.75</code>.</em></p>
+<p><em>Figure 4: Term-frequency weight against occurrences, with <code>k1 = 1.5</code> and <code>b = 0.75</code>.</em></p>
 <p>Reading four points off the curve, as multiples of the word&rsquo;s idf:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -717,8 +773,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 5: What whitespace splitting matches.</em></p>
-<p>The question&rsquo;s <code>application</code> does not match <code>application.</code> with its full stop, and <code>LLMs?</code> does not match <code>LLM</code>. Case splits words too: <code>LangChain</code> (one sentence) and <code>Langchain</code> (two sentences) are separate tokens with idf 1.10 and 0.34. The retriever still returns <code>k = 3</code> sentences, so its third result scored 0 and was picked by tie order. We call this <strong>token mismatch</strong>: the evidence holds the word, and the index holds a different string.</p>
-<p>The fix is a tokeniser that lower-cases, strips punctuation and keeps hyphenated identifiers in one piece, passed to the retriever as its preprocessing function. On the same corpus it lifts the second sentence to 1.947, because <code>application</code> now matches. A code typed at the end of a question (<code>ORD-88213?</code>) becomes <code>ord-88213</code> and matches the chunk that contains it. The lab&rsquo;s BM25 in Table 2 uses this tokeniser.</p>
+<p>The question&rsquo;s <code>application</code> does not match <code>application.</code> with its full stop, and <code>LLMs?</code> does not match <code>LLM</code>. Case splits words too: <code>LangChain</code> (one sentence) and <code>Langchain</code> (two sentences) are separate tokens with idf 1.10 and 0.34. The retriever still returns <code>k = 3</code> sentences. Its third result scored 0 and was picked by tie order. We call this <strong>token mismatch</strong>: the evidence holds the word, and the index holds a different string.</p>
+<p>The fix is a tokeniser that lower-cases, strips punctuation and keeps hyphenated identifiers in one piece, passed to the retriever as its preprocessing function. The switcher reruns <code>02a</code>&rsquo;s five sentences with each tokeniser (scores computed with <code>rank_bm25</code>).</p>
+<div class="learning-widget evidence-switcher" data-comparison id="tokeniser-switcher">
+<p class="widget-intro">Choose a tokeniser and see what the question matches in each sentence.</p>
+<div class="mode-controls" hidden role="group" aria-label="BM25 tokeniser">
+<button type="button" data-mode="whitespace" aria-pressed="false" aria-controls="tok-whitespace">Whitespace (default)</button>
+<button type="button" data-mode="normalised" aria-pressed="false" aria-controls="tok-normalised">Lower-case, no punctuation</button>
+</div>
+<section id="tok-whitespace" class="mode-panel" data-announcement="Whitespace tokeniser. The LangChain sentence ranks first on build alone."><h4>Whitespace splitting</h4><dl><dt>Question tokens</dt><dd>How, can, I, build, an, application, using, LLMs?</dd><dt>Rank 1</dt><dd>LangChain helps build LLM applications, 1.261 (build)</dd><dt>Rank 2</dt><dd>Langchain can be used to develop agentic ai application, 0.973 (can)</dd><dt>Rank 3</dt><dd>a sentence scoring 0, picked by tie order</dd></dl></section>
+<section id="tok-normalised" class="mode-panel" data-announcement="Normalised tokeniser. The agentic application sentence moves to first."><h4>Lower-case, punctuation stripped, hyphens kept</h4><dl><dt>Question tokens</dt><dd>how, can, i, build, an, application, using, llms</dd><dt>Rank 1</dt><dd>Langchain can be used to develop agentic ai application, 1.947 (application, can)</dd><dt>Rank 2</dt><dd>LangChain helps build LLM applications, 1.261 (build)</dd><dt>Rank 3</dt><dd>still a sentence scoring 0: <code>llms</code> matches neither <code>llm</code> nor <code>applications</code></dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+<p>On the same corpus it lifts the agentic-application sentence to 1.947 and to first place, because <code>application</code> now matches. A code typed at the end of a question (<code>ORD-88213?</code>) becomes <code>ord-88213</code> and matches the chunk that contains it. The lab&rsquo;s BM25 in Table 2 uses this tokeniser.</p>
 <blockquote>
 <p><strong>Pitfall: tuning around a token mismatch.</strong> <code>LLMs</code> still misses <code>LLM</code> after the fix; matching word forms needs a stemmer. Tune <code>k1</code> and <code>b</code> only after the tokens are right, because the tokens decide what can match at all.</p>
 </blockquote>
@@ -728,9 +795,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Keep the dense half</strong> for questions worded unlike the handbook: downtime, &ldquo;money back&rdquo;, &ldquo;shut off&rdquo;.</li>
 <li><strong>Add BM25</strong> for questions that quote an error code, a plan name (<code>LC-408</code>) or an order ID.</li>
 <li><strong>Tokenise for codes</strong>: lower-case, strip punctuation, keep <code>e-4021</code> and <code>lc-408</code> whole. Check it on a pasted code with a trailing question mark.</li>
-<li><strong>Put both question types in the golden set</strong>, so a change that helps one type and hurts the other shows up.</li>
+<li><strong>Put both question types in the golden set.</strong> A change that helps one type and hurts the other then shows up.</li>
 </ol>
 <p>Running two retrievers gives two ranked lists for every question. Lesson 16.3 turns them into one.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Table 2 is one small corpus.</strong> The ranks come from the lab&rsquo;s 19 chunks with <code>all-MiniLM-L6-v2</code>. <code>02a</code> embeds with <code>text-embedding-3-small</code>, which may rank the code chunks differently. The pattern to test for is the one Table 1 predicts, not these exact ranks.</li>
+<li><strong>The tokeniser comparison is five sentences.</strong> It shows the mechanism of token mismatch, not the size of the gain on a real index.</li>
+<li><strong>Ensemble weights are not tuned here.</strong> <code>02a</code> and <code>02b</code> set 0.7/0.3 and 0.5/0.5 without measuring them. Lesson 16.3 shows what the weights do.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Robertson and Zaragoza, <a href="https://www.staff.city.ac.uk/~sbrp622/papers/foundations_bm25_review.pdf" target="_blank" rel="noopener">The probabilistic relevance framework: BM25 and beyond</a>, Foundations and Trends in Information Retrieval, 2009.</li>
+<li><a href="https://pypi.org/project/rank-bm25/" target="_blank" rel="noopener">rank-bm25</a>, the BM25 implementation behind LangChain&rsquo;s BM25 retriever.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever" target="_blank" rel="noopener">EnsembleRetriever</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Dense retrieval matches meaning and misses rare exact strings; BM25 matches exact tokens and misses paraphrase. On the Larkspur set, dense ranks <code>err-4021</code> 5th and BM25 ranks <code>incidents</code> 9th.</li>
@@ -838,7 +917,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt; K[/Top k = 5/]
 </pre></figure>
 <p><em>Figure 1: Weighted score fusion in <code>03a</code>.</em></p>
-<p>The scales differ: BM25 scores are unbounded sums of idf weights, and FAISS returns L2 distances where lower is better. <code>03a</code> splits a climate-change PDF into 1,000-character chunks with 200 of overlap, scores every chunk both ways, <strong>min-max normalises</strong> each list (subtract the minimum, divide by the range, so the values run from 0 to 1), flips the distances so higher means closer, and ranks by the weighted sum with <code>alpha = 0.5</code> and <code>k = 5</code>. <code>alpha = 1</code> is pure dense retrieval; <code>alpha = 0</code> is pure BM25.</p>
+<p>The scales differ: BM25 scores are unbounded sums of idf weights, and FAISS returns L2 distances where lower is better. <code>03a</code> splits a climate-change PDF into 1,000-character chunks with 200 of overlap, scores every chunk both ways, <strong>min-max normalises</strong> each list (subtract the minimum and divide by the range, giving values from 0 to 1), flips the distances so higher means closer, and ranks by the weighted sum with <code>alpha = 0.5</code> and <code>k = 5</code>. <code>alpha = 1</code> is pure dense retrieval; <code>alpha = 0</code> is pure BM25.</p>
 <p>Min-max is relative to the current query&rsquo;s results. The best chunk always scores 1.0 and the worst 0.0, even when no chunk is relevant. We call this the <strong>min-max mirage</strong>: a question the corpus cannot answer still produces a confident-looking top score. One outlier also squashes everything else. If one chunk contains a rare code and scores far above the rest in BM25, every other chunk&rsquo;s BM25 share shrinks toward 0 and the dense half decides their order. The same <code>alpha</code> therefore weighs the two retrievers differently from one question to the next.</p>
 <p>In return, score fusion keeps information that ranks throw away: how far ahead the top hit is.</p>
 <blockquote>
@@ -875,6 +954,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: The terms of an RRF score.</em></p>
 <p><code>EnsembleRetriever</code> runs each retriever, adds the terms per chunk, and returns every unique chunk sorted by the sum. It does not cut the list to a final <code>k</code>.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; B["BM25 list&lt;br/&gt;ranks 1, 2, 3 ..."]
+    Q --&gt; D["Dense list&lt;br/&gt;ranks 1, 2, 3 ..."]
+    B --&gt; T["Each chunk earns&lt;br/&gt;w / (c + rank)&lt;br/&gt;per list"]
+    D --&gt; T
+    T --&gt; S["Sum per chunk,&lt;br/&gt;keyed by its text"]
+    S --&gt; O[/"Every unique chunk,&lt;br/&gt;sorted by the sum"/]
+</pre></figure>
+<p><em>Figure 2: Reciprocal Rank Fusion in <code>EnsembleRetriever</code>. Scores never enter; only positions do.</em></p>
 <p>Three consequences follow from the formula, each plain arithmetic:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -911,11 +999,11 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The last two rows describe <code>02a</code>&rsquo;s weights from lesson 16.2. For an exact-code question that the dense retriever misses, the code chunk lands below every dense result. We call this the <strong>buried keyword hit</strong>. With equal weights the same chunk ties one that only the dense retriever ranks first.</p>
 <p>The constant <code>c</code> sets how steeply rank matters. The chart plots each rank&rsquo;s weight as a share of rank 1&rsquo;s:</p>
 <figure class="diagram"><img src="03_fusion_retrieval_score_normalisation_vs_rank_fusion/diagrams/rrf-k.svg" width="800" height="440" alt="Weight of a document at rank r relative to rank 1 in Reciprocal Rank Fusion, 1/(c + r) divided by 1/(c + 1), for c = 1, 10 and 60. With c = 60, the EnsembleRetriever default, rank 10 keeps 0.87 of the rank-1 weight and rank 20 keeps 0.76. With c = 1, rank 10 keeps 0.18."></figure>
-<p><em>Figure 2: Rank weight relative to rank 1 for several values of <code>c</code>.</em></p>
-<p>With <code>c = 60</code>, rank 10 keeps 0.87 of rank 1&rsquo;s weight and rank 20 keeps 0.76, so being in both lists matters more than being near the top of one. With <code>c = 1</code>, rank 10 keeps 0.18 and the top of each list dominates.</p>
+<p><em>Figure 3: Rank weight relative to rank 1 for several values of <code>c</code>.</em></p>
+<p>With <code>c = 60</code>, rank 10 keeps 0.87 of rank 1&rsquo;s weight and rank 20 keeps 0.76. Being in both lists matters more than being near the top of one. With <code>c = 1</code>, rank 10 keeps 0.18 and the top of each list dominates.</p>
 <p>The <a href="03_fusion_retrieval_score_normalisation_vs_rank_fusion/interactive/hybrid-fusion-lab.html">interactive hybrid fusion lab</a> runs real BM25 in JavaScript over the 19 Larkspur chunks, ranks them by <code>all-MiniLM-L6-v2</code> similarity, and fuses the two lists both ways. With equal weights, <code>c = 60</code> and 4 chunks handed over per retriever, RRF answers 5 of 7 golden questions fully (mean recall@3 0.86), against 6 of 7 for weighted fusion at <code>alpha = 0.5</code>. Both losses have evidence at rank 5 in one retriever, one place below the hand-over. Raise the hand-over to 10 and RRF reaches 0.93 at any <code>c</code> from 2 to 100.</p>
 <figure class="lab-embed"><iframe src="03_fusion_retrieval_score_normalisation_vs_rank_fusion/interactive/hybrid-fusion-lab.html" title="Fusing BM25 and dense rankings, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Fusing BM25 and dense rankings. <a href="03_fusion_retrieval_score_normalisation_vs_rank_fusion/interactive/hybrid-fusion-lab.html">Open full screen</a></figcaption></figure>
-<p>That is the <strong>shallow hand-over</strong>: fusion only reorders what the retrievers returned, so a chunk that made neither list is gone before the merge. The depth each retriever returns matters more than <code>c</code>.</p>
+<p>That is the <strong>shallow hand-over</strong>: fusion only reorders what the retrievers returned. A chunk that made neither list is gone before the merge. The depth each retriever returns matters more than <code>c</code>.</p>
 <h2 id="choosing-a-fusion-method">Choosing a fusion method</h2>
 <p>The decision comes down to whether scores carry meaning you can trust across queries:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -924,7 +1012,7 @@ th:last-child, td:last-child { padding-right: 0; }
     B -- no --&gt; R
     B -- yes --&gt; W["Weighted scores&lt;br/&gt;joined by chunk id"]
 </pre></figure>
-<p><em>Figure 3: Pick RRF unless you can calibrate scores and tune <code>alpha</code>. Either way, set the hand-over depth first.</em></p>
+<p><em>Figure 4: Pick RRF unless you can calibrate scores and tune <code>alpha</code>. Either way, set the hand-over depth first.</em></p>
 <p>Here is how the two compare on the points that decide it:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -969,9 +1057,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Start with RRF, equal weights, <code>c = 60</code>.</strong> BM25 scores and cosine similarities do not share a scale, and equal weights keep code-only hits from being buried.</li>
 <li><strong>Hand over 10 chunks per retriever</strong> before cutting to the final 3.</li>
 <li><strong>Tune on question types.</strong> Report recall separately for code questions and paraphrase questions; a mean can hide one type getting worse.</li>
-<li><strong>Log both input lists</strong> with chunk ids, so a miss can be traced to a retriever or to the merge.</li>
+<li><strong>Log both input lists</strong> with chunk ids. A miss can then be traced to a retriever or to the merge.</li>
 </ol>
 <p>RAG-Fusion in <a href="../../../m17_query_transformation/mandatory/theory/index.html">M17</a> applies the same formula to the result lists of several rewritten questions. Lesson 16.4 turns to a different problem with the fused list: chunks that all say the same thing.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Seven questions, 19 chunks.</strong> Table 1 and the lab&rsquo;s recall figures come from one small handbook and one small embedding model. They show where each method breaks, not which wins on a real index.</li>
+<li><strong>The notebook was not rerun for this page.</strong> The position join is read from <code>03a</code>&rsquo;s code. Its printed rankings on the climate PDF depend on OpenAI embeddings.</li>
+<li><strong><code>c = 60</code> is an empirical choice.</strong> Cormack and colleagues fixed it in pilot experiments on their own test collections. In the lab the hand-over depth matters more, and other corpora may differ.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Cormack, Clarke and Büttcher, <a href="https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf" target="_blank" rel="noopener">Reciprocal rank fusion outperforms Condorcet and individual rank learning methods</a>, SIGIR 2009.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever" target="_blank" rel="noopener">EnsembleRetriever</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Weighted score fusion min-max normalises each list per query, so the best chunk always scores 1.0 (the min-max mirage). Join scores by chunk id, never by list position.</li>
@@ -1004,7 +1103,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 16.3 merged two ranked lists into one. Whatever the merge, the top of a ranked list tends to hold chunks that are near each other as well as near the question.</p>
 <p>Larkspur&rsquo;s handbook index holds the current refund policy and, left over from a migration, last year&rsquo;s: &ldquo;full refund within 14 days … less than 50 GB&rdquo; against today&rsquo;s &ldquo;30 days … less than 100 GB&rdquo;. A customer asks <em>Can I get my money back on an annual plan and how long does it take?</em> Plain top-3 returns both refund-window versions and the refund-timing chunk. Two of three slots say nearly the same thing, and one of them is wrong.</p>
-<p>We call this <strong>redundant top-k</strong>: the nearest chunks are near each other too, so the model gets fewer distinct facts for the same tokens. Overlapping chunks from M12&rsquo;s splitter cause it, and so does one rule repeated in two documents.</p>
+<p>We call this <strong>redundant top-k</strong>: the nearest chunks are near each other too, and the model gets fewer distinct facts for the same tokens. Overlapping chunks from M12&rsquo;s splitter cause it, and so does one rule repeated in two documents.</p>
+<p>Plain top-k scores each chunk against the question alone, once:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; S["Score every chunk&lt;br/&gt;against the question"]
+    S --&gt; K["Keep the 3 highest&lt;br/&gt;0.655, 0.654, ..."]
+    K --&gt; R[/"Both refund-window&lt;br/&gt;versions kept"/]
+</pre></figure>
+<p><em>Figure 1: Plain top-k. No chunk is compared with another, so near-copies never cost anything.</em></p>
 <p><strong>Maximal Marginal Relevance</strong> (MMR) picks chunks one at a time. The first pick is the candidate most similar to the question. Every later pick maximises <code>λ × similarity to the question - (1 - λ) × highest similarity to any chunk already picked</code>:</p>
 <figure class="anim sheet" aria-labelledby="anim-mmr-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The MMR selection loop, scrolls sideways on a narrow screen">
@@ -1066,7 +1172,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button">Compare</button><span>Plain similarity search would have returned pick 1 and two of its near-copies.</span></li>
   </ol>
 </figure>
-<p><em>Figure 1: The MMR loop. The penalty term grows with every pick.</em></p>
+<p><em>Figure 2: The MMR loop. The penalty term grows with every pick.</em></p>
 <p>λ is <code>lambda_mult</code> in LangChain, 0.5 by default. Reading the formula at its ends and middle:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1078,7 +1184,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td>1.0</td>
-<td>The penalty is 0, so it returns the <code>k</code> most similar candidates: plain similarity search</td>
+<td>With no penalty it returns the <code>k</code> most similar candidates: plain similarity search</td>
 </tr>
 <tr>
 <td>0.5 (default)</td>
@@ -1130,6 +1236,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: MMR picks for the refund question (<code>langchain_core</code> MMR, <code>all-MiniLM-L6-v2</code>; the old policy chunk is planted).</em></p>
+<p>The switcher shows what the model receives at three settings of Table 2.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="lambda-switcher">
+<p class="widget-intro">Choose a value of lambda_mult and read the context the refund question gets.</p>
+<div class="mode-controls" hidden role="group" aria-label="lambda_mult for the refund question">
+<button type="button" data-mode="l10" aria-pressed="false" aria-controls="lambda-10">λ = 1.0</button>
+<button type="button" data-mode="l07" aria-pressed="false" aria-controls="lambda-07">λ = 0.7</button>
+<button type="button" data-mode="l05" aria-pressed="false" aria-controls="lambda-05">λ = 0.5 (default)</button>
+</div>
+<section id="lambda-10" class="mode-panel" data-announcement="Lambda 1.0. The stale policy takes a slot."><h4>λ = 1.0: plain similarity</h4><dl><dt>Context</dt><dd><code>refund-window</code>, <code>refund-window-old</code>, <code>refund-timing</code></dd><dt>What the model reads</dt><dd>two refund windows, 30 days and 100 GB against 14 days and 50 GB</dd><dt>Failure</dt><dd>redundant top-k, with one copy wrong</dd></dl></section>
+<section id="lambda-07" class="mode-panel" data-announcement="Lambda 0.7. Both needed chunks, no duplicate."><h4>λ = 0.7</h4><dl><dt>Context</dt><dd><code>refund-window</code>, <code>refund-timing</code>, <code>retention</code></dd><dt>What the model reads</dt><dd>the current window and how long a refund takes</dd><dt>Failure</dt><dd>none for this question</dd></dl></section>
+<section id="lambda-05" class="mode-panel" data-announcement="Lambda 0.5. The timing chunk is lost."><h4>λ = 0.5, the LangChain default</h4><dl><dt>Context</dt><dd><code>refund-window</code>, <code>incidents</code>, <code>retention</code></dd><dt>What the model reads</dt><dd>the window, but nothing on how long a refund takes</dd><dt>Failure</dt><dd>over-diversification: half the question has no evidence</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>At 0.7 MMR does exactly what it is for: the near-copy is dropped and the timing chunk stays. At the default of 0.5 the redundancy penalty also lands on <code>refund-timing</code>, which shares the word &ldquo;refund&rdquo; and much of its meaning with the first pick, and an incident-report chunk takes its slot. We call that <strong>over-diversification</strong>: diversity bought by throwing away evidence the question needed.</p>
 <h2 id="the-candidate-pool">The candidate pool</h2>
 <p>MMR never searches the whole index. It chooses among the <code>fetch_k</code> nearest chunks, 20 by default; <code>01a</code> uses <code>k = 3</code> from 10, and <code>04a</code> uses <code>k = 3</code> with the default pool. That makes <code>fetch_k</code> the second knob. The same question at three pool sizes:</p>
@@ -1159,7 +1279,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: The pool decides how far MMR can wander (same setup as Table 2).</em></p>
 <p>A small pool keeps every pick on topic, because only on-topic chunks are in it. A pool much larger than <code>k</code> gives MMR room to find another topic, and room to reach chunks that are barely relevant: an expired-card error and an incident chunk for a refund question.</p>
-<p><code>04a</code> shows why MMR suits small, overlapping chunks. It splits a LangChain text into 300-character chunks with 50 of overlap, embeds them in FAISS, and asks <em>How does LangChain support agents and memory?</em> The question has two parts that may sit in different chunks, and neighbouring chunks share up to 50 characters, so plain top-k can return two windows onto the same passage.</p>
+<p><code>04a</code> shows why MMR suits small, overlapping chunks. It splits a LangChain text into 300-character chunks with 50 of overlap, embeds them in FAISS, and asks <em>How does LangChain support agents and memory?</em> The question has two parts that may sit in different chunks, and neighbouring chunks share up to 50 characters. Plain top-k can return two windows onto the same passage.</p>
 <h2 id="where-mmr-misleads">Where MMR misleads</h2>
 <p>Table 2 hides a second problem. The current policy won the first pick by 0.655 to 0.654, a gap of 0.001. With a slightly different question or embedding model, the old version wins, and MMR then penalises the current one as redundant and drops it. We call this the <strong>stale first pick</strong>.</p>
 <blockquote>
@@ -1167,15 +1287,26 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <h2 id="in-practice-tuning-mmr-for-larkspur">In practice: tuning MMR for Larkspur</h2>
 <ol>
-<li><strong>Remove stale versions first</strong>, with a metadata filter or at index time, so MMR only handles genuine overlap.</li>
+<li><strong>Remove stale versions first</strong>, with a metadata filter or at index time. MMR then handles only genuine overlap.</li>
 <li><strong>Start from λ = 0.7, not 0.5</strong>, and check it on Table 2-style traces: a golden question with two related evidence chunks must keep both.</li>
 <li><strong>Keep <code>fetch_k</code> near 2 to 4 times <code>k</code></strong> unless a question needs a distant topic.</li>
 <li><strong>Tune on two kinds of golden question</strong>: ones that need several distinct chunks, and single-fact ones that must not lose their second supporting chunk.</li>
 </ol>
 <p>Lesson 16.5 adds the filters that MMR needs in front of it.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>One question, one small model.</strong> Tables 2 and 3 trace the refund question over 20 chunks with <code>all-MiniLM-L6-v2</code>. The λ that keeps both refund chunks here is a starting point to test, not a setting to copy.</li>
+<li><strong>The old policy is planted.</strong> Its chunk was added to show the stale first pick. The 0.001 gap belongs to this pair of texts.</li>
+<li><strong><code>04a</code> was not rerun for this page.</strong> Its LangChain text and question show the use case; its picks are not quoted.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Carbonell and Goldstein, <a href="https://www.cs.cmu.edu/~jgc/publication/The_Use_MMR_Diversity_Based_LTMIR_1998.pdf" target="_blank" rel="noopener">The use of MMR, diversity-based reranking for reordering documents and producing summaries</a>, SIGIR 1998.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-core/vectorstores/base/VectorStore" target="_blank" rel="noopener">VectorStore</a>, including the maximal marginal relevance search and its <code>lambda_mult</code> and <code>fetch_k</code> settings.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>MMR picks one chunk at a time, scoring relevance to the question minus similarity to chunks already picked, so near-copies stop filling the context.</li>
+<li>MMR picks one chunk at a time, scoring relevance to the question minus similarity to chunks already picked. Near-copies stop filling the context.</li>
 <li>λ = 1.0 is plain similarity search. Lower values drop duplicates, but on the Larkspur refund question λ = 0.5 also drops the needed timing chunk (over-diversification); 0.7 keeps it. <code>fetch_k</code> bounds the pool MMR chooses from.</li>
 <li>MMR sees similarity, not freshness. Filter out old policy versions before it runs, or the stale first pick can keep the wrong one.</li>
 </ul>
@@ -1252,10 +1383,15 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The four filters and their cost.</em></p>
-<p>The order is a cost decision. Exact checks run first, and the one filter that calls the embedding model runs last, on whatever survives. Each filter is optional, so the same function serves a question with a known country and one without.</p>
+<p>The order is a cost decision. Exact checks run first, and the one filter that calls the embedding model runs last, on whatever survives. Each filter is optional. The same function serves a question with a known country and one without.</p>
+<div class="walkthrough learning-widget" data-stepper id="filter-walkthrough">
+<p class="widget-intro">Step through the Chile question's top 10 as each filter reads it.</p>
+<div class="step-controls" hidden role="group" aria-label="Filters in the order 05a runs them"><button type="button" data-step="0" aria-pressed="false" aria-controls="filter-step-0">1. Metadata</button><button type="button" data-step="1" aria-pressed="false" aria-controls="filter-step-1">2. Score</button><button type="button" data-step="2" aria-pressed="false" aria-controls="filter-step-2">3. Keywords</button><button type="button" data-step="3" aria-pressed="false" aria-controls="filter-step-3">4. Diversity</button></div>
+<div class="step-panels"><section id="filter-step-0" class="step-panel" aria-labelledby="filter-heading-0"><h4 id="filter-heading-0">1. Metadata</h4><dl><dt>Reads</dt><dd>each chunk's <code>country</code> field</dd><dt>Keeps</dt><dd>chunks whose value equals Chile exactly; every key in the filter must match</dd><dt>Drops</dt><dd>customers from other countries that ranked high on similar wording</dd></dl></section><section id="filter-step-1" class="step-panel" aria-labelledby="filter-heading-1"><h4 id="filter-heading-1">2. Score</h4><dl><dt>Reads</dt><dd>the relevance score the search returned with each chunk</dd><dt>Keeps</dt><dd>scores of 0.35 or more</dd><dt>Drops</dt><dd>chunks that were in the top 10 only because 10 slots had to be filled</dd></dl></section><section id="filter-step-2" class="step-panel" aria-labelledby="filter-heading-2"><h4 id="filter-heading-2">3. Keywords</h4><dl><dt>Reads</dt><dd>the chunk text, lower-cased</dd><dt>Keeps</dt><dd>chunks containing every required keyword, here <code>chile</code></dd><dt>Drops</dt><dd>chunks whose text never names the term the evidence must contain</dd></dl></section><section id="filter-step-3" class="step-panel" aria-labelledby="filter-heading-3"><h4 id="filter-heading-3">4. Diversity</h4><dl><dt>Reads</dt><dd>an embedding of each survivor, one model call per chunk</dd><dt>Keeps</dt><dd>chunks in rank order, unless one already kept has cosine 0.9 or more with it</dd><dt>Drops</dt><dd>rows whose text is near-identical to a row already kept</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>The diversity filter is a hard cut at one similarity. MMR from lesson 16.4 makes the same trade softly, weighing redundancy against relevance with λ.</p>
 <h2 id="pre-filter-or-post-filter">Pre-filter or post-filter</h2>
-<p>The four filters in <code>05a</code> only remove. They run on the 10 chunks the search returned, so if a Chilean customer ranked 11th, no filter brings it back. A strict combination can remove all ten and leave nothing. We call this <strong>post-filter starvation</strong>: the filter is right and the result is empty, because the search spent its slots on chunks the filter was always going to reject.</p>
+<p>The four filters in <code>05a</code> only remove. They run on the 10 chunks the search returned. If a Chilean customer ranked 11th, no filter brings it back. A strict combination can remove all ten and leave nothing. We call this <strong>post-filter starvation</strong>: the filter is right and the result is empty, because the search spent its slots on chunks the filter was always going to reject.</p>
 <p>When the condition is known before the search, push it into the store:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
     subgraph Post["Post-filter"]
@@ -1268,7 +1404,7 @@ th:last-child, td:last-child { padding-right: 0; }
     end
 </pre></figure>
 <p><em>Figure 2: The same condition before and after ranking. Only the pre-filter guarantees 10 matching chunks when 10 exist.</em></p>
-<p>Chroma takes the condition as a filter argument on the similarity search and ranks only the matching chunks, so every one of the 10 slots goes to a match. Keep post-filters for conditions the store cannot express, such as the diversity check.</p>
+<p>Chroma takes the condition as a filter argument on the similarity search and ranks only the matching chunks. Every one of the 10 slots goes to a match. Keep post-filters for conditions the store cannot express, such as the diversity check.</p>
 <p>Here is the arithmetic of starvation, for a condition that one chunk in twenty satisfies and spread evenly through the ranking (<em>Illustrative</em>):</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1307,10 +1443,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <ol>
 <li><strong>Pre-filter on version.</strong> Every handbook query filters to the current <code>version</code> in the store, before ranking. That removes last year&rsquo;s refund policy outright.</li>
 <li><strong>Pre-filter on section</strong> when the question names a topic the router is sure of, such as Refunds.</li>
-<li><strong>Post-filter on score</strong> with the floor from lesson 16.1, so an out-of-scope question still returns nothing.</li>
+<li><strong>Post-filter on score</strong> with the floor from lesson 16.1. An out-of-scope question still returns nothing.</li>
 <li><strong>Leave diversity to MMR</strong> on the survivors, at the λ lesson 16.4 settled on.</li>
 </ol>
 <p>Lesson 16.6 steps back from single techniques and compares whole retriever patterns, including what they cost when they nest.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No counts from a run.</strong> The walkthrough describes what each filter reads and drops. <code>05a</code> prints the survivors for its own data, and this page quotes none of them.</li>
+<li><strong>Table 2 is arithmetic.</strong> It assumes matches spread evenly through the ranking. Real matches cluster, which can make post-filtering better or worse.</li>
+<li><strong>Thresholds belong to the setup.</strong> The 0.35 floor and the 0.9 duplicate cut fit <code>all-MiniLM-L6-v2</code> on a customer table, not the Larkspur handbook.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Chroma, <a href="https://docs.trychroma.com/docs/querying-collections/metadata-filtering" target="_blank" rel="noopener">Metadata filtering</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/integrations/vectorstores/chroma" target="_blank" rel="noopener">Chroma integration</a>, including filtered similarity search.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Ranking orders chunks; filtering decides which are allowed. Run cheap exact checks (metadata, score, keywords) before the diversity check that needs an embedding call per chunk.</li>
@@ -1402,7 +1549,7 @@ th:last-child, td:last-child { padding-right: 0; }
     G --&gt; A[/Answer/]
 </pre></figure>
 <p><em>Figure 2: Multi-query inside compression, as <code>06a</code> builds it.</em></p>
-<p>Multi-query widens the pool for recall and compression narrows each chunk for precision, so the two pull in opposite directions on purpose. The calls add up, and the middle term grows with the union of results:</p>
+<p>Multi-query widens the pool for recall and compression narrows each chunk for precision. The two pull in opposite directions on purpose. The calls add up, and the middle term grows with the union of results:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1440,6 +1587,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: LLM calls per question in the nested pipeline (illustrative: the union size depends on how much the variants overlap).</em></p>
+<p>The walkthrough follows one Larkspur question through the four stages of Table 2, with the same illustrative counts.</p>
+<div class="walkthrough learning-widget" data-stepper id="nesting-walkthrough">
+<p class="widget-intro">Step through one question in the nested pipeline and count the LLM calls as they add up.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the nested pipeline"><button type="button" data-step="0" aria-pressed="false" aria-controls="nest-step-0">1. Variants</button><button type="button" data-step="1" aria-pressed="false" aria-controls="nest-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="nest-step-2">3. Compress</button><button type="button" data-step="3" aria-pressed="false" aria-controls="nest-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="nest-step-0" class="step-panel" aria-labelledby="nest-heading-0"><h4 id="nest-heading-0">1. Write variants</h4><dl><dt>Input</dt><dd>the customer's question</dd><dt>Work</dt><dd>one LLM call returns three rewordings</dd><dt>Calls so far</dt><dd>1</dd></dl></section><section id="nest-step-1" class="step-panel" aria-labelledby="nest-heading-1"><h4 id="nest-heading-1">2. Search</h4><dl><dt>Input</dt><dd>the question and its three variants</dd><dt>Work</dt><dd>four searches of 3 results each: 12 results, 7 unique</dd><dt>Calls so far</dt><dd>1; searches cost no LLM call</dd></dl></section><section id="nest-step-2" class="step-panel" aria-labelledby="nest-heading-2"><h4 id="nest-heading-2">3. Compress</h4><dl><dt>Input</dt><dd>the 7 unique chunks</dd><dt>Work</dt><dd>one extraction call per chunk keeps only the relevant text</dd><dt>Calls so far</dt><dd>8</dd></dl></section><section id="nest-step-3" class="step-panel" aria-labelledby="nest-heading-3"><h4 id="nest-heading-3">4. Answer</h4><dl><dt>Input</dt><dd>the trimmed chunks in the prompt</dd><dt>Work</dt><dd>one call writes the answer</dd><dt>Calls so far</dt><dd>9, every one before the user sees a word</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>We call this <strong>call stacking</strong>: each wrapper&rsquo;s cost is reasonable alone, and the product of them is what the bill shows. Nine calls in sequence also means nine round trips of latency before the user sees a word.</p>
 <blockquote>
 <p><strong>Pitfall: call stacking.</strong> Count calls per question before nesting, and measure each layer&rsquo;s gain on the golden set separately. A layer that adds two calls and no recall comes out.</p>
@@ -1469,7 +1622,23 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Three search modes in <code>06b</code>.</em></p>
-<p>Hybrid in the store and an ensemble in the application do the same job in different places:</p>
+<p>Hybrid in the store and an ensemble in the application do the same job in different places. In the store, one request carries both the vector and the text:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; E["Embed in&lt;br/&gt;the application"]
+    E --&gt; S["One store call&lt;br/&gt;vector + query text"]
+    S --&gt; F["Server fuses&lt;br/&gt;vector and keyword hits"]
+    F --&gt; R["Optional server&lt;br/&gt;rerank, top 5"]
+</pre></figure>
+<p><em>Figure 3: Hybrid in the store. The keyword index and the fusion live on the server.</em></p>
+<p>In the application, the code holds a keyword index of its own and merges two result lists:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; V["Vector store&lt;br/&gt;dense top k"]
+    Q --&gt; B["BM25 index&lt;br/&gt;in memory"]
+    V --&gt; E["EnsembleRetriever&lt;br/&gt;RRF in your code"]
+    B --&gt; E
+    E --&gt; R[/Merged list/]
+</pre></figure>
+<p><em>Figure 4: Ensemble in the application. Both lists and the merge are visible to your logs.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1511,6 +1680,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose the location by scale.</strong> An application ensemble while the handbook is small and changing; the store&rsquo;s hybrid mode once many teams write to it.</li>
 </ol>
 <p>M17 picks up where multi-query leaves off, with the full family of query rewrites.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Table 2 is a count, not a measurement.</strong> The union of 7 chunks is an assumption; real variants overlap more or less. No latency was measured.</li>
+<li><strong><code>06a</code>&rsquo;s demos print, they do not score.</strong> Its ensemble comparison shows top results side by side for three questions, without a golden set or recall figure.</li>
+<li><strong>The reranker figures are the notebook&rsquo;s claim.</strong> Neither the 15% nor the 1 to 1.5 seconds was reproduced for this page.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/multi_query/MultiQueryRetriever" target="_blank" rel="noopener">MultiQueryRetriever</a>.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/contextual_compression/ContextualCompressionRetriever" target="_blank" rel="noopener">ContextualCompressionRetriever</a>.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/parent_document_retriever/ParentDocumentRetriever" target="_blank" rel="noopener">ParentDocumentRetriever</a>.</li>
+<li>LangChain reference, <a href="https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever" target="_blank" rel="noopener">EnsembleRetriever</a>.</li>
+<li>Sentence Transformers, <a href="https://www.sbert.net/examples/sentence_transformer/applications/retrieve_rerank/README.html" target="_blank" rel="noopener">Retrieve and re-rank</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Each pattern fixes one failure at its own price: multi-query fixes wording, compression trims noisy chunks at one LLM call each, an ensemble catches exact terms, and parent documents restore missing context.</li>
@@ -1591,7 +1774,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Fusion and MMR reorder a candidate pool and cannot add to it. Retrieve wider than you return.</li>
 <li>Set λ, score thresholds and fusion weights by measuring them on your golden set, and measure again when the embedding model changes.</li>
 </ul></article>
-    <nav class="toc" aria-label="M16 sections"><details open><summary>In M16</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-modes">Search modes</a></li><li><a href="#distance-or-relevance-two-score-directions">Distance or relevance</a></li><li><a href="#what-each-wrapper-spends">What each wrapper spends</a></li><li><a href="#in-practice-an-out-of-scope-guard-for-larkspur">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dense-vs-sparse">Dense vs sparse</a></li><li><a href="#bm25">BM25</a></li><li><a href="#fix-the-tokeniser-first">Fix the tokeniser first</a></li><li><a href="#in-practice-larkspurrsquos-hybrid-retriever">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#two-lists-one-answer">Two lists, one answer</a></li><li><a href="#weighted-score-fusion">Weighted score fusion</a></li><li><a href="#reciprocal-rank-fusion">Reciprocal Rank Fusion</a></li><li><a href="#choosing-a-fusion-method">Choosing a fusion method</a></li><li><a href="#in-practice-fusing-larkspurrsquos-two-lists">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mmr-λ">MMR λ</a></li><li><a href="#the-candidate-pool">The candidate pool</a></li><li><a href="#where-mmr-misleads">Where MMR misleads</a></li><li><a href="#in-practice-tuning-mmr-for-larkspur">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#four-filters-in-sequence">Four filters in sequence</a></li><li><a href="#pre-filter-or-post-filter">Pre-filter or post-filter</a></li><li><a href="#facets-come-from-ingestion">Facets come from ingestion</a></li><li><a href="#in-practice-filtering-larkspurrsquos-refund-questions">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-retriever-pattern">Choosing a retriever pattern</a></li><li><a href="#nesting-patterns">Nesting patterns</a></li><li><a href="#hybrid-in-the-store">Hybrid in the store</a></li><li><a href="#in-practice-larkspurrsquos-retriever-stack">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M16 sections"><details open><summary>In M16</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#search-modes">Search modes</a></li><li><a href="#distance-or-relevance-two-score-directions">Distance or relevance</a></li><li><a href="#what-each-wrapper-spends">What each wrapper spends</a></li><li><a href="#in-practice-an-out-of-scope-guard-for-larkspur">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#dense-vs-sparse">Dense vs sparse</a></li><li><a href="#bm25">BM25</a></li><li><a href="#fix-the-tokeniser-first">Fix the tokeniser first</a></li><li><a href="#in-practice-larkspurrsquos-hybrid-retriever">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#two-lists-one-answer">Two lists, one answer</a></li><li><a href="#weighted-score-fusion">Weighted score fusion</a></li><li><a href="#reciprocal-rank-fusion">Reciprocal Rank Fusion</a></li><li><a href="#choosing-a-fusion-method">Choosing a fusion method</a></li><li><a href="#in-practice-fusing-larkspurrsquos-two-lists">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#mmr-λ">MMR λ</a></li><li><a href="#the-candidate-pool">The candidate pool</a></li><li><a href="#where-mmr-misleads">Where MMR misleads</a></li><li><a href="#in-practice-tuning-mmr-for-larkspur">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#four-filters-in-sequence">Four filters in sequence</a></li><li><a href="#pre-filter-or-post-filter">Pre-filter or post-filter</a></li><li><a href="#facets-come-from-ingestion">Facets come from ingestion</a></li><li><a href="#in-practice-filtering-larkspurrsquos-refund-questions">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#choosing-a-retriever-pattern">Choosing a retriever pattern</a></li><li><a href="#nesting-patterns">Nesting patterns</a></li><li><a href="#hybrid-in-the-store">Hybrid in the store</a></li><li><a href="#in-practice-larkspurrsquos-retriever-stack">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

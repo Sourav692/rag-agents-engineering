@@ -382,6 +382,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>M19 built a system over text and tables. Larkspur&rsquo;s status reports also carry charts: monthly availability as bars, refund times by month, a server table as an image. A text-only pipeline drops them at load time, so <em>Which month missed the 99.95% availability target?</em> has no evidence in the index at all.</p>
 <p><strong>CLIP</strong> has two encoders, one for text and one for images, trained together so that an image and a caption describing it land close in the same vector space (Radford et al., <em>Learning Transferable Visual Models From Natural Language Supervision</em>, 2021). That shared space is a <strong>joint embedding space</strong>: a text question can retrieve an image directly. With <code>openai/clip-vit-base-patch32</code>, notebook <code>01a</code>&rsquo;s model, both encoders end in a 512-dimension vector. The notebook normalises each to unit length, so a dot product is a cosine.</p>
+<p>The two encoders feed one index, and the question uses the text side:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    T[/"Page text&lt;br/&gt;500-char chunks"/] --&gt; TE["CLIP text encoder"]
+    I[/"Embedded images"/] --&gt; IE["CLIP image encoder"]
+    TE --&gt; X[("One FAISS index&lt;br/&gt;512-dim unit vectors")]
+    IE --&gt; X
+    Q[/"Question"/] --&gt; TE2["CLIP text encoder"]
+    TE2 --&gt; X
+    X --&gt; R["Top 5 items&lt;br/&gt;text and images mixed"]
+</pre></figure>
+<p><em>Figure 1: CLIP indexing in <code>01a</code>. Both modalities share one index, and one ranking decides what reaches the model.</em></p>
 <p>Here is what <code>01a</code> does with a PDF:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -415,6 +426,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: CLIP indexing and retrieval in <code>01a</code>.</em></p>
+<p>The shared space makes the design look simple. The next two sections show where it loses information before any search runs, and then where it loses the right figure during the search.</p>
 <h2 id="two-input-limits">Two input limits</h2>
 <p>Both encoders have hard input limits, and both matter for documents:</p>
 <div class="sheet scroll"><table>
@@ -444,7 +456,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="one-ranking-two-modalities">One ranking, two modalities</h2>
 <p>The <a href="01_shared_text_image_embedding_space_with_clip/interactive/chart-retrieval-lab.html">interactive chart retrieval lab</a> indexes three Larkspur status-report pages with <code>01a</code>&rsquo;s own embedding functions: six text chunks and three figure images in one index, nine items. The scores split into two bands:</p>
 <figure class="diagram"><img src="01_shared_text_image_embedding_space_with_clip/diagrams/modality-gap.svg" width="800" height="330" alt="For each of three questions, CLIP cosine scores of the six text chunks sit between 0.692 and 0.912, and the three figure images between 0.200 and 0.382. The figure that holds the answer is the top image every time, but it still ranks seventh of nine, below every text chunk."></figure>
-<p><em>Figure 1: CLIP scores on the lab pages. Every text chunk outscores every image.</em></p>
+<p><em>Figure 2: CLIP scores on the lab pages. Every text chunk outscores every image.</em></p>
 <p>Every text chunk scores between 0.692 and 0.912 against every question; every image scores between 0.200 and 0.382. Liang et al. measured this split across contrastive models and named it the <strong>modality gap</strong> (<em>Mind the Gap</em>, NeurIPS 2022).</p>
 <p>Inside the image band, CLIP does its job. For each question, the image with the answer is the best image:</p>
 <div class="sheet scroll"><table>
@@ -488,7 +500,42 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Key distinction:</strong> CLIP&rsquo;s scores are comparable within a modality and not across modalities. A figure at 0.306 is a strong image match; a text chunk at 0.692 may be a weak text match.</p>
 </blockquote>
 <h2 id="choosing-around-the-gap">Choosing around the gap</h2>
-<p>Since scores from different modalities are not comparable, do not rank them together:</p>
+<p>Since scores from different modalities are not comparable, the fix is to stop ranking them together. Two retrieval designs make the difference concrete.</p>
+<p>The <strong>shared ranking</strong> is <code>01a</code>&rsquo;s design: one index, one list, one cut at <code>k</code>. Whatever modality scores higher fills the list first.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Question"/] --&gt; E["CLIP text encoder"]
+    E --&gt; X[("Shared index&lt;br/&gt;6 chunks + 3 images")]
+    X --&gt; L["One list of 9&lt;br/&gt;sorted by score"]
+    L --&gt; C["Cut at k"]
+    C --&gt; M["Answer model"]
+</pre></figure>
+<p><em>Figure 3: Shared ranking. Text and images compete in one list, and the cut at <code>k</code> decides alone.</em></p>
+<p><strong>Separate quotas</strong> search each modality on its own and fix how many items of each kind reach the model. Each list is ranked only against its own kind, where CLIP&rsquo;s scores mean something.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Question"/] --&gt; E["Question vector"]
+    E --&gt; XT[("Text index&lt;br/&gt;6 chunks")]
+    E --&gt; XI[("Image index&lt;br/&gt;3 figures")]
+    XT --&gt; T4["Top 4 chunks"]
+    XI --&gt; I1["Top 1 image"]
+    T4 --&gt; M["Answer model"]
+    I1 --&gt; M
+</pre></figure>
+<p><em>Figure 4: Separate quotas. Each modality has its own list and its own cut, then both go to the model.</em></p>
+<p>The same availability question gives a different context under each choice:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="gap-switcher">
+<p class="widget-intro">Choose a retrieval design for the availability question, and see what reaches the answer model.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval design for the availability question">
+<button type="button" data-mode="shared-5" aria-pressed="false" aria-controls="gap-shared-5">Shared, k = 5</button>
+<button type="button" data-mode="shared-7" aria-pressed="false" aria-controls="gap-shared-7">Shared, k = 7</button>
+<button type="button" data-mode="quota" aria-pressed="false" aria-controls="gap-quota">Separate quotas</button>
+</div>
+<section id="gap-shared-5" class="mode-panel" data-announcement="Shared ranking at k equals 5 selected. No image reaches the model."><h4>Shared ranking, k = 5 (01a's setting)</h4><dl><dt>Items sent</dt><dd>five text chunks, scores 0.692 or higher</dd><dt>Figure 1</dt><dd>rank 7 of 9, cut off</dd><dt>Result</dt><dd>the model sees no bar and cannot name May</dd></dl></section>
+<section id="gap-shared-7" class="mode-panel" data-announcement="Shared ranking at k equals 7 selected. The figure arrives behind six chunks."><h4>Shared ranking, k = 7</h4><dl><dt>Items sent</dt><dd>all six text chunks, then Figure 1</dd><dt>Figure 1</dt><dd>included, at score 0.306</dd><dt>Result</dt><dd>the answer is in context, with six chunks of text the model must read to use one picture</dd></dl></section>
+<section id="gap-quota" class="mode-panel" data-announcement="Separate quotas selected. The answer figure is the one image sent."><h4>Separate quotas: top 4 text, top 1 image</h4><dl><dt>Items sent</dt><dd>four text chunks and one image</dd><dt>Figure 1</dt><dd>the best image at 0.306, ahead of the next image at 0.268</dd><dt>Result</dt><dd>the answer figure reaches the model, as it does for all three lab questions</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Separate quotas are one of three ways around the gap:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -516,6 +563,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Three ways around the modality gap.</em></p>
+<p>Raising <code>k</code> until the figure appears is not on the list. It works on three pages and fails on a real report, where dozens of chunks sit above every image.</p>
 <h2 id="in-practice-larkspurrsquos-status-reports">In practice: Larkspur&rsquo;s status reports</h2>
 <ol>
 <li><strong>Index figures and text separately</strong>, with a text embedding model for the chunks and CLIP for the images.</li>
@@ -524,6 +572,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Add a chart-only golden question</strong> per report, such as the availability month, so a buried figure shows up as a miss.</li>
 </ol>
 <p>Lesson 20.2 removes the gap the other way: it turns every figure into text before indexing.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Three pages, nine items.</strong> The lab&rsquo;s pages are fictional Larkspur reports. The score bands and ranks are real CLIP outputs on those pages, and a different corpus moves the numbers. The gap itself is the general finding Liang et al. report.</li>
+<li><strong>The quota result is small.</strong> Top-1 image is right for all three lab questions because each page has one relevant figure. A report with several similar charts needs a larger image quota or a reranker.</li>
+<li><strong><code>01a</code> as shipped cannot fail.</strong> Its two-item index returns everything at <code>k = 5</code>, so its run says nothing about ranking.</li>
+<li><strong>Answers were not scored.</strong> The lab measures what reaches the model. Whether the model then reads 99.91% off a 224 by 224 crop is a separate question.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Radford et al., <a href="https://arxiv.org/abs/2103.00020" target="_blank" rel="noopener">Learning Transferable Visual Models From Natural Language Supervision</a>, 2021.</li>
+<li>Liang et al., <a href="https://arxiv.org/abs/2203.02053" target="_blank" rel="noopener">Mind the Gap: the modality gap in multi-modal contrastive representation learning</a>, NeurIPS 2022.</li>
+<li>Hugging Face, <a href="https://huggingface.co/docs/transformers/model_doc/clip" target="_blank" rel="noopener">CLIP model documentation</a>.</li>
+<li>Hugging Face, <a href="https://huggingface.co/openai/clip-vit-base-patch32" target="_blank" rel="noopener">openai/clip-vit-base-patch32 model card</a>.</li>
+<li>Meta, <a href="https://faiss.ai/" target="_blank" rel="noopener">Faiss</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>CLIP puts text and images in one 512-dimension space, but its text side stops at 77 tokens (the silent truncation) and its image side crops to 224 by 224, so long chunks and small chart labels are lost.</li>
@@ -630,6 +693,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The first misses at <code>k = 1</code> because the paragraph repeats the question&rsquo;s words. Captions compete with text chunks on one scale, so the ranking is fair, and a <code>k</code> of 2 or 3 sends both.</p>
 <h2 id="what-a-caption-must-hold">What a caption must hold</h2>
 <p><code>02a</code>&rsquo;s prompt asks for a summary &ldquo;well optimized for retrieval&rdquo;. Retrieval needs less than the answer does. A short caption that names the chart and leaves out the values, such as &ldquo;Bar chart of monthly availability in Q2 against a target line.&rdquo;, still ranks 2, 3 and 2 for the three lab questions. It is found, and it cannot answer: nothing in it says May or 99.91%. We call this the <strong>findable but empty</strong> caption.</p>
+<p>The two captions below differ only in what they hold, and the ranking cannot tell them apart:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -662,7 +726,39 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Pitfall: a misread caption, trusted forever.</strong> A caption is model output, written once and then trusted on every query. If the vision model reads 8 GB as 16 GB, retrieval finds the wrong number with full confidence.</p>
 </blockquote>
-<p><code>02a</code> already keeps each image&rsquo;s file name in its caption&rsquo;s metadata. That is enough to retrieve on the caption and then send the original image to a vision model at answer time, so the caption only has to be good enough to find the figure. Where a PDF has a real text layer, an element-level parser that returns each table as HTML (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11, lesson 11.4</a>) keeps rows and columns that a caption would have to describe in prose.</p>
+<p><code>02a</code> already keeps each image&rsquo;s file name in its caption&rsquo;s metadata. That makes a second design possible, and the two differ in what the answer model reads.</p>
+<p>In <strong>caption-only answering</strong>, <code>02a</code>&rsquo;s design, the caption is both the search key and the evidence. Whatever the captioner wrote is all the answer model ever sees of the figure:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Question"/] --&gt; X[("Index&lt;br/&gt;chunks and captions")]
+    X --&gt; C["Top caption&lt;br/&gt;as text"]
+    C --&gt; M["Text answer model"]
+</pre></figure>
+<p><em>Figure 2: Caption-only answering. The caption is the evidence, so a misread or missing value reaches the answer.</em></p>
+<p>In <strong>caption as a pointer</strong>, the caption only finds the figure. Its metadata names the image file, and the original image goes to a vision model with the question:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/"Question"/] --&gt; X[("Index&lt;br/&gt;chunks and captions")]
+    X --&gt; C["Top caption&lt;br/&gt;with image file"]
+    C --&gt; F[/"Original figure"/]
+    F --&gt; M["Vision answer model"]
+    Q --&gt; M
+</pre></figure>
+<p><em>Figure 3: Caption as a pointer. The caption only has to be findable; the answer model reads the printed figure.</em></p>
+<p>The availability question shows what each choice puts in front of the answer model:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="caption-switcher">
+<p class="widget-intro">Choose a caption design for Figure 1, and see what the answer model receives for the availability question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Caption design for Figure 1">
+<button type="button" data-mode="short" aria-pressed="false" aria-controls="cap-short">Short caption</button>
+<button type="button" data-mode="values" aria-pressed="false" aria-controls="cap-values">Values-first caption</button>
+<button type="button" data-mode="pointer" aria-pressed="false" aria-controls="cap-pointer">Caption as pointer</button>
+</div>
+<section id="cap-short" class="mode-panel" data-announcement="Short caption selected. Found, and cannot answer."><h4>Short caption, answer from caption</h4><dl><dt>Rank</dt><dd>2, so it arrives at k = 2</dd><dt>Model reads</dt><dd>a bar chart of monthly availability against a target line</dd><dt>Result</dt><dd>findable but empty: no month and no value to report</dd></dl></section>
+<section id="cap-values" class="mode-panel" data-announcement="Values-first caption selected. The caption carries the answer."><h4>Values-first caption, answer from caption</h4><dl><dt>Rank</dt><dd>2, the same as the short caption</dd><dt>Model reads</dt><dd>April 99.98%, May 99.91%, June 99.97%, and May below the 99.95% line</dd><dt>Result</dt><dd>answers May, if the captioner read every value correctly</dd></dl></section>
+<section id="cap-pointer" class="mode-panel" data-announcement="Caption as pointer selected. The model reads the original figure."><h4>Any caption, answer from the image</h4><dl><dt>Rank</dt><dd>whatever the caption earns; it only has to arrive</dd><dt>Model reads</dt><dd>the original Figure 1 image, beside the question</dd><dt>Result</dt><dd>a misread caption no longer reaches the answer, at the cost of one vision call per query</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Caption-only answering is cheaper per query; the pointer design is safer when values matter.</p>
+<p>Where a PDF has a real text layer, an element-level parser that returns each table as HTML (<a href="../../../../p04_rag_foundations/m11_document_ingestion/mandatory/theory/index.html">M11, lesson 11.4</a>) keeps rows and columns that a caption would have to describe in prose.</p>
 <h2 id="in-practice-captioning-larkspurrsquos-reports">In practice: captioning Larkspur&rsquo;s reports</h2>
 <ol>
 <li><strong>Caption with a values-first prompt</strong>: every value with label and unit, axes, reference lines, figure number, and an escape.</li>
@@ -671,6 +767,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Test with chart-only questions</strong>, such as the May availability, never with a question the text answers.</li>
 </ol>
 <p>Lesson 20.3 skips extraction altogether and retrieves the page as an image.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The lab&rsquo;s captions are written by hand.</strong> They follow <code>02a</code>&rsquo;s prompt the way a vision model would, and are labelled representative. The scores and ranks are real <code>all-MiniLM-L6-v2</code> outputs on them; a real captioner&rsquo;s wording moves the ranks.</li>
+<li><strong><code>02a</code> uses different models.</strong> It embeds with Cohere and captions with a Gemini vision model; the lab uses a small local embedder. The ranking argument holds across embedders, the exact scores do not.</li>
+<li><strong>The extractor&rsquo;s reach is narrow.</strong> PyMuPDF returned three raster images from the Attention paper. Vector figures were never captioned, so a pipeline built this way silently skips them.</li>
+<li><strong>No answers were scored.</strong> The page measures whether a caption is found and what it holds, not whether a model then answers correctly.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Vaswani et al., <a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Attention Is All You Need</a>, 2017, the PDF <code>02a</code> indexes.</li>
+<li>PyMuPDF, <a href="https://pymupdf.readthedocs.io/en/latest/" target="_blank" rel="noopener">documentation</a>.</li>
+<li>Cohere, <a href="https://docs.cohere.com/docs/cohere-embed" target="_blank" rel="noopener">Embed models</a>.</li>
+<li>Hugging Face, <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener">sentence-transformers/all-MiniLM-L6-v2 model card</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Captioning pays the vision cost once per image at index time. Captions then compete with text chunks on one scale, and hybrid search, reranking and filters all still apply.</li>
@@ -703,6 +813,16 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 20.1 ranked figures on a different scale from text; lesson 20.2 turned figures into text and trusted a vision model&rsquo;s reading forever. Both start by taking the page apart. ColPali keeps the page whole.</p>
 <p>Retrieval so far has used two kinds of model. A single-vector retriever squeezes a chunk into one vector and a question into another, and compares them once. A cross-encoder (M18) reads question and chunk together, which is accurate and too slow to run over a whole index.</p>
+<p>The single-vector design is the one every earlier retrieval lesson used:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    PG[/"Page or chunk"/] --&gt; PE["Encoder"]
+    PE --&gt; PV["One vector&lt;br/&gt;pooled in advance"]
+    Q[/"Question"/] --&gt; QE["Encoder"]
+    QE --&gt; QV["One vector"]
+    PV --&gt; S["One dot product&lt;br/&gt;is the score"]
+    QV --&gt; S
+</pre></figure>
+<p><em>Figure 1: Single-vector retrieval. Everything the page says is pooled into one vector before any question exists.</em></p>
 <p><strong>Late interaction</strong> sits between them. It encodes the document and the question separately, as with single vectors, so documents can be encoded ahead of time. It keeps one vector per token instead of one per text, and compares them only at the end. The comparison is called <strong>MaxSim</strong>:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -795,7 +915,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button">Rank</button><span>Page 1 leads page 2 by 6.21. Its image, chart included, goes to the model.</span></li>
   </ol>
 </figure>
-<p><em>Figure 1: MaxSim on one page. The figures are from a real run.</em></p>
+<p><em>Figure 2: MaxSim on one page. The figures are from a real run.</em></p>
 <p>Notebook <code>03a</code>&rsquo;s model needs a GPU stack, so the Larkspur lab pages were scored with <code>vidore/colSmol-256M</code>, a small model of the same family, through the ColPali engine library. Each 850 by 1100 page image became 1,139 vectors of 128 dimensions, and each question 24 vectors: its own tokens plus 10 end-of-utterance tokens the processor appends, which count in the sum like any other. The library&rsquo;s multi-vector scoring computes Table 1&rsquo;s steps; a hand-written version matched it to within 2e-6.</p>
 <p>Here are a few of the 24 per-token maxima for <em>Which month missed the 99.95% availability target?</em>:</p>
 <div class="sheet scroll"><table>
@@ -854,6 +974,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Per-token maxima and page scores (<code>vidore/colSmol-256M</code>, the module&rsquo;s lab pages).</em></p>
 <p><code>month</code> scores 0.65 and 0.61 on pages 1 and 2, so it barely separates them. <code>availability</code> and <code>target</code> do: each finds a strong match on page 1 and nothing better than 0.28 elsewhere. One vector per page would have pooled those signals before the question was known. We call that loss <strong>early pooling</strong>; late interaction keeps the signals apart until the question arrives.</p>
+<div class="walkthrough learning-widget" data-stepper id="maxsim-walkthrough">
+<p class="widget-intro">Step through how the availability question earns page 1 its score of 15.95.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of MaxSim scoring"><button type="button" data-step="0" aria-pressed="false" aria-controls="maxsim-step-0">1. Encode pages</button><button type="button" data-step="1" aria-pressed="false" aria-controls="maxsim-step-1">2. Encode question</button><button type="button" data-step="2" aria-pressed="false" aria-controls="maxsim-step-2">3. Best patch per token</button><button type="button" data-step="3" aria-pressed="false" aria-controls="maxsim-step-3">4. Sum</button></div>
+<div class="step-panels"><section id="maxsim-step-0" class="step-panel" aria-labelledby="maxsim-heading-0"><h4 id="maxsim-heading-0">1. Encode pages, ahead of time</h4><dl><dt>Input</dt><dd>each 850 by 1100 page image</dd><dt>Stored</dt><dd>1,139 patch vectors of 128 dimensions per page</dd></dl></section><section id="maxsim-step-1" class="step-panel" aria-labelledby="maxsim-heading-1"><h4 id="maxsim-heading-1">2. Encode the question, at query time</h4><dl><dt>Input</dt><dd>Which month missed the 99.95% availability target?</dd><dt>Output</dt><dd>24 vectors: 14 for the question's tokens and 10 appended end-of-utterance tokens</dd></dl></section><section id="maxsim-step-2" class="step-panel" aria-labelledby="maxsim-heading-2"><h4 id="maxsim-heading-2">3. Keep each token's best patch</h4><dl><dt>Compare</dt><dd>every token vector with all 1,139 patch vectors of a page</dd><dt>Keep</dt><dd>the maximum only: availability 0.75 and target 0.65 on page 1, nothing above 0.28 on the other pages</dd></dl></section><section id="maxsim-step-3" class="step-panel" aria-labelledby="maxsim-heading-3"><h4 id="maxsim-heading-3">4. Sum the maxima</h4><dl><dt>Page 1</dt><dd>9.04 from the question tokens plus 6.91 from the appended tokens, 15.95</dd><dt>Ranking</dt><dd>page 1 first, page 2 at 9.74, page 3 at 6.82</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <h2 id="page-level-retrieval">Page-level retrieval</h2>
 <p>In <strong>page-level retrieval</strong> the unit of retrieval is the page, and the answer model receives the page as an image. Nothing is extracted, split or captioned, so a chart, a table&rsquo;s grid and a scanned form arrive as they were printed.</p>
 <p><code>03a</code> does it in four calls with the byaldi library:</p>
@@ -960,6 +1085,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Shortlist first</strong>: a cheap single-vector search picks 20 pages, MaxSim reranks them.</li>
 <li><strong>Fix the token variable</strong> and pin the device before deploying <code>03a</code>&rsquo;s code.</li>
 </ol>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>A smaller model than the notebook&rsquo;s.</strong> The Larkspur scores come from <code>vidore/colSmol-256M</code>, because <code>03a</code>&rsquo;s <code>vidore/colpali-v1.2</code> needs a GPU stack. The mechanism is the same; the exact scores and margins will differ.</li>
+<li><strong>Three pages.</strong> Each lab page holds one topic, so clear margins are expected. A report whose pages share vocabulary will separate less.</li>
+<li><strong>The appended tokens are not neutral.</strong> They supply 6.91 of page 1&rsquo;s 15.95, and they reward whatever page they happen to match. On this corpus they favour the right page; that is an observation, not a guarantee.</li>
+<li><strong>Storage figures are arithmetic.</strong> About 583 KB per page assumes float32 and no compression; the page did not measure a real index.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Khattab and Zaharia, <a href="https://arxiv.org/abs/2004.12832" target="_blank" rel="noopener">ColBERT: passage search by late interaction over BERT</a>, SIGIR 2020.</li>
+<li>Faysse et al., <a href="https://arxiv.org/abs/2407.01449" target="_blank" rel="noopener">ColPali: Efficient Document Retrieval with Vision Language Models</a>, 2024.</li>
+<li>Illuin Technology, <a href="https://github.com/illuin-tech/colpali" target="_blank" rel="noopener">ColPali engine library</a>.</li>
+<li>Answer.AI, <a href="https://github.com/AnswerDotAI/byaldi" target="_blank" rel="noopener">byaldi</a>.</li>
+<li>Hugging Face, <a href="https://huggingface.co/vidore/colSmol-256M" target="_blank" rel="noopener">vidore/colSmol-256M model card</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Late interaction keeps one vector per query token and per page patch, and scores a page as the sum of each token&rsquo;s best match (MaxSim). Pages are still encoded ahead of time, and no signal is pooled early.</li>
@@ -1035,7 +1175,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A caption answers only what it wrote down. Store the image id with it and send the image when the question needs exact values.</li>
 <li>Page images with late interaction keep everything on the page and need no OCR, and they cost many vectors per page and a vision call per answer.</li>
 </ul></article>
-    <nav class="toc" aria-label="M20 sections"><details open><summary>In M20</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#joint-embedding-space">Joint embedding space</a></li><li><a href="#two-input-limits">Two input limits</a></li><li><a href="#one-ranking-two-modalities">One ranking, two modalities</a></li><li><a href="#choosing-around-the-gap">Choosing around the gap</a></li><li><a href="#in-practice-larkspurrsquos-status-reports">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#captioning">Captioning</a></li><li><a href="#a-test-that-never-reaches-a-caption">A test that never reaches a caption</a></li><li><a href="#captions-on-the-larkspur-pages">Captions on the Larkspur pages</a></li><li><a href="#what-a-caption-must-hold">What a caption must hold</a></li><li><a href="#in-practice-captioning-larkspurrsquos-reports">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#late-interaction">Late interaction</a></li><li><a href="#page-level-retrieval">Page-level retrieval</a></li><li><a href="#what-pages-cost">What pages cost</a></li><li><a href="#in-practice-page-retrieval-for-larkspur">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M20 sections"><details open><summary>In M20</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#joint-embedding-space">Joint embedding space</a></li><li><a href="#two-input-limits">Two input limits</a></li><li><a href="#one-ranking-two-modalities">One ranking, two modalities</a></li><li><a href="#choosing-around-the-gap">Choosing around the gap</a></li><li><a href="#in-practice-larkspurrsquos-status-reports">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#captioning">Captioning</a></li><li><a href="#a-test-that-never-reaches-a-caption">A test that never reaches a caption</a></li><li><a href="#captions-on-the-larkspur-pages">Captions on the Larkspur pages</a></li><li><a href="#what-a-caption-must-hold">What a caption must hold</a></li><li><a href="#in-practice-captioning-larkspurrsquos-reports">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#late-interaction">Late interaction</a></li><li><a href="#page-level-retrieval">Page-level retrieval</a></li><li><a href="#what-pages-cost">What pages cost</a></li><li><a href="#in-practice-page-retrieval-for-larkspur">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
