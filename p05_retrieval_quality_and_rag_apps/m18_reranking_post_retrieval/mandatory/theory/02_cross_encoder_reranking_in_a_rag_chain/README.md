@@ -2,6 +2,7 @@
 
 *[M18 theory](../README.md) · Lesson 18.2 · Notebooks: [`02a_cross_encoder_reranking.ipynb`](../../notebook/02a_cross_encoder_reranking.ipynb), [`02b_reranking_cross_encoder_walkthrough.ipynb`](../../../optional/notebook/02b_reranking_cross_encoder_walkthrough.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Read the question and the chunk together, and a near miss stops looking like an answer -->
+<!-- format: approved -->
 
 ## Bi-encoder vs cross-encoder
 
@@ -29,11 +30,11 @@ flowchart TD
 
 *Figure 1: A bi-encoder encodes each text alone; a cross-encoder encodes the pair.*
 
-A **bi-encoder** turns the question and each chunk into vectors separately and compares them with cosine similarity. The chunk vectors are computed once, when the index is built, so answering a question costs one embedding and a nearest-neighbour search however large the index is. `all-MiniLM-L6-v2`, the first stage in lesson 18.1, has about 22M parameters and 384-dimensional vectors.
+A **bi-encoder** turns the question and each chunk into vectors separately and compares them with cosine similarity. The chunk vectors are computed once, when the index is built. Answering a question then costs one embedding and a nearest-neighbour search however large the index is. `all-MiniLM-L6-v2`, the first stage in lesson 18.1, has about 22M parameters and 384-dimensional vectors.
 
 The price is that each chunk is summarised into one vector before any question exists, and that one vector serves every question. We call the result a **near miss**: a chunk that shares the question's words and not its answer.
 
-A **cross-encoder** reads the question and one chunk as a single input, so every question token can attend to every chunk token, and it outputs one relevance score. Nothing can be computed ahead of time, because the input depends on the question: scoring 50 candidates means 50 forward passes. That is why it runs only on the short list.
+A **cross-encoder** reads the question and one chunk as a single input. Every question token can attend to every chunk token, and the model outputs one relevance score. Nothing can be computed ahead of time, because the input depends on the question: scoring 50 candidates means 50 forward passes. That is why it runs only on the short list.
 
 ## The near miss, traced
 
@@ -44,12 +45,12 @@ A **cross-encoder** reads the question and one chunk as a single input, so every
 | `retention` | 0.817 (1) | 0.993 (1) | ✓ |
 | `cancel-access` | 0.628 (2) | 0.907 (2) | ✓ |
 | `cancel` | 0.561 (3) | 0.001 (5) | |
-| `refund-monthly` | 0.502 (4) | below 0.001 (7 or lower) | |
+| `refund-monthly` | 0.502 (4) | 0.0001 (7) | |
 | `export` | 0.479 (5) | 0.064 (3) | ✓ |
 
 *Table 1: The export question's top five, before and after `BAAI/bge-reranker-v2-m3` over 10 candidates (the module's rerank precision lab).*
 
-The bi-encoder puts `cancel` 3rd on shared vocabulary. The cross-encoder gives it 0.001 and lifts `export`, which says how to download the data, into 3rd place. Precision@5 is 0.60 either way here, because `export` was already 5th; the change is that the top 3 is now all evidence.
+The bi-encoder puts `cancel` 3rd on shared vocabulary. The cross-encoder gives it 0.001 and lifts `export`, which says how to download the data, into 3rd place. Precision@5 is 0.60 either way here: `export` was already 5th. The change is that the top 3 is now all evidence.
 
 The two models compare like this:
 
@@ -66,10 +67,45 @@ The two models compare like this:
 
 ## Wiring it into a chain
 
-The two notebooks put the cross-encoder into a chain in different ways:
+The two notebooks put the cross-encoder into a chain in different ways.
 
-- **`02a` uses LangChain's wrapper.** A Hugging Face cross-encoder loads `BAAI/bge-reranker-base`, a cross-encoder reranker scores the candidates and keeps the top 3, and a contextual compression retriever runs it after the base retriever. In LangChain a reranker is a **document compressor**: it takes the retrieved documents and the question and returns fewer documents. Lesson 18.4 plugs an extractor into the same slot.
-- **`02b` writes the step by hand.** It builds question-and-chunk pairs, scores the whole list in one call, sorts by score and inserts the result into the chain as a plain function.
+**`02a` uses LangChain's wrapper.** A Hugging Face cross-encoder loads `BAAI/bge-reranker-base`, a cross-encoder reranker scores the candidates and keeps the top 3, and a contextual compression retriever runs it after the base retriever. In LangChain a reranker is a **document compressor**: it takes the retrieved documents and the question and returns fewer documents. Lesson 18.4 plugs an extractor into the same slot.
+
+```mermaid
+flowchart LR
+    Q[/"Question"/] --> R["Base retriever<br/>default k = 4"]
+    R --> C["Cross-encoder reranker<br/>bge-reranker-base<br/>keeps top 3"]
+    C --> D["Compression retriever<br/>returns 3 documents"]
+```
+
+*Figure 2: Notebook `02a`. The reranker is a document compressor inside one retriever: every caller gets the cut list.*
+
+**`02b` writes the step by hand.** It builds question-and-chunk pairs, scores the whole list in one call, sorts by score and inserts the result into the chain as a plain function that rewrites the context before the prompt.
+
+```mermaid
+flowchart LR
+    Q[/"Question"/] --> R["Retriever<br/>k = 10"]
+    R --> S["Sources returned<br/>to the caller<br/>retriever order"]
+    R --> F["Rerank function<br/>loads MiniLM-L6<br/>sorts all 10"]
+    F --> P["Prompt and model<br/>read all 10, reranked"]
+```
+
+*Figure 3: Notebook `02b`. The rerank happens inside the answer branch. The sources the chain returns are the retriever's list, not what the model read.*
+
+The same question through each wiring changes what the model reads and what the caller can audit:
+
+<div class="learning-widget evidence-switcher" data-comparison id="wiring-switcher">
+<p class="widget-intro">Choose a wiring and compare what each part of the chain sees.</p>
+<div class="mode-controls" hidden role="group" aria-label="Reranker wiring">
+<button type="button" data-mode="wrapper" aria-pressed="false" aria-controls="wire-wrapper">02a: compressor wrapper</button>
+<button type="button" data-mode="function" aria-pressed="false" aria-controls="wire-function">02b: hand-written function</button>
+</div>
+<section id="wire-wrapper" class="mode-panel" data-announcement="Compressor wrapper selected. The model reads 3 of 4."><h4>02a: compressor wrapper</h4><dl><dt>Candidates scored</dt><dd>4, LangChain's default</dd><dt>Model reads</dt><dd>the top 3, reranked</dd><dt>Caller sees</dt><dd>the same 3 documents</dd><dt>Model loads</dt><dd>once, when the reranker is built</dd></dl></section>
+<section id="wire-function" class="mode-panel" data-announcement="Hand-written function selected. The model reads all 10."><h4>02b: hand-written function</h4><dl><dt>Candidates scored</dt><dd>10, in one batch</dd><dt>Model reads</dt><dd>all 10, reranked, no cut</dd><dt>Caller sees</dt><dd>the retriever's 10 in their original order</dd><dt>Model loads</dt><dd>on every question, inside the function</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Neither is wrong as a teaching step. Each needs one change before production, and the table below names it.
 
 Three details in that code matter in production:
 
@@ -79,7 +115,7 @@ Three details in that code matter in production:
 | **Per-question load** | `02b` creates the cross-encoder inside its rerank function | The model loads again on every question | Load it once at start-up |
 | **Reorder without a cut** | `02b`'s chain version returns all 10 reranked chunks | The step reorders but never narrows | Slice to the top few, as `02b`'s earlier cell does with the first two |
 
-*Table 3: Three wiring mistakes in the notebooks, and their fixes.*
+*Table 3: Three wiring mistakes in the notebooks, and their fixes. A fourth sits in Figure 3: log the reranked list as the sources, not the retriever's.*
 
 ## Scores rank; they do not measure
 
@@ -94,9 +130,22 @@ Cross-encoder scores rank the candidates for one question. Nothing guarantees th
 1. **Rerank 20 candidates** from the hybrid first stage (M16), as lesson 18.1's depth curve suggested.
 2. **Load the model once**, score all pairs in one batch, and keep the top 5.
 3. **Rank, then cut by count**, not by a score threshold, until the golden set shows a threshold that holds.
-4. **Log both ranks** for every cited chunk, so the near misses the reranker demotes are visible.
+4. **Log both ranks** for every cited chunk. The near misses the reranker demotes then show up in the logs.
 
 Lesson 18.3 asks whether an LLM can do the same job better, and what it costs to ask.
+
+## Limits
+
+- **One question traced.** Table 1 is the export question from the lab's stored scores. The near-miss pattern is general; the exact scores belong to this handbook and these two models.
+- **Notebook corpora differ.** `02a` and `02b` rerank their own sample documents, not the Larkspur handbook, and print no scores in the shipped notebooks.
+- **Calibration is not tested here.** The page shows two scales disagreeing. It does not measure how a threshold behaves across questions for either model.
+
+## References
+
+1. Reimers and Gurevych, [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084), 2019.
+2. Nogueira and Cho, [Passage Re-ranking with BERT](https://arxiv.org/abs/1901.04085), 2019.
+3. Sentence Transformers, [Cross-Encoders](https://www.sbert.net/examples/cross_encoder/applications/README.html).
+4. BAAI, [bge-reranker-base model card](https://huggingface.co/BAAI/bge-reranker-base).
 
 ## Key Takeaways
 
