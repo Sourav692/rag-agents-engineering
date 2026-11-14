@@ -2,6 +2,7 @@
 
 *[M25 theory](../README.md) · Lesson 25.2 · Notebooks: [`02a_planning_agent_deep_research.ipynb`](../../notebook/02a_planning_agent_deep_research.ipynb), [`02b_reflective_dynamic_planning_agent.ipynb`](../../../optional/notebook/02b_reflective_dynamic_planning_agent.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A small project: the planner from lesson 25.1 hands each step to a whole workflow or agent, with every cost capped in code -->
+<!-- format: approved -->
 
 ## The project: two research planners
 
@@ -11,6 +12,8 @@
 > - **A nested section builder** (queries, web search, writing) that runs once per planned section, in parallel.
 > - **A reflective planner** that hands each step to a ReAct research agent and replans after every step.
 > - **Caps in code** on sections, searches, page text and steps, each proved without trusting the prompt.
+
+The first version of the report notebook had no cap on sections. One report ran tens of web searches and read well over 100k tokens, and nothing in the graph said so until the bill arrived. The planner had decided how much work existed, and every step it planned was now a workflow of its own.
 
 Lesson 25.1 planned single searches. This project makes each planned step bigger: a report section that a nested workflow researches and writes, or a sub-question that a whole ReAct agent answers before a replanner decides what is left.
 
@@ -44,6 +47,8 @@ flowchart LR
 
 *Figure 2: The reflective planner. The replanner sees every step done so far and returns either a shorter plan or the final response.*
 
+The five-step limit lives in the planner's prompt. The step cap that ends the run lives in code, in the replan node.
+
 | Piece | What it does | Built on |
 |---|---|---|
 | **Report planner** | Writes planning queries, searches, then returns sections with a name, a description and a research flag | Plan-and-execute, lesson 25.1 |
@@ -53,6 +58,23 @@ flowchart LR
 | **Replanner** | Returns either a plan of the steps still needed or the final answer | Replanning, lesson 25.1 |
 
 *Table 1: The pieces of both builds and the lessons they reuse.*
+
+### Two ways to nest a step
+
+Both builds hand a planned step to something larger than one search. Choose a nesting to see what changes for the same planned step:
+
+<div class="learning-widget evidence-switcher" data-comparison id="nesting-switcher">
+<p class="widget-intro">Compare what happens to one planned step in each build.</p>
+<div class="mode-controls" hidden role="group" aria-label="What a planned step becomes">
+<button type="button" data-mode="workflow" aria-pressed="false" aria-controls="nest-workflow">Nested workflow (report planner)</button>
+<button type="button" data-mode="agent" aria-pressed="false" aria-controls="nest-agent">Nested agent (reflective planner)</button>
+</div>
+<section id="nest-workflow" class="mode-panel" data-announcement="Nested workflow selected. The step's cost is fixed by the knobs."><h4>Nested workflow: a section builder</h4><ul><li>The step is a report section with a research flag, decided once by the planner.</li><li>Its cost is fixed by code: 2 queries, 3 results each, 800 tokens kept per source, 2 LLM calls.</li><li>Sections run in parallel, and no one reviews the plan after a section is written.</li></ul></section>
+<section id="nest-agent" class="mode-panel" data-announcement="Nested agent selected. The agent decides its own searches."><h4>Nested agent: a ReAct research run</h4><ul><li>The step is a sub-question, and the agent decides how many searches it needs, possibly none.</li><li>Its context is bounded instead: 4,000 tokens of page text per tool call, history trimmed to 50,000 tokens.</li><li>Steps run one at a time, and the replanner reviews the whole plan after each one.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The workflow gives a predictable bill and no second look. The agent can stop early or add a step it did not foresee, and pays for that with a run whose length is known only once it ends.
 
 ## Following one research run
 
@@ -71,11 +93,11 @@ The report notebook researches *How to build agentic AI systems: design patterns
 
 The introduction and conclusion run last, written from the finished sections. They summarise what the research found rather than what the planner guessed.
 
-The reflective planner is less predictable by design. On its notebook question (who founded Microsoft, the founder's hometown and the history of both), the replanner usually stops before the last planned step, often "compile the answer", because the results already cover it.
+The reflective planner is less predictable by design. On its notebook question (who founded Microsoft, the founder's hometown and the history of both), the replanner usually stops before the last planned step, often "compile the answer", because the results already cover it. Its search count can be lower than its step count, because the research agent calls a tool only when earlier results do not already answer the step.
 
 ## Design choices worth copying
 
-The report planner's cost is multiplicative: sections × queries per section × results per query × tokens per result. The notebook's first version had no section cap and ran tens of searches and well over 100k tokens. The arithmetic for one researched section's source text:
+The report planner's cost is multiplicative: sections × queries per section × results per query × tokens per result. The arithmetic for one researched section's source text:
 
 | Setting | Queries | Results each | Raw tokens kept per source | Upper bound per section |
 |---|---|---|---|---|
@@ -94,15 +116,29 @@ The report planner's cost is multiplicative: sections × queries per section × 
 
 *Table 4: Five choices and what each protects against.*
 
-The last row guards against a replanner that always finds one more thing to look up. The notebook proves it without a live model: a stub executor returns canned text, a stub replanner always asks for one more step, and the run still stops after exactly 6 steps.
+The last row guards against a replanner that always finds one more thing to look up. The notebook proves it without a live model:
+
+<div class="walkthrough learning-widget" data-stepper id="cap-walkthrough">
+<p class="widget-intro">Step through the stub run that proves the step cap, with no model calls.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the step-cap proof"><button type="button" data-step="0" aria-pressed="false" aria-controls="cap-step-0">1. Swap parts</button><button type="button" data-step="1" aria-pressed="false" aria-controls="cap-step-1">2. Loop</button><button type="button" data-step="2" aria-pressed="false" aria-controls="cap-step-2">3. Cap</button><button type="button" data-step="3" aria-pressed="false" aria-controls="cap-step-3">4. Assert</button></div>
+<div class="step-panels"><section id="cap-step-0" class="step-panel" aria-labelledby="cap-heading-0"><h4 id="cap-heading-0">1. Swap in stubs</h4><dl><dt>Executor</dt><dd>returns the canned text "(canned research result)"</dd><dt>Replanner</dt><dd>always returns a plan of one step, "look up one more thing"</dd></dl></section><section id="cap-step-1" class="step-panel" aria-labelledby="cap-heading-1"><h4 id="cap-heading-1">2. The loop never ends on its own</h4><dl><dt>Each round</dt><dd>one executed step is appended to <code>past_steps</code>, and the replanner asks for another</dd></dl></section><section id="cap-step-2" class="step-panel" aria-labelledby="cap-heading-2"><h4 id="cap-heading-2">3. The replan node overrules it</h4><dl><dt>Check</dt><dd>6 executed steps reach <code>MAX_STEPS</code>, so the node returns the findings so far as the response without calling the replanner</dd></dl></section><section id="cap-step-3" class="step-panel" aria-labelledby="cap-heading-3"><h4 id="cap-heading-3">4. The assertion holds</h4><dl><dt>Result</dt><dd>exactly 6 past steps, and a response that says the run stopped without a final answer</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+The proof works because the graph is built from swappable parts: the same builder takes the real agent and replanner or the stubs.
 
 ## Limits
 
 - **Live data.** Reports and answers change with the web, which leaves no expected text to compare. Test the call order, the search count and the cap instead.
 - **No result check.** Neither build evaluates a search result the way lesson 25.1's evaluator does. A wrong page reaches the section writer or the replanner as evidence, and lesson 25.4's verification is the missing step.
-- **Silent search failures.** A failed search is dropped from its batch, and a section can end up written from fewer sources than planned.
+- **Silent search failures.** A failed search is dropped from its batch with a printed warning, and a section can end up written from fewer sources than planned.
 
 Both notebooks need an OpenAI key and a Tavily key, and every run issues real searches against your Tavily quota.
+
+## References
+
+1. LangChain, [Plan-and-Execute Agents](https://www.langchain.com/blog/planning-agents).
+2. Wang et al., [Plan-and-Solve Prompting](https://arxiv.org/abs/2305.04091), 2023.
+3. LangChain, [LangGraph Graph API: Send](https://docs.langchain.com/oss/python/langgraph/graph-api).
+4. Tavily, [Tavily documentation](https://docs.tavily.com/).
 
 ## Key Takeaways
 
