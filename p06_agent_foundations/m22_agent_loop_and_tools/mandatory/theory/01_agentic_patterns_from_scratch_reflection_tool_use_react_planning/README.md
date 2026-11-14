@@ -2,6 +2,7 @@
 
 *[M22 theory](../README.md) · Lesson 22.1 · Notebooks: [`01b_tool_use_pattern.ipynb`](../../notebook/01b_tool_use_pattern.ipynb), [`01c_planning_pattern_react.ipynb`](../../notebook/01c_planning_pattern_react.ipynb), [`01a_reflection_pattern.ipynb`](../../../optional/notebook/01a_reflection_pattern.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Three loops, three stopping rules, and who actually runs the tool -->
+<!-- format: approved -->
 
 ## Why the model cannot run the tool
 
@@ -12,7 +13,7 @@
 > - **Compare** one-round tool use, ReAct and reflection by what repeats and what ends the loop.
 > - **Diagnose** the planted failures: bad JSON, an unknown tool, a missing argument, a runaway loop, a lenient critic.
 
-An **agent** is a model inside a loop that can act on the world. This lesson builds the loop's three classic shapes by hand, with no framework in between.
+An **agent** is a model inside a loop that can act on the world. This lesson builds the loop's three classic shapes by hand.
 
 A Larkspur customer asks support *How long does a refund take?* The model does not know Larkspur's policy; the answer sits in the support handbook. So the model replies with a request, *search the handbook for "refund timeline"*, and then nothing happens. The model only writes text.
 
@@ -42,13 +43,13 @@ An **agentic pattern** is a fixed shape for repeating model calls until a task i
 
 | Pattern | What repeats | Stops when | Model calls in our runs |
 |---|---|---|---|
-| **Reflection** | Draft, critique, redraft | The critic approves, or after a set number of rounds | 2 to 7 with a three-round limit |
+| **Reflection** | Draft, critique, redraft | The critic approves, or after a set number of rounds | 2 to 6 with a three-round limit |
 | **Tool use** | Nothing: one round of calls, then the answer | The model answers from the observation | 2 |
 | **ReAct** | Thought, tool call, observation | The model writes its final response, or after a round cap (10 by default) | 4 for the arithmetic task |
 
 *Table 1: The three patterns compared by loop body and stopping rule.*
 
-The counts come from a re-implementation where a scripted policy stands in for the model. The parsing, checking and looping are real; the model's choices are not.
+The counts come from a re-implementation of the notebooks' loops with a scripted model.
 
 > **Key distinction:** every pattern has two kinds of exit. One belongs to the model (an approval, an answer, a final-response tag). The other belongs to you (a round limit). A loop with only the model's exit is not finished.
 
@@ -58,7 +59,7 @@ Here tools are described in the system prompt and the model writes its calls as 
 
 ### The contract the model reads
 
-A **tool** is a function plus a description the model can read: its name, its docstring, and each argument with its type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format. A vague docstring makes a vague tool, because the model never sees the function body.
+A **tool** is a function plus a description the model can read: its name, its docstring, and each argument with its type. That description goes into the system prompt with one instruction: when you need a tool, reply with a call in a fixed tagged format. The model never sees the function body, and a vague docstring makes a vague tool.
 
 ### The request is only a string
 
@@ -104,6 +105,8 @@ flowchart TD
 
 The last step converts each argument to its declared type, so "5" becomes the number 5 when the tool wants a number. For Madrid the observation is 25 celsius, and a second model call turns it into a sentence.
 
+The notebooks' agents make only that last check: a missing tag, bad JSON, an unknown name or a missing argument raises an exception and ends the run. The gatekeeper above is the hardened version.
+
 ### Planted failures
 
 We planted five broken calls, each a mistake models really make, and one run with type conversion switched off:
@@ -119,13 +122,13 @@ We planted five broken calls, each a mistake models really make, and one run wit
 
 *Table 2: Five planted calls and one unguarded run.*
 
-The first four never reach a tool; each comes back as an error the model can correct. The last row is the dangerous one: Python repeats the text five times and returns a wrong answer with no error. We call that a **stringly-typed answer**: the failure no exception reports.
+The first four never reach a tool. The last row is the dangerous one: Python repeats the text five times and returns a wrong answer with no error. We call that a **stringly-typed answer**: the failure no exception reports.
 
 ### Where one round breaks
 
 Now a harder task: *sum 1234 and 5678, multiply the result by 5, then take the natural log.*
 
-Each call needs the result of the one before it, but in one round the model must write every argument before any tool has run. It can fill in the sum; the multiplication needs 6,912 and the log needs 34,560, and neither exists yet.
+In one round the model must write every argument before any tool has run. It can fill in the sum, but the multiplication needs 6,912 and the log needs 34,560, and neither exists yet.
 
 We call this **one-shot blindness**: a single round can run independent calls side by side, but it cannot chain dependent ones.
 
@@ -140,7 +143,7 @@ We call this **one-shot blindness**: a single round can run independent calls si
 
 ### The loop and its two exits
 
-On each round the model gets the whole history. A final response ends the loop. Otherwise your code runs every call through the same gatekeeper and appends one observation per call, so by round two 6,912 is in the model's context.
+On each round the model gets the whole history. A final response ends the loop. Otherwise your code runs every call through the same gatekeeper and appends one observation per call. By round two, 6,912 is in the model's context.
 
 ```mermaid
 stateDiagram-v2
@@ -174,14 +177,11 @@ sequenceDiagram
 
 *Figure 5: ReAct on a three-step dependent task. Each tool argument comes from the previous observation.*
 
-| Round | The model wrote | Observation sent back |
-|---|---|---|
-| 1 | Sum 1234 and 5678 | 6912 |
-| 2 | Multiply 6912 by 5 | 34560 |
-| 3 | Natural log of 34560 | 10.450452222917992 |
-| 4 | Final response: about 10.45 | none, the loop returns |
-
-*Table 3: The scripted ReAct run, four model calls.*
+<div class="walkthrough learning-widget" data-stepper id="react-rounds">
+<p class="widget-intro">Step through the scripted ReAct run. Each round is one model call.</p>
+<div class="step-controls" hidden role="group" aria-label="Rounds of the ReAct run"><button type="button" data-step="1" aria-pressed="false" aria-controls="react-round-1">Round 1</button><button type="button" data-step="2" aria-pressed="false" aria-controls="react-round-2">Round 2</button><button type="button" data-step="3" aria-pressed="false" aria-controls="react-round-3">Round 3</button><button type="button" data-step="4" aria-pressed="false" aria-controls="react-round-4">Round 4</button></div>
+<div class="step-panels"><section id="react-round-1" class="step-panel"><h4>Round 1: sum</h4><dl><dt>Model writes</dt><dd>a thought and a call to sum 1234 and 5678</dd><dt>Observation</dt><dd>6912, appended to the history</dd></dl></section><section id="react-round-2" class="step-panel"><h4>Round 2: multiply</h4><dl><dt>Model reads</dt><dd>the whole history, including 6912</dd><dt>Model writes</dt><dd>a call to multiply 6912 by 5</dd><dt>Observation</dt><dd>34560</dd></dl></section><section id="react-round-3" class="step-panel"><h4>Round 3: log</h4><dl><dt>Model writes</dt><dd>a call to take the natural log of 34560</dd><dt>Observation</dt><dd>10.450452222917992</dd></dl></section><section id="react-round-4" class="step-panel"><h4>Round 4: final response</h4><dl><dt>Model writes</dt><dd>a final response: about 10.45</dd><dt>Your code</dt><dd>finds the response tag and returns; four model calls in all</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next round</button></div></div>
 
 Every argument after round one came from an observation.
 
@@ -191,20 +191,18 @@ A model that never writes a final response never stops on its own. We planted a 
 
 | Run | Model calls | How it ended |
 |---|---|---|
-| Arithmetic task, cap of 2 | 2 | Stopped by the cap, no answer |
-| Stubborn search, cap of 5 | 5 | Stopped by the cap, no answer |
+| Arithmetic task, cap of 2 | 2 in the loop, 1 after it | Cap hit before the log step |
+| Stubborn search, cap of 5 | 5 in the loop, 1 after it | Cap hit, no final response |
 
-*Table 4: Two capped runs.*
+*Table 3: Two capped runs. The notebook's agent makes one more model call after the cap.*
 
-Without the cap, the stubborn run never ends. We call that a **runaway loop**, and it bills for every round. Reaching the cap means the run stopped, not that the task was done, so the loop needs a fallback reply that says so. The first row shows the opposite risk: a cap below the task's depth stops the agent before it can finish.
+Without the cap, the stubborn run never ends. We call that a **runaway loop**, and it bills for every round. Reaching the cap means the run stopped, not that the task was done. The notebook's agent then asks the model once more and returns whatever it writes, even a half-finished tool call; a fixed fallback reply is safer. The first row shows the opposite risk: a cap below the task's depth stops the agent before it can finish.
 
 ### What the loop costs
 
-Each ReAct round resends the whole history, so round *k* pays again for everything in rounds 1 to *k* minus 1. Four rounds cost more than twice the input tokens of one round of tool use, and the gap widens every round. We call that **context creep**.
+Each ReAct round resends the whole history: round *k* pays again for rounds 1 to *k* minus 1. The gap over one round of tool use widens every round. We call that **context creep**.
 
-> **Interview tip:** asked why not always use ReAct, answer with latency and cost. Each round is a full model call that waits for the last one, and the prompt grows every time. Use the smallest loop that solves the task.
-
-ReAct fixes reach and chaining. A weak answer from good tools needs a different loop.
+A weak answer from good tools needs a different loop.
 
 ## Pattern 3: reflection
 
@@ -227,15 +225,15 @@ It uses no tools but has the same two exits: the critic's approval and your roun
 |---|---|---|---|
 | Approves everything | 1 | 2 | Critic approved |
 | Finds two real bugs, then approves | 3 | 6 | Critic approved |
-| Never approves | 3 | 7 | Round limit reached |
+| Never approves | 3 | 6 | Round limit reached |
 
-*Table 5: Reflection with three planted critics.*
+*Table 4: Reflection with three planted critics.*
 
-The lenient critic ends the loop after one review, so reflection costs two calls and improves nothing. The never-satisfied critic is the reflection version of a runaway loop, and the limit stops it at 1 + 2 × 3 = 7 calls.
+The lenient critic ends the loop after one review: two calls, no improvement. The never-satisfied critic is the reflection version of a runaway loop, and the limit stops it at 2 × 3 = 6 calls. The agent then returns the last draft, which no critique has seen.
 
 > **Pitfall: the lenient critic.** If the reviewer prompt is soft, reflection quietly becomes a single generation that costs double. Tell the critic exactly what good means.
 
-One guard worth copying: each side keeps only its system prompt plus the latest exchange, so earlier drafts are not resent. M25 covers reflection in full.
+One guard worth copying: each side keeps only its system prompt plus the latest exchange, and earlier drafts are not resent. M25 covers reflection in full.
 
 ## Choosing a pattern
 
@@ -258,10 +256,10 @@ flowchart TD
 |---|---|---|---|
 | Reaches outside data | ✗ | ✓ | ✓ |
 | Chains dependent calls | ✗ | ✗ | ✓ |
-| Model calls | 1 + 2 × rounds | 2 | rounds + 1 |
+| Model calls | 2 × rounds | 2 | tool rounds + 1 |
 | Main risk | Lenient critic | One-shot blindness | Runaway loop, context creep |
 
-*Table 6: Trade-offs at a glance.*
+*Table 5: Trade-offs at a glance.*
 
 The patterns combine. A production support agent often runs ReAct to gather evidence, then a reflection pass to check the draft answer against that evidence.
 
@@ -273,21 +271,19 @@ Back to the customer. The loop is the one traced above; only the tool changes:
 2. The gatekeeper checks the call, runs the search and returns the top handbook chunks as an observation.
 3. The model writes its final response, quoting the chunks it was given.
 
-That is retrieval as a tool: your code touched the handbook, and the observation carried the evidence back. The round cap stops a search that never satisfies the model.
-
-> **Key distinction:** native tool calling (lesson 22.4) moves the tool description into the API request and returns structured calls with ids, so most of the gatekeeper's parsing failures disappear. The loop in Figure 4 stays the same, and so does your responsibility for the round cap.
+That is retrieval as a tool: your code touched the handbook, and the observation carried the evidence back. Native tool calling (lesson 22.4) moves the tool description into the API request and returns structured calls with ids. Most parsing failures disappear; the loop in Figure 4 and your round cap stay.
 
 ## Limits of this evidence
 
-- **No live model.** Every model reply in Tables 2 to 5 is scripted. The planted failures cover the common shapes, not how often they happen.
-- **Text protocol only.** Native tool calling changes the parsing, not the loop.
+- **No live model.** Every model reply in Tables 2 to 4 is scripted; the parsing, checking and looping are real. The planted failures cover the common shapes, not how often they happen.
+- **Left out on purpose:** retries with backoff (add them for a real API), history trimming (once tasks need many rounds), parallel tool execution and per-round tracing (before the first production user).
 
-Left out on purpose, and when to add it:
+## References
 
-- **Retries with backoff**: when you call a real API, which returns rate limits and timeouts.
-- **History trimming or summaries**: once a task regularly needs more than a handful of rounds.
-- **Parallel tool execution**: when one round requests several slow, independent calls.
-- **Tracing every round**: before the first production user; a runaway loop is invisible without it.
+1. Yao et al., [ReAct: reasoning and acting together in language models](https://arxiv.org/abs/2210.03629) (arXiv 2210.03629).
+2. Madaan et al., [Self-Refine: iterative refinement with self-feedback](https://arxiv.org/abs/2303.17651) (arXiv 2303.17651).
+3. The Neural Maze, [agentic patterns from scratch](https://github.com/neural-maze/agentic-patterns-course), the MIT-licensed code the notebooks adapt.
+4. OpenAI, [function calling guide](https://platform.openai.com/docs/guides/function-calling).
 
 ## Key Takeaways
 

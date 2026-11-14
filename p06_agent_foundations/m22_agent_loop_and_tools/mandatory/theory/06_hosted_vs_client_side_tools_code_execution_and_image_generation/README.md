@@ -2,6 +2,7 @@
 
 *[M22 theory](../README.md) · Lesson 22.6 · Notebooks: [`06a_hosted_vs_client_side_tools.ipynb`](../../notebook/06a_hosted_vs_client_side_tools.ipynb), [`06b_hosted_code_execution.ipynb`](../../../optional/notebook/06b_hosted_code_execution.ipynb) (optional), [`06c_agentic_image_generation.ipynb`](../../../optional/notebook/06c_agentic_image_generation.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Where the tool runs decides what you can see, refuse, test and pay for -->
+<!-- format: approved -->
 
 ## Hosted vs client-side tools
 
@@ -66,12 +67,13 @@ One run proves little about latency, but it does show that one round trip is not
 
 The gap between "the model asked" and "the model sees the result" is where policy lives. We call it the **policy gap**. In the recorded example, a guarded version of the client-side lookup refuses any city outside an allow-list:
 
-| Question | Guarded client-side lookup | Hosted search |
-|---|---|---|
-| Population of Lisbon | Runs; the model answers | Runs; the model answers |
-| Population of Pyongyang | Refused with an error; the model says it cannot retrieve that population | Would run; nothing of yours sits between the call and the result |
-
-*Table 3: An allow-list in the policy gap.*
+<div class="learning-widget evidence-switcher" data-comparison id="policy-gap">
+<p class="widget-intro">Choose a path to see what happens to the same two questions when an allow-list is needed.</p>
+<div class="mode-controls" hidden role="group" aria-label="Where the population lookup runs"><button type="button" data-mode="client" aria-pressed="false" aria-controls="gap-client">Guarded client-side lookup</button><button type="button" data-mode="hosted" aria-pressed="false" aria-controls="gap-hosted">Hosted search</button></div>
+<section id="gap-client" class="mode-panel" data-announcement="Client-side selected. The allow-list refuses Pyongyang."><h4>Guarded client-side lookup</h4><dl><dt>Population of Lisbon</dt><dd>runs; the model answers</dd><dt>Population of Pyongyang</dt><dd>refused with an error by your code; the model says it cannot retrieve that population</dd><dt>Where the check sits</dt><dd>between the call and the result, in your process</dd></dl></section>
+<section id="gap-hosted" class="mode-panel" data-announcement="Hosted selected. Both questions would run."><h4>Hosted search</h4><dl><dt>Population of Lisbon</dt><dd>runs; the model answers</dd><dt>Population of Pyongyang</dt><dd>would run; nothing of yours sits between the call and the result</dd><dt>Where the check sits</dt><dd>nowhere you control</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Allow-lists, tenant scoping, redaction of personal data and spend caps all sit in that gap. Choosing a hosted tool means choosing not to have it.
 
@@ -87,9 +89,9 @@ Hosted tools expose different amounts of their execution:
 | Code interpreter | The code it ran, its output and any files, so you can audit the method |
 | Image generation | The revised prompt the model wrote for itself, and the image |
 
-*Table 4: Visibility by hosted tool.*
+*Table 3: Visibility by hosted tool.*
 
-Code interpreter is also configurable: the recorded example sets a memory ceiling and turns network access off, so the sandbox works only on data you supplied. What you still cannot do is approve the code before it runs, veto one call, or replace it with a stub in a test.
+Code interpreter is also configurable: notebook 06b sets a 1 GB memory ceiling and turns network access off, and the sandbox then works only on data you supplied. What you still cannot do is approve the code before it runs, veto one call, or replace it with a stub in a test.
 
 Image generation adds a different caution. The agent describes what it *meant* to draw, and only showing the image to a vision model reveals what it actually drew. We call that **narrated output**: a description of the result that nobody checked against the result. The model also has to leave the tool alone when a turn asks for advice rather than an image, and the recorded example checks that it does.
 
@@ -121,7 +123,16 @@ In OpenAI's API, hosted tools are offered through the Responses API, while Chat 
 ## Limits of this evidence
 
 - **One run per path.** The latencies in Table 1 come from a single recorded run each; measure on your own traffic before deciding anything on speed.
-- **One provider.** The visibility in Table 4 is what OpenAI's hosted tools returned in the recorded examples; other providers expose more or less.
+- **One provider.** The visibility in Table 3 is what OpenAI's hosted tools returned in the recorded examples; other providers expose more or less.
+- **Not re-run.** The notebooks ship without outputs, and the timings and the provider's query in Table 1 come from an earlier recorded run that we did not repeat.
+
+## References
+
+1. OpenAI, [function calling guide](https://platform.openai.com/docs/guides/function-calling).
+2. OpenAI, [web search tool](https://platform.openai.com/docs/guides/tools-web-search).
+3. OpenAI, [code interpreter tool](https://platform.openai.com/docs/guides/tools-code-interpreter).
+4. OpenAI, [image generation tool](https://platform.openai.com/docs/guides/tools-image-generation).
+5. Model Context Protocol, [introduction](https://modelcontextprotocol.io/introduction).
 
 ## Key Takeaways
 

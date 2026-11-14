@@ -2,6 +2,7 @@
 
 *[M22 theory](../README.md) · Lesson 22.5 · Notebooks: [`05a_tool_loop_errors_and_evaluation.ipynb`](../../notebook/05a_tool_loop_errors_and_evaluation.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Where a failed tool call goes, who gets to read it, and how to score a run that finished but was wrong -->
+<!-- format: approved -->
 
 ## Where tool errors go
 
@@ -14,7 +15,7 @@
 
 Lesson 22.4 closed the loop from the tool node back to the model. This lesson asks what travels along that edge when a call fails.
 
-A Larkspur customer asks the support agent *Is my server web-9 up?* The customer has no server called web-9, so the status tool raises an error. With LangGraph's default settings, that error escapes the graph and the customer gets no answer at all.
+A Larkspur customer asks the support agent *Is my server web-9 up?* The customer has no server called web-9, and the status tool raises an error. With LangGraph's default settings, that error escapes the graph and the customer gets no answer at all.
 
 ### The loop and its trace
 
@@ -30,11 +31,11 @@ flowchart LR
 
 *Figure 1: The agent loop. Every tool result goes back to the model before the run can end.*
 
-The message list is the run's trace. For the Larkspur export question it holds four messages: the question, one model reply requesting the handbook search, its tool message, and the final answer. The status-and-reboot question holds five, because one reply requests two tools. Message count helps diagnose extra work, but it does not say whether the answer is correct.
+The message list is the run's trace: four messages for a one-tool question, five when one reply requests two tools (lesson 22.4). Message count shows extra work, not whether the answer is correct.
 
 ### Two places a call can fail
 
-To isolate the tool node, we fed it a hand-written model reply with one call, so every result is deterministic. The tool checks a customer's servers, web-1 and db-1, and raises an error naming the real servers when asked about any other:
+To isolate the tool node, we fed it a hand-written model reply with one call, which keeps every result deterministic. The tool checks a customer's servers, web-1 and db-1, and raises an error naming the real servers when asked about any other:
 
 | Call | What came back |
 |---|---|
@@ -74,7 +75,7 @@ The tool node's `handle_tool_errors` setting decides what happens at each failur
 
 *Table 2: Two failures under three settings.*
 
-Of the three, only `True` turns both failures into messages the model can read. The default catches the model's mistakes but not the tool's, which is why the web-9 question crashes under it. This behaviour depends on the installed version, so check it again after an upgrade.
+Of the three, only `True` turns both failures into messages the model can read. The default catches the model's mistakes but not the tool's, which is why the web-9 question crashes under it. We re-ran the table on langgraph 1.2.18 with `langgraph-prebuilt` 1.1.1; check it again after an upgrade.
 
 ### What the model does next
 
@@ -122,7 +123,7 @@ There are two ways to get a failure to the model:
 
 *Table 5: Returning an error versus catching an exception.*
 
-The setting also accepts a custom message, an exception type or a group of types (catch only those), or a function that formats the message. Either way, write error messages the model can act on: what was wrong and what would work, as the web-9 message lists the valid servers. Return only information the customer is allowed to see.
+The setting also accepts a custom message, an exception type or a group of types (catch only those), or a function that formats the message. Either way, write error messages the model can act on, as the web-9 message lists the valid servers, and return only what the customer may see.
 
 > **Pitfall: the successful failure.** A tool that returns an error string completes normally, so its tool message has status *success*. Only a caught exception produces status *error*. Monitoring that counts error statuses misses every failure a tool reports as text.
 
@@ -130,7 +131,7 @@ Letting an exception escape is also a choice, and it has a cost: your applicatio
 
 ## Tool-call evaluation
 
-A run can finish and still be wrong. The refund question in the lab answers correctly under the default setting, yet its first call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id, or ignores what the tool returned can also produce a fluent answer. Each of those is a different failure, so score them separately, from the same trace.
+A run can finish and still be wrong. The refund question answers correctly under the default setting, yet its first call was malformed and cost an extra round trip. An agent that picks the wrong tool, passes the wrong server id or ignores what the tool returned can also produce a fluent answer. Each is a different failure: score them separately, from the same trace.
 
 ### Three dimensions
 
@@ -142,7 +143,7 @@ A run can finish and still be wrong. The refund question in the lab answers corr
 
 *Table 6: The three scores and where each comes from.*
 
-Separate scores tell you what to fix: a selection drop after a description change points at the description, an input drop at the schema and the generated arguments. Confirm the cause from the failing calls before changing either.
+Separate scores tell you what to fix: a selection drop after a description change points at the description, an input drop at the schema. Confirm the cause from the failing calls first.
 
 ### Scoring selection and input from the trace
 
@@ -162,7 +163,7 @@ A small scorer reads every tool call from the model's replies, compares the set 
 
 Both runs chose the right tools. The refund run's first call is flagged because it passed `q` instead of `query`; the lab's trace marks the same call "right tool, missing query".
 
-That scorer is deliberately small. It does not check types, query relevance, call order or duplicate calls, and it assumes it knows every tool name. A production scorer validates against the real tool schemas and flags unknown tool names before looking up their required fields.
+That scorer is deliberately small. It does not check types, query relevance, call order or duplicate calls, and it assumes it knows every tool name. A production scorer validates against the real tool schemas and flags unknown names.
 
 ### Judging synthesis
 
@@ -172,7 +173,7 @@ One recorded judgement shows the shape. The trace asks *Calculate 15% of 250 and
 
 > **Pitfall: the self-grading judge.** In that recording the judge is the agent's own model, which tends to be lenient on its own work. Use a different, ideally stronger, model, and check its scores against a few human-graded runs before you trust a trend.
 
-Two more cautions. The score fields there are plain whole numbers, so nothing rejects a 7 unless you add a range check. And a single trace scored 5 out of 5 proves little: scores mean something across a fixed golden set, compared before and after one change, as M10's baseline-first method does for retrieval.
+Two more cautions. The score fields are plain whole numbers, and nothing rejects a 7 without a range check. And one trace scored 5 out of 5 proves little: scores mean something across a fixed golden set, before and after one change, as in M10's baseline-first method.
 
 ### Counting what never finishes
 
@@ -182,13 +183,19 @@ Per-call scores miss the runs that never produce an answer. Log three counts per
 - **Error tool messages per tool**: which tool fails, and how often.
 - **Crashed runs**: the web-9 question under the default has no answer to score at all.
 
-Those counts are cheap and catch both of the lab's failures. A web-9 run where the model asks for exactly what the customer said passes selection and input; its failure belongs to the tool's error handling, and only the crashed-run count records it.
+Those counts are cheap and catch both of the lab's failures. A crashed web-9 run passes selection and input, because the model asked for exactly what the customer said; only the crashed-run count records it.
 
 ## Limits of this evidence
 
 - **Scripted model turns.** Every model reply in Tables 3, 4 and 7 is scripted; only the tool messages and error texts are LangGraph's real output.
 - **One version.** Table 2 is the behaviour of the pinned LangGraph version; the settings have changed between releases.
-- **One judgement.** The synthesis example is a single recorded score, so it shows the method, not the judge's reliability.
+- **One judgement.** The synthesis example is a single recorded score: it shows the method, not the judge's reliability.
+
+## References
+
+1. LangChain, [ToolNode API reference](https://reference.langchain.com/python/langgraph.prebuilt/tool_node/ToolNode), including `handle_tool_errors`.
+2. LangChain, [evaluating agent trajectories](https://docs.langchain.com/langsmith/trajectory-evals).
+3. Zheng et al., [Judging LLM-as-a-judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) (arXiv 2306.05685).
 
 ## Key Takeaways
 
