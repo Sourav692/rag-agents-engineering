@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 9 · Review draft: 0 · In progress: 0 · In PR: 6 · Live: 31
+**Modules:** Not started: 9 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 37
 
 ## Part I · AI Engineering Foundations
 
@@ -36,12 +36,12 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 10 | Why RAG & the RAG Lifecycle | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #77 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 11 | Document Ingestion & Metadata Design | 6 | 6 | 6 / 6 | In PR | 2026-11-14 | #77 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 12 | Chunking Strategies | 4 | 4 | 4 / 4 | In PR | 2026-11-14 | #77 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 13 | Embeddings & Model Selection | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #77 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 14 | Vector Stores & Index Operations | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #77 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 15 | Advanced Indexing Strategies | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #77 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
+| 10 | Why RAG & the RAG Lifecycle | 5 | 5 | 5 / 5 | Live | 2026-11-14 | #77 | 10.x approved format live 2026-11-14 (course #77 2229c65, site fix #286 78f7f3e4 estHours -1 on 5 paths); Vercel success; all lesson pages 200 with References and Limits |
+| 11 | Document Ingestion & Metadata Design | 6 | 6 | 6 / 6 | Live | 2026-11-14 | #77 | 11.x approved format live 2026-11-14 (course #77 2229c65, site fix #286 78f7f3e4 estHours -1 on 5 paths); Vercel success; all lesson pages 200 with References and Limits |
+| 12 | Chunking Strategies | 4 | 4 | 4 / 4 | Live | 2026-11-14 | #77 | 12.x approved format live 2026-11-14 (course #77 2229c65, site fix #286 78f7f3e4 estHours -1 on 5 paths); Vercel success; all lesson pages 200 with References and Limits |
+| 13 | Embeddings & Model Selection | 5 | 5 | 5 / 5 | Live | 2026-11-14 | #77 | 13.x approved format live 2026-11-14 (course #77 2229c65, site fix #286 78f7f3e4 estHours -1 on 5 paths); Vercel success; all lesson pages 200 with References and Limits |
+| 14 | Vector Stores & Index Operations | 5 | 5 | 5 / 5 | Live | 2026-11-14 | #77 | 14.x approved format live 2026-11-14 (course #77 2229c65, site fix #286 78f7f3e4 estHours -1 on 5 paths); Vercel success; all lesson pages 200 with References and Limits |
+| 15 | Advanced Indexing Strategies | 5 | 5 | 5 / 5 | Live | 2026-11-14 | #77 | 15.x approved format live 2026-11-14 (course #77 2229c65, site fix #286 78f7f3e4 estHours -1 on 5 paths); Vercel success; all lesson pages 200 with References and Limits |
 
 ## Part V · Retrieval Quality & RAG Applications
 
