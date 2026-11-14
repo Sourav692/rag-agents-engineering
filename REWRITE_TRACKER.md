@@ -6,7 +6,7 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 30 · Review draft: 3 · In progress: 0 · In PR: 3 · Live: 10
+**Modules:** Not started: 24 · Review draft: 3 · In progress: 0 · In PR: 6 · Live: 13
 
 ## Part I · AI Engineering Foundations
 
@@ -99,27 +99,27 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 38 | MCP Foundations | 7 | 6 | 6 / 6 | In PR | 2026-11-14 | #73 | 38.1-38.6 approved format in PR #73; validator, browser, protect, pytest, links pass. 38.7 (extension labs) has no page. |
-| 39 | Building MCP Servers & Clients | 6 | 4 | 4 / 4 | In PR | 2026-11-14 | #73 | 39.1, 39.2, 39.4, 39.5 approved format in PR #73; validator, browser, protect, pytest, links pass. 39.3 (site-hidden) and 39.6 (licence) have no page; 39.5 keeps the sentence the site text rule matches. |
-| 40 | MCP Applications & RAG over MCP | 7 | 7 | 7 / 7 | In PR | 2026-11-14 | #73 | 40.1-40.7 approved format in PR #73; validator, browser, protect, pytest, links pass. |
-| 41 | A2A: Agent-to-Agent Protocol | 4 | 4 | 0 / 4 | Not started |  |  |  |
+| 38 | MCP Foundations | 7 | 6 | 6 / 6 | Live | 2026-11-14 | #73 | Approved format (38.1-38.6; 38.7 (extension labs) has no page); merged 09e38b8; site PR #283 (sync + estHours data-engineer 253, fde 297, fde-frontier-lab 327) merged 1ada773, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-14. |
+| 39 | Building MCP Servers & Clients | 6 | 4 | 4 / 4 | Live | 2026-11-14 | #73 | Approved format (39.1, 39.2, 39.4, 39.5; 39.3 (site-hidden) and 39.6 (licence) have no page); merged 09e38b8; site PR #283 (sync + estHours data-engineer 253, fde 297, fde-frontier-lab 327) merged 1ada773, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-14. |
+| 40 | MCP Applications & RAG over MCP | 7 | 7 | 7 / 7 | Live | 2026-11-14 | #73 | Approved format (40.1-40.7); merged 09e38b8; site PR #283 (sync + estHours data-engineer 253, fde 297, fde-frontier-lab 327) merged 1ada773, CI incl. bundle/routes/E2E pass, Vercel success, live pages checked 2026-11-14. |
+| 41 | A2A: Agent-to-Agent Protocol | 4 | 4 | 4 / 4 | In PR | 2026-11-14 | #74 | 41.1-41.4 approved format in PR #74; protect, validator, browser, pytest, links pass. |
 
 ## Part XII · Knowledge Graphs & GraphRAG
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 42 | Hierarchical & Memory-Augmented Retrieval | 3 | 3 | 0 / 3 | Not started |  |  |  |
-| 43 | Knowledge Graphs with Neo4j | 6 | 6 | 0 / 6 | Not started |  |  |  |
-| 44 | GraphRAG Techniques | 4 | 4 | 0 / 4 | Not started |  |  |  |
+| 42 | Hierarchical & Memory-Augmented Retrieval | 3 | 3 | 3 / 3 | In PR | 2026-11-14 | #74 | 42.1-42.3 approved format in PR #74; protect, validator, browser, pytest, links pass. |
+| 43 | Knowledge Graphs with Neo4j | 6 | 6 | 6 / 6 | In PR | 2026-11-14 | #74 | 43.1-43.6 approved format in PR #74; protect, validator, browser, pytest, links pass. |
+| 44 | GraphRAG Techniques | 4 | 4 | 4 / 4 | In PR | 2026-11-14 | #74 | 44.1-44.4 approved format in PR #74; protect, validator, browser, pytest, links pass. |
 
 ## Part XIII · Fine-Tuning & Model Adaptation
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 45 | Fine-Tuning & Model Adaptation | 7 | 7 | 0 / 7 | Not started |  |  |  |
+| 45 | Fine-Tuning & Model Adaptation | 7 | 7 | 7 / 7 | In PR | 2026-11-14 | #74 | 45.1-45.7 approved format in PR #74; protect, validator, browser, pytest, links pass. Module page 4-bit load now 4.2 GB. |
 
 ## Part XIV · Architecture Decisions
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 46 | Architecture Synthesis: Choosing a System Design | 3 | 3 | 0 / 3 | Not started |  |  |  |
+| 46 | Architecture Synthesis: Choosing a System Design | 3 | 3 | 3 / 3 | In PR | 2026-11-14 | #74 | 46.1-46.3 approved format in PR #74; protect, validator, browser, pytest, links pass. |

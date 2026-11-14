@@ -2,8 +2,9 @@
 
 *[M42 theory](../README.md) · Lesson 42.3 · Notebooks: [`03a_light_rag.ipynb`](../../notebook/03a_light_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a graph of entities and relationships answers a connecting question through two searches, and what merging by name loses -->
+<!-- format: approved -->
 
-## Questions that connect two policies
+## Start with a question that connects two policies
 
 > **What you'll learn**
 >
@@ -22,7 +23,7 @@ LightRAG stores that link as an edge in a graph, gives it a short text profile, 
 
 **Dual-level retrieval searches two indexes built from one graph: entity profiles for the specific things a question names, and relationship profiles for the themes that connect them.** For the cancellation question, the **low-level** route finds the entities Cancellation and Export. The **high-level** route finds a relationship profile about data portability. Both routes add evidence to one context.
 
-High-level here means thematic relationships. It does not mean RAPTOR's upper summary levels from lesson 42.1, or the community reports that Microsoft GraphRAG builds in [M44](../../../../m44_graphrag/mandatory/theory/README.md). The [LightRAG paper](https://arxiv.org/html/2410.05779v3) (Guo et al., 2024) describes graph indexing with entity and relationship profiles, the two retrieval levels, and adding new documents to the graph without a rebuild.
+High-level here means thematic relationships. It does not mean RAPTOR's upper summary levels from lesson 42.1, or the community reports that Microsoft GraphRAG builds in [M44](../../../../m44_graphrag/mandatory/theory/README.md). The [LightRAG paper](https://arxiv.org/abs/2410.05779) (Guo et al., 2024) describes graph indexing with entity and relationship profiles, the two retrieval levels, and adding new documents without a rebuild.
 
 The graph comes first. The notebook builds it in four stages:
 
@@ -35,7 +36,7 @@ flowchart LR
 
 *Figure 1: Building the graph. One model call per chunk extracts entities and relationships; merging folds repeats into one node or edge.*
 
-Each relationship carries a description and a few high-level keywords. The keywords are what the high-level route searches. At question time a model splits the question into two keyword lists, one per route:
+Each relationship carries a description and a few high-level keywords. The keywords are what the high-level route searches. At question time a model splits the question into two keyword lists, one per route; an empty list falls back to the question itself:
 
 ```mermaid
 flowchart TD
@@ -48,8 +49,6 @@ flowchart TD
 
 *Figure 2: The two routes. Each keyword set searches its own index, then expands through the graph.*
 
-The routes differ in what they search and what they pull in after a hit:
-
 | Route | Vector search target | Graph expansion | Passages added |
 |---|---|---|---|
 | Low level | Entity profiles | Every edge touching the entity | Every chunk the entity appears in |
@@ -57,9 +56,11 @@ The routes differ in what they search and what they pull in after a hit:
 
 *Table 1: What each route adds after a hit.*
 
-The notebook builds this from scratch with NetworkX, structured extraction schemas and two FAISS indexes; it does not use the packaged LightRAG library. It splits a 33-page climate report into chunks of 1,200 characters with 150 overlap, which gives 78 chunks, and keeps the first 20 to save extraction calls. Every later query can only reach those 20.
+The notebook builds this from scratch with NetworkX, structured extraction schemas and two FAISS indexes; it does not use the packaged LightRAG library. It splits the 33-page climate report page by page into chunks of 1,200 characters with 150 overlap, which gives 78 chunks, and keeps the first 20 to save extraction calls. Every later query can only reach those 20.
 
-To see the merge and the routes without a model, we ran the notebook's merge loop and its selection logic on five scripted extractions from the Larkspur handbook:
+## What the merge keeps and loses
+
+To see the merge and the routes without a model, we ran the notebook's own merge, profile and retrieval cells on five scripted extractions from the Larkspur handbook:
 
 ```mermaid
 flowchart LR
@@ -72,8 +73,6 @@ flowchart LR
 
 *Figure 3: The merged Larkspur graph from the scripted run: 6 entities and 4 relationships.*
 
-The merge did four things a reader should expect:
-
 | Extracted | What the graph holds | Why |
 |---|---|---|
 | "Cancellation" and "CANCELLATION " | One node, two descriptions joined | Names are trimmed and lower-cased before matching |
@@ -83,11 +82,44 @@ The merge did four things a reader should expect:
 
 *Table 2: The notebook's merge on scripted extractions. Notebook code, no model calls.*
 
-The last row is the failure that hurts policy answers. Call it a **name collision**: two things share a name, and their facts merge into one profile. Lower-casing causes it here and cannot fix it. Stable identifiers, with the plan or product in the key, can.
+The last row hurts policy answers. Call it a **name collision**: two things share a name, and their facts merge into one profile. Lower-casing causes it here and cannot fix it. Stable identifiers, with the plan or product in the key, can.
 
 The second row is a different loss. An undirected graph keeps that two things relate and drops which way. The notebook's graph also holds one edge per pair, so a typed model with several relations between the same two entities needs a different graph structure.
 
-Then the two routes, with the vector hits fixed by hand:
+## The two routes on one graph
+
+Fix the vector hits by hand and run the notebook's retrieval function. The low-level route seeds on an entity and pulls in every edge around it:
+
+```mermaid
+flowchart LR
+    C(("Cancellation<br/>seed")) --- B[Billing]
+    C --- S[Account deletion]
+    C --- R[Data retention]
+```
+
+*Figure 4: Low-level route, seed Cancellation. Three edges and three chunks come in; only Cancellation's profile does.*
+
+The high-level route seeds on a relationship and pulls in its two ends:
+
+```mermaid
+flowchart LR
+    X[Export] ===|"seed relation<br/>data portability"| R[Data retention]
+```
+
+*Figure 5: High-level route, seed Export to Data retention. Two entity profiles, one edge, one chunk.*
+
+<div class="learning-widget evidence-switcher" data-comparison id="route-switcher">
+<p class="widget-intro">Scripted seed hits on the Figure 3 graph, run through the notebook's <code>lightrag_retrieve</code>. No embeddings or model ran.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval route">
+<button type="button" data-mode="low" aria-pressed="false" aria-controls="route-low">Low level</button>
+<button type="button" data-mode="high" aria-pressed="false" aria-controls="route-high">High level</button>
+<button type="button" data-mode="both" aria-pressed="false" aria-controls="route-both">Both</button>
+</div>
+<section id="route-low" class="mode-panel" data-announcement="Low level selected. One entity, three edges, three chunks."><h4>Low level: Cancellation</h4><ul><li>Entities in context: 1. Edges: 3. Chunks: 3.</li><li>The edge block names Billing and Account deletion; the entity block describes only Cancellation.</li><li>The retention rule arrives through its edge and chunk, not through a Data retention profile.</li></ul></section>
+<section id="route-high" class="mode-panel" data-announcement="High level selected. Two entities, one edge, one chunk."><h4>High level: Export to Data retention</h4><ul><li>Entities in context: 2. Edges: 1. Chunks: 1.</li><li>The edge says to export before the retention window closes, the link the question needs.</li><li>Cancellation itself never enters.</li></ul></section>
+<section id="route-both" class="mode-panel" data-announcement="Both selected. Three entities, four edges, four chunks."><h4>Both: Cancellation, Export and their relation</h4><ul><li>Entities in context: 3. Edges: 4. Chunks: 4.</li><li>Every relationship in the graph is now in the context, from two entity hits and one relation hit.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 | Seed hits | Entities in context | Edges in context | Chunks in context |
 |---|---|---|---|
@@ -97,23 +129,24 @@ Then the two routes, with the vector hits fixed by hand:
 
 *Table 3: What the routes select on the scripted graph. Cancellation touches three edges, and all three come in with one hit.*
 
-Two things show up in Table 3. First, **neighbour sprawl**: one low-level hit on a well-connected entity brings in every edge around it. The notebook's defaults are four entity hits and four relation hits; those are seed counts, not a bound on the context. In a full handbook graph, an entity such as Cancellation touches every policy that mentions it.
+Two things show up. First, **neighbour sprawl**: one low-level hit on a well-connected entity brings in every edge around it. The notebook's defaults are four entity hits and four relation hits; those are seed counts, not a bound on the context. In a full handbook graph, Cancellation touches every policy that mentions it.
 
-Second, the low-level route adds the edges around a hit but not the entity profiles at their far ends. In the low-level row, the relationship block mentions Billing and Account deletion, and the entity block describes only Cancellation. The passages behind those edges do come in: every chunk a relation came from is also recorded for both its endpoints. Check that invariant in your own build before relying on it for provenance.
+Second, the low-level route adds the edges around a hit but not the entity profiles at their far ends. The passages behind those edges do come in: every chunk a relation came from is also recorded for both its endpoints. Check that invariant in your own build before relying on it for provenance.
 
-Combine both routes with their source passages, remove duplicates and apply a context budget before generation. An edge description can help find a policy. It cannot replace the policy's qualifiers, which live in the passage.
+Use the low-level route when a question names things, the high-level route when it names a relationship or theme, and both by default. Remove duplicates and apply a context budget after expansion. An edge description can help find a policy; it cannot replace the policy's qualifiers, which live in the passage.
 
-## In practice: Larkspur's graph
+For the Larkspur handbook: key entities by stable identifier with the plan or product in the key; keep relation direction where it carries meaning, such as *cancellation starts retention*; store the source passage and version behind every description; limit expansion to evidence the asker may see. When a policy is withdrawn, recompute the merged profiles as well as removing the passage, because the old wording survives inside node and edge descriptions. The notebook skips a chunk whose extraction fails and continues, and it prints only a warning: count those skips beside indexing cost.
 
-For the Larkspur handbook, a LightRAG index would follow these rules:
+## Limits of this evidence
 
-1. Key entities by stable identifier, with the plan or product in the key, and keep Business and Enterprise daily backups apart.
-2. Keep relation direction where it carries meaning, such as *cancellation starts retention*.
-3. Store the source passage and version behind every node description and edge.
-4. Limit graph expansion to evidence the asker may see.
-5. When a policy is withdrawn, recompute the merged profiles as well as removing the passage; the old wording survives inside node and edge descriptions.
+- **Scripted extractions.** Tables 2 and 3 run the notebook's code on five hand-written extractions. A model extracting from real chunks names, types and links entities differently.
+- **Hand-fixed vector hits.** The switcher and Table 3 choose seed hits directly. Real embeddings decide which entities and relations seed each route.
+- **One corpus subset.** The notebook's graph covers 20 of 78 chunks of a climate report; its answers say nothing about a handbook-sized graph.
 
-To evaluate the routes, run entity-only, relationship-only and combined retrieval on the same precise and cross-section questions. Inspect answer support, source coverage and context size. Count extraction failures and indexing calls apart from query cost: the notebook skips a chunk whose extraction fails and continues, and a graph with plausible labels can still miss the relationship a question needs.
+## References
+
+1. Guo, Z. et al. (2024). *LightRAG: Simple and Fast Retrieval-Augmented Generation*. [arXiv:2410.05779](https://arxiv.org/abs/2410.05779).
+2. NetworkX, [Graph](https://networkx.org/documentation/stable/reference/classes/graph.html), the undirected graph class the notebook uses.
 
 ## Key Takeaways
 

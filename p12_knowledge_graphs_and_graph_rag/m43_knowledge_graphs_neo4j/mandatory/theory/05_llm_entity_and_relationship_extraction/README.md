@@ -2,8 +2,9 @@
 
 *[M43 theory](../README.md) · Lesson 43.5 · Notebooks: [`05a_entity_relationship_extraction.ipynb`](../../notebook/05a_entity_relationship_extraction.ipynb), [`05b_create_kg_from_text.ipynb`](../../../optional/notebook/05b_create_kg_from_text.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Why every tuple an LLM extracts from the handbook is a candidate fact that needs a source check, an identity and a place for its conditions before it becomes an edge -->
+<!-- format: approved -->
 
-## Extraction produces candidate facts
+## Start with a sentence that loses its condition
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lessons 43.2 to 43.4 started from a CSV, where every column already had a meaning. Most of Larkspur's knowledge is prose: the handbook, policy updates, incident notes. To get a graph from prose, a model reads the text and proposes entities and relationships.
 
 The failure is quiet. The handbook says *EU Team may support exports after approval*. The extractor returns `(EU Team, supports, Export)`. Lesson 43.3's assistant now tells customers that EU Team supports exports, with no approval step, and the graph looks clean.
+
+## Extraction produces candidate facts
 
 **LLM extraction asks a model to read a passage and return the entities it names and relationship tuples of the form (subject, relation, object).** Each tuple is a **candidate fact**: the model's reading of the passage, which may be right, partial or invented. Nothing in the output proves the passage supports it.
 
@@ -31,9 +34,16 @@ The extraction notebook runs four steps over a text file:
 
 *Table 1: The notebook's extraction pipeline.*
 
-The input file is not prose. It is a tab-separated question and answer set: 402 rows about eight subjects such as Abraham Lincoln, Finland and Calvin Coolidge, 6,090 words in all, and the same question often appears twice with answers like "yes" and "Yes.". At a threshold of 2,665 words the chunker makes 3 chunks of 2,659, 2,657 and 774 words (run in the scratchpad on the notebook's own function).
+The input file is not prose. It is a tab-separated question and answer set from a Wikipedia factoid collection: 402 rows about eight subjects (Abraham Lincoln, Alessandro Volta, Amedeo Avogadro, Anders Celsius, Calvin Coolidge, Canada, Egypt and Finland), 6,090 words in all. The same question often appears twice, with answers like "yes" and "Yes.". Of the 402 answers, 87 are yes, 30 are no and 131 are `NULL`, a question nobody answered. At a threshold of 2,665 words the chunker makes 3 chunks of 2,659, 2,657 and 774 words (run in the scratchpad on the notebook's own function).
 
-That input carries a planted failure of its own. Some rows are questions whose answer is "no", such as whether Lincoln's mother died of pneumonia. A tuple taken from the question text asserts exactly what the answer denies. We call this the **negated fact**, and only a check against the full row catches it.
+That input carries a planted failure of its own. Follow one row through the pipeline:
+
+<div class="walkthrough learning-widget" data-stepper id="row-walkthrough">
+<p class="widget-intro">Step through one row of the input file as the notebook would process it. The extraction stage shows a plausible tuple, not a recorded model reply.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one row through extraction"><button type="button" data-step="0" aria-pressed="false" aria-controls="row-step-0">1. Row</button><button type="button" data-step="1" aria-pressed="false" aria-controls="row-step-1">2. Chunk</button><button type="button" data-step="2" aria-pressed="false" aria-controls="row-step-2">3. Extract</button><button type="button" data-step="3" aria-pressed="false" aria-controls="row-step-3">4. Parse and plot</button></div>
+<div class="step-panels"><section id="row-step-0" class="step-panel" aria-labelledby="row-heading-0"><h4 id="row-heading-0">1. The row</h4><dl><dt>Subject</dt><dd>Abraham_Lincoln</dd><dt>Question</dt><dd>"Did his mother die of pneumonia?"</dd><dt>Answer</dt><dd>no</dd></dl></section><section id="row-step-1" class="step-panel" aria-labelledby="row-heading-1"><h4 id="row-heading-1">2. Chunk</h4><dl><dt>Chunk</dt><dd>the first of 3; the row stays one line, all six tab-separated columns</dd><dt>Kept</dt><dd>the question, the "no" and the subject, side by side</dd></dl></section><section id="row-step-2" class="step-panel" aria-labelledby="row-heading-2"><h4 id="row-heading-2">3. Extract</h4><dl><dt>Plausible tuple</dt><dd>(Abraham Lincoln's mother, died of, pneumonia)</dd><dt>Problems</dt><dd>"his" is resolved from the subject column; the tuple states what the answer denies</dd></dl></section><section id="row-step-3" class="step-panel" aria-labelledby="row-heading-3"><h4 id="row-heading-3">4. Parse and plot</h4><dl><dt>Parser</dt><dd>accepts it: the shape is right</dd><dt>Graph</dt><dd>an edge from the mother to pneumonia, with no record of the "no"</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+A tuple taken from the question text asserts exactly what the answer denies. We call this the **negated fact**, and only a check against the full row catches it. The 30 "no" rows are 30 chances for it on this file.
 
 ### From candidate to edge
 
@@ -55,7 +65,7 @@ Each check has a reason:
 - **Support**: the passage states the tuple, conditions included. A schema-valid tuple can still be unsupported.
 - **Types**: the subject and object have allowed labels, and the relation is an allowed type between them, such as `Plan SUPPORTS Feature`.
 - **Identity**: each name resolves to one existing entity, or to a new one on purpose.
-- **Provenance**: the stored assertion keeps the passage identifier, the source version and the extraction configuration (model and prompt), so it can be audited and deleted with its source.
+- **Provenance**: the stored assertion keeps the passage identifier, the source version and the extraction configuration (model and prompt). It can then be audited, and deleted with its source.
 
 ### Names are not identities
 
@@ -90,13 +100,13 @@ The notebook's parser expects the literal headers `Entities:` and `Relationships
 
 *Table 3: The notebook's parser on planted replies (its own function, run in the scratchpad).*
 
-Models add commentary and fences often enough that this matters. Structured output, where the model must return a schema-shaped object, removes these shape errors. It does not make a tuple true; the support check still applies. Treat any parse failure as a failed extraction, and keep the input chunk for review instead of dropping it.
+Models add commentary and fences often enough that this matters. Structured output, where the model must return a schema-shaped object, removes these shape errors. It does not make a tuple true; the support check still applies. Treat any parse failure as a failed extraction, and keep the input chunk for review instead of dropping it. In the notebook one failure stops the whole loop: the chunks after it are never extracted.
 
 ### Chunk boundaries
 
 The chunker adds whole lines until the next line would reach the threshold. A chunk reaches the threshold only when one line reaches it on its own. With the notebook's 2,665 words that never happens on this file; at a 50-word threshold it makes 148 chunks and 2 of them reach or pass 50 words, because the longest line has 75. Test the boundary before treating the threshold as a hard maximum.
 
-Boundaries also split references. A pronoun at the top of a chunk points to a name in the chunk before it. The optional notebook lays out the stages that handle this as separate tasks: named entity recognition, coreference clustering and resolution, then relationship extraction and graph building. Its cells are empty scaffolding for you to fill. When you evaluate those stages, inspect pronouns and aliases at chunk boundaries specifically.
+Boundaries also split references. A pronoun at the top of a chunk points to a name in the chunk before it; in this file even one row needs its subject column to resolve "his". The optional notebook lays out the stages that handle this as separate tasks: named entity recognition, coreference clustering and resolution, then relationship extraction and graph building. Its cells are empty scaffolding for you to fill. When you evaluate those stages, inspect pronouns and aliases at chunk boundaries specifically.
 
 ### Planted failure: the overwritten edge
 
@@ -113,6 +123,19 @@ The edge-label map used for drawing has the same one-per-pair key. When a pair c
 ### Evaluate the stages separately
 
 A graph that looks plausible in a plot can still answer the wrong question. Score entity resolution errors apart from relation extraction errors, because they have different fixes. Then check the paths your golden questions use: for Larkspur, does EU Team reach Export and the EU region, with its approval condition intact? Lesson 43.6 assembles extraction, the graph and text retrieval into one system.
+
+## Limits of this evidence
+
+- **No model was called.** The parser results come from replies we wrote, and the extracted tuple in the row walkthrough is illustrative. A real model's error rate on this file is unmeasured.
+- **The file counts are exact, the meaning is not.** Rows, words, chunks and answer labels were counted with the notebook's own functions on its asset; how many "no" rows a model turns into negated facts depends on the model and prompt.
+- **The optional notebook is a plan.** Its coreference and entity recognition stages are empty cells, so this page describes their purpose, not their results.
+
+## References
+
+1. N. A. Smith, M. Heilman, R. Hwa and others, [Question-Answer Dataset](https://www.cs.cmu.edu/~ark/QA-data/), Carnegie Mellon University and University of Pittsburgh, 2008 to 2010.
+2. Python documentation, [`ast.literal_eval`](https://docs.python.org/3/library/ast.html#ast.literal_eval).
+3. NetworkX, [DiGraph](https://networkx.org/documentation/stable/reference/classes/digraph.html) and [MultiDiGraph](https://networkx.org/documentation/stable/reference/classes/multidigraph.html).
+4. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
 
 ## Key Takeaways
 

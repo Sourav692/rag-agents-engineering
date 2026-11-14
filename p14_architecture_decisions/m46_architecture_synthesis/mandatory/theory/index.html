@@ -329,7 +329,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p>Every architecture in the course is plain RAG plus components: better retrieval, a router, a grader, a loop, more agents, a different index. Each component has a price in model calls, latency and parts to test, so it stays only when the golden set shows the failure it fixes. The simplest architecture that meets the requirement is the one this loop stops at.</p>
-<h2 id="too-many-designs-to-compare">Too many designs to compare</h2>
+<h2 id="start-with-a-review-that-compares-feature-lists">Start with a review that compares feature lists</h2>
 <p class="lesson-of">Lesson 46.1: The agentic RAG architecture map. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p14_architecture_decisions/m46_architecture_synthesis/mandatory/notebook/01a_AGENTIC_RAG_ARCHITECTURES.md" target="_blank" rel="noopener"><code>01a_AGENTIC_RAG_ARCHITECTURES.md</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -342,7 +342,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p><a href="../../../../p13_fine_tuning/m45_fine_tuning_model_adaptation/mandatory/theory/index.html">M45</a> asked whether a requirement needs retrieval or a fine-tuned model. This module assumes retrieval and asks which retrieval architecture.</p>
 <p>Picture Larkspur&rsquo;s design review. The support assistant answers from the handbook, and three engineers each bring a proposal for the outage question, <em>What happens if my server goes down?</em> One wants Self-RAG, one a supervisor over billing, operations and data agents, one GraphRAG. Each argues in the vocabulary of the module that taught it: reflection tokens, handoffs, communities. Nobody can say which proposal costs more, or which part of the pipeline each one changes.</p>
-<p>We call this a <strong>feature-list review</strong>: designs compared by what they contain instead of by what they change and what they cost. The rest of this page gives the review two things it lacks, a map that sorts the designs by the component they add, and a common unit to price that component.</p>
+<p>We call this a <strong>feature-list review</strong>: designs compared by what they contain instead of by what they change and what they cost. This page gives the review two things it lacks: a map that sorts the designs by the component they add, and a common unit to price that component.</p>
 <h2 id="the-architecture-map">The architecture map</h2>
 <p>The course keeps two inventories of what it teaches. The wider one, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/docs/agentic-architectures.yaml" target="_blank" rel="noopener"><code>docs/agentic-architectures.yaml</code></a>, rendered as <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/docs/agentic-architecture-coverage.md" target="_blank" rel="noopener">Agentic Architecture Coverage</a>, compares the course with an upstream catalogue of 35 agentic architectures in seven families. It finds all 35 covered: 33 by a dedicated notebook, 1 merged into another notebook and 1 taught as an adaptation. Five of the 35 are retrieval architectures, and all five are on the mandatory track:</p>
 <div class="sheet scroll"><table>
@@ -438,7 +438,15 @@ th:last-child, td:last-child { padding-right: 0; }
     G -- fail --&gt; RW["Rewrite"]
     RW --&gt; RET
 </pre></figure>
-<p><em>Figure 2: Plain RAG with each family&rsquo;s component in its place. A tool-based design hands the retrieve, grade and rewrite loop to a model that decides when to search.</em></p>
+<p><em>Figure 2: Plain RAG with each fixed-pipeline family&rsquo;s component in its place.</em></p>
+<p>The tool-based family does not fit in that picture, because it removes the fixed order. A model holds retrieval as a tool and decides on every turn whether to search again or answer:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Question"] --&gt; M{"Model&lt;br/&gt;search or answer?"}
+    M -- search --&gt; T["Retrieval tool"]
+    T -- results --&gt; M
+    M -- answer --&gt; A["Answer"]
+</pre></figure>
+<p><em>Figure 3: The tool-based family. The retrieve, grade and rewrite loop of Figure 2 becomes the model&rsquo;s own decision.</em></p>
 <p>Each family has a module whose theory page measures what its component buys:</p>
 <ul>
 <li><strong>Entry-level</strong> changes nothing in the control flow and improves what reaches the model. Plain RAG and its baseline (<a href="../../../../p04_rag_foundations/m10_rag_lifecycle/mandatory/theory/index.html">M10</a>), indexing that searches small and returns large (<a href="../../../../p04_rag_foundations/m15_advanced_indexing/mandatory/theory/index.html">M15</a>), hybrid search (<a href="../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/index.html">M16</a>), query transformation (<a href="../../../../p05_retrieval_quality_and_rag_apps/m17_query_transformation/mandatory/theory/index.html">M17</a>) and reranking (<a href="../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/index.html">M18</a>). Late interaction (lesson 46.2) belongs here too. Most add no model call; query rewriting adds one, decomposition four.</li>
@@ -449,7 +457,6 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>Memory (<a href="../../../../p09_memory_layer/m33_short_term_memory_conversation_state/mandatory/theory/index.html">M33</a>, <a href="../../../../p09_memory_layer/m34_long_term_agentic_memory/mandatory/theory/index.html">M34</a>) cuts across all five. A follow-up such as <em>How long do I have?</em> needs rewriting into a standalone question before any of these architectures can retrieve for it.</p>
 <p>The families also stack. The M28 agent is a tool-based loop with a self-correcting grader, and adaptive RAG in M30 is a router in front of two graders. A stacked design priced as one total is a <strong>lump-sum design</strong>: a later review cannot remove one component without guessing what it cost. Count each component&rsquo;s calls separately instead, the loop&rsquo;s and the grader&rsquo;s, and the design document shows what each removal saves.</p>
-<p>The map and the unit come together when we run one question through every family.</p>
 <h2 id="in-practice-the-export-question">In practice: the export question</h2>
 <p>The <a href="03_decision_framework_picking_the_simplest_architecture_that_works/interactive/architecture-picker-lab.html">M46 lab</a> holds the counts earlier labs recorded for six Larkspur questions. For <em>Can I export my data after I cancel my plan?</em> it lists ten architectures, and all but one answer:</p>
 <div class="sheet scroll"><table>
@@ -525,32 +532,42 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The export question through every family, as the M46 lab records it. The routing rows assume the handbook split into three knowledge bases.</em></p>
-<p>Read the table as the review should:</p>
-<ol>
-<li>Plain TF-IDF RAG already answers, at 1 call.</li>
-<li>Every family above it also answers, and each adds calls without changing the outcome: the grader passes both chunks, CRAG never searches the web, Self-RAG&rsquo;s checks all say yes.</li>
-<li>The one architecture that falls short is an entry-level swap: dense retrieval ranks <code>cancel</code> above <code>export</code> and recalls half the evidence. A retrieval upgrade is not better on every question.</li>
-</ol>
+<p>Step through the table the way the review should read it:</p>
+<div class="walkthrough learning-widget" data-stepper id="review-walkthrough">
+<p class="widget-intro">Each stage adds one family to plain RAG on the export question and asks what the extra calls bought. Counts are the M46 lab's.</p>
+<div class="step-controls" hidden role="group" aria-label="Review stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="review-step-0">1. Baseline</button><button type="button" data-step="1" aria-pressed="false" aria-controls="review-step-1">2. Add a check</button><button type="button" data-step="2" aria-pressed="false" aria-controls="review-step-2">3. Add routing</button><button type="button" data-step="3" aria-pressed="false" aria-controls="review-step-3">4. Swap the retriever</button></div>
+<div class="step-panels"><section id="review-step-0" class="step-panel" aria-labelledby="review-heading-0"><h4 id="review-heading-0">1. Plain TF-IDF RAG</h4><dl><dt>Calls</dt><dd>1</dd><dt>Outcome</dt><dd>Both evidence chunks in the top 2; the answer is right</dd></dl></section><section id="review-step-1" class="step-panel" aria-labelledby="review-heading-1"><h4 id="review-heading-1">2. Self-correcting family</h4><dl><dt>Calls</dt><dd>4 for the grader loop and CRAG, 7 for Self-RAG</dd><dt>Outcome</dt><dd>Unchanged: the grader passes both chunks, CRAG never searches the web, every Self-RAG check says yes</dd></dl></section><section id="review-step-2" class="step-panel" aria-labelledby="review-heading-2"><h4 id="review-heading-2">3. Routing family</h4><dl><dt>Calls</dt><dd>2 for the router and the swarm, 3 for the supervisor, 5 for the hierarchy</dd><dt>Outcome</dt><dd>Unchanged: the question has one domain, and most of the extra calls are routing</dd></dl></section><section id="review-step-3" class="step-panel" aria-labelledby="review-heading-3"><h4 id="review-heading-3">4. Entry-level swap to dense retrieval</h4><dl><dt>Calls</dt><dd>1</dd><dt>Outcome</dt><dd>Worse: <code>cancel</code> outranks <code>export</code> and recall falls to 0.50. A retrieval upgrade is not better on every question</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <blockquote>
 <p><strong>Key distinction:</strong> a family earns its calls on the questions where the cheaper design fails. On a question plain RAG answers, every extra call is overhead. Lesson 46.3 turns this into a decision procedure, run on the questions where plain RAG does fail.</p>
 </blockquote>
-<h2 id="limits-of-the-map">Limits of the map</h2>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <p>The map compares query-time model calls, and three costs sit outside it:</p>
 <ul>
 <li><strong>Index-time work.</strong> The structural family&rsquo;s main cost, paid again on every handbook change.</li>
 <li><strong>Tokens per call.</strong> A loop re-reads its message list on every call, and its tenth call costs more than its first.</li>
 <li><strong>Different questions.</strong> Each range in Figure 1 comes from the question and settings its lab used. Two ranges are comparable in order of magnitude, not call for call.</li>
 </ul>
+<p>The counts themselves come from small handbook fixtures and stub or recorded models, not from production traffic.</p>
+<h2 id="references">References</h2>
+<ul>
+<li>FareedKhan-dev, <a href="https://github.com/FareedKhan-dev/all-agentic-architectures" target="_blank" rel="noopener">all-agentic-architectures</a>: the upstream catalogue of 35 architectures behind Table 1.</li>
+<li>Asai et al., <a href="https://arxiv.org/abs/2310.11511" target="_blank" rel="noopener">Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</a>, 2023.</li>
+<li>Yan et al., <a href="https://arxiv.org/abs/2401.15884" target="_blank" rel="noopener">Corrective Retrieval Augmented Generation</a>, 2024.</li>
+<li>Jeong et al., <a href="https://arxiv.org/abs/2403.14403" target="_blank" rel="noopener">Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity</a>, NAACL 2024.</li>
+<li>Sarthi et al., <a href="https://arxiv.org/abs/2401.18059" target="_blank" rel="noopener">RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval</a>, ICLR 2024.</li>
+<li>Edge et al., <a href="https://arxiv.org/abs/2404.16130" target="_blank" rel="noopener">From Local to Global: A Graph RAG Approach</a> (title shortened), 2024.</li>
+</ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Every architecture is retrieve-then-generate with components added. Compare them in model calls per question: plain RAG is 1, routing and tool loops 2 to 7, self-correcting loops up to 20.</li>
 <li>Each family adds one kind of component: better context, a judgement step, routing, a model that calls retrieval, or a new index shape whose cost moves to index time.</li>
-<li>Families stack. Count each component&rsquo;s calls separately so a review can remove one and know what it saves.</li>
+<li>Families stack. Count each component&rsquo;s calls separately, and a review can remove one and know what it saves.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. What common unit does the lesson use to compare the architectures, and what does that unit leave out?</summary>
-<p>Model calls per question, because every architecture is the M10 pipeline with components added: plain RAG is 1 call, routing and tool loops 2 to 7, and self-correcting loops climb to 10 and 20. It leaves out index-time model work, which is the main cost of collapsed-tree RAPTOR and GraphRAG, so those have no counted query cost on the axis.</p>
+<p>Model calls per question, because every architecture is the M10 pipeline with components added: plain RAG is 1 call, routing and tool loops 2 to 7, and self-correcting loops climb to 10 and 20. It leaves out index-time model work, the main cost of collapsed-tree RAPTOR and GraphRAG, which is why those have no counted query cost on the axis.</p>
 </details>
 <details>
 <summary>2. The agentic RAG agent with query rewriting is a tool-based loop with a self-correcting grader. How should a design document count its cost?</summary>
@@ -560,7 +577,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A customer asks a follow-up, How long do I have?, and every architecture retrieves the wrong chunks. What is missing?</summary>
 <p>Memory (M33, M34), which cuts across all five families. The follow-up has to be rewritten into a standalone question using the conversation before any architecture can retrieve for it.</p>
 </details>
-<h2 id="the-stack-in-one-notebook">The stack in one notebook</h2>
+<h2 id="start-with-a-wrong-answer-nobody-can-place">Start with a wrong answer nobody can place</h2>
 <p class="lesson-of">Lesson 46.2: End-to-end RAG ecosystem walkthrough (incl. ColBERT and RAGAS). Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p14_architecture_decisions/m46_architecture_synthesis/mandatory/notebook/02a_rag_ecosystem.ipynb" target="_blank" rel="noopener"><code>02a_rag_ecosystem.ipynb</code></a></p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -571,8 +588,9 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Diagnose</strong> a wrong answer with stage metrics: retrieval, generation or the whole pipeline.</li>
 </ul>
 </blockquote>
-<p>Lesson 46.1 put every architecture on one map and priced it in model calls. This lesson walks the stack those architectures share, end to end, and adds the two pieces a design review still needs: one more retrieval option and a way to score a whole pipeline.</p>
+<p>Lesson 46.1 put every architecture on one map and priced it in model calls. This lesson walks the stack those architectures share and adds the two pieces a design review still needs: one more retrieval option and a way to score a whole pipeline.</p>
 <p>Start with the failure that makes evaluation necessary. Larkspur&rsquo;s assistant gives a wrong answer to <em>What happens if my server goes down?</em>, and a reviewer marks it wrong. That verdict alone cannot say whether retrieval missed the outage chunks or the model misread good ones, and the fix differs for each.</p>
+<h2 id="the-stack-in-one-notebook">The stack in one notebook</h2>
 <p>The lesson&rsquo;s notebook walks the whole RAG stack in one place. Its recap note says what is new: the early parts are a refresher of earlier modules, the parts it owns are RAPTOR, ColBERT and agentic self-correction, and the evaluation sections are pointers. Of those three, only ColBERT runs as code; RAPTOR and self-correction are described and linked out. Its parts map onto the course like this:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -678,37 +696,23 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: MaxSim on two passages (illustrative). Both match &ldquo;server&rdquo;; the outage passage wins on the tokens that carry the question&rsquo;s meaning.</em></p>
 <p>Each question token finds its own best partner, so &ldquo;down&rdquo; can match &ldquo;outage&rdquo; even when the rest of the passage is about something else. A pooled vector would have averaged that match away.</p>
-<p>The name places ColBERT between the two retrieval models the course already uses:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Model</th>
-<th>Computed at index time</th>
-<th>Computed at query time</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Bi-encoder (dense, M13)</td>
-<td>one vector per passage</td>
-<td>one vector for the question, one cosine per passage</td>
-</tr>
-<tr>
-<td>Late interaction (ColBERT)</td>
-<td>one vector per passage token</td>
-<td>one vector per question token, then max and sum</td>
-</tr>
-<tr>
-<td>Cross-encoder reranker (<a href="../../../../p05_retrieval_quality_and_rag_apps/m18_reranking_post_retrieval/mandatory/theory/index.html">M18</a>)</td>
-<td>nothing</td>
-<td>the model reads every question and passage pair together</td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 3: Where each retrieval model spends its work.</em></p>
+<p>The name places ColBERT between the two retrieval models the course already uses. Choose one to see where it spends its work:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="retriever-switcher">
+<p class="widget-intro">Choose a retrieval model to see what it computes at index time and at query time.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval model">
+<button type="button" data-mode="bi" aria-pressed="false" aria-controls="retriever-bi">Bi-encoder</button>
+<button type="button" data-mode="late" aria-pressed="false" aria-controls="retriever-late">Late interaction</button>
+<button type="button" data-mode="cross" aria-pressed="false" aria-controls="retriever-cross">Cross-encoder</button>
+</div>
+<section id="retriever-bi" class="mode-panel" data-announcement="Bi-encoder selected. One vector per passage."><h4>Bi-encoder (dense, M13)</h4><ul><li>Index time: one vector per passage.</li><li>Query time: one vector for the question, one cosine per passage.</li><li>Loses which part of the passage matched.</li></ul></section>
+<section id="retriever-late" class="mode-panel" data-announcement="Late interaction selected. One vector per passage token."><h4>Late interaction (ColBERT)</h4><ul><li>Index time: one vector per passage token.</li><li>Query time: one vector per question token, then a maximum and a sum.</li><li>Keeps which token matched, at a storage cost.</li></ul></section>
+<section id="retriever-cross" class="mode-panel" data-announcement="Cross-encoder selected. Nothing at index time."><h4>Cross-encoder reranker (M18)</h4><ul><li>Index time: nothing.</li><li>Query time: the model reads every question and passage pair together.</li><li>Too slow for a whole index; used to rerank a short candidate list.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p><a href="../../../../p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/theory/index.html#late-interaction">M20</a> uses the same scoring on page images, where every image patch gets a vector.</p>
 <p>The notebook runs ColBERT on a Wikipedia page about Hayao Miyazaki, fetched at run time. It loads the pretrained ColBERTv2 model, splits the page into passages of up to 180 tokens and indexes every token, then asks <em>What animation studio did Miyazaki found?</em> for the top three passages. It finally wraps the index as a LangChain retriever, which shows the point for architecture: the rest of a chain does not change when the retriever does.</p>
-<p>The cost moves into storage. ColBERTv2 stores 128 dimensions per token vector (Santhanam et al., <em>ColBERTv2</em>, NAACL 2022). The arithmetic for one passage:</p>
+<p>The cost moves into storage. ColBERTv2 stores 128 dimensions per token vector (Santhanam et al., NAACL 2022). The arithmetic for one passage:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -733,7 +737,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: Storage per passage before compression. 23,040 is 15 times 1,536.</em></p>
+<p><em>Table 3: Storage per passage before compression. 23,040 is 15 times 1,536.</em></p>
 <p>ColBERTv2 shrinks each vector to a centroid id plus a residual of 1 or 2 bits per dimension. Pages in M20 are larger still: ColSmol stores 1,139 vectors of 128 dimensions per page.</p>
 <p>On the architecture map, late interaction is an entry-level change. It replaces the retriever and keeps one retrieval and one model call per question. Weigh it against the other retrieval upgrades on the same golden set: BM25 in a hybrid (<a href="../../../../p05_retrieval_quality_and_rag_apps/m16_retrievers_hybrid_search/mandatory/theory/index.html">M16</a>) already catches exact codes, where dense retrieval ranked the E-4021 chunk 5th, and a cross-encoder reranks a wide candidate list at a measured latency.</p>
 <p>Choosing among those upgrades takes a score for each, which is where evaluation comes in.</p>
@@ -744,7 +748,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Correctness</strong>: the answer matches a reference answer.</li>
 <li><strong>Contextual relevancy</strong>: the retrieved context fits the question.</li>
 </ul>
-<p>Each one judges a different stage, which is what makes them useful for choosing an architecture. An end-to-end score says the outage answer is wrong; a stage score says whether retrieval or generation made it wrong. The stages and the metrics that read them:</p>
+<p>Each one judges a different stage, which is what makes them useful for choosing an architecture. An end-to-end score says the outage answer is wrong; a stage score says whether retrieval or generation made it wrong:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q["Question"] --&gt; R["Retrieve"]
     R --&gt; C["Context"]
@@ -757,11 +761,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The notebook measures these properties three ways:</p>
 <ul>
 <li><strong>Judges written from scratch.</strong> A strong chat model, asked for structured output, returns a score from 0 to 1. The correctness prompt compares the answer with a reference; the faithfulness prompt asks whether the answer can be deduced from the context, with few-shot examples.</li>
-<li><strong>deepeval.</strong> A correctness judge and a faithfulness metric run over two test cases. A contextual relevancy metric is imported and never used. grouse cannot share this environment, so its cells need a separate one, and the setup guide the cell&rsquo;s comment mentions is <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/docs/source/09/setup.md" target="_blank" rel="noopener">the original repository&rsquo;s setup notes</a>.</li>
-<li><strong>RAGAS.</strong> Three questions, each with a generated answer, the retrieved contexts and a reference answer, are scored on four metrics. In the locked environment (<code>ragas</code> 0.4.3 with <code>langchain-community</code> 0.4.2) the cell cannot start: <code>import ragas</code> raises <code>ModuleNotFoundError: No module named 'langchain_community.chat_models.vertexai'</code>.</li>
+<li><strong>deepeval.</strong> A correctness judge and a faithfulness metric run over two test cases. A contextual relevancy metric is imported and never used. grouse cannot share this environment and needs a separate one; the setup guide its cell&rsquo;s comment mentions is <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/docs/source/09/setup.md" target="_blank" rel="noopener">the original repository&rsquo;s setup notes</a>.</li>
+<li><strong>RAGAS.</strong> Three questions, each with a generated answer, the retrieved contexts and a reference answer, are scored on four metrics. With the locked <code>ragas</code> 0.4.3 and <code>langchain-community</code> 0.4.2 the cell cannot start: <code>import ragas</code> raises <code>ModuleNotFoundError: No module named 'langchain_community.chat_models.vertexai'</code>.</li>
 </ul>
 <p>The from-scratch faithfulness judge plants a useful edge case. The answer &ldquo;6&rdquo; to <em>what is 3+3?</em>, with the context &ldquo;6&rdquo;, is unfaithful under its rule, because the context states the number but not the sum. That is stricter than &ldquo;the context does not contradict it&rdquo;. Two tools can both report &ldquo;faithfulness&rdquo; and mean different tests, a failure we call <strong>definition drift</strong>. Write down which definition each score uses before comparing two architectures on it.</p>
-<p>The metrics map onto the stages like this:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -798,31 +801,38 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 5: Each metric, the stage it reads and whether it needs a labelled reference.</em></p>
+<p><em>Table 4: Each metric, the stage it reads and whether it needs a labelled reference.</em></p>
 <p>For an architecture decision, run every candidate over the same golden set and record one row each: the stage metrics, model calls and retrievals per question, and latency. Retrieval metrics such as recall@k need no judge; the M10 baseline row is computed from the golden set&rsquo;s labelled evidence chunks. The judged metrics cost model calls at evaluation time, one or more per metric per question. That is a reason to keep the golden set fixed and small enough to run on every change.</p>
 <p>Report per question as well as the mean. A mean over a few questions can hide one question that changed completely, a failure we call the <strong>blurred mean</strong>.</p>
 <h2 id="in-practice-the-outage-answer">In practice: the outage answer</h2>
 <p>Back to the wrong outage answer. The M46 lab records what each retriever returned for it, and those counts are enough to locate the fault:</p>
-<ol>
-<li><strong>End to end.</strong> The answer is wrong. The verdict says nothing yet about where.</li>
-<li><strong>Retrieval.</strong> With TF-IDF, <code>reboot</code> and <code>sizing</code> rank first and recall is 0.00: neither evidence chunk reached the model. The handbook says &ldquo;outage&rdquo;, the question says &ldquo;goes down&rdquo;.</li>
-<li><strong>Generation.</strong> Faithfulness is beside the point here. A faithful answer to the wrong chunks is still wrong.</li>
-<li><strong>Fix the stage.</strong> Dense retrieval ranks <code>incidents</code> and <code>sla</code> first and second, recall 1.00, at the same single retrieval and single model call.</li>
-<li><strong>Re-run the whole set.</strong> On the export question dense retrieval recalls 0.50 at k = 2, because <code>cancel</code> outranks <code>export</code>. Only the per-question rows show that the swap helped one question and hurt another.</li>
-</ol>
+<div class="walkthrough learning-widget" data-stepper id="diagnosis-walkthrough">
+<p class="widget-intro">Locate the fault in the wrong outage answer one stage at a time. Rankings and recall are the M46 lab's recorded counts.</p>
+<div class="step-controls" hidden role="group" aria-label="Diagnosis stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="diagnosis-step-0">1. End to end</button><button type="button" data-step="1" aria-pressed="false" aria-controls="diagnosis-step-1">2. Retrieval</button><button type="button" data-step="2" aria-pressed="false" aria-controls="diagnosis-step-2">3. Generation</button><button type="button" data-step="3" aria-pressed="false" aria-controls="diagnosis-step-3">4. Fix the stage</button><button type="button" data-step="4" aria-pressed="false" aria-controls="diagnosis-step-4">5. Re-run the set</button></div>
+<div class="step-panels"><section id="diagnosis-step-0" class="step-panel" aria-labelledby="diagnosis-heading-0"><h4 id="diagnosis-heading-0">1. End-to-end verdict</h4><dl><dt>Result</dt><dd>The answer is wrong</dd><dt>What it tells you</dt><dd>Nothing yet about where</dd></dl></section><section id="diagnosis-step-1" class="step-panel" aria-labelledby="diagnosis-heading-1"><h4 id="diagnosis-heading-1">2. Retrieval metric</h4><dl><dt>TF-IDF top 2</dt><dd><code>reboot</code> and <code>sizing</code></dd><dt>Recall</dt><dd>0.00: neither evidence chunk reached the model</dd><dt>Why</dt><dd>The handbook says "outage", the question says "goes down"</dd></dl></section><section id="diagnosis-step-2" class="step-panel" aria-labelledby="diagnosis-heading-2"><h4 id="diagnosis-heading-2">3. Generation metric</h4><dl><dt>Faithfulness</dt><dd>Beside the point here</dd><dt>Why</dt><dd>A faithful answer to the wrong chunks is still wrong</dd></dl></section><section id="diagnosis-step-3" class="step-panel" aria-labelledby="diagnosis-heading-3"><h4 id="diagnosis-heading-3">4. Fix the failing stage</h4><dl><dt>Change</dt><dd>Dense retrieval</dd><dt>Top 2</dt><dd><code>incidents</code> and <code>sla</code>, recall 1.00</dd><dt>Cost</dt><dd>The same single retrieval and single model call</dd></dl></section><section id="diagnosis-step-4" class="step-panel" aria-labelledby="diagnosis-heading-4"><h4 id="diagnosis-heading-4">5. Re-run the whole golden set</h4><dl><dt>Export question</dt><dd>Dense recall falls to 0.50 at k = 2: <code>cancel</code> outranks <code>export</code></dd><dt>Lesson</dt><dd>Only per-question rows show the swap helped one question and hurt another</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <blockquote>
 <p><strong>Interview tip:</strong> when asked how you would evaluate a RAG change, name a retrieval metric, a generation metric and an end-to-end metric, and say you report them per question on a fixed golden set.</p>
 </blockquote>
 <p>Lesson 46.3 uses exactly this pattern, failing stage first, to choose between architectures.</p>
-<h2 id="limits-of-the-walkthrough">Limits of the walkthrough</h2>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>No saved outputs.</strong> Every result the notebook describes is an unsaved verdict until you run it.</li>
 <li><strong>Not on Larkspur.</strong> The ColBERT cells use a Wikipedia page and the RAGAS cells three questions about a novel. Neither measures retrieval on the handbook.</li>
 <li><strong>RAGAS does not import</strong> in the course environment as locked, and grouse needs its own environment.</li>
+<li><strong>Table 2 is illustrative.</strong> Its similarities are made up; only the MaxSim arithmetic is real.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>Khattab and Zaharia, <a href="https://arxiv.org/abs/2004.12832" target="_blank" rel="noopener">ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</a>, SIGIR 2020.</li>
+<li>Santhanam et al., <a href="https://arxiv.org/abs/2112.01488" target="_blank" rel="noopener">ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction</a>, NAACL 2022.</li>
+<li>Es et al., <a href="https://arxiv.org/abs/2309.15217" target="_blank" rel="noopener">Ragas: Automated Evaluation of Retrieval Augmented Generation</a>, 2023, and the <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/" target="_blank" rel="noopener">RAGAS metrics list</a>.</li>
+<li>deepeval documentation: <a href="https://deepeval.com/docs/metrics-faithfulness" target="_blank" rel="noopener">Faithfulness</a> and <a href="https://deepeval.com/docs/metrics-contextual-relevancy" target="_blank" rel="noopener">Contextual Relevancy</a>.</li>
+<li><a href="https://github.com/AnswerDotAI/RAGatouille" target="_blank" rel="noopener">RAGatouille</a>, the library the notebook uses to load ColBERTv2.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
-<li>ColBERT keeps a vector per token and scores with MaxSim, so it knows which part of a passage matched. It still costs one retrieval and one model call, but stores about 15 times more numbers before compression.</li>
+<li>ColBERT keeps a vector per token and scores with MaxSim, which tells it which part of a passage matched. It still costs one retrieval and one model call, but stores about 15 times more numbers before compression.</li>
 <li>Use stage metrics to locate a failure: context recall and relevancy judge retrieval, faithfulness judges generation, and correctness judges the whole pipeline.</li>
 <li>Run every candidate on the same fixed golden set, report per question as well as the mean, and write down which faithfulness definition a judge uses.</li>
 </ul>
@@ -839,7 +849,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. An end-to-end correctness score says the outage answer is wrong. Which metrics tell you whether retrieval or generation caused it?</summary>
 <p>The stage metrics. Context recall (it needs a reference answer) and contextual relevancy judge retrieval; recall@k needs no judge at all, only the labelled evidence chunks. Faithfulness judges generation against the retrieved context. With TF-IDF the outage recall is 0.00, which puts the fault in retrieval.</p>
 </details>
-<h2 id="fourteen-calls-for-a-wrong-answer">Fourteen calls for a wrong answer</h2>
+<h2 id="start-with-fourteen-calls-for-a-wrong-answer">Start with fourteen calls for a wrong answer</h2>
 <p class="lesson-of">Lesson 46.3: Decision framework: picking the simplest architecture that works</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -852,9 +862,22 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lesson 46.1 priced every architecture in model calls, and lesson 46.2 showed how stage metrics locate a failure. This lesson puts the two together into a way of choosing.</p>
 <p>Here is the failure it prevents. Larkspur&rsquo;s assistant answers <em>What happens if my server goes down?</em> wrongly with TF-IDF retrieval. A team reads that as a reasoning problem and adopts Self-RAG. In the M29 lab Self-RAG spends 14 model calls on three passes over the same chunks and still misses, because TF-IDF never returns the outage evidence: the handbook says &ldquo;outage&rdquo;, the question says &ldquo;goes down&rdquo;. We call this a <strong>loop over a miss</strong>: a self-correcting loop paying again and again to work around a retrieval failure it cannot fix.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Outage question"] --&gt; R["TF-IDF retrieve&lt;br/&gt;no outage chunk"]
+    R --&gt; G{"Self-RAG checks"}
+    G -- "fail, try again" --&gt; R
+    G -- "after 3 passes" --&gt; A["Wrong answer&lt;br/&gt;14 calls"]
+</pre></figure>
+<p><em>Figure 1: The loop over a miss. Every pass re-reads the same wrong chunks (M29 lab counts).</em></p>
+<p>The same question with the failing stage fixed instead:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Outage question"] --&gt; R["Dense retrieve&lt;br/&gt;incidents, sla"]
+    R --&gt; A["Right answer&lt;br/&gt;1 call"]
+</pre></figure>
+<p><em>Figure 2: Fix the stage. Dense retrieval ranks both evidence chunks first and second (M16 lab), and plain RAG answers.</em></p>
 <p>The rest of the page gives a procedure that names the failing stage before choosing a component, and a budget each component has to fit.</p>
 <h2 id="architecture-selection">Architecture selection</h2>
-<p><strong>Architecture selection is a chain of questions asked of the golden set, each naming a failure and pointing at the family that fixes it.</strong> A &ldquo;no&rdquo; moves on to the next question, so a design only reaches the expensive families when the cheaper fixes are ruled out:</p>
+<p><strong>Architecture selection is a chain of questions asked of the golden set, each naming a failure and pointing at the family that fixes it.</strong> A &ldquo;no&rdquo; moves on to the next question, and a design only reaches the expensive families when the cheaper fixes are ruled out:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q1{"Plain RAG passes&lt;br/&gt;the golden set?"} -- yes --&gt; A1["Ship it"]
     Q1 -- no --&gt; Q2{"Evidence missing&lt;br/&gt;from the top k?"}
@@ -869,7 +892,7 @@ th:last-child, td:last-child { padding-right: 0; }
     Q6 -- yes --&gt; A6["Add a check&lt;br/&gt;M28, M29"]
     Q6 -- no --&gt; A7["Ship, and log&lt;br/&gt;the misses"]
 </pre></figure>
-<p><em>Figure 1: The decision chain. Every &ldquo;no&rdquo; continues down to a more expensive family; every &ldquo;yes&rdquo; exits to the cheapest fix for that failure.</em></p>
+<p><em>Figure 3: The decision chain. Every &ldquo;no&rdquo; continues down to a more expensive family; every &ldquo;yes&rdquo; exits to the cheapest fix for that failure.</em></p>
 <p>Each branch has a counted example from an earlier lab:</p>
 <ul>
 <li><strong>Evidence missing: fix retrieval.</strong> On the outage question TF-IDF retrieves neither evidence chunk (M23 lab). Dense retrieval ranks <code>incidents</code> and <code>sla</code> first and second (M16 lab) for the same single call. The loops that work around the miss pay for it: the M28 retry loop finds the evidence on its second rewrite, at 10 calls, and Self-RAG spends 14 calls on three passes over the same chunks (M29). M29&rsquo;s own rule is that retrieval misses are fixed in retrieval.</li>
@@ -878,7 +901,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Path depends on results: an agent loop.</strong> A loop rewords failed searches: ReAct lifts mean evidence recall on the M10 golden set from 0.50 to 1.00 for 9 model calls instead of 3 (M23). When the lookups are known in advance, a fixed plan makes 2 calls however many lookups it holds (M25).</li>
 <li><strong>Costly mistakes: add a check.</strong> A relevance grader keeps unrelated chunks away from the model. On the export question the M28 loop costs 4 calls; on <em>Does Larkspur offer GPU servers?</em> it ends in a no-results reply after 9. A web fallback (CRAG) does not help here, because every Larkspur fact lives in a private handbook the web cannot see (M29).</li>
 </ul>
-<p>Asking about a costly mistake last means the check runs on top of the best retrieval the design already has, so it grades good chunks instead of looping over bad ones. Asked first, it produces the loop over a miss from the opening section.</p>
+<p>Asking about a costly mistake last means the check runs on top of the best retrieval the design already has, and grades good chunks instead of looping over bad ones. Asked first, it produces the loop over a miss of Figure 1.</p>
 <p>The chain says which family to reach for. It does not say how much that family may spend, which is the budget&rsquo;s job.</p>
 <h2 id="complexity-budget">Complexity budget</h2>
 <p><strong>A complexity budget is what one question may spend before the answer reaches the user.</strong> Its main unit is model calls: they set the bill, and since the course&rsquo;s notebooks make them one after another, they set the latency too. Retrievals, tokens re-read in every loop iteration, index-time model work and the number of prompts to test count against the same budget. A component earns its place when it buys a measured gain on the golden set that nothing cheaper buys.</p>
@@ -891,7 +914,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </ol>
 <p>The pick is the first qualifying rung in order of calls.</p>
 <figure class="lab-embed"><iframe src="03_decision_framework_picking_the_simplest_architecture_that_works/interactive/architecture-picker-lab.html" title="The simplest architecture that works, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The simplest architecture that works. <a href="03_decision_framework_picking_the_simplest_architecture_that_works/interactive/architecture-picker-lab.html">Open full screen</a></figcaption></figure>
-<p>Five settings show the budget at work:</p>
+<p>Trace the outage question through the chain and then the budget:</p>
+<div class="walkthrough learning-widget" data-stepper id="budget-walkthrough">
+<p class="widget-intro">Follow the outage question from the failing golden set to a pick. Every count comes from the M46 lab.</p>
+<div class="step-controls" hidden role="group" aria-label="Selection stages"><button type="button" data-step="0" aria-pressed="false" aria-controls="budget-step-0">1. Golden set</button><button type="button" data-step="1" aria-pressed="false" aria-controls="budget-step-1">2. Chain</button><button type="button" data-step="2" aria-pressed="false" aria-controls="budget-step-2">3. Cheap mistakes</button><button type="button" data-step="3" aria-pressed="false" aria-controls="budget-step-3">4. Costly mistakes</button><button type="button" data-step="4" aria-pressed="false" aria-controls="budget-step-4">5. The gap</button></div>
+<div class="step-panels"><section id="budget-step-0" class="step-panel" aria-labelledby="budget-heading-0"><h4 id="budget-heading-0">1. The golden set fails</h4><dl><dt>Plain TF-IDF RAG</dt><dd>1 call, recall 0.00: <code>reboot</code> and <code>sizing</code> rank first</dd></dl></section><section id="budget-step-1" class="step-panel" aria-labelledby="budget-heading-1"><h4 id="budget-heading-1">2. The chain names the stage</h4><dl><dt>Question</dt><dd>Evidence missing from the top k? Yes</dd><dt>Fix</dt><dd>Retrieval. Dense: 1 call, recall 1.00. The hybrid blend at <code>alpha = 0.5</code> also costs 1 call but keeps <code>sla</code> and loses <code>incidents</code></dd></dl></section><section id="budget-step-2" class="step-panel" aria-labelledby="budget-heading-2"><h4 id="budget-heading-2">3. A wrong answer is cheap</h4><dl><dt>Pick</dt><dd>Dense retrieval, 1 call</dd><dt>Why</dt><dd>The cheapest rung that answers; no check required</dd></dl></section><section id="budget-step-3" class="step-panel" aria-labelledby="budget-heading-3"><h4 id="budget-heading-3">4. A wrong answer costs a ticket</h4><dl><dt>Checked rungs</dt><dd>CRAG misses (the web cannot see the handbook), Self-RAG misses at 14, the M28 retry loop answers at 10</dd><dt>Pick</dt><dd>The M28 retry loop; below a budget of 10 nothing fits</dd></dl></section><section id="budget-step-4" class="step-panel" aria-labelledby="budget-heading-4"><h4 id="budget-heading-4">5. The uncounted rung</h4><dl><dt>Candidate</dt><dd>A grader on top of dense retrieval</dd><dt>Status</dt><dd>Probably under 10 calls, but no course lab counted it. Count it on your own golden set before you ship it</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>An uncounted rung is an <strong>untested shortcut</strong>: the budget cannot hold what nobody measured. Three more settings show the budget at work:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -902,18 +931,6 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>Outage, wrong answer cheap</td>
-<td>Dense retrieval</td>
-<td>1</td>
-<td>the hybrid blend at <code>alpha = 0.5</code> is also 1 call, but keeps <code>sla</code> and loses <code>incidents</code> (recall 0.50), so the ladder passes it</td>
-</tr>
-<tr>
-<td>Outage, wrong answer costs a ticket</td>
-<td>M28 retry loop</td>
-<td>10</td>
-<td>the only counted rung with a check that answers; below a budget of 10 nothing fits</td>
-</tr>
 <tr>
 <td>Service credits, three knowledge bases</td>
 <td>Swarm</td>
@@ -934,8 +951,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: Five lab settings, the rung the lab picks and why.</em></p>
-<p>The second row hides a gap. A grader on top of dense retrieval may cost less than 10 calls, but no course lab has counted it; count it on your own golden set before you ship it. An uncounted rung is an <strong>untested shortcut</strong>, and the budget cannot hold what nobody measured.</p>
+<p><em>Table 1: Three more lab settings, the rung the lab picks and why.</em></p>
 <p>The budget also has to hold what the lab&rsquo;s call counts leave out:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -967,7 +983,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Pitfall: the silent check.</strong> A grader that rejects without saying so, or is skipped on one path, looks safe in a design document and fails in production. Give each check at least one golden-set question that makes it fire.</p>
 </blockquote>
-<p>With the chain and the budget in hand, the design document writes itself one component at a time.</p>
+<p>With the chain and the budget in hand, the design document can be written one component at a time.</p>
 <h2 id="in-practice-the-design-document">In practice: the design document</h2>
 <p>The module&rsquo;s lab brief asks for a two-page design for your capstone that justifies each component against a simpler alternative. For each component, write four things: the failure on the golden set that it fixes, the simpler alternative you tried first, the measured gain and the calls it adds per question. Two Larkspur rows, filled from the counts above:</p>
 <div class="sheet scroll"><table>
@@ -999,12 +1015,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Two rows of a design document for the Larkspur assistant.</em></p>
 <p>Writing a row exposes the cases where a component has no failure to point at. On the export question, every component above plain TF-IDF RAG adds calls and fixes nothing (lesson 46.1, Table 3), and its row would stay empty. A row with an empty first column is a component to remove.</p>
-<h2 id="limits-of-the-framework">Limits of the framework</h2>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
 <ul>
 <li><strong>Fixture counts.</strong> The lab&rsquo;s 30 counts come from small handbook fixtures, one question at a time. Your golden set may rank the rungs differently.</li>
 <li><strong>Calls stand in for latency</strong> only while calls run one after another. Parallel specialists or batched graders break that link.</li>
 <li><strong>Uncounted rungs.</strong> Combinations no course lab ran, such as a grader over dense retrieval, are absent from the ladder rather than ruled out.</li>
 <li><strong>One golden set.</strong> The chain is only as good as the questions it asks; a failure type missing from the set never triggers its branch.</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li>Asai et al., <a href="https://arxiv.org/abs/2310.11511" target="_blank" rel="noopener">Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</a>, 2023: the reflection checks behind the 14-call loop.</li>
+<li>Yan et al., <a href="https://arxiv.org/abs/2401.15884" target="_blank" rel="noopener">Corrective Retrieval Augmented Generation</a>, 2024: the web fallback that cannot see a private handbook.</li>
+<li>Jeong et al., <a href="https://arxiv.org/abs/2403.14403" target="_blank" rel="noopener">Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity</a>, NAACL 2024: routing by question complexity, the published form of the chain&rsquo;s early exits.</li>
+<li>Es et al., <a href="https://arxiv.org/abs/2309.15217" target="_blank" rel="noopener">Ragas: Automated Evaluation of Retrieval Augmented Generation</a>, 2023: stage metrics for the golden set.</li>
 </ul>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -1015,7 +1038,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="check-yourself">Check yourself</h2>
 <details>
 <summary>1. Why does the decision chain ask whether a wrong answer costs a ticket only after the retrieval, routing, index and loop questions?</summary>
-<p>So the check runs on top of the best retrieval the design already has, and grades good chunks instead of looping over bad ones. Each earlier question rules out a cheaper fix first, so a design reaches the expensive families only when it needs them.</p>
+<p>The check then runs on top of the best retrieval the design already has, and grades good chunks instead of looping over bad ones. Each earlier question rules out a cheaper fix first, and a design reaches the expensive families only when it needs them.</p>
 </details>
 <details>
 <summary>2. The service-credits question runs over three knowledge bases with a budget of 2 model calls. What does the lab pick, and what changes at 3?</summary>
@@ -1081,7 +1104,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Count what each component costs in model calls, retrievals and index-time work, and set a budget per question before choosing; loops get a cap in code.</li>
 <li>Change the data when the question needs it: summaries for themes, explicit edges for constraints, separate knowledge bases only when routing to them buys something.</li>
 </ul></article>
-    <nav class="toc" aria-label="M46 sections"><details open><summary>In M46</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#too-many-designs-to-compare">Too many designs to compare</a></li><li><a href="#the-architecture-map">The architecture map</a></li><li><a href="#what-each-family-adds">What each family adds</a></li><li><a href="#in-practice-the-export-question">In practice</a></li><li><a href="#limits-of-the-map">Limits of the map</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-stack-in-one-notebook">The stack in one notebook</a></li><li><a href="#late-interaction-colbert">Late interaction (ColBERT)</a></li><li><a href="#end-to-end-evaluation">End-to-end evaluation</a></li><li><a href="#in-practice-the-outage-answer">In practice</a></li><li><a href="#limits-of-the-walkthrough">Limits of the walkthrough</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#fourteen-calls-for-a-wrong-answer">Fourteen calls for a wrong answer</a></li><li><a href="#architecture-selection">Architecture selection</a></li><li><a href="#complexity-budget">Complexity budget</a></li><li><a href="#in-practice-the-design-document">In practice</a></li><li><a href="#limits-of-the-framework">Limits of the framework</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M46 sections"><details open><summary>In M46</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#start-with-a-review-that-compares-feature-lists">Start with a review that compares feature lists</a></li><li><a href="#the-architecture-map">The architecture map</a></li><li><a href="#what-each-family-adds">What each family adds</a></li><li><a href="#in-practice-the-export-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-wrong-answer-nobody-can-place">Start with a wrong answer nobody can place</a></li><li><a href="#the-stack-in-one-notebook">The stack in one notebook</a></li><li><a href="#late-interaction-colbert">Late interaction (ColBERT)</a></li><li><a href="#end-to-end-evaluation">End-to-end evaluation</a></li><li><a href="#in-practice-the-outage-answer">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-fourteen-calls-for-a-wrong-answer">Start with fourteen calls for a wrong answer</a></li><li><a href="#architecture-selection">Architecture selection</a></li><li><a href="#complexity-budget">Complexity budget</a></li><li><a href="#in-practice-the-design-document">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

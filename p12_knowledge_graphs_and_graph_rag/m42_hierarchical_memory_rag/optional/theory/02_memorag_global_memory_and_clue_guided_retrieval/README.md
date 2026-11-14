@@ -2,8 +2,9 @@
 
 *[M42 theory](../../../mandatory/theory/README.md) · Lesson 42.2 · Notebooks: [`02a_memorag.ipynb`](../../notebook/02a_memorag.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a memory of the whole corpus writes search clues for a vague question, and why every clue still has to find a real passage -->
+<!-- format: approved -->
 
-## When the question has no keywords
+## Start with a question that has no keywords
 
 > **What you'll learn**
 >
@@ -20,7 +21,7 @@ A Larkspur operations lead asks *How does Larkspur protect continuity?* The ques
 
 **Global memory is a compact, model-readable representation of the whole corpus that turns a vague question into specific search clues before retrieval runs.** For the continuity question, memory might suggest *export before cancellation*, *30-day retention window* and *availability guarantee and credits*. Each clue is a search, not an answer: the final answer still needs source passages that support every claim.
 
-The [MemoRAG paper](https://arxiv.org/html/2409.05591v2) (Qian et al., 2024) builds the memory with a long-range model that compresses the corpus, then has that model draft clues for the retriever. A clue can contain a wrong detail. Its job is to locate evidence, and the generator checks what comes back:
+The [MemoRAG paper](https://arxiv.org/abs/2409.05591) (Qian et al., 2024) builds the memory with a long-range model that compresses the corpus, then has that model draft clues for the retriever. A clue can contain a wrong detail. Its job is to locate evidence, and the generator checks what comes back:
 
 ```mermaid
 flowchart TD
@@ -33,9 +34,17 @@ flowchart TD
 
 *Figure 1: Clue-guided retrieval. Memory shapes the searches; only retrieved passages reach the answer.*
 
-The optional notebook implements a smaller approximation. Its memory is a list of readable text records, each a **topic** and its **details**, written by a chat model reading the corpus and validated against a schema. The records are embedded and stored in a FAISS index. The memorising prompt says it mimics KV-cache creation; the records are text, not the attention key and value tensors a model keeps inside, and the analogy stops there.
+Plain retrieval, the alternative, sends the question straight to the passage index:
 
-How the notebook reads the corpus sets how much memory each call sees:
+```mermaid
+flowchart LR
+    Q[/Question/] --> P["Passage index<br/>one search, k passages"]
+    P --> G[Answer from those passages]
+```
+
+*Figure 2: Plain retrieval. One search with the question's own words.*
+
+The optional notebook implements a smaller approximation of Figure 1. Its memory is a list of readable text records, each a **topic** and its **details**, written by `gpt-4o-mini` reading the corpus and validated against a schema. The records are embedded and stored in a FAISS index. The memorising prompt says it mimics KV-cache creation; the records are text, not the attention key and value tensors a model keeps inside, and the analogy stops there.
 
 | Corpus | Memorised as | Passage index for retrieval |
 |---|---|---|
@@ -60,11 +69,24 @@ sequenceDiagram
     U->>L: question plus passages
 ```
 
-*Figure 2: One question through the notebook's pipeline. Clues come from two separate model calls.*
+*Figure 3: One question through the notebook's pipeline. Clues come from two separate model calls.*
 
 The clue step makes two calls: one asks for text spans likely to appear in the corpus, the other for **surrogate questions**, narrower questions that clarify the original. The notebook splits both replies into lines, drops any line of three words or fewer, and appends the original question. Each surviving line becomes one search for three passages.
 
-That design has a cost that grows with the clue count. The arithmetic for one question:
+Compare the two designs on the continuity question:
+
+<div class="learning-widget evidence-switcher" data-comparison id="retrieval-switcher">
+<p class="widget-intro">One vague question, two retrieval designs. The clue texts are illustrative; the counts follow the notebook's code with four clues kept.</p>
+<div class="mode-controls" hidden role="group" aria-label="Retrieval design">
+<button type="button" data-mode="plain" aria-pressed="false" aria-controls="design-plain">Plain retrieval</button>
+<button type="button" data-mode="clues" aria-pressed="false" aria-controls="design-clues">Clue-guided</button>
+</div>
+<section id="design-plain" class="mode-panel" data-announcement="Plain retrieval selected. One search with the question's own words."><h4>Plain retrieval</h4><ul><li>Searches: 1, with "How does Larkspur protect continuity?"</li><li>Passages: those that share "continuity" or "protect", which few policy passages do.</li><li>Model calls: 1, the answer.</li></ul></section>
+<section id="design-clues" class="mode-panel" data-announcement="Clue-guided selected. Five searches, up to 15 passages before deduplication."><h4>Clue-guided</h4><ul><li>Searches: 5, one per clue such as "export before cancellation", plus the question.</li><li>Passages: up to 15 before deduplication, now including export, retention and availability.</li><li>Model calls: 3, two for clues and one for the answer, plus one memory search.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The clue-guided design reaches the passages a plain search misses, and its cost grows with the clue count:
 
 | Clues kept | Searches | Passages before deduplication | Model calls |
 |---|---|---|---|
@@ -72,9 +94,9 @@ That design has a cost that grows with the clue count. The arithmetic for one qu
 | 4 | 5 | 15 | 3 |
 | 8 | 9 | 27 | 3 |
 
-*Table 2: Retrieval work per question (illustrative clue counts). One memory search is added to every row; the three model calls are the two clue calls and the answer.*
+*Table 2: Retrieval work per question in the notebook (illustrative clue counts). One memory search is added to every row; the three model calls are the two clue calls and the answer.*
 
-Removing duplicate passages is the only control on context size. Deduplication drops repeats; it does not cap tokens. Eight clues that each find three new passages put 27 passages in front of the generator. Call that **clue sprawl**, and set a passage or token budget after deduplication.
+Removing duplicate passages is the only control on context size. Deduplication drops repeats; it does not cap tokens. Eight clues that each find three new passages put 27 passages in front of the generator. Call that **clue sprawl**, and set a passage or token budget after deduplication. Choose plain retrieval when questions name what they want; choose clues when questions are vague and the corpus is long enough that a reader's overview helps.
 
 Each stage has its own failure, and its own thing to log:
 
@@ -88,9 +110,9 @@ Each stage has its own failure, and its own thing to log:
 
 *Table 3: Where clue-guided retrieval fails, stage by stage.*
 
-The invented-product row is the failure that matters most. Call it the **fluent clue**: a clue that reads well and names something the corpus does not contain. If retrieval then finds a loosely related passage, the generator may treat the clue's claim as supported. The notebook's answer prompt tells the model to use only the retrieved context and to say when the context is not enough. Logging clues beside the passages they found is what shows whether that instruction held.
+The invented-product row matters most. Call it the **fluent clue**: a clue that reads well and names something the corpus does not contain. If retrieval then finds a loosely related passage, the generator may treat the clue's claim as supported. The notebook's answer prompt says to use only the retrieved context and to say when it is not enough. Logging clues beside the passages they found shows whether that instruction held.
 
-The notebook's update path has gaps worth planting:
+The notebook's memory store has gaps worth planting:
 
 | Input | What the notebook does | Why |
 |---|---|---|
@@ -102,31 +124,24 @@ The notebook's update path has gaps worth planting:
 
 A topic registry or stable record identifiers fixes the first row. The third needs a fallback that searches with the original question alone.
 
-Memory is derived data, with the same duties as the summaries in lesson 42.1. When Larkspur changes its retention rules, update the passage index and regenerate every memory record written from those passages. Shared memory must not leak restricted documents through its records or its clues. Test a deletion against the stored memory and against generated answers.
-
-## In practice: continuity clues
-
-For Larkspur, a memory-assisted retriever would run like this:
-
-1. Memorise the handbook into topic records, each tagged with the passages and versions it came from.
-2. For *How does Larkspur protect continuity?*, retrieve the closest memory records and write clues from them.
-3. Search the passage index with each clue and with the original question.
-4. Deduplicate, cut to a fixed passage budget, and answer only from what remains.
-5. Log the clues, the passages each one found, and the claims each passage supports.
-
-Run the same questions through plain retrieval at the same budget. Report a gain only when the clue-guided run finds supporting passages the plain run missed.
-
-## Limits of the notebook
-
-The notebook loads two prebuilt memory stores, one per corpus, and the second corpus is a book PDF. None of those files ships with this repository, and the memorising cells are commented out because they are slow and paid. As shipped, the notebook shows the implementation's shape and does not run end to end.
-
-Its evaluation compares plain RAG with this MemoRAG approximation on the first 5 of 44 climate questions and on 15 of 16 questions about the book. It also scores answers saved from a run of the original MemoRAG on a GPU. Those scores come from a model judge and a different corpus, and they say nothing about the Larkspur handbook. Report a comparison only after running both pipelines on the same questions and budget.
+Memory is derived data, with the same duties as the summaries in lesson 42.1. When Larkspur changes its retention rules, update the passage index and regenerate every memory record written from those passages. Shared memory must not leak restricted documents through its records or its clues. For Larkspur, tag each record with the passages and versions it came from, cut the deduplicated passages to a fixed budget, and log each clue beside the passages it found. Report a gain over plain retrieval only when the clue-guided run finds supporting passages the plain run missed at the same budget.
 
 Lesson 42.3 builds a third derived representation, a graph of entities and relationships, and searches it at two levels.
 
+## Limits of this evidence
+
+- **The notebook does not run as shipped.** It loads two prebuilt memory stores and a book PDF that are not in this repository, and the memorising cells are commented out because they are slow and paid.
+- **Its comparison is broken.** The plain-RAG cells call the shared `evaluate_rag` helper with a `q_a_file_name` argument it does not accept, and they stop with a `TypeError`. Even fixed, that helper writes its own five climate questions instead of reading the question file. The notebook's own MemoRAG evaluation reads the first 5 of 44 climate questions and 15 of 16 book questions, scored by a model judge. No plain baseline on the same questions exists.
+- **Illustrative counts.** Table 2 and the switcher follow the code with chosen clue counts. No model wrote clues for the Larkspur handbook here.
+
+## References
+
+1. Qian, H. et al. (2024). *MemoRAG: Boosting Long Context Processing with Global Memory-Enhanced Retrieval Augmentation*. [arXiv:2409.05591](https://arxiv.org/abs/2409.05591).
+2. Meta AI, [Faiss](https://faiss.ai/), the similarity search library behind both the memory records and the passages.
+
 ## Key Takeaways
 
-- Corpus memory writes clues that help the retriever find evidence. A clue can contain a wrong detail, so every claim in the answer must rest on a retrieved passage.
+- Corpus memory writes clues that help the retriever find evidence. A clue can contain a wrong detail, and every claim in the answer must rest on a retrieved passage.
 - Each extra clue adds a search and its passages, and deduplication alone does not bound the context. Log clue text beside the original question and set a budget after deduplication.
 - Treat memory as derived data. Regenerate records when their source passages change, and check that records and clues never expose restricted documents.
 

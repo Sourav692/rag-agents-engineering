@@ -2,8 +2,9 @@
 
 *[M43 theory](../README.md) · Lesson 43.6 · Notebooks: [`06a_roman_empire_graph_rag.ipynb`](../../notebook/06a_roman_empire_graph_rag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How one system extracts a graph from documents, retrieves graph facts and text side by side, and carries each fact's source passage into the answer -->
+<!-- format: approved -->
 
-## Assemble retrieval with source evidence
+## Start with an answer nobody can check
 
 > **What you'll learn**
 >
@@ -15,6 +16,8 @@
 Lessons 43.1 to 43.5 built the pieces one at a time: a model, a query language, an import, a vector index and extraction. This lesson runs all of them in one pipeline, on documents in and answers out.
 
 A Larkspur customer asks *Can EU Team export my data, and where does it say so?* The system answers "Yes, EU Team supports export in the EU." The graph had the edge. Nobody can check the answer, because the passage that asserted the edge never reached the model, and the approval condition from lesson 43.5 was in that passage.
+
+## Assemble retrieval with source evidence
 
 The notebook builds the system on Wikipedia pages about the Roman Empire. Larkspur would substitute versioned handbook passages and keep the links from every extracted entity back to its source text.
 
@@ -48,10 +51,15 @@ flowchart TD
 
 *Figure 1: The graph branch, joined to text hits. The notebook stops at "Combine"; attaching source passages is the step this lesson adds.*
 
-- **Text branch**: hybrid search over the `Document` chunks, combining keyword and vector scores, as described in the [Neo4jVector integration](https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector).
+- **Text branch**: hybrid search over the `Document` chunks, combining keyword and vector scores, as described in the [Neo4jVector integration](https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector). The notebook keeps the search's default of 4 chunks.
 - **Graph branch**: a model extracts the person and organisation names in the question, a full-text index finds matching entities, and the branch returns each match's incoming and outgoing relationships, leaving out `MENTIONS` edges.
 
-The final context is two labelled blocks, "Structured data" with the relation lines and "Unstructured data" with the retrieved chunks. The answer prompt says to answer only from that context.
+The final context is two labelled blocks, "Structured data" with the relation lines and "Unstructured data" with the retrieved chunks. The answer prompt says to answer only from that context. Follow one question through the whole chain:
+
+<div class="walkthrough learning-widget" data-stepper id="chain-walkthrough">
+<p class="widget-intro">Step through the notebook's chain for one question. Names and rows are illustrative; the shapes come from the notebook's code.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one question through the chain"><button type="button" data-step="0" aria-pressed="false" aria-controls="chain-step-0">1. Question</button><button type="button" data-step="1" aria-pressed="false" aria-controls="chain-step-1">2. Names</button><button type="button" data-step="2" aria-pressed="false" aria-controls="chain-step-2">3. Graph rows</button><button type="button" data-step="3" aria-pressed="false" aria-controls="chain-step-3">4. Text hits</button><button type="button" data-step="4" aria-pressed="false" aria-controls="chain-step-4">5. Context</button><button type="button" data-step="5" aria-pressed="false" aria-controls="chain-step-5">6. Answer</button></div>
+<div class="step-panels"><section id="chain-step-0" class="step-panel" aria-labelledby="chain-heading-0"><h4 id="chain-heading-0">1. The question</h4><dl><dt>Input</dt><dd>"Who was Octavian?", no chat history</dd><dt>Rewrite</dt><dd>skipped: with no history the question passes through unchanged</dd></dl></section><section id="chain-step-1" class="step-panel" aria-labelledby="chain-heading-1"><h4 id="chain-heading-1">2. Extract names</h4><dl><dt>Structured output</dt><dd>a list of person and organisation names: Octavian</dd><dt>Full-text query</dt><dd><code>Octavian~2</code></dd></dl></section><section id="chain-step-2" class="step-panel" aria-labelledby="chain-heading-2"><h4 id="chain-heading-2">3. Fetch the neighbourhood</h4><dl><dt>Entities kept</dt><dd>at most 2 matches for the name</dd><dt>Rows kept</dt><dd>at most 50 relation lines, shared by both matches, in no particular order</dd></dl></section><section id="chain-step-3" class="step-panel" aria-labelledby="chain-heading-3"><h4 id="chain-heading-3">4. Search the text</h4><dl><dt>Search</dt><dd>hybrid keyword and vector search over the chunks</dd><dt>Kept</dt><dd>4 chunks, joined with the marker <code>#Document </code></dd></dl></section><section id="chain-step-4" class="step-panel" aria-labelledby="chain-heading-4"><h4 id="chain-heading-4">5. Build the context</h4><dl><dt>Structured data</dt><dd>the relation lines, with no source passage</dd><dt>Unstructured data</dt><dd>the 4 chunks</dd></dl></section><section id="chain-step-5" class="step-panel" aria-labelledby="chain-heading-5"><h4 id="chain-heading-5">6. Answer</h4><dl><dt>Prompt</dt><dd>answer only from the context, concisely</dd><dt>Citations</dt><dd>none: no line in the context names its source</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 ### What the graph branch actually sends
 
@@ -62,10 +70,13 @@ The full-text query is built word by word: each word becomes a fuzzy term that t
 | EU Team | `EU~2 AND Team~2` |
 | Larkspur EU-Team (2026) | `Larkspur~2 AND EU~2 AND Team~2 AND 2026~2` |
 | Octavian | `Octavian~2` |
+| Augustus (Octavian) | `Augustus~2 AND Octavian~2` |
 
 *Table 2: The notebook's full-text query builder, run in the scratchpad. Punctuation is stripped before the terms are built.*
 
-For each extracted name the branch keeps at most **2** matching entities and returns at most **50** relationship rows. These are caps, not relevance rules. Nothing orders the 50 rows by how useful they are, which means a highly connected entity can fill the budget before the needed relationship appears. We call this the **neighbourhood budget** failure. Log which entity each name matched, its score, and whether the 50-row cap was hit.
+AND means every word must match the same entity. An extracted name with an extra word, such as "Augustus (Octavian)", misses an entity stored only as "Augustus". A name made only of punctuation leaves no words, and the builder raises an `IndexError` that stops the whole chain.
+
+For each extracted name the branch keeps at most **2** matching entities and returns at most **50** relationship rows between them. These are caps, not relevance rules. Nothing orders the 50 rows by how useful they are, which means a highly connected entity can fill the budget before the needed relationship appears. We call this the **neighbourhood budget** failure. Log which entity each name matched, its score, and whether the 50-row cap was hit.
 
 There is a smaller planted failure in how the branch joins its output. It joins each name's rows with line breaks, then appends the next name's rows with no separator:
 
@@ -79,13 +90,22 @@ There is a smaller planted failure in how the branch joins its output. It joins 
 
 Ingestion with sources keeps the `MENTIONS` link from each chunk to the entities it names. The graph branch then excludes `MENTIONS` and returns bare relation strings. The answer model sees "EU Team SUPPORTS Export" with no passage behind it. We call this the **uncited fact**: the graph knows where the fact came from, and retrieval throws that away.
 
-The contract that fixes it is one rule: every graph assertion travels with its supporting passage identifier and text. In practice that means following each relationship back to the chunk that mentions both endpoints, and putting the passage beside the relation line in the context. Larkspur's answer can then quote the approval sentence, or the reviewer can see that it was missing.
+The contract that fixes it is one rule: every graph assertion travels with its supporting passage identifier and text. In practice that means following each relationship back to the chunk that mentions both endpoints, and putting the passage beside the relation line in the context:
+
+| Contract | Line in "Structured data" | What a reviewer can check |
+|---|---|---|
+| Notebook | `EU Team - SUPPORTS -> Export` | nothing: the line has no source |
+| With evidence | the same line, plus passage id and text: "EU Team may support exports after approval." | the claim, its condition and the handbook version it came from |
+
+*Table 4: One graph fact under the two context contracts. The second line is a Larkspur illustration.*
+
+Larkspur's answer can then quote the approval sentence, or the reviewer can see that it was missing.
 
 ### Follow-up questions
 
-The notebook also handles conversation. When a chat history is present, a model first rewrites the follow-up into a standalone question ("When did he become emperor?" becomes a question naming the person), and both branches retrieve with the rewrite. If the rewrite resolves "he" to the wrong person, both branches go to the wrong entity together.
+The notebook also handles conversation. When a chat history is present, a model first rewrites the follow-up into a standalone question ("When did he become the first emperor?" becomes a question naming the person), and both branches retrieve with the rewrite. That rewrite runs on a separate OpenAI chat model at temperature 0, not on the model that answers. If it resolves "he" to the wrong person, both branches go to the wrong entity together.
 
-Record the rewritten question beside the original. The notebook passes the original input to the answer step, which keeps the user's words available for judging the final answer.
+Record the rewritten question beside the original. The answer step never sees the rewrite: its question slot receives the whole input as text, the chat history included (checked by rendering the notebook's prompt in the scratchpad). The user's words stay available for judging the answer, mixed with the history.
 
 ### An evaluation plan
 
@@ -99,9 +119,21 @@ No notebook output shows that the combined system beats either branch alone on L
 | Unsupported claim | Does EU Team include phone support? | an honest "not found" |
 | Changed version | Export policy after the handbook update | provenance and deletion of old assertions |
 
-*Table 4: Five question types for comparing vector-only, graph-only and combined retrieval.*
+*Table 5: Five question types for comparing vector-only, graph-only and combined retrieval.*
 
 Run each type through vector-only, graph-only and combined retrieval. Report retrieved evidence, answer correctness, unsupported claims, latency and indexing work as separate columns; one blended score hides which branch failed. The module lab runs a version of this comparison on Larkspur's team and incident records.
+
+## Limits of this evidence
+
+- **No database, model or Wikipedia call ran.** The query builder, the row join and the answer prompt were run from the notebook's own code in the scratchpad; the walkthrough's names and rows are illustrative.
+- **The caps and settings are the notebook's.** Two entities, 50 rows, 4 chunks, 512 tokens and 24 overlap are its choices; none was tuned or measured.
+- **Some calls are ageing.** Neo4j's [full-text index documentation](https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/full-text-indexes/) prefers the `SEARCH` clause from 2026.09 and deprecates `db.index.fulltext.queryNodes` in Cypher 25 as of 2026.10. LangChain marks the experimental package that holds the graph transformer as no longer maintained.
+
+## References
+
+1. LangChain, [Neo4j vector index integration](https://docs.langchain.com/oss/python/integrations/vectorstores/neo4jvector).
+2. LangChain, [Neo4j integrations](https://docs.langchain.com/oss/python/integrations/providers/neo4j).
+3. Neo4j, [Full-text indexes](https://neo4j.com/docs/cypher-manual/current/indexes/search-indexes/full-text-indexes/), Cypher Manual.
 
 ## Key Takeaways
 
@@ -114,7 +146,7 @@ Run each type through vector-only, graph-only and combined retrieval. Report ret
 <details>
 <summary>1. The end-to-end notebook combines two kinds of retrieval. What does each one contribute to the context?</summary>
 
-The text branch runs hybrid keyword and vector search over the `Document` chunks and contributes passages. The graph branch extracts names from the question, resolves them through a full-text index and contributes their incoming and outgoing relationships as relation lines. The context holds both, in two labelled blocks.
+The text branch runs hybrid keyword and vector search over the `Document` chunks and contributes 4 passages. The graph branch extracts names from the question, resolves them through a full-text index and contributes their incoming and outgoing relationships as relation lines. The context holds both, in two labelled blocks.
 
 </details>
 

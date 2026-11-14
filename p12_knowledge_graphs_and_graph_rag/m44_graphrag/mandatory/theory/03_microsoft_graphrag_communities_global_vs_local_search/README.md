@@ -2,8 +2,9 @@
 
 *[M44 theory](../README.md) · Lesson 44.3 · Notebooks: [`03a_microsoft_graphrag.ipynb`](../../notebook/03a_microsoft_graphrag.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How community reports let one index answer corpus-wide questions, when to route to local search instead, and what the extra indexing work costs -->
+<!-- format: approved -->
 
-## Community detection
+## Start with a question no single seed holds
 
 > **What you'll learn**
 >
@@ -14,9 +15,11 @@
 
 Lessons 44.1 and 44.2 started from a few seeds and walked outwards. That works when a question names something. A Larkspur support lead asks a different kind of question: which operational dependencies recur across cancellation, exports and outages? No single seed holds the answer. A walk from the cancellation node returns cancellation's neighbours and nothing about outage recovery.
 
-**Community detection** partitions a graph into groups of nodes that are more densely connected to each other than to the rest. A **community report** is a summary a model writes for one group, from the entities and relations inside it. The two are separate artifacts. Changing the summary prompt changes the report without changing the partition, and a bad partition produces a fluent report about the wrong grouping.
+## Community detection
 
-Microsoft GraphRAG builds both during indexing. Its pipeline extracts entities and relations from text chunks, detects communities with the hierarchical Leiden algorithm (clustering recursively until communities fall under a size threshold), writes a report per community at each level, and embeds text for later lookup ([Microsoft GraphRAG indexing dataflow](https://microsoft.github.io/graphrag/index/default_dataflow/), read November 2026). Those artifacts are reused by every later query.
+**Community detection** partitions a graph into groups of nodes that are more densely connected to each other than to the rest. A **community report** is a summary a model writes for one group, from the entities and relations inside it. The two are separate artefacts. Changing the summary prompt changes the report without changing the partition, and a bad partition produces a fluent report about the wrong grouping.
+
+Microsoft GraphRAG builds both during indexing. Its pipeline extracts entities and relations from text chunks, detects communities with the hierarchical Leiden algorithm (clustering recursively until communities fall under a size threshold), writes a report per community at each level, and embeds text for later lookup. Those artefacts are reused by every later query.
 
 ```mermaid
 flowchart TD
@@ -41,12 +44,21 @@ Whether Cancellation and Export share a community, and therefore a report, depen
 
 ## Global vs local search
 
-Microsoft GraphRAG answers from the same index in two ways.
+Microsoft GraphRAG answers from the same index in two ways, and each reads different artefacts.
 
-- **Local search**: starts from entities related to the question and combines their relations, nearby graph material and the source text units they came from ([Microsoft local search](https://microsoft.github.io/graphrag/query/local_search/)).
-- **Global search**: answers from community reports at a chosen level of the hierarchy, in a map and reduce pass over all of them ([Microsoft global search](https://microsoft.github.io/graphrag/query/global_search/)).
+**Local search** starts from entities related to the question and combines their relations, nearby graph material and the source text units they came from:
 
-Global search works in two stages:
+```mermaid
+flowchart LR
+    Q[Question] --> E["Match entities<br/>by embedding"]
+    E --> G["Gather relations,<br/>neighbours, reports"]
+    G --> T["Add source<br/>text units"]
+    T --> A[Answer from one context]
+```
+
+*Figure 2: Local search. One context window is built around the matched entities, and the original text units travel with it.*
+
+**Global search** answers from community reports at a chosen level of the hierarchy, in a map and reduce pass over all of them:
 
 ```mermaid
 flowchart LR
@@ -55,11 +67,24 @@ flowchart LR
     F --> A[Reduce: final answer]
 ```
 
-*Figure 2: Global search as map and reduce. Every report chunk costs a model call before any point is filtered out.*
+*Figure 3: Global search as map and reduce. Every report chunk costs a model call before any point is filtered out.*
 
 The map stage splits the reports into chunks of a set size, and each chunk yields a list of points, each with an importance rating. The reduce stage keeps the most important points and writes the answer from them. Lower levels of the hierarchy hold more, smaller reports: answers get more thorough and the map stage makes more calls.
 
-For the cancellation and export question, local search fits: the evidence centres on specific entities and their conditions. Check that the context includes the original policy spans. For the recurring-dependencies question, global search fits, and you inspect which reports contributed. A fluent answer can still omit a small community or repeat an extraction mistake. We call the first failure the **missing community**.
+Send both Larkspur questions through each mode:
+
+<div class="learning-widget evidence-switcher" data-comparison id="search-switcher">
+<p class="widget-intro">Choose a search mode to see what evidence it gathers for each Larkspur question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Search mode">
+<button type="button" data-mode="local" aria-pressed="false" aria-controls="mode-local">Local search</button>
+<button type="button" data-mode="global" aria-pressed="false" aria-controls="mode-global">Global search</button>
+</div>
+<section id="mode-local" class="mode-panel" data-announcement="Local search selected. Strong on the export question, blind to themes."><h4>Local search</h4><ul><li>Export after cancellation: matches Cancellation and Export, adds their relations and the policy text units. A good fit; check the original spans are in the context.</li><li>Recurring dependencies: starts from whichever entities match the words and misses regions no matched entity touches.</li><li>Calls: one answer call per question in the lab.</li></ul></section>
+<section id="mode-global" class="mode-panel" data-announcement="Global search selected. Strong on themes, loses exact wording."><h4>Global search</h4><ul><li>Recurring dependencies: every report chunk is mapped, and cancellation, export and outage regions all get a say. A good fit; inspect which reports contributed.</li><li>Export after cancellation: answers from summaries, which can drop the qualification the policy states.</li><li>Calls: a map call per report chunk plus the reduce call.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+A fluent global answer can still omit a small community or repeat an extraction mistake. We call the first failure the **missing community**.
 
 | Question | Evidence to require | Failure to inspect |
 |---|---|---|
@@ -80,7 +105,7 @@ Answers from the package carry inline annotations that name the reports, entitie
 
 *Table 3: The notebook's annotation-stripping helper, run on an illustrative answer.*
 
-The displayed text reads better and has lost its only route back to evidence. Keep the unmodified response and the artifact IDs in an evidence record whenever an answer has to be traced through reports to sources.
+The displayed text reads better and has lost its only route back to evidence. Keep the unmodified response and the artefact IDs in an evidence record whenever an answer has to be traced through reports to sources.
 
 ## Indexing cost
 
@@ -99,9 +124,22 @@ The module lab makes the arithmetic concrete. Its GraphRAG build indexes 20 docu
 
 Before any report is written, indexing already costs 38 extraction calls, against zero model calls for a flat index. Each global question makes nine times the model calls of a local one. Those ratios are what amortisation has to beat.
 
-Record each stage separately: model and prompt version, input and output tokens, call count, retries, elapsed time, stored artifact size and changed source IDs. At query time record report selections, expansion candidates, reranking calls and answer context. The notebook sets a maximum of 10,000 context tokens for global search and asks for answers of at most 300 tokens. The first is a configured ceiling, not a measured bill. The second is an instruction in the prompt, which nothing enforces.
+Record each stage separately: model and prompt version, input and output tokens, call count, retries, elapsed time, stored artefact size and changed source IDs. At query time record report selections, expansion candidates, reranking calls and answer context. The notebook sets a maximum of 10,000 context tokens for global search and asks for answers of at most 300 tokens. The first is a configured ceiling, not a measured bill. The second is an instruction in the prompt, which nothing enforces.
 
 The lab brief compares GraphRAG, RAPTOR and a hybrid on that shared question set. Hold source versions, answer model and evaluation criteria constant. Report indexing and update work beside answer quality, and derive any break-even point from measured indexing work, measured query work and the expected query volume. The architecture alone implies no break-even figure. Lesson 44.4 keeps the entity graph but moves it into a vector database, where expansion is a matrix product.
+
+## Limits of this evidence
+
+- **The package was not run.** Indexing needs model calls; the search descriptions come from Microsoft's documentation and the notebook's settings, not from a fresh index.
+- **The partition test uses a ring.** Eight entities in one cycle show that seeds matter; a real handbook graph has denser regions and may vary less.
+- **Report counts are unknown until a run.** Table 4 counts only what the lab's code fixes; the number of communities, and their reports, depends on extraction.
+
+## References
+
+1. Edge et al., [From Local to Global: A Graph RAG Approach to Query-Focused Summarization](https://arxiv.org/abs/2404.16130), arXiv 2404.16130.
+2. Microsoft GraphRAG, [Indexing dataflow](https://microsoft.github.io/graphrag/index/default_dataflow/).
+3. Microsoft GraphRAG, [Local search](https://microsoft.github.io/graphrag/query/local_search/) and [Global search](https://microsoft.github.io/graphrag/query/global_search/).
+4. Traag, Waltman and van Eck, [From Louvain to Leiden: guaranteeing well-connected communities](https://arxiv.org/abs/1810.08473), arXiv 1810.08473.
 
 ## Key Takeaways
 
@@ -121,7 +159,7 @@ The community is a group derived from graph structure; the report is a generated
 <details>
 <summary>2. Which search mode fits a question about the export mechanism left after cancellation, and which fits one about dependencies that recur across the handbook?</summary>
 
-Local search fits the first: the evidence centres on specific entities and their conditions, so check that the context includes the original policy spans. Global search fits the second, because the evidence is spread across the corpus and answered from community reports. Inspect which reports contributed, since a fluent answer can omit a small community.
+Local search fits the first: the evidence centres on specific entities and their conditions; check that the context includes the original policy spans. Global search fits the second, because the evidence is spread across the corpus and answered from community reports. Inspect which reports contributed, since a fluent answer can omit a small community.
 
 </details>
 
