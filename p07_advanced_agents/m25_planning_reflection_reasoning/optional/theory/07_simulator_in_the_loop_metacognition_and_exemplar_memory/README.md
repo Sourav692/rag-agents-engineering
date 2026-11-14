@@ -2,6 +2,7 @@
 
 *[M25 theory](../../../mandatory/theory/README.md) · Lesson 25.7 · Notebooks: [`07a_mental_loop_simulator.ipynb`](../../notebook/07a_mental_loop_simulator.ipynb) (optional), [`07b_reflexive_metacognitive.ipynb`](../../notebook/07b_reflexive_metacognitive.ipynb) (optional), [`07c_self_improving_exemplar_memory.ipynb`](../../notebook/07c_self_improving_exemplar_memory.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Test an action before taking it, decide whether to answer at all, and carry approved work into the next task -->
+<!-- format: approved -->
 
 ## Simulate before you act
 
@@ -12,9 +13,9 @@
 > - **Design** a self-model and ordered rules that decide whether to answer, use a tool or escalate.
 > - **Measure** what a memory of approved outputs changes, and what it cannot.
 
-Lesson 25.6 searched over reasoning steps. The three patterns here look at different things: the consequences of an action, the agent's own competence, and what it learned on earlier tasks. In all three the model proposes or assesses, and code makes the decision.
+Larkspur's operations team wants an agent that can act, not only answer. It might resize servers before a traffic spike, reply to customers about their servers, or draft incident notices. Each action has a failure that planning and verification do not cover. A resize restarts the server once, and customers feel a bad one immediately. A reply about a server missing from the tool's records can sound reassuring and be wrong. And every incident notice starts from zero, repeating the mistakes the last one fixed.
 
-Larkspur's operations team wants an agent that can act, not only answer. It might resize servers before a traffic spike, reply to customers about their servers, or draft incident notices. Each action has a failure that planning and verification do not cover. A resize restarts the server once, and customers feel a bad one immediately. A reply about a server that is missing from the tool's records can sound reassuring and be wrong. And every incident notice starts from zero, repeating the mistakes the last one fixed.
+Lesson 25.6 searched over reasoning steps. The three patterns here look at the consequences of an action, the agent's own competence, and what it learned on earlier tasks. In all three the model proposes or assesses, and code makes the decision.
 
 A **mental loop** (simulator in the loop) tests a proposed action in a copy of the world before taking it in the real one. The notebook's world is a toy stock market, a random walk whose drift depends on a news headline, and the action is a trade. It is a teaching example and not trading advice. The loop has four nodes:
 
@@ -27,16 +28,18 @@ flowchart LR
 
 *Figure 1: Propose, simulate, refine, execute. Only the first node calls the model.*
 
-- **Propose.** The analyst model reads the price, the headline and the portfolio and returns buy, sell or hold with a size: small (10% of cash or shares) or large (50%). Code turns that into a share count.
-- **Simulate.** Code forks the market and rolls the proposal forward 10 days, 200 times, then does the same for progressively safer versions: a buy at ½, ¼ and ⅛ of the size and then nothing, or a sell at 2 and 4 times the size and then everything.
-- **Refine.** Code keeps the candidate closest to the proposal whose 5th-percentile return is no worse than minus 5%. If none passes, it takes the safest.
-- **Execute.** The chosen trade runs in the real market, which then moves one day with its own randomness.
-
 The **5th percentile** is the "how bad can it get" number: in 1 simulated future out of 20, the portfolio does at least this badly. The same class serves as the real market and the sandbox, and a deep copy forks it. A simulation can never touch the real portfolio. Seeded random generators make the rollouts reproducible.
 
 ### The same proposal in two worlds
 
-Two scenarios look identical to the analyst: $100 price, a good-news headline, $10,000 in cash. They differ only in volatility (2% or 8% daily), which only the simulator knows. A stub analyst that always proposes a large buy (50 shares) gives these rollouts:
+Two scenarios look identical to the analyst: $100 price, a good-news headline, $10,000 in cash. They differ only in volatility (2% or 8% daily), which only the simulator knows. A stub analyst that always proposes a large buy lets us trace the turbulent case through every node:
+
+<div class="walkthrough learning-widget" data-stepper id="mental-loop-walkthrough">
+<p class="widget-intro">Step through the turbulent market, from the proposal to the trade that runs.</p>
+<div class="step-controls" hidden role="group" aria-label="Nodes of the mental loop"><button type="button" data-step="0" aria-pressed="false" aria-controls="loop-step-0">1. Propose</button><button type="button" data-step="1" aria-pressed="false" aria-controls="loop-step-1">2. Simulate</button><button type="button" data-step="2" aria-pressed="false" aria-controls="loop-step-2">3. Refine</button><button type="button" data-step="3" aria-pressed="false" aria-controls="loop-step-3">4. Execute</button></div>
+<div class="step-panels"><section id="loop-step-0" class="step-panel" aria-labelledby="loop-heading-0"><h4 id="loop-heading-0">1. Propose</h4><dl><dt>Reads</dt><dd>price, headline and portfolio, never the volatility</dd><dt>Returns</dt><dd>buy, sell or hold with a size, small (10% of cash or shares) or large (50%)</dd><dt>Here</dt><dd>buy large; code turns 50% of $10,000 at $100 into 50 shares</dd></dl></section><section id="loop-step-1" class="step-panel" aria-labelledby="loop-heading-1"><h4 id="loop-heading-1">2. Simulate</h4><dl><dt>Candidates</dt><dd>the proposal, then a buy at ½, ¼ and ⅛ of the size, then nothing: 50, 25, 12, 6 and 0 shares</dd><dt>Does</dt><dd>forks the market and rolls each candidate 10 days forward, 200 times</dd></dl></section><section id="loop-step-2" class="step-panel" aria-labelledby="loop-heading-2"><h4 id="loop-heading-2">3. Refine</h4><dl><dt>Rule</dt><dd>keep the candidate closest to the proposal whose 5th percentile is no worse than minus 5%; if none passes, the safest</dd><dt>Here</dt><dd>50 shares fail at minus 16.03%, 25 fail at minus 8.02%, 12 pass at minus 3.85%</dd></dl></section><section id="loop-step-3" class="step-panel" aria-labelledby="loop-heading-3"><h4 id="loop-heading-3">4. Execute</h4><dl><dt>Does</dt><dd>buys 12 shares in the real market, which then moves one day with its own randomness</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+The rollouts in both worlds:
 
 | Market | Candidate | Mean 10-day return | 5th percentile | Passes |
 |---|---|---|---|---|
@@ -47,7 +50,7 @@ Two scenarios look identical to the analyst: $100 price, a good-news headline, $
 
 *Table 1: One proposal, two worlds. From running the notebook's simulator in the scratchpad with its seed, 200 rollouts and a 10-day horizon.*
 
-In the calm market the loop costs time and changes nothing. In the turbulent one the same headline would have put half the cash at risk with a tail loss three times the limit, and the refine step shrinks the trade to 12 shares. The direction of "safer" depends on the action. In the third scenario the account holds 40 shares on bad news, and if the analyst proposes a small sell of 4 shares, the candidates (sell 4, 8, 16, then all 40) have 5th percentiles of minus 8.63%, minus 7.67%, minus 5.75% and 0%, so the loop sells everything.
+In the calm market the loop costs time and changes nothing. In the turbulent one the same headline would have put half the cash at risk with a tail loss three times the limit. The direction of "safer" depends on the action. In a third scenario the account holds 40 shares on bad news, and the analyst proposes a small sell of 4. Safer means selling more: the candidates (sell 4, 8, 16, then all 40) have 5th percentiles of minus 8.63%, minus 7.67%, minus 5.75% and 0%. Only selling everything passes.
 
 Two lessons came out of building it. A numeric rule belongs in code: while prototyping, an LLM "risk manager" given the minus 5% rule in its prompt answered *hold* even when the proposal passed. And the loop is only as good as its world model. We call this the **simulation-reality gap**: if the real volatility were 8% while the simulator assumed 2%, the loop would approve the risky trade with full confidence. A real simulator's parameters are estimated from data, re-checked, and given a margin.
 
@@ -74,7 +77,7 @@ flowchart TD
 
 *Figure 2: The strategy rules. Each returns the reason it fired, and every route can be explained.*
 
-Because the rule function is pure, every branch is tested with hand-built analyses and no model call, emergency signs beating a tool request among them. The notebook's five demo queries each take a different route:
+The rule function is pure, so every branch is tested with hand-built analyses and no model call, emergency signs beating a tool request among them. The notebook's five demo queries each take a different route:
 
 | Query | Route | Reason |
 |---|---|---|
@@ -84,7 +87,7 @@ Because the rule function is pure, every branch is tested with hand-built analys
 | Crushing chest pain, numb left arm | Escalate | Emergency signs |
 | Filing taxes as a freelancer | Escalate | Outside the domain |
 
-*Table 2: Five queries and their expected routes. The notebook checks each one over three runs.*
+*Table 2: Five queries and their expected routes. The notebook checks each one over three runs, and in its recorded runs every route matched every time.*
 
 The third row is the lesson. The analysis routed it to the tool, correctly, but the database had no entry. A naive agent would pass "no interaction found" to the writer and produce a reassuring answer about a pair that is in fact a well-known serious interaction. We call that the **empty-result reassurance**: a tool's "not in my data" read as "safe". The agent counts its tool's coverage as part of its limits and escalates. The escalate branch here returns a referral, and [M27](../../../../m27_human_approval_applied_agents/mandatory/theory/README.md) puts a real human decision there.
 
@@ -95,7 +98,7 @@ The refine loops of lesson 25.3 and M24 improve one output and then forget. A **
 - **Intra-task**: draft, critique, revise until approved or capped. The output improves and the next task starts from scratch.
 - **Inter-task**: approved outputs are stored and shown to the generator on later tasks. Its first drafts start closer to the bar.
 
-The notebook builds a marketing-email writer for a company called Northwind. The writer never sees the house style guide. Only the editor knows it, and the editor is plain code with six checkable rules: a subject of 45 characters or fewer, no exclamation marks, a body of 60 to 110 words, exactly one call-to-action line, a fixed sign-off and at least one concrete number. A sample email with a 57-character subject and an 11-word body breaks all six, which the scratchpad run of the editor confirms.
+The notebook builds a marketing-email writer for a company called Northwind. The writer never sees the house style guide. Only the editor knows it, and the editor is plain code with six checkable rules: a subject of 45 characters or fewer, no exclamation marks, a body of 60 to 110 words, exactly one call-to-action line, a fixed sign-off and at least one concrete number. A sample email with a 57-character subject and an 11-word body breaks all six, which our scratchpad run of the editor confirms.
 
 ```mermaid
 flowchart LR
@@ -126,11 +129,22 @@ Three cautions apply. It is in-context learning: no weights change, and deleting
 
 An illustrative application of all three:
 
-1. **Simulate resizes.** Before moving a server to a smaller size, replay the last month's peak memory against the smaller size's memory (16 GB for Medium, 4 GB for Small) and refuse if the peak does not fit. Code applies the rule.
+1. **Simulate resizes.** Before moving a server to a smaller size, replay the last month's peak memory against the smaller size's memory (16 GB for Medium, 4 GB for Small) and refuse if the peak does not fit. The handbook adds a second rule: the disk in use must fit the smaller size. Code applies both.
 2. **Write the self-model.** Domain: billing, refunds, exports, outages, server sizing. Tool: server status. Escalate on suspected security incidents (the handbook's Security ticket category), on low confidence, and whenever the status tool has no record of the server.
-3. **Keep approved notices.** Store incident notices that passed the editor's checks (status-page link, root-cause promise within 72 hours, no exclamation marks), retrieve the two most similar for each new incident, and keep a record of who approved each one.
+3. **Keep approved notices.** Store incident notices that passed the editor's checks (status-page link, a root-cause report promised within 72 hours of recovery, no exclamation marks), retrieve the two most similar for each new incident, and record who approved each one.
 
-> **Key distinction:** in all three patterns the model proposes or assesses, and code decides: a percentile limit, an ordered rule list, a rule-checking editor. The model's judgment is an input, never the gate.
+> **Key distinction:** in all three patterns the model proposes or assesses, and code decides: a percentile limit, an ordered rule list, a rule-checking editor. The model's judgement is an input, never the gate.
+
+## Limits of this evidence
+
+- **Rerun and recorded.** Table 1 and the third scenario's percentiles were recomputed from the notebook's seeded simulator with no model. The routes in Table 2 and the counts in Table 3 are the notebook's recorded `gpt-4o-mini` runs.
+- **Toy worlds.** A random-walk market, a two-pair drug database and six style rules show each mechanism; none measures a production system.
+- **Six drafts per setting.** Three briefs run twice cannot separate a memory effect on revision counts from noise.
+
+## References
+
+1. Madaan et al., [Self-Refine: Iterative Refinement with Self-Feedback](https://arxiv.org/abs/2303.17651), 2023.
+2. LangChain, [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview).
 
 ## Key Takeaways
 
