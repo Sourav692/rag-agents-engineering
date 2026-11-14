@@ -2,6 +2,7 @@
 
 *[M05 theory](../../../mandatory/theory/README.md) · Lesson 5.2 · Notebooks: [`02a_multimodal_openai_gpt_4o.ipynb`](../../notebook/02a_multimodal_openai_gpt_4o.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Images go in as typed message parts priced by tile, and a video becomes sampled frames plus a transcript, where the gap between frames sets both the bill and what the model can see -->
+<!-- format: approved -->
 
 ## Image content parts
 
@@ -150,6 +151,13 @@ flowchart TD
 *Figure 3: Choosing a gap and a detail level for a recorded walkthrough.*
 
 For the Larkspur export recording, the toast is silent and lasts 1.2 s. The widest lab gap that always catches it is 1 s: 90 frames, 7,650 tokens at low detail. Try low detail on the toast frame first, and move to high only if the model cannot read the toast's text.
+
+## Limits of this evidence
+
+- **One recorded answer.** The triangle reply is the only model output the notebook keeps. The extraction prompts and the three video summaries ship without outputs, so the claim that the combined summary is most accurate is the notebook's own.
+- **The recording is fictional.** The lab's export walkthrough and its step timings are invented. Its frame counts, token totals and coverage come from a port of the notebook's sampler, and we recomputed Tables 3 and 4 in Python with the same rule.
+- **Prices and defaults move.** The tile rule was checked on OpenAI's guide, and the 1 frame per second default on Google's, on 14 November 2026.
+- **The notebook installs the wrong moviepy.** Its install cell takes the newest moviepy, which no longer has `moviepy.editor`. The repo's own environment pins a 1.x release; the notebook's install line does not.
 
 ## References
 

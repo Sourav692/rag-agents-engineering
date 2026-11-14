@@ -2,6 +2,7 @@
 
 *[M05 theory](../README.md) · Lesson 5.1 · Notebooks: [`01a_multimodal_google_gemini.ipynb`](../../notebook/01a_multimodal_google_gemini.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A prompt becomes an ordered list of images, documents, recordings and text, and every part has a token price you can work out before you send it -->
+<!-- format: approved -->
 
 ## Image prompts
 
@@ -105,7 +106,20 @@ The token rates come from Gemini's documentation: 258 tokens per PDF page [3] an
 
 *Table 3: The token price of two Larkspur files, before the question is read.*
 
-A 10-minute call costs almost twice the whole handbook. Every question about that call pays the 19,200 again, because the handle saves transfer, not tokens.
+A 10-minute call costs almost twice the whole handbook. Every question about that call pays the 19,200 again, because the handle saves transfer, not tokens. The switcher asks the notebook's three questions about that call both ways.
+
+<div class="learning-widget evidence-switcher" data-comparison id="handle-cost-switcher">
+<p class="widget-intro">Choose how the 10-minute support call reaches the model and compare what three questions about it cost.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the recording is sent">
+<button type="button" data-mode="inline" aria-pressed="false" aria-controls="send-inline">Bytes every call</button>
+<button type="button" data-mode="handle" aria-pressed="false" aria-controls="send-handle">One upload, one handle</button>
+</div>
+<section id="send-inline" class="mode-panel" data-announcement="Bytes every call. Three transfers, 57,600 audio tokens."><h4>Bytes every call</h4><dl><dt>Transfers of the recording</dt><dd>3, one per question</dd><dt>Audio tokens</dt><dd>3 × 19,200 = 57,600</dd><dt>What it buys</dt><dd>nothing kept on the provider's side</dd></dl></section>
+<section id="send-handle" class="mode-panel" data-announcement="One handle. One transfer, still 57,600 audio tokens."><h4>One upload, one handle</h4><dl><dt>Transfers of the recording</dt><dd>1, the upload</dd><dt>Audio tokens</dt><dd>still 3 × 19,200 = 57,600</dd><dt>What it buys</dt><dd>no re-upload tax, for the 48 hours the file is kept</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+The token line is identical in both modes. Only the transfer line moves.
 
 ### When to upload
 
@@ -115,6 +129,11 @@ Gemini accepts PDFs up to 50 MB or 1,000 pages [3]. Its Files API guide says to 
 - **Uploaded handle**: PDFs, recordings and anything you will ask about more than once.
 
 Video goes in the same way, and Gemini samples it into frames by itself. Lesson 5.2 samples video by hand and shows what the sampling rate decides.
+
+## Limits of this evidence
+
+- **No model outputs.** The notebook ships without outputs, so this page quotes no Gemini answer.
+- **The Larkspur files are sized for the arithmetic.** The handbook is Markdown in this course; the 40-page PDF and the 10-minute call are illustrative sizes. The rates come from Google's documentation, checked again on 14 November 2026, and can change.
 
 ## References
 

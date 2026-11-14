@@ -2,6 +2,7 @@
 
 *[M05 theory](../../../mandatory/theory/README.md) · Lesson 5.3 · Notebooks: [`03a_financial_report_analysis.ipynb`](../../notebook/03a_financial_report_analysis.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Turn a summary request into questions with printed answers, extract every value before interpreting it, and let code check the totals -->
+<!-- format: approved -->
 
 ## Questions about a report page
 
@@ -21,7 +22,7 @@ The exercise sends two page images from ABN AMRO's third-quarter 2024 report to 
 
 Its prompt casts the model as a financial analyst and asks for a six-part summary: key metrics, income and expenses, balance sheet, credit quality, strategy, outlook. The notebook ships without its output. Even with one, a summary is hard to grade, since no single line of it is right or wrong. Call that failure the **ungradable summary**.
 
-The module's lab brief asks for five questions instead. Each one has a value printed on the page, so each answer can be graded line by line:
+The module's lab takes the other route on a different page: five questions about the wildfire report from lesson 5.1, each with a value printed on the page and graded against it. The same approach on these two pages gives five gradable questions:
 
 | Question | On the page |
 |---|---|
@@ -64,6 +65,19 @@ An exact-equality check fails on values the model read correctly. The report pri
 
 A tolerance of a few million in the check keeps rounding from raising false alarms, while a misread digit in the thousands still fails it. Call the opposite mistake the **false alarm**: a checker so strict that reviewers learn to ignore it.
 
+The switcher runs both checkers over the four rows of Table 2 and one planted misreading: 377,961 read as 377,691, two digits swapped.
+
+<div class="learning-widget evidence-switcher" data-comparison id="tolerance-switcher">
+<p class="widget-intro">Choose a checker and see which of the five checks it flags.</p>
+<div class="mode-controls" hidden role="group" aria-label="Totals checker">
+<button type="button" data-mode="exact" aria-pressed="false" aria-controls="check-exact">Exact equality</button>
+<button type="button" data-mode="tolerance" aria-pressed="false" aria-controls="check-tolerance">Tolerance of 5 million</button>
+</div>
+<section id="check-exact" class="mode-panel" data-announcement="Exact equality. Four flags, three of them false alarms."><h4>Exact equality: four flags</h4><dl><dt>Correct readings flagged</dt><dd>3 of 4, the rows with gaps of 2, 1 and 2</dd><dt>Swapped digits</dt><dd>flagged, with a gap of 270</dd><dt>What a reviewer learns</dt><dd>most flags are rounding, so flags get ignored</dd></dl></section>
+<section id="check-tolerance" class="mode-panel" data-announcement="Tolerance. One flag, the real misreading."><h4>Tolerance of 5 million: one flag</h4><dl><dt>Correct readings flagged</dt><dd>none</dd><dt>Swapped digits</dt><dd>flagged, 270 is far outside 5</dd><dt>What a reviewer learns</dt><dd>every flag is worth reading against the image</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 ## Reading charts honestly
 
 Two more rules keep the answers honest:
@@ -82,6 +96,16 @@ The same method reads a Larkspur pricing page:
 3. Answer customer questions from the extracted list, and reply "not on the page" for a value the page does not print.
 
 The extracted list doubles as a test fixture. When the pricing page changes, rerunning the extraction shows exactly which values moved.
+
+## Limits of this evidence
+
+- **No model run.** The notebook ships without its summary, and no extraction on this page came from a model. Tables 1 and 2 were read from the two images by hand, and we re-added every column of Table 2 in code.
+- **The tolerance is a judgement.** "A few million" fits this page, where every gap is 1 or 2. Another report needs its own tolerance, set from its rounding.
+- **The Larkspur pricing page is a design.** No such page ships with the course.
+
+## References
+
+1. ABN AMRO, [investor relations disclosures](https://www.abnamro.com/en/investor-relations/financial-disclosures), where the bank publishes its quarterly reports, including the third-quarter 2024 report the two page images come from.
 
 ## Key Takeaways
 
