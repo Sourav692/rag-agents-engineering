@@ -437,6 +437,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>With a trustworthy preview in hand, the next job is to stop the run until someone has read it.</p>
 <h2 id="approval-gates">Approval gates</h2>
 <p><strong>An approval gate is a node that pauses the run, hands the preview to a reviewer and resumes only with their decision.</strong> In the harness the gate is the review node. It calls <code>interrupt()</code> with three things: the question, the preview and the fingerprint.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    P["propose&lt;br/&gt;model drafts the post"] --&gt; D["dry_run&lt;br/&gt;preview + fingerprint"]
+    D --&gt; R["review&lt;br/&gt;interrupt()"]
+    R --&gt;|approve| U["publish&lt;br/&gt;fingerprint rechecked"]
+    R --&gt;|anything else| X["cancel&lt;br/&gt;nothing published"]
+</pre></figure>
+<p><em>Figure 3: The harness graph in notebook 01a. Only one branch can reach the feed, and it checks the fingerprint again first.</em></p>
 <h3>Parking and resuming the same thread</h3>
 <p>LangGraph stops the run at that call, saves its state in the checkpointer under the run&rsquo;s <code>thread_id</code>, and returns the payload to the caller under <code>__interrupt__</code>. Nothing more happens until someone invokes the graph again with <code>Command(resume=decision)</code> on the same thread:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
@@ -454,7 +461,7 @@ th:last-child, td:last-child { padding-right: 0; }
     G-&gt;&gt;G: review re-runs, interrupt() returns decision
     G-&gt;&gt;G: publish or cancel
 </pre></figure>
-<p><em>Figure 3: One pause and one resume. The state waits in the checkpointer for as long as the reviewer takes.</em></p>
+<p><em>Figure 4: One pause and one resume. The state waits in the checkpointer for as long as the reviewer takes.</em></p>
 <p>The notebook wraps that exchange in a small pause-and-resume loop: invoke, and while the result holds an interrupt, pass the payload to a reviewer function and resume with its answer. Only the reviewer function changes between uses:</p>
 <ul>
 <li><strong>A script</strong>: approves the launch post and rejects the post that says the new model makes every competitor obsolete. An automated run then shows both outcomes.</li>
@@ -516,34 +523,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>A console, a script and a web form all feed the same rule, and the audit entry keeps the original answer beside the decision. The opposite design, where &ldquo;yes&rdquo; counts, is a <strong>lenient gate</strong>. It approves whatever a person half-meant.</p>
 <h3>Planted failure: an edit after approval</h3>
 <p>The second rule is the one that catches <strong>post-approval drift</strong>, any change between what the reviewer read and what is about to run. The notebook plants it by editing the paused post directly in the checkpointed state, appending &rdquo; Buy now!!!&rdquo;, and then approving.</p>
-<p>The <a href="01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html">approval-gate lab</a> runs the same harness in the page, with the decision rule and the SHA-256 fingerprint ported from the reference implementation. Checked against the reference graph on 315 runs (3 drafts, 3 kinds of edit, 35 typed answers), it agrees on every final status, fingerprint and audit entry. With the eu-west post approved:</p>
-<div class="sheet scroll"><table>
-<thead>
-<tr>
-<th>Change after the preview</th>
-<th>Fingerprint at publish</th>
-<th>Final status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>None</td>
-<td><code>c4e9e330698e</code></td>
-<td><code>PUBLISHED as post_1</code></td>
-</tr>
-<tr>
-<td>&ldquo;72 hours&rdquo; edited to &ldquo;48 hours&rdquo;</td>
-<td><code>11673ae3c1d4</code></td>
-<td><code>REFUSED: the post differs from the approved preview</code></td>
-</tr>
-<tr>
-<td>&rdquo; Buy now!!!&rdquo; appended (the notebook&rsquo;s test)</td>
-<td><code>78879f196e7d</code></td>
-<td><code>REFUSED: the post differs from the approved preview</code></td>
-</tr>
-</tbody>
-</table></div>
-<p><em>Table 4: One approval, three versions of the post. The fingerprints were recomputed from the lab&rsquo;s post text.</em></p>
+<p>The <a href="01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html">approval-gate lab</a> runs the same harness in the page, with the decision rule and the SHA-256 fingerprint ported from the reference implementation. Checked against the reference graph on 315 runs (3 drafts, 3 kinds of edit, 35 typed answers), it agrees on every final status, fingerprint and audit entry. With the eu-west post approved at <code>c4e9e330698e</code>, three versions of the post reach the publish node:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="drift-switcher">
+<p class="widget-intro">Choose what happens to the eu-west post between the approval and the publish node.</p>
+<div class="mode-controls" hidden role="group" aria-label="Change after the preview">
+<button type="button" data-mode="none" aria-pressed="false" aria-controls="drift-none">No change</button>
+<button type="button" data-mode="small" aria-pressed="false" aria-controls="drift-small">72 hours to 48 hours</button>
+<button type="button" data-mode="append" aria-pressed="false" aria-controls="drift-append">Buy now appended</button>
+</div>
+<section id="drift-none" class="mode-panel" data-announcement="No change selected. The post publishes."><h4>No change</h4><dl><dt>Fingerprint at publish</dt><dd><code>c4e9e330698e</code>, the approved one</dd><dt>Final status</dt><dd><code>PUBLISHED as post_1</code></dd><dt>Feed</dt><dd>one post</dd></dl></section>
+<section id="drift-small" class="mode-panel" data-announcement="Small edit selected. The publish node refuses."><h4>"72 hours" edited to "48 hours"</h4><dl><dt>Fingerprint at publish</dt><dd><code>11673ae3c1d4</code></dd><dt>Final status</dt><dd><code>REFUSED: the post differs from the approved preview</code></dd><dt>Feed</dt><dd>empty; the audit log still shows the <code>approve</code></dd></dl></section>
+<section id="drift-append" class="mode-panel" data-announcement="Appended line selected. The publish node refuses."><h4>" Buy now!!!" appended (the notebook's test)</h4><dl><dt>Fingerprint at publish</dt><dd><code>78879f196e7d</code></dd><dt>Final status</dt><dd><code>REFUSED: the post differs from the approved preview</code></dd><dt>Feed</dt><dd>empty; the audit log still shows the <code>approve</code></dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>We recomputed all three fingerprints from the lab&rsquo;s post text with Python&rsquo;s <code>hashlib</code>, and they match the lab.</p>
 <figure class="lab-embed"><iframe src="01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html" title="The approval gate, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: The approval gate. <a href="01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html">Open full screen</a></figcaption></figure>
 <p>A one-phrase edit changes the fingerprint as completely as a new sentence. Any edit after review needs a new preview and a new decision. In both refused runs the audit log still shows an <code>approve</code>. That entry is correct. The reviewer approved <code>c4e9e330698e</code>, and the text that tried to publish was something else.</p>
 <blockquote>
@@ -551,14 +545,12 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>The same pause exists ready-made. <code>HumanInTheLoopMiddleware</code> from <a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html">M23&rsquo;s middleware lesson</a> gives a <code>create_agent</code> agent a pause before a tool call, built on the same <code>interrupt()</code> and checkpointer from M09. Building the gate by hand adds the two parts this lesson needs: a preview of the effect, and a fingerprint that ties the approval to it.</p>
 <h2 id="in-practice-the-eu-west-status-post">In practice: the eu-west status post</h2>
-<p>Here is the whole harness on Larkspur&rsquo;s post, in the order the graph runs it:</p>
-<ol>
-<li><strong>Propose.</strong> The model drafts the post and its hashtags as structured output.</li>
-<li><strong>Dry run.</strong> Its own node renders the text and computes <code>c4e9e330698e</code>. The feed is still empty.</li>
-<li><strong>Review.</strong> The graph pauses and the checkpointer holds the run. The on-call lead reads the preview.</li>
-<li><strong>Decide.</strong> The lead types <code>approve</code>. The audit log records the reviewer, the reason, the fingerprint and the time.</li>
-<li><strong>Publish.</strong> The recomputed fingerprint matches, and the post goes out as <code>post_1</code>. An edit in the meantime would have been refused.</li>
-</ol>
+<p>Here is the whole harness on Larkspur&rsquo;s post, in the order the graph runs it.</p>
+<div class="walkthrough learning-widget" data-stepper id="harness-walkthrough">
+<p class="widget-intro">Step through one run of the harness on the eu-west post.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the approval harness"><button type="button" data-step="0" aria-pressed="false" aria-controls="harness-step-0">1. Propose</button><button type="button" data-step="1" aria-pressed="false" aria-controls="harness-step-1">2. Dry run</button><button type="button" data-step="2" aria-pressed="false" aria-controls="harness-step-2">3. Review</button><button type="button" data-step="3" aria-pressed="false" aria-controls="harness-step-3">4. Decide</button><button type="button" data-step="4" aria-pressed="false" aria-controls="harness-step-4">5. Publish</button></div>
+<div class="step-panels"><section id="harness-step-0" class="step-panel" aria-labelledby="harness-heading-0"><h4 id="harness-heading-0">1. Propose</h4><dl><dt>Input</dt><dd>the request to post that the eu-west outage is resolved</dd><dt>Output</dt><dd>the post body and its hashtags as structured output; nothing rendered yet</dd></dl></section><section id="harness-step-1" class="step-panel" aria-labelledby="harness-heading-1"><h4 id="harness-heading-1">2. Dry run</h4><dl><dt>Node</dt><dd>its own node, which runs once</dd><dt>State written</dt><dd>the rendered preview and fingerprint <code>c4e9e330698e</code></dd><dt>Feed</dt><dd>still empty, checked by reading it back</dd></dl></section><section id="harness-step-2" class="step-panel" aria-labelledby="harness-heading-2"><h4 id="harness-heading-2">3. Review</h4><dl><dt>Call</dt><dd><code>interrupt()</code> with the question, the preview and the fingerprint</dd><dt>State</dt><dd>saved in the checkpointer under the run's <code>thread_id</code>; the on-call lead reads the preview</dd></dl></section><section id="harness-step-3" class="step-panel" aria-labelledby="harness-heading-3"><h4 id="harness-heading-3">4. Decide</h4><dl><dt>Resume</dt><dd><code>Command(resume=...)</code> on the same thread; the review node re-runs and <code>interrupt()</code> returns the answer</dd><dt>Decision</dt><dd>the lead types <code>approve</code>; the audit log records reviewer, reason, fingerprint and time</dd></dl></section><section id="harness-step-4" class="step-panel" aria-labelledby="harness-heading-4"><h4 id="harness-heading-4">5. Publish</h4><dl><dt>Check</dt><dd>the fingerprint is recomputed from the post in state and compared with the approved one</dd><dt>Result</dt><dd>they match, and the post goes out as <code>post_1</code>; an edit in the meantime would have been refused</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>Lesson 27.2 builds agents that only read: they search the web and return a brief. Their risk is a wrong claim, and the guard moves from a person&rsquo;s approval to checks in code.</p>
 <h2 id="limits">Limits</h2>
 <p>The harness tested an unclear answer and an edit after the preview, on a mock feed. It leaves out:</p>
@@ -566,7 +558,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Staleness.</strong> The fingerprint covers the text, not the world it describes. A post approved four hours later still matches even if the incident reopened. Add an approval expiry or a precondition checked at publish time.</li>
 <li><strong>Persistence.</strong> The in-memory checkpointer loses a paused run on restart. Add SQLite or Postgres before reviewers answer from another process.</li>
 <li><strong>Reviewer quality.</strong> Nothing measures whether approvals are read. Add approval-rate and time-to-decision monitoring.</li>
+<li><strong>No model in our check.</strong> The fingerprints and statuses on this page come from the lab and its fixed post text. The notebook&rsquo;s own posts are drafted by <code>gpt-4o-mini</code>: their text and fingerprints differ on every run.</li>
 </ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/interrupts" target="_blank" rel="noopener">LangGraph interrupts</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">LangGraph persistence</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/human-in-the-loop" target="_blank" rel="noopener">Human-in-the-loop middleware</a>.</li>
+<li>HashiCorp, <a href="https://developer.hashicorp.com/terraform/cli/commands/plan" target="_blank" rel="noopener">terraform plan command</a>.</li>
+<li>Python Software Foundation, <a href="https://docs.python.org/3/library/hashlib.html" target="_blank" rel="noopener">hashlib: secure hashes and message digests</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A dry run renders the effect through the same code path as the live call and changes nothing. Check that by reading state back, and put the dry run in its own node before the pause.</li>
@@ -584,7 +585,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. A reviewer answers the approval prompt with yes. Does the post go out, and why is that the right behaviour?</summary>
-<p>No. The gate fails closed: the answer is stripped and lowercased, and only the exact word <code>approve</code> approves, so <code>yes</code> and <code>approved</code> are rejections, logged as unclear answers. An ambiguous answer should never publish.</p>
+<p>No. The gate fails closed: the answer is stripped and lowercased, and only the exact word <code>approve</code> approves. <code>yes</code> and <code>approved</code> are rejections, logged as unclear answers. An ambiguous answer should never publish.</p>
 </details>
 <h2 id="the-project-research-and-market-brief-agents">The project: research and market-brief agents</h2>
 <p class="lesson-of">Lesson 27.2: Research and competitive-intelligence agents. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m27_human_approval_applied_agents/mandatory/notebook/02a_research_assistant_agent.ipynb" target="_blank" rel="noopener"><code>02a_research_assistant_agent.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m27_human_approval_applied_agents/optional/notebook/02b_competitive_intelligence_agent.ipynb" target="_blank" rel="noopener"><code>02b_competitive_intelligence_agent.ipynb</code></a> (optional)</p>
@@ -692,9 +693,38 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: Three turns on one thread. The data is live, and no values are fixed.</em></p>
-<p>Ask turn 3 on a fresh thread and the agent cannot know which two cities you mean. It either asks, or picks two cities of its own and answers confidently. We call that a <strong>phantom referent</strong>: a follow-up answered about something the conversation never named.</p>
-<p>The check after turn 3 reads the temperatures from the weather results stored in the thread, finds the hotter city and tests whether the answer&rsquo;s first line names it. It never trusts the model&rsquo;s own comparison.</p>
-<p>The analyst&rsquo;s brief gets the same treatment for sources. To see the check fail, the notebook appends one invented competitor to a real brief:</p>
+<p>The notebook asks turn 3 twice: once to an agent with no checkpointer, and once on the thread that holds turns 1 and 2. The two set-ups differ only in what the agent reads before it answers.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Turn 3 alone&lt;br/&gt;which city is hotter?"] --&gt; A["Agent&lt;br/&gt;no checkpointer"]
+    A --&gt; R[/"Asks which cities,&lt;br/&gt;or picks two itself"/]
+</pre></figure>
+<p><em>Figure 2: Without memory. The agent sees one message and no weather results.</em></p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    T[("thread_id&lt;br/&gt;weather-chat-1&lt;br/&gt;turns 1 and 2")] --&gt; A["Agent&lt;br/&gt;InMemorySaver"]
+    Q["Turn 3&lt;br/&gt;which city is hotter?"] --&gt; A
+    A --&gt; R[/"Names one of the&lt;br/&gt;two stored cities"/]
+</pre></figure>
+<p><em>Figure 3: With memory. The checkpointer loads the earlier turns, tool results included, before the model runs.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="memory-switcher">
+<p class="widget-intro">Choose how the agent receives the follow-up, and see what it has to work with.</p>
+<div class="mode-controls" hidden role="group" aria-label="Agent memory set-up">
+<button type="button" data-mode="stateless" aria-pressed="false" aria-controls="memory-stateless">Fresh thread</button>
+<button type="button" data-mode="thread" aria-pressed="false" aria-controls="memory-thread">Same thread</button>
+</div>
+<section id="memory-stateless" class="mode-panel" data-announcement="Fresh thread selected. The agent has no cities to compare."><h4>Fresh thread, no checkpointer</h4><dl><dt>Messages read</dt><dd>one: the follow-up</dd><dt>Weather results</dt><dd>none</dd><dt>Likely answer</dt><dd>a question back, or two cities the user never named</dd><dt>Answer check</dt><dd>nothing to check against</dd></dl></section>
+<section id="memory-thread" class="mode-panel" data-announcement="Same thread selected. The agent compares the two stored results."><h4>Same thread, InMemorySaver</h4><dl><dt>Messages read</dt><dd>every message of turns 1 and 2, then the follow-up</dd><dt>Weather results</dt><dd>Bangalore and Dubai, as the tool returned them</dd><dt>Likely answer</dt><dd>one of the two cities, with no new tool call</dd><dt>Answer check</dt><dd>compares the first line with the hotter city in the stored results</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Without the thread the agent cannot know which two cities you mean. We call that failure a <strong>phantom referent</strong>: a follow-up answered about something the conversation never named.</p>
+<p>The check after turn 3 reads the temperatures from the weather results stored in the thread, keyed by the city name the agent asked for (the API can report Bangalore as &ldquo;Bengaluru&rdquo;). It finds the hotter city and tests whether the answer&rsquo;s first line names it. It never trusts the model&rsquo;s own comparison.</p>
+<p>The analyst&rsquo;s brief gets the same treatment for sources.</p>
+<div class="walkthrough learning-widget" data-stepper id="grounding-walkthrough">
+<p class="widget-intro">Step through one analyst run, from the question to the grounding check.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of an analyst run"><button type="button" data-step="0" aria-pressed="false" aria-controls="ground-step-0">1. Ask</button><button type="button" data-step="1" aria-pressed="false" aria-controls="ground-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="ground-step-2">3. Brief</button><button type="button" data-step="3" aria-pressed="false" aria-controls="ground-step-3">4. Check</button></div>
+<div class="step-panels"><section id="ground-step-0" class="step-panel" aria-labelledby="ground-heading-0"><h4 id="ground-heading-0">1. Ask</h4><dl><dt>Question</dt><dd>the top five clothing-store competitors near Koramangala, Bangalore, and their busiest hours</dd></dl></section><section id="ground-step-1" class="step-panel" aria-labelledby="ground-heading-1"><h4 id="ground-heading-1">2. Search</h4><dl><dt>Tool</dt><dd>the search tool, five results per call, as many calls as the agent chooses</dd><dt>Kept in the run</dt><dd>every result URL, inside the tool messages</dd></dl></section><section id="ground-step-2" class="step-panel" aria-labelledby="ground-heading-2"><h4 id="ground-heading-2">3. Brief</h4><dl><dt>Output</dt><dd>a typed brief: area, audience, competitors with one evidence URL each, opportunities, risks, data gaps</dd><dt>Busiest hours</dt><dd>belong under data gaps unless a search result gave them</dd></dl></section><section id="ground-step-3" class="step-panel" aria-labelledby="ground-heading-3"><h4 id="ground-heading-3">4. Check</h4><dl><dt>Compare</dt><dd>each evidence URL with the set of URLs the searches returned in this run</dd><dt>Report</dt><dd>how many competitors cite a seen URL, and the name and URL of each one that does not</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>To see the check fail, the notebook appends one invented competitor to a real brief:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -760,7 +790,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Memory lives in the process.</strong> The in-memory checkpointer loses every thread on restart.</li>
 <li><strong>Snippets are weaker evidence.</strong> A blocked or slow page leaves the agent a two-line snippet.</li>
 </ul>
-<p>The assistant needs OpenAI, Tavily and OpenWeatherMap keys, and the analyst needs OpenAI and Tavily.</p>
+<p>The assistant needs OpenAI, Tavily and OpenWeatherMap keys, and the analyst needs OpenAI and Tavily. We did not run either agent for this page: it describes what the notebooks&rsquo; code checks, and quotes no live results.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/agents" target="_blank" rel="noopener">Agents</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">LangGraph persistence</a>.</li>
+<li>Tavily, <a href="https://docs.tavily.com/documentation/api-reference/endpoint/search" target="_blank" rel="noopener">Search API reference</a>.</li>
+<li>OpenWeather, <a href="https://openweathermap.org/api/current" target="_blank" rel="noopener">Current weather data API</a>.</li>
+<li>Microsoft, <a href="https://github.com/microsoft/markitdown" target="_blank" rel="noopener">MarkItDown</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>An agent over live sources needs budgets on what each tool returns and failures returned as readable text, or one call floods the context or ends the run.</li>
@@ -780,7 +819,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. A fresh thread receives the question of which of the two cities is hotter. What goes wrong, and what fixes it?</summary>
 <p>With no earlier turns, the agent asks which cities, or picks two of its own and answers confidently. A checkpointer with a thread id carries the Bangalore and Dubai weather results into the follow-up, and the check reads those stored results to confirm the answer.</p>
 </details>
-<h2 id="the-project-a-scoped-financial-analyst">The project: a scoped financial analyst</h2>
+<h2 id="start-with-a-pe-the-provider-never-returned">Start with a P/E the provider never returned</h2>
 <p class="lesson-of">Lesson 27.3: Financial analyst agent. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m27_human_approval_applied_agents/optional/notebook/03a_financial_analyst_agent.ipynb" target="_blank" rel="noopener"><code>03a_financial_analyst_agent.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll build</strong></p>
@@ -791,8 +830,11 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Follow-up questions</strong> on one thread, with the numbers in the answers checked against the provider.</li>
 </ul>
 </blockquote>
-<p>Lesson 27.2&rsquo;s agents answered from web pages, where a claim can only be traced to a URL. This agent answers from structured market data, where every number has a source to compare against. The machinery is unchanged: a <code>create_agent</code> agent from M23, M22-style tools and an M09 checkpointer for follow-ups.</p>
-<p>What changes is the discipline around numbers. The model should read figures and never compute them, a missing value must say it is missing, and the agent must decline questions outside its job. On Larkspur the same shape would fit a billing analyst over invoice data. The notebook is an engineering exercise, not investment advice.</p>
+<p>An investor asks for Intel&rsquo;s P/E ratio. The provider has no trailing P/E for Intel, because its trailing earnings were negative when the notebook was written. An analyst agent that answers <em>about 30</em> anyway has turned a gap in the data into a financial claim, and the sentence reads exactly like a correct one.</p>
+<p>A second risk sits in the arithmetic. Hand the model a year of daily prices and ask for the six-month return, and it has to compute a figure that code would get right every time. This project removes both risks: the tools do the arithmetic, and a missing value says it is missing.</p>
+<h2 id="the-project-a-scoped-financial-analyst">The project: a scoped financial analyst</h2>
+<p>Lesson 27.2&rsquo;s agents answered from web pages, where a claim can only be traced to a URL. This agent answers from structured market data, where every number has a source to compare against. The machinery is unchanged: a <code>create_agent</code> agent from <a href="../../../../p06_agent_foundations/m23_react_agents/mandatory/theory/index.html">M23</a>, tools in the style of M22 and an M09 checkpointer for follow-ups.</p>
+<p>What changes is the discipline around numbers. The model reads figures and never computes them, a missing value says it is missing, and the agent declines questions outside its job. On Larkspur the same shape would fit a billing analyst over invoice data. The notebook is an engineering exercise, not investment advice.</p>
 <h2 id="architecture">Architecture</h2>
 <p>The agent sits between an investor and five tools, each backed by a free data provider:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -804,6 +846,7 @@ th:last-child, td:last-child { padding-right: 0; }
     A --&gt; M["Market movers&lt;br/&gt;Yahoo Finance"]
 </pre></figure>
 <p><em>Figure 1: The analyst and its tools. OpenBB routes each market-data call to a provider, and news comes from a web search.</em></p>
+<p>Table 1 lists each piece and the earlier lesson it reuses:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -835,7 +878,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td><strong>Market movers</strong></td>
-<td>Most active stocks, top gainers and top losers, ten of each</td>
+<td>Most active stocks, top gainers and top losers, ten of each, with the percentage change formatted for the model</td>
 <td></td>
 </tr>
 <tr>
@@ -868,12 +911,14 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>The notebook&rsquo;s tool</td>
-<td>14 fields: quote, day range, 52-week high and low, two moving averages, four returns</td>
+<td>14 fields: symbol, name, currency, last price, previous close, day range, 52-week high and low, two moving averages, four returns</td>
 <td>Code</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: One year of prices, two ways. Returns use 21 trading days per month.</em></p>
+<p><em>Table 2: One year of prices, two ways. Returns use 21 trading days per month; the one-year return spans the whole fetched history.</em></p>
+<p>Two details of that tool matter when you read its output. The 52-week high and low are the highest and lowest daily closes, so an intraday peak above the close does not appear. A return is computed only when the history holds enough trading days, so a stock listed six months ago gets no one-year figure instead of a wrong one.</p>
+<p>The fundamentals tool applies the same rule to missing data. It checks three key metrics (P/E, forward P/E and market cap) and appends a NOT AVAILABLE line naming any the provider left empty, with a note that a missing P/E usually means negative trailing earnings. Call the failure it prevents an <strong>invented figure</strong>: a plausible number with no source.</p>
 <h2 id="following-a-misspelled-question">Following a misspelled question</h2>
 <p>The notebook checks the scope with one request per path, and passes each on what the agent called, not on its wording:</p>
 <div class="sheet scroll"><table>
@@ -903,7 +948,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: Three planted requests and their pass conditions.</em></p>
-<p>The misspelled request exercises the recovery rule in the prompt. The values change daily, and the trace shows only the call order:</p>
+<p>The misspelled request exercises the recovery rule in the prompt, which names this very example and also suggests a shorter name when a long one fails. The values change daily, and the trace shows only the call order:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant A as Agent
     participant T as Tools
@@ -916,8 +961,18 @@ th:last-child, td:last-child { padding-right: 0; }
     Note over A: answer with the P/E
 </pre></figure>
 <p><em>Figure 2: A failed lookup becomes a hint the agent acts on, then the ticker feeds the next call.</em></p>
-<p>The follow-up conversation then asks <em>What is the P/E ratio of Nvidia?</em>, <em>And Intel?</em> and <em>Which of the two looks better on valuation?</em> on one thread. The check fetches the same metrics from the provider directly. Nvidia&rsquo;s answer must contain its trailing P/E, rounded to one or two decimals. If the provider has no trailing P/E for Intel (the notebook was written while Intel&rsquo;s trailing earnings were negative), the answer must say so or quote the forward P/E, and any other P/E figure counts as invented.</p>
+<h3>A follow-up conversation, checked against the provider</h3>
+<p>The second test asks three questions on one thread, then fetches the same metrics from the provider directly and compares. Step through what each turn depends on:</p>
+<div class="walkthrough learning-widget" data-stepper id="pe-followups">
+<p class="widget-intro">Follow the investor's three turns on thread investor-1, then the check that compares the answers with the provider.</p>
+<div class="step-controls" hidden role="group" aria-label="Follow-up conversation turns"><button type="button" data-step="0" aria-pressed="false" aria-controls="pe-step-0">1. Nvidia</button><button type="button" data-step="1" aria-pressed="false" aria-controls="pe-step-1">2. And Intel</button><button type="button" data-step="2" aria-pressed="false" aria-controls="pe-step-2">3. Which is better</button><button type="button" data-step="3" aria-pressed="false" aria-controls="pe-step-3">4. The check</button></div>
+<div class="step-panels"><section id="pe-step-0" class="step-panel" aria-labelledby="pe-heading-0"><h4 id="pe-heading-0">1. What is the P/E ratio of Nvidia?</h4><dl><dt>Tools</dt><dd>Ticker lookup if needed, then fundamentals for NVDA</dd><dt>Answer must hold</dt><dd>The provider's trailing P/E, rounded to one or two decimals</dd></dl></section><section id="pe-step-1" class="step-panel" aria-labelledby="pe-heading-1"><h4 id="pe-heading-1">2. And Intel?</h4><dl><dt>Depends on</dt><dd>The checkpointer: the turn names no metric, so the agent reads the first question from the thread</dd><dt>Tool output</dt><dd>Fundamentals for INTC, ending with NOT AVAILABLE for the trailing P/E when earnings are negative</dd></dl></section><section id="pe-step-2" class="step-panel" aria-labelledby="pe-heading-2"><h4 id="pe-heading-2">3. Which of the two looks better on valuation?</h4><dl><dt>Depends on</dt><dd>Both earlier tool results in the thread</dd><dt>Expected</dt><dd>A short comparison that uses only those figures, with the prompt's do-your-own-research caveat</dd></dl></section><section id="pe-step-3" class="step-panel" aria-labelledby="pe-heading-3"><h4 id="pe-heading-3">4. The check against a direct fetch</h4><dl><dt>Nvidia</dt><dd>Passes when some number in the answer is within 0.051 of the provider's trailing P/E</dd><dt>Intel, no trailing P/E</dt><dd>Passes when the answer says it is unavailable (or negative, or not applicable) or quotes the forward P/E</dd><dt>Fails</dt><dd>Any other P/E figure: an invented figure</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div>
+</div>
+
+<p>If the provider does return a trailing P/E for Intel on the day you run it, the check switches to requiring that figure, as it does for Nvidia.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
+<p>Each choice below protects against a failure this page or an earlier lesson names:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -928,11 +983,11 @@ th:last-child, td:last-child { padding-right: 0; }
 <tbody>
 <tr>
 <td><strong>Compute returns and ranges in code</strong></td>
-<td>The model reads numbers well and calculates them unreliably. Fourteen fields also cost far less context than 250 rows</td>
+<td>The model reads the figures instead of calculating them from 250 rows, and 14 fields cost far less context</td>
 </tr>
 <tr>
 <td><strong>Name missing values</strong></td>
-<td>A missing P/E stated as NOT AVAILABLE cannot be mistaken for zero or filled in by the model</td>
+<td>A missing P/E stated as NOT AVAILABLE cannot be mistaken for zero or filled in with an invented figure</td>
 </tr>
 <tr>
 <td><strong>Turn a failed lookup into a hint</strong></td>
@@ -948,7 +1003,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td><strong>Key-less providers</strong></td>
-<td>SEC and Yahoo Finance need no key. The notebook runs with no extra accounts</td>
+<td>SEC and Yahoo Finance need no key. The notebook runs with no extra market-data accounts</td>
 </tr>
 </tbody>
 </table></div>
@@ -957,10 +1012,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <ul>
 <li><strong>Live data.</strong> Every run sees different prices. The checks test agreement with the provider at run time, never fixed values.</li>
 <li><strong>Scope lives in the prompt.</strong> Nothing in code blocks an off-topic tool call, and one request per path is a sample. A determined user can talk the agent around.</li>
-<li><strong>A loose number match.</strong> The check accepts any number within 0.051 of the provider&rsquo;s value, so an unrelated figure that happens to be close also passes.</li>
+<li><strong>A loose number match.</strong> The check accepts any number within 0.051 of the provider&rsquo;s value, so an unrelated figure that happens to be close also passes. The Intel check accepts keywords such as &ldquo;negative&rdquo;, which a wrong answer can also contain.</li>
+<li><strong>Closing prices only.</strong> The 52-week range comes from daily closes and can sit inside the range a trading site shows.</li>
 <li><strong>Advice.</strong> The prompt allows recommendations with a do-your-own-research caveat. A production version would need compliance review.</li>
 </ul>
 <p>The notebook needs OpenAI and Tavily keys and the course&rsquo;s <code>finance</code> dependency group, which cannot share an environment with the protocol groups.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenBB, <a href="https://docs.openbb.co/platform" target="_blank" rel="noopener">Platform documentation</a>, on providers behind one market-data interface.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/agents" target="_blank" rel="noopener">Agents</a>, the <code>create_agent</code> loop the analyst runs on.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory" target="_blank" rel="noopener">Short-term memory</a>, on checkpointers and thread ids.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Do the arithmetic in the tool and hand the model a short table, so it reads figures instead of computing them from hundreds of rows.</li>
@@ -978,7 +1040,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. How does the notebook show that the analyst's scope works, and what does the out-of-scope request prove?</summary>
-<p>It sends one request per path and passes each on the tools called: market movers for the overview, fundamentals for MSFT after the misspelled lookup, and no tools for the pasta recipe. The last proves the refusal path declines without touching any tool.</p>
+<p>It sends one request per path and passes each on the tools called: market movers for the overview, fundamentals for MSFT after the misspelled lookup, and no tools for the pasta recipe. The last shows the refusal path declines without touching any tool on that request; one sample does not prove every off-topic request is blocked.</p>
 </details>
 <h2 id="a-fluent-answer-that-counts-wrong">A fluent answer that counts wrong</h2>
 <p class="lesson-of">Lesson 27.4: Text-to-SQL: workflow vs ReAct agent. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m27_human_approval_applied_agents/mandatory/notebook/04a_text2sql_workflow.ipynb" target="_blank" rel="noopener"><code>04a_text2sql_workflow.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m27_human_approval_applied_agents/mandatory/notebook/04b_text2sql_react_agent.ipynb" target="_blank" rel="noopener"><code>04b_text2sql_react_agent.ipynb</code></a></p>
@@ -992,10 +1054,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 27.3&rsquo;s analyst got its numbers from tools that did the arithmetic in code. Text-to-SQL goes one step further. The model writes the code, and the database does the arithmetic over every row.</p>
-<p>Both notebooks ask questions of a small comic-store database, kept because its numbers come from that data. Ask <em>Which customer has purchased the most comics?</em> and a typical generated query returns Natasha Romanoff, with a confident sentence around the name. The right answer is Tony Stark. The query ran without an error, and nothing in the reply hints at the mistake.</p>
-<p>The rest of the page builds what catches it: a chain that keeps the query beside its answer, an evaluation against SQL we wrote ourselves, a business rule for ambiguous terms, and a read-only connection for the agent version.</p>
+<p>Both notebooks ask questions of a small comic-store database, kept because its numbers come from that data. Ask <em>Which customer has purchased the most comics?</em> and a typical generated query returns Natasha Romanoff, with a confident sentence around the name. The right answer is Tony Stark. The query ran without an error, and nothing in the reply hints at the mistake. This page builds what catches it.</p>
 <h2 id="text-to-sql">Text-to-SQL</h2>
-<p><strong>Text-to-SQL turns a question into a query, runs it, and writes the answer from the rows.</strong> The database is built from a creation script: eight tables (Branch, Publisher, Comic, Customer, Employee, Inventory, Sale, SaleTransactions) holding 50 comics, 20 customers, 20 sales and 40 sale lines.</p>
+<p><strong>Text-to-SQL turns a question into a query, runs it, and writes the answer from the rows.</strong> The database is built from a creation script: eight tables (Branch, Publisher, Comic, Customer, Employee, Inventory, Sale, SaleTransactions) holding 50 comics, 20 customers, 20 sales and 40 sale lines across 3 branches.</p>
 <h3>One stored query, from question to answer</h3>
 <p>The workflow is a fixed chain of three steps. Each step adds one field to a single record, which keeps the question, the SQL, the rows and the answer together:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -1005,7 +1066,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 1: The workflow. Each box adds a field to the same record: query, result, answer.</em></p>
 <ol>
-<li><strong>Write the query.</strong> The prompt carries the schema: each table&rsquo;s creation statement and three sample rows. That text is everything the model knows about the database.</li>
+<li><strong>Write the query.</strong> The prompt carries the schema: each table&rsquo;s creation statement and three sample rows. That text is everything the model knows about the database. The prompt also caps results at 10 rows unless the question asks for more.</li>
 <li><strong>Run the stored query.</strong> The executor reads the query written in step 1. Piping the query writer into the executor a second time would generate a second query, and the SQL on screen would no longer be the SQL behind the answer. Call that a <strong>regenerated query</strong>.</li>
 <li><strong>Answer from the rows</strong>, with a prompt that says to use only the SQL result.</li>
 </ol>
@@ -1053,7 +1114,15 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 1: The seven questions and their expected answers, from running the reference SQL on the fixture database.</em></p>
 <p>The grading rule is strict on purpose. A number must appear as a whole number in the answer. A name must be the first known name the answer mentions. A list of six customers that happens to include the right one does not pass.</p>
 <h3>Planted failure: lines instead of copies</h3>
-<p>The typical miss is the question from the opening. The generated SQL counts sale lines where the question needs summed <code>Quantity</code>, and on this data the two disagree:</p>
+<p>The typical miss is the question from the opening. Follow it through the record the chain builds:</p>
+<div class="walkthrough learning-widget" data-stepper id="sql-record">
+<p class="widget-intro">Trace one question through the workflow's record and into the ground-truth check. The query shape is the typical miss the notebook reports; the rows come from the fixture database.</p>
+<div class="step-controls" hidden role="group" aria-label="Workflow record fields"><button type="button" data-step="0" aria-pressed="false" aria-controls="rec-step-0">1. Question</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rec-step-1">2. Query</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rec-step-2">3. Result</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rec-step-3">4. Answer and check</button></div>
+<div class="step-panels"><section id="rec-step-0" class="step-panel" aria-labelledby="rec-heading-0"><h4 id="rec-heading-0">1. The question enters the record</h4><dl><dt>question</dt><dd>Which customer has purchased the most comics?</dd><dt>Expected</dt><dd>Tony Stark, from the reference SQL that sums Quantity</dd></dl></section><section id="rec-step-1" class="step-panel" aria-labelledby="rec-heading-1"><h4 id="rec-heading-1">2. The model writes the query</h4><dl><dt>query</dt><dd>Joins sale lines to customers and counts the lines per customer</dd><dt>What it should do</dt><dd>Sum the Quantity column on those lines</dd></dl></section><section id="rec-step-2" class="step-panel" aria-labelledby="rec-heading-2"><h4 id="rec-heading-2">3. The database runs that stored query</h4><dl><dt>result</dt><dd>Natasha Romanoff first, with 5 lines</dd><dt>Error raised</dt><dd>None: the SQL is valid</dd></dl></section><section id="rec-step-3" class="step-panel" aria-labelledby="rec-heading-3"><h4 id="rec-heading-3">4. The answer, then the check</h4><dl><dt>answer</dt><dd>A confident sentence naming Natasha Romanoff</dd><dt>Ground-truth check</dt><dd>Fails: the first known name is not Tony Stark</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div>
+</div>
+
+<p>The generated SQL counts sale lines where the question needs summed <code>Quantity</code>, and on this data the two disagree:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1112,7 +1181,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Top salespeople under each definition of revenue, from the notebook&rsquo;s own queries.</em></p>
 <p>The chain picks one source silently, and a stronger model would still be guessing. The business has to decide which source is authoritative and write it into the prompt as a rule: revenue is always computed from line items. The notebook then checks the generated SQL in code for the line-item table, instead of trusting that the rule was followed.</p>
-<p>The workflow runs the same three steps for every question. The next design lets the model choose its own steps.</p>
+<p>The evaluation set shows how easily the two definitions slip. Its reference SQL for <em>spent the most money</em> sums <code>Sale.TotalAmount</code>, the source the rule forbids. Both sources still put Tony Stark first (164.94 by header, 194.92 by lines), so the expected answer holds here; on other data that reference would grade a correct answer as wrong.</p>
 <h2 id="workflow-or-react-agent">Workflow or ReAct agent</h2>
 <p>The agent notebook gives the same task to a <code>create_agent</code> ReAct agent with four database tools: list the tables, read a table&rsquo;s schema, check a query (an LLM reviews it before it runs), and run a query. Its system prompt tells it to list the tables first, read only the schemas it needs, check each query, and rewrite and retry on errors:</p>
 <figure class="anim sheet" aria-labelledby="anim-t2s-cap">
@@ -1181,6 +1250,15 @@ th:last-child, td:last-child { padding-right: 0; }
   </ol>
 </figure>
 <p><em>Figure 2: Two ways to answer the same question. The workflow is a line, and the agent is a loop that decides when to stop.</em></p>
+<p>Put the opening question to each design and compare what moves:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="sql-designs">
+<p class="widget-intro">The same question, which customer has purchased the most comics, through each design.</p>
+<div class="mode-controls" hidden role="group" aria-label="Text-to-SQL design"><button type="button" data-mode="workflow" aria-pressed="false" aria-controls="design-workflow">Workflow</button><button type="button" data-mode="agent" aria-pressed="false" aria-controls="design-agent">ReAct agent</button></div>
+<section id="design-workflow" class="mode-panel" data-announcement="Workflow selected. Two LLM calls, one query."><h4>Workflow</h4><ul><li>Reads: the creation statements and three sample rows of all eight tables, in one prompt.</li><li>Runs: exactly one query, the stored one; a failing query is not retried.</li><li>Costs: 2 LLM calls, every time.</li><li>A wrong definition passes straight through to the answer.</li></ul></section>
+<section id="design-agent" class="mode-panel" data-announcement="Agent selected. Several calls, schema read on demand."><h4>ReAct agent</h4><ul><li>Reads: the table list, then only the schemas it asks for, such as Customer, Sale and SaleTransactions.</li><li>Runs: a checked query, and a rewritten one after an error.</li><li>Costs: several model turns plus tool calls; the checker's own LLM call happens inside a tool, so a count of agent turns leaves it out.</li><li>A wrong definition still passes: the checker sees only the query, never the question, and looks for a fixed list of SQL mistakes.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The two designs trade predictability for flexibility:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1219,9 +1297,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Workflow and agent compared.</em></p>
-<p>Both are scored on the same seven questions, and neither is reliably right on every one. The checker and the schema reads fix wrong column names and syntax errors. They do not fix a wrong definition, such as counting lines instead of summing <code>Quantity</code>. Seven questions are a sample and a second run can change verdicts. Compare the two designs question by question rather than by one score.</p>
+<p>Both are scored on the same seven questions, and neither is reliably right on every one. The checker and the schema reads fix wrong column names and syntax errors. They do not fix a wrong definition, such as counting lines instead of summing <code>Quantity</code>: the installed checker prompt lists common mistakes (NULLs in NOT IN, join columns, casts, quoting) and never receives the question. Seven questions are a sample and a second run can change verdicts. Compare the two designs question by question rather than by one score.</p>
 <h3>The write boundary lives in the connection</h3>
-<p>The workflow only ever runs the one query it wrote. An agent runs whatever SQL it decides on, so &ldquo;never modify the data&rdquo; has to hold even if a user talks the model into trying. The prompt says it, but the guarantee comes from opening the database file read-only at the connection.</p>
+<p>An agent runs whatever SQL it decides on, so &ldquo;never modify the data&rdquo; has to hold even if a user talks the model into trying. The prompt says it; the guarantee comes from opening the database file read-only at the connection.</p>
 <p>The notebook&rsquo;s planted request asks the agent to delete every customer in New York and report how many are left. The same read-only connection, tried directly on the fixture database:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1284,16 +1362,21 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="in-practice-larkspurrsquos-billing-questions">In practice: Larkspur&rsquo;s billing questions</h2>
 <p>Larkspur&rsquo;s billing team asks two questions in one morning:</p>
 <ol>
-<li><em>How much did we refund to annual-plan customers in September?</em> A sum over rows goes to text-to-SQL. Before it ships, the team writes down what &ldquo;refunded&rdquo; means (which table, which status) as a prompt rule and checks the generated SQL for it in code.</li>
+<li><em>How much did we refund to annual-plan customers in September?</em> A sum over rows goes to text-to-SQL, with &ldquo;refunded&rdquo; (which table, which status) written down as a prompt rule and checked in the generated SQL.</li>
 <li><em>What is the refund policy for annual plans?</em> Prose in the handbook goes to the vector index and comes back with a citation.</li>
-<li>Both routes get their own evaluation set: reference SQL for the database questions, labelled chunks for the policy questions.</li>
-<li>The SQL agent connects through a read-only role. A request to delete test invoices fails at the database, whatever the prompt says.</li>
+<li>Each route gets its own evaluation set, and the reference SQL follows the prompt&rsquo;s rule.</li>
+<li>The SQL agent connects through a read-only role. A request to delete test invoices fails at the database.</li>
 </ol>
 <p>Lesson 27.5 keeps the fixed-workflow idea and applies it to business text, where the model fills typed fields and code does the checking.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/sql-agent" target="_blank" rel="noopener">Build a SQL agent</a>, the toolkit-plus-agent design of the second notebook.</li>
+<li>SQLite, <a href="https://www.sqlite.org/uri.html" target="_blank" rel="noopener">Uniform Resource Identifiers</a>, on opening a database file with <code>mode=ro</code>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Score text-to-SQL against reference SQL you wrote. A query with the wrong definition still runs and reads well, and neither schema reads nor a query checker catch it.</li>
-<li>When the data offers two sources for a figure such as revenue, the business must pick one and the prompt must state it. Then check the generated SQL in code for the authoritative table.</li>
+<li>When the data offers two sources for a figure such as revenue, the business must pick one and the prompt must state it. Then check the generated SQL in code for the authoritative table, and write the reference SQL under the same rule.</li>
 <li>Use a workflow for predictable questions and an agent for large or changing schemas, opened read-only at the connection. Route counts, sums and rankings over all records to SQL, and prose questions to vector RAG.</li>
 </ul>
 <h2 id="check-yourself">Check yourself</h2>
@@ -1321,7 +1404,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 27.4 compared a fixed SQL workflow with an agent and found the workflow cheaper, more predictable and easier to test. This lesson applies the fixed workflow to business text: reviews, support tickets, a fact sheet, a PDF.</p>
-<p>Larkspur&rsquo;s support queue gets tickets in several languages. A model can read each one, sort it and draft a reply, and most drafts are good. The bad ones read just as well. A draft that tells a customer the refund window is 14 days, when the handbook says 30, looks exactly like a correct draft until someone checks the number.</p>
+<p>Larkspur&rsquo;s support queue gets tickets in several languages. A model can read each one, sort it and draft a reply, and most drafts are good. The bad ones read just as well. A draft that tells a customer the annual-plan refund window is 14 days, when the handbook says 30, looks exactly like a correct draft until someone checks the number.</p>
 <p>So the model&rsquo;s output needs a shape that code can inspect, and the decisions with a right answer need to move out of the model.</p>
 <h2 id="workflow-apps">Workflow apps</h2>
 <p><strong>A workflow app runs a fixed sequence of LLM steps over business text, with no tool loop.</strong> The model fills typed fields, and code does everything that has a right answer: routing, checking and assembling the final document. Anything that fails a check goes to a person instead of the customer:</p>
@@ -1332,20 +1415,47 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt;|no| H["Flag for&lt;br/&gt;human review"]
 </pre></figure>
 <p><em>Figure 1: The shared shape. Only the first box is a model call.</em></p>
-<p>Four notebooks apply that shape to four jobs:</p>
-<ul>
-<li><strong>Review analyst.</strong> The model returns one typed analysis per review, for six reviews in one batch, then writes one email per review. Code picks the email writer by a dictionary lookup on the sentiment field: a thank-you for positive and neutral reviews, an apology for negative ones. Code checks the sentiment against hand labels, and each email for &ldquo;Dear Customer&rdquo;, the &ldquo;Service Agent&rdquo; sign-off, an apology only when the review is negative, and at most 140 words (the prompt asks for under 120).</li>
-<li><strong>IT support desk.</strong> Design A makes one structured call per ticket that returns six fields. Design B chains four calls: detect the language, translate to English, answer, translate back. Both run on the same ten tickets in nine languages. Code checks the detected language, that each reply differs from its English version, that no prompt scaffolding leaks into the text, and the calls and wall time.</li>
-<li><strong>Audience-tailored writer.</strong> Three advert prompts, then three audience reports, each set run in parallel. Code checks the headings, a two-column table limited to five features, a 60-word limit, and that every number in the output appears in the source fact sheet.</li>
-<li><strong>Quiz generator.</strong> The model summarises a PDF on prompt engineering, then writes questions from the material and the summary. Code checks for five questions with four distinct options and a valid answer index, checks that every evidence quote appears in the cleaned PDF text, and renders the study sheet from a template.</li>
-</ul>
+<p>Four notebooks apply that shape to four jobs. Table 1 sets them side by side by what the model fills and what code verifies:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>App</th>
+<th>The model fills</th>
+<th>Code decides or checks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Review analyst</strong></td>
+<td>One typed analysis per review (summary, positives, negatives, a three-value sentiment, 3 to 5 emotions), for six reviews in one batch, then one email per review</td>
+<td>Sentiment against hand labels; the email writer by dictionary lookup; each email&rsquo;s greeting, sign-off, tone and length</td>
+</tr>
+<tr>
+<td><strong>IT support desk</strong></td>
+<td>Language, category, English translation and replies for ten tickets in nine languages, in one of two designs</td>
+<td>Detected language, a reply that really is translated, leaked prompt text, calls and wall time</td>
+</tr>
+<tr>
+<td><strong>Audience-tailored writer</strong></td>
+<td>Three adverts from one phone fact sheet and three reports from one research abstract, each set written in parallel</td>
+<td>Headings, a five-row specification table, word and line limits, bullet counts, and every number against the source</td>
+</tr>
+<tr>
+<td><strong>Quiz generator</strong></td>
+<td>A summary of a PDF on prompt engineering, then five questions, each with four options, an answer index and an evidence quote</td>
+<td>Question count, four distinct options, a valid index, every quote in the PDF text, and the final sheet from a template</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: Four workflow apps. Each row is one notebook.</em></p>
+<p>Three details in those notebooks are easy to miss. The review analyst checks its sentiment against six hand labels before any email goes out, because the sentiment picks the email: the office-lamp review mixes a damaged part with praise for the support team, and a person labelled it positive. Its instruction router classifies a free-text request into four intents (summarise, sentiment, email, other). The quiz generator cleans the PDF text before any check runs: raw extraction from the 4,917-character file holds 768 line breaks, roughly one word per line, and an exact-quote check on that text would fail every honest quote.</p>
 <h3>Five rules for the model&rsquo;s output</h3>
 <p>The four apps differ in content and agree on these rules:</p>
 <ul>
 <li><strong>Ask for a closed type.</strong> A sentiment that can only be positive, negative or neutral gives code a value to branch on. An answer index points at an option instead of restating it, so the answer cannot drift from the options.</li>
 <li><strong>Route in code when the signal is already structured.</strong> The review analyst picks the email writer with a dictionary and no extra model call. When the input is free text, as in its instruction router, classify into a closed set of intents and keep an <code>other</code> intent for requests the tool does not handle.</li>
 <li><strong>Check every output with code that cannot be talked round.</strong> String and number checks are cheap enough to run on every call.</li>
-<li><strong>Render the final document in code.</strong> Asking the model to merge a checked summary and checked questions into a report would let it reword them after the checks. Call that <strong>post-check rewording</strong>. A template cannot do it.</li>
+<li><strong>Render the final document in code.</strong> Asking the model to merge a checked summary and checked questions into a report would let it reword them after the checks. Call that <strong>post-check rewording</strong>. A template cannot do it, and it marks any question that failed a check for review by hand.</li>
 <li><strong>Measure the design choice</strong> on the same inputs before picking it, as the support desk does below.</li>
 </ul>
 <h3>Planted failures the checks catch</h3>
@@ -1381,8 +1491,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: One planted failure per check. Rows 1 to 3 come from running the notebooks&rsquo; check functions in a scratch copy.</em></p>
-<p>The second row is an <strong>invented figure</strong>, a plausible number with no source. A schema checks the table&rsquo;s shape and cannot know the number is false. Only the comparison with the source catches it.</p>
+<p><em>Table 2: One planted failure per check. Rows 1 to 3 come from running the notebooks&rsquo; check functions in a scratch copy.</em></p>
+<p>The second row is an <strong>invented figure</strong>, a plausible number with no source. A schema checks the table&rsquo;s shape and cannot know the number is false. Only the comparison with the source catches it. The number check ignores list numbering and the values 0 and 1, so &ldquo;Gen 1&rdquo; or &ldquo;1 year&rdquo; does not raise a false alarm.</p>
+<p>A failed evidence check is a flag, not a verdict. The model may have paraphrased a true sentence, or quoted its own summary instead of the PDF, which the prompt forbids and which still happens. The question goes to a reviewer either way.</p>
 <h2 id="one-call-or-four-the-support-desk">One call or four: the support desk</h2>
 <p>The support desk is the one app that measures two designs against each other. Both start from the same ticket:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
@@ -1415,18 +1526,32 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Model calls per design. Wall time depends on the provider and is measured in the notebook.</em></p>
-<p>Design A makes a quarter of the calls. Design B has a second weakness: its steps exchange free text, and a step can leak a code fence or a line such as &ldquo;The customer message in English is:&rdquo; into the customer&rsquo;s reply. A typed field leaves no room for that. The notebook measures language accuracy, leaks, calls and wall time on the same tickets before choosing.</p>
+<p><em>Table 3: Model calls per design. Wall time depends on the provider and is measured in the notebook.</em></p>
+<p>Switch between the designs to see what each one gives you for the same Japanese ticket about printer toner:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="desk-designs">
+<p class="widget-intro">One ticket, two designs: what comes back, what can go wrong and what you can change.</p>
+<div class="mode-controls" hidden role="group" aria-label="Support desk design"><button type="button" data-mode="a" aria-pressed="false" aria-controls="desk-a">A: one structured call</button><button type="button" data-mode="b" aria-pressed="false" aria-controls="desk-b">B: four-step chain</button></div>
+<section id="desk-a" class="mode-panel" data-announcement="Design A selected. One call returns six typed fields."><h4>Design A: one structured call</h4><ul><li>Returns: six typed fields at once (original message, language, category, English translation, reply, English reply).</li><li>Costs: 1 call per ticket.</li><li>Typical risk: a wrong field, visible only after the call; nothing in between to inspect.</li><li>Prompt text cannot leak into a field the way it can into free text.</li></ul></section>
+<section id="desk-b" class="mode-panel" data-announcement="Design B selected. Four calls, each output visible."><h4>Design B: four-step chain</h4><ul><li>Returns: each step's text, added to one record in order; steps for one ticket run one after another.</li><li>Costs: 4 calls per ticket.</li><li>Typical risk: a step copies a code fence from the prompt's delimiters, or a line such as "The customer message in English is:", into the next step and the reply.</li><li>Gains control: each step can be tested, cached, logged or given its own model, and a bad translation shows up as its own value.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Design A makes a quarter of the calls and leaves no room for <strong>scaffolding leaks</strong>. Design B buys control, which matters once you need to inspect, reuse or upgrade one step. The notebook measures language accuracy, translated replies, leaks, calls and wall time on the same tickets, and its advice follows: start with one call, and move a step into its own prompt when you need that control.</p>
 <h2 id="in-practice-larkspurrsquos-support-queue">In practice: Larkspur&rsquo;s support queue</h2>
 <p>Here is the same shape on Larkspur&rsquo;s tickets:</p>
 <ol>
 <li><strong>One structured call per ticket</strong> returns the language, a category (refund, outage, sizing) and a draft reply.</li>
 <li><strong>Code routes</strong> outage tickets to the incident template.</li>
-<li><strong>Code checks</strong> that every number in a reply appears in the handbook, such as the 30-day refund window and the 99.95% availability target. The 14-day draft from the opening fails here.</li>
+<li><strong>Code checks</strong> that every number in a reply appears in the handbook, such as the 30-day refund window for annual plans and the 99.95% availability guarantee. The 14-day draft from the opening fails here.</li>
 <li><strong>A person sees</strong> any reply that fails a check before the customer does.</li>
 <li><strong>Actions go through the gate.</strong> A reply that issues a refund is an action. It goes through the <a href="#approval-gates">approval gate from lesson 27.1</a>, which binds the approval to the previewed action.</li>
 </ol>
 <p>These apps are workflows in the sense of lesson 27.4: the same steps every time, cheap and testable. Choose an agent only when the next step depends on what the model finds.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Anthropic, <a href="https://www.anthropic.com/research/building-effective-agents" target="_blank" rel="noopener">Building effective agents</a>, on workflows with predefined paths versus agents that direct their own steps.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langchain/structured-output" target="_blank" rel="noopener">Structured output</a>, on returning a typed record from one model call.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>In a workflow app the model fills typed fields and code does everything that has a right answer. Ask for closed types, such as a three-value sentiment, so code can branch on them without another LLM call.</li>
@@ -1444,7 +1569,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>3. For the multilingual support desk, should you use one structured call per ticket or the four-step translate chain?</summary>
-<p>Measure both on the same tickets before choosing. One structured call makes a quarter of the LLM calls (10 against 40 for ten tickets), and the chain&rsquo;s free-text steps can leak a code fence or &ldquo;The customer message in English is:&rdquo; into the reply.</p>
+<p>Measure both on the same tickets before choosing. One structured call makes a quarter of the LLM calls (10 against 40 for ten tickets), and the chain&rsquo;s free-text steps can leak a code fence or &ldquo;The customer message in English is:&rdquo; into the reply. The chain earns its cost when you need to test, cache, log or swap one step.</p>
 </details>
 <h2 id="interactive-lab">Interactive lab</h2>
 <p><a href="01_dry_run_harness_and_human_approval/interactive/approval-gate-lab.html"><strong>The approval gate</strong></a>: open the file in a browser. Keep the eu-west post and try the answers <code>␣Approve␣</code>, <code>approved</code> and <code>sure, why not</code>: the first publishes, the other two fail closed. Then set the answer back to <code>approve</code> and pick <em>Small edit</em>: the reviewer said yes, the audit log records an approve, and the post still does not publish. Last, approve the uptime post. It reaches the feed, because the gate enforces whatever the reviewer decides.</p>
@@ -1502,7 +1627,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Give agents over live data budgeted tools and do their arithmetic in code, then check every number and source against the tool data from the same run.</li>
 <li>Use SQL to retrieve when the answer is a count, sum or ranking over rows, open it read-only, and write ambiguous business terms down as rules. Let the LLM fill typed fields and keep routing, checks and the final document in code.</li>
 </ul></article>
-    <nav class="toc" aria-label="M27 sections"><details open><summary>In M27</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-post-nobody-previewed">The post nobody previewed</a></li><li><a href="#dry-run">Dry run</a></li><li><a href="#approval-gates">Approval gates</a></li><li><a href="#in-practice-the-eu-west-status-post">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-research-and-market-brief-agents">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-follow-up-question">Following a follow-up question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-a-scoped-financial-analyst">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-misspelled-question">Following a misspelled question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-fluent-answer-that-counts-wrong">A fluent answer that counts wrong</a></li><li><a href="#text-to-sql">Text-to-SQL</a></li><li><a href="#workflow-or-react-agent">Workflow or ReAct agent</a></li><li><a href="#sql-or-vectors">SQL or vectors</a></li><li><a href="#in-practice-larkspurrsquos-billing-questions">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-reply-that-invents-a-number">A reply that invents a number</a></li><li><a href="#workflow-apps">Workflow apps</a></li><li><a href="#one-call-or-four-the-support-desk">One call or four</a></li><li><a href="#in-practice-larkspurrsquos-support-queue">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M27 sections"><details open><summary>In M27</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-post-nobody-previewed">The post nobody previewed</a></li><li><a href="#dry-run">Dry run</a></li><li><a href="#approval-gates">Approval gates</a></li><li><a href="#in-practice-the-eu-west-status-post">In practice</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-research-and-market-brief-agents">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-follow-up-question">Following a follow-up question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#start-with-a-pe-the-provider-never-returned">Start with a P/E the provider never returned</a></li><li><a href="#the-project-a-scoped-financial-analyst">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-a-misspelled-question">Following a misspelled question</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-fluent-answer-that-counts-wrong">A fluent answer that counts wrong</a></li><li><a href="#text-to-sql">Text-to-SQL</a></li><li><a href="#workflow-or-react-agent">Workflow or ReAct agent</a></li><li><a href="#sql-or-vectors">SQL or vectors</a></li><li><a href="#in-practice-larkspurrsquos-billing-questions">In practice</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-reply-that-invents-a-number">A reply that invents a number</a></li><li><a href="#workflow-apps">Workflow apps</a></li><li><a href="#one-call-or-four-the-support-desk">One call or four</a></li><li><a href="#in-practice-larkspurrsquos-support-queue">In practice</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

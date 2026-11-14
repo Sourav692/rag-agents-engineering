@@ -347,9 +347,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Size</strong> an executed-step cap from the plan and the retries you allow.</li>
 </ul>
 </blockquote>
-<p>M22 and M23 built the ReAct loop, where the model reads each result and then decides the next step. This lesson asks what happens when the model decides every step before the first search runs.</p>
-<p>A Larkspur Cloud customer wants to cancel an annual plan. The answer needs up to six handbook facts: the refund rule, how long a refund takes, what happens to the servers, how long data is kept, what an export includes and how fast support answers. A ReAct agent finds them one call at a time and sends the whole conversation back to the model on every call. Writing the lookups down first avoids that, but it also gives up the chance to react to a bad result. The page measures both sides and then adds the check that fixes the second.</p>
-<p>A ReAct agent loops agent, tools, agent, and chooses each step after reading the last result. A <strong>plan-and-execute agent</strong> decides all its steps first and then runs them. The fixed-plan notebook builds it from three nodes:</p>
+<p>A Larkspur Cloud customer wants to cancel an annual plan. The answer needs up to six handbook facts: the refund rule, how long a refund takes, what happens to the servers, how long data is kept, what an export includes and how fast support answers. The search for the refund rule comes back with the passage on refund timing instead. The search ran without error. Whether that passage reaches the customer depends on how the agent decides its steps.</p>
+<p>M22 and M23 built the ReAct loop, where the model reads each result and then decides the next step:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q[/Question/] --&gt; A["Agent&lt;br/&gt;1 LLM call per turn"]
+    A -- "tool call" --&gt; T["Search tool"]
+    T -- "result added&lt;br/&gt;to the prompt" --&gt; A
+    A -- "no tool call" --&gt; E[/Answer/]
+</pre></figure>
+<p><em>Figure 1: ReAct. Every turn re-reads the whole conversation, and a turn without a tool call ends the run.</em></p>
+<p>A <strong>plan-and-execute agent</strong> decides all its steps first and then runs them. The fixed-plan notebook builds it from three nodes:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -377,19 +384,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The three nodes of a fixed plan and the LLM calls each one makes.</em></p>
-<p>One pure router drives the loop. After planning and after every execution it asks one question, whether the plan is empty:</p>
+<p>One pure router drives the loop. After planning and after every execution it asks whether the plan is empty:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     P["Planner&lt;br/&gt;1 LLM call"] --&gt; E["Executor&lt;br/&gt;search, no LLM"] --&gt; D{"Plan&lt;br/&gt;empty?"}
     D -- no --&gt; E
     D -- yes --&gt; S["Synthesizer&lt;br/&gt;1 LLM call"]
 </pre></figure>
-<p><em>Figure 1: The fixed plan. Only the planner and the synthesizer call the model.</em></p>
-<p>Each step is a plain query. The executor needs no model, and the agent makes 2 LLM calls however long the plan is. ReAct makes one call per search plus one to answer, and each call re-reads the whole conversation, every earlier result included.</p>
+<p><em>Figure 2: The fixed plan. Only the planner and the synthesizer call the model.</em></p>
+<p>Each step is a plain query. The executor needs no model, and the agent makes 2 LLM calls however long the plan is. ReAct makes one call per search plus one to answer, and each call re-reads every earlier result.</p>
 <h3>A promise is not a tool call</h3>
 <p>A recorded comparison of four runs shows what ReAct&rsquo;s flexibility costs in reliability. On a three-capitals task, the ReAct agent stopped after the capitals in 4 of 4 runs. Each time it wrote <em>&ldquo;Next, I will find the current population of the United States&rdquo;</em> as text instead of a tool call. LangGraph&rsquo;s <code>tools_condition</code> ends the loop on any turn without a tool call. The promised search never ran.</p>
 <p>We call this the <strong>unkept promise</strong>: ReAct keeps its to-do list in the model&rsquo;s head, and a turn of plain text ends the run. The planner wrote the missing lookup into its plan before the first search, where nothing could drop it.</p>
 <h3>What each agent reads on a clean run</h3>
-<p>The <a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html">interactive lab</a> runs the comparison on the Larkspur cancellation question, with the reference prompts and the handbook chunks as search results. On clean runs, where every search returns the right chunk, the call and token counts are these:</p>
+<p>The <a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html">interactive lab</a> runs the comparison on the Larkspur cancellation question, with the reference prompts and the handbook chunks as search results. On clean runs, where every search returns the right chunk:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -427,20 +434,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 2: LLM calls and input tokens on clean runs, from the lab.</em></p>
 <p>The same numbers as a chart, with the replanning agent from the next section added:</p>
 <figure class="diagram"><img src="01_plan_and_execute_vs_react_decompose_execute_replan/diagrams/tokens-by-lookups.svg" width="800" height="420" alt="Lab measurements on clean runs, no wrong results. Tokens read, at four characters per token, for one to six lookups. ReAct: 188, 362, 614, 918, 1262, 1676. Fixed plan: 306, 363, 438, 504, 560, 620. Plan and replan: 464, 669, 902, 1121, 1326, 1534. ReAct grows fastest because every call re-reads the conversation; at six lookups it reads more than the replanner."></figure>
-<p><em>Figure 2: Tokens read against lookups. ReAct&rsquo;s line bends upward because its prompt grows with every result.</em></p>
-<p>At two lookups the two agents read about the same. At six, ReAct reads 2.7 times as much, because its prompt grows with every result and it pays for that prompt on every call. Wall time is a different matter. In the fixed-plan comparison the searches dominate it and the executor runs them one after another. Either agent can be faster from run to run.</p>
+<p><em>Figure 3: Tokens read against lookups. ReAct&rsquo;s line bends upward because its prompt grows with every result. The chart&rsquo;s caption still names the lab as lesson 26.1, its number before the course was renumbered.</em></p>
+<p>At two lookups the two agents read about the same. At six, ReAct reads 2.7 times as much, because it pays for its growing prompt on every call. Wall time is a different matter: the searches dominate it and the executor runs them one after another. Either agent can be faster from run to run.</p>
 <h3>When a plan fits</h3>
-<p>A plan suits steps you can list from the question, as in &ldquo;find these four facts and compare them&rdquo;. ReAct suits work where the next step depends on what the last one found, as in troubleshooting a server that will not start. The decision fits in two questions:</p>
+<p>A plan suits steps you can list from the question, as in &ldquo;find these four facts and compare them&rdquo;. ReAct suits work where the next step depends on what the last one found, as in troubleshooting a server that will not start:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q{"Can you list the&lt;br/&gt;lookups from the&lt;br/&gt;question?"} -- no --&gt; R["ReAct&lt;br/&gt;decide per step"]
     Q -- yes --&gt; W{"Can a search&lt;br/&gt;return the wrong&lt;br/&gt;passage?"}
     W -- no --&gt; F["Fixed plan&lt;br/&gt;2 LLM calls"]
     W -- yes --&gt; RP["Plan, evaluate&lt;br/&gt;and replan"]
 </pre></figure>
-<p><em>Figure 3: Choosing between ReAct, a fixed plan and a plan that replans.</em></p>
-<p>The plan&rsquo;s weakness is the reverse of its strength. It was fixed before the first search, and nothing in the graph checks a result.</p>
+<p><em>Figure 4: Choosing between ReAct, a fixed plan and a plan that replans.</em></p>
+<p>The plan&rsquo;s weakness is the reverse of its strength. It was fixed before the first search, and nothing in the graph checks a result. The refund-timing passage from the opening counts as a finished step.</p>
 <h2 id="replanning">Replanning</h2>
-<p><strong>Replanning</strong> treats the plan as a living document: after every step an evaluator judges the result, and a failed step sends the run to a replanner that rewrites the steps still to come. The evaluator asks one structured question, <em>does this result state the fact the step asks for, about the right entity?</em> The notebook calls the verdict <code>StepEvaluation.satisfied</code>, and it goes into state with a one-sentence reason. Pure routers read it:</p>
+<p><strong>Replanning</strong> treats the plan as a living document: after every step an evaluator judges the result, and a failed step sends the run to a replanner that rewrites the steps still to come. The evaluator asks one structured question, <em>does this result state the fact the step asks for, about the right entity?</em> The notebook stores the verdict as <code>StepEvaluation.satisfied</code> with a one-sentence reason, and pure routers read it:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     P[Plan] --&gt; X["Execute next step&lt;br/&gt;then evaluate it"]
     X --&gt; CAP{"iterations at&lt;br/&gt;max_iterations?"}
@@ -452,7 +459,7 @@ th:last-child, td:last-child { padding-right: 0; }
     MORE -- no --&gt; S[Synthesize]
     CAP -- yes --&gt; S
 </pre></figure>
-<p><em>Figure 4: The replanning loop. The cap is checked before the verdict.</em></p>
+<p><em>Figure 5: The replanning loop. The cap is checked before the verdict.</em></p>
 <p>Three rules make the loop safe:</p>
 <ul>
 <li><strong>A replan rewrites the remaining steps.</strong> The replanner sees the goal, the history of OK and INSUFFICIENT steps and the reason the last one failed, then writes a new list of steps still to do. It is told never to resubmit a failed step unchanged.</li>
@@ -460,8 +467,14 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>A cap ends the loop.</strong> <code>max_iterations</code> counts executed steps. The router checks it before the verdict, which sends a run at the cap straight to the synthesizer.</li>
 </ul>
 <h3>A wrong result becomes a revised search</h3>
-<p>In a controlled test, a stub search returns the U.S. state of Georgia for a question about the country. The evaluator marks the step INSUFFICIENT, the replanner rewrites the query and the next result is accepted. A fixed plan would have popped the step and written the state&rsquo;s 11 million people into the country&rsquo;s row. We call that the <strong>silent wrong fact</strong>: the search ran, the step counted as done and the answer is confidently wrong. A dead search tool, which never finds anything, runs until the cap and returns an honest &ldquo;not found&rdquo;.</p>
-<p>The lab plants the same failure in the Larkspur question: the search for the refund rule returns the <code>refund-timing</code> chunk. With four lookups the three agents end like this:</p>
+<p>In the notebook&rsquo;s controlled test, a stub search returns the U.S. state of Georgia for a question about the country. The evaluator marks the step INSUFFICIENT, the replanner rewrites the query and the next result is accepted. A fixed plan would have popped the step and written the state&rsquo;s 11 million people into the country&rsquo;s row. We call that the <strong>silent wrong fact</strong>: the search ran, the step counted as done and the answer is confidently wrong. A dead search tool, which never finds anything, runs until the cap and returns an honest &ldquo;not found&rdquo;.</p>
+<p>The lab plants the same failure in the Larkspur question. Follow the refund-rule step through the replanning agent with four lookups (scripted models, the lab&rsquo;s own text):</p>
+<div class="walkthrough learning-widget" data-stepper id="replan-walkthrough">
+<p class="widget-intro">Step through one rejected lookup, from the plan to the answer.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of a rejected refund-rule lookup"><button type="button" data-step="0" aria-pressed="false" aria-controls="replan-step-0">1. Plan</button><button type="button" data-step="1" aria-pressed="false" aria-controls="replan-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="replan-step-2">3. Evaluate</button><button type="button" data-step="3" aria-pressed="false" aria-controls="replan-step-3">4. Replan</button><button type="button" data-step="4" aria-pressed="false" aria-controls="replan-step-4">5. Retry</button><button type="button" data-step="5" aria-pressed="false" aria-controls="replan-step-5">6. Answer</button></div>
+<div class="step-panels"><section id="replan-step-0" class="step-panel" aria-labelledby="replan-heading-0"><h4 id="replan-heading-0">1. Plan four lookups</h4><dl><dt>Step 1</dt><dd>refund rule for an annual plan</dd><dt>LLM calls so far</dt><dd>1 (the planner)</dd></dl></section><section id="replan-step-1" class="step-panel" aria-labelledby="replan-heading-1"><h4 id="replan-heading-1">2. The search returns the wrong chunk</h4><dl><dt>Result</dt><dd>refund-timing: refunds take 5 to 10 business days to appear on the statement</dd><dt>Fixed plan</dt><dd>would pop the step here and keep the timing passage as the refund rule</dd></dl></section><section id="replan-step-2" class="step-panel" aria-labelledby="replan-heading-2"><h4 id="replan-heading-2">3. The evaluator rejects it</h4><dl><dt>Verdict</dt><dd>satisfied false, reason: the result is about a different topic</dd><dt>Route</dt><dd>replan, since 1 executed step is under the cap</dd></dl></section><section id="replan-step-3" class="step-panel" aria-labelledby="replan-heading-3"><h4 id="replan-heading-3">4. The replanner rewrites what is left</h4><dl><dt>Reads</dt><dd>the goal, the history line marked INSUFFICIENT and its reason</dd><dt>New first step</dt><dd>full refund window for an annual plan, in days</dd></dl></section><section id="replan-step-4" class="step-panel" aria-labelledby="replan-heading-4"><h4 id="replan-heading-4">5. The retry is accepted</h4><dl><dt>Result</dt><dd>refund-window: a full refund within 30 days of purchase if the account used less than 100 GB of outbound traffic</dd><dt>Verdict</dt><dd>satisfied true; the other three lookups pass on the first try</dd></dl></section><section id="replan-step-5" class="step-panel" aria-labelledby="replan-heading-5"><h4 id="replan-heading-5">6. The answer uses accepted results only</h4><dl><dt>Totals</dt><dd>5 searches and 8 LLM calls: 1 plan, 5 evaluations, 1 replan, 1 final answer</dd><dt>Left out</dt><dd>the rejected timing passage, as evidence for the refund rule</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>With four lookups and that one wrong first result, the three agents end like this:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -498,7 +511,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Four lookups with one wrong first result, from the lab.</em></p>
 <h3>What a rejection costs</h3>
-<p>The replanner&rsquo;s bill follows from its graph: 1 planner call, 1 evaluator call per executed step, 1 replanner call per rejected step and 1 synthesizer call. Here is the arithmetic for N lookups and f wrong results under the cap:</p>
+<p>The replanner&rsquo;s bill follows from its graph. Here is the arithmetic for N lookups and f wrong results under the cap:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -530,12 +543,11 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: LLM calls of the replanning agent.</em></p>
-<p>On a clean run that is N + 2, one more than ReAct, and the extra machinery changes nothing. The evaluator is the bottleneck. Too lenient, and wrong data slips through. Too strict, and the agent replans good results and pays 2 calls for each.</p>
+<p>On a clean run that is N + 2, one more than ReAct, and the extra machinery changes nothing in the answer. The evaluator is the bottleneck. Too lenient, and wrong data slips through. Too strict, and the agent replans good results and pays 2 calls for each.</p>
 <h3>Sizing the cap</h3>
-<p>The cap needs the same arithmetic. Six lookups with one wrong result need 7 executed steps. At the notebook&rsquo;s <code>max_iterations = 6</code>, the lab&rsquo;s run stops with one lookup unanswered after 9 LLM calls. At 7 it completes in 10, which is N + 2 + 2f with N = 6 and f = 1. We call this the <strong>short cap</strong>: a limit set from the plan&rsquo;s length that forgets a retry is an execution too.</p>
+<p>Six lookups with one wrong result need 7 executed steps. At the notebook&rsquo;s <code>max_iterations = 6</code>, the lab&rsquo;s run stops with one lookup unanswered after 9 LLM calls. At 7 it completes in 10, which is N + 2 + 2f with N = 6 and f = 1. We call this the <strong>short cap</strong>: a limit set from the plan&rsquo;s length that forgets a retry is an execution too.</p>
 <p>ReAct has its own ceiling. The reference implementation runs it with <code>recursion_limit = 20</code> graph steps, and each search costs two (an agent turn and the tool). Six lookups with four wrong results need 10 searches and 21 steps, so LangGraph raises <code>GraphRecursionError</code> and the user gets no answer at all. Open the <a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html">plan or react lab</a>, set six lookups with one wrong result and move the cap from 6 to 7:</p>
 <figure class="lab-embed"><iframe src="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html" title="Plan or react: the call budget, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Plan or react: the call budget. <a href="01_plan_and_execute_vs_react_decompose_execute_replan/interactive/plan-or-react-lab.html">Open full screen</a></figcaption></figure>
-<p>The lab&rsquo;s models are scripted. Its numbers are exact for these prompts and chunks and not for a live model. A real ReAct agent may stop early, as in the four-run comparison, and a real replanner may need more than one rewrite. The lab&rsquo;s numbers match the reference node and router code run under LangGraph with the same scripted models on all 1,764 settings.</p>
 <h2 id="in-practice-the-cancellation-assistant">In practice: the cancellation assistant</h2>
 <p>For Larkspur&rsquo;s cancellation question, the choices above become four settings:</p>
 <ol>
@@ -547,7 +559,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Key distinction:</strong> the plan buys cheap, visible work, and the evaluator buys correctness. A plan without the evaluator saves calls and passes wrong results straight through.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Scripted models.</strong> The lab&rsquo;s numbers are exact for these prompts and chunks, not for a live model. They match the reference node and router code run under LangGraph with the same scripted models on all 1,764 settings. A real ReAct agent may stop early, and a real replanner may need more than one rewrite.</li>
+<li><strong>Small samples.</strong> The unkept promise was seen in 4 of 4 runs with <code>gpt-4o-mini</code>. A stronger prompt makes it rarer, but nothing in the ReAct graph checks that the task is finished.</li>
+<li><strong>Judging the answer is its own problem.</strong> The notebook&rsquo;s first judge asked yes or no per requirement and passed an answer that only promised the U.S. lookup. Its fix asks the judge to copy each figure or write <code>none</code>, and code decides.</li>
+</ul>
 <p>Lesson 25.2 keeps the planner and replanner and hands each step to a whole research workflow instead of one search.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Yao et al., <a href="https://arxiv.org/abs/2210.03629" target="_blank" rel="noopener">ReAct: Synergizing Reasoning and Acting in Language Models</a>, 2022.</li>
+<li>Wang et al., <a href="https://arxiv.org/abs/2305.04091" target="_blank" rel="noopener">Plan-and-Solve Prompting</a>, 2023.</li>
+<li>LangChain, <a href="https://www.langchain.com/blog/planning-agents" target="_blank" rel="noopener">Plan-and-Execute Agents</a>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Use a plan when the steps are knowable from the question and ReAct when each step depends on the last result. ReAct can promise a search in text and stop, while a plan writes every lookup down.</li>
@@ -578,6 +603,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Caps in code</strong> on sections, searches, page text and steps, each proved without trusting the prompt.</li>
 </ul>
 </blockquote>
+<p>The first version of the report notebook had no cap on sections. One report ran tens of web searches and read well over 100k tokens, and nothing in the graph said so until the bill arrived. The planner had decided how much work existed, and every step it planned was now a workflow of its own.</p>
 <p>Lesson 25.1 planned single searches. This project makes each planned step bigger: a report section that a nested workflow researches and writes, or a sub-question that a whole ReAct agent answers before a replanner decides what is left.</p>
 <p>It adds no new pattern. It combines lesson 25.1&rsquo;s planning and replanning with the Send fan-out from <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html">M24</a>. What changes is that each step now costs live web searches, which puts the planner in charge of how much the run spends.</p>
 <h2 id="architecture">Architecture</h2>
@@ -599,6 +625,7 @@ th:last-child, td:last-child { padding-right: 0; }
     RE -- answer --&gt; A[/Response/]
 </pre></figure>
 <p><em>Figure 2: The reflective planner. The replanner sees every step done so far and returns either a shorter plan or the final response.</em></p>
+<p>The five-step limit lives in the planner&rsquo;s prompt. The step cap that ends the run lives in code, in the replan node.</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -636,6 +663,20 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The pieces of both builds and the lessons they reuse.</em></p>
+<h3>Two ways to nest a step</h3>
+<p>Both builds hand a planned step to something larger than one search. Choose a nesting to see what changes for the same planned step:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="nesting-switcher">
+<p class="widget-intro">Compare what happens to one planned step in each build.</p>
+<div class="mode-controls" hidden role="group" aria-label="What a planned step becomes">
+<button type="button" data-mode="workflow" aria-pressed="false" aria-controls="nest-workflow">Nested workflow (report planner)</button>
+<button type="button" data-mode="agent" aria-pressed="false" aria-controls="nest-agent">Nested agent (reflective planner)</button>
+</div>
+<section id="nest-workflow" class="mode-panel" data-announcement="Nested workflow selected. The step's cost is fixed by the knobs."><h4>Nested workflow: a section builder</h4><ul><li>The step is a report section with a research flag, decided once by the planner.</li><li>Its cost is fixed by code: 2 queries, 3 results each, 800 tokens kept per source, 2 LLM calls.</li><li>Sections run in parallel, and no one reviews the plan after a section is written.</li></ul></section>
+<section id="nest-agent" class="mode-panel" data-announcement="Nested agent selected. The agent decides its own searches."><h4>Nested agent: a ReAct research run</h4><ul><li>The step is a sub-question, and the agent decides how many searches it needs, possibly none.</li><li>Its context is bounded instead: 4,000 tokens of page text per tool call, history trimmed to 50,000 tokens.</li><li>Steps run one at a time, and the replanner reviews the whole plan after each one.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The workflow gives a predictable bill and no second look. The agent can stop early or add a step it did not foresee, and pays for that with a run whose length is known only once it ends.</p>
 <h2 id="following-one-research-run">Following one research run</h2>
 <p>The report notebook researches <em>How to build agentic AI systems: design patterns and current frameworks</em>. A Larkspur team could point the same graph at <em>How do rival hosts price GPU servers?</em> and the call order would be identical:</p>
 <div class="sheet scroll"><table>
@@ -681,9 +722,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: One report run with the notebook&rsquo;s settings and the template&rsquo;s introduction and conclusion. Search results are live. Only the order and the counts repeat.</em></p>
 <p>The introduction and conclusion run last, written from the finished sections. They summarise what the research found rather than what the planner guessed.</p>
-<p>The reflective planner is less predictable by design. On its notebook question (who founded Microsoft, the founder&rsquo;s hometown and the history of both), the replanner usually stops before the last planned step, often &ldquo;compile the answer&rdquo;, because the results already cover it.</p>
+<p>The reflective planner is less predictable by design. On its notebook question (who founded Microsoft, the founder&rsquo;s hometown and the history of both), the replanner usually stops before the last planned step, often &ldquo;compile the answer&rdquo;, because the results already cover it. Its search count can be lower than its step count, because the research agent calls a tool only when earlier results do not already answer the step.</p>
 <h2 id="design-choices-worth-copying">Design choices worth copying</h2>
-<p>The report planner&rsquo;s cost is multiplicative: sections × queries per section × results per query × tokens per result. The notebook&rsquo;s first version had no section cap and ran tens of searches and well over 100k tokens. The arithmetic for one researched section&rsquo;s source text:</p>
+<p>The report planner&rsquo;s cost is multiplicative: sections × queries per section × results per query × tokens per result. The arithmetic for one researched section&rsquo;s source text:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -743,14 +784,27 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Five choices and what each protects against.</em></p>
-<p>The last row guards against a replanner that always finds one more thing to look up. The notebook proves it without a live model: a stub executor returns canned text, a stub replanner always asks for one more step, and the run still stops after exactly 6 steps.</p>
+<p>The last row guards against a replanner that always finds one more thing to look up. The notebook proves it without a live model:</p>
+<div class="walkthrough learning-widget" data-stepper id="cap-walkthrough">
+<p class="widget-intro">Step through the stub run that proves the step cap, with no model calls.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the step-cap proof"><button type="button" data-step="0" aria-pressed="false" aria-controls="cap-step-0">1. Swap parts</button><button type="button" data-step="1" aria-pressed="false" aria-controls="cap-step-1">2. Loop</button><button type="button" data-step="2" aria-pressed="false" aria-controls="cap-step-2">3. Cap</button><button type="button" data-step="3" aria-pressed="false" aria-controls="cap-step-3">4. Assert</button></div>
+<div class="step-panels"><section id="cap-step-0" class="step-panel" aria-labelledby="cap-heading-0"><h4 id="cap-heading-0">1. Swap in stubs</h4><dl><dt>Executor</dt><dd>returns the canned text "(canned research result)"</dd><dt>Replanner</dt><dd>always returns a plan of one step, "look up one more thing"</dd></dl></section><section id="cap-step-1" class="step-panel" aria-labelledby="cap-heading-1"><h4 id="cap-heading-1">2. The loop never ends on its own</h4><dl><dt>Each round</dt><dd>one executed step is appended to <code>past_steps</code>, and the replanner asks for another</dd></dl></section><section id="cap-step-2" class="step-panel" aria-labelledby="cap-heading-2"><h4 id="cap-heading-2">3. The replan node overrules it</h4><dl><dt>Check</dt><dd>6 executed steps reach <code>MAX_STEPS</code>, so the node returns the findings so far as the response without calling the replanner</dd></dl></section><section id="cap-step-3" class="step-panel" aria-labelledby="cap-heading-3"><h4 id="cap-heading-3">4. The assertion holds</h4><dl><dt>Result</dt><dd>exactly 6 past steps, and a response that says the run stopped without a final answer</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The proof works because the graph is built from swappable parts: the same builder takes the real agent and replanner or the stubs.</p>
 <h2 id="limits">Limits</h2>
 <ul>
 <li><strong>Live data.</strong> Reports and answers change with the web, which leaves no expected text to compare. Test the call order, the search count and the cap instead.</li>
 <li><strong>No result check.</strong> Neither build evaluates a search result the way lesson 25.1&rsquo;s evaluator does. A wrong page reaches the section writer or the replanner as evidence, and lesson 25.4&rsquo;s verification is the missing step.</li>
-<li><strong>Silent search failures.</strong> A failed search is dropped from its batch, and a section can end up written from fewer sources than planned.</li>
+<li><strong>Silent search failures.</strong> A failed search is dropped from its batch with a printed warning, and a section can end up written from fewer sources than planned.</li>
 </ul>
 <p>Both notebooks need an OpenAI key and a Tavily key, and every run issues real searches against your Tavily quota.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://www.langchain.com/blog/planning-agents" target="_blank" rel="noopener">Plan-and-Execute Agents</a>.</li>
+<li>Wang et al., <a href="https://arxiv.org/abs/2305.04091" target="_blank" rel="noopener">Plan-and-Solve Prompting</a>, 2023.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API: Send</a>.</li>
+<li>Tavily, <a href="https://docs.tavily.com/" target="_blank" rel="noopener">Tavily documentation</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A research planner decides which pieces of work exist, so the plan sets the bill. Cap sections, queries, results and source length in code, and check the real search count against the bound.</li>
@@ -783,7 +837,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </blockquote>
 <p>Lessons 25.1 and 25.2 checked whether a search result answered its step. This lesson turns the check on the model&rsquo;s own output: draft, critique, revise.</p>
 <p>Larkspur&rsquo;s status team wants an agent that drafts a short post after an incident, under 180 words. A reflection loop sounds ideal: a writer drafts, a critic says what is weak, the writer revises. In practice the critic asks for &ldquo;a statistic to build trust&rdquo;, the writer adds &ldquo;99.99% uptime&rdquo;, and the post grows past its limit. The handbook guarantees 99.95%, and nothing in the loop ever looked.</p>
-<p>A <strong>reflection agent</strong> is one model playing two roles in a loop. The <strong>generator</strong> drafts and revises. The <strong>critic</strong> (or reflector) reviews the latest draft and returns free-text, actionable feedback. The idea comes from Self-Refine (Madaan et al., 2023). The reflection notebook drafts LinkedIn posts. The mechanism is the same for Larkspur&rsquo;s status post:</p>
+<p>A <strong>reflection agent</strong> is one model playing two roles in a loop. The <strong>generator</strong> drafts and revises. The <strong>critic</strong> (or reflector) reviews the latest draft and returns free-text, actionable feedback. The idea comes from Self-Refine (Madaan et al., 2023). The reflection notebook drafts LinkedIn posts about developer tools; the mechanism is the same for Larkspur&rsquo;s status post:</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant U as Request
     participant G as Generator
@@ -796,13 +850,15 @@ th:last-child, td:last-child { padding-right: 0; }
     G--&gt;&gt;U: draft 3, stop at 3 drafts
 </pre></figure>
 <p><em>Figure 1: The reflection loop with the notebook&rsquo;s cap of three drafts, the first draft plus two revisions.</em></p>
-<p>In LangGraph the whole exchange is one message list, and two details make it work. The generator sees each critique as the next human message and answers it with a revised draft. The critic sees the conversation with the roles swapped, which makes the writer&rsquo;s drafts arrive as the user&rsquo;s input it has to review. A pure router counts the drafts written and stops at <code>MAX_DRAFTS = 3</code>.</p>
+<h3>One message list, two points of view</h3>
+<p>In LangGraph the whole exchange is one message list, and two details make it work. The generator sees each critique as the next human message and answers it with a revised draft. The critic sees the conversation with the roles swapped: the brief stays first, and the writer&rsquo;s drafts arrive as the user&rsquo;s input it has to review. A pure router counts the drafts written and stops at <code>MAX_DRAFTS = 3</code>.</p>
 <p>The finished state holds six messages:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>#</th>
 <th>Role the writer sees</th>
+<th>Role the critic sees</th>
 <th>Content</th>
 </tr>
 </thead>
@@ -810,37 +866,43 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>1</td>
 <td>Human</td>
+<td>Human</td>
 <td>The brief: an incident post under 180 words</td>
 </tr>
 <tr>
 <td>2</td>
 <td>AI</td>
+<td>Human</td>
 <td>Draft 1</td>
 </tr>
 <tr>
 <td>3</td>
 <td>Human</td>
+<td>AI</td>
 <td>Critique 1</td>
 </tr>
 <tr>
 <td>4</td>
 <td>AI</td>
+<td>Human</td>
 <td>Draft 2</td>
 </tr>
 <tr>
 <td>5</td>
 <td>Human</td>
+<td>AI</td>
 <td>Critique 2</td>
 </tr>
 <tr>
 <td>6</td>
 <td>AI</td>
+<td></td>
 <td>Draft 3, the answer</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 1: The message trace of one reflection run. The router counts the AI messages.</em></p>
-<p>Two LLM calls per round, plus the first draft, gives 5 calls for three drafts. The cap is a count in code. In an agentic version the critic could also decide when the draft is good enough, which needs a cap even more, because a critic can be too easily satisfied or never satisfied.</p>
+<p><em>Table 1: The message trace of one reflection run. The router counts the AI messages; the critic never reviews draft 3.</em></p>
+<p>Two LLM calls per round, plus the first draft, gives 5 calls for three drafts. The cap is a count in code. A critic that decides when the draft is good enough needs a cap even more, because it can be too easily satisfied or never satisfied.</p>
 <h2 id="where-self-critique-stops-helping">Where self-critique stops helping</h2>
 <p>The loop gives the model more attempts. It does not give the critic anything to check against. Three recorded failures show what that costs:</p>
 <div class="sheet scroll"><table>
@@ -874,7 +936,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The fix for the unchecked rule is to check it in code. Word counts, required phrases and formats are deterministic, which is why <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html">M24</a>&rsquo;s evaluator-optimizer moves checkable criteria out of the critic. The other two failures need evidence, which the next two sections add in different forms.</p>
 <h2 id="measuring-one-structured-pass">Measuring one structured pass</h2>
 <p>The optional reflection-architecture notebook runs the smallest structured version: generate, critique, refine, once, with no loop. Each role returns a typed object. The critique has fields <code>has_errors</code>, <code>is_efficient</code>, a list of suggested improvements and a summary. Its verdict becomes a claim we can test.</p>
-<p>The task is a duration parser that turns strings like &ldquo;1h30m&rdquo; or &ldquo;2h5m10s&rdquo; into seconds. The request says nothing about bad input. Ten hidden tests, which neither generator nor critic sees, define what a reasonable user expects:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    U[/Request/] --&gt; G["Generator&lt;br/&gt;draft code"]
+    G --&gt; C["Critic&lt;br/&gt;has_errors, is_efficient,&lt;br/&gt;improvements"]
+    C --&gt; R["Refiner&lt;br/&gt;refined code"]
+    R --&gt; E[/Final code/]
+    G -.-&gt; T{{"Hidden tests&lt;br/&gt;run in code"}}
+    R -.-&gt; T
+</pre></figure>
+<p><em>Figure 2: The structured pass is three calls in a line. Hidden tests outside the graph score the draft and the refined code.</em></p>
+<p>The task is a duration parser that turns strings like &ldquo;1h30m&rdquo; or &ldquo;2h5m10s&rdquo; into seconds. The request says nothing about bad input. Ten hidden tests, which no role sees, define what a reasonable user expects:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -902,13 +973,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The ten hidden tests, run in code against the draft and the refined version.</em></p>
-<p>The notebook runs the whole pass four times and compares the critic&rsquo;s belief with the measured score. Refinement helps when the critique happens to name what the tests check (&ldquo;validate the input&rdquo;, &ldquo;raise a ValueError for unknown units&rdquo;). It is not reliable. Across runs the refined code can pass the same number of tests as the draft, or fewer, when a refiner &ldquo;simplifies&rdquo; the parser with a regular expression and drops validation. One run is an anecdote, which is why the comparison repeats.</p>
+<p>The notebook runs the pass four times and compares the critic&rsquo;s belief with the measured score. Refinement helps when the critique happens to name what the tests check (&ldquo;validate the input&rdquo;, &ldquo;raise a ValueError for unknown units&rdquo;). It is not reliable. Across runs the refined code can pass the same number of tests as the draft, or fewer, when a refiner &ldquo;simplifies&rdquo; the parser with a regular expression and drops validation. One run is an anecdote, which is why the comparison repeats.</p>
 <blockquote>
 <p><strong>Pitfall: self-bias.</strong> A critic that cannot run the code, look up the fact or see the rule&rsquo;s check will sound equally confident when it is wrong. Treat its verdict as a hypothesis and measure the output.</p>
 </blockquote>
 <h2 id="reflexion-critique-backed-by-search">Reflexion: critique backed by search</h2>
-<p><strong>Reflexion</strong> (Shinn et al., 2023) extends reflection in two ways: the critique must say what is missing, and the gaps turn into external research that the revision has to cite. In the paper an <strong>actor</strong> attempts the task, an evaluator scores it, and a self-reflection step writes a verbal lesson that is kept in memory for the next attempt. The paper reports a Reflexion agent reaching 91% pass@1 on the HumanEval coding benchmark against 80% for GPT-4 without it, and 130 of 134 AlfWorld tasks solved.</p>
-<p>The Reflexion notebook implements the within-task form with a search tool:</p>
+<p><strong>Reflexion</strong> (Shinn et al., 2023) extends reflection in two ways: the critique must say what is missing, and the gaps turn into external research that the revision has to cite. In the paper an <strong>actor</strong> attempts the task, an evaluator scores it, and a self-reflection step writes a verbal lesson kept in an episodic memory for the next attempt. The paper reports 91% pass@1 on the HumanEval coding benchmark against 80% for GPT-4, and 130 of 134 AlfWorld tasks completed by ReAct with Reflexion.</p>
+<p>The Reflexion notebook implements a within-task form with a search tool and no memory across tasks:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     Q[/Question/] --&gt; D["Draft&lt;br/&gt;answer, critique,&lt;br/&gt;1 to 3 queries"]
     D --&gt; S["Search&lt;br/&gt;run the queries"]
@@ -917,13 +988,18 @@ th:last-child, td:last-child { padding-right: 0; }
     N -- no --&gt; S
     N -- yes --&gt; A[/Cited answer/]
 </pre></figure>
-<p><em>Figure 2: The Reflexion loop. The model&rsquo;s own queries are what the search step runs.</em></p>
+<p><em>Figure 3: The Reflexion loop. The model&rsquo;s own queries are what the search step runs.</em></p>
 <p>Three design decisions carry the pattern:</p>
 <ul>
-<li><strong>One structured response.</strong> The draft holds the answer, a reflection with two fields (what is missing, what is superfluous) and 1 to 3 research queries. The schema is bound as a tool the model must call, and the response arrives as a tool call that a tool node can &ldquo;execute&rdquo; by running its queries.</li>
+<li><strong>One structured response.</strong> The draft holds the answer, a reflection with two fields (what is missing, what is superfluous) and 1 to 3 research queries. The schema is bound as a tool the model must call. The response arrives as a tool call that a tool node can &ldquo;execute&rdquo; by running its queries.</li>
 <li><strong>Strict schemas, with a retry behind them.</strong> Without OpenAI&rsquo;s strict schema mode, <code>gpt-4o-mini</code> left out the revision&rsquo;s required sources field in 3 of 4 test calls, often on every retry. A responder that feeds the validation error back and asks again (up to 3 attempts) stays as the fallback for providers without strict mode.</li>
-<li><strong>A revisor that must change something.</strong> With the first guidelines the revision copied the draft almost word for word, attached sources without citing them and re-issued the same queries. Two added rules (add at least one fact from the results, cite it as a numbered reference) and a temperature of 0.7 fixed that, because at temperature 0 a second revision repeated the first.</li>
+<li><strong>A revisor that must change something.</strong> With the first guidelines the revision copied the draft almost word for word, attached sources without citing them and re-issued the same queries. Two added rules (add at least one fact from the results, cite it as a numbered reference) and a temperature of 0.7 fixed that in the recorded runs; at temperature 0 a second revision repeated the first.</li>
 </ul>
+<div class="walkthrough learning-widget" data-stepper id="reflexion-walkthrough">
+<p class="widget-intro">Step through one Reflexion run and see what each stage reads and adds.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one Reflexion run"><button type="button" data-step="0" aria-pressed="false" aria-controls="rx-step-0">1. Draft</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rx-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rx-step-2">3. Revise</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rx-step-3">4. Search again</button><button type="button" data-step="4" aria-pressed="false" aria-controls="rx-step-4">5. Final revision</button></div>
+<div class="step-panels"><section id="rx-step-0" class="step-panel" aria-labelledby="rx-heading-0"><h4 id="rx-heading-0">1. Draft with critique</h4><dl><dt>Reads</dt><dd>the question</dd><dt>Adds</dt><dd>one tool call holding the answer, what is missing, what is superfluous and 1 to 3 queries</dd></dl></section><section id="rx-step-1" class="step-panel" aria-labelledby="rx-heading-1"><h4 id="rx-heading-1">2. Run the draft's queries</h4><dl><dt>Reads</dt><dd>the queries inside the tool call</dd><dt>Adds</dt><dd>one tool message with up to three results per query; no model call</dd></dl></section><section id="rx-step-2" class="step-panel" aria-labelledby="rx-heading-2"><h4 id="rx-heading-2">3. Revision 1</h4><dl><dt>Reads</dt><dd>question, draft, critique and results</dd><dt>Adds</dt><dd>a cited answer, a sources list and new queries that must differ from those already searched</dd></dl></section><section id="rx-step-3" class="step-panel" aria-labelledby="rx-heading-3"><h4 id="rx-heading-3">4. Run revision 1's queries</h4><dl><dt>Why</dt><dd>the router counts one revision, below the cap of two, so it routes back to search</dd></dl></section><section id="rx-step-4" class="step-panel" aria-labelledby="rx-heading-4"><h4 id="rx-heading-4">5. Revision 2, the answer</h4><dl><dt>Then</dt><dd>the router counts two revisions and ends; code checks length, citations and sources</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
 <p>The cost of one run follows from the graph:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -969,7 +1045,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 4: One Reflexion run with <code>MAX_REVISIONS = 2</code>.</em></p>
 <p>The router counts revisions directly. The notebook&rsquo;s first version counted trailing messages, which hid the real limit. After the run, code checks the guidelines itself: a body of at most 300 words, numbered citations in the text and at least one source URL. The model&rsquo;s claim to have followed them is not evidence.</p>
 <blockquote>
-<p><strong>Key distinction:</strong> reflection asks &ldquo;what would make this better?&rdquo; and answers from memory. Reflexion asks &ldquo;what is missing?&rdquo; and goes to get it.</p>
+<p><strong>Key distinction:</strong> reflection asks &ldquo;what would make this better?&rdquo; and answers from memory. Reflexion asks &ldquo;what is missing?&rdquo; and goes to get it. A citation still has to support its claim; the code check only confirms one exists.</p>
 </blockquote>
 <h2 id="choosing-a-critic">Choosing a critic</h2>
 <p>The critic is only as good as what it can reach. Four kinds appear in this module, and each catches a different failure:</p>
@@ -981,7 +1057,7 @@ th:last-child, td:last-child { padding-right: 0; }
     X -- yes --&gt; T["Execution critic&lt;br/&gt;lesson 25.5"]
     X -- no --&gt; R["Plain reflection&lt;br/&gt;style and tone"]
 </pre></figure>
-<p><em>Figure 3: Pick the strongest critic the task allows, and fall back to plain reflection only for judgment calls.</em></p>
+<p><em>Figure 4: Pick the strongest critic the task allows, and fall back to plain reflection only for judgment calls.</em></p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1011,13 +1087,13 @@ th:last-child, td:last-child { padding-right: 0; }
 <td>Catches invented facts</td>
 <td>✗</td>
 <td>✗</td>
-<td>✓</td>
+<td>✓, when the sources support the fix</td>
 <td>✗</td>
 </tr>
 <tr>
 <td>Catches broken code</td>
 <td>✗</td>
-<td>Sometimes</td>
+<td>Only bugs it imagines</td>
 <td>✗</td>
 <td>✓</td>
 </tr>
@@ -1031,19 +1107,38 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 5: The critics side by side.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="critic-switcher">
+<p class="widget-intro">Give the same incident draft, 214 words and claiming 99.99% uptime, to each critic and see what it can catch. The draft is illustrative.</p>
+<div class="mode-controls" hidden role="group" aria-label="Critic for the incident draft">
+<button type="button" data-mode="reflection" aria-pressed="false" aria-controls="critic-reflection">Plain reflection</button>
+<button type="button" data-mode="code" aria-pressed="false" aria-controls="critic-code">Check in code</button>
+<button type="button" data-mode="reflexion" aria-pressed="false" aria-controls="critic-reflexion">Reflexion on the handbook</button>
+</div>
+<section id="critic-reflection" class="mode-panel" data-announcement="Plain reflection selected. Tone improves; both errors survive."><h4>Plain reflection</h4><ul><li>Suggests a stronger opening and a clearer apology.</li><li>Counts nothing and has no source for the uptime figure: both errors survive.</li></ul></section>
+<section id="critic-code" class="mode-panel" data-announcement="Check in code selected. The length fails; the figure passes unchecked."><h4>Check in code</h4><ul><li>Fails the post at 214 words against 180 and checks the status-page link.</li><li>Says nothing about 99.99%: a word count cannot tell a true number from an invented one.</li></ul></section>
+<section id="critic-reflexion" class="mode-panel" data-announcement="Reflexion selected. The figure is corrected from the handbook."><h4>Reflexion on the handbook</h4><ul><li>The critique names "uptime figure unverified", the query retrieves the SLA chunk, and the revision cites 99.95% monthly availability.</li><li>Length still needs the code check.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h2 id="in-practice-larkspurrsquos-incident-post">In practice: Larkspur&rsquo;s incident post</h2>
-<p>For the status team&rsquo;s post, the choices combine:</p>
+<p>No single critic catches both errors, and the status team&rsquo;s post combines them:</p>
 <ol>
 <li><strong>Draft and critique</strong> with a reflection loop for tone and clarity, capped at three drafts.</li>
 <li><strong>Check the limit in code</strong>: the word count and the required link to the status page.</li>
-<li><strong>Ground every number</strong> Reflexion-style, with the handbook as the search tool. The critique names &ldquo;uptime figure unverified&rdquo;, the query retrieves the SLA chunk, and the revision cites 99.95% monthly availability and the 72-hour root-cause report.</li>
+<li><strong>Ground every number</strong> Reflexion-style, with the handbook as the search tool: 99.95% monthly availability and the 72-hour root-cause report.</li>
 <li><strong>Score in code</strong> after the loop, and route a post that still fails to a person.</li>
 </ol>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Recorded runs, one model.</strong> Table 2 and the Reflexion fixes come from the notebooks&rsquo; <code>gpt-4o-mini</code> runs; the drift past 180 words varies from run to run.</li>
+<li><strong>Paper figures are paper-reported</strong>, from a setup with memory across attempts that the notebook does not reproduce.</li>
+<li><strong>The Larkspur post is illustrative.</strong> 99.95% and 72 hours are handbook text; the 214-word draft was written for this page.</li>
+</ul>
 <p>Lesson 25.4 makes the fact check stricter by answering one question per claim in a call that never sees the draft.</p>
 <h2 id="references">References</h2>
 <ol>
 <li>Madaan et al., <a href="https://arxiv.org/abs/2303.17651" target="_blank" rel="noopener">Self-Refine: Iterative Refinement with Self-Feedback</a>, NeurIPS 2023.</li>
-<li>Shinn et al., <a href="https://arxiv.org/abs/2303.11366" target="_blank" rel="noopener">Reflexion: Language Agents with Verbal Reinforcement Learning</a>, 2023.</li>
+<li>Shinn et al., <a href="https://arxiv.org/abs/2303.11366" target="_blank" rel="noopener">Reflexion: Language Agents with Verbal Reinforcement Learning</a>, NeurIPS 2023.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -1145,14 +1240,28 @@ th:last-child, td:last-child { padding-right: 0; }
 </figure>
 <p><em>Figure 1: Chain-of-verification. Only the last step sees the draft and the independent answers together.</em></p>
 <h3>The four steps, with structured output at each</h3>
-<p>The verification notebook runs every step as a structured-output call:</p>
+<p>The verification notebook runs every step after the draft as a structured-output call:</p>
 <ol>
-<li><strong>Draft.</strong> Answer in one pass. The recorded example asks for 8 U.S. presidents born in Ohio when only 7 exist. The model has to pad the list.</li>
+<li><strong>Draft.</strong> Answer in one pass. The recorded example asks for 8 U.S. presidents born in Ohio when only 7 exist (Grant, Hayes, Garfield, Benjamin Harrison, McKinley, Taft and Harding). The model has to pad the list.</li>
 <li><strong>Plan.</strong> One atomic, self-contained question per claim. Say what to verify: a prompt that asked only for &ldquo;one question per factual claim&rdquo; produced <em>&ldquo;Who was the 18th President?&rdquo;</em>, which checks a claim nobody doubted. Tying each question to the property the user asked about (&ldquo;born in Ohio&rdquo; becomes &ldquo;Where was X born?&rdquo;) fixed it.</li>
 <li><strong>Verify.</strong> Each question goes to its own call with no draft, no other questions and no earlier answers. The calls are independent, and the notebook sends them as one batch.</li>
 <li><strong>Revise.</strong> Only now does the model see the draft next to every pair of question and independent answer. It returns the final list and a list of the corrections it made (<code>corrections_made</code>), and code scores both against the ground truth.</li>
 </ol>
 <p>We call the step-2 failure the <strong>doubtless question</strong>: a verification question that tests something true and leaves the doubtful property unchecked.</p>
+<h3>Why the verifier must not see the draft</h3>
+<p>Independence is the whole mechanism. The same question asked two ways shows the difference:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="independence-switcher">
+<p class="widget-intro">Check the draft's retention claim with and without the draft in the prompt. The exchange is illustrative.</p>
+<div class="mode-controls" hidden role="group" aria-label="What the verification call can see">
+<button type="button" data-mode="with-draft" aria-pressed="false" aria-controls="verify-with-draft">Draft in view</button>
+<button type="button" data-mode="independent" aria-pressed="false" aria-controls="verify-independent">Fresh call, draft hidden</button>
+</div>
+<section id="verify-with-draft" class="mode-panel" data-announcement="Draft in view selected. The check confirms the draft."><h4>Draft in view</h4><ul><li>The prompt holds the draft's sentence "your data is kept for 90 days" and asks whether it is right.</li><li>The model reads its own claim back and tends to confirm it: the check inherits the error it was meant to catch.</li></ul></section>
+<section id="verify-independent" class="mode-panel" data-announcement="Fresh call selected. The answer comes from policy, not from the draft."><h4>Fresh call, draft hidden</h4><ul><li>The prompt holds only "How long is data kept after a Larkspur plan is cancelled?"</li><li>The answer has nothing to agree with. With retrieval it returns the policy: 30 days, then permanent deletion. The reviser then sees 90 against 30 and fixes the claim.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The question also has to stand on its own: &ldquo;How long is data kept after cancelling <em>the plan</em>?&rdquo; would need the draft to say which plan.</p>
 <h3>What verification can and cannot fix</h3>
 <p>The recorded findings set the limits:</p>
 <div class="sheet scroll"><table>
@@ -1194,7 +1303,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 1: The limits of chain-of-verification, from the notebook&rsquo;s recorded runs.</em></p>
 <p>The Hayes case gets a name: the <strong>overeager reviser</strong>, which removes or changes a correct claim and reports the change as a correction. Its own corrections list cannot catch it, because that list is the reviser&rsquo;s opinion of its work.</p>
 <h3>Verifying the Larkspur cancellation draft</h3>
-<p>In a RAG system the third limit is the one to remove: answer each verification question from retrieved chunks instead of the model&rsquo;s memory. The following example is an illustrative application of that retrieval-backed check. A customer cancels an annual plan 20 days after buying it, and the draft makes three claims:</p>
+<p>In a RAG system the third limit is the one to remove: answer each verification question from retrieved chunks instead of the model&rsquo;s memory. The following example is an illustrative application of that retrieval-backed check; the chunk text is the handbook&rsquo;s own. A customer cancels an annual plan 20 days after buying it, and the draft makes three claims:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1234,7 +1343,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 <p>A drop in the first with a rise in the second is the overeager reviser at scale. Constitutional critique applies the same draft, critique and revise shape to a different kind of check.</p>
 <h2 id="constitutional-critique">Constitutional critique</h2>
-<p><strong>Constitutional critique</strong> runs the draft, critique and revise loop against a written list of named rules, a constitution, and judges each rule on its own. The idea comes from Constitutional AI (Bai et al., 2022), which used written principles to align a model. The optional notebook implements only the critique mechanism:</p>
+<p><strong>Constitutional critique</strong> runs the draft, critique and revise loop against a written list of named rules, a constitution, and gives each rule its own verdict. The idea comes from Constitutional AI (Bai et al., 2022), which used written principles to align a model. The optional notebook implements only the critique mechanism:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     D[Draft] --&gt; C["Critique&lt;br/&gt;one verdict per rule"]
     C --&gt; P{"Every rule&lt;br/&gt;passes?"}
@@ -1247,12 +1356,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Figure 2: The constitutional loop. Only the failing rules&rsquo; critiques go back to the reviser, and the revision is judged against the whole constitution again.</em></p>
 <p>The pieces, as the notebook builds them:</p>
 <ul>
-<li><strong>A constitution as data.</strong> About five named rules (for example &ldquo;Helpful and Direct&rdquo; and &ldquo;No Professional Advice&rdquo;) kept as a list. Each one gets its own verdict instead of one blended &ldquo;looks fine&rdquo;.</li>
+<li><strong>A constitution as data.</strong> Five named rules kept as a list: Helpful and Direct, No Professional Advice, No Speculation as Fact, Be Concise and Acknowledge Uncertainty. Each gets its own verdict instead of one blended &ldquo;looks fine&rdquo;.</li>
 <li><strong>A verdict per rule.</strong> One structured call returns a list of verdicts, each with the rule&rsquo;s name, pass or fail and a critique. A typed list lets code pick out the failing rules.</li>
-<li><strong>A bounded loop.</strong> <code>MAX_ITERATIONS = 2</code> stops it even when a rule keeps failing, and the verdict history shows which rule changed what.</li>
-<li><strong>A stress test.</strong> The prompt asks about a knee that has hurt for two weeks and invites a confident diagnosis. The first draft has real rules to break.</li>
+<li><strong>A bounded loop.</strong> <code>MAX_ITERATIONS = 2</code> stops it even when a rule keeps failing and reports what still fails; the verdict history shows which rule changed what.</li>
+<li><strong>A stress test.</strong> The prompt asks about a knee that has hurt for two weeks since the user started running again, and invites a confident diagnosis. The draft is written with no constitution in view, so it has real rules to break.</li>
 </ul>
-<p>One rule taught the module&rsquo;s recurring lesson. The original &ldquo;Be Concise&rdquo; rule never converged: the critic found something to trim in every revision, so the loop always hit its cap. A word limit of 150, checked in code, replaced it and was both stricter and stable. We call this the <strong>moving bar</strong>: a fuzzy rule an LLM judge can always find fault with.</p>
+<div class="walkthrough learning-widget" data-stepper id="constitution-walkthrough">
+<p class="widget-intro">Step through the longest run the cap allows: the draft and two revisions, six calls at most.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the constitutional loop"><button type="button" data-step="0" aria-pressed="false" aria-controls="cai-step-0">1. Draft</button><button type="button" data-step="1" aria-pressed="false" aria-controls="cai-step-1">2. Critique</button><button type="button" data-step="2" aria-pressed="false" aria-controls="cai-step-2">3. Revise</button><button type="button" data-step="3" aria-pressed="false" aria-controls="cai-step-3">4. Stop or repeat</button></div>
+<div class="step-panels"><section id="cai-step-0" class="step-panel" aria-labelledby="cai-heading-0"><h4 id="cai-heading-0">1. Draft, iteration 0</h4><dl><dt>Calls</dt><dd>1, with no rules in the prompt</dd><dt>Writes</dt><dd>the first answer to the knee question</dd></dl></section><section id="cai-step-1" class="step-panel" aria-labelledby="cai-heading-1"><h4 id="cai-heading-1">2. Critique against every rule</h4><dl><dt>Calls</dt><dd>1 for the four judgment rules; the word limit is counted in code</dd><dt>Writes</dt><dd>five verdicts, each with pass or fail and a critique</dd></dl></section><section id="cai-step-2" class="step-panel" aria-labelledby="cai-heading-2"><h4 id="cai-heading-2">3. Revise the failing rules</h4><dl><dt>Reads</dt><dd>the question, the current answer and only the failing critiques</dd><dt>Calls</dt><dd>1 revision, then 1 new critique of the whole constitution</dd></dl></section><section id="cai-step-3" class="step-panel" aria-labelledby="cai-heading-3"><h4 id="cai-heading-3">4. Stop or repeat</h4><dl><dt>Stop</dt><dd>when every rule passes, or after the second revision, printing any rule still failing</dd><dt>Most calls</dt><dd>1 + 1 + 2 × (1 + 1) = 6</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>One rule taught the module&rsquo;s recurring lesson. The original &ldquo;Be Concise&rdquo; rule (&ldquo;tight and focused, no padding&rdquo;) never converged: the critic found something to trim in every revision, so the loop always hit its cap. A limit of 150 words, checked in code and left out of the critic&rsquo;s prompt, replaced it and was both stricter and stable. We call this the <strong>moving bar</strong>: a fuzzy rule an LLM judge can always find fault with.</p>
 <blockquote>
 <p><strong>Pitfall: the moving bar.</strong> A rule a critic can always find fault with turns a bounded loop into one that always runs to its cap. Make the rule countable and check it in code.</p>
 </blockquote>
@@ -1274,7 +1388,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <tr>
 <td>Independence</td>
 <td>Questions answered without the draft</td>
-<td>Each rule judged separately, draft in view</td>
+<td>One verdict per rule from one call, draft in view</td>
 </tr>
 <tr>
 <td>Main risk</td>
@@ -1297,7 +1411,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Revise</strong>, then score in code: unsupported claims and correct claims removed, as two numbers.</li>
 <li><strong>Add a short constitution</strong> for behaviour (no promises outside policy, say when a fact was not found), with countable rules checked in code.</li>
 </ol>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Recorded runs, one model.</strong> The Hayes removal, the doubtless question and the &ldquo;Be Concise&rdquo; behaviour come from the notebooks&rsquo; runs with <code>gpt-4o-mini</code>; a different run can pad, verify or revise differently.</li>
+<li><strong>The Larkspur check is illustrative.</strong> The chunk text matches the handbook; the draft and the verdicts were written for this page, not produced by a run.</li>
+<li><strong>Memory-only verification.</strong> The notebook verifies from the model&rsquo;s own knowledge. Retrieval removes that bound only when the right chunk is retrieved.</li>
+</ul>
 <p>Lesson 25.5 moves the extra calls to before the answer, and to a critic that runs the output.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>Dhuliawala et al., <a href="https://arxiv.org/abs/2309.11495" target="_blank" rel="noopener">Chain-of-Verification Reduces Hallucination in Large Language Models</a>, 2023.</li>
+<li>Bai et al., <a href="https://arxiv.org/abs/2212.08073" target="_blank" rel="noopener">Constitutional AI: Harmlessness from AI Feedback</a>, 2022.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Chain-of-verification drafts, plans one question per claim, answers each in a fresh call without the draft, then revises. Tie each question to the property the user asked about, or it checks claims nobody doubted.</li>
@@ -1317,7 +1442,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <summary>3. After adding verification, unsupported claims per answer fall, but the count of correct claims removed rises. What is happening?</summary>
 <p>The reviser is adding errors, as when it removed Rutherford B. Hayes, whose verified birthplace was &ldquo;Delaware, Ohio&rdquo;, and its own <code>corrections_made</code> called that a fix. Only scoring in code against the ground truth exposes it, which is why the removed correct claims are counted as a separate number.</p>
 </details>
-<h2 id="self-discover-plan-the-reasoning-first">Self-Discover: plan the reasoning first</h2>
+<h2 id="a-recommendation-that-drops-one-constraint">A recommendation that drops one constraint</h2>
 <p class="lesson-of">Lesson 25.5: Self-Discover and reflective code generation. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m25_planning_reflection_reasoning/optional/notebook/05a_self_discover.ipynb" target="_blank" rel="noopener"><code>05a_self_discover.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m25_planning_reflection_reasoning/optional/notebook/05b_reflective_code_generation_agent.ipynb" target="_blank" rel="noopener"><code>05b_reflective_code_generation_agent.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1328,9 +1453,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose</strong> between spending calls before an answer and spending them after it.</li>
 </ul>
 </blockquote>
-<p>Lessons 25.3 and 25.4 spent their extra calls after a draft existed, on critique and verification. This lesson spends them in two other places: before the answer, on working out how to reason about this kind of problem, and after it, on a critic that runs the output instead of reading it.</p>
-<p>Larkspur&rsquo;s sales assistant gets the same kind of question every day: <em>which plan and server sizes fit this workload?</em> The answer depends on several constraints at once (server count, peak memory, backup needs), and a model answering off the top of its head tends to drop one. It might pick Starter for a customer who runs five servers, when Starter allows three.</p>
-<p><strong>Self-Discover</strong> (Zhou et al., 2024) has the model compose a reasoning plan for the type of task before it attempts any instance. It runs in four stages:</p>
+<p>Larkspur&rsquo;s sales assistant gets the same kind of question every day: <em>which plan and server sizes fit this workload?</em> The answer depends on several constraints at once (server count, peak memory, backup needs). A customer runs five servers, and the assistant recommends Starter, which allows three. The reply reads well and is still invalid, because one constraint fell out of the reasoning.</p>
+<p>Lessons 25.3 and 25.4 spent their extra calls after a draft existed, on critique and verification. This lesson spends them in two other places. <strong>Before</strong> the answer, the model works out how to reason about this kind of problem. <strong>After</strong> the answer, a critic runs the output instead of reading it.</p>
+<h2 id="self-discover-plan-the-reasoning-first">Self-Discover: plan the reasoning first</h2>
+<p><strong>Self-Discover</strong> (Zhou et al., 2024) has the model compose a reasoning plan for the <em>type</em> of task before it attempts any instance. It runs in four stages:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     S["SELECT&lt;br/&gt;modules from&lt;br/&gt;a catalog"] --&gt; A["ADAPT&lt;br/&gt;reword each&lt;br/&gt;for the task type"]
     A --&gt; I["IMPLEMENT&lt;br/&gt;an ordered&lt;br/&gt;reasoning plan"]
@@ -1343,9 +1469,16 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>IMPLEMENT</strong> orders the instructions into a structured plan with numbered steps: the discovered structure, still not an answer.</li>
 <li><strong>SOLVE</strong> gives the model the structure and one instance, and it returns a worked trace and a typed answer.</li>
 </ol>
-<p>Because stages 1 to 3 never see an instance, their output is reusable across every instance of the type, and you can read it before any effort goes into a specific case. The catalog is fixed, and the structure is built from named, inspectable moves rather than an opaque chain of thought.</p>
+<p>Stages 1 to 3 never see an instance. Their output is reusable across every instance of the type, and you can read it before any effort goes into a specific case. The catalog is fixed. The model only selects and rewords its entries, which keeps the structure made of named, inspectable moves instead of an opaque chain of thought.</p>
 <h3>A puzzle with a known answer</h3>
-<p>The notebook tests it on a scheduling puzzle. Priya, Quinn and Rae each take one interview slot, 9:00 AM, 11:00 AM or 2:00 PM, under four clues: Priya is not at 9:00, Quinn is earlier than Rae, if Priya is at 2:00 then Quinn is at 9:00, and Rae is not at 11:00. Code brute-forces all six assignments and keeps the ones that satisfy every clue. Every model answer can be checked against it:</p>
+<p>The notebook tests the pattern on a scheduling puzzle. Priya, Quinn and Rae each take one interview slot, 9:00 AM, 11:00 AM or 2:00 PM, under four clues:</p>
+<ol>
+<li>Priya is not at 9:00.</li>
+<li>Quinn is earlier than Rae.</li>
+<li>If Priya is at 2:00, then Quinn is at 9:00.</li>
+<li>Rae is not at 11:00.</li>
+</ol>
+<p>Code brute-forces all six assignments and keeps the ones that satisfy every clue. Every model answer can then be checked against a ground truth nobody typed in by hand:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1395,9 +1528,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: The six assignments and the clues each one breaks, from running the notebook&rsquo;s brute-force check. Exactly one satisfies all four.</em></p>
-<p>The direct baseline asks for the final answer only, five times at temperature 0.7. In the notebook&rsquo;s recorded runs it was rarely right, between 0 of 5 and 2 of 6, and usually wrong the same way: Rae at 11:00 AM, the fifth row, which breaks only clue 4. The Self-Discover answers reused one discovered structure and were right 3 of 3, 4 of 4 and 2 of 3 in recorded runs.</p>
-<p>We call the direct baseline&rsquo;s failure the <strong>dropped constraint</strong>: an answer that satisfies most clues and quietly ignores one. The structure did not add knowledge. It made the steps that catch the dropped constraint (enumerate the cases, check every clue against the final assignment) mandatory instead of optional.</p>
-<p>The gain has a ceiling. On a harder five-person version of the puzzle, <code>gpt-4o-mini</code> failed with and without the structure. A checklist helps a model apply reasoning it can do, and adds nothing beyond its reach.</p>
+<p>Both approaches answer with the same typed assignment, and both sample at temperature 0.7. The only difference is the structure:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="puzzle-switcher">
+<p class="widget-intro">Choose how the model answers the interview-slot puzzle, and compare what it reads and what the recorded runs found.</p>
+<div class="mode-controls" hidden role="group" aria-label="Direct answers or Self-Discover"><button type="button" data-mode="direct" aria-pressed="false" aria-controls="puzzle-direct">Direct answer</button><button type="button" data-mode="discover" aria-pressed="false" aria-controls="puzzle-discover">Self-Discover</button></div>
+<section id="puzzle-direct" class="mode-panel" data-announcement="Direct answer selected. Rarely right in the recorded runs."><h4>Direct answer: final assignment only</h4><dl><dt>Reads</dt><dd>the puzzle and the instruction to give the final answer only</dd><dt>Calls</dt><dd>one per sample, five samples</dd><dt>Recorded result</dt><dd>between 0 of 5 and 2 of 6 right; the usual wrong answer puts Rae at 11:00, which clue 4 forbids</dd></dl></section>
+<section id="puzzle-discover" class="mode-panel" data-announcement="Self-Discover selected. Right far more often in the recorded runs."><h4>Self-Discover: one structure, reused</h4><dl><dt>Reads</dt><dd>the discovered structure plus the puzzle, with the instruction to skip no step, verification included</dd><dt>Calls</dt><dd>three discovery calls once, then one SOLVE call per sample, three samples</dd><dt>Recorded result</dt><dd>3 of 3, 4 of 4 and 2 of 3 right; better, and still not always right</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The direct answers failed in a recognisable way. Rae at 11:00 breaks clue 4, and in the fifth row of Table 1 (Priya at 2:00, Quinn at 9:00) it is the only clue broken. We call this the <strong>dropped constraint</strong>: an answer that satisfies most clues and quietly ignores one. The structure added no knowledge. It made the steps that catch a dropped constraint (enumerate the cases, check every clue against the final assignment) mandatory instead of optional.</p>
+<p>The gain has a ceiling. On a harder five-person version of the puzzle, <code>gpt-4o-mini</code> failed with and without the structure. A checklist helps a model apply reasoning it can already do, and adds nothing beyond its reach.</p>
 <h3>What the structure costs</h3>
 <p>The three discovery stages run once per task type, and SOLVE runs once per instance:</p>
 <div class="sheet scroll"><table>
@@ -1427,9 +1568,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: LLM calls, with the discovery cost shared across instances.</em></p>
-<p>The structure pays off on a task type you see often, where its fixed cost spreads thin. For a one-off question it quadruples the calls.</p>
+<p>The structure pays off on a task type you see often, where its fixed cost spreads thin. For a one-off question it quadruples the calls. Self-Discover improves the reasoning before an answer exists. The second pattern checks an answer by running it.</p>
 <h2 id="execution-as-the-critic">Execution as the critic</h2>
-<p>Lesson 25.3&rsquo;s optional notebook showed a critic that reads code and believes its own guess about bugs. The reflective code-generation agent replaces that critic with the Python interpreter. <strong>Execution as the critic</strong> means running the generated code and treating any exception as the feedback for the next attempt. An exception is evidence, where a reviewer&rsquo;s &ldquo;this looks fine&rdquo; is an opinion.</p>
+<p>Lesson 25.3&rsquo;s optional notebook showed a critic that reads code and trusts its own guess about bugs. The reflective code-generation agent replaces that critic with the Python interpreter. <strong>Execution as the critic</strong> means running the generated code and treating any exception as the feedback for the next attempt. An exception is evidence, where a reviewer&rsquo;s &ldquo;this looks fine&rdquo; is an opinion.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     G["Generate&lt;br/&gt;prefix, imports, code"] --&gt; I{"Imports&lt;br/&gt;run?"}
     I -- no --&gt; F["Feedback:&lt;br/&gt;the import error"]
@@ -1442,8 +1583,15 @@ th:last-child, td:last-child { padding-right: 0; }
     K -- yes --&gt; X[/Stop, still failing/]
 </pre></figure>
 <p><em>Figure 2: Generate, check, retry. The router ends on success or at the attempt cap.</em></p>
-<p>The generator returns a structured object with three fields: a prefix describing the approach, the import statements and the code. Splitting them lets the checker run the imports first, and a missing library produces a precise message. The code then runs with the imports, and an exception goes back as a user message that asks the model to say what went wrong and return the full solution. A pure router stops when the code runs or after <code>MAX_ATTEMPTS = 3</code> generations.</p>
-<p>The notebook proves all three paths, two of them without depending on the model to fail on demand:</p>
+<p>The generator returns a structured object with three fields: a <strong>prefix</strong> describing the approach, the <strong>imports</strong> and the <strong>code</strong>. Splitting them lets the checker run the imports first, and a missing library then produces a precise message. The code then runs with the imports. An exception goes back to the generator as a user message that names the error, asks the model to say what went wrong and asks for the full solution again. A pure router stops when the code runs or after <code>MAX_ATTEMPTS = 3</code> generations.</p>
+<h3>The repair path, traced</h3>
+<p>Models rarely fail on demand, so the notebook plants the failure. Its first generator call returns code that uses the <code>statistics</code> module without importing it; later calls go to the real model. We replayed the graph without a model, with a stub second attempt that adds the import:</p>
+<div class="walkthrough learning-widget" data-stepper id="repair-walkthrough">
+<p class="widget-intro">Step through the repair run, from the planted bug to the finish.</p>
+<div class="step-controls" hidden role="group" aria-label="Steps of the repair run"><button type="button" data-step="0" aria-pressed="false" aria-controls="repair-step-0">1. Generate</button><button type="button" data-step="1" aria-pressed="false" aria-controls="repair-step-1">2. Check</button><button type="button" data-step="2" aria-pressed="false" aria-controls="repair-step-2">3. Feedback</button><button type="button" data-step="3" aria-pressed="false" aria-controls="repair-step-3">4. Finish</button></div>
+<div class="step-panels"><section id="repair-step-0" class="step-panel" aria-labelledby="repair-heading-0"><h4 id="repair-heading-0">1. Attempt 1 is generated</h4><dl><dt>Imports</dt><dd>empty</dd><dt>Code</dt><dd>prints the mean and median of eight numbers through <code>statistics</code></dd><dt>State</dt><dd>attempts 1</dd></dl></section><section id="repair-step-1" class="step-panel" aria-labelledby="repair-heading-1"><h4 id="repair-heading-1">2. The check runs it</h4><dl><dt>Imports</dt><dd>run cleanly, because there are none</dd><dt>Code</dt><dd>raises <code>NameError</code>: <code>statistics</code> is not defined</dd><dt>State</dt><dd>error flag yes</dd></dl></section><section id="repair-step-2" class="step-panel" aria-labelledby="repair-heading-2"><h4 id="repair-heading-2">3. The error becomes feedback</h4><dl><dt>Message</dt><dd>the exception name and text, a request to reflect on it and a request for the full solution</dd><dt>Router</dt><dd>1 attempt of 3 used: back to the generator</dd></dl></section><section id="repair-step-3" class="step-panel" aria-labelledby="repair-heading-3"><h4 id="repair-heading-3">4. Attempt 2 runs</h4><dl><dt>Imports</dt><dd>now import <code>statistics</code></dd><dt>Check</dt><dd>no exception, one line of program output</dd><dt>Result</dt><dd>2 attempts, error flag no, the router ends the run</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The notebook proves all three paths, two of them without asking the model to fail:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1460,7 +1608,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>Repair path</td>
-<td>A stub whose first solution uses <code>statistics</code> without importing it, then the real model</td>
+<td>The planted missing import, then the real model</td>
 <td>The check raises a <code>NameError</code>, the model sees the real error and repairs the import</td>
 </tr>
 <tr>
@@ -1470,7 +1618,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 3: The three paths the notebook runs. The stubs make the repair and the cap repeatable.</em></p>
+<p><em>Table 3: The three paths the notebook runs. The stubs make the repair and the cap repeatable; our replay of the cap also ended at 3 attempts with the error flag set.</em></p>
+<h3>What execution cannot see</h3>
 <p>Two failure modes limit the pattern. The first is the <strong>runs-but-wrong</strong> answer: code that executes cleanly and computes the wrong result, which this critic cannot see. &ldquo;It runs&rdquo; is a weak test. Add assertions or hidden tests, as lesson 25.3&rsquo;s ten-test parser check does, when correctness matters. The second is the <strong>unfixable environment</strong>: a task that needs an API key, a network call or a model download fails for reasons no rewrite of the code can repair, and the loop hits its cap.</p>
 <blockquote>
 <p><strong>Pitfall: running model-written code.</strong> The notebook executes the generated code directly on the machine. That is acceptable for a small, self-contained task. Anything untrusted belongs in a sandbox, such as the hosted code interpreter from M22.</p>
@@ -1514,15 +1663,27 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: Four places to spend extra calls.</em></p>
+<p>The decision rule follows from the last column. Spend calls before the answer when the failure is a skipped step on a task type you see often. Spend them on execution when the output is code and you can also check its result.</p>
 <h2 id="in-practice-fitting-a-larkspur-plan">In practice: fitting a Larkspur plan</h2>
-<p>An illustrative application to the sales question:</p>
+<p>An illustrative application to the sales question, using the handbook&rsquo;s limits:</p>
 <ol>
-<li><strong>Discover once.</strong> Run SELECT, ADAPT and IMPLEMENT on the task type &ldquo;fit a workload to a Larkspur plan and server sizes&rdquo;. A good structure starts from the hardest constraint: the server count fixes the plan (Starter up to 3, Business up to 50, Enterprise unlimited), then each server&rsquo;s peak memory picks its size (4, 16 or 64 GB), then every constraint is checked against the final answer.</li>
-<li><strong>Solve per question.</strong> A customer with five servers, one of them peaking at 40 GB, gets Business and a Large server, because Medium has 16 GB. The structure&rsquo;s final check catches a Starter answer.</li>
+<li><strong>Discover once.</strong> Run SELECT, ADAPT and IMPLEMENT on the task type &ldquo;fit a workload to a Larkspur plan and server sizes&rdquo;. A good structure starts from the hardest constraint: the server count fixes the plan (Starter up to 3, Business up to 50, Enterprise unlimited), then each server&rsquo;s peak memory picks its size (Small 4 GB, Medium 16 GB, Large 64 GB), then every constraint is checked against the final answer.</li>
+<li><strong>Solve per question.</strong> A customer with five servers, one of them peaking at 40 GB, gets Business and a Large server for that workload, because Medium has 16 GB. The structure&rsquo;s final check catches a Starter answer.</li>
 <li><strong>Verify in code.</strong> The plan limits and sizes fit in a table, and a short function can check every answer the way the brute force checked the puzzle.</li>
-<li><strong>Run what is written.</strong> When the assistant writes a sizing script for the customer, an execution critic runs it with test inputs before it is shared.</li>
+<li><strong>Run what is written.</strong> When the assistant writes a sizing script for the customer, an execution critic runs it with test inputs and assertions before it is shared.</li>
 </ol>
-<p>Lesson 25.6 spends the extra calls on several reasoning paths at once, and needs a scorer for the same reason this lesson needed a ground truth.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Recorded runs, not reruns.</strong> The puzzle accuracies come from the notebook&rsquo;s own recorded runs with <code>gpt-4o-mini</code>; we did not call a model for this page. Sampled answers vary from run to run.</li>
+<li><strong>One puzzle.</strong> Table 1 was recomputed from the notebook&rsquo;s clue check. One small puzzle shows the dropped constraint; it does not measure how often it happens elsewhere.</li>
+<li><strong>A stub repair.</strong> Our trace of the repair path used a stub for attempt 2. In the notebook the real model writes that attempt, and it may need more than one.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Zhou et al., <a href="https://arxiv.org/abs/2402.03620" target="_blank" rel="noopener">Self-Discover: Large Language Models Self-Compose Reasoning Structures</a>, 2024.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/overview" target="_blank" rel="noopener">LangGraph overview</a>.</li>
+<li>Python Software Foundation, <a href="https://docs.python.org/3/library/functions.html#exec" target="_blank" rel="noopener">Built-in function exec</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Self-Discover composes a reasoning plan from a fixed catalog for a task type, once, and reuses it for every instance. It makes checks like case analysis and final verification mandatory, and helps only within the model&rsquo;s reach.</li>
@@ -1536,13 +1697,13 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <details>
 <summary>2. The direct answers to the interview-slot puzzle usually put Rae at 11:00 AM. What went wrong, and what did the discovered structure change?</summary>
-<p>That assignment breaks only clue 4, which says Rae is not at 11:00, so the model dropped one constraint. The structure did not add knowledge. It made enumerating the cases and checking every clue against the final assignment mandatory, and the structured answers were right far more often.</p>
+<p>That assignment breaks clue 4, which says Rae is not at 11:00, so the model dropped one constraint. The structure did not add knowledge. It made enumerating the cases and checking every clue against the final assignment mandatory, and the structured answers were right far more often.</p>
 </details>
 <details>
 <summary>3. A code-generation agent with an execution critic reports success, yet the function returns wrong totals. How did that pass, and what should be added?</summary>
 <p>The critic only checks that the imports and the code run without an exception, and wrong output raises none. Add assertions or hidden tests with expected values, so the check measures correctness as well as whether the code runs.</p>
 </details>
-<h2 id="tree-of-thoughts--lats">Tree of thoughts / LATS</h2>
+<h2 id="when-five-samples-agree-on-the-wrong-answer">When five samples agree on the wrong answer</h2>
 <p class="lesson-of">Lesson 25.6: Self-consistency, tree of thoughts and LATS. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/notebook/06a_self_consistency.ipynb" target="_blank" rel="noopener"><code>06a_self_consistency.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m25_planning_reflection_reasoning/mandatory/notebook/06b_tree_of_thoughts.ipynb" target="_blank" rel="noopener"><code>06b_tree_of_thoughts.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p07_advanced_agents/m25_planning_reflection_reasoning/optional/notebook/06c_lats.ipynb" target="_blank" rel="noopener"><code>06c_lats.ipynb</code></a> (optional)</p>
 <blockquote>
 <p><strong>What you&rsquo;ll learn</strong></p>
@@ -1553,8 +1714,10 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Choose</strong> whether a Larkspur question deserves tree search at all.</li>
 </ul>
 </blockquote>
-<p>Lesson 25.5 spent extra calls on one better path: a reasoning structure before the answer, or a critic after it. This lesson spends them on several paths at once and keeps the best.</p>
-<p>A single chain of thought is one sample from many possible reasoning paths. Sampling more answers helps only if you can pick a better one, and the three patterns here differ in where they spend the extra calls and in what does the picking. The notebooks test them on arithmetic, where every answer can be checked in code. The question for Larkspur is whether its support questions have anything like that check.</p>
+<p>Ask <code>gpt-4o-mini</code> how many three-digit numbers have digits that add up to 10. The right answer, counted in code, is 54. In the notebook&rsquo;s prototyping runs the model was right about 40% of the time, and most wrong answers were the same number, 55. Ask five times and take a majority, and you get 55 more reliably than from a single sample.</p>
+<p>Lesson 25.5 spent extra calls on one better path. This lesson spends them on several paths at once and keeps the best, which helps only if something can pick the better path. The notebooks test three patterns on arithmetic, where code checks every answer. The question for Larkspur is whether its support questions have anything like that check.</p>
+<h2 id="tree-of-thoughts--lats">Tree of thoughts / LATS</h2>
+<p><strong>Tree of thoughts</strong> searches over intermediate reasoning states, scoring each and expanding the best. <strong>LATS</strong> (language agent tree search) runs the same kind of search one leaf at a time with Monte Carlo tree search. Both rest on the idea that self-consistency tests first: more paths plus a selector can beat one path. The three patterns differ in where they spend the extra calls and in what does the picking:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1586,39 +1749,63 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: Three ways to spend extra calls on more reasoning paths.</em></p>
-<p><strong>Tree of thoughts</strong> searches over intermediate reasoning states, scoring each and expanding the best. <strong>LATS</strong> (language agent tree search) does the same search one leaf at a time with Monte Carlo tree search. Both rest on the idea self-consistency tests first: whether more paths plus a selector beat one path.</p>
-<h3>When agreement hides a shared error</h3>
-<p>Self-consistency needs short, comparable answers (a number, a label) and nothing else. The notebook samples 5 answers at temperature 0.7, three times per question, and votes. Its prototyping runs, 20 samples per question, show both sides of the vote:</p>
+<h3>Self-consistency: vote over whole answers</h3>
+<p>Self-consistency sends the same chain-of-thought prompt N times at temperature 0.7. No sample sees another. Code extracts each final answer from a fixed <code>Final Answer:</code> line and counts them:</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    Q["Same prompt&lt;br/&gt;sent N times"] --&gt; S["N independent&lt;br/&gt;reasoning paths"]
+    S --&gt; X["Extract each&lt;br/&gt;final answer"]
+    X --&gt; V["Majority vote&lt;br/&gt;plus agreement"]
+    V --&gt; D{"Agreement&lt;br/&gt;at least 0.8?"}
+    D -- yes --&gt; A[/Answer/]
+    D -- no --&gt; E[/Escalate/]
+</pre></figure>
+<p><em>Figure 1: Self-consistency. The vote needs short, comparable answers, and the agreement share is a free confidence signal.</em></p>
+<p>The notebook samples 5 answers, three times per question, and votes. Its prototyping runs, 20 samples per question, show the three cases a vote can meet:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
 <th>Question</th>
 <th>Right answer</th>
 <th>Single samples</th>
-<th>Wrong answers</th>
+<th>What the vote does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td>A bakery word problem</td>
+<td>2</td>
+<td>Right every time</td>
+<td>Nothing but add cost</td>
+</tr>
+<tr>
 <td>Sum of all the digits from 1 to 100</td>
 <td>901</td>
-<td>Right about 80% of the time</td>
-<td>Scattered, so a vote washes them out</td>
+<td>Right about 80% of the time; the wrong answers scattered</td>
+<td>Washes the scattered errors out</td>
 </tr>
 <tr>
 <td>Three-digit numbers whose digits add up to 10</td>
 <td>54</td>
-<td>Right about 40% of the time</td>
-<td>Mostly the same number, 55, so a vote locks it in</td>
+<td>Right about 40% of the time; most wrong answers were 55</td>
+<td>Locks the shared error in</td>
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Random and systematic errors under a majority vote. Right answers computed in code, rates from the notebook&rsquo;s recorded runs.</em></p>
-<p>We call the second row the <strong>confident wrong majority</strong>: the samples agree, and they agree on the wrong answer. High agreement is a cheap confidence signal, and consistent is not the same as correct.</p>
+<p><em>Table 2: Easy, random and systematic errors under a majority vote. Right answers computed in code, rates from the notebook&rsquo;s recorded runs.</em></p>
+<p>We call the third row the <strong>confident wrong majority</strong>: the samples agree, and they agree on the wrong answer. The notebook uses the agreement share to act on high agreement and escalate low agreement, with a threshold of 0.8. That flags a guessing model. It cannot flag the confident wrong majority, because consistent is not the same as correct.</p>
 <h3>Tree of thoughts on the Game of 24</h3>
-<p>Tree of thoughts (ToT) spends its calls on intermediate steps instead of whole answers. The notebook uses the Game of 24, the benchmark from the ToT paper: combine four numbers with addition, subtraction, multiplication and division to make 24. A <strong>state</strong> is the numbers still in play, and a <strong>thought</strong> is one move. Four pieces make the search:</p>
+<p>Tree of thoughts (ToT) spends its calls on intermediate steps instead of whole answers. The notebook uses the Game of 24, the benchmark from the ToT paper: combine four numbers with addition, subtraction, multiplication and division, each number once, to make 24. A <strong>state</strong> is the numbers still in play, and a <strong>thought</strong> is one move.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    R["Start&lt;br/&gt;four numbers"] --&gt; X["Expand&lt;br/&gt;up to 8 moves&lt;br/&gt;per state"]
+    X --&gt; V["Evaluate, keep&lt;br/&gt;best 5 above 0"]
+    V --&gt; K{"Solved, empty,&lt;br/&gt;or depth 2?"}
+    K -- no --&gt; X
+    K -- yes --&gt; E[/End/]
+</pre></figure>
+<p><em>Figure 2: The ToT beam search. A pure router reads the state the evaluate step wrote.</em></p>
+<p>Four pieces make the search:</p>
 <ul>
-<li><strong>Rules in code.</strong> Moves are applied with exact fractions, and an illegal or mis-computed proposal is dropped and the tree holds only legal states.</li>
+<li><strong>Rules in code.</strong> Moves are applied with exact fractions. An illegal or mis-computed proposal is dropped, and two paths to the same numbers count as one state, so the tree holds only distinct legal states.</li>
 <li><strong>A proposer.</strong> The model, at temperature 0.7, suggests up to <code>PROPOSALS = 8</code> moves per state.</li>
 <li><strong>An evaluator.</strong> With three numbers left, the model at temperature 0 judges <code>sure</code>, <code>likely</code> or <code>impossible</code> (scores 3, 1 and 0). With two left, code checks the six possible operations exactly.</li>
 <li><strong>Beam search.</strong> An expand and evaluate loop in LangGraph keeps the best <code>BEAM = 5</code> states per level, and a pure router stops at a solution, an empty frontier or the depth limit.</li>
@@ -1660,7 +1847,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: Every operation on the state with 4 and 24 left, computed with exact fractions. None gives 24, which makes the state a dead end.</em></p>
 <p>Both remaining numbers must be used in one legal operation, and the target appearing among the inputs is not enough. We call this the <strong>lucky-looking state</strong>, and it is why code judges every state it can decide: a model saying a state is promising cannot override arithmetic.</p>
-<p>In the recorded runs, single-pass chain of thought solved between a twentieth and a quarter of the samples. ToT solved about half of the eight puzzles at roughly 10 to 15 LLM calls per puzzle, and every returned solution is checked in code. A search fails in two ways: a solvable state is scored <code>impossible</code> and pruned, or the proposer never generates the move the solution needs.</p>
+<p>On eight solvable puzzles, single-pass chain of thought solved between a twentieth and a quarter of the samples in the recorded runs; its expressions often used a number twice or skipped one. ToT solved about half of the puzzles at roughly 10 to 15 LLM calls per puzzle, and every returned solution is valid by construction because code applied each step. A search fails in two ways: a solvable state is scored <code>impossible</code> and pruned, or the proposer never generates the move the solution needs.</p>
 <h3>LATS: one leaf at a time</h3>
 <p>LATS replaces the level-by-level beam with Monte Carlo tree search, one leaf per iteration:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -1672,9 +1859,52 @@ th:last-child, td:last-child { padding-right: 0; }
     L --&gt; S
     F -- yes --&gt; A[/Solution/]
 </pre></figure>
-<p><em>Figure 1: One LATS iteration. Rewards flow back to the root, and dead ends become lessons for later proposals.</em></p>
-<p>Selection walks down from the root, at each level taking the child with the best <strong>UCB1</strong> score: its average value (total value divided by visits) plus an exploration bonus of <em>c</em> times the square root of ln(parent visits) divided by the child&rsquo;s visits. An unvisited child scores infinity, which tries every child once, and a child visited often earns a smaller bonus. The bonus is what stops the search from only ever deepening its current favourite.</p>
-<p>The notebook&rsquo;s settings:</p>
+<p><em>Figure 3: One LATS iteration. Rewards flow back to the root, and dead ends become lessons for later proposals. In the notebook a reflection is written only for a child that dead-ended, so an iteration with none goes straight back to selection.</em></p>
+<p>Selection walks down from the root, at each level taking the child with the best <strong>UCB1</strong> score: its average value (total value divided by visits) plus an exploration bonus of <em>c</em> times the square root of ln(parent visits) divided by the child&rsquo;s visits. An unvisited child scores infinity, which tries every child once. A child visited often earns a smaller bonus, which is what stops the search from only ever deepening its current favourite.</p>
+<p>An illustrative case shows the bonus at work. The root was expanded into four children, A, B, C and D, rated <code>likely</code>, <code>sure</code>, <code>impossible</code> and <code>likely</code>. Selection then picked B (UCB1 2.65 against 1.98 for A and D), and all four of B&rsquo;s two-number children were dead ends. Now the root has 8 visits:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Child</th>
+<th>Visits</th>
+<th>Average value</th>
+<th>Bonus</th>
+<th>UCB1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>1</td>
+<td>0.33</td>
+<td>2.02</td>
+<td>2.35</td>
+</tr>
+<tr>
+<td>B</td>
+<td>5</td>
+<td>0.20</td>
+<td>0.90</td>
+<td>1.10</td>
+</tr>
+<tr>
+<td>C</td>
+<td>1</td>
+<td>0.00</td>
+<td>2.02</td>
+<td>2.02</td>
+</tr>
+<tr>
+<td>D</td>
+<td>1</td>
+<td>0.33</td>
+<td>2.02</td>
+<td>2.35</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 4: UCB1 at the root after B&rsquo;s children died, with c = 1.4. Illustrative rewards; values computed from the notebook&rsquo;s formula.</em></p>
+<p>B&rsquo;s average fell and its bonus shrank, and the next selection moves to A. The notebook&rsquo;s settings:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1711,9 +1941,24 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 4: The LATS configuration in the notebook.</em></p>
-<p>The second expansion carries the latest reflections in its prompt. Each dead end becomes a one-sentence lesson that later proposals read, which is Reflexion from lesson 25.3 used inside a search.</p>
-<p>On these eight puzzles LATS did not win. The recorded runs show it solved 2 to 4 of 8, the ToT beam about 4, and LATS spent more LLM calls. Its solved runs finished in two or three iterations, because it stops at the first success. LATS was designed for problems with a larger branching factor and a better value estimate than eight small puzzles offer.</p>
+<p><em>Table 5: The LATS configuration in the notebook.</em></p>
+<p>Each two-number dead end becomes a one-sentence lesson, and every later expansion prompt carries the latest three. That is Reflexion from lesson 25.3 used inside a search.</p>
+<div class="walkthrough learning-widget" data-stepper id="lats-walkthrough">
+<p class="widget-intro">Step through one LATS iteration and the state each step changes.</p>
+<div class="step-controls" hidden role="group" aria-label="Steps of one LATS iteration"><button type="button" data-step="0" aria-pressed="false" aria-controls="lats-step-0">1. Select</button><button type="button" data-step="1" aria-pressed="false" aria-controls="lats-step-1">2. Expand</button><button type="button" data-step="2" aria-pressed="false" aria-controls="lats-step-2">3. Evaluate</button><button type="button" data-step="3" aria-pressed="false" aria-controls="lats-step-3">4. Backpropagate</button><button type="button" data-step="4" aria-pressed="false" aria-controls="lats-step-4">5. Reflect</button></div>
+<div class="step-panels"><section id="lats-step-0" class="step-panel" aria-labelledby="lats-heading-0"><h4 id="lats-heading-0">1. Select a leaf</h4><dl><dt>Reads</dt><dd>visits and values of the live children at each level</dd><dt>Does</dt><dd>takes the best UCB1 child down to a leaf; a node whose children all died is retried once, then marked dead</dd></dl></section><section id="lats-step-1" class="step-panel" aria-labelledby="lats-heading-1"><h4 id="lats-heading-1">2. Expand it</h4><dl><dt>Reads</dt><dd>the leaf's numbers, its steps and the latest three lessons</dd><dt>Does</dt><dd>asks for up to 4 moves, keeps the legal ones whose state is new to that node</dd></dl></section><section id="lats-step-2" class="step-panel" aria-labelledby="lats-heading-2"><h4 id="lats-heading-2">3. Evaluate each child</h4><dl><dt>Two numbers left</dt><dd>code: 1 and solved, or 0 and dead</dd><dt>Three numbers left</dt><dd>one LLM verdict: 1, 0.33 or 0</dd></dl></section><section id="lats-step-3" class="step-panel" aria-labelledby="lats-heading-3"><h4 id="lats-heading-3">4. Backpropagate</h4><dl><dt>Does</dt><dd>adds one visit and the reward to the child and every ancestor up to the root</dd><dt>Stops</dt><dd>the whole search at the first solved child</dd></dl></section><section id="lats-step-4" class="step-panel" aria-labelledby="lats-heading-4"><h4 id="lats-heading-4">5. Reflect on dead ends</h4><dl><dt>When</dt><dd>a two-number child cannot make 24</dd><dt>Writes</dt><dd>one specific lesson that names numbers, read by later expansion prompts</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>On these eight puzzles LATS did not win. In the recorded runs it solved 2 to 4 of 8, the ToT beam about 4, and LATS spent more LLM calls. Its solved runs finished in two or three iterations, because it stops at the first success, while unsolved ones used the whole budget or ran out of live branches. LATS was designed for problems with a larger branching factor and a better value estimate than eight small puzzles offer.</p>
+<p>The three patterns side by side:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="search-switcher">
+<p class="widget-intro">Choose a pattern and compare what it spends, what selects, and what the notebook measured.</p>
+<div class="mode-controls" hidden role="group" aria-label="Self-consistency, tree of thoughts or LATS"><button type="button" data-mode="sc" aria-pressed="false" aria-controls="search-sc">Self-consistency</button><button type="button" data-mode="tot" aria-pressed="false" aria-controls="search-tot">Tree of thoughts</button><button type="button" data-mode="lats" aria-pressed="false" aria-controls="search-lats">LATS</button></div>
+<section id="search-sc" class="mode-panel"><h4>Self-consistency</h4><dl><dt>Spends</dt><dd>5 whole answers per vote</dd><dt>Selects with</dt><dd>a majority vote; agreement below 0.8 escalates</dd><dt>Measured</dt><dd>scattered errors washed out; 55 locked in for a right answer of 54</dd></dl></section>
+<section id="search-tot" class="mode-panel"><h4>Tree of thoughts</h4><dl><dt>Spends</dt><dd>up to 8 proposals per state, two levels deep</dd><dt>Selects with</dt><dd>LLM verdicts at three numbers, exact code at two; best 5 kept</dd><dt>Measured</dt><dd>about half of 8 puzzles at roughly 10 to 15 calls each</dd></dl></section>
+<section id="search-lats" class="mode-panel"><h4>LATS</h4><dl><dt>Spends</dt><dd>one leaf per iteration, up to 10 iterations</dd><dt>Selects with</dt><dd>UCB1 over backpropagated rewards, plus lessons from dead ends</dd><dt>Measured</dt><dd>2 to 4 of 8 puzzles, more calls than the beam</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h2 id="choosing-whether-to-search">Choosing whether to search</h2>
 <p>All three patterns multiply calls, and each needs something to select with. The decision for any task comes down to the selector:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -1724,9 +1969,21 @@ th:last-child, td:last-child { padding-right: 0; }
     V -- no --&gt; O
     S -- yes --&gt; T["Tree of thoughts&lt;br/&gt;or LATS"]
 </pre></figure>
-<p><em>Figure 2: Search only where an evaluator or a vote can pick the better path.</em></p>
+<p><em>Figure 4: Search only where an evaluator or a vote can pick the better path.</em></p>
 <p>For a Larkspur support assistant most questions have one good path, and plan-and-execute (lesson 25.1) or chain-of-verification (lesson 25.4) are the tools to reach for. Reach for these patterns when one path is not reliable enough and something can score a partial answer: a code check, a test suite or a judge you have measured. A sizing calculation with a checkable result could qualify. A refund question answered from one handbook chunk does not.</p>
 <p>Without that evaluator, more branches only multiply the calls.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Recorded runs.</strong> Accuracy rates and call counts come from the notebooks&rsquo; recorded <code>gpt-4o-mini</code> runs; we did not call a model for this page, and sampled runs vary.</li>
+<li><strong>Computed in code.</strong> The right answers 2, 901 and 54, the six results in Table 3 and the UCB1 values in Table 4 were recomputed for this page. Table 4&rsquo;s rewards are illustrative.</li>
+<li><strong>One small benchmark.</strong> Eight puzzles show how ToT and LATS spend a budget, not which one is better in general.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Wang et al., <a href="https://arxiv.org/abs/2203.11171" target="_blank" rel="noopener">Self-Consistency Improves Chain of Thought Reasoning in Language Models</a>, 2022.</li>
+<li>Yao et al., <a href="https://arxiv.org/abs/2305.10601" target="_blank" rel="noopener">Tree of Thoughts: Deliberate Problem Solving with Large Language Models</a>, 2023.</li>
+<li>Zhou et al., <a href="https://arxiv.org/abs/2310.04406" target="_blank" rel="noopener">Language Agent Tree Search Unifies Reasoning Acting and Planning in Language Models</a>, 2024.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Self-consistency votes over N sampled answers and needs short, comparable answers. It washes out scattered errors but locks in systematic ones. High agreement signals confidence and says nothing about correctness.</li>
@@ -1757,8 +2014,8 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Measure</strong> what a memory of approved outputs changes, and what it cannot.</li>
 </ul>
 </blockquote>
-<p>Lesson 25.6 searched over reasoning steps. The three patterns here look at different things: the consequences of an action, the agent&rsquo;s own competence, and what it learned on earlier tasks. In all three the model proposes or assesses, and code makes the decision.</p>
-<p>Larkspur&rsquo;s operations team wants an agent that can act, not only answer. It might resize servers before a traffic spike, reply to customers about their servers, or draft incident notices. Each action has a failure that planning and verification do not cover. A resize restarts the server once, and customers feel a bad one immediately. A reply about a server that is missing from the tool&rsquo;s records can sound reassuring and be wrong. And every incident notice starts from zero, repeating the mistakes the last one fixed.</p>
+<p>Larkspur&rsquo;s operations team wants an agent that can act, not only answer. It might resize servers before a traffic spike, reply to customers about their servers, or draft incident notices. Each action has a failure that planning and verification do not cover. A resize restarts the server once, and customers feel a bad one immediately. A reply about a server missing from the tool&rsquo;s records can sound reassuring and be wrong. And every incident notice starts from zero, repeating the mistakes the last one fixed.</p>
+<p>Lesson 25.6 searched over reasoning steps. The three patterns here look at the consequences of an action, the agent&rsquo;s own competence, and what it learned on earlier tasks. In all three the model proposes or assesses, and code makes the decision.</p>
 <p>A <strong>mental loop</strong> (simulator in the loop) tests a proposed action in a copy of the world before taking it in the real one. The notebook&rsquo;s world is a toy stock market, a random walk whose drift depends on a news headline, and the action is a trade. It is a teaching example and not trading advice. The loop has four nodes:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     P["Propose&lt;br/&gt;LLM picks a trade"] --&gt; S["Simulate&lt;br/&gt;200 forked futures&lt;br/&gt;per candidate"]
@@ -1766,15 +2023,15 @@ th:last-child, td:last-child { padding-right: 0; }
     R --&gt; E["Execute&lt;br/&gt;in the real market"]
 </pre></figure>
 <p><em>Figure 1: Propose, simulate, refine, execute. Only the first node calls the model.</em></p>
-<ul>
-<li><strong>Propose.</strong> The analyst model reads the price, the headline and the portfolio and returns buy, sell or hold with a size: small (10% of cash or shares) or large (50%). Code turns that into a share count.</li>
-<li><strong>Simulate.</strong> Code forks the market and rolls the proposal forward 10 days, 200 times, then does the same for progressively safer versions: a buy at ½, ¼ and ⅛ of the size and then nothing, or a sell at 2 and 4 times the size and then everything.</li>
-<li><strong>Refine.</strong> Code keeps the candidate closest to the proposal whose 5th-percentile return is no worse than minus 5%. If none passes, it takes the safest.</li>
-<li><strong>Execute.</strong> The chosen trade runs in the real market, which then moves one day with its own randomness.</li>
-</ul>
 <p>The <strong>5th percentile</strong> is the &ldquo;how bad can it get&rdquo; number: in 1 simulated future out of 20, the portfolio does at least this badly. The same class serves as the real market and the sandbox, and a deep copy forks it. A simulation can never touch the real portfolio. Seeded random generators make the rollouts reproducible.</p>
 <h3>The same proposal in two worlds</h3>
-<p>Two scenarios look identical to the analyst: $100 price, a good-news headline, $10,000 in cash. They differ only in volatility (2% or 8% daily), which only the simulator knows. A stub analyst that always proposes a large buy (50 shares) gives these rollouts:</p>
+<p>Two scenarios look identical to the analyst: $100 price, a good-news headline, $10,000 in cash. They differ only in volatility (2% or 8% daily), which only the simulator knows. A stub analyst that always proposes a large buy lets us trace the turbulent case through every node:</p>
+<div class="walkthrough learning-widget" data-stepper id="mental-loop-walkthrough">
+<p class="widget-intro">Step through the turbulent market, from the proposal to the trade that runs.</p>
+<div class="step-controls" hidden role="group" aria-label="Nodes of the mental loop"><button type="button" data-step="0" aria-pressed="false" aria-controls="loop-step-0">1. Propose</button><button type="button" data-step="1" aria-pressed="false" aria-controls="loop-step-1">2. Simulate</button><button type="button" data-step="2" aria-pressed="false" aria-controls="loop-step-2">3. Refine</button><button type="button" data-step="3" aria-pressed="false" aria-controls="loop-step-3">4. Execute</button></div>
+<div class="step-panels"><section id="loop-step-0" class="step-panel" aria-labelledby="loop-heading-0"><h4 id="loop-heading-0">1. Propose</h4><dl><dt>Reads</dt><dd>price, headline and portfolio, never the volatility</dd><dt>Returns</dt><dd>buy, sell or hold with a size, small (10% of cash or shares) or large (50%)</dd><dt>Here</dt><dd>buy large; code turns 50% of $10,000 at $100 into 50 shares</dd></dl></section><section id="loop-step-1" class="step-panel" aria-labelledby="loop-heading-1"><h4 id="loop-heading-1">2. Simulate</h4><dl><dt>Candidates</dt><dd>the proposal, then a buy at ½, ¼ and ⅛ of the size, then nothing: 50, 25, 12, 6 and 0 shares</dd><dt>Does</dt><dd>forks the market and rolls each candidate 10 days forward, 200 times</dd></dl></section><section id="loop-step-2" class="step-panel" aria-labelledby="loop-heading-2"><h4 id="loop-heading-2">3. Refine</h4><dl><dt>Rule</dt><dd>keep the candidate closest to the proposal whose 5th percentile is no worse than minus 5%; if none passes, the safest</dd><dt>Here</dt><dd>50 shares fail at minus 16.03%, 25 fail at minus 8.02%, 12 pass at minus 3.85%</dd></dl></section><section id="loop-step-3" class="step-panel" aria-labelledby="loop-heading-3"><h4 id="loop-heading-3">4. Execute</h4><dl><dt>Does</dt><dd>buys 12 shares in the real market, which then moves one day with its own randomness</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
+
+<p>The rollouts in both worlds:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1817,7 +2074,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 1: One proposal, two worlds. From running the notebook&rsquo;s simulator in the scratchpad with its seed, 200 rollouts and a 10-day horizon.</em></p>
-<p>In the calm market the loop costs time and changes nothing. In the turbulent one the same headline would have put half the cash at risk with a tail loss three times the limit, and the refine step shrinks the trade to 12 shares. The direction of &ldquo;safer&rdquo; depends on the action. In the third scenario the account holds 40 shares on bad news, and if the analyst proposes a small sell of 4 shares, the candidates (sell 4, 8, 16, then all 40) have 5th percentiles of minus 8.63%, minus 7.67%, minus 5.75% and 0%, so the loop sells everything.</p>
+<p>In the calm market the loop costs time and changes nothing. In the turbulent one the same headline would have put half the cash at risk with a tail loss three times the limit. The direction of &ldquo;safer&rdquo; depends on the action. In a third scenario the account holds 40 shares on bad news, and the analyst proposes a small sell of 4. Safer means selling more: the candidates (sell 4, 8, 16, then all 40) have 5th percentiles of minus 8.63%, minus 7.67%, minus 5.75% and 0%. Only selling everything passes.</p>
 <p>Two lessons came out of building it. A numeric rule belongs in code: while prototyping, an LLM &ldquo;risk manager&rdquo; given the minus 5% rule in its prompt answered <em>hold</em> even when the proposal passed. And the loop is only as good as its world model. We call this the <strong>simulation-reality gap</strong>: if the real volatility were 8% while the simulator assumed 2%, the loop would approve the risky trade with full confidence. A real simulator&rsquo;s parameters are estimated from data, re-checked, and given a margin.</p>
 <h2 id="metacognition-decide-whether-to-answer">Metacognition: decide whether to answer</h2>
 <p>A <strong>metacognitive agent</strong> keeps an explicit model of itself (what it knows, which tools it has, when it must stop) and first analyses each request against that model instead of answering it. Routing in <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html">M24</a> asked what kind of request this is. Metacognition asks whether the agent is competent and safe to handle it.</p>
@@ -1835,7 +2092,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C -- yes --&gt; R[Answer directly]
 </pre></figure>
 <p><em>Figure 2: The strategy rules. Each returns the reason it fired, and every route can be explained.</em></p>
-<p>Because the rule function is pure, every branch is tested with hand-built analyses and no model call, emergency signs beating a tool request among them. The notebook&rsquo;s five demo queries each take a different route:</p>
+<p>The rule function is pure, so every branch is tested with hand-built analyses and no model call, emergency signs beating a tool request among them. The notebook&rsquo;s five demo queries each take a different route:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -1872,7 +2129,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p><em>Table 2: Five queries and their expected routes. The notebook checks each one over three runs.</em></p>
+<p><em>Table 2: Five queries and their expected routes. The notebook checks each one over three runs, and in its recorded runs every route matched every time.</em></p>
 <p>The third row is the lesson. The analysis routed it to the tool, correctly, but the database had no entry. A naive agent would pass &ldquo;no interaction found&rdquo; to the writer and produce a reassuring answer about a pair that is in fact a well-known serious interaction. We call that the <strong>empty-result reassurance</strong>: a tool&rsquo;s &ldquo;not in my data&rdquo; read as &ldquo;safe&rdquo;. The agent counts its tool&rsquo;s coverage as part of its limits and escalates. The escalate branch here returns a referral, and <a href="../../../m27_human_approval_applied_agents/mandatory/theory/index.html">M27</a> puts a real human decision there.</p>
 <h2 id="exemplar-memory-better-first-drafts">Exemplar memory: better first drafts</h2>
 <p>The refine loops of lesson 25.3 and M24 improve one output and then forget. A <strong>self-improvement loop</strong> works on two time scales:</p>
@@ -1880,7 +2137,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Intra-task</strong>: draft, critique, revise until approved or capped. The output improves and the next task starts from scratch.</li>
 <li><strong>Inter-task</strong>: approved outputs are stored and shown to the generator on later tasks. Its first drafts start closer to the bar.</li>
 </ul>
-<p>The notebook builds a marketing-email writer for a company called Northwind. The writer never sees the house style guide. Only the editor knows it, and the editor is plain code with six checkable rules: a subject of 45 characters or fewer, no exclamation marks, a body of 60 to 110 words, exactly one call-to-action line, a fixed sign-off and at least one concrete number. A sample email with a 57-character subject and an 11-word body breaks all six, which the scratchpad run of the editor confirms.</p>
+<p>The notebook builds a marketing-email writer for a company called Northwind. The writer never sees the house style guide. Only the editor knows it, and the editor is plain code with six checkable rules: a subject of 45 characters or fewer, no exclamation marks, a body of 60 to 110 words, exactly one call-to-action line, a fixed sign-off and at least one concrete number. A sample email with a 57-character subject and an 11-word body breaks all six, which our scratchpad run of the editor confirms.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     M[("Approved&lt;br/&gt;emails")] --&gt; G["Generate&lt;br/&gt;with examples"]
     G --&gt; R{"Editor:&lt;br/&gt;rules broken?"}
@@ -1918,13 +2175,24 @@ th:last-child, td:last-child { padding-right: 0; }
 <h2 id="in-practice-larkspurrsquos-operations-agent">In practice: Larkspur&rsquo;s operations agent</h2>
 <p>An illustrative application of all three:</p>
 <ol>
-<li><strong>Simulate resizes.</strong> Before moving a server to a smaller size, replay the last month&rsquo;s peak memory against the smaller size&rsquo;s memory (16 GB for Medium, 4 GB for Small) and refuse if the peak does not fit. Code applies the rule.</li>
+<li><strong>Simulate resizes.</strong> Before moving a server to a smaller size, replay the last month&rsquo;s peak memory against the smaller size&rsquo;s memory (16 GB for Medium, 4 GB for Small) and refuse if the peak does not fit. The handbook adds a second rule: the disk in use must fit the smaller size. Code applies both.</li>
 <li><strong>Write the self-model.</strong> Domain: billing, refunds, exports, outages, server sizing. Tool: server status. Escalate on suspected security incidents (the handbook&rsquo;s Security ticket category), on low confidence, and whenever the status tool has no record of the server.</li>
-<li><strong>Keep approved notices.</strong> Store incident notices that passed the editor&rsquo;s checks (status-page link, root-cause promise within 72 hours, no exclamation marks), retrieve the two most similar for each new incident, and keep a record of who approved each one.</li>
+<li><strong>Keep approved notices.</strong> Store incident notices that passed the editor&rsquo;s checks (status-page link, a root-cause report promised within 72 hours of recovery, no exclamation marks), retrieve the two most similar for each new incident, and record who approved each one.</li>
 </ol>
 <blockquote>
-<p><strong>Key distinction:</strong> in all three patterns the model proposes or assesses, and code decides: a percentile limit, an ordered rule list, a rule-checking editor. The model&rsquo;s judgment is an input, never the gate.</p>
+<p><strong>Key distinction:</strong> in all three patterns the model proposes or assesses, and code decides: a percentile limit, an ordered rule list, a rule-checking editor. The model&rsquo;s judgement is an input, never the gate.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Rerun and recorded.</strong> Table 1 and the third scenario&rsquo;s percentiles were recomputed from the notebook&rsquo;s seeded simulator with no model. The routes in Table 2 and the counts in Table 3 are the notebook&rsquo;s recorded <code>gpt-4o-mini</code> runs.</li>
+<li><strong>Toy worlds.</strong> A random-walk market, a two-pair drug database and six style rules show each mechanism; none measures a production system.</li>
+<li><strong>Six drafts per setting.</strong> Three briefs run twice cannot separate a memory effect on revision counts from noise.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Madaan et al., <a href="https://arxiv.org/abs/2303.17651" target="_blank" rel="noopener">Self-Refine: Iterative Refinement with Self-Feedback</a>, 2023.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/overview" target="_blank" rel="noopener">LangGraph overview</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A simulator turns &ldquo;is this action safe?&rdquo; into numbers a rule in code can check before the action is irreversible, and its decisions are only as good as its model of the world.</li>
@@ -2000,7 +2268,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Give the critic evidence: a check in code, a search, a verification question answered without the draft, or the result of running the output. A critic with only its opinion fixes style.</li>
 <li>Spend extra reasoning paths only where an evaluator can tell a good partial answer from a bad one, and keep every numeric rule in code.</li>
 </ul></article>
-    <nav class="toc" aria-label="M25 sections"><details open><summary>In M25</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#plan-and-execute">Plan-and-execute</a></li><li><a href="#replanning">Replanning</a></li><li><a href="#in-practice-the-cancellation-assistant">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-two-research-planners">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-research-run">Following one research run</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reflection-a-writer-and-a-critic">Reflection</a></li><li><a href="#where-self-critique-stops-helping">Where self-critique stops helping</a></li><li><a href="#measuring-one-structured-pass">Measuring one structured pass</a></li><li><a href="#reflexion-critique-backed-by-search">Reflexion</a></li><li><a href="#choosing-a-critic">Choosing a critic</a></li><li><a href="#in-practice-larkspurrsquos-incident-post">In practice</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-verification">Chain-of-verification</a></li><li><a href="#constitutional-critique">Constitutional critique</a></li><li><a href="#in-practice-verified-cancellations">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#self-discover-plan-the-reasoning-first">Self-Discover</a></li><li><a href="#execution-as-the-critic">Execution as the critic</a></li><li><a href="#before-the-answer-or-after-it">Before the answer or after it</a></li><li><a href="#in-practice-fitting-a-larkspur-plan">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#tree-of-thoughts--lats">Tree of thoughts / LATS</a></li><li><a href="#choosing-whether-to-search">Choosing whether to search</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#simulate-before-you-act">Simulate before you act</a></li><li><a href="#metacognition-decide-whether-to-answer">Metacognition</a></li><li><a href="#exemplar-memory-better-first-drafts">Exemplar memory</a></li><li><a href="#in-practice-larkspurrsquos-operations-agent">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M25 sections"><details open><summary>In M25</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#plan-and-execute">Plan-and-execute</a></li><li><a href="#replanning">Replanning</a></li><li><a href="#in-practice-the-cancellation-assistant">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#the-project-two-research-planners">The project</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#following-one-research-run">Following one research run</a></li><li><a href="#design-choices-worth-copying">Design choices worth copying</a></li><li><a href="#limits">Limits</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reflection-a-writer-and-a-critic">Reflection</a></li><li><a href="#where-self-critique-stops-helping">Where self-critique stops helping</a></li><li><a href="#measuring-one-structured-pass">Measuring one structured pass</a></li><li><a href="#reflexion-critique-backed-by-search">Reflexion</a></li><li><a href="#choosing-a-critic">Choosing a critic</a></li><li><a href="#in-practice-larkspurrsquos-incident-post">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#chain-of-verification">Chain-of-verification</a></li><li><a href="#constitutional-critique">Constitutional critique</a></li><li><a href="#in-practice-verified-cancellations">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-recommendation-that-drops-one-constraint">A recommendation that drops one constraint</a></li><li><a href="#self-discover-plan-the-reasoning-first">Self-Discover</a></li><li><a href="#execution-as-the-critic">Execution as the critic</a></li><li><a href="#before-the-answer-or-after-it">Before the answer or after it</a></li><li><a href="#in-practice-fitting-a-larkspur-plan">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#when-five-samples-agree-on-the-wrong-answer">When five samples agree on the wrong answer</a></li><li><a href="#tree-of-thoughts--lats">Tree of thoughts / LATS</a></li><li><a href="#choosing-whether-to-search">Choosing whether to search</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#simulate-before-you-act">Simulate before you act</a></li><li><a href="#metacognition-decide-whether-to-answer">Metacognition</a></li><li><a href="#exemplar-memory-better-first-drafts">Exemplar memory</a></li><li><a href="#in-practice-larkspurrsquos-operations-agent">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

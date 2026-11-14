@@ -211,6 +211,12 @@ Lesson 26.2 adds a second agent that checks the first one's work.
 - **A few vision runs on one screen.** Table 5 separates 100% from 41% misses clearly, but three runs cannot separate the two `gpt-4o` rows.
 - **Mock environments.** The shop and the checkout page are simulations. A real browser adds scrolling, overlays and timing, which these notebooks do not test.
 
+## References
+
+1. Yao et al., [ReAct, the paper on combining reasoning and acting in language models](https://arxiv.org/abs/2210.03629), 2022.
+2. Yang et al., [SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793), 2024.
+3. LangChain, [Agents](https://docs.langchain.com/oss/python/langchain/agents) documentation.
+
 ## Key Takeaways
 
 - A planned pipeline fixes its searches up front. Its cost is predictable and one fixed test covers it, but it cannot react to an empty result. A ReAct researcher picks each search after reading the last one and needs a call cap.
@@ -239,12 +245,6 @@ The planned pipeline. It suits known-shape reports and batch jobs, its cost is f
 It cannot locate the controls from pixels: in the notebook's runs `gpt-4o-mini` missed 53 of 53 clicks even with every miss fed back. A miss changes nothing and raises no error. This is a no-op loop, and the step cap in code is the only bound. Prefer selectors to coordinates.
 
 </details>
-
-## References
-
-1. Yao et al., [ReAct, the paper on combining reasoning and acting in language models](https://arxiv.org/abs/2210.03629), 2022.
-2. Yang et al., [SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793), 2024.
-3. LangChain, [Agents](https://docs.langchain.com/oss/python/langchain/agents) documentation.
 
 ---
 *Previous: [M26 overview](../README.md). Next: [26.2 Developer vs tester agents](../../../optional/theory/02_developer_vs_tester_agents/README.md).*

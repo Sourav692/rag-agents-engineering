@@ -178,6 +178,11 @@ The module's deployed design, described in [the deep agent overview](../../../..
 - **No recorded run.** The scripts need a model-serving endpoint and a Tavily key. This page describes their configuration and the library's behaviour rather than a measured run.
 - **One library version.** Tool names and backend behaviour are those of `deepagents` 0.7.32. Check them again after an upgrade.
 
+## References
+
+1. LangChain, [Deep Agents overview](https://docs.langchain.com/oss/python/deepagents/overview) documentation.
+2. Anthropic, [Equipping agents for the real world with Agent Skills](https://www.anthropic.com/research/equipping-agents-for-the-real-world-with-agent-skills), 2025.
+
 ## Key Takeaways
 
 - A deep agent is one orchestrator configured with file tools, sub-agents through `task`, skills and a backend. Only a sub-agent's final message returns, which keeps the orchestrator's context small.
@@ -206,11 +211,6 @@ Only each skill's `name` and `description` from the `SKILL.md` frontmatter, eigh
 No. Despite the script's comment, the code selects `LocalShellBackend`, which the library documents as unrestricted shell execution on the host with no isolation. Code execution belongs in a real sandbox backend, with a person approving each command through `interrupt_on`.
 
 </details>
-
-## References
-
-1. LangChain, [Deep Agents overview](https://docs.langchain.com/oss/python/deepagents/overview) documentation.
-2. Anthropic, [Equipping agents for the real world with Agent Skills](https://www.anthropic.com/research/equipping-agents-for-the-real-world-with-agent-skills), 2025.
 
 ---
 *Previous: [26.2 Developer vs tester agents](../../../optional/theory/02_developer_vs_tester_agents/README.md). Next: [M26 interview questions](../README.md#interview-spotlight-5-questions-you-might-get-asked).*

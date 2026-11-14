@@ -124,6 +124,11 @@ We call the first mode's number an **estimated pass rate**. It is useful as a li
 
 The notebook needs an OpenAI key for the two agents. The stub runs, the tool guards and both references run without one.
 
+## References
+
+1. Madaan et al., [Self-Refine: Iterative Refinement with Self-Feedback](https://arxiv.org/abs/2303.17651), 2023.
+2. LangGraph, [Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api) documentation.
+
 ## Key Takeaways
 
 - Stop a two-agent loop with a counter in state and a pure router, back it with a `recursion_limit`, and prove the counts with stub nodes before spending a model call.
@@ -152,11 +157,6 @@ Little. The tester has no tools. It wrote the tests in its report and reasoned a
 The developer's Python tool closes standard input and kills a snippet after a timeout. A game that waits for a player would raise an error at once or be stopped. The task asks for a version the tool can run and check without a keyboard.
 
 </details>
-
-## References
-
-1. Madaan et al., [Self-Refine: Iterative Refinement with Self-Feedback](https://arxiv.org/abs/2303.17651), 2023.
-2. LangGraph, [Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api) documentation.
 
 ---
 *Previous: [26.1 Applied ReAct: web research, SWE and computer-use agents](../../../mandatory/theory/01_applied_react_web_research_swe_and_computer_use_agents/README.md). Next: [26.3 Deep agents: orchestrator, sub-agents, skills and long-term memory](../../../mandatory/theory/03_deep_agents_orchestrator_sub_agents_skills_and_long_term_memory/README.md).*
