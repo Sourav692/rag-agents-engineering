@@ -6,31 +6,31 @@ Progress of rewriting every module's theory pages in the M22 style (theory only,
 - **Status**: `Not started` → `Review draft` (drafts shown, nothing applied) → `In progress` (pages being edited) → `In PR` → `Live` (merged and on forwarddeployedprep.com).
 - **Updated, PRs, Notes**: set with `tracker.py --set <module> <status> [--pr '#N'] [--note '...']`.
 
-**Modules:** Not started: 0 · Review draft: 0 · In progress: 0 · In PR: 9 · Live: 37
+**Modules:** Not started: 0 · Review draft: 0 · In progress: 0 · In PR: 0 · Live: 46
 
 ## Part I · AI Engineering Foundations
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Python & Data Toolkit Refresher | 6 | 3 | 3 / 3 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 2 | LLM Provider APIs & Model Selection | 4 | 4 | 4 / 4 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 3 | Hugging Face Models & Gradio Demos | 5 | 3 | 3 / 3 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
+| 1 | Python & Data Toolkit Refresher | 6 | 3 | 3 / 3 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
+| 2 | LLM Provider APIs & Model Selection | 4 | 4 | 4 / 4 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
+| 3 | Hugging Face Models & Gradio Demos | 5 | 3 | 3 / 3 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
 
 ## Part II · Prompt & Context Engineering
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 4 | Prompt Engineering Patterns | 4 | 4 | 4 / 4 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 5 | Multimodal Prompting | 3 | 3 | 3 / 3 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
+| 4 | Prompt Engineering Patterns | 4 | 4 | 4 / 4 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
+| 5 | Multimodal Prompting | 3 | 3 | 3 / 3 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
 
 ## Part III · LLM Application Frameworks: LangChain & LangGraph
 
 | # | Module | Lessons | Pages | New style | Status | Updated | PRs | Notes |
 |---|---|---|---|---|---|---|---|---|
-| 6 | LangChain Core: Models, Prompts & Parsers | 7 | 7 | 7 / 7 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 7 | LCEL, Runnables & Chains | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 8 | LangGraph Core: Graphs, State & Control Flow | 5 | 5 | 5 / 5 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
-| 9 | LangGraph Runtime: Persistence, HITL & Streaming | 6 | 6 | 6 / 6 | In PR | 2026-11-14 | #78 | approved format, all lessons rewritten 2026-11-14; validate+browser pass per page, pytest 32 pass, links 0 broken |
+| 6 | LangChain Core: Models, Prompts & Parsers | 7 | 7 | 7 / 7 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
+| 7 | LCEL, Runnables & Chains | 5 | 5 | 5 / 5 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
+| 8 | LangGraph Core: Graphs, State & Control Flow | 5 | 5 | 5 / 5 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
+| 9 | LangGraph Runtime: Persistence, HITL & Streaming | 6 | 6 | 6 / 6 | Live | 2026-11-14 | #78 | approved format live 2026-11-14 (course #78 db0968f, site course-sync ccea89f9 success, no estHours change); Vercel success; all lesson pages 200 with References and Limits |
 
 ## Part IV · RAG Foundations: Ingestion & Indexing
 
