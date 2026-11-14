@@ -335,39 +335,32 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>The answer is the only part you read, and it is the smallest part you pay for. A fast model goes straight from messages to answer; a reasoning model spends tokens in the middle box first, and <code>usage</code> is the only place they show up. Lessons 2.3 and 2.4 are about deciding when that middle box is worth paying for.</p>
 <h2 id="chat-completions">Chat completions</h2>
 <p class="lesson-of">Lesson 2.1: Calling commercial LLM APIs: OpenAI and Gemini. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/notebook/01a_using_chatgpt_or_google_gemini.ipynb" target="_blank" rel="noopener"><code>01a_using_chatgpt_or_google_gemini.ipynb</code></a></p>
-<p>A chat completion is one HTTP call. The request names a model and carries the conversation as a list of messages, each a <code>role</code> and a <code>content</code>; the response carries the model&rsquo;s reply and a count of the tokens it used. The notebook&rsquo;s OpenAI call is the whole pattern:</p>
-<pre class="sheet code"><code class="language-python">response = openai.chat.completions.create(
-    model=&quot;gpt-4o&quot;,
-    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
-    temperature=0.1,  # degree of randomness of the model's output
-)
-response.choices[0].message.content
-</code></pre>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what a chat completion request and response carry, and why every turn resends the history.</li>
+<li><strong>Read</strong> the billed token counts, including hidden reasoning tokens, from the response.</li>
+<li><strong>Compare</strong> Chat Completions with the Responses API on state, storage and billing.</li>
+<li><strong>Design</strong> a provider wrapper that fails loudly on a model it does not know.</li>
+</ul>
+</blockquote>
+<p>The Larkspur generator answers <em>How long does a refund take?</em>, then the customer asks <em>And for annual plans?</em> The second answer comes back confused about what &ldquo;annual plans&rdquo; refers to. Nothing failed: the API simply received the second question alone. Every fact about the conversation has to travel in the request.</p>
+<p>A <strong>chat completion</strong> is one HTTP call. The request names a model and carries the conversation as a list of messages, each a <code>role</code> and a <code>content</code>; the response carries the model&rsquo;s reply and a count of the tokens it used. Notebook 01a sends one user message to <code>gpt-4o</code> with a temperature of 0.1 and reads the reply from the first choice:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     R["Request&lt;br/&gt;model&lt;br/&gt;messages: role + content&lt;br/&gt;temperature, max_tokens"] --&gt; M[Model]
     M --&gt; S["Response&lt;br/&gt;choices[0].message.content&lt;br/&gt;usage: prompt and&lt;br/&gt;completion tokens"]
 </pre></figure>
+<p><em>Figure 1: The fields of one chat completion request and its response.</em></p>
 <p>Four parts of the request and response matter on every call:</p>
 <ul>
-<li><strong>Roles.</strong> <code>system</code> sets standing instructions, <code>user</code> is the question, <code>assistant</code> is an earlier reply. For the Larkspur generator the system message says to answer only from the handbook excerpts, and the user message holds the excerpts and the customer&rsquo;s question.</li>
-<li><strong>The call is stateless.</strong> The API remembers nothing between calls. A follow-up question works only if you send the earlier turns again, so every turn of a long conversation pays for all the turns before it.</li>
-<li><strong>Sampling parameters.</strong> <code>temperature</code> controls randomness; the notebook uses 0.1 for repeatable answers. <code>max_tokens</code> caps the reply; lesson 2.2&rsquo;s notebook sets 1,000. Reasoning models are stricter: <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html#routing-by-model-tier">M24&rsquo;s routing page</a> records that o-series models reject a custom temperature.</li>
-<li><strong><code>usage</code>.</strong> <code>prompt_tokens</code> and <code>completion_tokens</code> are what the provider bills. In the installed <code>openai</code> 2.54.0, <code>usage.completion_tokens_details.reasoning_tokens</code> reports how many of the completion tokens were hidden reasoning. Lesson 2.3 is about that field.</li>
+<li><strong>Roles</strong>: <code>system</code> sets standing instructions, <code>user</code> is the question, <code>assistant</code> is an earlier reply. For the Larkspur generator the system message says to answer only from the handbook excerpts, and the user message holds the excerpts and the customer&rsquo;s question.</li>
+<li><strong>The call is stateless</strong>: the API remembers nothing between calls. A follow-up question works only if you send the earlier turns again, so every turn of a long conversation pays for all the turns before it.</li>
+<li><strong>Sampling parameters</strong>: <code>temperature</code> controls randomness, and the notebook uses 0.1 for repeatable answers. <code>max_tokens</code> caps the reply; lesson 2.2&rsquo;s notebook sets 1,000. Reasoning models are stricter: <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html#routing-by-model-tier">M24&rsquo;s routing page</a> records that o-series models reject a custom temperature.</li>
+<li><strong><code>usage</code></strong>: <code>prompt_tokens</code> and <code>completion_tokens</code> are what the provider bills. In the installed <code>openai</code> 2.54.0, <code>usage.completion_tokens_details.reasoning_tokens</code> reports how many of the completion tokens were hidden reasoning. Lesson 2.3 is about that field.</li>
 </ul>
-<p>The notebook reads the key with <code>getpass</code> and sets <code>openai.api_key</code>, the SDK&rsquo;s module-level client. Lessons 2.3 and 2.4 create <code>OpenAI()</code> instead, which reads <code>OPENAI_API_KEY</code> from the environment loaded from <code>.env</code>. Either way the key stays out of the code and out of the notebook&rsquo;s saved state.</p>
+<p>The notebook reads the key with <code>getpass</code> and sets it on the SDK&rsquo;s module-level client. Lessons 2.3 and 2.4 create a client object instead, which reads <code>OPENAI_API_KEY</code> from the environment loaded from <code>.env</code>. Either way the key stays out of the code and out of the notebook&rsquo;s saved state.</p>
 <h2 id="the-responses-api">The Responses API</h2>
-<p>The notebook uses Chat Completions, which OpenAI still supports. For new projects, OpenAI&rsquo;s migration guide recommends its newer Responses API. The same call in the Responses API, which the installed <code>openai</code> 2.54.0 supports:</p>
-<pre class="sheet code"><code class="language-python">from openai import OpenAI
-
-client = OpenAI()  # reads OPENAI_API_KEY
-response = client.responses.create(
-    model=MODEL,  # a current model ID from the provider's models page, pinned
-    instructions=&quot;Answer only from the handbook excerpts.&quot;,
-    input=prompt,
-    temperature=0.1,
-)
-response.output_text
-</code></pre>
+<p>The notebook uses Chat Completions, which OpenAI still supports. For new projects, OpenAI&rsquo;s migration guide recommends its newer <strong>Responses API</strong>. The installed <code>openai</code> 2.54.0 supports it, and the same call maps field by field:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -409,6 +402,41 @@ response.output_text
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: The same call in both OpenAI APIs.</em></p>
+<p>The follow-up turn shows the difference in state. Under Chat Completions your code holds the conversation:</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant App as Your code
+    participant API as Chat Completions
+    App-&gt;&gt;API: system + refund question
+    API--&gt;&gt;App: reply 1
+    App-&gt;&gt;API: system + refund question + reply 1 + annual question
+    API--&gt;&gt;App: reply 2
+</pre></figure>
+<p><em>Figure 2: Chat Completions. The application resends every earlier turn.</em></p>
+<p>Under the Responses API with <code>previous_response_id</code>, OpenAI holds it:</p>
+<figure class="sheet chart"><pre class="mermaid">sequenceDiagram
+    participant App as Your code
+    participant API as Responses API
+    participant Store as OpenAI storage
+    App-&gt;&gt;API: instructions + refund question
+    API-&gt;&gt;Store: save response 1
+    API--&gt;&gt;App: reply 1, response id
+    App-&gt;&gt;API: instructions + annual question + previous_response_id
+    Store--&gt;&gt;API: earlier turns
+    API--&gt;&gt;App: reply 2
+</pre></figure>
+<p><em>Figure 3: Responses API. The application sends only the new turn and an id.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="state-switcher">
+<p class="widget-intro">Follow the second Larkspur turn, the annual-plans question, through each API and compare what is sent, billed and stored.</p>
+<div class="mode-controls" hidden role="group" aria-label="API used for the follow-up turn">
+<button type="button" data-mode="chat" aria-pressed="false" aria-controls="state-chat">Chat Completions</button>
+<button type="button" data-mode="responses" aria-pressed="false" aria-controls="state-responses">Responses with an id</button>
+</div>
+<section id="state-chat" class="mode-panel" data-announcement="Chat Completions: your code resends the history."><h4>Chat Completions</h4><dl><dt>Your request carries</dt><dd>the system message, the refund question, reply 1 and the annual question</dd><dt>Billed as input</dt><dd>every one of those turns</dd><dt>Who keeps the history</dt><dd>your code; storage by OpenAI is on by default only for new accounts</dd></dl></section>
+<section id="state-responses" class="mode-panel" data-announcement="Responses with an id: OpenAI keeps the history, and it is still billed."><h4>Responses with <code>previous_response_id</code></h4><dl><dt>Your request carries</dt><dd>the instructions again, the annual question and the previous response's id</dd><dt>Billed as input</dt><dd>every earlier turn still, because the history reaches the model</dd><dt>Who keeps the history</dt><dd>OpenAI, which stores responses by default unless you pass <code>store=False</code></dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Four differences change what you build:</p>
 <ul>
 <li><strong><code>previous_response_id</code> still bills the history.</strong> The earlier turns reach the model and are billed as input tokens, so a long conversation costs what it did under Chat Completions.</li>
@@ -450,12 +478,24 @@ response.output_text
 </tr>
 </tbody>
 </table></div>
-<p>The notebook hides the difference behind one function, <code>get_completion(prompt, model)</code>, which branches on the model name. The rest of the code calls one function, so switching provider is a one-argument change. Two details of the notebook&rsquo;s version are worth fixing before you copy it:</p>
+<p><em>Table 2: The notebook&rsquo;s OpenAI and Gemini calls side by side.</em></p>
+<p>The notebook hides the difference behind one function, <code>get_completion(prompt, model)</code>, which branches on the model name. The rest of the code calls one function, and switching provider becomes a one-argument change. Two details of the notebook&rsquo;s version are worth fixing before you copy it:</p>
 <ul>
-<li><strong>It fails quietly.</strong> Any model name other than exactly <code>"gpt-4o"</code> or <code>"gemini-2.5-pro"</code> returns the string <code>"LLM not configured! ..."</code> as if it were an answer. A typo such as <code>"gpt-4o-mini"</code> prints that sentence where the model&rsquo;s reply should be. A wrapper you own should raise on a model it does not know.</li>
-<li><strong>The Gemini package is retired.</strong> The installed <code>google-generativeai</code> 0.8.6 describes itself as deprecated and legacy, with all support ended on November 30, 2025; its successor is <code>google-genai</code>, which this repository also installs. The notebook&rsquo;s Gemini cells still show the shape of a second SDK, which is their point here.</li>
+<li><strong>It fails quietly.</strong> Any model name other than exactly <code>"gpt-4o"</code> or <code>"gemini-2.5-pro"</code> returns the string <code>"LLM not configured! ..."</code> as if it were an answer. A typo such as <code>"gpt-4o-mini"</code> prints that sentence where the model&rsquo;s reply should be. We call this a <strong>placeholder answer</strong>; a wrapper you own should raise on a model it does not know.</li>
+<li><strong>The Gemini package is retired.</strong> The installed <code>google-generativeai</code> 0.8.6 describes itself as legacy, with all support ended on 30 November 2025; its successor is <code>google-genai</code>, which this repository also installs. The notebook&rsquo;s Gemini cells still show the shape of a second SDK, which is their point here.</li>
 </ul>
 <p>LangChain (M06) is the general version of <code>get_completion</code>: one chat-model interface over many providers, so a RAG chain does not change when the generator does.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No live calls.</strong> The notebook ships without outputs and this page made no API calls. Field names and defaults come from the installed <code>openai</code> 2.54.0 and <code>google-generativeai</code> 0.8.6 and from OpenAI&rsquo;s migration guide, read in November 2026.</li>
+<li><strong>Moving targets.</strong> Model names, storage defaults and which tools need the Responses API change with provider releases. Check them again before relying on them.</li>
+<li><strong>The annual-plans follow-up is illustrative.</strong> It shows the state difference; it is not a recorded conversation.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://developers.openai.com/api/docs/guides/migrate-to-responses" target="_blank" rel="noopener">migrating to the Responses API</a>, on state, storage and billing of <code>previous_response_id</code>.</li>
+<li>Google, <a href="https://aistudio.google.com/docs/migrate" target="_blank" rel="noopener">migrating to the Google Gen AI SDK</a>, the successor to <code>google-generativeai</code>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A chat completion is one stateless HTTP call: a model, a list of role and content messages, and a reply with <code>usage</code>. Every turn resends the history, so long conversations cost more each turn.</li>
@@ -473,11 +513,21 @@ response.output_text
 </details>
 <details>
 <summary>3. You are starting a new Gemini integration. Should you copy the notebook's google-generativeai calls?</summary>
-<p>No. The installed <code>google-generativeai</code> 0.8.6 describes itself as deprecated and legacy, with support ended on November 30, 2025; its successor is <code>google-genai</code>, which the repository also installs. The notebook&rsquo;s Gemini cells are there to show the shape of a second SDK, and one interface over both providers (<code>get_completion</code> here, LangChain in M06) keeps the rest of the code unchanged when you switch.</p>
+<p>No. The installed <code>google-generativeai</code> 0.8.6 describes itself as legacy, with support ended on 30 November 2025; its successor is <code>google-genai</code>, which the repository also installs. The notebook&rsquo;s Gemini cells are there to show the shape of a second SDK, and one interface over both providers (<code>get_completion</code> here, LangChain in M06) keeps the rest of the code unchanged when you switch.</p>
 </details>
 <h2 id="inference-endpoints">Inference endpoints</h2>
 <p class="lesson-of">Lesson 2.2: Open-source LLMs via Hugging Face Inference and locally. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/notebook/02a_open_source_llms_via_hugging_face_inference_api.ipynb" target="_blank" rel="noopener"><code>02a_open_source_llms_via_hugging_face_inference_api.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/optional/notebook/02b_open_source_llms_locally.ipynb" target="_blank" rel="noopener"><code>02b_open_source_llms_locally.ipynb</code></a> (optional)</p>
-<p>An inference endpoint is a server that holds a model&rsquo;s weights and answers calls to it. For an open model you choose who runs that server. The notebooks show two of the three options:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Compare</strong> the three places an open model can run: a vendor, a routed provider, or your own GPU.</li>
+<li><strong>Explain</strong> why the same model id can reach different servers, and what to record with each answer.</li>
+<li><strong>Diagnose</strong> a client that sends a token you thought you had left out.</li>
+<li><strong>Explain</strong> the steps a hosted endpoint performs that a local run makes you do yourself.</li>
+</ul>
+</blockquote>
+<p>Two runs of the same Llama question through Hugging Face come back with different latencies, and nobody changed the code. The model id was the same both times. The server was not, and the client never said which one it wanted.</p>
+<p>An <strong>inference endpoint</strong> is a server that holds a model&rsquo;s weights and answers calls to it. For an open model you choose who runs that server. The notebooks show two of the three options:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -508,27 +558,76 @@ response.output_text
 </tr>
 </tbody>
 </table></div>
-<p>The 02a notebook calls <code>meta-llama/Llama-3.1-8B-Instruct</code>, an 8B-parameter instruction-tuned model, and <code>deepseek-ai/DeepSeek-V3-0324</code> with the same messages and <code>max_tokens=1000</code>. The client mirrors the OpenAI call on purpose: <code>client.chat.completions.create(model=..., messages=...)</code> and <code>completion.choices[0].message.content</code>. Code written against the OpenAI shape moves to an open model by changing the client and the model id.</p>
+<p><em>Table 1: Three places an open model can run.</em></p>
+<p>Notebook 02a calls <code>meta-llama/Llama-3.1-8B-Instruct</code>, an 8B-parameter instruction-tuned model, and <code>deepseek-ai/DeepSeek-V3-0324</code> with the same messages and <code>max_tokens=1000</code>. The client mirrors the OpenAI call on purpose: the same <code>chat.completions.create</code> method with a model and messages, and the reply in the first choice&rsquo;s message content. Code written against the OpenAI shape moves to an open model by changing the client and the model id.</p>
 <p>Two details of the hosted path decide what you are actually calling:</p>
 <ul>
-<li><strong>The model id names the weights, not the server.</strong> In the installed <code>huggingface_hub</code> 1.16.1, a chat call with no <code>provider</code> argument defaults to server-side auto routing: Hugging Face picks a provider that hosts the model. Latency and price can differ by provider, so a production client passes <code>provider=</code> explicitly and records it with each answer.</li>
-<li><strong>The notebook&rsquo;s &ldquo;client without API key&rdquo; still sends one.</strong> It creates <code>InferenceClient()</code> with no token, after setting <code>HF_TOKEN</code> in the environment. With <code>token=None</code> the library falls back to <code>HF_TOKEN</code>, so both of the notebook&rsquo;s clients are authenticated; <code>build_hf_headers(token=None)</code> returns the bearer token from the environment. To send no token at all, pass <code>token=False</code>.</li>
+<li><strong>The model id names the weights, not the server.</strong> In the installed <code>huggingface_hub</code> 1.16.1, a chat call with no <code>provider</code> argument defaults to <code>"auto"</code>: Hugging Face routes the call to a provider that hosts the model, by default the fastest one. Latency and price can differ by provider, so a production client passes <code>provider=</code> explicitly and records it with each answer. We call the alternative <strong>unpinned routing</strong>.</li>
+<li><strong>The notebook&rsquo;s &ldquo;client without API key&rdquo; still sends one.</strong> It creates a client with no token after setting <code>HF_TOKEN</code> in the environment. With <code>token=None</code> the library falls back to <code>HF_TOKEN</code>, so both of the notebook&rsquo;s clients are authenticated; building the request headers with <code>token=None</code> returns the bearer token from the environment. To send no token at all, pass <code>token=False</code>.</li>
 </ul>
+<blockquote>
+<p><strong>Pitfall: unpinned routing.</strong> Two answers to the same question can come from different providers with different latency, price and serving settings. Without the provider recorded, a regression cannot be traced to its cause.</p>
+</blockquote>
 <p>The notebooks price only the OpenAI models, so this module has no per-answer figure for the open ones. Measure them the same way lesson 2.4 measures <code>o4-mini</code>: from <code>usage</code> where the provider returns it, or from GPU hours when you host the model.</p>
 <h2 id="running-a-model-locally">Running a model locally</h2>
-<p>The optional 02b notebook loads <code>google/recurrentgemma-2b-it</code> with <code>transformers</code> in <code>bfloat16</code> on a CUDA device, and states that it needs at least 5 GB of GPU memory. Running locally exposes the steps a hosted endpoint does for you:</p>
+<p>Optional notebook 02b loads <code>google/recurrentgemma-2b-it</code> with <code>transformers</code> in <code>bfloat16</code> on a CUDA device, and states that it needs at least 5 GB of GPU memory. Running locally exposes the steps a hosted endpoint does for you:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     C[/"chat&lt;br/&gt;role + content"/] --&gt; T["apply_chat_template&lt;br/&gt;add_generation_prompt"]
     T --&gt; E[encode to ids]
     E --&gt; G["generate&lt;br/&gt;max_new_tokens"]
     G --&gt; D[/decode/]
 </pre></figure>
+<p><em>Figure 1: The local generation path, from chat messages to decoded text.</em></p>
+<p>Each step has one thing to get right:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What it does</th>
+<th>What goes wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chat template</td>
+<td>Writes the model&rsquo;s own markup around roles, ending with the cue for the assistant&rsquo;s turn</td>
+<td>A wrong template gives fluent but off-format replies</td>
+</tr>
+<tr>
+<td>Encode</td>
+<td>Turns the templated text into token ids, without adding special tokens again</td>
+<td>Adding them twice duplicates the start markers</td>
+</tr>
+<tr>
+<td>Generate</td>
+<td>Extends the ids, capped by <code>max_new_tokens</code> (150 in the first call) or <code>max_length</code> (prompt plus reply)</td>
+<td>Setting both is redundant; the notebook uses one or the other</td>
+</tr>
+<tr>
+<td>Decode</td>
+<td>Turns ids back into text</td>
+<td><code>generate</code> returns the prompt ids followed by the new ones</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The four local steps and their failure points.</em></p>
 <ul>
-<li><strong>The chat template.</strong> Each chat model was trained on its own markup around roles. <code>tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)</code> writes that markup, and the notebook encodes the result with <code>add_special_tokens=False</code> because the template already added them. A hosted endpoint applies the template on the server; locally a wrong template gives fluent but off-format replies.</li>
-<li><strong>Generation settings.</strong> <code>max_new_tokens</code> caps the reply (150 in the first call); <code>max_length</code> caps prompt plus reply, so the notebook uses one or the other. <code>do_sample=False</code> is greedy decoding, the same answer every run; <code>do_sample=True, temperature=0.5</code> samples.</li>
-<li><strong>What comes back.</strong> <code>model.generate</code> returns the prompt&rsquo;s token ids followed by the new ones, so <code>tokenizer.decode(outputs[0])</code> prints the template and the question before the answer. The <code>pipeline("text-generation", ...)</code> call with <code>return_full_text=False</code> returns only the new text.</li>
+<li><strong>The chat template.</strong> Each chat model was trained on its own markup around roles. A hosted endpoint applies the template on the server; locally you call it yourself with the generation prompt switched on, then encode the result with <code>add_special_tokens=False</code> because the template already added them.</li>
+<li><strong>Generation settings.</strong> <code>do_sample=False</code> is greedy decoding, the same answer every run; sampling with a temperature of 0.5 varies it.</li>
+<li><strong>What comes back.</strong> Decoding the whole first output prints the template and the question before the answer. The text-generation <code>pipeline</code> with <code>return_full_text=False</code> returns only the new text.</li>
 </ul>
-<p>The notebook&rsquo;s markdown calls the model &ldquo;Google Gemma 2B IT&rdquo; while the code loads RecurrentGemma, a recurrent variant that the notebook says needs less memory than Gemma on long sequences. The model id in the code is the one that runs.</p>
+<p>The notebook&rsquo;s Markdown calls the model &ldquo;Google Gemma 2B IT&rdquo; while the code loads RecurrentGemma, a recurrent variant that the notebook says needs less memory than Gemma on long sequences. The model id in the code is the one that runs.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>No calls made.</strong> Both notebooks ship without outputs, and neither the hosted calls nor the local GPU run were repeated for this page. The routing default and the token fallback were read from the installed <code>huggingface_hub</code> 1.16.1, and the fallback was checked by building headers.</li>
+<li><strong>Providers change.</strong> Which providers host a model, and which one is fastest, change over time; that is the reason to record the provider.</li>
+<li><strong>No open-model prices.</strong> This module has no measured cost for the open models.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Hugging Face, <a href="https://huggingface.co/docs/inference-providers/index" target="_blank" rel="noopener">Inference Providers</a>, on routing a model id to a provider.</li>
+<li>Hugging Face, <a href="https://huggingface.co/docs/transformers/chat_templating" target="_blank" rel="noopener">chat templates</a>, on applying a model&rsquo;s role markup and the generation prompt.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>For an open model you choose who runs the weights: a routed provider through Hugging Face Inference or your own GPU. The client mirrors the OpenAI call, so moving code means changing the client and the model id.</li>
@@ -550,7 +649,17 @@ response.output_text
 </details>
 <h2 id="reasoning-models">Reasoning models</h2>
 <p class="lesson-of">Lesson 2.3: Reasoning vs non-reasoning models. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/notebook/03a_Reasoning_vs_NonReasoning.ipynb" target="_blank" rel="noopener"><code>03a_Reasoning_vs_NonReasoning.ipynb</code></a></p>
-<p>&ldquo;Think step by step&rdquo; is a prompt: you ask an ordinary model to write its working into the answer, and you can read every word. A reasoning model is trained to work before it answers. It produces reasoning tokens internally, decides how many to spend, and returns only the conclusion. The notebook sums up the difference in three rows:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a reasoning model differs from prompting an ordinary model to think step by step.</li>
+<li><strong>Calculate</strong> a call&rsquo;s real cost when most of its output tokens are hidden.</li>
+<li><strong>Diagnose</strong> an effort setting that never reached the model.</li>
+<li><strong>Choose</strong> between a fast model and a reasoning model for a given question.</li>
+</ul>
+</blockquote>
+<p>A team switches the Larkspur generator to a reasoning model, estimates the new bill from the length of the replies, and on a short answer is off by a factor of 57 (an illustrative case, priced in Figure 1). The replies were the same length as before. Almost everything they paid for was text they never received.</p>
+<p>&ldquo;Think step by step&rdquo; is a prompt: you ask an ordinary model to write its working into the answer, and you can read every word. A <strong>reasoning model</strong> is trained to work before it answers. It produces reasoning tokens internally, decides how many to spend, and returns only the conclusion. The notebook sums up the difference in three rows:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -577,6 +686,7 @@ response.output_text
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: Prompted thinking against a reasoning model.</em></p>
 <p>The notebook runs the same prompt through <code>gpt-4o-mini</code> (fast) and <code>o4-mini</code> (reasoning) and records four numbers per call: seconds, output tokens, reasoning tokens and whether the answer was right. Its <code>PRICING</code> constants, which it tells you to replace with today&rsquo;s prices, are USD per million tokens:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -599,6 +709,7 @@ response.output_text
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 2: The notebook&rsquo;s prices, USD per million tokens. They date from when the notebook was written.</em></p>
 <p>At those prices <code>o4-mini</code> costs 7.3 times as much per token, in and out, before it spends a single reasoning token. The two tasks are chosen to land on opposite sides of the decision:</p>
 <ul>
 <li><strong>Task A, a constraint puzzle.</strong> Five services deploy Monday to Friday; <code>auth</code> before <code>billing</code>, <code>search</code> the day after <code>billing</code>, <code>notify</code> on Monday, <code>reporting</code> not on Friday. Which deploys on Friday? Only <code>search</code> fits, but getting there means holding four constraints at once, and a wrong early step gives a confident wrong answer. The notebook warns that the fast model is often right only some of the time, so a single happy-path test can pass it.</li>
@@ -606,16 +717,36 @@ response.output_text
 </ul>
 <h2 id="the-invisible-bill">The invisible bill</h2>
 <p><code>completion_tokens</code> is what you are charged for at the output rate. <code>reasoning_tokens</code>, under <code>usage.completion_tokens_details</code>, is the part of it you never receive. The notebook&rsquo;s cost function makes that explicit:</p>
-<pre class="sheet code"><code class="language-python"># reasoning tokens are already inside completion_tokens; they bill at the output rate
-cost = (prompt_tokens / 1e6) * input_price + (completion_tokens / 1e6) * output_price
-visible = completion_tokens - reasoning_tokens
-</code></pre>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>How the notebook computes it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cost</td>
+<td>prompt tokens × input price + completion tokens × output price, each per million</td>
+</tr>
+<tr>
+<td>Reasoning tokens</td>
+<td>already inside completion tokens, billed at the output rate</td>
+</tr>
+<tr>
+<td>Visible tokens</td>
+<td>completion tokens minus reasoning tokens</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The notebook&rsquo;s cost arithmetic. Reasoning tokens are never added on top; they are already counted.</em></p>
 <p>On a short answer the hidden part is almost all of the bill. The figure prices one <code>o4-mini</code> call on the first problem of lesson 2.4: 38 prompt tokens counted with <code>o200k_base</code>, a three-token answer (<code>12:25</code>), and 700 reasoning tokens, the lab&rsquo;s representative medium setting.</p>
 <figure class="diagram"><img src="03_reasoning_vs_non_reasoning_models/diagrams/invisible-bill.svg" width="800" height="330" alt="Bars to scale for one o4-mini call on the first problem of lesson 2.4, with 700 reasoning tokens (the lab’s medium setting) at the notebook’s prices. Tokens: 38 prompt, 700 reasoning, 3 visible answer. Cost: $0.000042 for the prompt, $0.003080 for reasoning, $0.000013 for the answer, $0.003135 in all. An estimate from the prompt and the reply text gives $0.000055, 57 times less than the bill."></figure>
-<p>Two habits follow:</p>
+<p><em>Figure 1: One <code>o4-mini</code> call to scale. The arithmetic was recomputed from the notebook&rsquo;s prices.</em></p>
+<p>We call the gap the <strong>invisible bill</strong>. Two habits follow:</p>
 <ul>
 <li><strong>Never estimate spend from the reply text.</strong> Priced from its prompt and reply, that call costs $0.000055; the bill says $0.003135. Log <code>usage</code> per request and sum it.</li>
-<li><strong>Check that reasoning tokens move.</strong> The fast model reports 0. If a reasoning model also reports 0, or the count stays flat while you raise the effort in lesson 2.4, the parameter never reached the model, and any conclusion about effort is drawn from a test that never ran.</li>
+<li><strong>Check that reasoning tokens move.</strong> The fast model reports 0. If a reasoning model also reports 0, or the count stays flat while you raise the effort in lesson 2.4, the parameter never reached the model. We call that a <strong>dead dial</strong>: any conclusion about effort is drawn from a test that never ran.</li>
 </ul>
 <h2 id="when-reasoning-pays">When reasoning pays</h2>
 <p>The notebook reduces the choice to one question: does the task have a step where being wrong is expensive and pattern-matching is not enough? As a chain:</p>
@@ -628,13 +759,30 @@ visible = completion_tokens - reasoning_tokens
     Q3 -- yes --&gt; F3["Fast model,&lt;br/&gt;sample and check"]
     Q3 -- no --&gt; RM["Reasoning model&lt;br/&gt;set effort, lesson 2.4"]
 </pre></figure>
-<p>For the Larkspur generator:</p>
-<ul>
-<li><strong><em>How long does a refund take?</em></strong> The answer is one sentence of the <code>refund-timing</code> chunk. This is Task B&rsquo;s shape, and a reasoning model only adds latency and cost.</li>
-<li><strong><em>Can I get a refund after 45 days?</em></strong> The model has to combine the 30-day window, the plan type and the proration rule. A wrong amount turns into a support ticket, so this is Task A&rsquo;s shape.</li>
-<li><strong>Benchmark both kinds.</strong> Run your own hard case and your own easy case through both models. A benchmark of hard cases alone recommends the reasoning model for everything, including the lookups that make up most of the traffic.</li>
-</ul>
+<p><em>Figure 2: Choosing between a fast model and a reasoning model.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="question-switcher">
+<p class="widget-intro">Run two Larkspur questions down the chain in Figure 2 and see where each one lands.</p>
+<div class="mode-controls" hidden role="group" aria-label="Larkspur question">
+<button type="button" data-mode="timing" aria-pressed="false" aria-controls="q-timing">How long does a refund take?</button>
+<button type="button" data-mode="window" aria-pressed="false" aria-controls="q-window">Refund after 45 days?</button>
+</div>
+<section id="q-timing" class="mode-panel" data-announcement="Refund time: fast model."><h4>How long does a refund take?</h4><dl><dt>Answer in one chunk</dt><dd>yes, one sentence of the <code>refund-timing</code> chunk</dd><dt>Shape</dt><dd>Task B, an extraction</dd><dt>Verdict</dt><dd>fast model; a reasoning model adds only latency and cost</dd></dl></section>
+<section id="q-window" class="mode-panel" data-announcement="Refund after 45 days: reasoning model."><h4>Can I get a refund after 45 days?</h4><dl><dt>Answer in one chunk</dt><dd>no, it combines the 30-day window, the plan type and the proration rule</dd><dt>Cost of a wrong answer</dt><dd>a wrong amount turns into a support ticket</dd><dt>Verdict</dt><dd>Task A's shape: a reasoning model, with effort swept in lesson 2.4</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p><strong>Benchmark both kinds.</strong> Run your own hard case and your own easy case through both models. A benchmark of hard cases alone recommends the reasoning model for everything, including the lookups that make up most of the traffic.</p>
 <p>Sending each question to the right model at run time is routing by model tier, built in <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html#routing-by-model-tier">M24 lesson 24.2</a>.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Representative token count.</strong> The 700 reasoning tokens in Figure 1 are the lab&rsquo;s representative medium setting, not a measured call; the notebook ships without outputs. The prompt and answer tokens were counted with <code>o200k_base</code>.</li>
+<li><strong>Prices date.</strong> Table 2 holds the notebook&rsquo;s prices, which it tells you to replace. The 7.3 ratio and the dollar figures move with them; the hidden share of the bill depends only on <code>o4-mini</code>&rsquo;s own input and output prices.</li>
+<li><strong>Two tasks.</strong> Task A and Task B show the two ends of the decision. They are not a benchmark of either model.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://developers.openai.com/api/docs/guides/reasoning" target="_blank" rel="noopener">reasoning models guide</a>, on reasoning tokens, how they are billed and how to read them from <code>usage</code>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A reasoning model decides how much to think and bills hidden reasoning tokens at the output rate. At the notebook&rsquo;s prices <code>o4-mini</code> also costs 7.3 times as much per token as <code>gpt-4o-mini</code>.</li>
@@ -656,8 +804,18 @@ visible = completion_tokens - reasoning_tokens
 </details>
 <h2 id="cost-vs-accuracy">Cost vs accuracy</h2>
 <p class="lesson-of">Lesson 2.4: Reasoning-effort levers and cost. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m02_llm_apis_and_model_selection/mandatory/notebook/04a_Reasoning_Effort_Levers.ipynb" target="_blank" rel="noopener"><code>04a_Reasoning_Effort_Levers.ipynb</code></a></p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> what <code>reasoning_effort</code> changes, in tokens.</li>
+<li><strong>Calculate</strong> the price of each step up the dial in dollars per extra accuracy point.</li>
+<li><strong>Diagnose</strong> a sweep whose grader, not the model, sets the ceiling.</li>
+<li><strong>Recognise</strong> a task where effort is the wrong lever, and name the real fix.</li>
+</ul>
+</blockquote>
+<p>Someone sets <code>reasoning_effort</code> to <code>high</code> everywhere, reasoning that more thinking cannot hurt. On the representative sweep below that costs $48.40 more per 10,000 answers than <code>medium</code> and gets no extra problem right. The dial has a price per step, and most of the steps are not worth paying for.</p>
 <p><code>reasoning_effort</code> changes one thing: how many reasoning tokens the model is willing to spend before it commits to an answer. The model, the prompt and the output format stay the same. More reasoning tokens mean more latency and more cost at the output rate, and a better answer only when the task had something to deliberate about. The notebook sweeps <code>o4-mini</code> at <code>low</code>, <code>medium</code> and <code>high</code>; the installed <code>openai</code> 2.54.0 also types <code>none</code>, <code>minimal</code>, <code>xhigh</code> and <code>max</code>, and the notebook says to trim the list to what your model accepts.</p>
-<p>The sweep is six problems at three levels with <code>TRIALS = 1</code>: 18 calls, a few cents. The problems mix easy and hard on purpose (a train arrival time, retry backoff, the deployment puzzle from lesson 2.3, LRU eviction, a syllogism, a coin-weighing puzzle), because one question gives a coin flip, not a measurement.</p>
+<p>The sweep is six problems at three levels with one trial each: 18 calls, a few cents. The problems mix easy and hard on purpose (a train arrival time, retry backoff, the deployment puzzle from lesson 2.3, LRU eviction, a syllogism, a coin-weighing puzzle), because one question gives a coin flip, not a measurement.</p>
 <figure class="anim sheet" aria-labelledby="anim-sweep-cap">
   <div class="anim__canvas" tabindex="0" aria-label="The effort sweep, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 330" role="img" aria-labelledby="anim-sweep-title anim-sweep-desc">
@@ -727,10 +885,9 @@ visible = completion_tokens - reasoning_tokens
     <li><button type="button" data-tok="20,262">Knee</button><span>The knee is the last step you would pay for: medium, at a $2 threshold.</span></li>
   </ol>
 </figure>
-<p>Each step up the dial gets one line in the notebook&rsquo;s marginal table:</p>
-<pre class="sheet code"><code>$ per +1pp = (cost of this level - cost of the level below) / (accuracy gain * 100)
-</code></pre>
-<p>A step with no accuracy gain reads <code>no gain</code>, and the notebook&rsquo;s rule is that every step after one is pure cost. The knee is the last step whose price per point you would pay. The usual shape, in the notebook&rsquo;s words, is &ldquo;a step then a plateau&rdquo;: a real gain from <code>low</code> to <code>medium</code>, much less from <code>medium</code> to <code>high</code>, while cost and latency keep climbing.</p>
+<p><em>Figure 1: The effort sweep. Each level runs the same six problems, and each step up is priced against the level below.</em></p>
+<p>Each step up the dial gets one line in the notebook&rsquo;s marginal table. Its price is the cost of this level minus the cost of the level below, divided by the accuracy gain in percentage points: <strong>dollars per extra point</strong>. A step with no accuracy gain reads <code>no gain</code>, and the notebook&rsquo;s rule is that every step after one is pure cost.</p>
+<p>The <strong>knee</strong> is the last step whose price per point you would pay. The usual shape, in the notebook&rsquo;s words, is &ldquo;a step then a plateau&rdquo;: a real gain from <code>low</code> to <code>medium</code>, much less from <code>medium</code> to <code>high</code>, while cost and latency keep climbing.</p>
 <p>The <a href="04_reasoning_effort_levers_and_cost/interactive/effort-knee-lab.html">interactive lab</a> prices that sweep with the notebook&rsquo;s own cost and marginal code, adds <code>gpt-4o-mini</code> from lesson 2.3 as the first rung, and scales each figure to 10,000 answers. The notebooks save no outputs, so the accuracy and reasoning-token inputs are representative: 3, 4, 5 and 5 problems right, and 250, 700 and 1,800 reasoning tokens per call. The prompt and answer tokens are counted from the notebook&rsquo;s six problems. With those inputs:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -773,15 +930,19 @@ visible = completion_tokens - reasoning_tokens
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: The lab&rsquo;s representative sweep, recomputed by running the lab&rsquo;s own code.</em></p>
 <figure class="lab-embed"><iframe src="04_reasoning_effort_levers_and_cost/interactive/effort-knee-lab.html" title="Where effort stops paying, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Where effort stops paying. <a href="04_reasoning_effort_levers_and_cost/interactive/effort-knee-lab.html">Open full screen</a></figcaption></figure>
 <p>Three things to take from the table:</p>
 <ul>
 <li><strong>The knee depends on what a point is worth to you.</strong> At $2 per point per 10,000 answers the lab stops at medium. Below $1.19 it stops at low, and below $0.68 the fast model wins. Going to high costs $48.40 more per 10,000 answers than medium for nothing.</li>
-<li><strong>Six problems make a coarse ruler.</strong> Each problem is 17 points, so one flipped answer moves the knee. The notebook&rsquo;s <code>TRIALS</code> raises the count at linear cost; a production sweep wants 20 or more questions drawn from real traffic.</li>
-<li><strong>Audit the grader before the dial.</strong> The notebook grades by substring: the expected text must appear in the answer. Its LRU problem expects <code>c</code>, but in a 4-entry LRU cache with accesses <code>A B C D A E</code>, inserting <code>E</code> evicts <code>B</code>; <code>C</code> goes only when <code>B</code> comes back. A model that answers <code>B</code> is marked wrong at every level and caps at 5 of 6, while a wrong <code>C</code>, or any reply containing the letter c such as &ldquo;B is evicted&rdquo;, earns the point.</li>
+<li><strong>Six problems make a coarse ruler.</strong> Each problem is 17 points, so one flipped answer moves the knee. The notebook&rsquo;s trial count raises the sample at linear cost; a production sweep wants 20 or more questions drawn from real traffic.</li>
+<li><strong>Audit the grader before the dial.</strong> The notebook grades by substring: the expected text must appear in the answer. Its LRU problem expects <code>c</code>, but in a 4-entry LRU cache with accesses <code>A B C D A E</code>, inserting <code>E</code> evicts <code>B</code>; <code>C</code> goes only when <code>B</code> comes back. A model that answers <code>B</code> is marked wrong at every level and caps at 5 of 6, while a wrong <code>C</code>, or any reply containing the letter c such as &ldquo;B is evicted&rdquo;, earns the point. We call this a <strong>grader ceiling</strong>.</li>
 </ul>
+<blockquote>
+<p><strong>Pitfall: grader ceiling.</strong> A sweep that plateaus at the same score on every level may be measuring its answer key. Check each expected answer by hand, and grade by exact match rather than by substring.</p>
+</blockquote>
 <h2 id="when-effort-is-the-wrong-lever">When effort is the wrong lever</h2>
-<p>The notebook&rsquo;s last task cannot be solved by thinking: <em>What was the total refund value processed by our EU billing service last Tuesday?</em>, with the instruction to reply <code>INSUFFICIENT DATA</code> when the data is missing. Every level should reach the same reply, and the higher levels pay more reasoning tokens to get there. Flat accuracy with climbing reasoning tokens is the signature of the wrong lever; the lab&rsquo;s <em>Wrong lever</em> shape shows its bill.</p>
+<p>The notebook&rsquo;s last task cannot be solved by thinking: <em>What was the total refund value processed by our EU billing service last Tuesday?</em>, with the instruction to reply <code>INSUFFICIENT DATA</code> when the data is missing. Every level should reach the same reply, and the higher levels pay more reasoning tokens to get there. Flat accuracy with climbing reasoning tokens is the signature of the <strong>wrong lever</strong>; the lab&rsquo;s <em>Wrong lever</em> shape shows its bill.</p>
 <p>The notebook&rsquo;s table of real fixes, as a chain:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q1{"Is a fact&lt;br/&gt;missing?"}
@@ -792,7 +953,18 @@ visible = completion_tokens - reasoning_tokens
     Q3 -- yes --&gt; F3["A non-reasoning model&lt;br/&gt;or plain code"]
     Q3 -- no --&gt; F4["Genuinely hard:&lt;br/&gt;now raise effort"]
 </pre></figure>
-<p>Only the last box is an effort problem. For the Larkspur assistant, <em>How much was my last refund?</em> is the first box: the amount lives in the billing system, so the fix is a tool call to the account API (M22), and <em>Can I get a refund after 45 days?</em> is the last box, where effort is worth sweeping.</p>
+<p><em>Figure 2: The fix for each kind of failure. Only the last box is an effort problem.</em></p>
+<p>For the Larkspur assistant, <em>How much was my last refund?</em> is the first box: the amount lives in the billing system, and the fix is a tool call to the account API (M22). <em>Can I get a refund after 45 days?</em> is the last box, where effort is worth sweeping.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Representative inputs.</strong> The accuracy counts and reasoning-token figures in Table 1 are representative; the notebook saves no outputs and no sweep was run for this page. The dollar figures follow exactly from those inputs and the notebook&rsquo;s prices.</li>
+<li><strong>Notebook prices.</strong> The prices are the notebook&rsquo;s <code>PRICING</code> constants, which it tells you to replace with today&rsquo;s.</li>
+<li><strong>Notebook answer key.</strong> The LRU problem&rsquo;s expected answer is wrong as committed, so a real run of the notebook caps a correct model at 5 of 6 on that problem.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>OpenAI, <a href="https://developers.openai.com/api/docs/guides/reasoning" target="_blank" rel="noopener">reasoning models guide</a>, on the effort setting and how reasoning tokens are billed.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li><code>reasoning_effort</code> changes only how many reasoning tokens the model spends. Sweep it, price each step in dollars per extra accuracy point, and stop at the last step you would pay for.</li>
@@ -868,7 +1040,7 @@ visible = completion_tokens - reasoning_tokens
 <li>Use a reasoning model where a wrong intermediate step is expensive, and a fast model or plain code where the answer is already in the input.</li>
 <li>Choose an effort level with dollars per extra accuracy point on a mixed set, and fix missing facts, vague prompts and wrong labels before you turn the dial.</li>
 </ul></article>
-    <nav class="toc" aria-label="M02 sections"><details open><summary>In M02</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chat-completions">Chat completions</a></li><li><a href="#the-responses-api">The Responses API</a></li><li><a href="#two-sdks-two-shapes">Two SDKs, two shapes</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#inference-endpoints">Inference endpoints</a></li><li><a href="#running-a-model-locally">Running a model locally</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reasoning-models">Reasoning models</a></li><li><a href="#the-invisible-bill">The invisible bill</a></li><li><a href="#when-reasoning-pays">When reasoning pays</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-vs-accuracy">Cost vs accuracy</a></li><li><a href="#when-effort-is-the-wrong-lever">When effort is the wrong lever</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M02 sections"><details open><summary>In M02</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#chat-completions">Chat completions</a></li><li><a href="#the-responses-api">The Responses API</a></li><li><a href="#two-sdks-two-shapes">Two SDKs, two shapes</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#inference-endpoints">Inference endpoints</a></li><li><a href="#running-a-model-locally">Running a model locally</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#reasoning-models">Reasoning models</a></li><li><a href="#the-invisible-bill">The invisible bill</a></li><li><a href="#when-reasoning-pays">When reasoning pays</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#cost-vs-accuracy">Cost vs accuracy</a></li><li><a href="#when-effort-is-the-wrong-lever">When effort is the wrong lever</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>
