@@ -2,6 +2,7 @@
 
 *[M16 theory](../README.md) · Lesson 16.6 · Notebooks: [`06a_advanced_retriever_patterns.ipynb`](../../notebook/06a_advanced_retriever_patterns.ipynb), [`06b_hybrid_search_and_reranking_databricks.ipynb`](../../../optional/notebook/06b_hybrid_search_and_reranking_databricks.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Each retriever pattern fixes one failure at its own price, and the prices add up when they nest -->
+<!-- format: approved -->
 
 ## Choosing a retriever pattern
 
@@ -58,7 +59,7 @@ flowchart LR
 
 *Figure 2: Multi-query inside compression, as `06a` builds it.*
 
-Multi-query widens the pool for recall and compression narrows each chunk for precision, so the two pull in opposite directions on purpose. The calls add up, and the middle term grows with the union of results:
+Multi-query widens the pool for recall and compression narrows each chunk for precision. The two pull in opposite directions on purpose. The calls add up, and the middle term grows with the union of results:
 
 | Stage | LLM calls | Assumption |
 |---|---|---|
@@ -69,6 +70,13 @@ Multi-query widens the pool for recall and compression narrows each chunk for pr
 | **Total** | **9** | Against 1 for plain retrieval plus an answer |
 
 *Table 2: LLM calls per question in the nested pipeline (illustrative: the union size depends on how much the variants overlap).*
+
+The walkthrough follows one Larkspur question through the four stages of Table 2, with the same illustrative counts.
+
+<div class="walkthrough learning-widget" data-stepper id="nesting-walkthrough">
+<p class="widget-intro">Step through one question in the nested pipeline and count the LLM calls as they add up.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of the nested pipeline"><button type="button" data-step="0" aria-pressed="false" aria-controls="nest-step-0">1. Variants</button><button type="button" data-step="1" aria-pressed="false" aria-controls="nest-step-1">2. Search</button><button type="button" data-step="2" aria-pressed="false" aria-controls="nest-step-2">3. Compress</button><button type="button" data-step="3" aria-pressed="false" aria-controls="nest-step-3">4. Answer</button></div>
+<div class="step-panels"><section id="nest-step-0" class="step-panel" aria-labelledby="nest-heading-0"><h4 id="nest-heading-0">1. Write variants</h4><dl><dt>Input</dt><dd>the customer's question</dd><dt>Work</dt><dd>one LLM call returns three rewordings</dd><dt>Calls so far</dt><dd>1</dd></dl></section><section id="nest-step-1" class="step-panel" aria-labelledby="nest-heading-1"><h4 id="nest-heading-1">2. Search</h4><dl><dt>Input</dt><dd>the question and its three variants</dd><dt>Work</dt><dd>four searches of 3 results each: 12 results, 7 unique</dd><dt>Calls so far</dt><dd>1; searches cost no LLM call</dd></dl></section><section id="nest-step-2" class="step-panel" aria-labelledby="nest-heading-2"><h4 id="nest-heading-2">3. Compress</h4><dl><dt>Input</dt><dd>the 7 unique chunks</dd><dt>Work</dt><dd>one extraction call per chunk keeps only the relevant text</dd><dt>Calls so far</dt><dd>8</dd></dl></section><section id="nest-step-3" class="step-panel" aria-labelledby="nest-heading-3"><h4 id="nest-heading-3">4. Answer</h4><dl><dt>Input</dt><dd>the trimmed chunks in the prompt</dd><dt>Work</dt><dd>one call writes the answer</dd><dt>Calls so far</dt><dd>9, every one before the user sees a word</dd></dl></section></div><div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div></div>
 
 We call this **call stacking**: each wrapper's cost is reasonable alone, and the product of them is what the bill shows. Nine calls in sequence also means nine round trips of latency before the user sees a word.
 
@@ -86,7 +94,30 @@ Notebook `06b` moves hybrid search and reranking into the vector store. On a Dat
 
 *Table 3: Three search modes in `06b`.*
 
-Hybrid in the store and an ensemble in the application do the same job in different places:
+Hybrid in the store and an ensemble in the application do the same job in different places. In the store, one request carries both the vector and the text:
+
+```mermaid
+flowchart LR
+    Q[/Question/] --> E["Embed in<br/>the application"]
+    E --> S["One store call<br/>vector + query text"]
+    S --> F["Server fuses<br/>vector and keyword hits"]
+    F --> R["Optional server<br/>rerank, top 5"]
+```
+
+*Figure 3: Hybrid in the store. The keyword index and the fusion live on the server.*
+
+In the application, the code holds a keyword index of its own and merges two result lists:
+
+```mermaid
+flowchart LR
+    Q[/Question/] --> V["Vector store<br/>dense top k"]
+    Q --> B["BM25 index<br/>in memory"]
+    V --> E["EnsembleRetriever<br/>RRF in your code"]
+    B --> E
+    E --> R[/Merged list/]
+```
+
+*Figure 4: Ensemble in the application. Both lists and the merge are visible to your logs.*
 
 | | Hybrid in the store | Ensemble in the application |
 |---|---|---|
@@ -107,6 +138,20 @@ Hybrid in the store and an ensemble in the application do the same job in differ
 4. **Choose the location by scale.** An application ensemble while the handbook is small and changing; the store's hybrid mode once many teams write to it.
 
 M17 picks up where multi-query leaves off, with the full family of query rewrites.
+
+## Limits of this evidence
+
+- **Table 2 is a count, not a measurement.** The union of 7 chunks is an assumption; real variants overlap more or less. No latency was measured.
+- **`06a`'s demos print, they do not score.** Its ensemble comparison shows top results side by side for three questions, without a golden set or recall figure.
+- **The reranker figures are the notebook's claim.** Neither the 15% nor the 1 to 1.5 seconds was reproduced for this page.
+
+## References
+
+1. LangChain reference, [MultiQueryRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/multi_query/MultiQueryRetriever).
+2. LangChain reference, [ContextualCompressionRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/contextual_compression/ContextualCompressionRetriever).
+3. LangChain reference, [ParentDocumentRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/parent_document_retriever/ParentDocumentRetriever).
+4. LangChain reference, [EnsembleRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever).
+5. Sentence Transformers, [Retrieve and re-rank](https://www.sbert.net/examples/sentence_transformer/applications/retrieve_rerank/README.html).
 
 ## Key Takeaways
 

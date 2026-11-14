@@ -2,6 +2,7 @@
 
 *[M16 theory](../README.md) · Lesson 16.3 · Notebooks: [`03a_fusion_retrieval.ipynb`](../../notebook/03a_fusion_retrieval.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Scores need calibration, ranks do not, and neither can rescue a chunk no retriever returned -->
+<!-- format: approved -->
 
 ## Two lists, one answer
 
@@ -50,7 +51,7 @@ flowchart LR
 
 *Figure 1: Weighted score fusion in `03a`.*
 
-The scales differ: BM25 scores are unbounded sums of idf weights, and FAISS returns L2 distances where lower is better. `03a` splits a climate-change PDF into 1,000-character chunks with 200 of overlap, scores every chunk both ways, **min-max normalises** each list (subtract the minimum, divide by the range, so the values run from 0 to 1), flips the distances so higher means closer, and ranks by the weighted sum with `alpha = 0.5` and `k = 5`. `alpha = 1` is pure dense retrieval; `alpha = 0` is pure BM25.
+The scales differ: BM25 scores are unbounded sums of idf weights, and FAISS returns L2 distances where lower is better. `03a` splits a climate-change PDF into 1,000-character chunks with 200 of overlap, scores every chunk both ways, **min-max normalises** each list (subtract the minimum and divide by the range, giving values from 0 to 1), flips the distances so higher means closer, and ranks by the weighted sum with `alpha = 0.5` and `k = 5`. `alpha = 1` is pure dense retrieval; `alpha = 0` is pure BM25.
 
 Min-max is relative to the current query's results. The best chunk always scores 1.0 and the worst 0.0, even when no chunk is relevant. We call this the **min-max mirage**: a question the corpus cannot answer still produces a confident-looking top score. One outlier also squashes everything else. If one chunk contains a rare code and scores far above the rest in BM25, every other chunk's BM25 share shrinks toward 0 and the dense half decides their order. The same `alpha` therefore weighs the two retrievers differently from one question to the next.
 
@@ -74,6 +75,18 @@ Keying on the chunk's text assumes no two chunks are identical, which is also wh
 
 `EnsembleRetriever` runs each retriever, adds the terms per chunk, and returns every unique chunk sorted by the sum. It does not cut the list to a final `k`.
 
+```mermaid
+flowchart LR
+    Q[/Question/] --> B["BM25 list<br/>ranks 1, 2, 3 ..."]
+    Q --> D["Dense list<br/>ranks 1, 2, 3 ..."]
+    B --> T["Each chunk earns<br/>w / (c + rank)<br/>per list"]
+    D --> T
+    T --> S["Sum per chunk,<br/>keyed by its text"]
+    S --> O[/"Every unique chunk,<br/>sorted by the sum"/]
+```
+
+*Figure 2: Reciprocal Rank Fusion in `EnsembleRetriever`. Scores never enter; only positions do.*
+
 Three consequences follow from the formula, each plain arithmetic:
 
 | Case (weights as stated) | Score | What it shows |
@@ -91,15 +104,15 @@ The constant `c` sets how steeply rank matters. The chart plots each rank's weig
 
 ![How the RRF constant flattens rank weights](diagrams/rrf-k.svg)
 
-*Figure 2: Rank weight relative to rank 1 for several values of `c`.*
+*Figure 3: Rank weight relative to rank 1 for several values of `c`.*
 
-With `c = 60`, rank 10 keeps 0.87 of rank 1's weight and rank 20 keeps 0.76, so being in both lists matters more than being near the top of one. With `c = 1`, rank 10 keeps 0.18 and the top of each list dominates.
+With `c = 60`, rank 10 keeps 0.87 of rank 1's weight and rank 20 keeps 0.76. Being in both lists matters more than being near the top of one. With `c = 1`, rank 10 keeps 0.18 and the top of each list dominates.
 
 The [interactive hybrid fusion lab](interactive/hybrid-fusion-lab.html) runs real BM25 in JavaScript over the 19 Larkspur chunks, ranks them by `all-MiniLM-L6-v2` similarity, and fuses the two lists both ways. With equal weights, `c = 60` and 4 chunks handed over per retriever, RRF answers 5 of 7 golden questions fully (mean recall@3 0.86), against 6 of 7 for weighted fusion at `alpha = 0.5`. Both losses have evidence at rank 5 in one retriever, one place below the hand-over. Raise the hand-over to 10 and RRF reaches 0.93 at any `c` from 2 to 100.
 
 <!-- lab: interactive/hybrid-fusion-lab.html -->
 
-That is the **shallow hand-over**: fusion only reorders what the retrievers returned, so a chunk that made neither list is gone before the merge. The depth each retriever returns matters more than `c`.
+That is the **shallow hand-over**: fusion only reorders what the retrievers returned. A chunk that made neither list is gone before the merge. The depth each retriever returns matters more than `c`.
 
 ## Choosing a fusion method
 
@@ -113,7 +126,7 @@ flowchart TD
     B -- yes --> W["Weighted scores<br/>joined by chunk id"]
 ```
 
-*Figure 3: Pick RRF unless you can calibrate scores and tune `alpha`. Either way, set the hand-over depth first.*
+*Figure 4: Pick RRF unless you can calibrate scores and tune `alpha`. Either way, set the hand-over depth first.*
 
 Here is how the two compare on the points that decide it:
 
@@ -134,9 +147,20 @@ For Larkspur's support search:
 1. **Start with RRF, equal weights, `c = 60`.** BM25 scores and cosine similarities do not share a scale, and equal weights keep code-only hits from being buried.
 2. **Hand over 10 chunks per retriever** before cutting to the final 3.
 3. **Tune on question types.** Report recall separately for code questions and paraphrase questions; a mean can hide one type getting worse.
-4. **Log both input lists** with chunk ids, so a miss can be traced to a retriever or to the merge.
+4. **Log both input lists** with chunk ids. A miss can then be traced to a retriever or to the merge.
 
 RAG-Fusion in [M17](../../../../m17_query_transformation/mandatory/theory/README.md) applies the same formula to the result lists of several rewritten questions. Lesson 16.4 turns to a different problem with the fused list: chunks that all say the same thing.
+
+## Limits of this evidence
+
+- **Seven questions, 19 chunks.** Table 1 and the lab's recall figures come from one small handbook and one small embedding model. They show where each method breaks, not which wins on a real index.
+- **The notebook was not rerun for this page.** The position join is read from `03a`'s code. Its printed rankings on the climate PDF depend on OpenAI embeddings.
+- **`c = 60` is an empirical choice.** Cormack and colleagues fixed it in pilot experiments on their own test collections. In the lab the hand-over depth matters more, and other corpora may differ.
+
+## References
+
+1. Cormack, Clarke and Büttcher, [Reciprocal rank fusion outperforms Condorcet and individual rank learning methods](https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf), SIGIR 2009.
+2. LangChain reference, [EnsembleRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever).
 
 ## Key Takeaways
 

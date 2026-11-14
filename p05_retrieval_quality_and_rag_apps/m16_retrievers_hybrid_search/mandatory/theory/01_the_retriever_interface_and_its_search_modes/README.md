@@ -2,6 +2,7 @@
 
 *[M16 theory](../README.md) · Lesson 16.1 · Notebooks: [`01a_retrievers.ipynb`](../../notebook/01a_retrievers.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Similarity search always answers, even when the index holds nothing worth sending -->
+<!-- format: approved -->
 
 ## Search modes
 
@@ -12,7 +13,7 @@
 > - **Diagnose** a score threshold that reads a distance as a relevance score.
 > - **Choose** a first defence for questions the index cannot answer.
 
-Part IV ended with a working pipeline: load, chunk, embed, store, retrieve the top `k`. This module changes only the retrieve step, so it starts with what a retriever is.
+Part IV ended with a working pipeline: load, chunk, embed, store, retrieve the top `k`. This module changes only the retrieve step. It starts with what a retriever is.
 
 A Larkspur customer asks *Can I rent a GPU server for model training?* Larkspur does not sell GPU servers, and the handbook says nothing about them. Plain similarity search returns three chunks anyway, the three plan sheets, and the model is asked to answer from them.
 
@@ -56,6 +57,29 @@ Here are the real cosine scores for that question and for an in-scope one, embed
 
 Similarity search sends all six chunks. A floor of 0.3 sends the two refund chunks for the first question and nothing for the second, which is the right answer: the index holds nothing to say about GPUs.
 
+The two modes differ in one step: whether the retriever may hand over an empty list. Plain similarity search has no such step:
+
+```mermaid
+flowchart LR
+    Q[/"GPU question"/] --> S["Sort all 19 chunks<br/>by similarity"]
+    S --> K["Keep the first 3<br/>0.206, 0.200, 0.183"]
+    K --> M["Model answers<br/>from plan sheets"]
+```
+
+*Figure 2: Forced top-k. Three chunks always reach the model, however low they score.*
+
+A score threshold adds a test after the sort, and an empty result takes its own route:
+
+```mermaid
+flowchart LR
+    Q[/"GPU question"/] --> S["Sort by<br/>relevance"]
+    S --> F{"Any chunk<br/>at least 0.3?"}
+    F -- yes --> M["Model answers<br/>from those chunks"]
+    F -- no --> R["Fixed reply<br/>not covered"]
+```
+
+*Figure 3: The threshold guard. The GPU question takes the "no" branch and the model is never called.*
+
 ## Distance or relevance: two score directions
 
 A score threshold is the first defence against forced top-k, and it goes wrong in a predictable way, because vector stores report scores in two directions:
@@ -73,6 +97,21 @@ One chunk from `01a`, traced through both:
 *Table 3: The same chunk, two scores.*
 
 Comparing a distance with a threshold written for relevance inverts the filter: the closest chunks have the smallest distances and are the first to be cut. We call this the **flipped threshold**. Print a known-good pair and a known-bad pair before trusting any threshold.
+
+The switcher applies three rules to Table 2's top 3 for both questions. The distances are 1 minus each relevance score, as Chroma computes them in cosine space.
+
+<div class="learning-widget evidence-switcher" data-comparison id="threshold-switcher">
+<p class="widget-intro">Choose a rule and see which of Table 2's chunks reach the model for each question.</p>
+<div class="mode-controls" hidden role="group" aria-label="Score rule applied to the top 3">
+<button type="button" data-mode="topk" aria-pressed="false" aria-controls="rule-topk">No threshold</button>
+<button type="button" data-mode="relevance" aria-pressed="false" aria-controls="rule-relevance">Relevance at least 0.3</button>
+<button type="button" data-mode="flipped" aria-pressed="false" aria-controls="rule-flipped">Distance at least 0.3</button>
+</div>
+<section id="rule-topk" class="mode-panel" data-announcement="No threshold. Both questions send three chunks."><h4>No threshold (forced top-k)</h4><dl><dt>Refund question</dt><dd><code>refund-timing</code>, <code>refund-window</code>, <code>support</code></dd><dt>GPU question</dt><dd>three plan sheets, relevance 0.18 to 0.21</dd><dt>Outcome</dt><dd>the GPU answer is built from unrelated chunks</dd></dl></section>
+<section id="rule-relevance" class="mode-panel" data-announcement="Relevance threshold. The GPU question returns nothing."><h4>Relevance at least 0.3</h4><dl><dt>Refund question</dt><dd><code>refund-timing</code> (0.770) and <code>refund-window</code> (0.608); <code>support</code> (0.297) is cut</dd><dt>GPU question</dt><dd>nothing passes</dd><dt>Outcome</dt><dd>the refund answer has its evidence and the GPU question gets the fixed reply</dd></dl></section>
+<section id="rule-flipped" class="mode-panel" data-announcement="Flipped threshold. The best refund chunk is cut and the plan sheets pass."><h4>Distance at least 0.3 (flipped threshold)</h4><dl><dt>Refund question</dt><dd><code>refund-window</code> (distance 0.392) and <code>support</code> (0.703); <code>refund-timing</code> (0.230), the best match, is cut</dd><dt>GPU question</dt><dd>all three plan sheets pass, at distances 0.794 to 0.817</dd><dt>Outcome</dt><dd>worse than no threshold: the best evidence is gone and the unrelated chunks stay</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 `01a` also builds a custom retriever that does the conversion itself, keeps chunks above a threshold (0.51 for *what is the financial capital of India?*), and writes the rounded score into each chunk's metadata. That habit pays off later: a logged score can be plotted, and a threshold can then be tuned from real distributions rather than copied.
 
@@ -99,9 +138,22 @@ For Larkspur's support assistant, the retriever needs a way to return nothing:
 
 The guard handles questions the handbook cannot answer. Lesson 16.2 turns to questions it can answer but the embedding retriever still misses.
 
+## Limits of this evidence
+
+- **One model, one corpus.** Table 2's scores come from `all-MiniLM-L6-v2` over the lab's 19 handbook chunks. The notebook's OpenAI embeddings place the same questions at other values, and its floor is its own.
+- **Two questions are not a calibration.** They show the gap a floor needs. Setting the floor in production takes many logged questions of each kind.
+- **A floor cannot judge an answerable question.** A chunk can score above 0.3 and still lack the fact asked for. Lesson 16.2 and later modules treat that case.
+
+## References
+
+1. LangChain, [Build a semantic search engine](https://docs.langchain.com/oss/python/langchain/knowledge-base), covering vector stores and retrievers.
+2. Chroma, [Configure collections](https://docs.trychroma.com/docs/collections/configure), on the distance function a collection uses.
+3. LangChain reference, [MultiQueryRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/multi_query/MultiQueryRetriever).
+4. LangChain reference, [ContextualCompressionRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/contextual_compression/ContextualCompressionRetriever).
+
 ## Key Takeaways
 
-- Every retriever exposes `invoke(query)` and returns documents, so multi-query, compression and ensemble wrappers stack without the chain noticing.
+- Every retriever exposes `invoke(query)` and returns documents. Multi-query, compression and ensemble wrappers therefore stack without the chain noticing.
 - Similarity search always returns `k` chunks (forced top-k): the GPU question gets three plan sheets at 0.18 to 0.21. A score threshold lets the retriever return nothing.
 - Check whether a store reports a distance (lower is closer) or a relevance score (higher is closer), and tune any threshold per embedding model from logged scores.
 
