@@ -2,6 +2,7 @@
 
 *[M27 theory](../README.md) · Lesson 27.4 · Notebooks: [`04a_text2sql_workflow.ipynb`](../../notebook/04a_text2sql_workflow.ipynb), [`04b_text2sql_react_agent.ipynb`](../../notebook/04b_text2sql_react_agent.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Let the database count, score the SQL against your own, and keep the agent read-only -->
+<!-- format: approved -->
 
 ## A fluent answer that counts wrong
 
@@ -14,13 +15,11 @@
 
 Lesson 27.3's analyst got its numbers from tools that did the arithmetic in code. Text-to-SQL goes one step further. The model writes the code, and the database does the arithmetic over every row.
 
-Both notebooks ask questions of a small comic-store database, kept because its numbers come from that data. Ask *Which customer has purchased the most comics?* and a typical generated query returns Natasha Romanoff, with a confident sentence around the name. The right answer is Tony Stark. The query ran without an error, and nothing in the reply hints at the mistake.
-
-The rest of the page builds what catches it: a chain that keeps the query beside its answer, an evaluation against SQL we wrote ourselves, a business rule for ambiguous terms, and a read-only connection for the agent version.
+Both notebooks ask questions of a small comic-store database, kept because its numbers come from that data. Ask *Which customer has purchased the most comics?* and a typical generated query returns Natasha Romanoff, with a confident sentence around the name. The right answer is Tony Stark. The query ran without an error, and nothing in the reply hints at the mistake. This page builds what catches it.
 
 ## Text-to-SQL
 
-**Text-to-SQL turns a question into a query, runs it, and writes the answer from the rows.** The database is built from a creation script: eight tables (Branch, Publisher, Comic, Customer, Employee, Inventory, Sale, SaleTransactions) holding 50 comics, 20 customers, 20 sales and 40 sale lines.
+**Text-to-SQL turns a question into a query, runs it, and writes the answer from the rows.** The database is built from a creation script: eight tables (Branch, Publisher, Comic, Customer, Employee, Inventory, Sale, SaleTransactions) holding 50 comics, 20 customers, 20 sales and 40 sale lines across 3 branches.
 
 ### One stored query, from question to answer
 
@@ -35,7 +34,7 @@ flowchart LR
 
 *Figure 1: The workflow. Each box adds a field to the same record: query, result, answer.*
 
-1. **Write the query.** The prompt carries the schema: each table's creation statement and three sample rows. That text is everything the model knows about the database.
+1. **Write the query.** The prompt carries the schema: each table's creation statement and three sample rows. That text is everything the model knows about the database. The prompt also caps results at 10 rows unless the question asks for more.
 2. **Run the stored query.** The executor reads the query written in step 1. Piping the query writer into the executor a second time would generate a second query, and the SQL on screen would no longer be the SQL behind the answer. Call that a **regenerated query**.
 3. **Answer from the rows**, with a prompt that says to use only the SQL result.
 
@@ -61,7 +60,16 @@ The grading rule is strict on purpose. A number must appear as a whole number in
 
 ### Planted failure: lines instead of copies
 
-The typical miss is the question from the opening. The generated SQL counts sale lines where the question needs summed `Quantity`, and on this data the two disagree:
+The typical miss is the question from the opening. Follow it through the record the chain builds:
+
+<div class="walkthrough learning-widget" data-stepper id="sql-record">
+<p class="widget-intro">Trace one question through the workflow's record and into the ground-truth check. The query shape is the typical miss the notebook reports; the rows come from the fixture database.</p>
+<div class="step-controls" hidden role="group" aria-label="Workflow record fields"><button type="button" data-step="0" aria-pressed="false" aria-controls="rec-step-0">1. Question</button><button type="button" data-step="1" aria-pressed="false" aria-controls="rec-step-1">2. Query</button><button type="button" data-step="2" aria-pressed="false" aria-controls="rec-step-2">3. Result</button><button type="button" data-step="3" aria-pressed="false" aria-controls="rec-step-3">4. Answer and check</button></div>
+<div class="step-panels"><section id="rec-step-0" class="step-panel" aria-labelledby="rec-heading-0"><h4 id="rec-heading-0">1. The question enters the record</h4><dl><dt>question</dt><dd>Which customer has purchased the most comics?</dd><dt>Expected</dt><dd>Tony Stark, from the reference SQL that sums Quantity</dd></dl></section><section id="rec-step-1" class="step-panel" aria-labelledby="rec-heading-1"><h4 id="rec-heading-1">2. The model writes the query</h4><dl><dt>query</dt><dd>Joins sale lines to customers and counts the lines per customer</dd><dt>What it should do</dt><dd>Sum the Quantity column on those lines</dd></dl></section><section id="rec-step-2" class="step-panel" aria-labelledby="rec-heading-2"><h4 id="rec-heading-2">3. The database runs that stored query</h4><dl><dt>result</dt><dd>Natasha Romanoff first, with 5 lines</dd><dt>Error raised</dt><dd>None: the SQL is valid</dd></dl></section><section id="rec-step-3" class="step-panel" aria-labelledby="rec-heading-3"><h4 id="rec-heading-3">4. The answer, then the check</h4><dl><dt>answer</dt><dd>A confident sentence naming Natasha Romanoff</dd><dt>Ground-truth check</dt><dd>Fails: the first known name is not Tony Stark</dd></dl></section></div>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><p class="step-status" aria-live="polite"></p><button type="button" data-walk="next">Next step</button></div>
+</div>
+
+The generated SQL counts sale lines where the question needs summed `Quantity`, and on this data the two disagree:
 
 | Customer | Sale lines | Copies bought |
 |---|---|---|
@@ -87,7 +95,7 @@ We call this a **wrong definition**: valid SQL that measures something other tha
 
 The chain picks one source silently, and a stronger model would still be guessing. The business has to decide which source is authoritative and write it into the prompt as a rule: revenue is always computed from line items. The notebook then checks the generated SQL in code for the line-item table, instead of trusting that the rule was followed.
 
-The workflow runs the same three steps for every question. The next design lets the model choose its own steps.
+The evaluation set shows how easily the two definitions slip. Its reference SQL for *spent the most money* sums `Sale.TotalAmount`, the source the rule forbids. Both sources still put Tony Stark first (164.94 by header, 194.92 by lines), so the expected answer holds here; on other data that reference would grade a correct answer as wrong.
 
 ## Workflow or ReAct agent
 
@@ -111,6 +119,16 @@ flowchart TD
 
 *Figure 2: Two ways to answer the same question. The workflow is a line, and the agent is a loop that decides when to stop.*
 
+Put the opening question to each design and compare what moves:
+
+<div class="learning-widget evidence-switcher" data-comparison id="sql-designs">
+<p class="widget-intro">The same question, which customer has purchased the most comics, through each design.</p>
+<div class="mode-controls" hidden role="group" aria-label="Text-to-SQL design"><button type="button" data-mode="workflow" aria-pressed="false" aria-controls="design-workflow">Workflow</button><button type="button" data-mode="agent" aria-pressed="false" aria-controls="design-agent">ReAct agent</button></div>
+<section id="design-workflow" class="mode-panel" data-announcement="Workflow selected. Two LLM calls, one query."><h4>Workflow</h4><ul><li>Reads: the creation statements and three sample rows of all eight tables, in one prompt.</li><li>Runs: exactly one query, the stored one; a failing query is not retried.</li><li>Costs: 2 LLM calls, every time.</li><li>A wrong definition passes straight through to the answer.</li></ul></section>
+<section id="design-agent" class="mode-panel" data-announcement="Agent selected. Several calls, schema read on demand."><h4>ReAct agent</h4><ul><li>Reads: the table list, then only the schemas it asks for, such as Customer, Sale and SaleTransactions.</li><li>Runs: a checked query, and a rewritten one after an error.</li><li>Costs: several model turns plus tool calls; the checker's own LLM call happens inside a tool, so a count of agent turns leaves it out.</li><li>A wrong definition still passes: the checker sees only the query, never the question, and looks for a fixed list of SQL mistakes.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 The two designs trade predictability for flexibility:
 
 | | Workflow | ReAct agent |
@@ -123,11 +141,11 @@ The two designs trade predictability for flexibility:
 
 *Table 4: Workflow and agent compared.*
 
-Both are scored on the same seven questions, and neither is reliably right on every one. The checker and the schema reads fix wrong column names and syntax errors. They do not fix a wrong definition, such as counting lines instead of summing `Quantity`. Seven questions are a sample and a second run can change verdicts. Compare the two designs question by question rather than by one score.
+Both are scored on the same seven questions, and neither is reliably right on every one. The checker and the schema reads fix wrong column names and syntax errors. They do not fix a wrong definition, such as counting lines instead of summing `Quantity`: the installed checker prompt lists common mistakes (NULLs in NOT IN, join columns, casts, quoting) and never receives the question. Seven questions are a sample and a second run can change verdicts. Compare the two designs question by question rather than by one score.
 
 ### The write boundary lives in the connection
 
-The workflow only ever runs the one query it wrote. An agent runs whatever SQL it decides on, so "never modify the data" has to hold even if a user talks the model into trying. The prompt says it, but the guarantee comes from opening the database file read-only at the connection.
+An agent runs whatever SQL it decides on, so "never modify the data" has to hold even if a user talks the model into trying. The prompt says it; the guarantee comes from opening the database file read-only at the connection.
 
 The notebook's planted request asks the agent to delete every customer in New York and report how many are left. The same read-only connection, tried directly on the fixture database:
 
@@ -173,17 +191,22 @@ The module's lab measures this split: the same 20 questions over a product catal
 
 Larkspur's billing team asks two questions in one morning:
 
-1. *How much did we refund to annual-plan customers in September?* A sum over rows goes to text-to-SQL. Before it ships, the team writes down what "refunded" means (which table, which status) as a prompt rule and checks the generated SQL for it in code.
+1. *How much did we refund to annual-plan customers in September?* A sum over rows goes to text-to-SQL, with "refunded" (which table, which status) written down as a prompt rule and checked in the generated SQL.
 2. *What is the refund policy for annual plans?* Prose in the handbook goes to the vector index and comes back with a citation.
-3. Both routes get their own evaluation set: reference SQL for the database questions, labelled chunks for the policy questions.
-4. The SQL agent connects through a read-only role. A request to delete test invoices fails at the database, whatever the prompt says.
+3. Each route gets its own evaluation set, and the reference SQL follows the prompt's rule.
+4. The SQL agent connects through a read-only role. A request to delete test invoices fails at the database.
 
 Lesson 27.5 keeps the fixed-workflow idea and applies it to business text, where the model fills typed fields and code does the checking.
+
+## References
+
+1. LangChain, [Build a SQL agent](https://docs.langchain.com/oss/python/langchain/sql-agent), the toolkit-plus-agent design of the second notebook.
+2. SQLite, [Uniform Resource Identifiers](https://www.sqlite.org/uri.html), on opening a database file with `mode=ro`.
 
 ## Key Takeaways
 
 - Score text-to-SQL against reference SQL you wrote. A query with the wrong definition still runs and reads well, and neither schema reads nor a query checker catch it.
-- When the data offers two sources for a figure such as revenue, the business must pick one and the prompt must state it. Then check the generated SQL in code for the authoritative table.
+- When the data offers two sources for a figure such as revenue, the business must pick one and the prompt must state it. Then check the generated SQL in code for the authoritative table, and write the reference SQL under the same rule.
 - Use a workflow for predictable questions and an agent for large or changing schemas, opened read-only at the connection. Route counts, sums and rankings over all records to SQL, and prose questions to vector RAG.
 
 ## Check yourself

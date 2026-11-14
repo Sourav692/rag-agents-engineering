@@ -2,6 +2,7 @@
 
 *[M27 theory](../../../mandatory/theory/README.md) · Lesson 27.5 · Notebooks: [`05a_review_analyst.ipynb`](../../notebook/05a_review_analyst.ipynb) (optional), [`05b_multilingual_it_support_desk.ipynb`](../../notebook/05b_multilingual_it_support_desk.ipynb) (optional), [`05c_audience_tailored_writer.ipynb`](../../notebook/05c_audience_tailored_writer.ipynb) (optional), [`05d_quiz_generator.ipynb`](../../notebook/05d_quiz_generator.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: The model fills typed fields, and code routes, checks and renders everything with a right answer -->
+<!-- format: approved -->
 
 ## A reply that invents a number
 
@@ -14,7 +15,7 @@
 
 Lesson 27.4 compared a fixed SQL workflow with an agent and found the workflow cheaper, more predictable and easier to test. This lesson applies the fixed workflow to business text: reviews, support tickets, a fact sheet, a PDF.
 
-Larkspur's support queue gets tickets in several languages. A model can read each one, sort it and draft a reply, and most drafts are good. The bad ones read just as well. A draft that tells a customer the refund window is 14 days, when the handbook says 30, looks exactly like a correct draft until someone checks the number.
+Larkspur's support queue gets tickets in several languages. A model can read each one, sort it and draft a reply, and most drafts are good. The bad ones read just as well. A draft that tells a customer the annual-plan refund window is 14 days, when the handbook says 30, looks exactly like a correct draft until someone checks the number.
 
 So the model's output needs a shape that code can inspect, and the decisions with a right answer need to move out of the model.
 
@@ -32,12 +33,18 @@ flowchart LR
 
 *Figure 1: The shared shape. Only the first box is a model call.*
 
-Four notebooks apply that shape to four jobs:
+Four notebooks apply that shape to four jobs. Table 1 sets them side by side by what the model fills and what code verifies:
 
-- **Review analyst.** The model returns one typed analysis per review, for six reviews in one batch, then writes one email per review. Code picks the email writer by a dictionary lookup on the sentiment field: a thank-you for positive and neutral reviews, an apology for negative ones. Code checks the sentiment against hand labels, and each email for "Dear Customer", the "Service Agent" sign-off, an apology only when the review is negative, and at most 140 words (the prompt asks for under 120).
-- **IT support desk.** Design A makes one structured call per ticket that returns six fields. Design B chains four calls: detect the language, translate to English, answer, translate back. Both run on the same ten tickets in nine languages. Code checks the detected language, that each reply differs from its English version, that no prompt scaffolding leaks into the text, and the calls and wall time.
-- **Audience-tailored writer.** Three advert prompts, then three audience reports, each set run in parallel. Code checks the headings, a two-column table limited to five features, a 60-word limit, and that every number in the output appears in the source fact sheet.
-- **Quiz generator.** The model summarises a PDF on prompt engineering, then writes questions from the material and the summary. Code checks for five questions with four distinct options and a valid answer index, checks that every evidence quote appears in the cleaned PDF text, and renders the study sheet from a template.
+| App | The model fills | Code decides or checks |
+|---|---|---|
+| **Review analyst** | One typed analysis per review (summary, positives, negatives, a three-value sentiment, 3 to 5 emotions), for six reviews in one batch, then one email per review | Sentiment against hand labels; the email writer by dictionary lookup; each email's greeting, sign-off, tone and length |
+| **IT support desk** | Language, category, English translation and replies for ten tickets in nine languages, in one of two designs | Detected language, a reply that really is translated, leaked prompt text, calls and wall time |
+| **Audience-tailored writer** | Three adverts from one phone fact sheet and three reports from one research abstract, each set written in parallel | Headings, a five-row specification table, word and line limits, bullet counts, and every number against the source |
+| **Quiz generator** | A summary of a PDF on prompt engineering, then five questions, each with four options, an answer index and an evidence quote | Question count, four distinct options, a valid index, every quote in the PDF text, and the final sheet from a template |
+
+*Table 1: Four workflow apps. Each row is one notebook.*
+
+Three details in those notebooks are easy to miss. The review analyst checks its sentiment against six hand labels before any email goes out, because the sentiment picks the email: the office-lamp review mixes a damaged part with praise for the support team, and a person labelled it positive. Its instruction router classifies a free-text request into four intents (summarise, sentiment, email, other). The quiz generator cleans the PDF text before any check runs: raw extraction from the 4,917-character file holds 768 line breaks, roughly one word per line, and an exact-quote check on that text would fail every honest quote.
 
 ### Five rules for the model's output
 
@@ -46,7 +53,7 @@ The four apps differ in content and agree on these rules:
 - **Ask for a closed type.** A sentiment that can only be positive, negative or neutral gives code a value to branch on. An answer index points at an option instead of restating it, so the answer cannot drift from the options.
 - **Route in code when the signal is already structured.** The review analyst picks the email writer with a dictionary and no extra model call. When the input is free text, as in its instruction router, classify into a closed set of intents and keep an `other` intent for requests the tool does not handle.
 - **Check every output with code that cannot be talked round.** String and number checks are cheap enough to run on every call.
-- **Render the final document in code.** Asking the model to merge a checked summary and checked questions into a report would let it reword them after the checks. Call that **post-check rewording**. A template cannot do it.
+- **Render the final document in code.** Asking the model to merge a checked summary and checked questions into a report would let it reword them after the checks. Call that **post-check rewording**. A template cannot do it, and it marks any question that failed a check for review by hand.
 - **Measure the design choice** on the same inputs before picking it, as the support desk does below.
 
 ### Planted failures the checks catch
@@ -60,9 +67,11 @@ Each notebook plants at least one bad output to prove its check works. The first
 | A quiz question whose evidence is "Fine-tuning always requires at least 50 examples." | Evidence quote in the PDF | Evidence not found in the PDF |
 | *What's the capital of France?* sent to the instruction router | Closed intents | Expected intent `other` (a live model call) |
 
-*Table 1: One planted failure per check. Rows 1 to 3 come from running the notebooks' check functions in a scratch copy.*
+*Table 2: One planted failure per check. Rows 1 to 3 come from running the notebooks' check functions in a scratch copy.*
 
-The second row is an **invented figure**, a plausible number with no source. A schema checks the table's shape and cannot know the number is false. Only the comparison with the source catches it.
+The second row is an **invented figure**, a plausible number with no source. A schema checks the table's shape and cannot know the number is false. Only the comparison with the source catches it. The number check ignores list numbering and the values 0 and 1, so "Gen 1" or "1 year" does not raise a false alarm.
+
+A failed evidence check is a flag, not a verdict. The model may have paraphrased a true sentence, or quoted its own summary instead of the PDF, which the prompt forbids and which still happens. The question goes to a reviewer either way.
 
 ## One call or four: the support desk
 
@@ -86,9 +95,19 @@ The call count follows from the shapes:
 | A: one structured call | 1 | 10 |
 | B: four-step chain | 4 | 40 |
 
-*Table 2: Model calls per design. Wall time depends on the provider and is measured in the notebook.*
+*Table 3: Model calls per design. Wall time depends on the provider and is measured in the notebook.*
 
-Design A makes a quarter of the calls. Design B has a second weakness: its steps exchange free text, and a step can leak a code fence or a line such as "The customer message in English is:" into the customer's reply. A typed field leaves no room for that. The notebook measures language accuracy, leaks, calls and wall time on the same tickets before choosing.
+Switch between the designs to see what each one gives you for the same Japanese ticket about printer toner:
+
+<div class="learning-widget evidence-switcher" data-comparison id="desk-designs">
+<p class="widget-intro">One ticket, two designs: what comes back, what can go wrong and what you can change.</p>
+<div class="mode-controls" hidden role="group" aria-label="Support desk design"><button type="button" data-mode="a" aria-pressed="false" aria-controls="desk-a">A: one structured call</button><button type="button" data-mode="b" aria-pressed="false" aria-controls="desk-b">B: four-step chain</button></div>
+<section id="desk-a" class="mode-panel" data-announcement="Design A selected. One call returns six typed fields."><h4>Design A: one structured call</h4><ul><li>Returns: six typed fields at once (original message, language, category, English translation, reply, English reply).</li><li>Costs: 1 call per ticket.</li><li>Typical risk: a wrong field, visible only after the call; nothing in between to inspect.</li><li>Prompt text cannot leak into a field the way it can into free text.</li></ul></section>
+<section id="desk-b" class="mode-panel" data-announcement="Design B selected. Four calls, each output visible."><h4>Design B: four-step chain</h4><ul><li>Returns: each step's text, added to one record in order; steps for one ticket run one after another.</li><li>Costs: 4 calls per ticket.</li><li>Typical risk: a step copies a code fence from the prompt's delimiters, or a line such as "The customer message in English is:", into the next step and the reply.</li><li>Gains control: each step can be tested, cached, logged or given its own model, and a bad translation shows up as its own value.</li></ul></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Design A makes a quarter of the calls and leaves no room for **scaffolding leaks**. Design B buys control, which matters once you need to inspect, reuse or upgrade one step. The notebook measures language accuracy, translated replies, leaks, calls and wall time on the same tickets, and its advice follows: start with one call, and move a step into its own prompt when you need that control.
 
 ## In practice: Larkspur's support queue
 
@@ -96,11 +115,16 @@ Here is the same shape on Larkspur's tickets:
 
 1. **One structured call per ticket** returns the language, a category (refund, outage, sizing) and a draft reply.
 2. **Code routes** outage tickets to the incident template.
-3. **Code checks** that every number in a reply appears in the handbook, such as the 30-day refund window and the 99.95% availability target. The 14-day draft from the opening fails here.
+3. **Code checks** that every number in a reply appears in the handbook, such as the 30-day refund window for annual plans and the 99.95% availability guarantee. The 14-day draft from the opening fails here.
 4. **A person sees** any reply that fails a check before the customer does.
 5. **Actions go through the gate.** A reply that issues a refund is an action. It goes through the [approval gate from lesson 27.1](../../../mandatory/theory/01_dry_run_harness_and_human_approval/README.md#approval-gates), which binds the approval to the previewed action.
 
 These apps are workflows in the sense of lesson 27.4: the same steps every time, cheap and testable. Choose an agent only when the next step depends on what the model finds.
+
+## References
+
+1. Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), on workflows with predefined paths versus agents that direct their own steps.
+2. LangChain, [Structured output](https://docs.langchain.com/oss/python/langchain/structured-output), on returning a typed record from one model call.
 
 ## Key Takeaways
 
@@ -127,7 +151,7 @@ The code check that every number in the output appears in the source flags "50" 
 <details>
 <summary>3. For the multilingual support desk, should you use one structured call per ticket or the four-step translate chain?</summary>
 
-Measure both on the same tickets before choosing. One structured call makes a quarter of the LLM calls (10 against 40 for ten tickets), and the chain's free-text steps can leak a code fence or "The customer message in English is:" into the reply.
+Measure both on the same tickets before choosing. One structured call makes a quarter of the LLM calls (10 against 40 for ten tickets), and the chain's free-text steps can leak a code fence or "The customer message in English is:" into the reply. The chain earns its cost when you need to test, cache, log or swap one step.
 
 </details>
 
