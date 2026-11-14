@@ -2,6 +2,7 @@
 
 *[M09 theory](../README.md) · Lesson 9.4 · Notebooks: [`04a_Async_and_Streaming.ipynb`](../../notebook/04a_Async_and_Streaming.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: What a caller can see while a graph runs, which stream mode fits which screen, and why async nodes let one process serve many conversations -->
+<!-- format: approved -->
 
 ## A support chat that goes silent
 
@@ -56,6 +57,21 @@ flowchart TD
 - **A typing effect**: `messages`. The async-and-streaming notebook prints each token as it arrives and adds the `AIMessageChunk` objects together with `+` to rebuild the full reply.
 - **A client that renders the whole state**: `values`.
 - **Audits and debugging**: `checkpoints` or `debug`.
+
+The switcher shows what three of those clients receive from the same high-risk run, `refund-99`, which pauses at the billing gate.
+
+<div class="learning-widget evidence-switcher" data-comparison id="refund-99-stream-switcher">
+<p class="widget-intro">Choose a stream mode and see every chunk the Larkspur client gets from refund-99 up to the pause.</p>
+<div class="mode-controls" hidden role="group" aria-label="Stream mode for refund-99">
+<button type="button" data-mode="updates" aria-pressed="false" aria-controls="sm-updates">updates</button>
+<button type="button" data-mode="values" aria-pressed="false" aria-controls="sm-values">values</button>
+<button type="button" data-mode="messages" aria-pressed="false" aria-controls="sm-messages">messages</button>
+</div>
+<section id="sm-updates" class="mode-panel" data-announcement="updates: three chunks, the last one is the interrupt."><h4>updates: 3 chunks</h4><p>One chunk for <code>triage</code>, one for <code>assess</code> with the high risk, then one whose only key is <code>__interrupt__</code>. The node names map straight to progress labels, and the last chunk is the cue for an approval card.</p></section>
+<section id="sm-values" class="mode-panel" data-announcement="values: four whole-state chunks."><h4>values: 4 chunks</h4><p>The starting state, the state after <code>triage</code>, the state after <code>assess</code>, and a final chunk holding the same state plus <code>__interrupt__</code>. Each chunk repeats everything before it, which suits a client that redraws the whole screen.</p></section>
+<section id="sm-messages" class="mode-panel" data-announcement="messages: nothing from this graph."><h4>messages: 0 chunks</h4><p>The stub nodes call no chat model and return no messages, so this mode yields nothing. With a model inside <code>triage</code> or <code>assess</code>, its tokens would stream here, which is where the leaking grader below comes from.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 Pass a list to get several modes from one run. Each chunk then arrives as a `(mode, chunk)` pair. On the refund run, `updates` and `values` together yielded 9 pairs, the 4 and the 5 from Table 1. A chat endpoint usually asks for `updates` and `messages` together: labels from one, text from the other.
 
@@ -129,6 +145,17 @@ The desk's chat endpoint combines everything on this page:
 > **Interview tip:** when asked how to make an agent feel fast, separate the two questions. Streaming changes what the user sees during the run. Async changes how many runs one process can hold.
 
 [Lesson 9.5](../05_retry_policies_and_bounded_cycles/README.md) turns to runs that fail or loop: how a node retries and how a cycle is made to stop.
+
+## Limits of this evidence
+
+- **Stub nodes and a fake model.** Table 1, the switcher and Table 2 come from offline runs on LangGraph 1.2.18, rerun on 14 November 2026: stub nodes for the refund graph, and `GenericFakeChatModel`, which splits on spaces, for the grader. A real provider splits tokens differently and adds latency.
+- **No load test.** Figure 2 and the blocked worker describe how an event loop shares time. Nothing here measured how many conversations one process serves.
+- **The notebook was read, not run.** Its streaming cells call a hosted model; the token assembly and print-loop details come from its code.
+
+## References
+
+1. LangChain documentation, [Streaming](https://docs.langchain.com/oss/python/langgraph/streaming): the stream modes, several modes at once, subgraph streaming and the `langgraph_node` metadata.
+2. Python documentation, [asyncio](https://docs.python.org/3/library/asyncio.html): the event loop that async nodes hand control back to.
 
 ## Key Takeaways
 

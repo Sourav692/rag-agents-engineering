@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.6 · Notebooks: [`06a_Output_Parser.ipynb`](../../notebook/06a_Output_Parser.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A parser cannot make a reply good; it decides whether a bad reply raises or reaches your code looking fine -->
+<!-- format: approved -->
 
 ## Output parsers
 
@@ -131,7 +132,7 @@ Format instructions only help if they reach the model. The prompt needs a `{form
 
 *Table 6: Format instruction length for the two-field schema, from the lab.*
 
-One of lesson 6.7's optional recap notebooks shows the silent version of this mistake, **the dropped partial**. Its `PydanticOutputParser` example calls `.partial(format_instructions=...)` on a template with no `{format_instructions}` slot. LangChain ignores the value without an error (lesson 6.5's silent slot), and the model never sees the schema. The chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.
+Lesson 6.7's optional parsers demo notebook (07f) shows the silent version of this mistake, **the dropped partial**. Its `PydanticOutputParser` example calls `.partial(format_instructions=...)` on a template with no `{format_instructions}` slot. LangChain ignores the value without an error (lesson 6.5's silent slot), and the model never sees the schema. The chain works only when the model happens to produce matching JSON from the one-line request. Printing the formatted prompt once shows whether the schema is in it.
 
 ## In practice: the refund answer
 
@@ -145,6 +146,18 @@ For Larkspur's cited answers:
 > **Key distinction:** a parser decides which failures you see. It never turns a bad reply into a good one.
 
 Lesson 6.7 moves the schema out of the prompt and into the provider's API.
+
+## Limits of this evidence
+
+- **The replies are hand-written.** The eight replies are representative of what models return, not a sample of one model's output. How often a real model produces each one was not measured, so the tables count kinds of failure, not their frequency.
+- **"Usable" is the lab's rule.** The parsers know nothing about passages. The lab grades every result against its own rule, an answer string and at least one real passage id, and a different app rule would move rows between columns.
+- **One question, three passages.** The `Literal` schema is fixed to this lab's three ids. The counts were re-checked against the real parsers on `langchain-core` 1.7.0 and Pydantic 2.14.1; a later repair step could change the truncation rows.
+
+## References
+
+1. LangChain reference, [JsonOutputParser](https://reference.langchain.com/python/langchain-core/output_parsers/json/JsonOutputParser), on parsing and repairing partial JSON.
+2. LangChain reference, [PydanticOutputParser](https://reference.langchain.com/python/langchain-core/output_parsers/pydantic/PydanticOutputParser), on format instructions and validation against a model.
+3. Pydantic, [types](https://docs.pydantic.dev/latest/concepts/types/), including `Literal` for a fixed set of allowed values.
 
 ## Key Takeaways
 

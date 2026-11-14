@@ -2,6 +2,7 @@
 
 *[M07 theory](../README.md) · Lesson 7.5 · Notebooks: [`05a_Summarization_Essentials.ipynb`](../../notebook/05a_Summarization_Essentials.ipynb), [`05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb`](../../notebook/05b_Doc_Chains_to_LCEL_LangChain_v1.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Three ways to get a document longer than one prompt through a model, what each costs in calls and rounds, and a router that picks one per input -->
+<!-- format: approved -->
 
 ## Map-reduce summarisation
 
@@ -20,7 +21,7 @@ Notebook 05b writes each strategy out in a few lines of LCEL:
 - **Map-reduce**: summarise each chunk on its own (the map), then summarise the summaries (the reduce). The map calls are independent, which lets `batch` run them on a thread pool.
 - **Refine**: summarise the first chunk, then revise that summary once per remaining chunk. Each call needs the previous answer, which forces the calls to run one after another.
 
-In map-reduce the map step is one summarising chain batched over every chunk with a `max_concurrency` cap, and the reduce step is a second chain invoked once on the map outputs joined with blank lines. On the whole Larkspur handbook (2,746 characters) split at `chunk_size=400` with an overlap of 20, that is 10 chunks:
+In map-reduce the map step is one summarising chain batched over every chunk, and the reduce step is a second chain invoked once on the map outputs joined with blank lines. Notebook 05b leaves the batch uncapped; the lab adds a `max_concurrency` cap, as a rate-limited service would. On the whole Larkspur handbook (2,746 characters) split at `chunk_size=400` with an overlap of 20, that is 10 chunks:
 
 ```mermaid
 flowchart LR
@@ -51,7 +52,7 @@ Notebook 05b gives the general form: stuff is 1 call, map-reduce N + 1 calls, re
 
 <!-- lab: interactive/summarise-strategy-lab.html -->
 
-### Where each strategy breaks
+## Where each strategy breaks
 
 Each strategy has one failure that the call counts do not show:
 
@@ -63,7 +64,7 @@ Each strategy has one failure that the call counts do not show:
 
 *Table 2: The failure each strategy leaves behind.*
 
-The fix for reduce overflow is to reduce in groups and reduce the results again, the recursive summarisation that [M42's RAPTOR](../../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/README.md) builds into a tree. Order bias is a feature only when later text should override earlier text, such as a changelog where the newest entry wins. Notebook 05b suggests running its refine loop with the documents reversed to see the effect.
+The fix for reduce overflow is to reduce in groups and reduce the results again, the recursive summarisation that [M42's RAPTOR](../../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/README.md) builds into a tree. Order bias is a feature only when later text should override earlier text, such as a changelog where the newest entry wins. Notebook 05b says so directly: refine's quality depends on document order, and it wins only when later context should override earlier context.
 
 Writing the strategies out also opens choices the loader could not express: a smaller model for the many map calls and a larger one for the single reduce, or a retry wrapped around the map chain so one failed chunk does not sink the batch.
 
@@ -105,6 +106,18 @@ The digest job puts the page together:
 3. A release week (the whole handbook at chunk size 400) goes to map-reduce: 10 map calls, 4 at a time, then 1 reduce call, 11 calls in 4 rounds.
 4. If the joined map summaries exceed the budget, reduce them in groups and reduce again.
 5. Log the strategy and the call count for every run.
+
+## Limits of this evidence
+
+- **Counts, not summaries.** Calls, rounds and chunk sizes come from the lab, whose splitter port matched `langchain_text_splitters` on all three documents at every chunk size from 200 to 1200, and from notebook 05a's splitter, rerun offline. No summary quality was measured: order bias and the loss from summarising twice are stated, not scored.
+- **Rounds assume equal calls.** A round lasts as long as its slowest call, and a provider's rate limit can stretch it further. Treat the round counts as a lower bound on wall time.
+- **Characters stand in for tokens.** The handbook lengths and the 1,500-character limit are characters. A production router counts tokens with the model's tokenizer.
+- **A short handbook.** At 2,746 characters the whole handbook fits in one call for any current model. It is long enough to show the arithmetic, not long enough to force map-reduce.
+
+## References
+
+1. Wu and colleagues, [Recursively summarising books with human feedback](https://arxiv.org/abs/2109.10862) (2021), on summarising long text by summarising its parts and then their summaries.
+2. LangChain, [LangChain v1 migration guide](https://docs.langchain.com/oss/python/migrate/langchain-v1), on replacing `load_summarize_chain` and the other legacy chains.
 
 ## Key Takeaways
 

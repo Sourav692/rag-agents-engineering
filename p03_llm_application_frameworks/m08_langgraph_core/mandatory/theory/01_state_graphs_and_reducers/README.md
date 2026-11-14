@@ -2,6 +2,7 @@
 
 *[M08 theory](../README.md) · Lesson 8.1 · Notebooks: [`01a_State_and_Graph_Basics.ipynb`](../../notebook/01a_State_and_Graph_Basics.ipynb), [`01b_MessagesState.ipynb`](../../notebook/01b_MessagesState.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a LangGraph graph holds shared state, and how a reducer per key decides whether a node's write replaces, adds or merges -->
+<!-- format: approved -->
 
 ## The question that vanished
 
@@ -134,16 +135,41 @@ The rule that follows: decide the reducer for every key that more than one node 
 
 ## In practice: the refund question
 
-Here is the refund question through the graph with `add_messages` on `messages` and nodes that return only their new message, as the lab runs it:
+Here is the refund question through the graph with `add_messages` on `messages` and nodes that return only their new message, as the lab runs it. Each stage shows what the step read, what it returned and what the state holds afterwards.
 
-1. **Input.** The caller sends the question. State: 1 message.
-2. **`classify`** reads the question, finds the billing word *refund*, writes `route` as billing and appends a route message. State: 2 messages.
-3. **The conditional edge** reads `route` and sends the run to `billing`.
-4. **`billing`** still sees the question, matches it to the handbook's refund-timing page, writes `answer` and appends its reply. State: 3 messages, one of them the customer's.
+<div class="walkthrough learning-widget" data-stepper id="refund-run">
+<p class="widget-intro">Step through one run of the refund question and watch the message count after each step.</p>
+<div class="step-controls" hidden role="group" aria-label="Steps of the refund question through the support graph">
+<button type="button" data-step="input" aria-pressed="false" aria-controls="refund-input">1. Input</button>
+<button type="button" data-step="classify" aria-pressed="false" aria-controls="refund-classify">2. classify</button>
+<button type="button" data-step="edge" aria-pressed="false" aria-controls="refund-edge">3. Conditional edge</button>
+<button type="button" data-step="billing" aria-pressed="false" aria-controls="refund-billing">4. billing</button>
+</div>
+<section id="refund-input" class="step-panel"><h4>Input: the caller sends the question</h4><dl><dt>Returned</dt><dd>the question as one human message</dd><dt>State afterwards</dt><dd>1 message; <code>route</code> and <code>answer</code> unset</dd></dl></section>
+<section id="refund-classify" class="step-panel"><h4><code>classify</code> picks a route</h4><dl><dt>Read</dt><dd>the question, which contains the billing word <em>refund</em></dd><dt>Returned</dt><dd><code>route</code> as billing and one route message</dd><dt>State afterwards</dt><dd>2 messages: <code>add_messages</code> appended instead of replacing</dd></dl></section>
+<section id="refund-edge" class="step-panel"><h4>The conditional edge reads <code>route</code></h4><dl><dt>Read</dt><dd><code>route</code>, billing</dd><dt>Returned</dt><dd>nothing: an edge only names the next node</dd><dt>State afterwards</dt><dd>unchanged, 2 messages; the run goes to <code>billing</code></dd></dl></section>
+<section id="refund-billing" class="step-panel"><h4><code>billing</code> answers from the handbook</h4><dl><dt>Read</dt><dd>the question, still first in the list</dd><dt>Returned</dt><dd><code>answer</code> with route billing, source refund-timing and the page's text, plus one reply message</dd><dt>State afterwards</dt><dd>3 messages, one of them the customer's: refunds take 5 to 10 business days to appear on the statement</dd></dl></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
 
-The `answer` key holds the route (billing), the source (refund-timing) and the page's text: refunds take 5 to 10 business days to appear on the statement.
+Under the overwrite reducer, the same run loses the question at stage 2, and stage 4 has nothing to answer: Table 4's lost question.
 
 > **Next lesson:** step 3 is a conditional edge. Lesson 8.2 opens it up: what the router may return, what happens when it returns a name no node has, and why the order of its rules decides close calls.
+
+## Limits of this evidence
+
+- **Rerun without a model.** Tables 2 and 3 and the parallel-write error come from rerunning the notebooks' graphs, and small variations of them, on LangGraph 1.2.18 with no chat model. The notebooks ship without outputs.
+- **The lab is a model of the graph.** Table 4 and the walkthrough come from the reducer lab, which reproduces LangGraph's merge rules in the browser and answers by keyword match against the Larkspur handbook. A real model would phrase its replies differently, but the message counts depend only on the reducer and the return style.
+- **Version-specific messages.** The error text quoted here is LangGraph 1.2.18's. The rules behind it (replace without a reducer, one value per key per step) are part of the Graph API, but the wording can change between releases.
+
+## References
+
+1. LangChain, [LangGraph Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api), on state, nodes, edges, reducers and `MessagesState`.
+2. LangChain, [Using the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api), with worked examples of state updates and parallel branches.
 
 ## Key Takeaways
 

@@ -2,6 +2,7 @@
 
 *[M07 theory](../README.md) · Lesson 7.3 · Notebooks: [`03a_Branching_Routing_Merging_Chains.ipynb`](../../notebook/03a_Branching_Routing_Merging_Chains.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Three shapes beyond a straight pipe: a pipeline that keeps every result, a fan-out that merges, and a router that picks one chain -->
+<!-- format: approved -->
 
 ## RunnableParallel / Branch
 
@@ -14,7 +15,7 @@
 
 Lesson 7.2 showed that a dict inside a pipe runs its values in parallel and that `.assign()` keeps old keys. A straight pipe still does one thing in one order. The Larkspur support desk needs more: tickets arrive in Spanish and French and must be answered in the customer's language, sales wants a plan comparison written from three angles at once, and every ticket must reach the chain that holds the right policy. On the first day of routing, a ticket labelled "Refund or outage" goes to the refund chain, and nobody notices that the outage was never handled. Notebook 03a builds the three shapes these jobs need, each from the pieces of lessons 7.1 and 7.2.
 
-### Linking: keep the trail
+## Linking: keep the trail
 
 The notebook's IT-support pipeline runs four model chains in order. Each step is a `RunnablePassthrough.assign()`, which means each one adds a key and keeps every key before it:
 
@@ -29,7 +30,7 @@ The notebook's IT-support pipeline runs four model chains in order. Each step is
 
 `final_chain.map()` runs the pipeline over the notebook's queue of four messages at once. We ran the same chain shape with a stub that sleeps in place of the model: 16 model calls in 4 rounds rather than 16, because the four messages run side by side while each message's four steps stay in order. A **round** here is one wait on the model; calls in the same round run at the same time.
 
-### Fan-out, then merge
+## Fan-out, then merge
 
 Some jobs split into independent parts that meet again. The notebook writes a report on a topic from three branches:
 
@@ -49,7 +50,9 @@ flowchart TB
 
 The three model branches share one input and run at the same time. `itemgetter('topic')` copies the topic through without a model call, which lets the merge prompt name it. The merge prompt reads all four keys and writes the report. That is 4 model calls in 2 rounds, confirmed with the same stub, and the wall time is the slowest branch plus the merge. A Larkspur version compares plans: description, pros and cons of the annual plan in parallel, then one call that writes the comparison table.
 
-### Routing with RunnableBranch
+## Routing with RunnableBranch
+
+The third shape picks one chain per input. Notebook 03a's review router classifies an instruction, then tests the label against three conditions:
 
 ```mermaid
 flowchart TD
@@ -80,7 +83,7 @@ We fed the notebook's branch a set of planted labels, with stubs in place of the
 
 The third row is **first-match capture**: a request that matches two conditions goes to whichever comes first, silently. The same thing happens in the keyword router of notebook 01b, which checks machine-learning words before cloud words. A deployment question that mentions both models and a cloud provider is answered by the machine-learning handler, although the notebook's own comment expects the cloud one. For the Larkspur triage router the opening ticket behaves the same way: with a refund condition ahead of an outage condition, "Refund or outage" reaches the refund chain, and "refunds" matches too because "refund" is inside it.
 
-### Planning the default
+## Planning the default
 
 The default is where every request the classifier cannot place lands. In notebook 03a it returns a fixed apology. We call that a **silent default**: the request gets an answer, nothing is logged, and a classifier that has started returning new labels looks healthy. For a support desk the default should hand the ticket to a person and be counted, because a rising default rate is an early sign that the classifier has drifted.
 
@@ -109,6 +112,17 @@ A ticket triage chain for Larkspur combines all three:
 5. A non-English ticket runs through the linked translation steps around whichever chain answers it.
 
 Lesson 7.4 turns to older code: the chain classes that did these jobs before LCEL, and how to replace them.
+
+## Limits of this evidence
+
+- **Stub timings, not model latency.** The call and round counts come from running the notebook's chain shapes with stubs that sleep for a fixed time. Real model calls vary in length, so a round lasts as long as its slowest call, and provider rate limits can split one round into several.
+- **Planted labels.** Table 2 feeds hand-written labels to the notebook's branch. How often a real classifier returns a multi-label answer such as "summarize and email" was not measured.
+- **The moderation guard was not run.** `OpenAIModerationChain` needs an OpenAI key, and this page describes only its position at the end of the pipe.
+
+## References
+
+1. LangChain, [RunnableBranch reference](https://reference.langchain.com/python/langchain-core/runnables/branch/RunnableBranch), on condition pairs, the default and evaluation order.
+2. LangChain, [Runnable reference](https://reference.langchain.com/python/langchain-core/runnables/base/Runnable), covering `RunnableParallel` composition and `map`.
 
 ## Key Takeaways
 

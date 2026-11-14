@@ -364,33 +364,79 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Only the first call touches the network; every later call reads the cache, and a running app loads the model once and keeps it in memory. The tokenizer and the model come from the same repo and must stay together, because the ids mean nothing to any other model. Gradio adds nothing to the model; it calls the same Python function on every click.</p>
 <h2 id="hub-amp-cache">Hub &amp; cache</h2>
 <p class="lesson-of">Lesson 3.1: Hub setup, datasets and models. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/mandatory/notebook/01a_hf_setup.ipynb" target="_blank" rel="noopener"><code>01a_hf_setup.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/mandatory/notebook/01b_hf_basics.ipynb" target="_blank" rel="noopener"><code>01b_hf_basics.ipynb</code></a></p>
-<p>The Hugging Face Hub stores models, datasets and Spaces as git repositories named <code>owner/name</code>, such as <code>sentence-transformers/all-MiniLM-L6-v2</code>. Every change to a repo is a commit with a 40-character hash, and branch names such as <code>main</code> point to the latest one. Notebook <code>01a</code> logs in with <code>notebook_login()</code>, which saves an access token; scripts and servers read the same token from the <code>HF_TOKEN</code> environment variable. Public models download without a token, but gated models need one, and anonymous requests get lower rate limits (the library prints a warning saying so).</p>
-<p>The first <code>from_pretrained</code> or <code>pipeline</code> call for a repo downloads its files into a local cache. Every later call reads the files from disk. This is the entry for the embedding model M13 and M16 use, as it sits in a cache on disk:</p>
-<pre class="sheet code"><code>~/.cache/huggingface/hub/models--sentence-transformers--all-MiniLM-L6-v2/
-├── refs/main                       40 bytes: the commit hash 1110a243…
-├── blobs/                          each file once, named by the hash of its content
-│   ├── 53aa5117…                   90,868,376 bytes (the weights)
-│   ├── cb202bfe…                   466,247 bytes (tokenizer.json)
-│   └── …
-├── snapshots/1110a243…/            the repo as it was at that commit
-│   ├── model.safetensors  -&gt; ../../blobs/53aa5117…
-│   ├── tokenizer.json     -&gt; ../../blobs/cb202bfe…
-│   └── …                           every file is a symlink into blobs/
-└── .no_exist/                      files the library asked for that the repo does not have
-</code></pre>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> how a Hub repo, a branch and a commit hash relate, and why a name is not a version.</li>
+<li><strong>Read</strong> the local cache layout: refs, snapshots and content-addressed blobs.</li>
+<li><strong>Configure</strong> where the cache lives and stop a server from calling the Hub.</li>
+<li><strong>Diagnose</strong> an accuracy figure that silently depends on a hard-coded split size.</li>
+</ul>
+</blockquote>
+<p>In an illustrative case, the Larkspur retriever embeds the handbook with <code>all-MiniLM-L6-v2</code> on a laptop in March and on a server in June. The two indexes disagree on a handful of questions, though both loaded &ldquo;the same model&rdquo;. The owner had pushed a new commit in between, and both machines asked for whatever <code>main</code> pointed to that day.</p>
+<p>The <strong>Hugging Face Hub</strong> stores models, datasets and Spaces as git repositories named <code>owner/name</code>, such as <code>sentence-transformers/all-MiniLM-L6-v2</code>. Every change to a repo is a commit with a 40-character hash, and branch names such as <code>main</code> point to the latest one. Notebook 01a logs in with <code>notebook_login()</code>, which saves an access token; scripts and servers read the same token from the <code>HF_TOKEN</code> environment variable. Public models download without a token, but gated models need one, and anonymous requests get lower rate limits (the library prints a warning saying so).</p>
+<p>The first <code>from_pretrained</code> or <code>pipeline</code> call for a repo downloads its files into a local cache. Every later call reads the files from disk. The cache entry for the embedding model M13 and M16 use sits under the hub cache folder as <code>models--sentence-transformers--all-MiniLM-L6-v2</code>, and holds four parts:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Path in the entry</th>
+<th>What it holds</th>
+<th>For <code>all-MiniLM-L6-v2</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refs/main</code></td>
+<td>the commit hash <code>main</code> pointed to at download time, 40 bytes</td>
+<td><code>1110a243…</code></td>
+</tr>
+<tr>
+<td><code>blobs/</code></td>
+<td>each file once, named by the hash of its content</td>
+<td>the weights, 90,868,376 bytes; <code>tokenizer.json</code>, 466,247 bytes</td>
+</tr>
+<tr>
+<td><code>snapshots/&lt;commit&gt;/</code></td>
+<td>the repo as it was at that commit; every file is a symlink into <code>blobs/</code></td>
+<td><code>model.safetensors</code> and <code>tokenizer.json</code> link to their blobs</td>
+</tr>
+<tr>
+<td><code>.no_exist/</code></td>
+<td>files the library asked for that the repo does not have</td>
+<td>so it does not ask again</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The cache entry for <code>all-MiniLM-L6-v2</code>, read from a local cache.</em></p>
+<p>A load resolves a name through those parts in order:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     N["from_pretrained(&lt;br/&gt;repo, revision='main')"] --&gt; R["refs/main&lt;br/&gt;commit hash"]
     R --&gt; S["snapshots/&lt;br/&gt;commit/file"]
     S -- symlink --&gt; B[("blobs/&lt;br/&gt;content hash")]
 </pre></figure>
+<p><em>Figure 1: How a load resolves <code>main</code> to a file on disk.</em></p>
 <p>Three consequences follow from that layout:</p>
 <ul>
-<li><strong>A name is not a version.</strong> <code>main</code> moves when the owner pushes. Pass <code>revision=</code> with a commit hash to load the same weights in every environment, which is how <code>transformers</code> pins its own default models (lesson 3.2).</li>
+<li><strong>A name is not a version.</strong> <code>main</code> moves when the owner pushes. Pass <code>revision=</code> with a commit hash to load the same weights in every environment, which is how <code>transformers</code> pins its own default models (lesson 3.2). We call loading by branch name <strong>floating weights</strong>.</li>
 <li><strong>Revisions share files.</strong> Two snapshots of one repo point at the same blob when a file did not change, so a new commit downloads only what changed. Old revisions stay on disk until you remove them.</li>
 <li><strong>The cache is a folder you can move.</strong> <code>HF_HOME</code> (default <code>~/.cache/huggingface</code>) or <code>HF_HUB_CACHE</code> (default <code>$HF_HOME/hub</code>) relocate it, for example to a volume shared by several containers; <code>HF_HUB_OFFLINE=1</code> makes the library read only from it and never call the Hub.</li>
 </ul>
-<p>To see what the cache holds, <code>scan_cache_dir()</code> in <code>01a</code> returns an <code>HFCacheInfo</code> object with every repo, revision and size. The notebook also suggests <code>huggingface-cli scan-cache</code>; in <code>huggingface_hub</code> 1.16.1, the version this course locks, that command prints &ldquo;<code>huggingface-cli</code> is deprecated and no longer works&rdquo;. Use <code>hf cache ls</code> to list repos and sizes, <code>hf cache rm</code> to delete one, and <code>hf cache prune</code> to remove revisions no branch points to.</p>
-<p>Datasets use the same Hub and their own cache. Notebook <code>01b</code> calls <code>load_dataset('rotten_tomatoes', cache_dir='rotten_tomatoes_data')</code>; the relative <code>cache_dir</code> writes a data folder next to the notebook instead of into the shared cache. The dataset has three splits (8,530 training, 1,066 validation and 1,066 test reviews), and the notebook divides its correct predictions by a hard-coded 1066. Write <code>len(test_df)</code> instead, so the accuracy stays right if the split changes. The Hub now lists the dataset as <code>cornell-movie-review-data/rotten_tomatoes</code>; if the short name stops resolving, use the full id.</p>
+<blockquote>
+<p><strong>Pitfall: floating weights.</strong> Two environments that both load <code>main</code> agree only until the owner pushes. Pin a commit hash wherever results must be reproducible, such as an index you rebuild or an evaluation you compare against.</p>
+</blockquote>
+<p>To see what the cache holds, <code>scan_cache_dir()</code> in 01a returns an <code>HFCacheInfo</code> object with every repo, revision and size. The notebook also suggests the older <code>huggingface-cli scan-cache</code>; in <code>huggingface_hub</code> 1.16.1, the version this course locks, that command prints &ldquo;<code>huggingface-cli</code> is deprecated and no longer works&rdquo;. Use <code>hf cache ls</code> to list repos and sizes, <code>hf cache rm</code> to delete one, and <code>hf cache prune</code> to remove revisions no branch points to.</p>
+<p>Datasets use the same Hub and their own cache. Notebook 01b loads the <code>rotten_tomatoes</code> movie-review dataset with a relative <code>cache_dir</code>, which writes a data folder next to the notebook instead of into the shared cache. The dataset has three splits (8,530 training, 1,066 validation and 1,066 test reviews), and the notebook divides its correct predictions by a hard-coded 1066. Divide by the length of the test table instead, so the accuracy stays right if the split changes. The Hub now lists the dataset as <code>cornell-movie-review-data/rotten_tomatoes</code>, and the short name redirects to it; if it stops resolving, use the full id.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>One local cache.</strong> Table 1 was read from one machine&rsquo;s cache at commit <code>1110a243</code>. Another commit has different hashes and possibly different sizes.</li>
+<li><strong>Version-dependent commands.</strong> The <code>hf cache</code> commands and the deprecation message come from <code>huggingface_hub</code> 1.16.1. Older releases still ship <code>huggingface-cli</code>.</li>
+<li><strong>Notebook not rerun.</strong> The split sizes and the redirect were read from the Hub&rsquo;s dataset metadata, not from a run of notebook 01b.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Hugging Face, <a href="https://huggingface.co/docs/huggingface_hub/guides/manage-cache" target="_blank" rel="noopener">managing the cache</a>, on refs, snapshots, blobs and cleaning up.</li>
+<li>Hugging Face, <a href="https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables" target="_blank" rel="noopener">environment variables</a>, for <code>HF_HOME</code>, <code>HF_HUB_CACHE</code>, <code>HF_TOKEN</code> and <code>HF_HUB_OFFLINE</code>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Hub repos are git repositories, and a branch such as <code>main</code> moves when the owner pushes. Pin <code>revision=</code> to a commit hash to load the same weights in every environment.</li>
@@ -412,7 +458,17 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="pipelines">Pipelines</h2>
 <p class="lesson-of">Lesson 3.2: Pipelines, tokenization and pretrained models. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/mandatory/notebook/02a_pipelines_for_nlp_tasks.ipynb" target="_blank" rel="noopener"><code>02a_pipelines_for_nlp_tasks.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/mandatory/notebook/02b_understanding_llms.ipynb" target="_blank" rel="noopener"><code>02b_understanding_llms.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/02c_accessing_pretrained_models.ipynb" target="_blank" rel="noopener"><code>02c_accessing_pretrained_models.ipynb</code></a> (optional)</p>
-<p><code>pipeline()</code> from <code>transformers</code> loads a tokenizer and a model from one Hub repo and runs three steps on every call: pre-processing (the tokenizer turns text into token ids), the forward pass (the model turns ids into numbers) and post-processing (those numbers become a label, a span or generated text). Notebook <code>02a</code> runs it for sentiment, named entities, question answering and translation; <code>01b</code> uses it to label 1,066 movie reviews and computes accuracy against the dataset&rsquo;s labels.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the three steps a pipeline runs, and what can fail at each.</li>
+<li><strong>Pin</strong> the model and revision a pipeline loads instead of the task&rsquo;s default.</li>
+<li><strong>Measure</strong> text in the embedding model&rsquo;s own tokens, and predict what truncation drops.</li>
+<li><strong>Compare</strong> greedy decoding, beam search and sampling.</li>
+</ul>
+</blockquote>
+<p>A Larkspur FAQ page holds the answer to <em>How fast does support answer a ticket?</em>, yet retrieval scores it 0.229 against that question, far below a chunk that holds the answer alone. No error was raised anywhere. The answer sat past the embedding model&rsquo;s token limit and never reached the model.</p>
+<p>A <strong>pipeline</strong>, <code>pipeline()</code> from <code>transformers</code>, loads a tokenizer and a model from one Hub repo and runs three steps on every call: pre-processing (the tokenizer turns text into token ids), the forward pass (the model turns ids into numbers) and post-processing (those numbers become a label, a span or generated text). Notebook <code>02a</code> runs it for sentiment, named entities, question answering and translation; <code>01b</code> uses it to label 1,066 movie reviews and computes accuracy against the dataset&rsquo;s labels.</p>
 <figure class="anim sheet" aria-labelledby="anim-pipeline-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Inside a pipeline, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 330" role="img" aria-labelledby="anim-pipeline-title anim-pipeline-desc">
@@ -486,6 +542,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <li><button type="button">Label</button><span>The config’s <code>id2label</code> names the larger one, and the pipeline returns that label with its probability as the score.</span></li>
   </ol>
 </figure>
+<p><em>Figure 1: The three steps of a text-classification pipeline on a Larkspur ticket.</em></p>
 <p>For a Larkspur ticket, <em>My refund took three weeks.</em>, the sentiment pipeline&rsquo;s tokenizer produces nine ids: <code>[CLS] my ref ##und took three weeks . [SEP]</code>. The model returns two logits, softmax turns them into probabilities, and the model&rsquo;s <code>config.json</code> maps index 0 to <code>NEGATIVE</code> and 1 to <code>POSITIVE</code>. Each step can go wrong on its own. A ticket longer than the model&rsquo;s 512 positions has to be truncated at the tokenizer, a model trained on movie reviews misreads billing language in the forward pass, and a two-label head cannot say &ldquo;billing&rdquo; or &ldquo;outage&rdquo; at all.</p>
 <p><strong>A task name picks a model for you.</strong> <code>pipeline(task="text-classification")</code> with no <code>model=</code> loads the task&rsquo;s default, and <code>transformers</code> prints &ldquo;No model was supplied, defaulted to … Using a pipeline without specifying a model name and revision in production is not recommended.&rdquo; In <code>transformers</code> 5.17.0, the version this course locks, the defaults include:</p>
 <div class="sheet scroll"><table>
@@ -514,8 +571,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
-<p>The NER default is 1.33 GB of weights, five times the sentiment model&rsquo;s 268 MB, which is why <code>02a</code> warns before loading it. Pass <code>model=</code> (and <code>revision=</code> with a commit hash) to choose the model yourself: <code>02a</code> loads <code>ProsusAI/finbert</code> for financial headlines, and the task comes from the repo&rsquo;s metadata.</p>
-<p><strong>The task list changes between releases.</strong> The list printed at the top of <code>02a</code> comes from an older <code>transformers</code>. Version 5.17.0 has no <code>question-answering</code>, <code>translation</code>, <code>summarization</code>, <code>text2text-generation</code> or <code>conversational</code> task, so the notebook&rsquo;s <code>pipeline('question-answering')</code> and <code>pipeline('translation_en_to_fr')</code> cells fail in this course&rsquo;s environment. Print <code>transformers.pipelines.get_supported_tasks()</code> to see what your installed version supports.</p>
+<p><em>Table 1: Task defaults and their pinned revisions in <code>transformers</code> 5.17.0, read from the installed library.</em></p>
+<p>The NER default (named-entity recognition) is 1.33 GB of weights, five times the sentiment model&rsquo;s 268 MB, which is why <code>02a</code> warns before loading it. Pass <code>model=</code> (and <code>revision=</code> with a commit hash) to choose the model yourself: <code>02a</code> loads <code>ProsusAI/finbert</code> for financial headlines, and the task comes from the repo&rsquo;s metadata.</p>
+<p><strong>The task list changes between releases.</strong> The list printed at the top of <code>02a</code> comes from an older <code>transformers</code>. Version 5.17.0 has no <code>question-answering</code>, <code>translation</code>, <code>summarization</code>, <code>text2text-generation</code> or <code>conversational</code> task, and the notebook&rsquo;s <code>pipeline('question-answering')</code> and <code>pipeline('translation_en_to_fr')</code> cells fail in this course&rsquo;s environment. Print <code>transformers.pipelines.get_supported_tasks()</code> to see what your installed version supports.</p>
 <p>Two smaller points from the notebooks. <code>save_pretrained(folder)</code> writes the tokenizer, model and config into a folder that <code>pipeline(model=folder)</code> loads again; <code>02a</code> saves the text-classification pipeline that way, not the NER one, and writes the folder next to the notebook. Notebook <code>02c</code> shows the same text generation twice: once with <code>AutoTokenizer</code> and <code>AutoModelForCausalLM</code> and an explicit <code>generate()</code>, once as <code>pipeline("text-generation", model="gpt2")</code>. The pipeline is shorter; the explicit version lets you read the logits, which the next two sections need.</p>
 <h2 id="tokenization">Tokenization</h2>
 <p>Models read tokens, pieces of text from a fixed vocabulary, each mapped to an integer id. Notebook <code>02b</code> explains why the pieces are subwords: a character vocabulary is small but needs many tokens per sentence, a word vocabulary is large and still meets unknown words, and subwords keep common words whole while building rare ones from parts. Every model ships its own tokenizer, and the ids mean nothing to any other model. These are real outputs of the two tokenizers this module and M13 use, from <code>AutoTokenizer</code> in <code>transformers</code> 5.17.0:</p>
@@ -545,9 +603,10 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 2: The same texts under two tokenizers, rerun with <code>transformers</code> 5.17.0.</em></p>
 <p>The two schemes differ in ways that matter later. GPT-2 keeps case and attaches a leading space to the token after it (<code>␣</code> above), so &ldquo;fl&rdquo; at the start of a text is id 2704 and &rdquo; fl&rdquo; after a space is id 781; <code>02b</code>&rsquo;s markdown quotes the second. WordPiece lower-cases everything, marks a piece that continues a word with <code>##</code>, and adds <code>[CLS]</code> and <code>[SEP]</code> around every input.</p>
-<p>Prices and limits are counted in tokens, so the ratio of characters to tokens decides what a text costs. M10 estimated tokens as characters divided by four. On the handbook that holds: the refunds section is 1,111 characters and 246 GPT-2 tokens (4.52 characters per token), the FAQ page 1,415 characters and 308 tokens (4.59). It fails on rare words: <em>Preposterous, I&rsquo;m flabbergasted!</em> runs at 2.91 characters per GPT-2 token and 2.29 per MiniLM token. Product names, codes and other languages move the ratio the same way, so count with the model&rsquo;s own tokenizer before you budget.</p>
-<p><strong>Every model has a token limit, and the text past it is dropped without an error.</strong> GPT-2 has 1,024 positions. The MiniLM tokenizer reports 512, but sentence-transformers reads <code>max_seq_length: 256</code> from the repo&rsquo;s <code>sentence_bert_config.json</code> and cuts every input there, <code>[CLS]</code> and <code>[SEP]</code> included. The FAQ page is 291 MiniLM tokens, so its last 35 tokens, 183 characters holding the support response times and the promotional-credit rule, never reach the model. Embedding the whole page and embedding its first 1,231 characters give the same vector (cosine similarity 1.0000). <em>How fast does support answer a ticket?</em> then scores 0.229 against the page and 0.687 against the support answer on its own. This is the reason M12 sizes chunks and why the size must be measured in the embedding model&rsquo;s tokens.</p>
+<p>Prices and limits are counted in tokens, so the ratio of characters to tokens decides what a text costs. M10 estimated tokens as characters divided by four. On the handbook that holds: the refunds section is 1,111 characters and 246 GPT-2 tokens (4.52 characters per token), the FAQ page 1,415 characters and 308 tokens (4.59). It fails on rare words: <em>Preposterous, I&rsquo;m flabbergasted!</em> runs at 2.91 characters per GPT-2 token and 2.29 per MiniLM token, not counting <code>[CLS]</code> and <code>[SEP]</code>. Product names, codes and other languages move the ratio the same way. Count with the model&rsquo;s own tokenizer before you budget.</p>
+<p><strong>Every model has a token limit, and the text past it is dropped without an error.</strong> GPT-2 has 1,024 positions. The MiniLM tokenizer reports 512, but sentence-transformers reads <code>max_seq_length: 256</code> from the repo&rsquo;s <code>sentence_bert_config.json</code> and cuts every input there, <code>[CLS]</code> and <code>[SEP]</code> included. The FAQ page is 291 MiniLM tokens. Its last 35 tokens, 183 characters holding the support response times and the promotional-credit rule, never reach the model. Embedding the whole page and embedding its first 1,231 characters give the same vector (cosine similarity 1.0000). <em>How fast does support answer a ticket?</em> then scores 0.229 against the page and 0.687 against the support answer on its own. We call this <strong>silent truncation</strong>. It is the reason M12 sizes chunks and why the size must be measured in the embedding model&rsquo;s tokens.</p>
 <p>The <a href="02_pipelines_tokenization_and_pretrained_models/interactive/token-limit-lab.html">interactive lab</a> holds the real token ids for five Larkspur texts under both tokenizers and cuts them exactly as <code>tokenizer(text, truncation=True, max_length=N)</code> does; it matches the library at every limit from 8 to 320, 3,130 settings with 0 mismatches. Lower the limit on the refunds section to 128 and MiniLM keeps the text up to &ldquo;less than 100 GB of out&rdquo;, splitting the sentence M12&rsquo;s golden question needs, while GPT-2&rsquo;s cut falls one word earlier, before &ldquo;GB&rdquo;.</p>
 <figure class="lab-embed"><iframe src="02_pipelines_tokenization_and_pretrained_models/interactive/token-limit-lab.html" title="Tokens and the limit, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Tokens and the limit. <a href="02_pipelines_tokenization_and_pretrained_models/interactive/token-limit-lab.html">Open full screen</a></figcaption></figure>
 <h2 id="from-logits-to-text">From logits to text</h2>
@@ -559,6 +618,7 @@ th:last-child, td:last-child { padding-right: 0; }
     C --&gt; A["Append it"]
     A -- repeat --&gt; G
 </pre></figure>
+<p><em>Figure 2: The generation loop. Each pass scores every vocabulary entry and appends one token.</em></p>
 <p>How the next token is picked is the decoding strategy, set by <code>generate()</code>&rsquo;s arguments. The notebook&rsquo;s settings:</p>
 <ul>
 <li><strong>Greedy</strong> (the default): the most likely token every time. Deterministic, and prone to repeating itself in long text.</li>
@@ -566,6 +626,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Sampling</strong>, <code>do_sample=True</code>: draws from the probabilities. <code>temperature=0.4</code> sharpens them toward the top tokens, <code>top_k=10</code> draws only from the ten most likely, and <code>top_p=0.94</code> from the smallest set whose probabilities add up to 0.94. The notebook sets <code>top_k=0</code> to switch the top-k filter off when it tests temperature and top-p alone.</li>
 </ul>
 <p>Two details catch people out. <code>max_new_tokens=20</code> counts only generated tokens, while <code>max_length=40</code> counts the prompt too and leaves room for 36 new tokens after the 4-token prompt. And GPT-2 has no padding token; <code>02c</code> passes <code>pad_token_id=tokenizer.eos_token_id</code> to silence the warning <code>generate()</code> gives about it. The code comment in <code>02b</code>&rsquo;s first tokenizer cell, <code>tensor([[1026, 373, 257, 3223, 290, 6388, 88]])</code>, is the encoding of <em>It was a dark and stormy</em>, not of the sentence in that cell.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Version-bound.</strong> Table 1, the missing tasks and the tokenizer outputs come from <code>transformers</code> 5.17.0. Defaults and the task list change between releases.</li>
+<li><strong>No model outputs.</strong> The notebooks ship without outputs. The token counts, the 0.229 and 0.687 scores and the truncation point were rerun with the tokenizers and with <code>all-MiniLM-L6-v2</code> through sentence-transformers; no GPT-2 generation was run, and the decoding settings are described, not measured.</li>
+<li><strong>Lab texts.</strong> The refunds section and the FAQ page are the lab&rsquo;s copies of the Larkspur handbook. The lab&rsquo;s stored token ids match both live tokenizers on all five texts.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Hugging Face, <a href="https://huggingface.co/docs/transformers/main_classes/pipelines" target="_blank" rel="noopener">pipelines</a>, on tasks, default models and pinning a model.</li>
+<li>Hugging Face, <a href="https://huggingface.co/docs/transformers/generation_strategies" target="_blank" rel="noopener">generation strategies</a>, covering greedy decoding, beam search and sampling.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A pipeline is tokenise, forward pass, post-process, and each step can fail on its own. Pass <code>model=</code> and <code>revision=</code> yourself, because the task default and the task list change between releases.</li>
@@ -587,50 +658,96 @@ th:last-child, td:last-child { padding-right: 0; }
 </details>
 <h2 id="gradio-blocks">Gradio Blocks</h2>
 <p class="lesson-of">Lesson 3.5: Building demos with Gradio. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/mandatory/notebook/05a_gradio_introduction.ipynb" target="_blank" rel="noopener"><code>05a_gradio_introduction.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/05b_gradio_layout.ipynb" target="_blank" rel="noopener"><code>05b_gradio_layout.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/05c_gradio_interactions.ipynb" target="_blank" rel="noopener"><code>05c_gradio_interactions.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/05d_gradio_image_ml_integration.ipynb" target="_blank" rel="noopener"><code>05d_gradio_image_ml_integration.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/05e_gradio_text_ml_integration.ipynb" target="_blank" rel="noopener"><code>05e_gradio_text_ml_integration.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/05f_gradio_modals_errors.ipynb" target="_blank" rel="noopener"><code>05f_gradio_modals_errors.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m03_hugging_face_models/optional/notebook/05g_gradio_styling_and_themes.ipynb" target="_blank" rel="noopener"><code>05g_gradio_styling_and_themes.ipynb</code></a> (optional)</p>
-<p>Gradio turns a Python function into a web page. The function stays ordinary Python; Gradio draws an input component for each argument, an output component for each return value, and calls the function when the user acts. <code>launch()</code> serves the page at <code>http://localhost:7860</code>, or the next free port above it.</p>
-<p>Gradio has two ways to build that page:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong><code>gr.Interface(fn, inputs, outputs)</code></strong> builds a form around one function: the input components, a Submit button and the outputs. Notebook <code>05a</code> wraps an adder, a text reverser, a greyscale filter and a classifier this way, and <code>05d</code> sets <code>live=True</code> so the function reruns on every change instead of on Submit. Interface also adds a Flag button; in Gradio 6.31 flagged examples go to <code>.gradio/flagged</code>, not the <code>flagged</code> folder <code>05a</code> names.</li>
-<li><strong><code>gr.Blocks()</code></strong> is a context manager in which you place components yourself, inside <code>gr.Row()</code>, <code>gr.Column(scale=…)</code>, <code>gr.Tab()</code>, <code>gr.Accordion()</code> and <code>gr.Group()</code> (<code>05b</code>). Blocks adds no button and calls nothing by itself. You connect each event to a function (<code>05c</code>): <code>button.click(fn, inputs, outputs)</code> runs on a click, <code>slider.change(...)</code> on every change of value. One page can hold many components and many events, each with its own function.</li>
+<li><strong>Compare</strong> <code>gr.Interface</code> and <code>gr.Blocks</code> on what each builds for you and what you wire yourself.</li>
+<li><strong>Trace</strong> one event from a button click through a Python function to an output component.</li>
+<li><strong>Apply</strong> three habits: load the model once, fail with a message, style through <code>launch()</code>.</li>
+<li><strong>Explain</strong> why a demo is not a production service.</li>
 </ul>
+</blockquote>
+<p>The Larkspur support lead wants to try the ticket tagger before anyone builds a service around it. They do not run notebooks. A demo page with a ticket box and a Tag button lets them, provided each click is fast and an empty box gives a clear message instead of a stack trace.</p>
+<p><strong>Gradio</strong> turns a Python function into a web page. The function stays ordinary Python; Gradio draws an input component for each argument, an output component for each return value, and calls the function when the user acts. <code>launch()</code> serves the page at <code>http://localhost:7860</code>, or the next free port above it.</p>
+<p>Gradio has two ways to build that page.</p>
+<p><strong><code>gr.Interface(fn, inputs, outputs)</code></strong> builds a form around one function: the input components, a Submit button and the outputs. Notebook 05a wraps an adder, a text reverser, a greyscale filter and a classifier this way, and 05d sets <code>live=True</code> so the function reruns on every change instead of on Submit. Interface also adds a Flag button; in Gradio 6.31 flagged examples go to <code>.gradio/flagged</code>, not the <code>flagged</code> folder 05a names.</p>
+<figure class="sheet chart"><pre class="mermaid">flowchart LR
+    TB[/"Textbox&lt;br/&gt;ticket"/] --&gt; SUB["Submit button&lt;br/&gt;added by Interface"]
+    SUB --&gt; F["tag(ticket)"]
+    F --&gt; LB[/"Label&lt;br/&gt;sentiment"/]
+    LB -.-&gt; FL["Flag button&lt;br/&gt;added by Interface"]
+</pre></figure>
+<p><em>Figure 1: The ticket tagger as an Interface. Gradio adds the Submit and Flag buttons and wires them.</em></p>
+<p><strong><code>gr.Blocks()</code></strong> is a context manager in which you place components yourself, inside rows, columns with a <code>scale</code>, tabs, accordions and groups (05b). Blocks adds no button and calls nothing by itself. You connect each event to a function (05c): a button&rsquo;s <code>click</code> runs on a click, a slider&rsquo;s <code>change</code> on every change of value. One page can hold many components and many events, each with its own function.</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     TB[/"Textbox&lt;br/&gt;ticket"/] -- value --&gt; F["tag(ticket)&lt;br/&gt;Python function"]
     BT["Button&lt;br/&gt;Tag"] -- click --&gt; F
     F -- return value --&gt; LB[/"Label&lt;br/&gt;sentiment"/]
 </pre></figure>
-<p>The event names its inputs and outputs by component, and Gradio passes values between the browser and the function. This is the Larkspur ticket tagger as a Blocks app, with the ticket box and button in a wide column and the result beside them:</p>
-<pre class="sheet code"><code class="language-python">import gradio as gr
-from transformers import pipeline
+<p><em>Figure 2: The ticket tagger as a Blocks app. You place the button and name the event&rsquo;s inputs and outputs.</em></p>
+<p>The event names its inputs and outputs by component, and Gradio passes values between the browser and the function. The Larkspur ticket tagger as a Blocks app has four pieces:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it is</th>
+<th>Why it is built that way</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classifier</td>
+<td>the sentiment pipeline from lesson 3.2, pinned to <code>distilbert/distilbert-base-uncased-finetuned-sst-2-english</code> at <code>714eb0f</code></td>
+<td>built once when the app starts</td>
+</tr>
+<tr>
+<td><code>tag(ticket)</code></td>
+<td>raises <code>gr.Error("Paste a ticket first.")</code> on an empty box, otherwise returns the label with its score</td>
+<td>a <code>gr.Label</code> shows a label with its confidence</td>
+</tr>
+<tr>
+<td>Layout</td>
+<td>one row: a wide column (scale 2) with the ticket box and the Tag button, a narrow column (scale 1) with the label</td>
+<td>placed by hand, which Interface cannot do</td>
+</tr>
+<tr>
+<td>Event</td>
+<td>the button&rsquo;s click runs <code>tag</code> with the ticket box as input and the label as output</td>
+<td>Blocks wires nothing by itself</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The ticket tagger&rsquo;s pieces. The design follows the notebooks; it is not a notebook cell.</em></p>
+<div class="learning-widget evidence-switcher" data-comparison id="ui-switcher">
+<p class="widget-intro">Build the same ticket tagger both ways and compare what Gradio does for you.</p>
+<div class="mode-controls" hidden role="group" aria-label="Gradio building style">
+<button type="button" data-mode="interface" aria-pressed="false" aria-controls="ui-interface">gr.Interface</button>
+<button type="button" data-mode="blocks" aria-pressed="false" aria-controls="ui-blocks">gr.Blocks</button>
+</div>
+<section id="ui-interface" class="mode-panel" data-announcement="Interface: a ready-made form around one function."><h4>gr.Interface</h4><dl><dt>You write</dt><dd>the function, its input and output components</dd><dt>Gradio adds</dt><dd>a Submit button, a Flag button and the wiring between them</dd><dt>Layout and events</dt><dd>fixed: one form, one function</dd></dl></section>
+<section id="ui-blocks" class="mode-panel" data-announcement="Blocks: your layout and your events."><h4>gr.Blocks</h4><dl><dt>You write</dt><dd>the function, every component, the rows and columns, and each event</dd><dt>Gradio adds</dt><dd>nothing until you wire an event</dd><dt>Layout and events</dt><dd>yours: many components and many events, each with its own function</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-clf = pipeline(&quot;sentiment-analysis&quot;,
-               model=&quot;distilbert/distilbert-base-uncased-finetuned-sst-2-english&quot;,
-               revision=&quot;714eb0f&quot;)                       # loaded once, when the app starts
-
-def tag(ticket):
-    if not ticket.strip():
-        raise gr.Error(&quot;Paste a ticket first.&quot;)          # stops here and shows the message
-    r = clf(ticket)[0]
-    return {r[&quot;label&quot;]: r[&quot;score&quot;]}                      # gr.Label shows a label with its confidence
-
-with gr.Blocks() as demo:
-    with gr.Row():
-        with gr.Column(scale=2):
-            ticket = gr.Textbox(label=&quot;Ticket&quot;, lines=4)
-            go = gr.Button(&quot;Tag&quot;)
-        with gr.Column(scale=1):
-            label = gr.Label(label=&quot;Sentiment&quot;)
-    go.click(fn=tag, inputs=ticket, outputs=label)
-
-demo.launch()
-</code></pre>
 <p>Three habits from the notebooks carry over to every demo:</p>
 <ul>
-<li><strong>Load the model once, outside the function.</strong> <code>05e</code> builds its sentiment pipeline at the top of the notebook and only calls it inside <code>predict_sentiment</code>. A pipeline built inside the event function would reload the weights on every click.</li>
-<li><strong>Fail with a message.</strong> <code>raise gr.Error("…")</code> stops the function and shows the message in the page; <code>gr.Warning("…")</code> shows a notice and lets the function finish (<code>05f</code>).</li>
-<li><strong>Style through <code>launch()</code> in Gradio 6.</strong> <code>05g</code> passes <code>theme=</code> to <code>gr.Interface</code> and <code>css=</code> to <code>gr.Blocks</code>. Gradio 6.31, the version this course locks, still accepts both but warns &ldquo;The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0&rdquo;; pass them as <code>demo.launch(theme=…, css=…)</code>.</li>
+<li><strong>Load the model once, outside the function.</strong> 05e builds its sentiment pipeline at the top of the notebook and only calls it inside its prediction function. A pipeline built inside the event function would reload the weights on every click. We call that a <strong>per-click reload</strong>.</li>
+<li><strong>Fail with a message.</strong> Raising <code>gr.Error</code> stops the function and shows the message in the page; <code>gr.Warning</code> shows a notice and lets the function finish (05f).</li>
+<li><strong>Style through <code>launch()</code> in Gradio 6.</strong> 05g passes <code>theme=</code> to <code>gr.Interface</code> and <code>css=</code> to <code>gr.Blocks</code>. Gradio 6.31, the version this course locks, still accepts both but warns &ldquo;The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0&rdquo;; pass them to <code>launch()</code> instead.</li>
 </ul>
-<p>Notebook <code>05e</code>&rsquo;s last cell, <code>gr.load("distilbert-base-uncased-finetuned-sst-2-english", src=…)</code>, runs the model on Hugging Face&rsquo;s servers instead of locally. In the course copy its <code>src</code> points at a GitHub folder URL, which <code>gr.load</code> does not accept; the source notebook has <code>src="models"</code>, which loads the model by its Hub name.</p>
-<p>A demo is a tool for trying a model with people who do not run notebooks, such as the Larkspur support lead. It has no login, rate limit or monitoring unless you add them, so in production the model runs behind a service with those controls, and the demo stays a way to try it.</p>
+<p>Notebook 05e&rsquo;s last cell calls <code>gr.load</code> with the model&rsquo;s Hub name and <code>src="models"</code>, which runs the model on Hugging Face&rsquo;s servers instead of locally.</p>
+<p>A demo is a tool for trying a model with people who do not run notebooks, such as the Larkspur support lead. It has no login, rate limit or monitoring unless you add them. In production the model runs behind a service with those controls, and the demo stays a way to try it.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Version-bound.</strong> The flag folder, the port search from 7860 and the styling warning were checked against Gradio 6.31.0. Earlier and later releases differ.</li>
+<li><strong>No app launched.</strong> The tagger in Table 1 is a design assembled from the notebooks&rsquo; patterns; no page was served for this lesson.</li>
+<li><strong>A demo, not a service.</strong> Nothing on this page covers authentication, rate limits or monitoring.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Gradio, <a href="https://www.gradio.app/guides/blocks-and-event-listeners" target="_blank" rel="noopener">Blocks and event listeners</a>, on layouts and wiring events to functions.</li>
+<li>Gradio, <a href="https://www.gradio.app/docs/gradio/interface" target="_blank" rel="noopener">the Interface class</a>, including <code>live</code> and flagging.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Use <code>gr.Interface</code> for a quick form around one function, and <code>gr.Blocks</code> when you need your own layout and many events, each wired to a function with calls such as <code>button.click(fn, inputs, outputs)</code>.</li>
@@ -706,7 +823,7 @@ demo.launch()
 <li>A pipeline is tokenizer, model and post-processing. When its output is wrong, check each of the three before blaming the model.</li>
 <li>Load models once and call them many times, in notebooks, services and Gradio demos alike.</li>
 </ul></article>
-    <nav class="toc" aria-label="M03 sections"><details open><summary>In M03</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#hub-amp-cache">Hub &amp; cache</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipelines">Pipelines</a></li><li><a href="#tokenization">Tokenization</a></li><li><a href="#from-logits-to-text">From logits to text</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#gradio-blocks">Gradio Blocks</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M03 sections"><details open><summary>In M03</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#hub-amp-cache">Hub &amp; cache</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipelines">Pipelines</a></li><li><a href="#tokenization">Tokenization</a></li><li><a href="#from-logits-to-text">From logits to text</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#gradio-blocks">Gradio Blocks</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

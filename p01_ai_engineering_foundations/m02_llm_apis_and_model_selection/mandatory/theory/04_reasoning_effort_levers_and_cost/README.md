@@ -1,12 +1,23 @@
 # M02.4 Theory: Reasoning-effort levers and cost
 
 *[M02 theory](../README.md) · Lesson 2.4 · Notebooks: [`04a_Reasoning_Effort_Levers.ipynb`](../../notebook/04a_Reasoning_Effort_Levers.ipynb) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Price each step up the effort dial in dollars per accuracy point, and stop at the knee -->
+<!-- format: approved -->
 
 ## Cost vs accuracy
 
+> **What you'll learn**
+>
+> - **Explain** what `reasoning_effort` changes, in tokens.
+> - **Calculate** the price of each step up the dial in dollars per extra accuracy point.
+> - **Diagnose** a sweep whose grader, not the model, sets the ceiling.
+> - **Recognise** a task where effort is the wrong lever, and name the real fix.
+
+Someone sets `reasoning_effort` to `high` everywhere, reasoning that more thinking cannot hurt. On the representative sweep below that costs $48.40 more per 10,000 answers than `medium` and gets no extra problem right. The dial has a price per step, and most of the steps are not worth paying for.
+
 `reasoning_effort` changes one thing: how many reasoning tokens the model is willing to spend before it commits to an answer. The model, the prompt and the output format stay the same. More reasoning tokens mean more latency and more cost at the output rate, and a better answer only when the task had something to deliberate about. The notebook sweeps `o4-mini` at `low`, `medium` and `high`; the installed `openai` 2.54.0 also types `none`, `minimal`, `xhigh` and `max`, and the notebook says to trim the list to what your model accepts.
 
-The sweep is six problems at three levels with `TRIALS = 1`: 18 calls, a few cents. The problems mix easy and hard on purpose (a train arrival time, retry backoff, the deployment puzzle from lesson 2.3, LRU eviction, a syllogism, a coin-weighing puzzle), because one question gives a coin flip, not a measurement.
+The sweep is six problems at three levels with one trial each: 18 calls, a few cents. The problems mix easy and hard on purpose (a train arrival time, retry backoff, the deployment puzzle from lesson 2.3, LRU eviction, a syllogism, a coin-weighing puzzle), because one question gives a coin flip, not a measurement.
 
 ```mermaid
 flowchart LR
@@ -19,13 +30,11 @@ flowchart LR
 ```
 <!-- animated: diagrams/effort-sweep.anim.html -->
 
-Each step up the dial gets one line in the notebook's marginal table:
+*Figure 1: The effort sweep. Each level runs the same six problems, and each step up is priced against the level below.*
 
-```
-$ per +1pp = (cost of this level - cost of the level below) / (accuracy gain * 100)
-```
+Each step up the dial gets one line in the notebook's marginal table. Its price is the cost of this level minus the cost of the level below, divided by the accuracy gain in percentage points: **dollars per extra point**. A step with no accuracy gain reads `no gain`, and the notebook's rule is that every step after one is pure cost.
 
-A step with no accuracy gain reads `no gain`, and the notebook's rule is that every step after one is pure cost. The knee is the last step whose price per point you would pay. The usual shape, in the notebook's words, is "a step then a plateau": a real gain from `low` to `medium`, much less from `medium` to `high`, while cost and latency keep climbing.
+The **knee** is the last step whose price per point you would pay. The usual shape, in the notebook's words, is "a step then a plateau": a real gain from `low` to `medium`, much less from `medium` to `high`, while cost and latency keep climbing.
 
 The [interactive lab](interactive/effort-knee-lab.html) prices that sweep with the notebook's own cost and marginal code, adds `gpt-4o-mini` from lesson 2.3 as the first rung, and scales each figure to 10,000 answers. The notebooks save no outputs, so the accuracy and reasoning-token inputs are representative: 3, 4, 5 and 5 problems right, and 250, 700 and 1,800 reasoning tokens per call. The prompt and answer tokens are counted from the notebook's six problems. With those inputs:
 
@@ -36,17 +45,21 @@ The [interactive lab](interactive/effort-knee-lab.html) prices that sweep with t
 | `o4-mini`, medium | 5 | 99.8% | $31.24 | +17 points, $1.19 per point |
 | `o4-mini`, high | 5 | 99.9% | $79.64 | no gain |
 
+*Table 1: The lab's representative sweep, recomputed by running the lab's own code.*
+
 <!-- lab: interactive/effort-knee-lab.html -->
 
 Three things to take from the table:
 
 - **The knee depends on what a point is worth to you.** At $2 per point per 10,000 answers the lab stops at medium. Below $1.19 it stops at low, and below $0.68 the fast model wins. Going to high costs $48.40 more per 10,000 answers than medium for nothing.
-- **Six problems make a coarse ruler.** Each problem is 17 points, so one flipped answer moves the knee. The notebook's `TRIALS` raises the count at linear cost; a production sweep wants 20 or more questions drawn from real traffic.
-- **Audit the grader before the dial.** The notebook grades by substring: the expected text must appear in the answer. Its LRU problem expects `c`, but in a 4-entry LRU cache with accesses `A B C D A E`, inserting `E` evicts `B`; `C` goes only when `B` comes back. A model that answers `B` is marked wrong at every level and caps at 5 of 6, while a wrong `C`, or any reply containing the letter c such as "B is evicted", earns the point.
+- **Six problems make a coarse ruler.** Each problem is 17 points, so one flipped answer moves the knee. The notebook's trial count raises the sample at linear cost; a production sweep wants 20 or more questions drawn from real traffic.
+- **Audit the grader before the dial.** The notebook grades by substring: the expected text must appear in the answer. Its LRU problem expects `c`, but in a 4-entry LRU cache with accesses `A B C D A E`, inserting `E` evicts `B`; `C` goes only when `B` comes back. A model that answers `B` is marked wrong at every level and caps at 5 of 6, while a wrong `C`, or any reply containing the letter c such as "B is evicted", earns the point. We call this a **grader ceiling**.
+
+> **Pitfall: grader ceiling.** A sweep that plateaus at the same score on every level may be measuring its answer key. Check each expected answer by hand, and grade by exact match rather than by substring.
 
 ## When effort is the wrong lever
 
-The notebook's last task cannot be solved by thinking: *What was the total refund value processed by our EU billing service last Tuesday?*, with the instruction to reply `INSUFFICIENT DATA` when the data is missing. Every level should reach the same reply, and the higher levels pay more reasoning tokens to get there. Flat accuracy with climbing reasoning tokens is the signature of the wrong lever; the lab's *Wrong lever* shape shows its bill.
+The notebook's last task cannot be solved by thinking: *What was the total refund value processed by our EU billing service last Tuesday?*, with the instruction to reply `INSUFFICIENT DATA` when the data is missing. Every level should reach the same reply, and the higher levels pay more reasoning tokens to get there. Flat accuracy with climbing reasoning tokens is the signature of the **wrong lever**; the lab's *Wrong lever* shape shows its bill.
 
 The notebook's table of real fixes, as a chain:
 
@@ -61,7 +74,19 @@ flowchart TD
     Q3 -- no --> F4["Genuinely hard:<br/>now raise effort"]
 ```
 
-Only the last box is an effort problem. For the Larkspur assistant, *How much was my last refund?* is the first box: the amount lives in the billing system, so the fix is a tool call to the account API (M22), and *Can I get a refund after 45 days?* is the last box, where effort is worth sweeping.
+*Figure 2: The fix for each kind of failure. Only the last box is an effort problem.*
+
+For the Larkspur assistant, *How much was my last refund?* is the first box: the amount lives in the billing system, and the fix is a tool call to the account API (M22). *Can I get a refund after 45 days?* is the last box, where effort is worth sweeping.
+
+## Limits of this evidence
+
+- **Representative inputs.** The accuracy counts and reasoning-token figures in Table 1 are representative; the notebook saves no outputs and no sweep was run for this page. The dollar figures follow exactly from those inputs and the notebook's prices.
+- **Notebook prices.** The prices are the notebook's `PRICING` constants, which it tells you to replace with today's.
+- **Notebook answer key.** The LRU problem's expected answer is wrong as committed, so a real run of the notebook caps a correct model at 5 of 6 on that problem.
+
+## References
+
+1. OpenAI, [reasoning models guide](https://developers.openai.com/api/docs/guides/reasoning), on the effort setting and how reasoning tokens are billed.
 
 ## Key Takeaways
 

@@ -500,17 +500,41 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Reducers matter a second time when nodes run in parallel. If two nodes in the same step write a key that has no reducer, LangGraph 1.2.18 stops the run with <code>InvalidUpdateError: At key 'out': Can receive only one value per step</code>. With <code>operator.add</code> on the same key, the run ends with both writes in the list. The fan-out patterns in <a href="../../../../p06_agent_foundations/m24_agentic_workflow_patterns/mandatory/theory/index.html">M24</a> give such keys a reducer for this reason.</p>
 <p>The rule that follows: decide the reducer for every key that more than one node writes, then hold every node to one return style.</p>
 <h2 id="in-practice-the-refund-question">In practice: the refund question</h2>
-<p>Here is the refund question through the graph with <code>add_messages</code> on <code>messages</code> and nodes that return only their new message, as the lab runs it:</p>
-<ol>
-<li><strong>Input.</strong> The caller sends the question. State: 1 message.</li>
-<li><strong><code>classify</code></strong> reads the question, finds the billing word <em>refund</em>, writes <code>route</code> as billing and appends a route message. State: 2 messages.</li>
-<li><strong>The conditional edge</strong> reads <code>route</code> and sends the run to <code>billing</code>.</li>
-<li><strong><code>billing</code></strong> still sees the question, matches it to the handbook&rsquo;s refund-timing page, writes <code>answer</code> and appends its reply. State: 3 messages, one of them the customer&rsquo;s.</li>
-</ol>
-<p>The <code>answer</code> key holds the route (billing), the source (refund-timing) and the page&rsquo;s text: refunds take 5 to 10 business days to appear on the statement.</p>
+<p>Here is the refund question through the graph with <code>add_messages</code> on <code>messages</code> and nodes that return only their new message, as the lab runs it. Each stage shows what the step read, what it returned and what the state holds afterwards.</p>
+<div class="walkthrough learning-widget" data-stepper id="refund-run">
+<p class="widget-intro">Step through one run of the refund question and watch the message count after each step.</p>
+<div class="step-controls" hidden role="group" aria-label="Steps of the refund question through the support graph">
+<button type="button" data-step="input" aria-pressed="false" aria-controls="refund-input">1. Input</button>
+<button type="button" data-step="classify" aria-pressed="false" aria-controls="refund-classify">2. classify</button>
+<button type="button" data-step="edge" aria-pressed="false" aria-controls="refund-edge">3. Conditional edge</button>
+<button type="button" data-step="billing" aria-pressed="false" aria-controls="refund-billing">4. billing</button>
+</div>
+<section id="refund-input" class="step-panel"><h4>Input: the caller sends the question</h4><dl><dt>Returned</dt><dd>the question as one human message</dd><dt>State afterwards</dt><dd>1 message; <code>route</code> and <code>answer</code> unset</dd></dl></section>
+<section id="refund-classify" class="step-panel"><h4><code>classify</code> picks a route</h4><dl><dt>Read</dt><dd>the question, which contains the billing word <em>refund</em></dd><dt>Returned</dt><dd><code>route</code> as billing and one route message</dd><dt>State afterwards</dt><dd>2 messages: <code>add_messages</code> appended instead of replacing</dd></dl></section>
+<section id="refund-edge" class="step-panel"><h4>The conditional edge reads <code>route</code></h4><dl><dt>Read</dt><dd><code>route</code>, billing</dd><dt>Returned</dt><dd>nothing: an edge only names the next node</dd><dt>State afterwards</dt><dd>unchanged, 2 messages; the run goes to <code>billing</code></dd></dl></section>
+<section id="refund-billing" class="step-panel"><h4><code>billing</code> answers from the handbook</h4><dl><dt>Read</dt><dd>the question, still first in the list</dd><dt>Returned</dt><dd><code>answer</code> with route billing, source refund-timing and the page's text, plus one reply message</dd><dt>State afterwards</dt><dd>3 messages, one of them the customer's: refunds take 5 to 10 business days to appear on the statement</dd></dl></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
+
+<p>Under the overwrite reducer, the same run loses the question at stage 2, and stage 4 has nothing to answer: Table 4&rsquo;s lost question.</p>
 <blockquote>
 <p><strong>Next lesson:</strong> step 3 is a conditional edge. Lesson 8.2 opens it up: what the router may return, what happens when it returns a name no node has, and why the order of its rules decides close calls.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Rerun without a model.</strong> Tables 2 and 3 and the parallel-write error come from rerunning the notebooks&rsquo; graphs, and small variations of them, on LangGraph 1.2.18 with no chat model. The notebooks ship without outputs.</li>
+<li><strong>The lab is a model of the graph.</strong> Table 4 and the walkthrough come from the reducer lab, which reproduces LangGraph&rsquo;s merge rules in the browser and answers by keyword match against the Larkspur handbook. A real model would phrase its replies differently, but the message counts depend only on the reducer and the return style.</li>
+<li><strong>Version-specific messages.</strong> The error text quoted here is LangGraph 1.2.18&rsquo;s. The rules behind it (replace without a reducer, one value per key per step) are part of the Graph API, but the wording can change between releases.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API overview</a>, on state, nodes, edges, reducers and <code>MessagesState</code>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/use-graph-api" target="_blank" rel="noopener">Using the Graph API</a>, with worked examples of state updates and parallel branches.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A graph is state, nodes and edges. Have each node return only the keys it changes, and keep settings and dependencies out of the state.</li>
@@ -796,6 +820,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next lesson:</strong> every node so far has trusted the state it was given. Lesson 8.3 asks what happens when the question arrives as a number, and which state schemas catch it before a node runs.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub graphs, not the notebooks verbatim.</strong> Tables 1 to 3 come from the notebook routers rerun on LangGraph 1.2.18, from a stub weather graph with each failure planted, and from the chatbot graph with a stub in place of <code>gpt-4o-mini</code>. The stub shows the mechanics exactly; it cannot show what the real model says.</li>
+<li><strong>The Larkspur router is the lab&rsquo;s.</strong> Its keyword rules and its routes for the four questions come from the reducer lab, not from a trained classifier. A model label would route the export question differently, and would need its own measured error rate.</li>
+<li><strong>Table 4 is counted, not run.</strong> The 2<em>n</em> - 1 growth follows from one question and one reply per turn. Tool calls or system messages would add to it.</li>
+<li><strong>Version-specific behaviour.</strong> The warning text for an unknown route and the discarded router write are LangGraph 1.2.18&rsquo;s. Check them again after an upgrade.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API overview</a>, on conditional edges, the destination mapping and routing functions.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/streaming" target="_blank" rel="noopener">LangGraph streaming</a>, on the <code>values</code> and <code>updates</code> stream modes.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Always pass the destination list to a conditional edge. With it an unknown route fails loudly; without it the run ends silently and the drawing shows no branches.</li>
@@ -936,8 +972,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </tr>
 <tr>
 <td>dataclass, <code>name</code> is 123</td>
-<td>the node receives the <code>int</code> 123; no error</td>
-<td>nowhere</td>
+<td>the node receives the <code>int</code> 123 unchecked; it fails only if it treats the value as text</td>
+<td>inside the node, or nowhere</td>
 </tr>
 <tr>
 <td>Pydantic, <code>name</code> is 123</td>
@@ -983,6 +1019,20 @@ th:last-child, td:last-child { padding-right: 0; }
     N2 --&gt; F["Late failure&lt;br/&gt;in a node"]
 </pre></figure>
 <p><em>Figure 1: Where a bad input stops. Only a Pydantic state schema stops it before the first node.</em></p>
+<p>The same widget bug under three schemas, rerun on LangGraph 1.2.18 with a stub <code>classify</code> that lowercases the question and splits it into words:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="schema-switcher">
+<p class="widget-intro">Choose the state schema and send the ticket number 123 as the Larkspur question.</p>
+<div class="mode-controls" hidden role="group" aria-label="State schema for the Larkspur support graph">
+<button type="button" data-mode="typeddict" aria-pressed="false" aria-controls="schema-typeddict">TypedDict</button>
+<button type="button" data-mode="dataclass" aria-pressed="false" aria-controls="schema-dataclass">Dataclass</button>
+<button type="button" data-mode="pydantic" aria-pressed="false" aria-controls="schema-pydantic">Pydantic</button>
+</div>
+<section id="schema-typeddict" class="mode-panel" data-announcement="TypedDict. The run fails inside classify."><h4>TypedDict state</h4><dl><dt>At <code>invoke</code></dt><dd>accepted; nothing checks the type</dd><dt>Nodes that ran</dt><dd><code>classify</code>, once</dd><dt>Result</dt><dd><code>AttributeError</code>: an <code>int</code> has no <code>lower</code>; a late failure that names an operation, not the field</dd></dl></section>
+<section id="schema-dataclass" class="mode-panel" data-announcement="Dataclass. The run fails inside classify."><h4>Dataclass state</h4><dl><dt>At <code>invoke</code></dt><dd>accepted; the dataclass builds an instance without checking types</dd><dt>Nodes that ran</dt><dd><code>classify</code>, once</dd><dt>Result</dt><dd>the same <code>AttributeError</code>, from the same line of the node</dd></dl></section>
+<section id="schema-pydantic" class="mode-panel" data-announcement="Pydantic. The run stops at invoke."><h4>Pydantic state</h4><dl><dt>At <code>invoke</code></dt><dd>rejected: <code>ValidationError</code>, the question should be a valid string</dd><dt>Nodes that ran</dt><dd>none</dd><dt>Result</dt><dd>the error names the <code>question</code> field, and no model call is made</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>The validation notebook also runs a message graph under <code>TypedDict</code> and Pydantic state. Both end with the same three messages, all <code>HumanMessage</code>: Pydantic changes nothing about reducers, and lesson 8.1&rsquo;s speaker drift happens under either schema.</p>
 <h3>Which schema, when</h3>
 <p>The choice reduces to two questions:</p>
@@ -1005,6 +1055,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next lesson:</strong> every node so far has taken one argument, the state. Lesson 8.4 shows what else a node can ask for, and how a node can route the run by itself.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Small graphs, planted inputs.</strong> Tables 2 and 3 and the switcher come from the notebooks&rsquo; graphs and small variations of them, rerun on LangGraph 1.2.18 and Pydantic 2.14. No model was called.</li>
+<li><strong>What a dataclass node does with a bad value depends on the node.</strong> The dataclass accepts the number either way. A node that formats it into a string carries on with a wrong value; one that calls a string method fails, as the switcher shows.</li>
+<li><strong>The input-schema trap is version-specific.</strong> That a Pydantic input schema on a <code>TypedDict</code> state did not check types was observed on LangGraph 1.2.18. Retest it before relying on either behaviour.</li>
+<li><strong>Cost of validation not measured.</strong> &ldquo;Small next to a model call&rdquo; is a judgement, not a benchmark.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API overview</a>, on state schemas, including <code>TypedDict</code>, dataclass and Pydantic state.</li>
+<li>Pydantic, <a href="https://pydantic.dev/docs/validation/latest/concepts/models/" target="_blank" rel="noopener">Models</a>, on validation and type conversion of model fields.</li>
+<li>Python documentation, <a href="https://docs.python.org/3/library/typing.html" target="_blank" rel="noopener">typing</a>, which defines <code>TypedDict</code> and notes that the Python runtime does not enforce type annotations.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li><code>TypedDict</code> and dataclass annotations check no types, so a bad input fails late, inside a node. A plain <code>dict</code> cannot attach reducers at all.</li>
@@ -1152,6 +1215,18 @@ th:last-child, td:last-child { padding-right: 0; }
     end
 </pre></figure>
 <p><em>Figure 2: A conditional edge splits writing and routing across two functions. <code>Command</code> does both in one return.</em></p>
+<p>Both designs can route the refund question with its reason. They differ in what each function returns and in how a typo fails:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="route-switcher">
+<p class="widget-intro">Choose how <code>classify</code> routes the refund question and records the reason for the route.</p>
+<div class="mode-controls" hidden role="group" aria-label="How classify routes the refund question">
+<button type="button" data-mode="edge" aria-pressed="false" aria-controls="route-edge">Conditional edge</button>
+<button type="button" data-mode="command" aria-pressed="false" aria-controls="route-command">Command</button>
+</div>
+<section id="route-edge" class="mode-panel" data-announcement="Conditional edge. Two functions share the route name."><h4>Conditional edge: <code>classify</code> writes, a router reads</h4><dl><dt><code>classify</code> returns</dt><dd><code>route</code> billing and the reason "matched <em>refund</em>"</dd><dt>The router returns</dt><dd>the name billing, read from <code>route</code></dd><dt>A misspelled name</dt><dd>with the destination list passed, a <code>KeyError</code> at run time</dd><dt>Risk</dt><dd>two functions must agree on every route name</dd></dl></section>
+<section id="route-command" class="mode-panel" data-announcement="Command. One return writes and routes."><h4><code>Command</code>: one return does both</h4><dl><dt><code>classify</code> returns</dt><dd><code>Command</code> with <code>route</code> and the reason as the update, and billing as the <code>goto</code></dd><dt>The router</dt><dd>none; no edge leaves <code>classify</code></dd><dt>A misspelled <code>goto</code></dt><dd>a logged warning and a run that ends with no answer: the silent dead end</dd><dt>Risk</dt><dd>nothing checks the target, so a test must</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <h3>The Command traps</h3>
 <p>The node&rsquo;s return annotation, <code>Command[Literal["warn_user", "success"]]</code>, looks like a check, and the notebook calls it compile-time safety. On LangGraph 1.2.18 it only draws the graph. We planted one case per assumption:</p>
 <div class="sheet scroll"><table>
@@ -1215,6 +1290,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <blockquote>
 <p><strong>Next lesson:</strong> the final state still returns every key, including the reason and the message history. Lesson 8.5 decides what a caller may send and receive, and where per-call settings such as the reply language go.</p>
 </blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Rerun without a model.</strong> Tables 2 to 4 come from the notebooks&rsquo; graphs and planted variations of them, rerun on LangGraph 1.2.18. None of the three notebooks calls a model.</li>
+<li><strong>The Larkspur design is illustrative.</strong> The route reason, the database client in context and the per-route test are a design for the running example; no notebook builds them.</li>
+<li><strong>The annotation behaviour is version-specific.</strong> That the <code>Literal</code> return annotation only draws the graph, and that an unknown <code>goto</code> is logged and ignored, were observed on LangGraph 1.2.18. The notebook&rsquo;s own Markdown calls the annotation compile-time safety, which this version does not provide.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API overview</a>, on node signatures, runtime context and <code>Command</code>.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/use-graph-api" target="_blank" rel="noopener">Using the Graph API</a>, with examples of combining control flow and state updates in one node.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A node gets extra inputs by declaring them: <code>config</code> for per-call settings, <code>runtime</code> for typed context. Absent context fails only when a node reads it.</li>
@@ -1378,14 +1464,38 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Figure 2: Where a value belongs.</em></p>
 <p>Putting a client or a secret in state is the usual mistake, and we call it <strong>state as a junk drawer</strong>. State is returned to the caller. Once <a href="../../../m09_langgraph_runtime/mandatory/theory/index.html">M09</a> adds a checkpointer, state is also saved after every step, and a secret in it is written to storage on every turn. The <code>thread_id</code> in config is what that checkpointer uses to find a conversation&rsquo;s saved state.</p>
 <h2 id="in-practice-the-widget-contract">In practice: the widget contract</h2>
-<p>The Larkspur support graph, with every value in its place:</p>
-<ol>
-<li><strong>The widget sends</strong> the question, which the input schema admits, plus a config with the reply language and the conversation&rsquo;s <code>thread_id</code>.</li>
-<li><strong>The server adds</strong> the customer id and the database client as runtime context. The widget never sees either.</li>
-<li><strong>The nodes run</strong> on the full state: messages, <code>route</code>, the route reason, the answer.</li>
-<li><strong>The widget receives</strong> only the structured answer. A refactor that renames <code>route</code> changes nothing it can see.</li>
-</ol>
+<p>The Larkspur support graph, with every value in its place. Each stage shows which channel a value travels in and who can see it:</p>
+<div class="walkthrough learning-widget" data-stepper id="widget-contract">
+<p class="widget-intro">Step through one widget call and see what crosses the graph's boundary at each stage.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one widget call">
+<button type="button" data-step="send" aria-pressed="false" aria-controls="contract-send">1. Widget sends</button>
+<button type="button" data-step="server" aria-pressed="false" aria-controls="contract-server">2. Server adds</button>
+<button type="button" data-step="nodes" aria-pressed="false" aria-controls="contract-nodes">3. Nodes run</button>
+<button type="button" data-step="receive" aria-pressed="false" aria-controls="contract-receive">4. Widget receives</button>
+</div>
+<section id="contract-send" class="step-panel"><h4>The widget sends the question</h4><dl><dt>State</dt><dd>the question, the only key the input schema admits</dd><dt>Config</dt><dd>the reply language and the conversation's <code>thread_id</code></dd><dt>Dropped</dt><dd>any other key the widget sends, such as a forged <code>llm_calls</code></dd></dl></section>
+<section id="contract-server" class="step-panel"><h4>The server adds runtime context</h4><dl><dt>Context</dt><dd>the customer id and the database client</dd><dt>Visible to the widget</dt><dd>neither; they never enter the state</dd></dl></section>
+<section id="contract-nodes" class="step-panel"><h4>The nodes run on the full state</h4><dl><dt>Read and written</dt><dd>messages, <code>route</code>, the route reason and the answer</dd><dt>Unchecked</dt><dd>the types nodes write; validate the answer inside the node that builds it</dd></dl></section>
+<section id="contract-receive" class="step-panel"><h4>The widget receives the answer</h4><dl><dt>Returned</dt><dd>only the structured answer: route, source and text</dd><dt>Held back</dt><dd>every private key, so a refactor that renames <code>route</code> changes nothing the widget sees</dd></dl></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
+
 <p>That completes the boundary of one run. M09 makes runs remember each other, using the <code>thread_id</code> this page placed in config.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>A stub model.</strong> Tables 2 and 3 come from the advanced state notebook&rsquo;s graph rerun on LangGraph 1.2.18 with a fixed-string stub in place of <code>gpt-4o-mini</code>. The Spanish and German replies are the notebook&rsquo;s description; we checked only that <code>language</code> reaches the node.</li>
+<li><strong>The widget contract is a design.</strong> The Larkspur schemas, the reply language and the walkthrough apply the notebook&rsquo;s pattern to the running example; no notebook builds them.</li>
+<li><strong>Filtering, not security.</strong> An input schema drops unknown keys and an output schema hides private ones. Neither authenticates a caller or encrypts a checkpoint, and the checkpointer that saves state arrives in M09.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">LangGraph Graph API overview</a>, on multiple schemas, private state, config and runtime context.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">LangGraph persistence</a>, on checkpointers and the <code>thread_id</code> they use.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Give a graph separate input, private and output schemas, so callers send only the question and receive only the answer. Internal keys can then change without breaking callers.</li>
@@ -1461,7 +1571,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Use <code>Command</code> when a node must write and route together, and test that every <code>goto</code> names a real node.</li>
 <li>Validate input with a Pydantic state schema, narrow what callers send and receive with input and output schemas, and keep settings and dependencies out of state.</li>
 </ul></article>
-    <nav class="toc" aria-label="M08 sections"><details open><summary>In M08</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-question-that-vanished">The question that vanished</a></li><li><a href="#stategraph">StateGraph</a></li><li><a href="#reducers">Reducers</a></li><li><a href="#in-practice-the-refund-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-router-with-a-blind-spot">A router with a blind spot</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#a-chat-model-inside-a-node">A chat model inside a node</a></li><li><a href="#choosing-a-router">Choosing a router</a></li><li><a href="#in-practice-the-export-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-number-where-a-question-goes">A number where a question goes</a></li><li><a href="#choosing-a-state-schema">Choosing a state schema</a></li><li><a href="#in-practice-the-widget-question">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-route-with-no-reason">A route with no reason</a></li><li><a href="#node-signatures-and-runtime-context">Node signatures and runtime context</a></li><li><a href="#command">Command</a></li><li><a href="#in-practice-classify-with-a-reason">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#every-caller-sees-the-counter">Every caller sees the counter</a></li><li><a href="#input-output-and-private-state">Input, output and private state</a></li><li><a href="#config-context-or-state">Config, context or state</a></li><li><a href="#in-practice-the-widget-contract">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M08 sections"><details open><summary>In M08</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#the-question-that-vanished">The question that vanished</a></li><li><a href="#stategraph">StateGraph</a></li><li><a href="#reducers">Reducers</a></li><li><a href="#in-practice-the-refund-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-router-with-a-blind-spot">A router with a blind spot</a></li><li><a href="#conditional-edges">Conditional edges</a></li><li><a href="#a-chat-model-inside-a-node">A chat model inside a node</a></li><li><a href="#choosing-a-router">Choosing a router</a></li><li><a href="#in-practice-the-export-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-number-where-a-question-goes">A number where a question goes</a></li><li><a href="#choosing-a-state-schema">Choosing a state schema</a></li><li><a href="#in-practice-the-widget-question">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-route-with-no-reason">A route with no reason</a></li><li><a href="#node-signatures-and-runtime-context">Node signatures and runtime context</a></li><li><a href="#command">Command</a></li><li><a href="#in-practice-classify-with-a-reason">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#every-caller-sees-the-counter">Every caller sees the counter</a></li><li><a href="#input-output-and-private-state">Input, output and private state</a></li><li><a href="#config-context-or-state">Config, context or state</a></li><li><a href="#in-practice-the-widget-contract">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

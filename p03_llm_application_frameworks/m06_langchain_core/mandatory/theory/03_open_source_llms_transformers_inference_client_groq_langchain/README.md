@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.3 · Notebooks: [`03a_Open_Source_LLMs_with_LangChain.ipynb`](../../notebook/03a_Open_Source_LLMs_with_LangChain.ipynb), [`03b_Open_Source_LLMs_HF_Transformers.ipynb`](../../../optional/notebook/03b_Open_Source_LLMs_HF_Transformers.ipynb) (optional), [`03c_Open_Source_LLMs_HF_Inference_Client.ipynb`](../../../optional/notebook/03c_Open_Source_LLMs_HF_Inference_Client.ipynb) (optional), [`03d_Open_Source_LLMs_Groq_Cloud.ipynb`](../../../optional/notebook/03d_Open_Source_LLMs_Groq_Cloud.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A small project: lesson 6.2's chain on three open-model backends, one on your own machine and two hosted, and what each one changes underneath -->
+<!-- format: approved -->
 
 ## The project: three open backends
 
@@ -73,9 +74,20 @@ The optional notebooks do the same without LangChain. The Transformers notebook 
 
 - **No token counts locally.** The pipeline path returns the text without usage metadata. Cost and length checks that read `.usage_metadata` see nothing.
 - **The last message must be human.** The local wrapper raises an error when the last message is a system or AI message, and it accepts only system, human and AI messages. Tool results (M22) cannot pass through it.
+- **No async calls locally.** The wrapper raises `NotImplementedError` for an async call on the pipeline path, so an app that awaits its chains has to run the local model another way.
 - **Replies differ by backend.** A 1.1B model on a laptop and a large hosted model give different answers to the same prompt. Re-run the golden questions before relying on any of them (the silent provider swap from lesson 6.2).
 
 To run it, the local part needs the course's optional Hugging Face dependency group and downloads about 2 GB of weights on first use; the hosted parts need a Hugging Face token and a Groq API key in the project's environment file.
+
+The traces in Table 2 come from reading the installed source, not from a run: no reply text, timing or token count on this page was measured.
+
+## References
+
+1. LangChain, [Hugging Face chat models](https://docs.langchain.com/oss/python/integrations/chat/huggingface), on `ChatHuggingFace` over a local pipeline or a hosted endpoint.
+2. LangChain, [Groq chat models](https://docs.langchain.com/oss/python/integrations/chat/groq), on `ChatGroq`.
+3. Hugging Face, [chat templates](https://huggingface.co/docs/transformers/main/en/chat_templating), on how a model family marks roles with special tokens.
+4. Hugging Face, [Inference Providers](https://huggingface.co/docs/inference-providers/index), on running hosted models through one client.
+5. The [TinyLlama 1.1B chat model card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0), with its chat format.
 
 ## Key Takeaways
 

@@ -392,7 +392,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: The Runnable methods. Every component and every chain has all of them.</em></p>
 <p>Each method also takes an optional <code>config</code>. It carries tags, metadata and callbacks for tracing, and <code>max_concurrency</code>, which caps how many <code>batch</code> calls run at once. The same <code>config</code> works on a single prompt and on a ten-step chain, which is why tracing and rate limits attach once rather than per component.</p>
-<h3>One input, always</h3>
+<h2 id="one-input-always">One input, always</h2>
 <p><code>invoke</code> passes exactly one argument. When a step needs two values, they travel together in one container. Notebook 01b shows three ways: a tuple the function unpacks, a dict the function reads by key, and a small lambda that takes a dict and calls an existing two-parameter function with its two keys. Dicts win in practice. Prompt templates read their variables from a dict, and <code>RunnableParallel</code> returns one, which lets a dict flow from step to step without conversion.</p>
 <p>We planted three wrong inputs and ran them against the installed <code>langchain-core</code> 1.7, with a fake chat model standing in for a real one:</p>
 <div class="sheet scroll"><table>
@@ -423,8 +423,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Three planted input errors and the exception each raises.</em></p>
 <p>The third row is the Larkspur refund chain&rsquo;s bug. It belongs to a family worth naming.</p>
-<h3>Each step changes the type</h3>
-<p>Notebook 02a invokes the pieces of <code>prompt | model | parser</code> one at a time before building anything. On a Larkspur question the data changes shape at every arrow:</p>
+<h2 id="each-step-changes-the-type">Each step changes the type</h2>
+<p>Lesson 7.2&rsquo;s notebook 02a invokes the pieces of <code>prompt | model | parser</code> one at a time before building anything. On a Larkspur question the data changes shape at every arrow:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     I[/"dict&lt;br/&gt;{question: …}"/] --&gt; P[Prompt] --&gt;|ChatPromptValue| M[Chat model] --&gt;|AIMessage| S[StrOutputParser] --&gt; O[/str/]
 </pre></figure>
@@ -463,7 +463,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 3: The refund chain traced step by step. Moving the upper-case function after the parser fixes the seam mismatch from Table 2.</em></p>
-<h3>Three helpers for glue code</h3>
+<h2 id="three-helpers-for-glue-code">Three helpers for glue code</h2>
 <p>Most of the code between prompts and models is glue, and three Runnables cover nearly all of it:</p>
 <ul>
 <li><strong><code>RunnablePassthrough</code></strong>: returns its input unchanged. It keeps the original question available beside a transformed copy.</li>
@@ -471,7 +471,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong><code>RunnableParallel</code></strong>: runs several Runnables on the same input and returns a dict of their outputs, one key per branch. Lesson 7.3 covers it in depth.</li>
 </ul>
 <p>Notebook 01b combines the first two before a prompt. One branch passes the text through untouched, the other keeps the first three words longer than four characters. On &ldquo;Building scalable data platforms requires careful architecture planning&rdquo; the keyword branch returns <code>building</code>, <code>scalable</code> and <code>platforms</code>, and the prompt receives both the original sentence and that list.</p>
-<h3>Batch and stream come with it</h3>
+<h2 id="batch-and-stream-come-with-it">Batch and stream come with it</h2>
 <p><code>batch</code> and <code>stream</code> need no extra code, but each has a detail that changes what you see.</p>
 <p>The default <code>batch</code> runs <code>invoke</code> once per input on a thread pool. With no <code>max_concurrency</code> set, the pool uses Python&rsquo;s default worker count, the smaller of 32 and the CPU count plus 4 (19 workers on the 15-core machine we ran on). With exactly one input, <code>batch</code> skips the pool and runs inline on the calling thread. The installed source checks the count before it builds an executor:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
@@ -516,6 +516,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Invoke the finished chain and check the answer. When it fails, steps 1 to 3 have already shown which seam is wrong.</li>
 </ol>
 <p>The same three lines (invoke, print, assert) work on each of them because each is a Runnable. Lesson 7.2 shows how the pipe operator turns those separate steps into one Runnable without losing that property.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Replayed with a fake model.</strong> The notebooks call OpenAI and ship without outputs. Tables 2 and 3 come from running the same shapes against the installed <code>langchain-core</code> 1.7.0 with <code>FakeListChatModel</code> in place of the real model. A real model changes the reply text, not the types or the exceptions.</li>
+<li><strong>Machine-dependent pool size.</strong> The 19 workers are Python&rsquo;s default on a 15-core machine. The formula is fixed; the number moves with the host.</li>
+<li><strong>Library defaults move.</strong> The single-input shortcut in <code>batch</code> and the chunk-adding behaviour of <code>invoke</code> are read from the installed source. Check them again after an upgrade.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-core/runnables/base/Runnable" target="_blank" rel="noopener">Runnable reference</a>, listing <code>invoke</code>, <code>batch</code>, <code>stream</code>, their async forms and the shared <code>config</code>.</li>
+<li>Python documentation, <a href="https://docs.python.org/3/library/concurrent.futures.html" target="_blank" rel="noopener">the concurrent futures module</a>, which defines the default thread-pool size as the smaller of 32 and the CPU count plus 4.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Every Runnable takes one input through the same methods: <code>invoke</code>, <code>batch</code>, <code>stream</code> and their async forms. Pass several values as a dict, which prompt templates read and <code>RunnableParallel</code> returns.</li>
@@ -547,7 +558,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 7.1 made every step a Runnable with one input and one output. A chain is several of them joined with <code>|</code>, and the Larkspur team&rsquo;s RAG chain looks harmless: a dict that fetches context and keeps the question, then a prompt, a model and a parser. Then someone adds a step that computes a confidence score as a <code>RunnableParallel</code>, and the next step fails with a <code>KeyError</code> for <code>question</code>. The question was there one step earlier. This page explains where it went, starting with what <code>|</code> actually does.</p>
-<h3>The pipe is a Python operator</h3>
+<h2 id="the-pipe-is-a-python-operator">The pipe is a Python operator</h2>
 <p>The <code>|</code> in <code>prompt | model | parser</code> is ordinary Python. <code>a | b</code> calls <code>a.__or__(b)</code>, the same way <code>2 + 4</code> calls <code>(2).__add__(4)</code>. A class decides what its operators mean: notebook 02a&rsquo;s toy <code>StupidAdder</code> makes <code>5 + 10</code> return 57 by adding 42 on every sum. LangChain&rsquo;s <code>Runnable.__or__</code> returns a <code>RunnableSequence</code> that holds both sides, and the sequence&rsquo;s <code>invoke</code> runs the first step and feeds its output to the next.</p>
 <p>Notebook 02a proves this by building the mechanism from scratch. Its <code>CRunnable.__or__</code> returns a <code>CRunnableSequence</code> holding the two sides, and the sequence&rsquo;s <code>invoke</code> hands the first step&rsquo;s result to the second. Three small steps piped together give:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
@@ -588,7 +599,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: What the library sequence adds to the bare operator.</em></p>
 <p>Flattening matters when you read traces. A chain assembled from smaller chains still shows one flat list of steps, and each step keeps its own latency.</p>
-<h3>A dict in a pipe runs in parallel</h3>
+<h2 id="a-dict-in-a-pipe-runs-in-parallel">A dict in a pipe runs in parallel</h2>
 <p>When the left side of <code>|</code> is a plain dict, Python asks the Runnable on the right through <code>__ror__</code>, and LangChain turns the dict into a <code>RunnableParallel</code>. A dict on the right side is converted the same way. Each value runs on the same input, and the output is a dict with the same keys. We reran notebook 02a&rsquo;s cells, which need no API key:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -623,7 +634,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: The notebook&rsquo;s <code>RunnableParallel</code> runs, reproduced offline.</em></p>
 <p>Two rules follow from the table. A plain lambda in a dict is wrapped in a <code>RunnableLambda</code> for you. A branch can be a pipe of its own, which means pipes nest inside dicts and dicts inside pipes.</p>
-<h3>Adding a key, keeping the rest</h3>
+<h2 id="adding-a-key-keeping-the-rest">Adding a key, keeping the rest</h2>
 <p>Here is the bug from the opening. A <code>RunnableParallel</code> <strong>replaces</strong> its input with the dict it builds. <code>.assign(key=runnable)</code>, on <code>RunnablePassthrough</code> or on a parallel, computes the new key from the current dict and returns the old keys with it. On the input <code>{"q": "refund?"}</code> with a branch that counts characters:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -694,7 +705,31 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 4: The Larkspur RAG chain traced step by step.</em></p>
-<p>The prompt receives exactly the two variables it declares. Lesson 7.3 builds the shapes that come next: pipelines that keep every intermediate key, fan-outs that merge, and routers.</p>
+<p>The prompt receives exactly the two variables it declares. The opening bug sits between the dict and the prompt, where the team added a confidence step. The same dict goes into that step built two ways:</p>
+<div class="learning-widget evidence-switcher" data-comparison id="lost-question-switcher">
+<p class="widget-intro">Choose how the confidence step is built and follow what reaches the prompt, which declares <code>context</code> and <code>question</code>.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the confidence step is built">
+<button type="button" data-mode="parallel" aria-pressed="false" aria-controls="lost-parallel">RunnableParallel</button>
+<button type="button" data-mode="assign" aria-pressed="false" aria-controls="lost-assign">assign</button>
+</div>
+<section id="lost-parallel" class="mode-panel" data-announcement="RunnableParallel. The prompt raises a KeyError."><h4>Confidence as a RunnableParallel</h4><dl><dt>Step receives</dt><dd>a dict with <code>context</code> and <code>question</code></dd><dt>Step returns</dt><dd>a dict with only <code>confidence</code>: the input is replaced</dd><dt>Prompt</dt><dd>raises <code>KeyError</code>: missing variables <code>context</code> and <code>question</code></dd></dl></section>
+<section id="lost-assign" class="mode-panel" data-announcement="assign. The prompt receives both variables."><h4>Confidence added with assign</h4><dl><dt>Step receives</dt><dd>a dict with <code>context</code> and <code>question</code></dd><dt>Step returns</dt><dd><code>context</code>, <code>question</code> and <code>confidence</code>: the input is extended</dd><dt>Prompt</dt><dd>fills both variables and ignores the extra key</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>Lesson 7.3 builds the shapes that come next: pipelines that keep every intermediate key, fan-outs that merge, and routers.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Offline reruns.</strong> Tables 2 and 3, the flattening count and the switcher come from the installed <code>langchain-core</code> 1.7.0 with plain functions in place of models. Notebook 02a&rsquo;s first cells call OpenAI and were not rerun.</li>
+<li><strong>The RAG trace is illustrative.</strong> Table 4 uses a stub retriever over two sentences and a fake model. It shows the shapes that move between steps, not retrieval quality.</li>
+<li><strong>The confidence step is a placeholder.</strong> The switcher&rsquo;s step returns a fixed number. A real confidence score would cost a model call or a retrieval-score lookup, which changes latency but not the key behaviour.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Python documentation, <a href="https://docs.python.org/3/reference/datamodel.html" target="_blank" rel="noopener">the data model</a>, on <code>__or__</code> and the reflected <code>__ror__</code> that a dict on the left of <code>|</code> triggers.</li>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-core/runnables/passthrough/RunnablePassthrough" target="_blank" rel="noopener">RunnablePassthrough reference</a>, including <code>assign</code>.</li>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-core/runnables/base/Runnable" target="_blank" rel="noopener">Runnable reference</a>, on <code>RunnableSequence</code> and how <code>|</code> composes steps.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>The <code>|</code> operator calls <code>__or__</code>, which returns a flattened <code>RunnableSequence</code> that feeds each step&rsquo;s output to the next and adds batch, streaming, async and tracing.</li>
@@ -726,7 +761,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lesson 7.2 showed that a dict inside a pipe runs its values in parallel and that <code>.assign()</code> keeps old keys. A straight pipe still does one thing in one order. The Larkspur support desk needs more: tickets arrive in Spanish and French and must be answered in the customer&rsquo;s language, sales wants a plan comparison written from three angles at once, and every ticket must reach the chain that holds the right policy. On the first day of routing, a ticket labelled &ldquo;Refund or outage&rdquo; goes to the refund chain, and nobody notices that the outage was never handled. Notebook 03a builds the three shapes these jobs need, each from the pieces of lessons 7.1 and 7.2.</p>
-<h3>Linking: keep the trail</h3>
+<h2 id="linking-keep-the-trail">Linking: keep the trail</h2>
 <p>The notebook&rsquo;s IT-support pipeline runs four model chains in order. Each step is a <code>RunnablePassthrough.assign()</code>, which means each one adds a key and keeps every key before it:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -761,7 +796,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: The four linked steps of notebook 03a. The last step still reads <code>orig_lang</code> from the first.</em></p>
 <p><code>final_chain.map()</code> runs the pipeline over the notebook&rsquo;s queue of four messages at once. We ran the same chain shape with a stub that sleeps in place of the model: 16 model calls in 4 rounds rather than 16, because the four messages run side by side while each message&rsquo;s four steps stay in order. A <strong>round</strong> here is one wait on the model; calls in the same round run at the same time.</p>
-<h3>Fan-out, then merge</h3>
+<h2 id="fan-out-then-merge">Fan-out, then merge</h2>
 <p>Some jobs split into independent parts that meet again. The notebook writes a report on a topic from three branches:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TB
     T[/"{topic}"/] --&gt; PAR
@@ -775,7 +810,8 @@ th:last-child, td:last-child { padding-right: 0; }
 </pre></figure>
 <p><em>Figure 1: Three model branches run at once, and one merge call reads all four keys.</em></p>
 <p>The three model branches share one input and run at the same time. <code>itemgetter('topic')</code> copies the topic through without a model call, which lets the merge prompt name it. The merge prompt reads all four keys and writes the report. That is 4 model calls in 2 rounds, confirmed with the same stub, and the wall time is the slowest branch plus the merge. A Larkspur version compares plans: description, pros and cons of the annual plan in parallel, then one call that writes the comparison table.</p>
-<h3>Routing with RunnableBranch</h3>
+<h2 id="routing-with-runnablebranch">Routing with RunnableBranch</h2>
+<p>The third shape picks one chain per input. Notebook 03a&rsquo;s review router classifies an instruction, then tests the label against three conditions:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     I[/"{instruction, review}"/] --&gt; CL["classifier_chain&lt;br/&gt;returns one word"]
     CL --&gt; Q1{"'summarize'&lt;br/&gt;in label?"}
@@ -822,7 +858,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Planted classifier labels and where the router sent them.</em></p>
 <p>The third row is <strong>first-match capture</strong>: a request that matches two conditions goes to whichever comes first, silently. The same thing happens in the keyword router of notebook 01b, which checks machine-learning words before cloud words. A deployment question that mentions both models and a cloud provider is answered by the machine-learning handler, although the notebook&rsquo;s own comment expects the cloud one. For the Larkspur triage router the opening ticket behaves the same way: with a refund condition ahead of an outage condition, &ldquo;Refund or outage&rdquo; reaches the refund chain, and &ldquo;refunds&rdquo; matches too because &ldquo;refund&rdquo; is inside it.</p>
-<h3>Planning the default</h3>
+<h2 id="planning-the-default">Planning the default</h2>
 <p>The default is where every request the classifier cannot place lands. In notebook 03a it returns a fixed apology. We call that a <strong>silent default</strong>: the request gets an answer, nothing is logged, and a classifier that has started returning new labels looks healthy. For a support desk the default should hand the ticket to a person and be counted, because a rising default rate is an early sign that the classifier has drifted.</p>
 <p>The notebook ends with a guard of a different kind. It pipes a chain into <code>OpenAIModerationChain</code>, a chain class from the <code>langchain-classic</code> package, which screens the output before it reaches the caller. Any Runnable can take that last position, which is how output checks and guardrails attach to a pipe.</p>
 <h2 id="choosing-a-chain-shape">Choosing a chain shape</h2>
@@ -868,6 +904,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A non-English ticket runs through the linked translation steps around whichever chain answers it.</li>
 </ol>
 <p>Lesson 7.4 turns to older code: the chain classes that did these jobs before LCEL, and how to replace them.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub timings, not model latency.</strong> The call and round counts come from running the notebook&rsquo;s chain shapes with stubs that sleep for a fixed time. Real model calls vary in length, so a round lasts as long as its slowest call, and provider rate limits can split one round into several.</li>
+<li><strong>Planted labels.</strong> Table 2 feeds hand-written labels to the notebook&rsquo;s branch. How often a real classifier returns a multi-label answer such as &ldquo;summarize and email&rdquo; was not measured.</li>
+<li><strong>The moderation guard was not run.</strong> <code>OpenAIModerationChain</code> needs an OpenAI key, and this page describes only its position at the end of the pipe.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-core/runnables/branch/RunnableBranch" target="_blank" rel="noopener">RunnableBranch reference</a>, on condition pairs, the default and evaluation order.</li>
+<li>LangChain, <a href="https://reference.langchain.com/python/langchain-core/runnables/base/Runnable" target="_blank" rel="noopener">Runnable reference</a>, covering <code>RunnableParallel</code> composition and <code>map</code>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Link steps with <code>.assign()</code> to keep every intermediate result, and use <code>.map()</code> to run several inputs side by side while each input&rsquo;s steps stay in order.</li>
@@ -899,7 +946,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </ul>
 </blockquote>
 <p>Lessons 7.1 to 7.3 built chains as pipes. Older code did not. Larkspur&rsquo;s billing FAQ service was written on LangChain 0.x with <code>RetrievalQA</code>, a prompt pulled from the prompt hub, and <code>load_summarize_chain</code> for weekly digests. After the upgrade to 1.x its first import fails with <code>ModuleNotFoundError: No module named 'langchain.chains'</code>. Repointing the imports makes it run again, and the digest job prints no warning at all. This page explains why &ldquo;it runs&rdquo; and &ldquo;it warns about nothing&rdquo; do not mean &ldquo;it is current&rdquo;, and how to finish the move.</p>
-<h3>Where the old classes went</h3>
+<h2 id="where-the-old-classes-went">Where the old classes went</h2>
 <p>Before LCEL, LangChain packaged each pattern as a class. In 1.x those classes left the <code>langchain</code> package. They live in the compatibility package <code>langchain-classic</code>, still run, and carry deprecation markers. We read the markers from the installed <code>langchain-classic</code> 1.0.8 source:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -982,7 +1029,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Each legacy form and its replacement.</em></p>
 <p>We confirmed the output shapes with a fake chat model. <code>LLMChain</code> on <code>{"adjective": "funny"}</code> returned <code>{'adjective': 'funny', 'text': ...}</code>, and <code>RetrievalQA</code> on a refund question returned <code>{'query': ..., 'result': ...}</code>. A caller that reads <code>result["result"]</code> breaks the moment it receives a bare string. We call that a <strong>shape break</strong>, and it is the main thing a migration has to manage.</p>
-<h3>How loud a legacy chain is</h3>
+<h2 id="how-loud-a-legacy-chain-is">How loud a legacy chain is</h2>
 <p>You might expect the deprecation markers to warn on every use. We counted the warnings each legacy pattern emits on the installed versions, each in a fresh process:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1013,14 +1060,14 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><em>Table 3: Deprecation warnings counted with a fake model. Classes built inside the library&rsquo;s own helpers warn about nothing.</em></p>
 <p>Notebook 05b shows the last row: the loader returns a deprecated <code>StuffDocumentsChain</code> and says nothing when it is built, and the only warning is about <code>.run()</code>, not about the class. Our run shows <code>RetrievalQA.from_llm</code> behaving the same way. A <code>RetrievalQA</code> built directly does warn, and so do the <code>LLMChain</code> and <code>StuffDocumentsChain</code> built by hand, but <code>from_llm</code> builds them inside the library, and inside the library they stay quiet. Notebook 04a&rsquo;s Markdown expects at least two warnings from its <code>RetrievalQA</code> cell; on the installed versions we saw one.</p>
 <p>This is the <strong>silent deprecation</strong>: code that keeps working until 2.0 removes it, with nothing in the logs to say so. Audits should grep for imports from <code>langchain_classic</code> rather than wait for warnings.</p>
-<h3>The prompt hub raises</h3>
+<h2 id="the-prompt-hub-raises">The prompt hub raises</h2>
 <p><code>langchain_classic.hub.pull</code> is deprecated since 1.0.6 and hands the request to the LangSmith SDK. The installed <code>langsmith</code> refuses public prompts by owner and name unless the caller opts in, raising <code>ValueError: Pulling a public prompt by owner/name is disabled by default because prompts may contain untrusted serialized LangChain objects.</code> A hub prompt is a serialized LangChain object, so loading one can configure a model&rsquo;s base URL, headers or other constructor arguments. Notebook 04a lists the options in order of preference:</p>
 <ul>
 <li><strong>Inline the prompt</strong>: write it into a <code>ChatPromptTemplate</code>. No network call and no trust decision.</li>
 <li><strong>Opt in through the SDK</strong>: pull it with <code>dangerously_pull_public_prompt=True</code> and accept the risk.</li>
 <li><strong>Keep <code>hub.pull</code></strong>: deprecated, and it raises.</li>
 </ul>
-<h3>A caller-safe migration</h3>
+<h2 id="a-caller-safe-migration">A caller-safe migration</h2>
 <p>The order matters more than the speed. Each step leaves a service that runs:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     A["Repoint imports&lt;br/&gt;to langchain_classic"] --&gt; B["Swap one chain&lt;br/&gt;behind its function"]
@@ -1029,13 +1076,24 @@ th:last-child, td:last-child { padding-right: 0; }
     D --&gt; E["Delete the&lt;br/&gt;old class"]
 </pre></figure>
 <p><em>Figure 1: A staged migration. The service runs after every step.</em></p>
-<ol>
-<li>Repoint the imports to <code>langchain_classic</code> so the service runs on 1.x unchanged.</li>
-<li>Replace one chain with its pipe behind the same function.</li>
-<li>Map the output shape: callers that read <code>result["result"]</code> from <code>RetrievalQA</code> now receive the string itself. The function wraps it back into the old dict until the callers move.</li>
-<li>Replace <code>chain(...)</code> and <code>.run()</code> with <code>.invoke()</code>.</li>
-<li>Run a fixed question set through old and new versions and compare answers before you delete the old class.</li>
-</ol>
+<p>Follow one <code>RetrievalQA</code> chain through the stages and watch what the caller sees at each:</p>
+<div class="walkthrough learning-widget" data-stepper id="migration-walkthrough">
+<p class="widget-intro">Step through the migration of the FAQ service's <code>RetrievalQA</code> chain. Each stage names what runs and what its caller receives.</p>
+<div class="step-controls" hidden role="group" aria-label="Migration stages">
+<button type="button" data-step="imports" aria-pressed="false" aria-controls="mig-imports">1. Repoint imports</button>
+<button type="button" data-step="swap" aria-pressed="false" aria-controls="mig-swap">2. Swap the chain</button>
+<button type="button" data-step="shape" aria-pressed="false" aria-controls="mig-shape">3. Map the shape</button>
+<button type="button" data-step="invoke" aria-pressed="false" aria-controls="mig-invoke">4. Switch to invoke</button>
+<button type="button" data-step="compare" aria-pressed="false" aria-controls="mig-compare">5. Compare, then delete</button>
+</div>
+<section id="mig-imports" class="step-panel"><h4>Repoint the imports</h4><p>Imports move from <code>langchain.chains</code> to <code>langchain_classic</code>. The legacy class runs on 1.x unchanged, and the caller still receives <code>{'query': ..., 'result': ...}</code>.</p></section>
+<section id="mig-swap" class="step-panel"><h4>Swap one chain behind its function</h4><p>Inside the same function, the dict, prompt, model and parser pipe replaces <code>RetrievalQA</code>. The pipe takes the question string and returns the answer string.</p></section>
+<section id="mig-shape" class="step-panel"><h4>Map the output shape</h4><p>The function wraps that string back into the old dict until every caller reads a string. Without this stage, a caller reading <code>result["result"]</code> hits the shape break.</p></section>
+<section id="mig-invoke" class="step-panel"><h4>Replace the old call style</h4><p>Calls written as <code>chain(...)</code> or <code>.run()</code> become <code>.invoke()</code>. The one deprecation warning the service printed, for the call style, disappears.</p></section>
+<section id="mig-compare" class="step-panel"><h4>Compare answers, then delete</h4><p>A fixed question set runs through the old and the new chain. When the answers agree, the old class and its import go.</p></section>
+<div class="step-footer" hidden><button type="button" data-walk="previous">Previous</button><button type="button" data-walk="next">Next</button><p class="step-status" aria-live="polite"></p></div>
+</div>
+
 <p>The optional notebooks show more legacy classes and their LCEL forms. Notebook 04b builds <code>LLMChain</code> and <code>SimpleSequentialChain</code>, 04c adds <code>StructuredOutputParser</code>, 04d covers <code>SequentialChain</code> and the router class <code>MultiPromptChain</code> (whose LCEL form is lesson 7.3&rsquo;s <code>RunnableBranch</code>), and 04e rewrites <code>ConversationalRetrievalChain</code> as a rephrase pipe followed by a retrieval pipe.</p>
 <h2 id="in-practice-the-faq-service">In practice: the FAQ service</h2>
 <p>For the billing FAQ service the plan runs like this:</p>
@@ -1047,6 +1105,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Run the service&rsquo;s fixed set of billing questions through both versions, then remove the <code>langchain_classic</code> dependency.</li>
 </ol>
 <p>Lesson 7.5 writes out those three summarisation pipes and shows how to choose between them.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Versions pinned by this course.</strong> The markers in Table 1 and the counts in Table 3 come from <code>langchain-classic</code> 1.0.8, <code>langchain-core</code> 1.7.0 and <code>langsmith</code> 0.14.14, each warning count from a fresh process with a fake chat model. Another release can change which helpers warn.</li>
+<li><strong>No real migration was run.</strong> The FAQ service, its three imports and its callers are a scenario. The staged plan was not timed or tested against a live service.</li>
+<li><strong>The hub error is current behaviour.</strong> The refusal comes from the installed <code>langsmith</code> client. A later release may open public pulls again or remove <code>hub.pull</code> entirely.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/migrate/langchain-v1" target="_blank" rel="noopener">LangChain v1 migration guide</a>, on what moved to <code>langchain-classic</code> and how to replace it.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/releases/langchain-v1" target="_blank" rel="noopener">LangChain v1 release notes</a>, on the slimmer <code>langchain</code> package and the compatibility package.</li>
+<li>LangSmith, <a href="https://docs.langchain.com/langsmith/manage-prompts-programmatically" target="_blank" rel="noopener">managing prompts programmatically</a>, on pulling prompts through the SDK.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Legacy chain classes still run from <code>langchain-classic</code> but are set for removal in 2.0.0. Each has a short LCEL pipe that replaces it, usually with a plain string in and out.</li>
@@ -1084,7 +1154,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Map-reduce</strong>: summarise each chunk on its own (the map), then summarise the summaries (the reduce). The map calls are independent, which lets <code>batch</code> run them on a thread pool.</li>
 <li><strong>Refine</strong>: summarise the first chunk, then revise that summary once per remaining chunk. Each call needs the previous answer, which forces the calls to run one after another.</li>
 </ul>
-<p>In map-reduce the map step is one summarising chain batched over every chunk with a <code>max_concurrency</code> cap, and the reduce step is a second chain invoked once on the map outputs joined with blank lines. On the whole Larkspur handbook (2,746 characters) split at <code>chunk_size=400</code> with an overlap of 20, that is 10 chunks:</p>
+<p>In map-reduce the map step is one summarising chain batched over every chunk, and the reduce step is a second chain invoked once on the map outputs joined with blank lines. Notebook 05b leaves the batch uncapped; the lab adds a <code>max_concurrency</code> cap, as a rate-limited service would. On the whole Larkspur handbook (2,746 characters) split at <code>chunk_size=400</code> with an overlap of 20, that is 10 chunks:</p>
 <figure class="anim sheet" aria-labelledby="anim-mapreduce-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Map-reduce summarisation, scrolls sideways on a narrow screen">
     <svg viewBox="0 0 800 320" role="img" aria-labelledby="anim-mapreduce-title anim-mapreduce-desc">
@@ -1215,7 +1285,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>Small chunks cost calls without adding much.</strong> Notebook 05a splits its 630-character sample at <code>chunk_size=100</code>: 11 chunks, and five of them are 31 characters or fewer, the smallest 13 and 18. Map-reduce then makes 12 calls on a text that one stuff call reads whole. We call this <strong>confetti chunking</strong>: chunks so small that the overlap fragments become calls of their own.</li>
 </ul>
 <figure class="lab-embed"><iframe src="05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html" title="Stuff, map-reduce or refine, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Stuff, map-reduce or refine. <a href="05_summarization_stuff_map_reduce_refine/interactive/summarise-strategy-lab.html">Open full screen</a></figcaption></figure>
-<h3>Where each strategy breaks</h3>
+<h2 id="where-each-strategy-breaks">Where each strategy breaks</h2>
 <p>Each strategy has one failure that the call counts do not show:</p>
 <div class="sheet scroll"><table>
 <thead>
@@ -1244,7 +1314,7 @@ th:last-child, td:last-child { padding-right: 0; }
 </tbody>
 </table></div>
 <p><em>Table 2: The failure each strategy leaves behind.</em></p>
-<p>The fix for reduce overflow is to reduce in groups and reduce the results again, the recursive summarisation that <a href="../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/index.html">M42&rsquo;s RAPTOR</a> builds into a tree. Order bias is a feature only when later text should override earlier text, such as a changelog where the newest entry wins. Notebook 05b suggests running its refine loop with the documents reversed to see the effect.</p>
+<p>The fix for reduce overflow is to reduce in groups and reduce the results again, the recursive summarisation that <a href="../../../../p12_knowledge_graphs_and_graph_rag/m42_hierarchical_memory_rag/mandatory/theory/index.html">M42&rsquo;s RAPTOR</a> builds into a tree. Order bias is a feature only when later text should override earlier text, such as a changelog where the newest entry wins. Notebook 05b says so directly: refine&rsquo;s quality depends on document order, and it wins only when later context should override earlier context.</p>
 <p>Writing the strategies out also opens choices the loader could not express: a smaller model for the many map calls and a larger one for the single reduce, or a retry wrapped around the map chain so one failed chunk does not sink the batch.</p>
 <h2 id="routing-by-length">Routing by length</h2>
 <p>Stuff is the best strategy whenever it fits, which means the summariser should decide per input. This is the module&rsquo;s lab brief in miniature: rebuild <code>load_summarize_chain</code> as LCEL, then add a branch that routes short and long inputs differently. The branch is a <code>RunnableBranch</code> with one condition, the text is 1,500 characters or fewer, which sends the input to the stuff chain; the default is the map-reduce chain:</p>
@@ -1296,6 +1366,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>A release week (the whole handbook at chunk size 400) goes to map-reduce: 10 map calls, 4 at a time, then 1 reduce call, 11 calls in 4 rounds.</li>
 <li>If the joined map summaries exceed the budget, reduce them in groups and reduce again.</li>
 <li>Log the strategy and the call count for every run.</li>
+</ol>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Counts, not summaries.</strong> Calls, rounds and chunk sizes come from the lab, whose splitter port matched <code>langchain_text_splitters</code> on all three documents at every chunk size from 200 to 1200, and from notebook 05a&rsquo;s splitter, rerun offline. No summary quality was measured: order bias and the loss from summarising twice are stated, not scored.</li>
+<li><strong>Rounds assume equal calls.</strong> A round lasts as long as its slowest call, and a provider&rsquo;s rate limit can stretch it further. Treat the round counts as a lower bound on wall time.</li>
+<li><strong>Characters stand in for tokens.</strong> The handbook lengths and the 1,500-character limit are characters. A production router counts tokens with the model&rsquo;s tokenizer.</li>
+<li><strong>A short handbook.</strong> At 2,746 characters the whole handbook fits in one call for any current model. It is long enough to show the arithmetic, not long enough to force map-reduce.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Wu and colleagues, <a href="https://arxiv.org/abs/2109.10862" target="_blank" rel="noopener">Recursively summarising books with human feedback</a> (2021), on summarising long text by summarising its parts and then their summaries.</li>
+<li>LangChain, <a href="https://docs.langchain.com/oss/python/migrate/langchain-v1" target="_blank" rel="noopener">LangChain v1 migration guide</a>, on replacing <code>load_summarize_chain</code> and the other legacy chains.</li>
 </ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
@@ -1372,7 +1454,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Write new chains as pipes. Treat <code>langchain_classic</code> imports as a staging post for old code, never as a destination.</li>
 <li>Choose a summarisation strategy by length and latency: stuff when it fits, map-reduce when it does not, refine only when order should matter.</li>
 </ul></article>
-    <nav class="toc" aria-label="M07 sections"><details open><summary>In M07</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#runnable-interface">Runnable interface</a></li><li><a href="#in-practice-testing-each-step">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipe-composition">Pipe composition</a></li><li><a href="#in-practice-the-larkspur-rag-chain">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#runnableparallel--branch">RunnableParallel / Branch</a></li><li><a href="#choosing-a-chain-shape">Choosing a chain shape</a></li><li><a href="#in-practice-ticket-triage">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#legacy-chains-to-lcel">Legacy chains to LCEL</a></li><li><a href="#in-practice-the-faq-service">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#map-reduce-summarisation">Map-reduce summarisation</a></li><li><a href="#routing-by-length">Routing by length</a></li><li><a href="#in-practice-the-weekly-digest">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M07 sections"><details open><summary>In M07</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#runnable-interface">Runnable interface</a></li><li><a href="#one-input-always">One input, always</a></li><li><a href="#each-step-changes-the-type">Each step changes the type</a></li><li><a href="#three-helpers-for-glue-code">Three helpers for glue code</a></li><li><a href="#batch-and-stream-come-with-it">Batch and stream come with it</a></li><li><a href="#in-practice-testing-each-step">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#pipe-composition">Pipe composition</a></li><li><a href="#the-pipe-is-a-python-operator">The pipe is a Python operator</a></li><li><a href="#a-dict-in-a-pipe-runs-in-parallel">A dict in a pipe runs in parallel</a></li><li><a href="#adding-a-key-keeping-the-rest">Adding a key, keeping the rest</a></li><li><a href="#in-practice-the-larkspur-rag-chain">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#runnableparallel--branch">RunnableParallel / Branch</a></li><li><a href="#linking-keep-the-trail">Linking</a></li><li><a href="#fan-out-then-merge">Fan-out, then merge</a></li><li><a href="#routing-with-runnablebranch">Routing with RunnableBranch</a></li><li><a href="#planning-the-default">Planning the default</a></li><li><a href="#choosing-a-chain-shape">Choosing a chain shape</a></li><li><a href="#in-practice-ticket-triage">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#legacy-chains-to-lcel">Legacy chains to LCEL</a></li><li><a href="#where-the-old-classes-went">Where the old classes went</a></li><li><a href="#how-loud-a-legacy-chain-is">How loud a legacy chain is</a></li><li><a href="#the-prompt-hub-raises">The prompt hub raises</a></li><li><a href="#a-caller-safe-migration">A caller-safe migration</a></li><li><a href="#in-practice-the-faq-service">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#map-reduce-summarisation">Map-reduce summarisation</a></li><li><a href="#where-each-strategy-breaks">Where each strategy breaks</a></li><li><a href="#routing-by-length">Routing by length</a></li><li><a href="#in-practice-the-weekly-digest">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

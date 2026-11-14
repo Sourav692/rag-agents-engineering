@@ -1,10 +1,21 @@
 # M03.2 Theory: Pipelines, tokenization and pretrained models
 
 *[M03 theory](../README.md) · Lesson 3.2 · Notebooks: [`02a_pipelines_for_nlp_tasks.ipynb`](../../notebook/02a_pipelines_for_nlp_tasks.ipynb), [`02b_understanding_llms.ipynb`](../../notebook/02b_understanding_llms.ipynb), [`02c_accessing_pretrained_models.ipynb`](../../../optional/notebook/02c_accessing_pretrained_models.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
+<!-- subtitle: Tokenise, run, post-process: where each step of a pipeline fails, and why text past the token limit vanishes -->
+<!-- format: approved -->
 
 ## Pipelines
 
-`pipeline()` from `transformers` loads a tokenizer and a model from one Hub repo and runs three steps on every call: pre-processing (the tokenizer turns text into token ids), the forward pass (the model turns ids into numbers) and post-processing (those numbers become a label, a span or generated text). Notebook `02a` runs it for sentiment, named entities, question answering and translation; `01b` uses it to label 1,066 movie reviews and computes accuracy against the dataset's labels.
+> **What you'll learn**
+>
+> - **Explain** the three steps a pipeline runs, and what can fail at each.
+> - **Pin** the model and revision a pipeline loads instead of the task's default.
+> - **Measure** text in the embedding model's own tokens, and predict what truncation drops.
+> - **Compare** greedy decoding, beam search and sampling.
+
+A Larkspur FAQ page holds the answer to *How fast does support answer a ticket?*, yet retrieval scores it 0.229 against that question, far below a chunk that holds the answer alone. No error was raised anywhere. The answer sat past the embedding model's token limit and never reached the model.
+
+A **pipeline**, `pipeline()` from `transformers`, loads a tokenizer and a model from one Hub repo and runs three steps on every call: pre-processing (the tokenizer turns text into token ids), the forward pass (the model turns ids into numbers) and post-processing (those numbers become a label, a span or generated text). Notebook `02a` runs it for sentiment, named entities, question answering and translation; `01b` uses it to label 1,066 movie reviews and computes accuracy against the dataset's labels.
 
 ```mermaid
 flowchart LR
@@ -14,6 +25,8 @@ flowchart LR
     P --> Y[/"label, score"/]
 ```
 <!-- animated: diagrams/pipeline.anim.html -->
+
+*Figure 1: The three steps of a text-classification pipeline on a Larkspur ticket.*
 
 For a Larkspur ticket, *My refund took three weeks.*, the sentiment pipeline's tokenizer produces nine ids: `[CLS] my ref ##und took three weeks . [SEP]`. The model returns two logits, softmax turns them into probabilities, and the model's `config.json` maps index 0 to `NEGATIVE` and 1 to `POSITIVE`. Each step can go wrong on its own. A ticket longer than the model's 512 positions has to be truncated at the tokenizer, a model trained on movie reviews misreads billing language in the forward pass, and a two-label head cannot say "billing" or "outage" at all.
 
@@ -25,9 +38,11 @@ For a Larkspur ticket, *My refund took three weeks.*, the sentiment pipeline's t
 | `token-classification` (alias `ner`) | `dbmdz/bert-large-cased-finetuned-conll03-english` | `4c53496` |
 | `text-generation` | `HuggingFaceTB/SmolLM3-3B` | `a07cc9a` |
 
-The NER default is 1.33 GB of weights, five times the sentiment model's 268 MB, which is why `02a` warns before loading it. Pass `model=` (and `revision=` with a commit hash) to choose the model yourself: `02a` loads `ProsusAI/finbert` for financial headlines, and the task comes from the repo's metadata.
+*Table 1: Task defaults and their pinned revisions in `transformers` 5.17.0, read from the installed library.*
 
-**The task list changes between releases.** The list printed at the top of `02a` comes from an older `transformers`. Version 5.17.0 has no `question-answering`, `translation`, `summarization`, `text2text-generation` or `conversational` task, so the notebook's `pipeline('question-answering')` and `pipeline('translation_en_to_fr')` cells fail in this course's environment. Print `transformers.pipelines.get_supported_tasks()` to see what your installed version supports.
+The NER default (named-entity recognition) is 1.33 GB of weights, five times the sentiment model's 268 MB, which is why `02a` warns before loading it. Pass `model=` (and `revision=` with a commit hash) to choose the model yourself: `02a` loads `ProsusAI/finbert` for financial headlines, and the task comes from the repo's metadata.
+
+**The task list changes between releases.** The list printed at the top of `02a` comes from an older `transformers`. Version 5.17.0 has no `question-answering`, `translation`, `summarization`, `text2text-generation` or `conversational` task, and the notebook's `pipeline('question-answering')` and `pipeline('translation_en_to_fr')` cells fail in this course's environment. Print `transformers.pipelines.get_supported_tasks()` to see what your installed version supports.
 
 Two smaller points from the notebooks. `save_pretrained(folder)` writes the tokenizer, model and config into a folder that `pipeline(model=folder)` loads again; `02a` saves the text-classification pipeline that way, not the NER one, and writes the folder next to the notebook. Notebook `02c` shows the same text generation twice: once with `AutoTokenizer` and `AutoModelForCausalLM` and an explicit `generate()`, once as `pipeline("text-generation", model="gpt2")`. The pipeline is shorter; the explicit version lets you read the logits, which the next two sections need.
 
@@ -41,11 +56,13 @@ Models read tokens, pieces of text from a fixed vocabulary, each mapped to an in
 | *Preposterous, I'm flabbergasted!* | `Prep` `oster` `ous` `,` `␣I` `'m` `␣fl` `ab` `berg` `asted` `!` | `[CLS]` `prep` `##ost` `##ero` `##us` `,` `i` `'` `m` `fl` `##ab` `##berg` `##ast` `##ed` `!` `[SEP]` |
 | *Can I export my data after I cancel my plan?* | 11 tokens, one per word plus `?` | 13 tokens, the same split plus `[CLS]` and `[SEP]` |
 
+*Table 2: The same texts under two tokenizers, rerun with `transformers` 5.17.0.*
+
 The two schemes differ in ways that matter later. GPT-2 keeps case and attaches a leading space to the token after it (`␣` above), so "fl" at the start of a text is id 2704 and " fl" after a space is id 781; `02b`'s markdown quotes the second. WordPiece lower-cases everything, marks a piece that continues a word with `##`, and adds `[CLS]` and `[SEP]` around every input.
 
-Prices and limits are counted in tokens, so the ratio of characters to tokens decides what a text costs. M10 estimated tokens as characters divided by four. On the handbook that holds: the refunds section is 1,111 characters and 246 GPT-2 tokens (4.52 characters per token), the FAQ page 1,415 characters and 308 tokens (4.59). It fails on rare words: *Preposterous, I'm flabbergasted!* runs at 2.91 characters per GPT-2 token and 2.29 per MiniLM token. Product names, codes and other languages move the ratio the same way, so count with the model's own tokenizer before you budget.
+Prices and limits are counted in tokens, so the ratio of characters to tokens decides what a text costs. M10 estimated tokens as characters divided by four. On the handbook that holds: the refunds section is 1,111 characters and 246 GPT-2 tokens (4.52 characters per token), the FAQ page 1,415 characters and 308 tokens (4.59). It fails on rare words: *Preposterous, I'm flabbergasted!* runs at 2.91 characters per GPT-2 token and 2.29 per MiniLM token, not counting `[CLS]` and `[SEP]`. Product names, codes and other languages move the ratio the same way. Count with the model's own tokenizer before you budget.
 
-**Every model has a token limit, and the text past it is dropped without an error.** GPT-2 has 1,024 positions. The MiniLM tokenizer reports 512, but sentence-transformers reads `max_seq_length: 256` from the repo's `sentence_bert_config.json` and cuts every input there, `[CLS]` and `[SEP]` included. The FAQ page is 291 MiniLM tokens, so its last 35 tokens, 183 characters holding the support response times and the promotional-credit rule, never reach the model. Embedding the whole page and embedding its first 1,231 characters give the same vector (cosine similarity 1.0000). *How fast does support answer a ticket?* then scores 0.229 against the page and 0.687 against the support answer on its own. This is the reason M12 sizes chunks and why the size must be measured in the embedding model's tokens.
+**Every model has a token limit, and the text past it is dropped without an error.** GPT-2 has 1,024 positions. The MiniLM tokenizer reports 512, but sentence-transformers reads `max_seq_length: 256` from the repo's `sentence_bert_config.json` and cuts every input there, `[CLS]` and `[SEP]` included. The FAQ page is 291 MiniLM tokens. Its last 35 tokens, 183 characters holding the support response times and the promotional-credit rule, never reach the model. Embedding the whole page and embedding its first 1,231 characters give the same vector (cosine similarity 1.0000). *How fast does support answer a ticket?* then scores 0.229 against the page and 0.687 against the support answer on its own. We call this **silent truncation**. It is the reason M12 sizes chunks and why the size must be measured in the embedding model's tokens.
 
 The [interactive lab](interactive/token-limit-lab.html) holds the real token ids for five Larkspur texts under both tokenizers and cuts them exactly as `tokenizer(text, truncation=True, max_length=N)` does; it matches the library at every limit from 8 to 320, 3,130 settings with 0 mismatches. Lower the limit on the refunds section to 128 and MiniLM keeps the text up to "less than 100 GB of out", splitting the sentence M12's golden question needs, while GPT-2's cut falls one word earlier, before "GB".
 
@@ -64,6 +81,8 @@ flowchart LR
     A -- repeat --> G
 ```
 
+*Figure 2: The generation loop. Each pass scores every vocabulary entry and appends one token.*
+
 How the next token is picked is the decoding strategy, set by `generate()`'s arguments. The notebook's settings:
 
 - **Greedy** (the default): the most likely token every time. Deterministic, and prone to repeating itself in long text.
@@ -71,6 +90,17 @@ How the next token is picked is the decoding strategy, set by `generate()`'s arg
 - **Sampling**, `do_sample=True`: draws from the probabilities. `temperature=0.4` sharpens them toward the top tokens, `top_k=10` draws only from the ten most likely, and `top_p=0.94` from the smallest set whose probabilities add up to 0.94. The notebook sets `top_k=0` to switch the top-k filter off when it tests temperature and top-p alone.
 
 Two details catch people out. `max_new_tokens=20` counts only generated tokens, while `max_length=40` counts the prompt too and leaves room for 36 new tokens after the 4-token prompt. And GPT-2 has no padding token; `02c` passes `pad_token_id=tokenizer.eos_token_id` to silence the warning `generate()` gives about it. The code comment in `02b`'s first tokenizer cell, `tensor([[1026, 373, 257, 3223, 290, 6388, 88]])`, is the encoding of *It was a dark and stormy*, not of the sentence in that cell.
+
+## Limits of this evidence
+
+- **Version-bound.** Table 1, the missing tasks and the tokenizer outputs come from `transformers` 5.17.0. Defaults and the task list change between releases.
+- **No model outputs.** The notebooks ship without outputs. The token counts, the 0.229 and 0.687 scores and the truncation point were rerun with the tokenizers and with `all-MiniLM-L6-v2` through sentence-transformers; no GPT-2 generation was run, and the decoding settings are described, not measured.
+- **Lab texts.** The refunds section and the FAQ page are the lab's copies of the Larkspur handbook. The lab's stored token ids match both live tokenizers on all five texts.
+
+## References
+
+1. Hugging Face, [pipelines](https://huggingface.co/docs/transformers/main_classes/pipelines), on tasks, default models and pinning a model.
+2. Hugging Face, [generation strategies](https://huggingface.co/docs/transformers/generation_strategies), covering greedy decoding, beam search and sampling.
 
 ## Key Takeaways
 

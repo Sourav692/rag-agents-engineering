@@ -2,6 +2,7 @@
 
 *[M09 theory](../README.md) · Lesson 9.6 · Notebooks: [`06a_LangGraph_State_Management.ipynb`](../../notebook/06a_LangGraph_State_Management.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How reducers keep parallel writes and audit trails safe, and how to stop a resumed, crashed or retried node from paying a customer twice -->
+<!-- format: approved -->
 
 ## Paid twice, notified twice
 
@@ -119,6 +120,19 @@ The desk's fix for finance's report follows the two guards:
 > **Key distinction:** the checkpointer guarantees the graph's state. Idempotency guarantees the world's state. A production workflow needs both.
 
 Put together, these are the notebook's closing rules: workers stay stateless, state lives in the checkpointer, the `events` field is the audit log, the workflow is an explicit graph with the human gate as a waiting state, and every side effect can run twice without harm.
+
+## Limits of this evidence
+
+- **The lab's counts are recorded, not rerun here.** Table 2 comes from the lab's runs recorded with LangGraph 1.2.18. This rewrite reran the parallel-write error text on 14 November 2026, and checked the ledger and the trimming node against the notebook's code.
+- **A simulated provider.** The 503, the crash and the lost response are planted faults in a stub provider. A real payment provider's idempotency rules (how long it keeps a key, what it returns) are its own and were not tested.
+- **One process.** The ledger in Table 3 lives in memory. A real deduplication store has to outlive the process and be shared by every worker.
+- **refund-99 is the module's label.** The notebook's refund agent runs on the thread `order-42` and refunds `order-99` in its ledger demo.
+
+## References
+
+1. LangChain documentation, [Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api): reducers, `add_messages` and parallel nodes in one super-step.
+2. LangChain documentation, [Persistence in LangGraph](https://docs.langchain.com/oss/python/langgraph/persistence): what the checkpointer saves and what a resumed run re-executes.
+3. Internet Engineering Task Force draft, [The Idempotency-Key header field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/): a key the client sends so a server can recognise a repeated request.
 
 ## Key Takeaways
 

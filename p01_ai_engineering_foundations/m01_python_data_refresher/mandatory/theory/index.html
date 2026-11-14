@@ -349,42 +349,132 @@ th:last-child, td:last-child { padding-right: 0; }
 <p>Each tool holds the data in the shape the next step needs. pandas keeps labelled rows and columns, NumPy keeps one dtype in a fixed shape so arithmetic runs on whole arrays, SQL keeps results you can filter and group later, and asyncio keeps the slow calls from waiting on each other. Most bugs in the later modules are a shape, a dtype or a blocked event loop at one of these handoffs.</p>
 <h2 id="numpy-arrays">NumPy arrays</h2>
 <p class="lesson-of">Lesson 1.3: NumPy, pandas and Matplotlib. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/mandatory/notebook/03a_numpy_basics.ipynb" target="_blank" rel="noopener"><code>03a_numpy_basics.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/mandatory/notebook/03b_pandas_basics_for_data_analysis.ipynb" target="_blank" rel="noopener"><code>03b_pandas_basics_for_data_analysis.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/optional/notebook/03c_matplotlib_basics.ipynb" target="_blank" rel="noopener"><code>03c_matplotlib_basics.ipynb</code></a> (optional)</p>
-<p>A NumPy array holds numbers of one dtype in a fixed shape, so arithmetic runs on the whole array in compiled code instead of a Python loop. The notebook covers creation (<code>np.array</code>, <code>np.zeros</code>, <code>np.arange</code>, <code>np.linspace</code>), indexing and boolean masks, <code>reshape</code> and <code>.T</code>, ufuncs, aggregation along an <code>axis</code>, broadcasting, <code>@</code> for matrix products and <code>np.linalg</code>. Retrieval code uses a handful of these on one object: the embedding matrix.</p>
-<p>An index of the twelve Larkspur handbook chunks, embedded with a 384-dimension model, is an array <code>E</code> of shape <code>(12, 384)</code>: one row per chunk, one column per dimension. A question embeds to a vector <code>q</code> of shape <code>(384,)</code>. Cosine similarity is the dot product of unit-length vectors, so retrieval is three lines:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> retrieval as three array operations on an embedding matrix: normalise, dot product, sort.</li>
+<li><strong>Diagnose</strong> the broadcasting bug that square test data hides and a real embedding matrix exposes.</li>
+<li><strong>Estimate</strong> the memory an index needs from its row count, dimension and dtype.</li>
+<li><strong>Diagnose</strong> a mean that silently skips failed evaluation runs.</li>
+</ul>
+</blockquote>
+<p>A teammate tests a cosine-similarity function on three toy chunks, sees sensible scores, and ships it. On the real index it either crashes or, on the toy data, quietly ranks the wrong chunk first. Both outcomes come from one missing argument. This page explains the array and table habits that catch it.</p>
+<p>A <strong>NumPy array</strong> holds numbers of one dtype in a fixed shape. Arithmetic then runs on the whole array in compiled code instead of a Python loop. Notebook 03a covers creation (<code>np.array</code>, <code>np.zeros</code>, <code>np.arange</code>, <code>np.linspace</code>), indexing and boolean masks, <code>reshape</code> and <code>.T</code>, ufuncs, aggregation along an <code>axis</code>, broadcasting, <code>@</code> for matrix products and <code>np.linalg</code>. Retrieval code uses a handful of these on one object: the embedding matrix.</p>
+<p>An index of the twelve Larkspur handbook chunks, embedded with a 384-dimension model, is an array <code>E</code> of shape <code>(12, 384)</code>: one row per chunk, one column per dimension. A question embeds to a vector <code>q</code> of shape <code>(384,)</code>. Cosine similarity is the dot product of unit-length vectors, so retrieval takes three operations:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     E["E&lt;br/&gt;(12, 384)"] --&gt; N["E_n = E / row norms&lt;br/&gt;(12, 384)"] --&gt; S["scores = E_n @ q_n&lt;br/&gt;(12,)"] --&gt; K["argsort, first k&lt;br/&gt;(k,) chunk ids"]
 </pre></figure>
-<p>With three chunks and three dimensions you can check every number by hand:</p>
-<pre class="sheet code"><code class="language-python">E = np.array([[0.9, 0.1, 0.0],    # refund-window
-              [0.7, 0.3, 0.1],    # refund-timing
-              [0.0, 0.2, 0.9]])   # sla
-q = np.array([0.8, 0.2, 0.1])     # &quot;How long does a refund take?&quot;
-
-E_n = E / np.linalg.norm(E, axis=1, keepdims=True)
-scores = E_n @ (q / np.linalg.norm(q))   # [0.984, 0.987, 0.170]
-top = np.argsort(-scores)[:2]            # [1, 0]: refund-timing, then refund-window
-</code></pre>
-<p><code>keepdims=True</code> is what makes the division correct. <code>np.linalg.norm(E, axis=1)</code> returns the row lengths as a flat array of shape <code>(3,)</code>. Broadcasting lines shapes up from the last axis, so a flat <code>(3,)</code> divides each <em>column</em> by a different row&rsquo;s length. On this toy matrix that runs without an error and gives scores of 0.989, 0.852 and 0.180, which puts <code>refund-window</code> first. With <code>keepdims=True</code> the norms have shape <code>(3, 1)</code> and stretch across the columns, one length per row. On the real <code>(12, 384)</code> matrix the flat version fails with <code>ValueError: operands could not be broadcast together with shapes (12,384) (12,)</code>, which is the better outcome, because square test data hides the bug.</p>
+<p><em>Figure 1: Retrieval as array operations, with the shape after each step.</em></p>
+<p>With three chunks and three dimensions you can check every number by hand. The question is <em>How long does a refund take?</em>:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What it does</th>
+<th>Shape</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chunk matrix <code>E</code></td>
+<td><code>refund-window</code>, <code>refund-timing</code>, <code>sla</code>, three made-up dimensions</td>
+<td>(3, 3)</td>
+<td>(0.9, 0.1, 0.0), (0.7, 0.3, 0.1), (0.0, 0.2, 0.9)</td>
+</tr>
+<tr>
+<td>Question <code>q</code></td>
+<td>the refund question</td>
+<td>(3,)</td>
+<td>(0.8, 0.2, 0.1)</td>
+</tr>
+<tr>
+<td>Row norms, <code>keepdims=True</code></td>
+<td>one length per chunk</td>
+<td>(3, 1)</td>
+<td>one length per row</td>
+</tr>
+<tr>
+<td>Scores</td>
+<td>normalised rows times the normalised question</td>
+<td>(3,)</td>
+<td>0.984, 0.987, 0.170</td>
+</tr>
+<tr>
+<td>Top 2</td>
+<td>indices of the two highest scores</td>
+<td>(2,)</td>
+<td><code>refund-timing</code>, then <code>refund-window</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The toy retrieval traced step by step. The vectors are illustrative; the scores were recomputed with NumPy.</em></p>
+<p><strong><code>keepdims=True</code> is what makes the division correct.</strong> Without it, <code>np.linalg.norm(E, axis=1)</code> returns the row lengths as a flat array of shape <code>(3,)</code>. Broadcasting lines shapes up from the last axis, so a flat <code>(3,)</code> divides each <em>column</em> by a different row&rsquo;s length. On this toy matrix that runs without an error and gives scores of 0.989, 0.852 and 0.180, which puts <code>refund-window</code> first. With <code>keepdims=True</code> the norms have shape <code>(3, 1)</code> and stretch across the columns, one length per row.</p>
+<p>On the real <code>(12, 384)</code> matrix the flat version fails with <code>ValueError: operands could not be broadcast together with shapes (12,384) (12,)</code>. That is the better outcome. We call the toy case the <strong>square-matrix trap</strong>: test data whose row and column counts match lets a wrong broadcast run and return plausible numbers.</p>
 <figure class="diagram"><img src="03_numpy_pandas_and_matplotlib/diagrams/broadcasting-norms.svg" width="760" height="330" alt="Top: the row norms of a 12 by 384 embedding matrix, kept as a 12 by 1 column with keepdims=True, stretch across all 384 columns, so each row is divided by its own length. Bottom: without keepdims the norms are a flat array of 12, which NumPy lines up with the last axis of 384 and rejects. On a square matrix the same line runs without an error and divides columns instead of rows."></figure>
+<p><em>Figure 2: Row norms with and without <code>keepdims</code> against the embedding matrix.</em></p>
 <p>Three more habits from the notebook pay off later:</p>
 <ul>
-<li><strong>Check <code>.shape</code>, <code>.ndim</code> and <code>.dtype</code> before you trust a result.</strong> A <code>(384,)</code> query gives scores of shape <code>(12,)</code>; the same query as a <code>(384, 1)</code> column gives <code>(12, 1)</code>, and <code>np.argsort</code> on that sorts each one-element row instead of the twelve scores.</li>
+<li><strong>Check <code>.shape</code>, <code>.ndim</code> and <code>.dtype</code> before you trust a result.</strong> A <code>(384,)</code> query gives scores of shape <code>(12,)</code>. The same query as a <code>(384, 1)</code> column gives <code>(12, 1)</code>, and <code>np.argsort</code> on that sorts each one-element row instead of the twelve scores.</li>
 <li><strong>Choose the dtype for memory.</strong> <code>astype</code> converts it. A million 1,536-dimension vectors take 6,144,000,000 bytes (6.1 GB) as <code>float32</code> and twice that as <code>float64</code>, the default for arrays built from Python floats. Most vector libraries, FAISS among them, expect <code>float32</code>.</li>
-<li><strong>Top-k does not need a full sort.</strong> <code>np.argsort</code> sorts all <code>n</code> scores. On millions of rows, <code>np.argpartition(-scores, k)[:k]</code> finds the <code>k</code> best without ordering the rest; sort only those <code>k</code> afterwards.</li>
+<li><strong>Top-k does not need a full sort.</strong> <code>np.argsort</code> sorts all <code>n</code> scores. On millions of rows, <code>np.argpartition</code> finds the <code>k</code> best without ordering the rest; sort only those <code>k</code> afterwards.</li>
 </ul>
+<p>The vectors live in NumPy. Everything describing them, from chunk ids to evaluation scores, lives in a table.</p>
 <h2 id="pandas-dataframes">pandas DataFrames</h2>
-<p>A DataFrame is a table of named columns, each a Series with its own dtype, plus an index that labels the rows. NumPy holds the vectors; pandas holds everything around them: chunk ids and text, metadata, golden questions, and the results of every evaluation run.</p>
-<p>The notebook opens with <code>pd.read_csv('../assets/churn_prediction.csv')</code>. Run <code>df.info()</code> on it before anything else: it has 15,929 rows and 21 columns, and <code>dependents</code> and <code>city</code> load as <code>float64</code> although they hold whole numbers, because 1,348 and 460 of their values are missing and <code>NaN</code> is a float. <code>gender</code> has 288 missing values, <code>occupation</code> 47, and <code>last_transaction</code> stays a string column (<code>object</code>) until <code>pd.to_datetime</code> converts it. The same thing happens to chunk metadata loaded from a CSV: a page-number column with one blank becomes floats, and a date column stays text.</p>
+<p>A <strong>DataFrame</strong> is a table of named columns, each a Series with its own dtype, plus an index that labels the rows. NumPy holds the vectors; pandas holds everything around them: chunk ids and text, metadata, golden questions, and the results of every evaluation run.</p>
+<p>Notebook 03b opens by loading a customer churn CSV from the module&rsquo;s assets. Run <code>df.info()</code> on it before anything else. It has 15,929 rows and 21 columns:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Loads as</th>
+<th>Missing values</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dependents</code></td>
+<td><code>float64</code></td>
+<td>1,348</td>
+<td>Whole numbers, but <code>NaN</code> is a float, so the column becomes float</td>
+</tr>
+<tr>
+<td><code>city</code></td>
+<td><code>float64</code></td>
+<td>460</td>
+<td>The same reason</td>
+</tr>
+<tr>
+<td><code>gender</code></td>
+<td><code>object</code></td>
+<td>288</td>
+<td>Text column with gaps</td>
+</tr>
+<tr>
+<td><code>occupation</code></td>
+<td><code>object</code></td>
+<td>47</td>
+<td>Text column with gaps</td>
+</tr>
+<tr>
+<td><code>last_transaction</code></td>
+<td><code>object</code></td>
+<td>0</td>
+<td>A date kept as text until <code>pd.to_datetime</code> converts it</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: What <code>df.info()</code> reveals about the churn data, recomputed from the CSV.</em></p>
+<p>The same thing happens to chunk metadata loaded from a CSV: a page-number column with one blank becomes floats, and a date column stays text.</p>
 <p>The operations the notebook teaches map onto evaluation work directly:</p>
 <ul>
-<li><strong>Select and filter:</strong> <code>df[df["recall"] &lt; 1]</code> lists the questions that missed evidence; <code>.loc</code> selects by label, <code>.iloc</code> by position.</li>
-<li><strong>Add columns:</strong> <code>df["tokens"] = df["text"].str.len() / 4</code> for a rough token count; <code>.apply</code> and <code>.map</code> for anything a vectorised expression cannot do.</li>
-<li><strong>Join:</strong> <code>pd.merge(results, chunks, on="chunk_id")</code> brings chunk text next to the scores. Merge on an id, never on row order.</li>
-<li><strong>Group and pivot:</strong> the baseline row is a <code>groupby</code>.</li>
+<li><strong>Select and filter</strong>: keep the rows whose recall is below 1 to list the questions that missed evidence. <code>.loc</code> selects by label, <code>.iloc</code> by position.</li>
+<li><strong>Add columns</strong>: text length divided by four gives a rough token count. <code>.apply</code> and <code>.map</code> handle anything a vectorised expression cannot.</li>
+<li><strong>Join</strong>: <code>pd.merge</code> on <code>chunk_id</code> brings chunk text next to the scores. Merge on an id, never on row order.</li>
+<li><strong>Group and pivot</strong>: the baseline row is a <code>groupby</code>.</li>
 </ul>
-<p>M10&rsquo;s top-k lab scores three golden questions at four values of <code>k</code>. As a long table, one row per question and <code>k</code>, its baseline is one line:</p>
-<pre class="sheet code"><code class="language-python">runs.groupby(&quot;k&quot;)[[&quot;recall&quot;, &quot;precision&quot;]].mean().round(2)
-</code></pre>
+<p>M10&rsquo;s top-k lab scores three golden questions at four values of <code>k</code>. Stored as a long table, one row per question and <code>k</code>, its baseline is one <code>groupby</code> on <code>k</code> taking the mean of recall and precision:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -416,8 +506,24 @@ top = np.argsort(-scores)[:2]            # [1, 0]: refund-timing, then refund-wi
 </tr>
 </tbody>
 </table></div>
-<p><code>runs.pivot_table(index="question", columns="k", values="recall")</code> turns the same table into one row per question, which shows where the mean comes from: the export question reaches 1.0 at <code>k = 2</code>, the refund question stays at 0.5 and the outage question at 0.0. <code>runs.groupby("k")["recall"].mean().plot(marker="o")</code> draws the curve through Matplotlib, which the optional notebook covers.</p>
-<p>Missing values deserve a check of their own. <code>mean()</code> skips <code>NaN</code> by default. If the outage question errors at <code>k = 2</code> and its recall is recorded as <code>NaN</code>, mean recall@2 becomes 0.75 instead of 0.50, with no warning. Compare <code>count()</code> (2) with <code>size()</code> (3) per group, and record failures in a status column instead of a missing number.</p>
+<p><em>Table 3: The M10 baseline by <code>k</code>, the output of one <code>groupby</code>.</em></p>
+<p>A <code>pivot_table</code> with questions as rows and <code>k</code> as columns shows where each mean comes from: the export question reaches 1.0 at <code>k = 2</code>, the refund question stays at 0.5 and the outage question at 0.0. Plotting the grouped recall draws the curve through Matplotlib, which the optional notebook 03c covers.</p>
+<p>Missing values deserve a check of their own. <code>mean()</code> skips <code>NaN</code> by default. If the outage question errors at <code>k = 2</code> and its recall is recorded as <code>NaN</code>, mean recall@2 becomes 0.75 instead of 0.50, with no warning. We call this a <strong>silent skip</strong>.</p>
+<blockquote>
+<p><strong>Pitfall: silent skip.</strong> Compare <code>count()</code> (2) with <code>size()</code> (3) per group before reading a mean. Record failures in a status column instead of a missing number, so a failed run shows up as a failure.</p>
+</blockquote>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Toy vectors.</strong> The three-dimension vectors in Table 1 are made up so the arithmetic fits on a page. Real 384-dimension scores differ, though the broadcasting behaviour is the same.</li>
+<li><strong>Recomputed numbers.</strong> The scores, the 6,144,000,000 bytes and Table 2 were recomputed with NumPy and pandas from this repo&rsquo;s environment. The notebooks ship without outputs.</li>
+<li><strong>Lab values.</strong> Table 3 comes from M10&rsquo;s top-k lab over three questions: each recall step is 0.5 or a third. It shows the shape of a baseline, not a benchmark.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>NumPy, <a href="https://numpy.org/doc/stable/user/basics.broadcasting.html" target="_blank" rel="noopener">broadcasting rules</a>, on how shapes line up from the last axis.</li>
+<li>NumPy, <a href="https://numpy.org/doc/stable/reference/generated/numpy.argpartition.html" target="_blank" rel="noopener">argpartition</a>, for selecting the top k without a full sort.</li>
+<li>pandas, <a href="https://pandas.pydata.org/docs/user_guide/missing_data.html" target="_blank" rel="noopener">working with missing data</a>, on how <code>NaN</code> changes dtypes and aggregations.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Retrieval is normalise, dot product, sort. Divide by row norms with <code>keepdims=True</code>, because square test data hides the broadcasting bug that a <code>(12, 384)</code> matrix exposes.</li>
@@ -439,7 +545,18 @@ top = np.argsort(-scores)[:2]            # [1, 0]: refund-timing, then refund-wi
 </details>
 <h2 id="sql-from-python">SQL from Python</h2>
 <p class="lesson-of">Lesson 1.4: Databases from Python: SQLite, MySQL, PostgreSQL. Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/mandatory/notebook/04a_sqlite_operations.ipynb" target="_blank" rel="noopener"><code>04a_sqlite_operations.ipynb</code></a>, <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/optional/notebook/04b_mysql_connection.ipynb" target="_blank" rel="noopener"><code>04b_mysql_connection.ipynb</code></a> (optional), <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/optional/notebook/04c_postgresdb_connection.ipynb" target="_blank" rel="noopener"><code>04c_postgresdb_connection.ipynb</code></a> (optional)</p>
-<p>Python talks to SQLite, MySQL and PostgreSQL through the same interface, the DB-API (PEP 249): open a connection, get a cursor, execute a statement, fetch rows, commit writes, close. The three notebooks differ only in the driver and the connection arguments. <code>sqlite3</code> ships with Python and opens a file or <code>:memory:</code>; PyMySQL and <code>mysql.connector</code> need a MySQL server; <code>psycopg2</code> needs a PostgreSQL server.</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
+<ul>
+<li><strong>Explain</strong> the connection, cursor, execute, fetch and commit steps every Python database driver shares.</li>
+<li><strong>Explain</strong> why a query parameter cannot rewrite the query, while the same value pasted into the SQL text can.</li>
+<li><strong>Predict</strong> what a failed write inside a transaction leaves behind.</li>
+<li><strong>Choose</strong> where credentials live and what the application&rsquo;s database user may do.</li>
+</ul>
+</blockquote>
+<p>A support assistant answers <em>How fast do you reply on my plan?</em> by looking up the customer&rsquo;s plan in a table. One customer&rsquo;s account holds a plan name with a quote and <code>OR '1'='1</code> in it, and the assistant answers with every plan&rsquo;s terms. The lookup was correct; the way the value reached the database was not.</p>
+<p>RAG systems keep structured facts in tables because a lookup beats a similarity search when the answer is one exact value. The Larkspur handbook says support tickets are answered within 4 hours on business plans and within 24 hours on starter plans. As a table, <code>plans</code> has two rows: <code>business</code> with 4 support hours and <code>starter</code> with 24.</p>
+<p>Python talks to SQLite, MySQL and PostgreSQL through the same interface, the <strong>DB-API</strong>: open a connection, get a cursor, execute a statement, fetch rows, commit writes, close. The three notebooks differ only in the driver and the connection arguments. <code>sqlite3</code> ships with Python and opens a file or <code>:memory:</code>; PyMySQL and <code>mysql.connector</code> need a MySQL server; <code>psycopg2</code> needs a PostgreSQL server.</p>
 <figure class="sheet chart"><pre class="mermaid">sequenceDiagram
     participant Py as Your code
     participant Con as Connection
@@ -451,19 +568,54 @@ top = np.argsort(-scores)[:2]            # [1, 0]: refund-timing, then refund-wi
     Py-&gt;&gt;Con: commit() after writes
     Py-&gt;&gt;Con: close()
 </pre></figure>
-<p>RAG systems keep structured facts in tables because a lookup beats a similarity search when the answer is one exact value. The Larkspur handbook says support tickets are answered within 4 hours on business plans and within 24 hours on starter plans. As a table:</p>
-<pre class="sheet code"><code class="language-python">import sqlite3
+<p><em>Figure 1: The DB-API steps, the same for all three databases.</em></p>
+<p>The plan lookup follows those steps:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happens</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Connect</td>
+<td><code>sqlite3</code> opens an in-memory database</td>
+<td>a connection</td>
+</tr>
+<tr>
+<td>Create and fill</td>
+<td><code>plans</code> is created, then both rows are inserted inside one transaction</td>
+<td>two rows, committed</td>
+</tr>
+<tr>
+<td>Query</td>
+<td><code>SELECT support_hours FROM plans WHERE name = ?</code>, with the customer&rsquo;s plan passed separately</td>
+<td>the statement runs with the value as data</td>
+</tr>
+<tr>
+<td>Fetch</td>
+<td><code>fetchone()</code> for <code>starter</code></td>
+<td><code>(24,)</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1: The Larkspur plan lookup through the DB-API.</em></p>
+<h3>Values go in as parameters</h3>
+<p>The <code>?</code> tells the driver to send the plan name as data, separately from the SQL text. Build the same query with an f-string and the value becomes part of the SQL. We call that <strong>query injection</strong>: a value that rewrites the statement it was meant to fill in.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="injection-switcher">
+<p class="widget-intro">Send the same hostile plan name through both styles of query and compare what reaches the database.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the plan name reaches the query">
+<button type="button" data-mode="fstring" aria-pressed="false" aria-controls="inj-fstring">Pasted into the SQL</button>
+<button type="button" data-mode="param" aria-pressed="false" aria-controls="inj-param">Sent as a parameter</button>
+</div>
+<section id="inj-fstring" class="mode-panel" data-announcement="Pasted into the SQL. Every plan comes back."><h4>Pasted into the SQL with an f-string</h4><dl><dt>Plan value</dt><dd>starter' OR '1'='1</dd><dt>Condition the database runs</dt><dd>name equals starter, or 1 equals 1</dd><dt>Rows returned</dt><dd><code>[(4,), (24,)]</code>: every plan in the table</dd></dl></section>
+<section id="inj-param" class="mode-panel" data-announcement="Sent as a parameter. Nothing comes back."><h4>Sent as a parameter</h4><dl><dt>Plan value</dt><dd>starter' OR '1'='1</dd><dt>Condition the database runs</dt><dd>name equals that whole string, quotes included</dd><dt>Rows returned</dt><dd><code>[]</code>: no plan has that name</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
-con = sqlite3.connect(&quot;:memory:&quot;)
-con.execute(&quot;CREATE TABLE plans (name TEXT PRIMARY KEY, support_hours INTEGER)&quot;)
-with con:                                    # commits on success, rolls back on an exception
-    con.executemany(&quot;INSERT INTO plans VALUES (?, ?)&quot;,
-                    [(&quot;business&quot;, 4), (&quot;starter&quot;, 24)])
-
-plan = &quot;starter&quot;                             # from the customer's account
-con.execute(&quot;SELECT support_hours FROM plans WHERE name = ?&quot;, (plan,)).fetchone()   # (24,)
-</code></pre>
-<p><strong>Values go in as parameters.</strong> The <code>?</code> tells the driver to send <code>plan</code> as data, separately from the SQL text. Build the same query with an f-string and the value becomes part of the SQL: with <code>plan = "starter' OR '1'='1"</code> it returns <code>[(4,), (24,)]</code>, every plan in the table, while the parameterised query returns <code>[]</code>. The placeholder differs by driver, and each driver publishes it as <code>paramstyle</code>:</p>
+<p>Both results were reproduced on an in-memory SQLite table. The placeholder differs by driver, and each driver publishes it as <code>paramstyle</code>:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -494,15 +646,63 @@ con.execute(&quot;SELECT support_hours FROM plans WHERE name = ?&quot;, (plan,))
 </tr>
 </tbody>
 </table></div>
-<p>The <code>%s</code> placeholder looks like Python string formatting, but the driver fills it in. Pass the values as the second argument to <code>execute</code>, never with the <code>%</code> operator.</p>
-<p><strong>Writes happen in a transaction.</strong> Nothing an <code>INSERT</code> or <code>UPDATE</code> changes is permanent until <code>commit()</code>, which is why notebook 04a calls <code>connection.commit()</code> after each write. <code>with con:</code> commits when the block succeeds and rolls back when it raises: inserting a new <code>pro</code> plan and then a duplicate <code>starter</code> in one block raises <code>IntegrityError</code>, and the table still has 2 rows. The <code>with</code> block does not close the connection; call <code>close()</code> yourself.</p>
-<p><strong>pandas sits on top.</strong> <code>pd.read_sql(query, con, params=(2,))</code> runs a query and returns a DataFrame, and <code>df.to_sql("runs", con)</code> writes one. With M10&rsquo;s baseline rows in a <code>runs</code> table, SQL gives the same baseline as the pandas <code>groupby</code> in <a href="#pandas-dataframes">lesson 1.3</a>:</p>
-<pre class="sheet code"><code class="language-sql">SELECT k, ROUND(AVG(recall), 2), ROUND(AVG(precision), 2) FROM runs GROUP BY k;
--- (1, 0.33, 0.67), (2, 0.5, 0.5), (5, 0.5, 0.2), (12, 0.5, 0.08)
-</code></pre>
-<p>For MySQL and PostgreSQL, notebook 04b passes <code>pd.read_sql</code> a SQLAlchemy engine built from a connection URL (<code>mysql+mysqlconnector://user:password@host/database</code>), which manages the connections for you.</p>
-<p><strong>Credentials come from the environment.</strong> The MySQL and PostgreSQL notebooks put the server host, user and password in a cell so the demo runs as is. In your own code read them from environment variables (<code>os.environ["PGPASSWORD"]</code>, or a <code>.env</code> file loaded at start-up), and give the application a database user that can only run the statements it needs. A support assistant that answers from the <code>plans</code> table needs <code>SELECT</code> on that table and nothing else.</p>
+<p><em>Table 2: Placeholders by driver, read from each installed driver&rsquo;s <code>paramstyle</code>.</em></p>
+<blockquote>
+<p><strong>Pitfall: query injection.</strong> The <code>%s</code> placeholder looks like Python string formatting, but the driver fills it in. Pass the values as the second argument to <code>execute</code>, never with the <code>%</code> operator or an f-string.</p>
+</blockquote>
+<h3>Writes happen in a transaction</h3>
+<p>Nothing an <code>INSERT</code> or <code>UPDATE</code> changes is permanent until <code>commit()</code>, which is why notebook 04a calls <code>connection.commit()</code> after each write. Using the connection as a context manager (<code>with con:</code>) commits when the block succeeds and rolls back when it raises.</p>
+<p>Inserting a new <code>pro</code> plan and then a duplicate <code>starter</code> in one block raises <code>IntegrityError</code> (a unique constraint failure on the plan name), and the table still has 2 rows: the <code>pro</code> insert was rolled back with the rest. The <code>with</code> block does not close the connection; call <code>close()</code> yourself.</p>
+<h3>pandas sits on top</h3>
+<p><code>pd.read_sql</code> runs a query and returns a DataFrame, and <code>df.to_sql</code> writes one. With M10&rsquo;s baseline rows in a <code>runs</code> table, grouping by <code>k</code> and averaging recall and precision in SQL gives the same baseline as the pandas <code>groupby</code> in <a href="#pandas-dataframes">lesson 1.3</a>:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th><code>k</code></th>
+<th>Mean recall</th>
+<th>Mean precision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0.33</td>
+<td>0.67</td>
+</tr>
+<tr>
+<td>2</td>
+<td>0.5</td>
+<td>0.5</td>
+</tr>
+<tr>
+<td>5</td>
+<td>0.5</td>
+<td>0.2</td>
+</tr>
+<tr>
+<td>12</td>
+<td>0.5</td>
+<td>0.08</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 3: The M10 baseline from one grouped query per k, rounded to two places.</em></p>
+<p>For MySQL and PostgreSQL, notebook 04b passes <code>pd.read_sql</code> a SQLAlchemy engine built from a connection URL that names the driver, user, password, host and database. The engine manages the connections for you.</p>
+<h3>Credentials come from the environment</h3>
+<p>The MySQL and PostgreSQL notebooks put the server host, user and password in a cell so the demo runs as is. In your own code read them from environment variables, or a <code>.env</code> file loaded at start-up. Give the application a database user that can only run the statements it needs: a support assistant that answers from the <code>plans</code> table needs <code>SELECT</code> on that table and nothing else.</p>
 <p>SQL returns as a retriever in M27, where an agent writes the query itself from the customer&rsquo;s question (text-to-SQL), and as a memory store on SQLite in M34.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>SQLite only.</strong> The injection results and the rollback were reproduced on an in-memory SQLite database. The MySQL and PostgreSQL notebooks need running servers and were not run; Table 2 reads each installed driver&rsquo;s <code>paramstyle</code> instead.</li>
+<li><strong>Driver versions.</strong> PyMySQL 2.2.8 and <code>psycopg2</code> 2.9.13 are the versions installed in this course&rsquo;s environment. Placeholder styles have been stable for years, but check them after an upgrade.</li>
+<li><strong>Parameters cover values only.</strong> A placeholder can stand for a value, never for a table or column name. Code that chooses a table at run time must pick it from a fixed list.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Python, <a href="https://peps.python.org/pep-0249/" target="_blank" rel="noopener">the database interface specification</a>, which defines connections, cursors and <code>paramstyle</code>.</li>
+<li>Python, <a href="https://docs.python.org/3/library/sqlite3.html" target="_blank" rel="noopener">the sqlite3 module</a>, covering placeholders and using the connection as a context manager.</li>
+<li>Psycopg, <a href="https://www.psycopg.org/docs/usage.html#passing-parameters-to-sql-queries" target="_blank" rel="noopener">passing parameters to queries</a>, on why the <code>%</code> operator must never fill them in.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Use a table lookup when the answer is one exact value. SQLite, MySQL and PostgreSQL share the DB-API steps; only the driver, connection arguments and placeholder change.</li>
@@ -524,24 +724,25 @@ con.execute(&quot;SELECT support_hours FROM plans WHERE name = ?&quot;, (plan,))
 </details>
 <h2 id="asyncio">asyncio</h2>
 <p class="lesson-of">Lesson 1.6: Concurrency: threads, processes, the GIL and asyncio (22 runnable scripts). Notebooks: <a href="https://github.com/Sourav692/rag-agents-engineering/blob/main/p01_ai_engineering_foundations/m01_python_data_refresher/optional/notebook/06a_concurrency_scripts" target="_blank" rel="noopener"><code>06a_concurrency_scripts</code></a> (optional)</p>
-<p>A coroutine, written <code>async def</code>, is a function that can pause. Each <code>await</code> is a pause point: while one coroutine waits for a network reply, the event loop runs another. One thread and one loop can keep many waits overlapping. Scripts 13 to 18 build this up:</p>
+<blockquote>
+<p><strong>What you&rsquo;ll learn</strong></p>
 <ul>
-<li><strong>13:</strong> <code>asyncio.run(brew_chai())</code> starts an event loop and runs one coroutine to completion.</li>
-<li><strong>14:</strong> <code>asyncio.gather</code> runs three coroutines that each <code>await asyncio.sleep(3)</code>; the waits overlap, so the three take about 3 s instead of 9.</li>
-<li><strong>15:</strong> the same pattern with real HTTP: three <code>aiohttp</code> requests to an endpoint that delays 2 s overlap in one <code>ClientSession</code>.</li>
-<li><strong>16 and 17:</strong> <code>loop.run_in_executor</code> hands a blocking function to a <code>ThreadPoolExecutor</code>, or CPU-bound work to a <code>ProcessPoolExecutor</code>, and awaits the result without stopping the loop.</li>
-<li><strong>18:</strong> a daemon thread keeps logging while the loop runs a coroutine.</li>
+<li><strong>Explain</strong> how one event loop overlaps many network waits, and what caps the speed-up.</li>
+<li><strong>Diagnose</strong> a sync call inside async code that turns any concurrency limit into a for loop.</li>
+<li><strong>Choose</strong> between asyncio, threads and processes for a given workload.</li>
+<li><strong>Diagnose</strong> a race and a deadlock, and name the guard for each.</li>
 </ul>
-<p>A model call is a network wait of a second or more, and RAG work is full of independent ones: a golden-set evaluation, a batch of embedding requests, one question sent to several retrievers. <code>gather</code> starts them together. A <code>Semaphore</code> caps how many are in flight, because every provider enforces a rate limit:</p>
-<pre class="sheet code"><code class="language-python">sem = asyncio.Semaphore(2)
-
-async def ask(question):
-    async with sem:                          # waits here while two calls are in flight
-        return await llm.ainvoke(question)
-
-async def main(questions):
-    return await asyncio.gather(*(ask(q) for q in questions))
-</code></pre>
+</blockquote>
+<p>An evaluation of eight Larkspur handbook questions takes 11 seconds. A teammate wraps the calls in <code>async def</code> and a semaphore of 4, expecting about 3 seconds, and the run still takes 11. The code is concurrent on paper. One call that never pauses holds everything else up.</p>
+<p>A <strong>coroutine</strong>, written <code>async def</code>, is a function that can pause. Each <code>await</code> is a pause point: while one coroutine waits for a network reply, the <strong>event loop</strong> runs another. One thread and one loop can keep many waits overlapping. Scripts 13 to 18 build this up:</p>
+<ul>
+<li><strong>13</strong>: <code>asyncio.run</code> starts an event loop and runs one coroutine to completion.</li>
+<li><strong>14</strong>: <code>asyncio.gather</code> runs three coroutines that each sleep for 3 s; the waits overlap and the three take about 3 s instead of 9.</li>
+<li><strong>15</strong>: the same pattern with real HTTP: three <code>aiohttp</code> requests to an endpoint that delays 2 s overlap in one session.</li>
+<li><strong>16 and 17</strong>: <code>loop.run_in_executor</code> hands a blocking function to a thread pool, or CPU-bound work to a process pool, and awaits the result without stopping the loop.</li>
+<li><strong>18</strong>: a daemon thread keeps logging while the loop runs a coroutine.</li>
+</ul>
+<p>A model call is a network wait of a second or more, and RAG work is full of independent ones: a golden-set evaluation, a batch of embedding requests, one question sent to several retrievers. <code>gather</code> starts them together. A <strong>semaphore</strong> caps how many are in flight, because every provider enforces a rate limit. Each call first acquires the semaphore, waiting there while the limit is reached, then awaits the model and releases its slot.</p>
 <p>With eight Larkspur handbook questions and a semaphore of 2, each queued call starts the moment a slot frees up:</p>
 <figure class="anim sheet" aria-labelledby="anim-semaphore-cap">
   <div class="anim__canvas" tabindex="0" aria-label="Eight calls through a semaphore of two, scrolls sideways on a narrow screen">
@@ -599,7 +800,8 @@ async def main(questions):
     <li><button type="button" data-tok="735.2,300">5.6 s</button><span>Server size returns and gather hands back all eight answers: 5.6 s, against 11.0 s one at a time.</span></li>
   </ol>
 </figure>
-<p>The call times are representative; the schedule is what asyncio does with them. The <a href="../../optional/theory/06_concurrency_threads_processes_the_gil_and_asyncio_22_runnable_scripts/interactive/asyncio-concurrency-lab.html">interactive lab</a> runs that schedule for every limit from 1 to 8. Its JavaScript scheduler matches real <code>asyncio.gather</code> with <code>asyncio.Semaphore</code> (Python 3.12, on a virtual clock) on all 128 call intervals (eight calls at eight limits, with each client), start and end within 1e-15 s:</p>
+<p><em>Figure 1: Eight calls through a semaphore of 2. Call times are representative; the schedule is what asyncio does with them.</em></p>
+<p>The <a href="../../optional/theory/06_concurrency_threads_processes_the_gil_and_asyncio_22_runnable_scripts/interactive/asyncio-concurrency-lab.html">interactive lab</a> runs that schedule for every limit from 1 to 8. Its JavaScript scheduler was checked against real <code>asyncio.gather</code> with <code>asyncio.Semaphore</code> on a virtual clock (Python 3.12), and a rerun of real asyncio at scaled-down times gives the same wall times:</p>
 <div class="sheet scroll"><table>
 <thead>
 <tr>
@@ -641,46 +843,86 @@ async def main(questions):
 </tr>
 </tbody>
 </table></div>
+<p><em>Table 1: Wall time for the eight calls by semaphore limit.</em></p>
 <p>Three things follow from the table:</p>
 <ul>
 <li><strong>A semaphore of 1 is a for loop.</strong> The wall time is the sum of the calls, 11.0 s.</li>
 <li><strong>The slowest call sets the floor.</strong> <em>What happens if my server goes down?</em> takes 2.6 s, so no limit beats 2.6 s, and from 7 on a higher limit changes nothing. Going from 4 to 8 saves 0.5 s; going from 1 to 2 saved 5.4 s. Pick the limit from the provider&rsquo;s rate limit, then measure.</li>
-<li><strong>A call that never awaits blocks everything.</strong> <code>llm.invoke</code>, <code>requests.get</code> and <code>time.sleep</code> inside <code>async def</code> hold the event loop until they return, so no other coroutine starts and the eight calls run one after another at any limit. Use the async method (<code>ainvoke</code>, <code>aiohttp</code>), or move the sync call to a thread with <code>await asyncio.to_thread(llm.invoke, question)</code>, which is what script 16 does with <code>run_in_executor</code>.</li>
+<li><strong>A call that never awaits blocks everything.</strong> <code>llm.invoke</code>, <code>requests.get</code> and <code>time.sleep</code> inside <code>async def</code> hold the event loop until they return. No other coroutine starts, and the eight calls run one after another at any limit. We call this a <strong>blocked loop</strong>. Use the async method (<code>ainvoke</code>, <code>aiohttp</code>), or move the sync call to a thread with <code>asyncio.to_thread</code>, which is what script 16 does with <code>run_in_executor</code>.</li>
 </ul>
 <figure class="lab-embed"><iframe src="../../optional/theory/06_concurrency_threads_processes_the_gil_and_asyncio_22_runnable_scripts/interactive/asyncio-concurrency-lab.html" title="Concurrent calls with asyncio, interactive lab" loading="lazy" height="900"></iframe><figcaption>Interactive lab: Concurrent calls with asyncio. <a href="../../optional/theory/06_concurrency_threads_processes_the_gil_and_asyncio_22_runnable_scripts/interactive/asyncio-concurrency-lab.html">Open full screen</a></figcaption></figure>
-<p>Two more rules for production runs. <code>gather</code> raises the first exception to the caller while the other calls keep running; pass <code>return_exceptions=True</code> to get every result and every error back in order, so one failed question does not hide the other seven. And in a Jupyter notebook an event loop is already running, so <code>asyncio.run(main())</code> raises <code>RuntimeError</code>; write <code>await main()</code> in the cell instead.</p>
+<p>Two more rules for production runs. <code>gather</code> raises the first exception to the caller while the other calls keep running; pass <code>return_exceptions=True</code> to get every result and every error back in order; one failed question then cannot hide the other seven. And in a Jupyter notebook an event loop is already running and <code>asyncio.run</code> raises <code>RuntimeError</code>; await the main coroutine directly in the cell instead.</p>
 <h2 id="threads-processes-and-the-gil">Threads, processes and the GIL</h2>
-<p>CPython&rsquo;s global interpreter lock (GIL) lets one thread execute Python bytecode at a time. A thread gives up the GIL while it sleeps or waits on I/O, so threads overlap waiting (scripts 01 and 05 to 07: brewing, toasting, three downloads) but not pure-Python computation. Script 03 runs two threads that each count to 100 million and script 04 runs the same count in two processes; time both on your machine. Each process has its own interpreter and its own GIL, so the processes can use two cores.</p>
-<p>Processes cost more. Each starts a new interpreter, its arguments are pickled across, and it shares no memory by default: script 11 sends a result back through a <code>multiprocessing.Queue</code>, and script 12 shares one counter through a <code>Value</code>. On macOS and Windows a new process imports your script again, which is why scripts 02, 04 and 10 put their start-up code under <code>if __name__ == "__main__":</code>.</p>
+<p>CPython&rsquo;s <strong>global interpreter lock</strong> (GIL) lets one thread execute Python bytecode at a time. A thread gives up the GIL while it sleeps or waits on I/O. Threads therefore overlap waiting (scripts 01 and 05 to 07: brewing, toasting, three downloads) but not pure-Python computation. Script 03 runs two threads that each count to 100 million and script 04 runs the same count in two processes; time both on your machine. Each process has its own interpreter and its own GIL, and the processes can use two cores.</p>
+<p>Processes cost more. Each starts a new interpreter, its arguments are pickled across, and it shares no memory by default: script 11 sends a result back through a <code>multiprocessing.Queue</code>, and script 12 shares one counter through a <code>Value</code>. On macOS and Windows a new process imports your script again, which is why scripts 02, 04 and 10 put their start-up code under a main guard.</p>
 <p>Scripts 09 and 10 make the same comparison, but 10 counts to a billion per process against 10 million per thread in 09, a hundred times the work. Compare 03 with 04 instead.</p>
+<p>The choice comes down to what the work waits on:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart TD
     Q1{"Pure-Python CPU work?&lt;br/&gt;(loops, parsing)"} -- yes --&gt; P["Processes&lt;br/&gt;ProcessPoolExecutor"]
     Q1 -- no --&gt; Q2{"Network waits with&lt;br/&gt;an async client?"}
     Q2 -- yes --&gt; A["asyncio&lt;br/&gt;gather + Semaphore"]
     Q2 -- no --&gt; T["Threads, or&lt;br/&gt;asyncio.to_thread"]
 </pre></figure>
-<p>Daemon threads (script 19) are killed when the main program exits, which suits a background logger; a regular thread (script 20) keeps the process alive until it returns, so one stuck in a loop keeps the program from ever exiting.</p>
+<p><em>Figure 2: Choosing asyncio, threads or processes.</em></p>
+<p>Daemon threads (script 19) are killed when the main program exits, which suits a background logger. A regular thread (script 20) keeps the process alive until it returns, and one stuck in a loop keeps the program from ever exiting.</p>
 <h2 id="races-and-deadlocks">Races and deadlocks</h2>
-<p>A race happens when two flows of control read shared state, one changes it, and the other writes back a value computed from the stale read. Script 21 has two threads each run <code>chai_stock += 1</code> 100,000 times. On CPython 3.12 it printed 200,000 in all three runs on the machine these pages were written on: the interpreter rarely switches threads inside <code>+=</code>, which hides the race without removing it. Put <code>time.sleep(0)</code> between the read and the write and two threads of 1,000 increments ended at 1,075 and 1,030 of 2,000.</p>
-<p>asyncio has the same bug in a form that never hides. Code between two <code>await</code>s runs without interruption, so a race needs an <code>await</code> between the read and the write, and a model call is exactly that:</p>
-<pre class="sheet code"><code class="language-python">spent = 0
-
-async def ask(cost):
-    global spent
-    v = spent
-    await asyncio.sleep(0.01)                # the model call
-    spent = v + cost                         # writes back a stale total
-</code></pre>
-<p>Eight of these under <code>gather</code> leave <code>spent</code> at 1, not 8, on every run: all eight read 0 before any of them writes. Updating after the <code>await</code> (<code>spent += cost</code> on one line) gives 8; an <code>asyncio.Lock</code> around the read and the write also works.</p>
-<p>For threads the fix is a lock around the read-modify-write. Script 08 wraps the increment in <code>with lock:</code> and ten threads of 100,000 reach exactly 1,000,000; script 12 does the same across four processes with <code>counter.get_lock()</code> and reaches 400,000.</p>
-<p>Locks bring the opposite failure. In script 22, task 1 holds lock A and waits for B while task 2 holds B and waits for A, so both wait forever:</p>
+<p>A <strong>race</strong> happens when two flows of control read shared state, one changes it, and the other writes back a value computed from the stale read. Script 21 has two threads each add 1 to a shared stock count 100,000 times. On CPython 3.12 it printed 200,000 in all three runs on the machine these pages were written on: the interpreter rarely switches threads inside <code>+=</code>, which hides the race without removing it. Put <code>time.sleep(0)</code> between the read and the write and two threads of 1,000 increments lose most of their work: a rerun for this page ended at 1,001 and 1,019 of 2,000, and the count changes every run.</p>
+<p>asyncio has the same bug in a form that never hides. Code between two <code>await</code>s runs without interruption. A race therefore needs an <code>await</code> between the read and the write, and a model call is exactly that. Eight coroutines under <code>gather</code> each track spending around an awaited model call:</p>
+<div class="sheet scroll"><table>
+<thead>
+<tr>
+<th>Moment</th>
+<th>Coroutine 1</th>
+<th>Coroutines 2 to 8</th>
+<th><code>spent</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read</td>
+<td>copies <code>spent</code> (0)</td>
+<td>each copies <code>spent</code> (0) before anyone writes</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Await</td>
+<td>waits for the model</td>
+<td>wait for the model</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Write back</td>
+<td>writes its copy plus 1</td>
+<td>each writes its copy plus 1</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 2: The stale write-back in asyncio. Rerun on Python 3.12, <code>spent</code> ends at 1 on every run, not 8.</em></p>
+<p>Updating after the <code>await</code>, in one statement with no pause inside it, gives 8; an <code>asyncio.Lock</code> around the read and the write also works.</p>
+<p>For threads the fix is a lock around the read-modify-write. Script 08 wraps the increment in a lock and ten threads of 100,000 reach exactly 1,000,000; script 12 does the same across four processes with the counter&rsquo;s own lock and reaches 400,000.</p>
+<p>Locks bring the opposite failure, a <strong>deadlock</strong>. In script 22, task 1 holds lock A and waits for B while task 2 holds B and waits for A, so both wait forever:</p>
 <figure class="sheet chart"><pre class="mermaid">flowchart LR
     T1["Task 1&lt;br/&gt;holds lock A"] -- waits for --&gt; B["Lock B"]
     B -- held by --&gt; T2["Task 2&lt;br/&gt;holds lock B"]
     T2 -- waits for --&gt; A["Lock A"]
     A -- held by --&gt; T1
 </pre></figure>
-<p>Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or use <code>lock.acquire(timeout=5)</code> so a thread fails with a visible error instead of hanging.</p>
+<p><em>Figure 3: The wait cycle in script 22.</em></p>
+<p>Acquire locks in one fixed order everywhere (A before B), hold one lock at a time where you can, or acquire with a timeout so a thread fails with a visible error instead of hanging.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Representative call times.</strong> The eight durations in Figure 1 are illustrative. The schedule and Table 1 follow from them exactly, but real calls vary from run to run.</li>
+<li><strong>Scaled rerun.</strong> Table 1 was rerun with real asyncio at a two-thousandth of the durations, not at full length against a provider.</li>
+<li><strong>Races are timing-dependent.</strong> The thread counts with <code>time.sleep(0)</code> change every run, and script 21&rsquo;s 200,000 depends on the interpreter&rsquo;s switching; it is not proof that <code>+=</code> is safe.</li>
+<li><strong>Script comments.</strong> Script 10&rsquo;s own comment calls its loop ten times the work of script 09; the ranges in the code make it a hundred times.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>Python, <a href="https://docs.python.org/3/library/asyncio-task.html" target="_blank" rel="noopener">coroutines and tasks</a>, covering <code>gather</code>, <code>return_exceptions</code> and <code>to_thread</code>.</li>
+<li>Python, <a href="https://docs.python.org/3/library/asyncio-sync.html" target="_blank" rel="noopener">asyncio synchronisation primitives</a>, for <code>Semaphore</code> and <code>Lock</code>.</li>
+<li>Python, <a href="https://docs.python.org/3/glossary.html#term-global-interpreter-lock" target="_blank" rel="noopener">glossary entry for the global interpreter lock</a>.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Run independent model calls with <code>gather</code> and cap them with a <code>Semaphore</code>. The slowest call sets the floor, so pick the limit from the provider&rsquo;s rate limit, then measure.</li>
@@ -756,7 +998,7 @@ async def ask(cost):
 <li>Every value that reaches SQL from outside goes in as a parameter, and every credential comes from the environment.</li>
 <li>Use asyncio for many slow network calls, cap them with a semaphore, and make sure every call inside <code>async def</code> is awaited.</li>
 </ul></article>
-    <nav class="toc" aria-label="M01 sections"><details open><summary>In M01</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#numpy-arrays">NumPy arrays</a></li><li><a href="#pandas-dataframes">pandas DataFrames</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sql-from-python">SQL from Python</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#asyncio">asyncio</a></li><li><a href="#threads-processes-and-the-gil">Threads, processes and the GIL</a></li><li><a href="#races-and-deadlocks">Races and deadlocks</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M01 sections"><details open><summary>In M01</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#numpy-arrays">NumPy arrays</a></li><li><a href="#pandas-dataframes">pandas DataFrames</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#sql-from-python">SQL from Python</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#asyncio">asyncio</a></li><li><a href="#threads-processes-and-the-gil">Threads, processes and the GIL</a></li><li><a href="#races-and-deadlocks">Races and deadlocks</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -2,6 +2,7 @@
 
 *[M08 theory](../README.md) · Lesson 8.5 · Notebooks: [`05a_Advanced_State.ipynb`](../../notebook/05a_Advanced_State.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How input and output schemas narrow what a caller sends and receives, and which values belong in state, config or runtime context -->
+<!-- format: approved -->
 
 ## Every caller sees the counter
 
@@ -97,14 +98,39 @@ Putting a client or a secret in state is the usual mistake, and we call it **sta
 
 ## In practice: the widget contract
 
-The Larkspur support graph, with every value in its place:
+The Larkspur support graph, with every value in its place. Each stage shows which channel a value travels in and who can see it:
 
-1. **The widget sends** the question, which the input schema admits, plus a config with the reply language and the conversation's `thread_id`.
-2. **The server adds** the customer id and the database client as runtime context. The widget never sees either.
-3. **The nodes run** on the full state: messages, `route`, the route reason, the answer.
-4. **The widget receives** only the structured answer. A refactor that renames `route` changes nothing it can see.
+<div class="walkthrough learning-widget" data-stepper id="widget-contract">
+<p class="widget-intro">Step through one widget call and see what crosses the graph's boundary at each stage.</p>
+<div class="step-controls" hidden role="group" aria-label="Stages of one widget call">
+<button type="button" data-step="send" aria-pressed="false" aria-controls="contract-send">1. Widget sends</button>
+<button type="button" data-step="server" aria-pressed="false" aria-controls="contract-server">2. Server adds</button>
+<button type="button" data-step="nodes" aria-pressed="false" aria-controls="contract-nodes">3. Nodes run</button>
+<button type="button" data-step="receive" aria-pressed="false" aria-controls="contract-receive">4. Widget receives</button>
+</div>
+<section id="contract-send" class="step-panel"><h4>The widget sends the question</h4><dl><dt>State</dt><dd>the question, the only key the input schema admits</dd><dt>Config</dt><dd>the reply language and the conversation's <code>thread_id</code></dd><dt>Dropped</dt><dd>any other key the widget sends, such as a forged <code>llm_calls</code></dd></dl></section>
+<section id="contract-server" class="step-panel"><h4>The server adds runtime context</h4><dl><dt>Context</dt><dd>the customer id and the database client</dd><dt>Visible to the widget</dt><dd>neither; they never enter the state</dd></dl></section>
+<section id="contract-nodes" class="step-panel"><h4>The nodes run on the full state</h4><dl><dt>Read and written</dt><dd>messages, <code>route</code>, the route reason and the answer</dd><dt>Unchecked</dt><dd>the types nodes write; validate the answer inside the node that builds it</dd></dl></section>
+<section id="contract-receive" class="step-panel"><h4>The widget receives the answer</h4><dl><dt>Returned</dt><dd>only the structured answer: route, source and text</dd><dt>Held back</dt><dd>every private key, so a refactor that renames <code>route</code> changes nothing the widget sees</dd></dl></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
 
 That completes the boundary of one run. M09 makes runs remember each other, using the `thread_id` this page placed in config.
+
+## Limits of this evidence
+
+- **A stub model.** Tables 2 and 3 come from the advanced state notebook's graph rerun on LangGraph 1.2.18 with a fixed-string stub in place of `gpt-4o-mini`. The Spanish and German replies are the notebook's description; we checked only that `language` reaches the node.
+- **The widget contract is a design.** The Larkspur schemas, the reply language and the walkthrough apply the notebook's pattern to the running example; no notebook builds them.
+- **Filtering, not security.** An input schema drops unknown keys and an output schema hides private ones. Neither authenticates a caller or encrypts a checkpoint, and the checkpointer that saves state arrives in M09.
+
+## References
+
+1. LangChain, [LangGraph Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api), on multiple schemas, private state, config and runtime context.
+2. LangChain, [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence), on checkpointers and the `thread_id` they use.
 
 ## Key Takeaways
 

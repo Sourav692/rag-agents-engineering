@@ -553,6 +553,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>If it was wrong, fork from step 2 with <code>risk</code> set to high and continue. The thread parks at <code>human_gate</code> beside the original branch, as in Table 4, and the billing team sees it.</li>
 </ol>
 <p><a href="#">Lesson 9.2</a> uses the same saved state to stop a run on purpose and wait for a person.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub nodes, no model.</strong> Every count on this page comes from offline runs with stub nodes and <code>InMemorySaver</code> on LangGraph 1.2.18, rerun on 14 November 2026. A real model changes the values in state, not the number of checkpoints.</li>
+<li><strong>The restart row is reasoned.</strong> Table 3&rsquo;s last row follows from <code>InMemorySaver</code> living in process memory. The <code>SqliteSaver</code> restart was run; <code>PostgresSaver</code> with several workers was not.</li>
+<li><strong>Version-specific details.</strong> The metadata fields, the <code>fork</code> source on replay and the re-routing of <code>update_state</code> are 1.2.18 behaviour. Recheck them after an upgrade.</li>
+<li><strong>refund-17 and refund-99 are labels.</strong> The notebook&rsquo;s own refund agent uses one thread, <code>order-42</code>. The two Larkspur requests are this module&rsquo;s running example.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence in LangGraph</a>: checkpoints, threads, state history, replay and <code>update_state</code>.</li>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API overview</a>: state, reducers and super-steps.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A checkpointer saves the whole state after every step, filed under the <code>thread_id</code>. Same id shares one history, different ids never see each other, and a missing id is an error while a wrong one is silent.</li>
@@ -634,6 +646,27 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 1: refund-99 across the pause (offline run, LangGraph 1.2.18).</em></p>
 <p>A dashboard finds parked refunds by reading <code>next</code>: a thread whose <code>next</code> is <code>("human_gate",)</code> is waiting for billing.</p>
+<p>The walkthrough follows the same run one stage at a time, with what the thread holds at each point.</p>
+<div class="walkthrough learning-widget" data-stepper id="refund-99-pause-walkthrough">
+<p class="widget-intro">Step through refund-99 from the first call to the approval and see what the caller holds, what the saver holds and which nodes run.</p>
+<div class="step-controls" hidden role="group" aria-label="refund-99 across the pause" data-columns="2">
+<button type="button" data-step="first" aria-pressed="false" aria-controls="pause-first">First call</button>
+<button type="button" data-step="parked" aria-pressed="false" aria-controls="pause-parked">Parked</button>
+<button type="button" data-step="resume" aria-pressed="false" aria-controls="pause-resume">Resume</button>
+<button type="button" data-step="finish" aria-pressed="false" aria-controls="pause-finish">Finish</button>
+</div>
+<section id="pause-first" class="step-panel"><h4>1. Triage, assess, then stop at the gate</h4><p>The request goes in. <code>triage</code> and <code>assess</code> run once each, and <code>assess</code> sets the risk to high. <code>human_gate</code> starts, reaches <code>interrupt()</code> and stops there. The caller gets the state so far plus <code>__interrupt__</code> carrying the question for billing.</p></section>
+<section id="pause-parked" class="step-panel"><h4>2. Saved state, no worker</h4><p>The thread holds 4 checkpoints and its <code>next</code> is <code>human_gate</code>. No process is waiting inside <code>invoke</code>. A deploy can restart every worker, and the refund survives as saved state in the checkpointer.</p></section>
+<section id="pause-resume" class="step-panel"><h4>3. The gate runs again from its first line</h4><p>Any worker calls invoke with <code>Command(resume="approve")</code> on refund-99. The saver loads the thread, and <code>human_gate</code> starts from the top. This time <code>interrupt()</code> returns "approve". The gate has now run 2 times; <code>triage</code> and <code>assess</code> still once.</p></section>
+<section id="pause-finish" class="step-panel"><h4>4. Execute and done</h4><p>The gate's decision routes to <code>execute</code>, then <code>done</code>. The thread holds 7 checkpoints and an empty <code>next</code>: finished. The caller gets the final state with no <code>__interrupt__</code> key.</p></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
+
+<p>Stage 3 is where the mechanism surprises people, and the rules below follow from it.</p>
 <h3>Three rules that follow</h3>
 <p>The mechanism has consequences that catch teams the first time:</p>
 <ul>
@@ -771,6 +804,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Key distinction:</strong> the checkpointer makes the wait safe for the state. It does nothing for code that runs twice. Step 4 is why the approval notice belongs in its own node before the gate.</p>
 </blockquote>
 <p>What else runs twice around the gate, and how to count it, is the subject of the lab in <a href="#resume-and-side-effects">lesson 9.6</a>. <a href="#">Lesson 9.3</a> first moves the gate into a graph of its own.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub nodes, no model.</strong> Tables 1 and 4 and the walkthrough come from offline runs with stub nodes and <code>InMemorySaver</code> on LangGraph 1.2.18, rerun on 14 November 2026. The <code>RuntimeError</code> text and the compile-time pause without an <code>__interrupt__</code> key were rerun too.</li>
+<li><strong>The rubber-stamp column is read, not run.</strong> The state-management notebook&rsquo;s gate never reads the resume value, so its result follows from the code.</li>
+<li><strong>The validation loop is a replay.</strong> Table 2 replays the mechanics notebook&rsquo;s age node; the notebook ships without outputs.</li>
+<li><strong>The two-day wait is a scenario.</strong> Nothing here measured a real approval queue or a deploy during a pause.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/interrupts" target="_blank" rel="noopener">Interrupts</a>: <code>interrupt()</code>, <code>Command(resume=...)</code>, the rule that a resumed node restarts from its first line, and compile-time breakpoints.</li>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence in LangGraph</a>: why an interrupt needs a checkpointer and a thread.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li><code>interrupt()</code> saves the state and parks the thread, and <code>Command(resume=value)</code> continues it from any process. It needs a checkpointer, or the resume call fails.</li>
@@ -899,6 +944,19 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 2: Runs per node for one pause and one resume (offline run, LangGraph 1.2.18).</em></p>
 <p>Resuming re-runs only the interrupted child node. <code>check</code> kept its saved result in both forms. The wrapper is different: it is the parent&rsquo;s node, and the parent&rsquo;s node is the one that was interrupted, so the wrapper function runs again from its first line. Any parent-side code before the call into the child repeats. This is the <strong>double-run gate</strong> from lesson 9.2, one level up.</p>
+<p>The switcher puts the two nesting forms side by side for the same approval child, paused at its gate and then resumed.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="nesting-form-switcher">
+<p class="widget-intro">Choose a nesting form and compare what the parent sees while the child waits, what runs on resume and what comes back out.</p>
+<div class="mode-controls" hidden role="group" aria-label="Nesting form for the approval child">
+<button type="button" data-mode="direct" aria-pressed="false" aria-controls="nest-direct">Added directly</button>
+<button type="button" data-mode="wrapper" aria-pressed="false" aria-controls="nest-wrapper">Behind a wrapper</button>
+</div>
+<section id="nest-direct" class="mode-panel" data-announcement="Added directly: the gate runs twice, nothing else repeats."><h4>Added directly</h4><p><strong>While paused:</strong> the parent's <code>next</code> names the subgraph node, <code>approval</code>; with <code>subgraphs=True</code> the child's own <code>next</code> is <code>gate</code>.</p><p><strong>On resume:</strong> <code>check</code> keeps its saved result (1 run) and <code>gate</code> runs again (2 runs). No parent code repeats.</p><p><strong>Out of the child:</strong> its whole final state, filtered to the keys the parent declares. A shared add-reducer list echoes.</p></section>
+<section id="nest-wrapper" class="mode-panel" data-announcement="Behind a wrapper: the gate and the wrapper both run twice."><h4>Behind a wrapper</h4><p><strong>While paused:</strong> the same picture: the parent waits at <code>approval</code>, the child at <code>gate</code>.</p><p><strong>On resume:</strong> <code>check</code> runs once and <code>gate</code> twice, and the wrapper function also runs again from its first line (2 runs). Code above the call into the child repeats.</p><p><strong>Out of the child:</strong> only what the wrapper copies back, such as <code>decision</code>. No echoed log.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+<p>The wrapper buys control over what comes out of the child, and pays for it with one more place where code runs twice.</p>
 <h2 id="choosing-a-subgraph-or-plain-nodes">Choosing a subgraph or plain nodes</h2>
 <p>A subgraph costs a boundary: a schema to keep in step, a mapping or a shared reducer to reason about, and one more level in streams and state. It pays for that boundary in four situations:</p>
 <div class="sheet scroll"><table>
@@ -946,6 +1004,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Pitfall: one reducer, two graphs.</strong> If the agent and the refund graph both declare <code>events</code> with an add reducer and the agent is added directly, every event written before eligibility appears twice in the audit trail.</p>
 </blockquote>
 <p><a href="#">Lesson 9.4</a> looks at streaming itself: which events a caller can ask for while any of these graphs runs.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub children, no model.</strong> Tables 1 and 2, the paused <code>next</code> values and the <code>approval:&lt;task id&gt;</code> namespace come from offline runs with stub nodes on LangGraph 1.2.18, rerun on 14 November 2026. The notebook&rsquo;s weather agent needs a model key and was not run.</li>
+<li><strong>The eligibility agent is a design.</strong> The Larkspur eligibility subgraph in the In practice section is this module&rsquo;s example. The notebook nests a weather agent.</li>
+<li><strong>One level of nesting.</strong> Every run here nests one child in one parent. Deeper nesting and subgraphs with their own checkpointer were not tested.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/use-subgraphs" target="_blank" rel="noopener">Subgraphs</a>: adding a compiled graph as a node, calling it from a node with different keys, and viewing or streaming subgraph state.</li>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API overview</a>: state schemas and reducers, which decide what the parent keeps.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Add a compiled subgraph directly when it shares keys with the parent, and wrap it in a node that maps keys when it does not. Only keys the parent declares come back out.</li>
@@ -1046,6 +1115,20 @@ th:last-child, td:last-child { padding-right: 0; }
 <li><strong>A client that renders the whole state</strong>: <code>values</code>.</li>
 <li><strong>Audits and debugging</strong>: <code>checkpoints</code> or <code>debug</code>.</li>
 </ul>
+<p>The switcher shows what three of those clients receive from the same high-risk run, <code>refund-99</code>, which pauses at the billing gate.</p>
+<div class="learning-widget evidence-switcher" data-comparison id="refund-99-stream-switcher">
+<p class="widget-intro">Choose a stream mode and see every chunk the Larkspur client gets from refund-99 up to the pause.</p>
+<div class="mode-controls" hidden role="group" aria-label="Stream mode for refund-99">
+<button type="button" data-mode="updates" aria-pressed="false" aria-controls="sm-updates">updates</button>
+<button type="button" data-mode="values" aria-pressed="false" aria-controls="sm-values">values</button>
+<button type="button" data-mode="messages" aria-pressed="false" aria-controls="sm-messages">messages</button>
+</div>
+<section id="sm-updates" class="mode-panel" data-announcement="updates: three chunks, the last one is the interrupt."><h4>updates: 3 chunks</h4><p>One chunk for <code>triage</code>, one for <code>assess</code> with the high risk, then one whose only key is <code>__interrupt__</code>. The node names map straight to progress labels, and the last chunk is the cue for an approval card.</p></section>
+<section id="sm-values" class="mode-panel" data-announcement="values: four whole-state chunks."><h4>values: 4 chunks</h4><p>The starting state, the state after <code>triage</code>, the state after <code>assess</code>, and a final chunk holding the same state plus <code>__interrupt__</code>. Each chunk repeats everything before it, which suits a client that redraws the whole screen.</p></section>
+<section id="sm-messages" class="mode-panel" data-announcement="messages: nothing from this graph."><h4>messages: 0 chunks</h4><p>The stub nodes call no chat model and return no messages, so this mode yields nothing. With a model inside <code>triage</code> or <code>assess</code>, its tokens would stream here, which is where the leaking grader below comes from.</p></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
 <p>Pass a list to get several modes from one run. Each chunk then arrives as a <code>(mode, chunk)</code> pair. On the refund run, <code>updates</code> and <code>values</code> together yielded 9 pairs, the 4 and the 5 from Table 1. A chat endpoint usually asks for <code>updates</code> and <code>messages</code> together: labels from one, text from the other.</p>
 <h3>Planted failure: the leaking grader</h3>
 <p><code>messages</code> mode streams from every chat-model call inside every node, not only the node that writes the answer. We built a three-node graph (a grader, a node that returns a finished message, and an answer node) with a fake chat model that replies &ldquo;yes relevant&rdquo; to the grader and a handbook sentence to the answer node, and streamed it:</p>
@@ -1138,6 +1221,17 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Interview tip:</strong> when asked how to make an agent feel fast, separate the two questions. Streaming changes what the user sees during the run. Async changes how many runs one process can hold.</p>
 </blockquote>
 <p><a href="#">Lesson 9.5</a> turns to runs that fail or loop: how a node retries and how a cycle is made to stop.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Stub nodes and a fake model.</strong> Table 1, the switcher and Table 2 come from offline runs on LangGraph 1.2.18, rerun on 14 November 2026: stub nodes for the refund graph, and <code>GenericFakeChatModel</code>, which splits on spaces, for the grader. A real provider splits tokens differently and adds latency.</li>
+<li><strong>No load test.</strong> Figure 2 and the blocked worker describe how an event loop shares time. Nothing here measured how many conversations one process serves.</li>
+<li><strong>The notebook was read, not run.</strong> Its streaming cells call a hosted model; the token assembly and print-loop details come from its code.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/streaming" target="_blank" rel="noopener">Streaming</a>: the stream modes, several modes at once, subgraph streaming and the <code>langgraph_node</code> metadata.</li>
+<li>Python documentation, <a href="https://docs.python.org/3/library/asyncio.html" target="_blank" rel="noopener">asyncio</a>: the event loop that async nodes hand control back to.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Choose the stream mode for the screen: <code>updates</code> for progress labels and pauses, <code>messages</code> for a typing effect, <code>values</code> for whole-state clients, <code>checkpoints</code> or <code>debug</code> for audits. Ask for a list of modes to get <code>(mode, chunk)</code> pairs.</li>
@@ -1364,6 +1458,9 @@ th:last-child, td:last-child { padding-right: 0; }
 </table></div>
 <p><em>Table 3: The bounded loop with an always-failing validator (offline run, LangGraph 1.2.18).</em></p>
 <p>That is 7 node runs, 3 errors accumulated through the <code>operator.add</code> reducer, and a result whose <code>success</code> is still false. The caller must handle that result: a capped loop ends, but it does not end well.</p>
+<blockquote>
+<p><strong>Pitfall: the pass-through that returns everything.</strong> The notebook&rsquo;s <code>finalize</code> returns the whole state as its update. The <code>operator.add</code> reducer then adds the three errors a second time: our rerun of that shape ended with 6 errors. A pass-through node should return an empty update.</p>
+</blockquote>
 <h3>Planted failure: the counter in the router</h3>
 <p>Move the increment into the router function and the guard stops working. We ran that version with the same always-failing validator:</p>
 <div class="sheet scroll"><table>
@@ -1404,6 +1501,18 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>The model call inside the rewriting node gets a <code>RetryPolicy</code> with <code>retry_on</code> naming the provider&rsquo;s connection and 5xx errors, and nothing else.</li>
 </ol>
 <p><a href="../../../../p08_agentic_rag/m29_crag_and_self_rag/mandatory/theory/index.html">M29</a>&rsquo;s grade-and-rewrite loops are built this way. <a href="#">Lesson 9.6</a> puts retries, resumes and crashes together and counts what reaches the outside world.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>Read from the installed source.</strong> The wait formula, the default policy, the default retry rule and the 10,007 default limit come from LangGraph 1.2.18&rsquo;s own code, checked on 14 November 2026. They can change in a later release.</li>
+<li><strong>Stub loops, no model.</strong> Tables 3 and 4 come from offline runs with stub nodes and a validator that always fails. The third row of Table 4 follows from the default limit and was not run to 10,007 steps.</li>
+<li><strong>The failure odds assume independence.</strong> The 0.168 figure treats the notebook&rsquo;s 70% failure rate as independent per attempt, as its random draw is. A real outage fails attempts together.</li>
+<li><strong>No wall-clock measurement.</strong> The waits are computed from the formula, not timed.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/use-graph-api" target="_blank" rel="noopener">Graph API build checklist</a>: adding a retry policy to a node and setting <code>recursion_limit</code>.</li>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API overview</a>: conditional edges and the reducers that accumulate a loop&rsquo;s errors.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>A <code>RetryPolicy</code> re-runs a failing node inside one call, with waits that double from <code>initial_interval</code> up to <code>max_interval</code>. Name the exceptions in <code>retry_on</code>, because the default retries any custom exception and skips timeouts.</li>
@@ -1578,6 +1687,19 @@ th:last-child, td:last-child { padding-right: 0; }
 <p><strong>Key distinction:</strong> the checkpointer guarantees the graph&rsquo;s state. Idempotency guarantees the world&rsquo;s state. A production workflow needs both.</p>
 </blockquote>
 <p>Put together, these are the notebook&rsquo;s closing rules: workers stay stateless, state lives in the checkpointer, the <code>events</code> field is the audit log, the workflow is an explicit graph with the human gate as a waiting state, and every side effect can run twice without harm.</p>
+<h2 id="limits-of-this-evidence">Limits of this evidence</h2>
+<ul>
+<li><strong>The lab&rsquo;s counts are recorded, not rerun here.</strong> Table 2 comes from the lab&rsquo;s runs recorded with LangGraph 1.2.18. This rewrite reran the parallel-write error text on 14 November 2026, and checked the ledger and the trimming node against the notebook&rsquo;s code.</li>
+<li><strong>A simulated provider.</strong> The 503, the crash and the lost response are planted faults in a stub provider. A real payment provider&rsquo;s idempotency rules (how long it keeps a key, what it returns) are its own and were not tested.</li>
+<li><strong>One process.</strong> The ledger in Table 3 lives in memory. A real deduplication store has to outlive the process and be shared by every worker.</li>
+<li><strong>refund-99 is the module&rsquo;s label.</strong> The notebook&rsquo;s refund agent runs on the thread <code>order-42</code> and refunds <code>order-99</code> in its ledger demo.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/graph-api" target="_blank" rel="noopener">Graph API overview</a>: reducers, <code>add_messages</code> and parallel nodes in one super-step.</li>
+<li>LangChain documentation, <a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank" rel="noopener">Persistence in LangGraph</a>: what the checkpointer saves and what a resumed run re-executes.</li>
+<li>Internet Engineering Task Force draft, <a href="https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/" target="_blank" rel="noopener">The Idempotency-Key header field</a>: a key the client sends so a server can recognise a repeated request.</li>
+</ol>
 <h2 id="key-takeaways">Key Takeaways</h2>
 <ul>
 <li>Give any field that parallel nodes write a reducer, or the step fails with <code>InvalidUpdateError</code>. An <code>operator.add</code> list makes an audit trail that nothing overwrites, kept apart from the pruned <code>messages</code> list.</li>
@@ -1653,7 +1775,7 @@ th:last-child, td:last-child { padding-right: 0; }
 <li>Pick the stream mode for the screen: <code>updates</code> for progress, <code>messages</code> filtered by node for typing, <code>values</code> when the client renders whole state.</li>
 <li>Bound every loop twice: a counter that a node increments and the router reads, and an explicit <code>recursion_limit</code> as the backstop.</li>
 </ul></article>
-    <nav class="toc" aria-label="M09 sections"><details open><summary>In M09</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-graph-that-forgets-every-refund">A graph that forgets every refund</a></li><li><a href="#checkpointer">Checkpointer</a></li><li><a href="#history-replay-and-forks">History, replay and forks</a></li><li><a href="#in-practice-auditing-refund-17">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-refund-that-must-wait-for-billing">A refund that must wait for billing</a></li><li><a href="#interrupt">interrupt()</a></li><li><a href="#approval-patterns">Approval patterns</a></li><li><a href="#in-practice-refund-99-at-the-gate">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-graph-inside-another">One graph inside another</a></li><li><a href="#subgraphs">Subgraphs</a></li><li><a href="#choosing-a-subgraph-or-plain-nodes">Choosing a subgraph or plain nodes</a></li><li><a href="#in-practice-nesting-eligibility">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-support-chat-that-goes-silent">A support chat that goes silent</a></li><li><a href="#streaming-modes">Streaming modes</a></li><li><a href="#async-nodes">Async nodes</a></li><li><a href="#in-practice-the-refund-chat">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#flaky-providers-and-endless-loops">Flaky providers and endless loops</a></li><li><a href="#retry-policies">Retry policies</a></li><li><a href="#bounded-cycles">Bounded cycles</a></li><li><a href="#in-practice-the-tone-check-loop">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#paid-twice-notified-twice">Paid twice, notified twice</a></li><li><a href="#reducers-and-parallel-writes">Reducers and parallel writes</a></li><li><a href="#resume-and-side-effects">Resume and side effects</a></li><li><a href="#in-practice-fixing-refund-99">In practice</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
+    <nav class="toc" aria-label="M09 sections"><details open><summary>In M09</summary><ol><li><a href="#tldr">TL;DR</a></li><li><a href="#mental-model">Mental model</a></li><li><a href="#a-graph-that-forgets-every-refund">A graph that forgets every refund</a></li><li><a href="#checkpointer">Checkpointer</a></li><li><a href="#history-replay-and-forks">History, replay and forks</a></li><li><a href="#in-practice-auditing-refund-17">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-refund-that-must-wait-for-billing">A refund that must wait for billing</a></li><li><a href="#interrupt">interrupt()</a></li><li><a href="#approval-patterns">Approval patterns</a></li><li><a href="#in-practice-refund-99-at-the-gate">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#one-graph-inside-another">One graph inside another</a></li><li><a href="#subgraphs">Subgraphs</a></li><li><a href="#choosing-a-subgraph-or-plain-nodes">Choosing a subgraph or plain nodes</a></li><li><a href="#in-practice-nesting-eligibility">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#a-support-chat-that-goes-silent">A support chat that goes silent</a></li><li><a href="#streaming-modes">Streaming modes</a></li><li><a href="#async-nodes">Async nodes</a></li><li><a href="#in-practice-the-refund-chat">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#flaky-providers-and-endless-loops">Flaky providers and endless loops</a></li><li><a href="#retry-policies">Retry policies</a></li><li><a href="#bounded-cycles">Bounded cycles</a></li><li><a href="#in-practice-the-tone-check-loop">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#paid-twice-notified-twice">Paid twice, notified twice</a></li><li><a href="#reducers-and-parallel-writes">Reducers and parallel writes</a></li><li><a href="#resume-and-side-effects">Resume and side effects</a></li><li><a href="#in-practice-fixing-refund-99">In practice</a></li><li><a href="#limits-of-this-evidence">Limits of this evidence</a></li><li><a href="#references">References</a></li><li><a href="#key-takeaways">Key Takeaways</a></li><li><a href="#check-yourself">Check yourself</a></li><li><a href="#interactive-lab">Interactive lab</a></li><li><a href="#how-it-connects">How it connects</a></li><li><a href="#interview-spotlight-5-questions-you-might-get-asked">Interview Spotlight</a></li><li><a href="#key-takeaways">Key Takeaways</a></li></ol></details></nav>
   </div>
 </section>
   </div>

@@ -2,6 +2,7 @@
 
 *[M06 theory](../README.md) · Lesson 6.5 · Notebooks: [`05a_Prompt_Templates.ipynb`](../../notebook/05a_Prompt_Templates.ipynb), [`05b_Few_Shot_Composition_and_Serialization.ipynb`](../../../optional/notebook/05b_Few_Shot_Composition_and_Serialization.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Prompts as functions of named slots: which template mistakes raise, which pass without a word, and how examples, parts and saved files fit in -->
+<!-- format: approved -->
 
 ## Prompt templates
 
@@ -130,6 +131,19 @@ For Larkspur, the prompt comes together in this order:
 > **Key distinction:** a loud mistake stops the first request; a silent slot ships. Print the formatted prompt once, before any model sees it.
 
 Lesson 6.6 fills that `{format_instructions}` slot from an output parser.
+
+## Limits of this evidence
+
+- **Template behaviour, not model behaviour.** Every row of Tables 3 to 5 was run on `langchain-core` 1.7.0 without a model. That one or two worked examples teach the citation format better than a description is the usual advice, and this page did not measure it on Larkspur questions.
+- **The silent pair can change.** A later release could start warning on an unused partial or a stray input variable. Re-run the four planted mistakes after an upgrade before relying on Table 4.
+- **Saving is in flux.** `loads` warns that it is in beta and that its default for `allowed_objects` will change, and `.save()` is deprecated for removal in 2.0.0. Treat the saved format as tied to the library version that wrote it.
+
+## References
+
+1. Python, [format string syntax](https://docs.python.org/3/library/string.html#format-string-syntax), the `{slot}` and doubled-brace rules templates inherit.
+2. LangChain reference, [ChatPromptTemplate](https://reference.langchain.com/python/langchain-core/prompts/chat/ChatPromptTemplate), on `from_messages`, `partial` and message placeholders.
+3. LangChain reference, [FewShotChatMessagePromptTemplate](https://reference.langchain.com/python/langchain-core/prompts/few_shot/FewShotChatMessagePromptTemplate), on examples as human and AI message pairs.
+4. LangChain reference, [dumps](https://reference.langchain.com/python/langchain-core/load/dump/dumps), on serialising a template to JSON.
 
 ## Key Takeaways
 

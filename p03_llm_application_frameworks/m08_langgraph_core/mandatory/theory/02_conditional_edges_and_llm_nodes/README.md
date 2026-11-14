@@ -2,6 +2,7 @@
 
 *[M08 theory](../README.md) · Lesson 8.2 · Notebooks: [`02a_Conditional_Routing.ipynb`](../../notebook/02a_Conditional_Routing.ipynb), [`02b_LLM_Powered_Chatbot.ipynb`](../../notebook/02b_LLM_Powered_Chatbot.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How a router function picks the next node, the ways a route fails loudly or silently, and what changes when a chat model runs inside a node -->
+<!-- format: approved -->
 
 ## A router with a blind spot
 
@@ -168,6 +169,18 @@ Here is the opening failure again, step by step, as the lab runs it with `add_me
 Reordering the rules would only move the capture: billing questions that mention *data* would then go to technical. The fix is a router that reads meaning, a model label written by `classify`, measured against a labelled set of Larkspur questions before each change.
 
 > **Next lesson:** every node so far has trusted the state it was given. Lesson 8.3 asks what happens when the question arrives as a number, and which state schemas catch it before a node runs.
+
+## Limits of this evidence
+
+- **Stub graphs, not the notebooks verbatim.** Tables 1 to 3 come from the notebook routers rerun on LangGraph 1.2.18, from a stub weather graph with each failure planted, and from the chatbot graph with a stub in place of `gpt-4o-mini`. The stub shows the mechanics exactly; it cannot show what the real model says.
+- **The Larkspur router is the lab's.** Its keyword rules and its routes for the four questions come from the reducer lab, not from a trained classifier. A model label would route the export question differently, and would need its own measured error rate.
+- **Table 4 is counted, not run.** The 2*n* - 1 growth follows from one question and one reply per turn. Tool calls or system messages would add to it.
+- **Version-specific behaviour.** The warning text for an unknown route and the discarded router write are LangGraph 1.2.18's. Check them again after an upgrade.
+
+## References
+
+1. LangChain, [LangGraph Graph API overview](https://docs.langchain.com/oss/python/langgraph/graph-api), on conditional edges, the destination mapping and routing functions.
+2. LangChain, [LangGraph streaming](https://docs.langchain.com/oss/python/langgraph/streaming), on the `values` and `updates` stream modes.
 
 ## Key Takeaways
 

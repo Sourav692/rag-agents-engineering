@@ -2,6 +2,7 @@
 
 *[M04 theory](../README.md) · Lesson 4.1 · Notebooks: [`01a_prompt_engineering_patterns.ipynb`](../../notebook/01a_prompt_engineering_patterns.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: How worked examples, personas, templates and other patterns constrain a model's reply, and what each one costs on every call -->
+<!-- format: approved -->
 
 ## A grader that never saw a hard case
 
@@ -50,9 +51,24 @@ The examples carry three things the instruction leaves open:
 
 - **The label set and its spelling.** The zero-shot prompt lists `sports, business, entertainment, technology` in lower case; the one-shot and few-shot prompts list them capitalised and show capitalised answers. Code that compares the reply against a fixed string depends on that detail. We call a mismatch here **label drift**.
 - **The output shape.** Each example ends `OUTPUT: Sports` or `Category: Sports`, and the model learns to reply with the bare label and stop.
-- **Where the boundaries are.** A phone launch is Technology; a company's revenue mix is Business. Examples near a boundary teach more than examples in the middle of a class.
+- **Where the boundaries are.** A tablet launch is Technology; a company's revenue mix is Business. Examples near a boundary teach more than examples in the middle of a class.
 
 Examples can also leave gaps. The notebook's three cover Sports, Technology and Business, and Entertainment, the fourth label, has no example at all. That is a **missing-label gap**: the model knows the word from the instruction but has never seen what an Entertainment article looks like in this prompt.
+
+The switcher puts the three prompts side by side on what each one fixes before the model replies.
+
+<div class="learning-widget evidence-switcher" data-comparison id="shot-count-switcher">
+<p class="widget-intro">Choose a prompt from notebook 01a and see which label spelling, reply shape and boundaries it shows the model.</p>
+<div class="mode-controls" hidden role="group" aria-label="News classifier prompt in notebook 01a">
+<button type="button" data-mode="zero" aria-pressed="false" aria-controls="shot-zero">Zero-shot</button>
+<button type="button" data-mode="one" aria-pressed="false" aria-controls="shot-one">One-shot</button>
+<button type="button" data-mode="few" aria-pressed="false" aria-controls="shot-few">Few-shot</button>
+</div>
+<section id="shot-zero" class="mode-panel" data-announcement="Zero-shot. 31 tokens, no example."><h4>Zero-shot: 31 tokens</h4><dl><dt>Label spelling</dt><dd>lower case in the instruction, with no answer to copy</dd><dt>Reply shape</dt><dd>a blank after "Category:" and nothing else to imitate</dd><dt>Boundaries shown</dt><dd>none</dd></dl></section>
+<section id="shot-one" class="mode-panel" data-announcement="One-shot. 55 tokens, one Sports example."><h4>One-shot: 55 tokens</h4><dl><dt>Label spelling</dt><dd>capitalised, and the example answers "Sports"</dd><dt>Reply shape</dt><dd>one bare label after "Category:"</dd><dt>Boundaries shown</dt><dd>none: one headline from one class</dd></dl></section>
+<section id="shot-few" class="mode-panel" data-announcement="Few-shot. 321 tokens, three examples, no Entertainment."><h4>Few-shot: 321 tokens</h4><dl><dt>Label spelling</dt><dd>capitalised in the instruction and in three answers</dd><dt>Reply shape</dt><dd>one bare label after "OUTPUT:"</dd><dt>Boundaries shown</dt><dd>a tablet launch is Technology and a company's revenue mix is Business; Entertainment is the missing-label gap</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
 
 ### What the examples cost
 
@@ -61,7 +77,7 @@ Examples are sent on every call. The few-shot classifier sends ten times the tok
 | Quantity | Value | Source |
 |---|---|---|
 | Extra tokens per call, few-shot over zero-shot | 321 minus 31 = 290 | Table 1 |
-| Chunks graded per question | 4 | M10 TF-IDF baseline, k = 4 |
+| Chunks graded per question | 4 | LangChain's default k for a vector-store search |
 | Extra tokens per question | 4 × 290 = 1,160 | arithmetic |
 | Extra tokens per 1,000 questions | 1,160,000 | arithmetic |
 
@@ -118,7 +134,7 @@ sequenceDiagram
 
 That growth is a cost. The first call sends one message; the eighth sends seven earlier exchanges plus the new answer. We call this **history creep**: the prompt, and the bill, grow with every turn whether or not the old turns still matter.
 
-The history also lives under one key. The notebook runs its whole conversation under the session id `unused`, and the history for that id is the only place the messages can be read back. A cell that reads a different history object finds it empty.
+The history also lives under one key. The notebook runs its whole conversation under the session id `unused`, and only the history stored for that id holds the messages.
 
 ## Choosing a pattern
 
@@ -161,6 +177,18 @@ The Larkspur grader from the opening, rebuilt with these patterns:
 4. **Measure.** Run it on 30 labelled pairs and compare its agreement with a zero-shot version. Keep the examples only if the agreement they buy is worth the tokens they add to every chunk.
 
 > **What changes next:** lesson 4.2 asks the model to reason before it answers, and shows when sampling several answers and voting helps a grader like this one, and when it hurts.
+
+## Limits of this evidence
+
+- **Token counts, not model runs.** Table 1 counts the notebook's prompt strings with `tiktoken`. No model was called, and the notebook ships without outputs, so this page quotes no classifier labels.
+- **The grader's two mistakes are a scenario.** The opening describes what an easy-boundary grader is prone to; no grading run produced it. The M04 lab measures three grading prompts on 30 labelled pairs, and its results table is still waiting for a run.
+- **The history cell reads the wrong object.** Notebook 01a redefines the conversation chain with a per-session store, then reads its first `history` object, which stays empty. The messages live under the session id `unused`.
+
+## References
+
+1. Brown, T., et al. [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165), 2020, which introduced zero-, one- and few-shot prompting as a way to specify a task.
+2. White, J., et al. [A Prompt Pattern Catalog to Enhance Prompt Engineering with ChatGPT](https://arxiv.org/abs/2302.11382), 2023, the catalogue behind the persona, flipped interaction, template and meta language patterns.
+3. Li, Z., et al. [Guiding Large Language Models via Directional Stimulus Prompting](https://arxiv.org/abs/2302.11520), 2023, on hints that steer an output without writing it.
 
 ## Key Takeaways
 

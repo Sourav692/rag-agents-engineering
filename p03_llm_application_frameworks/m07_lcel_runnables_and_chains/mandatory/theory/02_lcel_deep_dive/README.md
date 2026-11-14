@@ -2,6 +2,7 @@
 
 *[M07 theory](../README.md) · Lesson 7.2 · Notebooks: [`02a_LCEL_Deepdive.ipynb`](../../notebook/02a_LCEL_Deepdive.ipynb), [`02b_LCEL_and_Runnables.ipynb`](../../../optional/notebook/02b_LCEL_and_Runnables.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: What the pipe operator really builds, why a dict inside a pipe runs in parallel, and how to add a key without losing the rest -->
+<!-- format: approved -->
 
 ## Pipe composition
 
@@ -14,7 +15,7 @@
 
 Lesson 7.1 made every step a Runnable with one input and one output. A chain is several of them joined with `|`, and the Larkspur team's RAG chain looks harmless: a dict that fetches context and keeps the question, then a prompt, a model and a parser. Then someone adds a step that computes a confidence score as a `RunnableParallel`, and the next step fails with a `KeyError` for `question`. The question was there one step earlier. This page explains where it went, starting with what `|` actually does.
 
-### The pipe is a Python operator
+## The pipe is a Python operator
 
 The `|` in `prompt | model | parser` is ordinary Python. `a | b` calls `a.__or__(b)`, the same way `2 + 4` calls `(2).__add__(4)`. A class decides what its operators mean: notebook 02a's toy `StupidAdder` makes `5 + 10` return 57 by adding 42 on every sum. LangChain's `Runnable.__or__` returns a `RunnableSequence` that holds both sides, and the sequence's `invoke` runs the first step and feeds its output to the next.
 
@@ -40,7 +41,7 @@ LangChain's real `RunnableSequence` works the same way and adds what the toy lac
 
 Flattening matters when you read traces. A chain assembled from smaller chains still shows one flat list of steps, and each step keeps its own latency.
 
-### A dict in a pipe runs in parallel
+## A dict in a pipe runs in parallel
 
 When the left side of `|` is a plain dict, Python asks the Runnable on the right through `__ror__`, and LangChain turns the dict into a `RunnableParallel`. A dict on the right side is converted the same way. Each value runs on the same input, and the output is a dict with the same keys. We reran notebook 02a's cells, which need no API key:
 
@@ -55,7 +56,7 @@ When the left side of `|` is a plain dict, Python asks the Runnable on the right
 
 Two rules follow from the table. A plain lambda in a dict is wrapped in a `RunnableLambda` for you. A branch can be a pipe of its own, which means pipes nest inside dicts and dicts inside pipes.
 
-### Adding a key, keeping the rest
+## Adding a key, keeping the rest
 
 Here is the bug from the opening. A `RunnableParallel` **replaces** its input with the dict it builds. `.assign(key=runnable)`, on `RunnablePassthrough` or on a parallel, computes the new key from the current dict and returns the old keys with it. On the input `{"q": "refund?"}` with a branch that counts characters:
 
@@ -97,7 +98,32 @@ We traced it with a stub retriever over two sentences of the Larkspur refunds se
 
 *Table 4: The Larkspur RAG chain traced step by step.*
 
-The prompt receives exactly the two variables it declares. Lesson 7.3 builds the shapes that come next: pipelines that keep every intermediate key, fan-outs that merge, and routers.
+The prompt receives exactly the two variables it declares. The opening bug sits between the dict and the prompt, where the team added a confidence step. The same dict goes into that step built two ways:
+
+<div class="learning-widget evidence-switcher" data-comparison id="lost-question-switcher">
+<p class="widget-intro">Choose how the confidence step is built and follow what reaches the prompt, which declares <code>context</code> and <code>question</code>.</p>
+<div class="mode-controls" hidden role="group" aria-label="How the confidence step is built">
+<button type="button" data-mode="parallel" aria-pressed="false" aria-controls="lost-parallel">RunnableParallel</button>
+<button type="button" data-mode="assign" aria-pressed="false" aria-controls="lost-assign">assign</button>
+</div>
+<section id="lost-parallel" class="mode-panel" data-announcement="RunnableParallel. The prompt raises a KeyError."><h4>Confidence as a RunnableParallel</h4><dl><dt>Step receives</dt><dd>a dict with <code>context</code> and <code>question</code></dd><dt>Step returns</dt><dd>a dict with only <code>confidence</code>: the input is replaced</dd><dt>Prompt</dt><dd>raises <code>KeyError</code>: missing variables <code>context</code> and <code>question</code></dd></dl></section>
+<section id="lost-assign" class="mode-panel" data-announcement="assign. The prompt receives both variables."><h4>Confidence added with assign</h4><dl><dt>Step receives</dt><dd>a dict with <code>context</code> and <code>question</code></dd><dt>Step returns</dt><dd><code>context</code>, <code>question</code> and <code>confidence</code>: the input is extended</dd><dt>Prompt</dt><dd>fills both variables and ignores the extra key</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+Lesson 7.3 builds the shapes that come next: pipelines that keep every intermediate key, fan-outs that merge, and routers.
+
+## Limits of this evidence
+
+- **Offline reruns.** Tables 2 and 3, the flattening count and the switcher come from the installed `langchain-core` 1.7.0 with plain functions in place of models. Notebook 02a's first cells call OpenAI and were not rerun.
+- **The RAG trace is illustrative.** Table 4 uses a stub retriever over two sentences and a fake model. It shows the shapes that move between steps, not retrieval quality.
+- **The confidence step is a placeholder.** The switcher's step returns a fixed number. A real confidence score would cost a model call or a retrieval-score lookup, which changes latency but not the key behaviour.
+
+## References
+
+1. Python documentation, [the data model](https://docs.python.org/3/reference/datamodel.html), on `__or__` and the reflected `__ror__` that a dict on the left of `|` triggers.
+2. LangChain, [RunnablePassthrough reference](https://reference.langchain.com/python/langchain-core/runnables/passthrough/RunnablePassthrough), including `assign`.
+3. LangChain, [Runnable reference](https://reference.langchain.com/python/langchain-core/runnables/base/Runnable), on `RunnableSequence` and how `|` composes steps.
 
 ## Key Takeaways
 

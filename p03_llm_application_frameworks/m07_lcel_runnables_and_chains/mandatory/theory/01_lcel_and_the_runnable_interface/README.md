@@ -2,6 +2,7 @@
 
 *[M07 theory](../README.md) · Lesson 7.1 · Notebooks: [`01a_LCEL_Introduction.ipynb`](../../notebook/01a_LCEL_Introduction.ipynb), [`01b_Runnables.ipynb`](../../notebook/01b_Runnables.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Why a prompt, a model, a parser, a retriever and a whole chain can all be run, tested and batched the same way -->
+<!-- format: approved -->
 
 ## Runnable interface
 
@@ -27,7 +28,7 @@
 
 Each method also takes an optional `config`. It carries tags, metadata and callbacks for tracing, and `max_concurrency`, which caps how many `batch` calls run at once. The same `config` works on a single prompt and on a ten-step chain, which is why tracing and rate limits attach once rather than per component.
 
-### One input, always
+## One input, always
 
 `invoke` passes exactly one argument. When a step needs two values, they travel together in one container. Notebook 01b shows three ways: a tuple the function unpacks, a dict the function reads by key, and a small lambda that takes a dict and calls an existing two-parameter function with its two keys. Dicts win in practice. Prompt templates read their variables from a dict, and `RunnableParallel` returns one, which lets a dict flow from step to step without conversion.
 
@@ -43,9 +44,9 @@ We planted three wrong inputs and ran them against the installed `langchain-core
 
 The third row is the Larkspur refund chain's bug. It belongs to a family worth naming.
 
-### Each step changes the type
+## Each step changes the type
 
-Notebook 02a invokes the pieces of `prompt | model | parser` one at a time before building anything. On a Larkspur question the data changes shape at every arrow:
+Lesson 7.2's notebook 02a invokes the pieces of `prompt | model | parser` one at a time before building anything. On a Larkspur question the data changes shape at every arrow:
 
 ```mermaid
 flowchart LR
@@ -67,7 +68,7 @@ The cure is the same three moves for every step: invoke it alone, print what it 
 
 *Table 3: The refund chain traced step by step. Moving the upper-case function after the parser fixes the seam mismatch from Table 2.*
 
-### Three helpers for glue code
+## Three helpers for glue code
 
 Most of the code between prompts and models is glue, and three Runnables cover nearly all of it:
 
@@ -77,7 +78,7 @@ Most of the code between prompts and models is glue, and three Runnables cover n
 
 Notebook 01b combines the first two before a prompt. One branch passes the text through untouched, the other keeps the first three words longer than four characters. On "Building scalable data platforms requires careful architecture planning" the keyword branch returns `building`, `scalable` and `platforms`, and the prompt receives both the original sentence and that list.
 
-### Batch and stream come with it
+## Batch and stream come with it
 
 `batch` and `stream` need no extra code, but each has a detail that changes what you see.
 
@@ -117,6 +118,17 @@ For the Larkspur assistant the shared interface turns into one way of testing ev
 4. Invoke the finished chain and check the answer. When it fails, steps 1 to 3 have already shown which seam is wrong.
 
 The same three lines (invoke, print, assert) work on each of them because each is a Runnable. Lesson 7.2 shows how the pipe operator turns those separate steps into one Runnable without losing that property.
+
+## Limits of this evidence
+
+- **Replayed with a fake model.** The notebooks call OpenAI and ship without outputs. Tables 2 and 3 come from running the same shapes against the installed `langchain-core` 1.7.0 with `FakeListChatModel` in place of the real model. A real model changes the reply text, not the types or the exceptions.
+- **Machine-dependent pool size.** The 19 workers are Python's default on a 15-core machine. The formula is fixed; the number moves with the host.
+- **Library defaults move.** The single-input shortcut in `batch` and the chunk-adding behaviour of `invoke` are read from the installed source. Check them again after an upgrade.
+
+## References
+
+1. LangChain, [Runnable reference](https://reference.langchain.com/python/langchain-core/runnables/base/Runnable), listing `invoke`, `batch`, `stream`, their async forms and the shared `config`.
+2. Python documentation, [the concurrent futures module](https://docs.python.org/3/library/concurrent.futures.html), which defines the default thread-pool size as the smaller of 32 and the CPU count plus 4.
 
 ## Key Takeaways
 
