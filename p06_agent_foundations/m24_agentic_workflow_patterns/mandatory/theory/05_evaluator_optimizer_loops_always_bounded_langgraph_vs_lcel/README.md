@@ -2,6 +2,7 @@
 
 *[M24 theory](../README.md) · Lesson 24.5 · Notebooks: [`05a_evaluator_optimizer_langgraph.ipynb`](../../notebook/05a_evaluator_optimizer_langgraph.ipynb), [`05b_evaluator_optimizer_lcel.ipynb`](../../notebook/05b_evaluator_optimizer_lcel.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Feed a critique into the next draft until it passes, and prove the loop stops when it never does -->
+<!-- format: approved -->
 
 ## Bounded loops
 
@@ -32,7 +33,7 @@ flowchart LR
 
 *Figure 1: The bounded loop. Approval ends it, and so does the fifth draft.*
 
-The generator runs at temperature 0.7, so a revision can differ from the draft before it. The evaluator runs at 0 to keep grading as consistent as possible, though the same draft can still get a different grade on another call. From the second pass on, the generator receives the previous draft and the feedback, so it revises instead of starting over.
+The generator runs at temperature 0.7: a revision can differ from the draft before it. The evaluator runs at 0 to keep grading as consistent as possible, though the same draft can still get a different grade on another call. From the second pass on, the generator receives the previous draft and the feedback. It revises instead of starting over.
 
 ### Criteria an evaluator can pass
 
@@ -98,11 +99,24 @@ The bound sits in a different place in each implementation:
 
 *Table 5: Three homes for the same bound.*
 
-For Larkspur, an answer-quality check is the natural evaluator, written as yes-or-no criteria: does the reply cite a handbook chunk, does it state the refund window the chunk states, does it avoid promising anything the handbook does not say, and is it under a length limit counted in code. CRAG (M29) applies the same loop to retrieval: grade the documents, rewrite the query, try again, within a bound.
+For Larkspur, an answer-quality check is the natural evaluator, written as yes-or-no criteria: does the reply cite a handbook chunk, does it state the refund window the chunk states, does it avoid promising anything the handbook does not say, and is it under a length limit counted in code. Here is that evaluator on two drafts of a reply to an annual-plan customer on day 12 (an illustrative trace; the handbook allows a full refund within 30 days only under 100 GB of outbound traffic):
+
+<div class="learning-widget evidence-switcher" data-comparison id="larkspur-evaluator">
+<p class="widget-intro">Compare the computed verdict on the first draft and on the revision.</p>
+<div class="mode-controls" hidden role="group" aria-label="Draft being evaluated">
+<button type="button" data-mode="draft1" aria-pressed="false" aria-controls="eval-draft-1">First draft</button>
+<button type="button" data-mode="draft2" aria-pressed="false" aria-controls="eval-draft-2">Revision</button>
+</div>
+<section id="eval-draft-1" class="mode-panel" data-announcement="First draft selected. Needs improvement."><h4>First draft: "You will get a full refund."</h4><dl><dt>Criteria</dt><dd>cites the refunds chunk: yes; states the 30-day window: yes; promises nothing unsupported: no, it skips the traffic condition; length in code: passes</dd><dt>Computed verdict</dt><dd>needs improvement, with one fix: state the 100 GB condition</dd><dt>Next step</dt><dd>the router sends the draft and the fix back to the generator</dd></dl></section>
+<section id="eval-draft-2" class="mode-panel" data-announcement="Revision selected. Approved."><h4>Revision: full refund if outbound traffic stayed under 100 GB</h4><dl><dt>Criteria</dt><dd>all four pass</dd><dt>Computed verdict</dt><dd>approved, on pass 2: four LLM calls in all</dd><dt>Next step</dt><dd>the router ends the run with this draft</dd></dl></section>
+<p class="switch-status" aria-live="polite"></p>
+</div>
+
+CRAG (M29) applies the same loop to retrieval: grade the documents, rewrite the query, try again, within a bound.
 
 ## Where LCEL stops
 
-**LCEL**, the LangChain Expression Language, composes runnable steps into a flow. Every earlier M24 pattern is a flow without cycles, so each maps onto an LCEL building block. This one has a cycle, and LCEL has no block for "go back and try again until a check passes":
+**LCEL**, the LangChain Expression Language, composes runnable steps into a flow. Every earlier M24 pattern is a flow without cycles, and each maps onto an LCEL building block. This one has a cycle, and LCEL has no block for "go back and try again until a check passes":
 
 | Pattern | LangChain 1.x building block | Full coverage |
 |---|---|---|
@@ -121,6 +135,29 @@ Two tempting shortcuts fail:
 
 ### Choosing the runtime around the loop
 
+In the first, plain Python owns the cycle and calls two stateless chains on each pass:
+
+```mermaid
+flowchart LR
+    L["for pass 1 to 5"] --> G["generator chain"] --> E["evaluator chain"]
+    E -- "needs work" --> L
+    E -- approved --> F[/Final draft/]
+```
+
+*Figure 2: A Python loop around LCEL. The loop's range is the bound.*
+
+In the second, the cycle lives inside one agent run. A hook after each model call grades the reply and either lets the run end or jumps back to the model with the critique:
+
+```mermaid
+flowchart LR
+    M["Model call"] --> H{"after_model hook<br/>grades the reply"}
+    H -- "needs work:<br/>critique appended" --> M
+    H -- approved --> F[/Final reply/]
+    M -. "after 5 calls" .-> X[/"Call limit<br/>ends the run"/]
+```
+
+*Figure 3: The middleware loop. A model-call limit of 5 ends the run if the hook never approves.*
+
 The two LangChain loops differ in what surrounds them:
 
 | | Python loop around LCEL | Agent middleware |
@@ -137,9 +174,16 @@ In the middleware version the hook must declare that it may jump back to the mod
 
 ## Limits of this evidence
 
-- **No recorded convergence counts.** The notebooks ship without outputs, so how many passes a real joke needed is not measured here; the "almost never converged" result is the notebook's own report on its first version.
+- **No recorded convergence counts.** The notebooks ship without outputs. How many passes a real joke needed is not measured here; the "almost never converged" result is the notebook's own report on its first version.
 - **Model-free router trace.** Table 2 runs the reference stopping rule on hand-set states, not a live loop.
-- **One task.** Jokes are a cheap stand-in; Larkspur criteria were not run.
+- **One task.** Jokes are a cheap stand-in; the Larkspur evaluator above is an illustrative trace, not a run.
+
+## References
+
+1. Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), December 2024: evaluator-optimizer.
+2. LangChain, [LangGraph Graph API: conditional edges and recursion limits](https://docs.langchain.com/oss/python/langgraph/graph-api).
+3. LangChain, [Middleware: hooks and model-call limits](https://docs.langchain.com/oss/python/langchain/middleware/overview).
+4. Madaan and others, [Self-Refine: iterative refinement with self-feedback](https://arxiv.org/abs/2303.17651), 2023.
 
 ## Key Takeaways
 
