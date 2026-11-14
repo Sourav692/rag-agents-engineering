@@ -2,6 +2,7 @@
 
 *[M13 theory](../README.md) · Lesson 13.3 · Notebooks: [`03a_huggingface_embeddings.ipynb`](../../notebook/03a_huggingface_embeddings.ipynb), [`03b_huggingface_embeddings_tutorial.ipynb`](../../../optional/notebook/03b_huggingface_embeddings_tutorial.ipynb) (optional), [`03c_embedding_models.ipynb`](../../../optional/notebook/03c_embedding_models.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: A model fits your domain when your near-duplicates land apart, and only your own golden set shows it -->
+<!-- format: approved -->
 
 ## Domain fit
 
@@ -28,7 +29,7 @@ The Hugging Face wrapper runs sentence-transformers models on your own machine, 
 | `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` | 384 | Tuned for question answering and semantic search |
 | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | More than 50 languages |
 | `BAAI/bge-large-en` | 1024 | High-accuracy applications; the slowest in 03b's table |
-| `mixedbread-ai/mxbai-embed-large-v1` | Not printed in the notebook | Loaded in 03c as a second open model to compare with OpenAI |
+| `mixedbread-ai/mxbai-embed-large-v1` | 1024, per its model card (03c prints the length, but ships without outputs) | Loaded in 03c as a second open model to compare with OpenAI |
 
 *Table 1: Open embedding models used in the lesson's notebooks.*
 
@@ -76,7 +77,20 @@ For the handbook, choosing an open model takes four steps:
 3. **Add hard negatives** to the golden set: `cancel` for the export question, `refund-window` for the refund-timing question, and a "bandwidth" paraphrase for the plans page.
 4. **Score recall, margin, latency and cost** for each, and keep the documents on Larkspur's machines if policy requires it.
 
-> **Next:** lesson 13.4 turns to running embeddings in production: batching the calls and caching the results.
+Lesson 13.4 turns to running embeddings in production: batching the calls and caching the results.
+
+## Limits of this evidence
+
+- **The model descriptions are the notebooks' own.** "Fast", "higher quality" and "slowest" in Table 1 come from the notebooks' comparison tables, not from a timed run or a retrieval score on the handbook.
+- **The "bandwidth" miss is a planted case.** It shows how a domain miss looks; whether a given model makes it is something only a run on the golden set can tell.
+- **Leaderboard scores move.** MTEB adds models and tasks over time, so a shortlist taken from it has a date. Record when you took it.
+- **Self-hosting costs are not priced here.** Table 2 names the trade without numbers, because hardware and operations costs depend on the team and the load.
+
+## References
+
+1. Muennighoff and others, [MTEB: Massive Text Embedding Benchmark](https://arxiv.org/abs/2210.07316), 2022.
+2. Sentence Transformers, [documentation](https://sbert.net/), covering the models in Table 1 and the normalisation setting.
+3. LangChain, [Hugging Face embeddings integration](https://docs.langchain.com/oss/python/integrations/embeddings/huggingfacehub), the wrapper the notebooks use.
 
 ## Key Takeaways
 

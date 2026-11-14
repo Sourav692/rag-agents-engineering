@@ -2,6 +2,7 @@
 
 *[M13 theory](../README.md) · Lesson 13.1 · Notebooks: [`01a_embeddings_and_model_selection.ipynb`](../../notebook/01a_embeddings_and_model_selection.ipynb) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Unit-length vectors make every metric agree, while a length gap or a model gap changes the ranking without an error -->
+<!-- format: approved -->
 
 ## Cosine similarity
 
@@ -48,15 +49,17 @@ The [interactive lab](interactive/similarity-metrics-lab.html) draws ten Larkspu
 | 1.0× | All three rank `refund-timing` first | All three rank `retention` first | All three rank `sla` first |
 | 1.2× | Dot product ranks `plans-overview` first | Dot product moves it from #4 to #3 | No change |
 | 1.5× | Dot: `plans-overview` first; Euclidean: #4 | Dot: `plans-overview` first; Euclidean: #5 | Euclidean moves it to last |
-| 3.0× | Dot: first; Euclidean: last of 10 | Dot: first; Euclidean: last of 10 | Dot and Euclidean both rank it last |
+| 3.0× | Dot: first; Euclidean: last of 10 | Dot: first; Euclidean: last of 10 | Euclidean: last; dot product still #8 |
 
 *Table 3: Where `plans-overview` ranks as its length grows, from the lab.*
 
 We call this **length bias**: a ranking that follows vector length instead of meaning. The table shows three things about it:
 
-- **A small length difference reorders close scores.** For the refund question, dot product prefers the pricing page from 1.15× onward. Its cosine with the question is 0.866 against `refund-timing`'s 0.998, and that gap is all the stretch has to overcome.
+- **A small length difference reorders close scores.** For the refund question, dot product prefers the pricing page from 1.15× onward. Its cosine with the question is 0.866 against `refund-timing`'s 0.998, and that gap is all the stretch has to overcome. The export question needs about 1.3×, because the gap there is wider (0.766 against 0.995).
 - **Cosine never moves.** In every row, cosine ranks the evidence first and `plans-overview` third or worse. Normalising every vector first gives the same result for all three metrics.
-- **Length cannot rescue a wrong direction.** For the outage question `plans-overview` points away (cosine -0.122), so a longer vector only makes its dot product more negative.
+- **Length cannot rescue a wrong direction.** For the outage question `plans-overview` points away (cosine -0.122). A longer vector makes its dot product more negative. It stays 8th of 10 at every length, while Euclidean distance pushes it to last from 1.5× onward.
+
+The same stretch therefore moves one chunk in opposite directions depending on the metric. Dot product pulls it towards the top when its angle is close enough, and Euclidean distance pushes it towards the bottom. Only cosine reports the angle alone.
 
 <!-- lab: interactive/similarity-metrics-lab.html -->
 
@@ -93,7 +96,19 @@ For the handbook index, the metric follows from two checks:
 3. **Store the model name and dimensions** in the index metadata, and check them at query time.
 4. **Add a negation case to the golden set**, such as a monthly-plan refund question, to watch for negation blindness.
 
-> **Next:** lesson 13.2 looks at the hosted models themselves, and what their dimensions cost to store and search.
+Lesson 13.2 looks at the hosted models themselves, and at what their dimensions cost to store and search.
+
+## Limits of this evidence
+
+- **The lab is two-dimensional and hand-placed.** Its angles were chosen to make the rankings visible. Table 3 shows the mechanism, not how far real chunk vectors differ in length. The lab's scores are computed, and they match scikit-learn's.
+- **The mismatch symptom is the notebook's description.** Notebook 13.1 ships without outputs, and the near-zero top-1 score comes from its text, not from a run recorded here. Treat "near zero" as a direction to look in, and measure your own baseline range first.
+- **The norm of 1.0 is a property of the OpenAI models.** It holds for `text-embedding-3-*` as their documentation states. A different provider or a local model needs the same check before you trust any metric.
+- **Six documents choose nothing.** The notebook's model comparisons run on six well-separated texts. They demonstrate the procedure; lesson 13.3 explains what a golden set needs before it can separate models.
+
+## References
+
+1. OpenAI, [Vector embeddings guide](https://developers.openai.com/api/docs/guides/embeddings), including the note that its embeddings are normalised to length 1.
+2. scikit-learn, [cosine_similarity](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html), the reference the lab's scores were checked against.
 
 ## Key Takeaways
 
