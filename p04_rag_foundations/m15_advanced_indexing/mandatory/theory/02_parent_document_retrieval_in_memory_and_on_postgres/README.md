@@ -2,6 +2,7 @@
 
 *[M15 theory](../README.md) · Lesson 15.2 · Notebooks: [`02a_parent_document_retrieval.ipynb`](../../notebook/02a_parent_document_retrieval.ipynb), [`02b_parent_document_retriever_postgres.ipynb`](../../../optional/notebook/02b_parent_document_retriever_postgres.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Search small children, return their larger parent, and keep both halves of the index in step -->
+<!-- format: approved -->
 
 ## Docstore
 
@@ -30,9 +31,32 @@ flowchart LR
 
 *Figure 1: Indexing the Larkspur page with parent-document retrieval, at child 150 and parent 600.*
 
-The counts are the lab's at child 150 and parent 600. Without a `parent_splitter`, each original document is the parent. At query time `invoke` runs a similarity search over the children, collects their parent ids in rank order without repeats, fetches those parents with `docstore.mget`, and drops any id the docstore does not return.
+The counts are the lab's at child 150 and parent 600. Without a `parent_splitter`, each original document is the parent.
 
-Notebook 02a runs both shapes on two LangChain blog posts. With only `child_splitter` at 400, the parents are the two whole posts: the docstore lists two keys and every answer arrives as a full post. With `parent_splitter` at 2000 and `child_splitter` at 400 the parents are 2,000-character sections (ten of them for these two posts), and the retriever is wired into a `RetrievalQA` "stuff" chain.
+At query time the retriever turns a ranked list of children into a short list of parents. The walkthrough follows the refund question at child 150 and parent 600, with the top 2 children as in the lab.
+
+<div class="walkthrough learning-widget" data-stepper id="pdr-query-walkthrough">
+<p class="widget-intro">Step through one call to the retriever and see what each stage reads and passes on.</p>
+<div class="step-controls" hidden role="group" aria-label="Parent-document retrieval at query time" data-columns="2">
+<button type="button" data-step="search" aria-pressed="false" aria-controls="pdr-search">Search children</button>
+<button type="button" data-step="ids" aria-pressed="false" aria-controls="pdr-ids">Collect parent ids</button>
+<button type="button" data-step="fetch" aria-pressed="false" aria-controls="pdr-fetch">Fetch parents</button>
+<button type="button" data-step="drop" aria-pressed="false" aria-controls="pdr-drop">Drop missing ids</button>
+</div>
+<section id="pdr-search" class="step-panel"><h4>1. Similarity search over the children</h4><p>The question is compared with the 19 children only. Child #5 ranks first (0.630 in the lab), the one that ends at "…as long as the account has used less". Child #2, about billing cycles, ranks second (0.190).</p></section>
+<section id="pdr-ids" class="step-panel"><h4>2. Parent ids in rank order, without repeats</h4><p>Each child carries its parent's id in <code>doc_id</code>. The retriever reads them in rank order and skips an id it has already seen. Two children from one parent yield that parent once. Here the list is P2 (from child #5), then P1 (from child #2).</p></section>
+<section id="pdr-fetch" class="step-panel"><h4>3. One <code>docstore.mget</code> call</h4><p>The list of ids goes to the docstore in one call. The contract is one value per id, in the same order, with nothing for an id the store does not hold. P2 comes back at about 131 tokens with the whole refund sentence, P1 at about 72.</p></section>
+<section id="pdr-drop" class="step-panel"><h4>4. Missing parents dropped</h4><p>Any id the docstore did not return is removed without an error. Here both parents exist, and the model reads about 203 tokens in place of the two children. Across the three golden questions that averages 206 tokens, against 53 for the children alone.</p></section>
+<div class="step-footer" hidden>
+<button type="button" data-walk="previous">Previous</button>
+<button type="button" data-walk="next">Next</button>
+<p class="step-status" aria-live="polite"></p>
+</div>
+</div>
+
+Stage 4 is where silent failures hide, because a missing parent and an empty result look the same to the caller.
+
+Notebook 02a runs both shapes on two LangChain blog posts. With only `child_splitter` at 400, the parents are the two whole posts: the docstore lists two keys and every answer arrives as a full post. With `parent_splitter` at 2000 and `child_splitter` at 400 the parents are 2,000-character sections (ten of them for these two posts, counted by rerunning the splitter), and the retriever is wired into a `RetrievalQA` "stuff" chain.
 
 The docstore is any `BaseStore`: four methods, `mget`, `mset`, `mdelete` and `yield_keys`. The notebooks use `InMemoryStore`, which disappears when the process stops, while a vector store such as Chroma can persist on disk. A restart then leaves children whose parents are gone, and `invoke` returns nothing for them, without an error. We call these **orphaned children**. Optional notebook 02b moves both halves into Postgres: `PGVector` for the children and a custom `PostgresStore` that keeps each parent as JSONB in a `docstore` table.
 
@@ -78,7 +102,19 @@ Table 1 gives the handbook's settings directly:
 3. **Persist both halves**, and if you write your own docstore, return parents in key order and raise on errors.
 4. **Give parents stable ids**, and delete a page's children and parents together when it changes.
 
-> **Next:** lesson 15.3 uses a larger unit earlier, to decide where to search before any chunk competes.
+Lesson 15.3 uses a larger unit earlier, to decide where to search before any chunk competes.
+
+## Limits of this evidence
+
+- **TF-IDF stands in for embeddings.** The lab's ranks come from scikit-learn TF-IDF on one 2,184-character page. An embedding model ranks children differently. The 150 / 600 result says where to start testing, not which sizes win.
+- **Three questions, one page.** "Answers whole" checks whether a returned text contains the golden answer sentence. It does not check what the model then writes.
+- **Tokens are estimated** at four characters per token, not counted with a tokeniser.
+- **The Postgres store was read, not run.** Its three defects come from its code; this lesson did not reproduce them against a database.
+
+## References
+
+1. LangChain reference, [ParentDocumentRetriever](https://reference.langchain.com/python/langchain-classic/retrievers/parent_document_retriever/ParentDocumentRetriever).
+2. LangChain reference, [BaseStore](https://reference.langchain.com/python/langchain-core/stores/BaseStore), the key-value contract every docstore implements.
 
 ## Key Takeaways
 
@@ -98,7 +134,7 @@ It runs a similarity search over the children, collects their parent ids in rank
 <details>
 <summary>2. At child size 150 and parent size 600, what does the model get for the refund question from the children alone, and what from their parents?</summary>
 
-The best child ends at "…as long as the account has used less", so sent alone it gives the 30-day rule without the 100 GB condition. Its parent holds the whole sentence. In the lab table the children answer 0 of 3 questions whole and the parents 3 of 3, at 53 against 206 tokens on average.
+The best child ends at "…as long as the account has used less". Sent alone, it gives the 30-day rule without the 100 GB condition. Its parent holds the whole sentence. In the lab table the children answer 0 of 3 questions whole and the parents 3 of 3, at 53 against 206 tokens on average.
 
 </details>
 

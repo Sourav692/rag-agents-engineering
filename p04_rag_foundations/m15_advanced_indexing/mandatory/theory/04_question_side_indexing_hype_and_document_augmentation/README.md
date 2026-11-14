@@ -2,6 +2,7 @@
 
 *[M15 theory](../README.md) · Lesson 15.4 · Notebooks: [`04a_hypothetical_prompt_embeddings.ipynb`](../../notebook/04a_hypothetical_prompt_embeddings.ipynb), [`04b_document_augmentation.ipynb`](../../../optional/notebook/04b_document_augmentation.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Index the questions a chunk answers, and match a user's question against questions -->
+<!-- format: approved -->
 
 ## HyPE
 
@@ -30,10 +31,10 @@ Notebook 04a, step by step:
 
 - The PDF is split at `chunk_size=1000`, `chunk_overlap=200`. The notebook keeps chunks large on purpose, since the questions, not the chunk text, carry the match.
 - For each chunk, `gpt-4o-mini` at temperature 0 gets the prompt "Analyze the input text and generate essential questions that, when answered, capture the main points of the text", one question per line. The reply is split on newlines.
-- Each question is embedded with `text-embedding-3-small`. The FAISS store (`IndexFlatL2`) receives one entry per question vector, each holding the full chunk text, so one chunk sits in the index once per question.
+- Each question is embedded with `text-embedding-3-small`. The FAISS store (`IndexFlatL2`) receives one entry per question vector, each holding the full chunk text. One chunk sits in the index once per question.
 - Chunks are processed in parallel with a `ThreadPoolExecutor`. The retriever returns the top 3 entries, and the notebook removes repeats with `set(context)`, because three question vectors from the same chunk return that chunk three times. These **repeat hits** waste top-k slots until they are removed.
 
-The notebook cites the HyPE preprint for "up to 42 percentage points improvement in retrieval precision" and "up to 45 percentage points improvement in claim recall". Those are the authors' best cases across their datasets; the notebook does not reproduce them, so measure on your own golden set.
+The notebook cites the HyPE preprint for "up to 42 percentage points improvement in retrieval precision" and "up to 45 percentage points improvement in claim recall". Those are the authors' best cases across their datasets; the notebook does not reproduce them. Measure on your own golden set.
 
 HyPE and HyDE (M17) attack the same gap from opposite ends:
 
@@ -52,12 +53,37 @@ For the Larkspur refund paragraph, good generated questions would include ones a
 
 Optional notebook 04b adds generated questions to the index as extra documents beside the original text, instead of replacing the chunk's key:
 
-- The text is split twice: **documents** of 4,000 "tokens" with 100 overlap, the context unit, and **fragments** of 128 with 16 overlap, the search unit. Its `split_document` counts words matched by `\b\w+\b` and rejoins them with spaces, so the stored text loses its punctuation; use a real splitter if you adapt it.
+- The text is split twice: **documents** of 4,000 "tokens" with 100 overlap, the context unit, and **fragments** of 128 with 16 overlap, the search unit. Its `split_document` counts words matched by `\b\w+\b` and rejoins them with spaces: the stored text loses its punctuation; use a real splitter if you adapt it.
 - `gpt-4o-mini` writes at least `QUESTIONS_PER_DOCUMENT = 40` questions per document (or per fragment, with `QuestionGeneration.FRAGMENT_LEVEL`) through structured output. `clean_and_filter_questions` strips numbering and keeps only lines ending in "?".
 - Fragments (`type: ORIGINAL`) and questions (`type: AUGMENTED`) go into one FAISS store, and every entry carries its whole parent document in `metadata["text"]`.
 - The retriever returns the top 1 entry. Whether it is a fragment or a question, the notebook answers from `metadata["text"]`, the document of up to 4,000 words around it.
 
-So 04b is the payload pattern from 15.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects against **unanticipated phrasing**, questions the LLM did not foresee, and it pays for that with a larger index and a 4,000-word document as context for every answer.
+Two kinds of key share one index, and both point at the same document:
+
+```mermaid
+flowchart LR
+    D[/"Document<br/>up to 4,000 words"/] --> F["Fragments<br/>128 words, type ORIGINAL"]
+    D --> G["gpt-4o-mini writes<br/>40 or more questions,<br/>type AUGMENTED"]
+    F --> V[("One FAISS store<br/>every entry carries<br/>the document text")]
+    G --> V
+    Q[/"User question"/] --> V
+    V -- "top 1 entry" --> A["Answer from<br/>the whole document"]
+```
+
+*Figure 2: Document augmentation in notebook 04b. Fragments and generated questions are both keys; the payload is always the parent document.*
+
+So 04b is the payload pattern from 15.2 with two kinds of key in one index. It keeps the original fragments searchable, which protects against **unanticipated phrasing**, questions the LLM did not foresee. It pays for that with a larger index and a 4,000-word document as context for every answer.
+
+| | HyPE (04a) | Document augmentation (04b) |
+|---|---|---|
+| Keys | Generated questions only | Original fragments and generated questions |
+| Payload | The 1,000-character chunk | The document of up to 4,000 words |
+| Retrieved per question | Top 3, then repeats removed | Top 1 |
+| Covers unanticipated phrasing | No: only the generated questions are searchable | Yes: a fragment can still match |
+
+*Table 2: The two question-side designs side by side.*
+
+Start with HyPE when questions arrive in a narrow, predictable shape, such as support tickets. Add the original text as keys, as 04b does, once golden-set questions slip past the generated ones.
 
 ## In practice: question keys for the Larkspur refund paragraph
 
@@ -68,11 +94,22 @@ For the refund paragraph, question-side indexing comes down to four checks:
 3. **Keep the original text searchable** if golden-set questions slip past the generated ones.
 4. **Measure on the golden set**, since the preprint's gains are the authors' best cases and the notebook does not reproduce them.
 
-> **Next:** lesson 15.5 keeps the chunk as the key and puts its missing context back into the text.
+Lesson 15.5 keeps the chunk as the key and puts its missing context back into the text.
+
+## Limits of this evidence
+
+- **The 42 and 45 point gains are the preprint's.** Notebook 04a quotes them and runs only one test question on a climate PDF, with no outputs stored.
+- **No comparison between 04a and 04b exists.** Table 2 compares their designs, not their results.
+- **The Larkspur questions are illustrative.** No questions were generated for the handbook in this lesson.
+
+## References
+
+1. Vake and others, [Bridging the question-answer gap in retrieval-augmented generation: hypothetical prompt embeddings](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5139335), SSRN preprint, 2025. The HyPE preprint the notebook cites.
+2. Gao and others, [Precise zero-shot dense retrieval without relevance labels](https://arxiv.org/abs/2212.10496), 2022. HyDE, the query-time mirror image.
 
 ## Key Takeaways
 
-- HyPE embeds LLM-written questions as each chunk's keys, so retrieval matches question to question with no query-time LLM call. Remove repeats, since one chunk appears once per question.
+- HyPE embeds LLM-written questions as each chunk's keys. Retrieval matches question to question with no query-time LLM call. Remove repeats, since one chunk appears once per question.
 - Measure HyPE on your own golden set rather than trusting published best cases. Review generated questions per document type and regenerate them when a chunk changes.
 - Document augmentation keeps original fragments searchable beside generated questions, which covers questions the LLM did not anticipate, at the cost of a larger index.
 
