@@ -33,6 +33,8 @@ MODULES = CUR["modules"]
 MOD_BY_KEY = {m["key"]: m for m in MODULES}
 BY_SRC = {f"{it.repo}:{it.source_path}": it for it in ITEMS}
 SOURCES = CUR["sources"]
+# The archived AI Engineering Demystified repos; upstream originals such as "rt" are not among them.
+OWN_SOURCES = {k: v for k, v in SOURCES.items() if not v.get("upstream")}
 
 
 def write(path, text):
@@ -138,7 +140,7 @@ def coverage():
     # Markdown: links relative to docs/
     L = ["# Agentic Architecture Coverage", "", GEN_NOTE.format(extra=" and `docs/agentic-architectures.yaml`"),
          f"Comparison of [all-agentic-architectures]({up}) ({n} architectures) with this course "
-         f"({len(MODULES)} modules, {len(SOURCES)} source repos). The architectures are taught by notebooks from repos {repos_txt}; "
+         f"({len(MODULES)} modules, {len(OWN_SOURCES)} source repos). The architectures are taught by notebooks from repos {repos_txt}; "
          "paths and module numbers below are the course's (`<part>/<module>/<folder>/<file>`).", "",
          "## Verdict", "",
          f"**All {n} architectures are covered.** {counts['full']} have a dedicated notebook, {counts['merged']} is merged into "
@@ -292,8 +294,8 @@ def combined_repo():
     n_nb, n_man = len(nbs), sum(not it.optional for it in nbs)
     n_opt = n_nb - n_man
     hours = sum(m["hours"] for m in MODULES) + CUR["capstone_hours"]
-    n_src = len(SOURCES)
-    keys = ", ".join(sorted(SOURCES))
+    n_src = len(OWN_SOURCES)
+    keys = ", ".join(sorted(OWN_SOURCES))
     n_parts, n_mods = len(CUR["parts"]), len(MODULES)
     n_inv = len((ROOT / "docs/content-inventory.csv").read_text().splitlines()) - 1
     n_tests = (ROOT / "tests/test_course.py").read_text().count("\ndef test_")
@@ -343,7 +345,7 @@ def combined_repo():
         ("One learning path", f"{n_parts} parts and {n_mods} modules in syllabus order, from {MODULES[0]['title']} ({first}) to {MODULES[-1]['title']} ({last})."),
         ("Tiers visible on disk", f"mandatory/notebook/ holds the {n_man} mandatory notebooks; optional/notebook/ and projects/ hold the other {n_opt}."),
         ("One environment", "One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts."),
-        ("Every notebook placed once", f"All {n_nb} notebooks from the {n_src} source repos sit in exactly one lesson; the tests enforce it."),
+        ("Every notebook placed once", f"All {n_nb} notebooks (from the {n_src} source repos, plus upstream originals such as the RAG Techniques anthology) sit in exactly one lesson; the tests enforce it."),
         ("Course-only content", f"Module labs, {len(CUR['capstones'])} capstones, an interactive syllabus and a provenance CSV that the topic repos never had."),
     ]
     handled = [

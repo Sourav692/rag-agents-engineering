@@ -4,7 +4,7 @@
 
 The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09, 10) combined into one public course repository, `Sourav692/rag-agents-engineering`, organised by the RAG & Agents Engineering curriculum.
 
-**Status: built and in use.** 14 parts · 46 modules · 381 notebooks (210 mandatory, 171 optional) · about 216 h. Operating model: **Option A**, this repo canonical.
+**Status: built and in use.** 14 parts · 46 modules · 382 notebooks (210 mandatory, 172 optional) · about 216 h. Operating model: **Option A**, this repo canonical.
 
 ## Decision
 
@@ -13,9 +13,9 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 ### What the combined repo gives
 
 - **One learning path.** 14 parts and 46 modules in syllabus order, from Python & Data Toolkit Refresher (M01) to Architecture Synthesis: Choosing a System Design (M46).
-- **Tiers visible on disk.** mandatory/notebook/ holds the 210 mandatory notebooks; optional/notebook/ and projects/ hold the other 171.
+- **Tiers visible on disk.** mandatory/notebook/ holds the 210 mandatory notebooks; optional/notebook/ and projects/ hold the other 172.
 - **One environment.** One uv lock and one .env.example; conflicting stacks are separate dependency groups declared as uv conflicts.
-- **Every notebook placed once.** All 381 notebooks from the 9 source repos sit in exactly one lesson; the tests enforce it.
+- **Every notebook placed once.** All 382 notebooks (from the 9 source repos, plus upstream originals such as the RAG Techniques anthology) sit in exactly one lesson; the tests enforce it.
 - **Course-only content.** Module labs, 4 capstones, an interactive syllabus and a provenance CSV that the topic repos never had.
 
 ### How the risks were handled
@@ -65,7 +65,7 @@ rag-agents-engineering/
 │   ├── m17_query_transformation/  # 9 mandatory · 6 optional
 │   ├── m18_reranking_post_retrieval/  # 5 mandatory · 2 optional
 │   ├── m19_end_to_end_rag_systems/  # 8 mandatory · 3 optional
-│   ├── m20_multimodal_rag/  # 2 mandatory · 1 optional
+│   ├── m20_multimodal_rag/  # 2 mandatory · 2 optional
 │   └── m21_llamaindex/  # 4 mandatory · 1 optional
 ├── p06_agent_foundations/  # Part VI · Weeks 12–13
 │   ├── m22_agent_loop_and_tools/  # 6 mandatory · 4 optional
