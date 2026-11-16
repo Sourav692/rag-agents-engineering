@@ -681,6 +681,8 @@ def notice():
             m = re.search(r"\]\(\.\./(modules/[^)]+\.ipynb)\)", line)
             if line.startswith("|") and "RAG Techniques anthology" in line and m and (repo, m.group(1)) in dest:
                 anthology.append(dest[(repo, m.group(1))])
+    # Notebooks taken straight from the upstream anthology (source key "rt"), not via repos 05 or 09.
+    anthology += [it.dest for it in ITEMS if it.repo == "rt" and it.is_notebook]
     eco = [it.dest for it in ITEMS if it.source_path.endswith("01_rag_ecosystem.ipynb")]
     L = ["# Notice: third-party content\n", GEN_NOTE,
          "Original content is MIT-licensed (see [LICENSE](LICENSE)). The files below keep their own licences.\n",

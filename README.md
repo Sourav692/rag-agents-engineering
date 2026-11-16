@@ -72,7 +72,7 @@ p02_prompt_engineering/ … p14_architecture_decisions/
 | `hf` | `uv sync --group hf` | Hugging Face embeddings, cross-encoders, CLIP, MarianMT (torch) |
 | `colpali` | `uv sync --no-default-groups --group dev --group colpali` | ColPali page retrieval (M20, optional); conflicts with `hf` and `hf-foundations` |
 | `llamaindex` | `uv sync --group llamaindex` | LlamaIndex notebooks and the Chainlit exercise |
-| `vendors` | `uv sync --group vendors` | Pinecone, Astra DB, Cohere, Gemini, Contextual AI |
+| `vendors` | `uv sync --group vendors` | Pinecone, Astra DB, Cohere, Gemini, Contextual AI, Mistral OCR |
 | `databricks` | `uv sync --group databricks` | Databricks Vector Search / MLflow / SQL notebooks |
 | `protocols` | `uv sync --group protocols` | MCP and A2A SDKs (M38 to M41) |
 | `mcp-labs`, `mcp-apps` | `uv sync --group mcp-labs --group mcp-apps` | MCP labs and applications (M38 to M40) |

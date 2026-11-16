@@ -2,7 +2,7 @@
 
 *From Python and your first LLM call to retrieval, advanced agents, a memory layer, multi-agent systems and agent protocols*
 
-Built from 9 repositories. Every notebook in them is mapped to exactly one lesson below.
+Built from 10 repositories. Every notebook in them is mapped to exactly one lesson below.
 
 | Repo | Topic | Notebooks |
 |---|---|---|
@@ -15,12 +15,13 @@ Built from 9 repositories. Every notebook in them is mapped to exactly one lesso
 | `ai-engineering-demystified-08-advanced-agent-systems` | Advanced agent systems | 58 |
 | `ai-engineering-demystified-09-advanced-rag` | Advanced RAG | 32 |
 | `ai-engineering-demystified-10-agent-protocols` | Agent protocols | 10 |
+| `NirDiamant/RAG_Techniques` | RAG Techniques anthology (upstream; non-commercial licence, see NOTICE.md) | 1 |
 
 ## Course at a glance
 
 | Parts | Modules | Lessons | Notebooks mapped | Mandatory | Optional | Suggested effort | Pace |
 |---|---|---|---|---|---|---|---|
-| 14 | 46 + capstone | 227 | 381 | 210 | 171 | ~216 hours | 26 weeks at ~8 h/week |
+| 14 | 46 + capstone | 227 | 382 | 210 | 172 | ~216 hours | 26 weeks at ~8 h/week |
 
 ## Who this course is for
 
@@ -63,7 +64,7 @@ By the end of the course you can:
 
 ## Mandatory vs optional notebooks
 
-You do not need every notebook. **210 of 381 notebooks are mandatory**; the other 171 are optional.
+You do not need every notebook. **210 of 382 notebooks are mandatory**; the other 172 are optional.
 
 **Rule:** each lesson keeps the one notebook (two, when they teach two distinct ideas) that you need for the lesson objective and the module lab. Everything else is optional for one of three reasons:
 
@@ -71,7 +72,7 @@ You do not need every notebook. **210 of 381 notebooks are mandatory**; the othe
 |---|---|---|
 | **Alternate** | Same idea taught again from another source course, or the same pattern in another API (e.g. LCEL instead of LangGraph) | 52 |
 | **Platform-specific** | Needs a particular vendor or extra infrastructure: Databricks, Astra DB, Postgres, Milvus, Contextual AI, ColPali GPU stack | 13 |
-| **Extension** | Extra applied example, reference material or a niche variant; useful practice, not needed for the lab | 106 |
+| **Extension** | Extra applied example, reference material or a niche variant; useful practice, not needed for the lab | 107 |
 
 If a lesson has no mandatory notebook, the whole lesson is optional.
 
@@ -674,7 +675,7 @@ flowchart LR
 
 ### Module 20 — Multimodal RAG
 
-**Level:** Core · **Time:** ~3 h · **Notebooks:** 2 mandatory, 1 optional · **Source:** `05/11_multimodal_rag`
+**Level:** Core · **Time:** ~3 h · **Notebooks:** 2 mandatory, 2 optional · **Source:** `05/11_multimodal_rag`
 
 **Why it matters.** Real documents contain charts, diagrams and scanned pages. Text-only pipelines silently drop that information.
 
@@ -689,7 +690,7 @@ flowchart LR
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
 | 20.1 | Shared text–image embedding space with CLIP | [`01a_multimodal_rag_with_clip`](p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/01a_multimodal_rag_with_clip.ipynb) | — |
-| 20.2 | Caption-then-index with a vision LLM | [`02a_multimodal_rag_with_captioning`](p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb) | — |
+| 20.2 | Caption-then-index with a vision LLM | [`02a_multimodal_rag_with_captioning`](p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb) | [`02b_document_parsing_with_mistral_ocr`](p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/optional/notebook/02b_document_parsing_with_mistral_ocr.ipynb) *(extension)* |
 | 20.3 | Page-image retrieval with ColPali *(optional lesson)* | — | [`03a_multimodal_rag_with_colpali`](p05_retrieval_quality_and_rag_apps/m20_multimodal_rag/optional/notebook/03a_multimodal_rag_with_colpali.ipynb) *(platform-specific)* |
 
 **Hands-on lab.** Chart-aware RAG: index a report that holds key numbers only in figures and show which of the three approaches answers questions about them.
@@ -1634,4 +1635,5 @@ Every notebook in the source repositories, by source module, and the course modu
 | 10 | `03_building_mcp_clients` | 0 | 0 | M39 |
 | 10 | `04_mcp_applications` | 0 | 0 | M40 |
 | 10 | `05_a2a` | 3 | 3 | M41 |
+| rt | `all_rag_techniques` | 1 | 0 | M20 |
 | 09 | `12_cacherag` | 0 | 0 | — (planned in repo) |

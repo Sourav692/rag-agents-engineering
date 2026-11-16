@@ -1,6 +1,6 @@
 # M20.2 Theory: Caption-then-index with a vision LLM
 
-*[M20 theory](../README.md) · Lesson 20.2 · Notebooks: [`02a_multimodal_rag_with_captioning.ipynb`](../../notebook/02a_multimodal_rag_with_captioning.ipynb) · [All theory pages](../../../../../THEORY.md)*
+*[M20 theory](../README.md) · Lesson 20.2 · Notebooks: [`02a_multimodal_rag_with_captioning.ipynb`](../../notebook/02a_multimodal_rag_with_captioning.ipynb), [`02b_document_parsing_with_mistral_ocr.ipynb`](../../../optional/notebook/02b_document_parsing_with_mistral_ocr.ipynb) (optional) · [All theory pages](../../../../../THEORY.md)*
 <!-- subtitle: Turn every figure into text once, at index time, and write the caption for the questions it must answer -->
 <!-- format: approved -->
 

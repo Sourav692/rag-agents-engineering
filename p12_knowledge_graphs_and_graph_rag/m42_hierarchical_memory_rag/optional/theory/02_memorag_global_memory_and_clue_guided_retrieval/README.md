@@ -130,8 +130,8 @@ Lesson 42.3 builds a third derived representation, a graph of entities and relat
 
 ## Limits of this evidence
 
-- **The notebook does not run as shipped.** It loads two prebuilt memory stores and a book PDF that are not in this repository, and the memorising cells are commented out because they are slow and paid.
-- **Its comparison is broken.** The plain-RAG cells call the shared `evaluate_rag` helper with a `q_a_file_name` argument it does not accept, and they stop with a `TypeError`. Even fixed, that helper writes its own five climate questions instead of reading the question file. The notebook's own MemoRAG evaluation reads the first 5 of 44 climate questions and 15 of 16 book questions, scored by a model judge. No plain baseline on the same questions exists.
+- **The book half does not run as shipped.** The climate memory store is built on the first run, with one paid model call over the document, and saved. The book's memory store and PDF are not in this repository, and its memorising cells stay commented out because they are slow and paid.
+- **The comparison is like for like, but unmeasured here.** The plain-RAG baseline reads the same question file as MemoRAG and is scored with the same three metrics by a model judge: the first 5 of 44 climate questions and 15 of 16 book questions. No run results are recorded in this repository.
 - **Illustrative counts.** Table 2 and the switcher follow the code with chosen clue counts. No model wrote clues for the Larkspur handbook here.
 
 ## References

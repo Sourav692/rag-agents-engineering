@@ -2,7 +2,7 @@
 
 > Generated from `curriculum.yaml` by `scripts/build_curriculum.py`. Do not edit by hand. Notebooks are maintained in this repository (see `CLAUDE.md`).
 
-**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~3 h · **Notebooks:** 2 mandatory, 1 optional
+**Part V · Retrieval Quality & RAG Applications** · **Level:** Core · **Time:** ~3 h · **Notebooks:** 2 mandatory, 2 optional
 
 ## Why it matters
 
@@ -27,7 +27,7 @@ Do the **Mandatory** notebooks in order. **Optional** ones are alternates, platf
 | # | Topic | Mandatory | Optional |
 |---|---|---|---|
 | 20.1 | Shared text–image embedding space with CLIP ([theory](mandatory/theory/01_shared_text_image_embedding_space_with_clip/README.md)) | [`01a_multimodal_rag_with_clip.ipynb`](mandatory/notebook/01a_multimodal_rag_with_clip.ipynb) | — |
-| 20.2 | Caption-then-index with a vision LLM ([theory](mandatory/theory/02_caption_then_index_with_a_vision_llm/README.md)) | [`02a_multimodal_rag_with_captioning.ipynb`](mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb) | — |
+| 20.2 | Caption-then-index with a vision LLM ([theory](mandatory/theory/02_caption_then_index_with_a_vision_llm/README.md)) | [`02a_multimodal_rag_with_captioning.ipynb`](mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb) | [`02b_document_parsing_with_mistral_ocr.ipynb`](optional/notebook/02b_document_parsing_with_mistral_ocr.ipynb) *(extension)* |
 | 20.3 | Page-image retrieval with ColPali *(optional lesson)* ([theory](optional/theory/03_page_image_retrieval_with_colpali/README.md)) | — | [`03a_multimodal_rag_with_colpali.ipynb`](optional/notebook/03a_multimodal_rag_with_colpali.ipynb) *(platform-specific)* |
 
 ## Hands-on lab
@@ -54,4 +54,5 @@ Chart-aware RAG: index a report that holds key numbers only in figures and show 
 |---|---|---|
 | `mandatory/notebook/01a_multimodal_rag_with_clip.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/01_multimodal_rag_with_clip.ipynb` |
 | `mandatory/notebook/02a_multimodal_rag_with_captioning.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/02_multimodal_rag_with_captioning.ipynb` |
+| `optional/notebook/02b_document_parsing_with_mistral_ocr.ipynb` | `NirDiamant/RAG_Techniques` | `all_rag_techniques/document_parsing_with_mistral_ocr.ipynb` |
 | `optional/notebook/03a_multimodal_rag_with_colpali.ipynb` | `ai-engineering-demystified-05-retrieval-rag` | `modules/11_multimodal_rag/notebooks/03_multimodal_rag_with_colpali.ipynb` |
