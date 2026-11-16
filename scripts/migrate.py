@@ -18,7 +18,7 @@ import sys
 
 # Since the Phase 6 switch (8 Nov 2026) the course lives in part folders, not course/, and this
 # script's paths no longer exist. It stays only as a record; it cannot run.
-sys.exit("scripts/migrate.py is retired: it built the v1 course/ tree, which Phase 6 replaced (plan/phase-6-switch.md)")
+sys.exit("scripts/migrate.py is retired: it built the v1 course/ tree, which Phase 6 replaced")
 
 import argparse  # noqa: E402
 import csv

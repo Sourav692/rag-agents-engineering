@@ -1,6 +1,6 @@
 # Production AI Engineering: proposed curriculum
 
-Draft for review, 7 November 2026. This is the companion track to the AI Engineering course in [CURRICULUM.v2.md](CURRICULUM.v2.md): the course teaches how to build LLM applications, RAG systems and agents; this track teaches how to know they work, keep them safe and watch them in production. It enhances the existing `production-ai` track on forwarddeployedprep.com (slug frozen) and will be built later from two local source repositories. Nothing here has been built yet.
+Draft for review, 7 November 2026. This is the companion track to the AI Engineering course in [CURRICULUM.md](CURRICULUM.md): the course teaches how to build LLM applications, RAG systems and agents; this track teaches how to know they work, keep them safe and watch them in production. It enhances the existing `production-ai` track on forwarddeployedprep.com (slug frozen) and will be built later from two local source repositories. Nothing here has been built yet.
 
 ## Sources
 
@@ -18,7 +18,7 @@ Codes below: `EV w05` is `new_course/weeks/week-05-*`; `EV c01/06` is `courses/0
 - **One system, start to finish.** The `EV new_course` refund agent is the running example: each module extends the previous one's harness, as the source track does. Framework notebooks (`EV courses`) are the second, optional notebook per module, so each idea is seen in a named tool as well.
 - **Offline first.** Every mandatory lab runs with no API key, as `EV new_course` already does. Live, paid or platform runs (OpenAI judges, LangSmith, Databricks) are optional and say so.
 - **No duplication with the course.** The course keeps the measurement its labs need: the golden set and baseline in M10, tool-call evaluation in M22.5, guardrails in M28.3 and end-to-end evaluation in M46.2. This track starts where those stop and links back to them.
-- **Same layout as the course.** Each module gets `mandatory/{theory,notebook}`, `optional/{theory,notebook}` and `lab/` with `solution/` and `data/`, as in [plan/README.md](plan/README.md).
+- **Same layout as the course.** Each module gets `mandatory/{theory,notebook}`, `optional/{theory,notebook}` and `lab/` with `solution/` and `data/`, as in the course ([CLAUDE.md](CLAUDE.md#layout)).
 
 ## Parts and modules
 
