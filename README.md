@@ -8,7 +8,7 @@ From Python and your first LLM call to retrieval, advanced agents, a memory laye
 - **Capstones:** [capstones/](capstones/README.md).
 - **Reference:** [agentic architecture coverage](docs/agentic-architecture-coverage.md) (all 35 architectures from all-agentic-architectures, mapped to course notebooks) and [how this repo is built](docs/combined-repo.md). Both have interactive pages in [docs/site/](docs/site/).
 
-This repository was built from nine source repositories of the *AI Engineering Demystified* series (01 to 06 and 08 to 10), which are now archived. This repository is canonical: see [CLAUDE.md](CLAUDE.md) before changing anything.
+This repository was built from nine source repositories of the *AI Engineering Demystified* series (01 to 06 and 08 to 10), which have since been deleted. This repository is canonical: see [CLAUDE.md](CLAUDE.md) before changing anything.
 
 ## Quick start
 
@@ -85,7 +85,7 @@ p02_prompt_engineering/ … p14_architecture_decisions/
 
 ## Maintaining this repo
 
-This repo is canonical: notebooks, helpers and data are edited here. It was built from nine *AI Engineering Demystified* repos, now archived. The part and module READMEs, the `index.html` theory pages, `THEORY.md` and the syllabus are rendered from `curriculum.yaml` with `scripts/build_curriculum.py`; theory pages and labs are hand-written. The operating rules and the migration history are in [CLAUDE.md](CLAUDE.md). `uv run pytest -q` runs the offline checks.
+This repo is canonical: notebooks, helpers and data are edited here. It was built from nine *AI Engineering Demystified* repos, since deleted. The part and module READMEs, the `index.html` theory pages, `THEORY.md` and the syllabus are rendered from `curriculum.yaml` with `scripts/build_curriculum.py`; theory pages and labs are hand-written. The operating rules and the migration history are in [CLAUDE.md](CLAUDE.md). `uv run pytest -q` runs the offline checks.
 
 ## Licence
 

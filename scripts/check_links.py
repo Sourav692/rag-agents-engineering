@@ -3,7 +3,7 @@
     uv run python scripts/check_links.py
 
 docs/source/ holds archived copies of the source repos' docs; their links point at the
-source repos' layout, so they are not checked.
+source repos' layout (the repos are deleted), so they are not checked.
 """
 from __future__ import annotations
 

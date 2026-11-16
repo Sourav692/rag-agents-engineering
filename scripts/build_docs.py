@@ -33,7 +33,7 @@ MODULES = CUR["modules"]
 MOD_BY_KEY = {m["key"]: m for m in MODULES}
 BY_SRC = {f"{it.repo}:{it.source_path}": it for it in ITEMS}
 SOURCES = CUR["sources"]
-# The archived AI Engineering Demystified repos; upstream originals such as "rt" are not among them.
+# The AI Engineering Demystified source repos (deleted); upstream originals such as "rt" are not among them.
 OWN_SOURCES = {k: v for k, v in SOURCES.items() if not v.get("upstream")}
 
 
@@ -54,7 +54,7 @@ def mod_span(keys):
 
 
 def src_ref(it):
-    """Provenance only: the source repos are archived, so this is text, not a link."""
+    """Provenance only: the source repos are deleted, so this is text, not a link."""
     return f"{SOURCES[it.repo]['repo']}/{it.source_path}"
 
 
@@ -267,7 +267,7 @@ STEPS = [
     ("Done", "Merge the source repos' pyproject.toml dependency sets and .env.example files; run uv lock."),
     ("Done", "Port the checks: manifest, notebook JSON validity, stale paths, link check; CI on every push."),
     ("Done", "Generate READMEs, CURRICULUM.md, NOTICE.md, the interactive syllabus and these reference docs from curriculum.yaml."),
-    ("Done", "Decide the source repos' future: Option A since 1 Nov 2026. After a final sync, this repo is canonical and the nine source repos are archived with a pointer here."),
+    ("Done", "Decide the source repos' future: Option A since 1 Nov 2026. After a final sync, this repo is canonical and the nine source repos were archived, then deleted on 17 Nov 2026."),
 ]
 CHANGED = [
     "Scope grew from four source repos (05, 06, 08, 09; 251 notebooks, 31 modules) to nine (01–06, 08–10), adding the foundations, prompting, LangChain/LangGraph and agent-protocol Parts.",
@@ -349,10 +349,10 @@ def combined_repo():
         ("Course-only content", f"Module labs, {len(CUR['capstones'])} capstones, an interactive syllabus and a provenance CSV that the topic repos never had."),
     ]
     handled = [
-        ("Two copies of every notebook", "Option A: this repo is canonical. The last \"Sync from source repos\" commit names the final source SHAs, and the nine source repos are archived with a pointer here."),
+        ("Two copies of every notebook", "Option A: this repo is canonical. The last \"Sync from source repos\" commit names the final source SHAs, and the nine source repos were archived, then deleted on 17 Nov 2026."),
         ("Paths and imports move", "migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged."),
         ("Mixed licences", "NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/."),
-        ("Visibility", "The course repo is public; the source repos it was built from are archived."),
+        ("Visibility", "The course repo is public; the source repos it was built from have been deleted."),
         ("Provenance", f"docs/content-inventory.csv maps every one of the {n_inv} copied files to its source repo and path."),
         ("Dependency clashes", "pandas pinned >=2.2 for llama-index; colpali, finance and the protocol SDKs isolated as conflicting groups."),
         ("Drift in reference docs", "Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale."),
@@ -399,7 +399,7 @@ def combined_repo():
          f"**Status: built and in use.** {status}. Operating model: **Option A**, this repo canonical.", "",
          "## Decision", "",
          "**Built from the source repos with a migration script, then made canonical (Option A, 1 Nov 2026).** Notebooks, helpers "
-         "and data are edited here; the source repos are archived.", "",
+         "and data are edited here; the source repos have been deleted.", "",
          "### What the combined repo gives", ""]
     L += [f"- **{a}.** {b}" for a, b in outcomes]
     L += ["", "### How the risks were handled", ""] + [f"- **{a}.** {b}" for a, b in handled]
@@ -427,12 +427,12 @@ def combined_repo():
          "<title>Combined Course Repo</title>", FONTS, f"<style>{css}{REPO_CSS_EXTRA}</style></head><body><div class='wrap'>",
          f"<header class='hero'><p class='eyebrow'>As built · {n_src} source repos → <a href='{COURSE_URL}' target='_blank' rel='noopener'>Sourav692/{COURSE_REPO}</a> (public)</p><h1>Combined Course Repo</h1>",
          f"<p class='lede'>The {n_src} AI Engineering Demystified repos ({E(keys)}) combined into one course repository, organised by the "
-         "RAG &amp; Agents Engineering curriculum, and maintained here since the source repos were archived.</p></header>",
+         "RAG &amp; Agents Engineering curriculum, and maintained here since the source repos were retired.</p></header>",
          "<section class='kpis'>" + "".join(f"<div class='stat'><b>{v}</b><span>{E(k)}</span></div>" for v, k in [
              (n_parts, "parts"), (n_mods, "modules"), (n_nb, "notebooks"), (n_man, "mandatory"), (n_opt, "optional"),
              (f"~{hours} h", CUR["parts"][-1]["weeks"].split("–")[-1] + " weeks"), (n_src, "source repos")]) + "</section>",
          "<section class='verdict2'><p><strong>Built from the source repos with a migration script, then made canonical.</strong> "
-         "Operating model: <strong>Option A</strong> (since 1 Nov 2026). Notebooks, helpers and data are edited here; the source repos are archived.</p></section>",
+         "Operating model: <strong>Option A</strong> (since 1 Nov 2026). Notebooks, helpers and data are edited here; the source repos have been deleted.</p></section>",
          "<section class='pc'><div class='card'><h3>What the combined repo gives</h3><ul>" + "".join(f"<li><strong>{E(a)}.</strong> {E(b)}</li>" for a, b in outcomes) + "</ul></div>"
          "<div class='card'><h3>How the risks were handled</h3><ul>" + "".join(f"<li><strong>{E(a)}.</strong> {E(b)}</li>" for a, b in handled) + "</ul></div></section>",
          "<section><div class='sec-head'><h2>Repository layout</h2><p>Open a Part and a module to see every file at its course path. Hover a file to see where it comes from.</p></div>"

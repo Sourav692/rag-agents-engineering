@@ -4,9 +4,9 @@ Guidance for Claude (and people) working in this repository.
 
 ## What this repo is
 
-The **AI Engineering: LLM Apps, RAG & Agents** course (repo `rag-agents-engineering`): 14 parts, 46 modules, 227 lessons and 382 notebooks, one folder per part at the repo root (`p01_ai_engineering_foundations/` to `p14_architecture_decisions/`). It was **built** from nine source repositories, which are now archived:
+The **AI Engineering: LLM Apps, RAG & Agents** course (repo `rag-agents-engineering`): 14 parts, 46 modules, 227 lessons and 382 notebooks, one folder per part at the repo root (`p01_ai_engineering_foundations/` to `p14_architecture_decisions/`). It was **built** from nine source repositories, which were deleted on 17 Nov 2026:
 
-| Key | Source repo (archived) | Topic |
+| Key | Source repo (deleted) | Topic |
 |---|---|---|
 | 01 | `Sourav692/ai-engineering-demystified-01-foundations` | AI engineering foundations |
 | 02 | `Sourav692/ai-engineering-demystified-02-prompt-context-engineering` | Prompt & context engineering |
@@ -20,7 +20,7 @@ The **AI Engineering: LLM Apps, RAG & Agents** course (repo `rag-agents-engineer
 
 ## Current operating model: Option A (this repo is canonical)
 
-Since 1 Nov 2026 this repository is the only place the course is maintained. Edit notebooks, helpers and data here, directly. The nine source repos are archived with a README pointing here, so a fix made there reaches no one. `scripts/migrate.py` is retired and exits at once: it built the v1 `course/` tree, which no longer exists.
+Since 1 Nov 2026 this repository is the only place the course is maintained. Edit notebooks, helpers and data here, directly. The nine source repos were archived and then deleted on 17 Nov 2026; their content lives on here, with `docs/content-inventory.csv` as the provenance record. Links to them in `docs/source/` no longer resolve. `ai-engineering-demystified-shared` (the `aied-helpers` dependency) and repos 07 and 11 to 14 were not sources and still exist. `scripts/migrate.py` is retired and exits at once: it built the v1 `course/` tree, which no longer exists.
 
 Since 8 Nov 2026 (Phase 6) the course is the v2 curriculum in part folders. The v1 trees `course/` and `theory/` are deleted; git history has them.
 
