@@ -8,7 +8,7 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 
 ## Decision
 
-**Built from the source repos with a migration script, then made canonical (Option A, 1 Nov 2026).** Notebooks, helpers and data are edited here; the source repos are archived.
+**Built from the source repos with a migration script, then made canonical (Option A, 1 Nov 2026).** Notebooks, helpers and data are edited here; the source repos have been deleted.
 
 ### What the combined repo gives
 
@@ -20,10 +20,10 @@ The 9 *AI Engineering Demystified* source repos (01, 02, 03, 04, 05, 06, 08, 09,
 
 ### How the risks were handled
 
-- **Two copies of every notebook.** Option A: this repo is canonical. The last "Sync from source repos" commit names the final source SHAs, and the nine source repos are archived with a pointer here.
+- **Two copies of every notebook.** Option A: this repo is canonical. The last "Sync from source repos" commit names the final source SHAs, and the nine source repos were archived, then deleted on 17 Nov 2026.
 - **Paths and imports move.** migrate.py rewrites ../../../data|src|docs to the new depth, rewrites links and %run targets, and copies companion .py files beside each notebook so imports work unchanged.
 - **Mixed licences.** NOTICE.md lists every third-party file; the licence texts are kept in docs/third_party/.
-- **Visibility.** The course repo is public; the source repos it was built from are archived.
+- **Visibility.** The course repo is public; the source repos it was built from have been deleted.
 - **Provenance.** docs/content-inventory.csv maps every one of the 995 copied files to its source repo and path.
 - **Dependency clashes.** pandas pinned >=2.2 for llama-index; colpali, finance and the protocol SDKs isolated as conflicting groups.
 - **Drift in reference docs.** Module numbers and paths in CURRICULUM.md, NOTICE.md and these docs are rendered from curriculum.yaml, and CI fails when they are stale.
@@ -199,7 +199,7 @@ m38_mcp_foundations/
 5. **Done.** Merge the source repos' pyproject.toml dependency sets and .env.example files; run uv lock.
 6. **Done.** Port the checks: manifest, notebook JSON validity, stale paths, link check; CI on every push.
 7. **Done.** Generate READMEs, CURRICULUM.md, NOTICE.md, the interactive syllabus and these reference docs from curriculum.yaml.
-8. **Done.** Decide the source repos' future: Option A since 1 Nov 2026. After a final sync, this repo is canonical and the nine source repos are archived with a pointer here.
+8. **Done.** Decide the source repos' future: Option A since 1 Nov 2026. After a final sync, this repo is canonical and the nine source repos were archived, then deleted on 17 Nov 2026.
 
 ### What changed from the original proposal
 

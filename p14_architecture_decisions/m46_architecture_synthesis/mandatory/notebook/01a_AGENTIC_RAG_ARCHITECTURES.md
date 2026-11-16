@@ -73,4 +73,4 @@ These live in later repositories and are named here for orientation only.
 
 ## Gaps
 
-- **CacheRAG**: module 12 of the archived source repository 09 was a scaffolded placeholder with no content, so the course has no CacheRAG lesson.
+- **CacheRAG**: module 12 of source repository 09 (now deleted) was a scaffolded placeholder with no content, so the course has no CacheRAG lesson.

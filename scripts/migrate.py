@@ -1,9 +1,9 @@
 """Regenerate course/, src/, data/ and docs/source/ from the source repositories.
 
 RETIRED on 1 Nov 2026 (Option A in CLAUDE.md): this repository is now canonical and the
-source repos are archived. The script is kept as a record of how the course was built.
+source repos are deleted. The script is kept as a record of how the course was built.
 It refuses to write, because a rebuild would delete every edit made here since the final
-sync; `--check` still runs. To run it anyway (for example to compare against an archived
+sync; `--check` still runs. To run it anyway (for example against a local clone of a
 source), pass --force.
 
     uv run python scripts/migrate.py --sources ..          # rebuild

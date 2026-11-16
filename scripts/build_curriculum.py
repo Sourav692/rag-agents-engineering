@@ -539,7 +539,7 @@ def build_html():
         a(f'<tr><td><span class="repo r{key[0]}">{key[0]}</span></td><td><code>{E(key[1])}</code></td><td class="num">{src_counts[key]}</td><td class="num">{src_core[key]}</td><td>{cm}</td></tr>')
     a('<tr><td><span class="repo r09">09</span></td><td><code>12_cacherag</code></td><td class="num">0</td><td class="num">0</td><td>Planned in repo</td></tr>')
     a("</tbody></table></div></section>")
-    a('<footer class="foot">Notebook links point to this repository’s <code>main</code> branch on GitHub; this repository is canonical and the source repositories are archived. Optional notebooks are alternates, platform-specific variants or extensions; the mandatory track is enough to complete every lab.</footer>')
+    a('<footer class="foot">Notebook links point to this repository’s <code>main</code> branch on GitHub; this repository is canonical; the source repositories it was built from have been deleted. Optional notebooks are alternates, platform-specific variants or extensions; the mandatory track is enough to complete every lab.</footer>')
     a("</div>")
     a(f"<script>{js}</script>")
     return "\n".join(h)
