@@ -1,5 +1,7 @@
 Source: https://langchain-ai.github.io/langgraph/tutorials/workflows/
 
+*Kept from source repo 06 (Agent fundamentals). Module numbers and "this repository" in the text refer to that repo; notebook links point to this course's copies.*
+
 # Workflows and Agents
 
 This guide reviews common patterns for agentic systems. In describing these systems, it can be useful to make a distinction between "workflows" and "agents". One way to think about this difference is nicely explained in Anthropic's `Building Effective Agents` blog post:

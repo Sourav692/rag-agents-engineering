@@ -1,5 +1,7 @@
 # Five Practical Agent Patterns
 
+*Kept from source repo 08 (Advanced agent systems). Module numbers and "this repository" in the text refer to that repo; notebook links point to this course's copies.*
+
 A focused study guide for the patterns covered in this repository, with exact notebook paths and the sections to study.
 
 These five are a practical learning shortlist based on current framework guidance and the repository's examples. They are not a measured ranking of industry adoption. The numbering identifies the patterns; the suggested learning order appears below.
@@ -30,19 +32,19 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Mandatory notebooks
 
-**First — compare both variants:** [modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb](../modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb) — Read the setup, Part 2: Supervisor Architecture, and Part 3: Supervisor with Tool-Calling. The other architecture sections are optional for this pattern.
+**First — compare both variants:** [modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/02a_five_multi_agent_architectures.ipynb) — Read the setup, Part 2: Supervisor Architecture, and Part 3: Supervisor with Tool-Calling. The other architecture sections are optional for this pattern.
 
-**Then — build a supervisor:** [modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb](../modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb) — Work through the full notebook.
+**Then — build a supervisor:** [modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/04a_supervisor_pattern.ipynb) — Work through the full notebook.
 
 - Study Parts 2–6 for typed routing, the supervisor, specialists, and graph assembly.
 - Study Parts 8–9 for the routing trace and loop cap.
 
 ### Optional notebooks
 
-- [modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb](../modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb) — Background on agent tools, dependencies, and crews; useful if these building blocks are unfamiliar.
-- [modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb](../modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb) — Parts 1–2 deepen message passing and typed shared-state communication.
-- [modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb](../modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb) — Adds article quality checks and human review to a supervisor workflow.
-- [modules/06_supervisor_and_hierarchical_agents/notebooks/02_hierarchical_agents.ipynb](../modules/06_supervisor_and_hierarchical_agents/notebooks/02_hierarchical_agents.ipynb) — Extends the supervisor into nested teams and department subgraphs.
+- [modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb](../../m35_multi_agent_architectures/optional/notebook/01b_multiagent_pattern_from_scratch.ipynb) — Background on agent tools, dependencies, and crews; useful if these building blocks are unfamiliar.
+- [modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb](../../m35_multi_agent_architectures/optional/notebook/02b_agent_communication.ipynb) — Parts 1–2 deepen message passing and typed shared-state communication.
+- [modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb](../../m35_multi_agent_architectures/optional/notebook/03a_supervisor_workflow_with_human_review.ipynb) — Adds article quality checks and human review to a supervisor workflow.
+- [modules/06_supervisor_and_hierarchical_agents/notebooks/02_hierarchical_agents.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/04b_hierarchical_agents.ipynb) — Extends the supervisor into nested teams and department subgraphs.
 
 **Completion check:** Build a supervisor that delegates to two specialists, collects their results, and stops reliably. Explain how calling a specialist as a tool differs from graph-based supervisor routing.
 
@@ -58,18 +60,18 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Mandatory notebooks
 
-**Sequential workflow:** [modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb](../modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb)
+**Sequential workflow:** [modules/05_multi_agent_foundations/notebooks/02_multiagent_pattern_from_scratch.ipynb](../../m35_multi_agent_architectures/optional/notebook/01b_multiagent_pattern_from_scratch.ipynb)
 
 - Study Part 2 for agents and their dependencies.
 - Study Part 3 for a sequential crew.
 - Study Part 5 for the bridge to LangGraph using `StateGraph.add_edge`.
 
-**Conditional workflow:** [modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb](../modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb) — Part 5: Custom Workflow Architecture.
+**Conditional workflow:** [modules/05_multi_agent_foundations/notebooks/03_five_multi_agent_architectures.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/02a_five_multi_agent_architectures.ipynb) — Part 5: Custom Workflow Architecture.
 
 ### Optional notebooks
 
-- [modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb](../modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb) — Parts 1–2 compare passing messages with sharing typed fields between workflow stages.
-- [modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb](../modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb) — Applies branching, quality checks, and human review in an article workflow.
+- [modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb](../../m35_multi_agent_architectures/optional/notebook/02b_agent_communication.ipynb) — Parts 1–2 compare passing messages with sharing typed fields between workflow stages.
+- [modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb](../../m35_multi_agent_architectures/optional/notebook/03a_supervisor_workflow_with_human_review.ipynb) — Applies branching, quality checks, and human review in an article workflow.
 
 **Completion check:** Build a sequence of stages and add a conditional branch. Identify which steps are fixed by the workflow and which decisions are made by an agent.
 
@@ -85,7 +87,7 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Mandatory notebook
 
-**Core parallel execution:** [modules/09_async_and_parallel_multi_agent/notebooks/01_parallel_agents.ipynb](../modules/09_async_and_parallel_multi_agent/notebooks/01_parallel_agents.ipynb) — Work through the full notebook.
+**Core parallel execution:** [modules/09_async_and_parallel_multi_agent/notebooks/01_parallel_agents.ipynb](../../m36_collaboration_parallel_agents/mandatory/notebook/05a_parallel_agents.ipynb) — Work through the full notebook.
 
 - Study Part 1 for supersteps and fan-out.
 - Study Part 2 for joins, list edges, and `defer=True`.
@@ -94,11 +96,11 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Optional notebooks
 
-**Async execution and streaming:** [modules/09_async_and_parallel_multi_agent/notebooks/02_async_multi_agent_streaming.ipynb](../modules/09_async_and_parallel_multi_agent/notebooks/02_async_multi_agent_streaming.ipynb) — Parts 2–4; read Part 1 first if `async`/`await` is unfamiliar.
+**Async execution and streaming:** [modules/09_async_and_parallel_multi_agent/notebooks/02_async_multi_agent_streaming.ipynb](../../m36_collaboration_parallel_agents/mandatory/notebook/05b_async_multi_agent_streaming.ipynb) — Parts 2–4; read Part 1 first if `async`/`await` is unfamiliar.
 
-**Ensemble application:** [modules/08_collaboration_and_control_patterns/notebooks/06_ensemble_parallel_exploration.ipynb](../modules/08_collaboration_and_control_patterns/notebooks/06_ensemble_parallel_exploration.ipynb) — Parallel specialist analysts and an aggregator; study Parts 1–3 for the core design.
+**Ensemble application:** [modules/08_collaboration_and_control_patterns/notebooks/06_ensemble_parallel_exploration.ipynb](../../m36_collaboration_parallel_agents/optional/notebook/04b_ensemble_parallel_exploration.ipynb) — Parallel specialist analysts and an aggregator; study Parts 1–3 for the core design.
 
-**Applied research system:** [modules/10_multi_agent_applied_builds/notebooks/14_multi_agent_research_system.ipynb](../modules/10_multi_agent_applied_builds/notebooks/14_multi_agent_research_system.ipynb) — Parts 4–6 combine planning, worker fan-out, findings aggregation, and quality review.
+**Applied research system:** [modules/10_multi_agent_applied_builds/notebooks/14_multi_agent_research_system.ipynb](../mandatory/notebook/04c_multi_agent_research_system.ipynb) — Parts 4–6 combine planning, worker fan-out, findings aggregation, and quality review.
 
 **Completion check:** Run two independent workers, join their results once, and use a reducer when workers write to the same state field. Explain how `Send` supports a variable number of tasks.
 
@@ -114,17 +116,17 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Mandatory notebook
 
-**Core refinement loop:** [modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb](../modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb) — Part 3: Generator–Critic Refinement. Parts 1–2 are optional communication background for this pattern.
+**Core refinement loop:** [modules/05_multi_agent_foundations/notebooks/04_agent_communication.ipynb](../../m35_multi_agent_architectures/optional/notebook/02b_agent_communication.ipynb) — Part 3: Generator–Critic Refinement. Parts 1–2 are optional communication background for this pattern.
 
 ### Optional notebooks
 
-**Applied developer/tester loop:** [modules/10_multi_agent_applied_builds/notebooks/11_developer_vs_tester_agents.ipynb](../modules/10_multi_agent_applied_builds/notebooks/11_developer_vs_tester_agents.ipynb)
+**Applied developer/tester loop:** [modules/10_multi_agent_applied_builds/notebooks/11_developer_vs_tester_agents.ipynb](../../../p07_advanced_agents/m26_coding_computer_use_and_deep_agents/optional/notebook/02a_developer_vs_tester_agents.ipynb)
 
 - Study Parts 1 and 3–5 for the pattern, developer, tester, state, and revision loop.
 - Study Part 6 for the deterministic check that the loop terminates.
 - Parts 8–9 apply the loop to small games.
 
-**Article quality review:** [modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb](../modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb) — Parts 2–3 show a grader and supervisor review loop; Part 4 adds human review.
+**Article quality review:** [modules/05_multi_agent_foundations/notebooks/05_supervisor_workflow_with_human_review.ipynb](../../m35_multi_agent_architectures/optional/notebook/03a_supervisor_workflow_with_human_review.ipynb) — Parts 2–3 show a grader and supervisor review loop; Part 4 adds human review.
 
 **Completion check:** Build a generator–critic loop with explicit acceptance criteria and a revision cap. Show both the accepted-result path and the stop-at-limit path.
 
@@ -140,7 +142,7 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Mandatory notebook
 
-**Core handoff mechanism:** [modules/07_swarm_and_handoffs/notebooks/01_agent_handoffs.ipynb](../modules/07_swarm_and_handoffs/notebooks/01_agent_handoffs.ipynb) — Work through the full notebook.
+**Core handoff mechanism:** [modules/07_swarm_and_handoffs/notebooks/01_agent_handoffs.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/05a_agent_handoffs.ipynb) — Work through the full notebook.
 
 - Study Part 1 for router versus handoff.
 - Study Parts 2–3 for the handoff tool and triage/specialist graph, including `Command.PARENT`.
@@ -149,9 +151,9 @@ The mandatory route spans **six unique notebooks**. Module 05's notebook 03 serv
 
 ### Optional notebooks
 
-**Swarm application:** [modules/07_swarm_and_handoffs/notebooks/02_multi_agent_swarm.ipynb](../modules/07_swarm_and_handoffs/notebooks/02_multi_agent_swarm.ipynb) — Parts 3–7 combine RAG, NL2SQL, and invoice agents with handoff tools and active-agent memory. This is an application extension; notebook 01 covers the core handoff pattern.
+**Swarm application:** [modules/07_swarm_and_handoffs/notebooks/02_multi_agent_swarm.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/05b_multi_agent_swarm.ipynb) — Parts 3–7 combine RAG, NL2SQL, and invoice agents with handoff tools and active-agent memory. This is an application extension; notebook 01 covers the core handoff pattern.
 
-**Supervisor comparison:** [modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb](../modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb) — Parts 3–6 clarify central routing versus transferring control. Reuse your earlier supervisor study if already completed.
+**Supervisor comparison:** [modules/06_supervisor_and_hierarchical_agents/notebooks/01_supervisor_pattern.ipynb](../../m35_multi_agent_architectures/mandatory/notebook/04a_supervisor_pattern.ipynb) — Parts 3–6 clarify central routing versus transferring control. Reuse your earlier supervisor study if already completed.
 
 **Completion check:** Transfer a conversation to a specialist with a context note, preserve the active agent across turns, and stop accidental handoff loops.
 
@@ -169,7 +171,7 @@ Complete the mandatory route first. Add the optional notebooks when their applic
 
 Optional status is specific to each pattern. For example, module 05's notebook 04 is optional communication background for supervisors, but Part 3 is mandatory for the generator–critic pattern.
 
-For the complete repository sequence and prerequisites, see the [curriculum map](curriculum-map.md) and [repository README](../README.md).
+For the complete repository sequence and prerequisites, see the curriculum map and repository README.
 
 ## Sources and scope
 

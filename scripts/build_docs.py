@@ -335,7 +335,7 @@ def combined_repo():
         ("capstones/", ", ".join(c["title"] for c in CUR["capstones"])),
         ("src/", "helpers/ (identical in 05, 08, 09 and 10 at the final sync), rag_techniques/ (the one copy of the RAG Techniques helpers) and rag_paths.py (from 05, pointed at the part folders)"),
         ("data/", "Merged data from all source repos; only the data READMEs collided (archived under docs/source/<key>/)"),
-        ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (archived source docs), third_party/ licences, "
+        ("docs/", "site/ (interactive syllabus, coverage and repo pages), source/<key>/ (source repos' licences, data credits, curriculum maps and inventories), third_party/ licences, "
                   "content-inventory.csv, agentic-architectures.yaml, agentic-architecture-coverage.md, combined-repo.md"),
         ("scripts/", "migrate.py (retired: the one-time copy from the source repos, kept as history), build_curriculum.py and build_docs.py (render docs), curriculum_lib.py, check_links.py, site/ assets"),
         ("tests/", f"{n_tests} offline checks: manifest, tiers vs folders, module order, notebook JSON, stale paths, links, rag_paths, scripts compile and more"),
@@ -362,7 +362,7 @@ def combined_repo():
         ("Tiers are folders", "`mandatory/notebook/` is the mandatory track; `optional/notebook/` holds alternate, platform-specific, extension and exercise notebooks; `projects/` holds runnable MCP sub-projects. Theory pages sit in `mandatory/theory/` and `optional/theory/` by the same rule."),
         ("File names carry the lesson", "`03b_parallelization_sectioning_and_voting.ipynb` is lesson 3, second item, so a lesson's mandatory and optional notebooks sort side by side."),
         ("Every module has README.md and lab/", "the README is generated from `curriculum.yaml`; `lab/README.md`, `lab/solution/` and `lab/data/` are hand-maintained."),
-        ("Provenance", "`docs/content-inventory.csv` maps every copied file to its source repo and path; source docs are archived under `docs/source/<key>/`."),
+        ("Provenance", "`docs/content-inventory.csv` maps every copied file to its source repo and path; source licences, data credits and curriculum maps are kept under `docs/source/<key>/`."),
     ]
     status = f"{n_parts} parts · {n_mods} modules · {n_nb} notebooks ({n_man} mandatory, {n_opt} optional) · about {hours} h"
 

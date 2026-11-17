@@ -1,5 +1,7 @@
 # Workflow Patterns in LangChain
 
+*Kept from source repo 06 (Agent fundamentals). Module numbers and "this repository" in the text refer to that repo; notebook links point to this course's copies.*
+
 The five agentic **workflow** patterns from Anthropic's *Building Effective
 Agents*, implemented with LangChain 1.x primitives instead of LangGraph graphs.
 
@@ -13,11 +15,11 @@ side to see what each framework makes easy.
 
 | # | Pattern | Notebook | Core primitive | LangGraph original (same module) |
 |---|---------|----------|----------------|--------------------|
-| 1 | Prompt chaining | [`03_prompt_chaining_lcel.ipynb`](../../modules/05_prompt_chaining/notebooks/03_prompt_chaining_lcel.ipynb) | `\|`, `.with_retry()`, `.with_fallbacks()` | `01_prompt_chaining_langgraph.ipynb` |
-| 2 | Routing | [`03_routing_lcel_runnable_branch.ipynb`](../../modules/06_routing/notebooks/03_routing_lcel_runnable_branch.ipynb) | `RunnableBranch` | `01_routing_langgraph.ipynb` |
-| 3 | Parallelization | [`03_parallelization_lcel.ipynb`](../../modules/07_parallelization/notebooks/03_parallelization_lcel.ipynb) | `RunnableParallel` | `01_parallelization_langgraph.ipynb` |
-| 4 | Orchestrator–worker | [`02_orchestrator_worker_lcel_map.ipynb`](../../modules/08_orchestrator_worker/notebooks/02_orchestrator_worker_lcel_map.ipynb) | `Runnable.map()` | `01_orchestrator_worker_send_api.ipynb` |
-| 5 | Evaluator–optimizer | [`02_evaluator_optimizer_lcel.ipynb`](../../modules/09_evaluator_optimizer/notebooks/02_evaluator_optimizer_lcel.ipynb) | Python loop, or `after_model` + `jump_to` | `01_evaluator_optimizer_langgraph.ipynb` |
+| 1 | Prompt chaining | [`03_prompt_chaining_lcel.ipynb`](../../optional/notebook/01c_prompt_chaining_lcel.ipynb) | `\|`, `.with_retry()`, `.with_fallbacks()` | `01_prompt_chaining_langgraph.ipynb` |
+| 2 | Routing | [`03_routing_lcel_runnable_branch.ipynb`](../../optional/notebook/02c_routing_lcel_runnable_branch.ipynb) | `RunnableBranch` | `01_routing_langgraph.ipynb` |
+| 3 | Parallelization | [`03_parallelization_lcel.ipynb`](../../optional/notebook/03c_parallelization_lcel.ipynb) | `RunnableParallel` | `01_parallelization_langgraph.ipynb` |
+| 4 | Orchestrator–worker | [`02_orchestrator_worker_lcel_map.ipynb`](../../optional/notebook/04b_orchestrator_worker_lcel_map.ipynb) | `Runnable.map()` | `01_orchestrator_worker_send_api.ipynb` |
+| 5 | Evaluator–optimizer | [`02_evaluator_optimizer_lcel.ipynb`](../../mandatory/notebook/05b_evaluator_optimizer_lcel.ipynb) | Python loop, or `after_model` + `jump_to` | `01_evaluator_optimizer_langgraph.ipynb` |
 
 Run them in order. Each builds on the previous one's mental model, and the
 orchestrator–worker notebook opens by showing why the routing and
