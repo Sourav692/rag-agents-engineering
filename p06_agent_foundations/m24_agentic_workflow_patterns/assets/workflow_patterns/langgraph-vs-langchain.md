@@ -1,5 +1,7 @@
 # LangGraph vs LangChain: Workflow Patterns
 
+*Kept from source repo 06 (Agent fundamentals). Module numbers and "this repository" in the text refer to that repo; notebook links point to this course's copies.*
+
 Quick reference for building the same five workflow patterns two ways.
 
 - **LangGraph versions** — the first notebook of modules 05–09

@@ -1,5 +1,7 @@
 # Workflow vs. Agentic Patterns
 
+*Kept from source repo 06 (Agent fundamentals). Module numbers and "this repository" in the text refer to that repo; notebook links point to this course's copies.*
+
 > **Who this is for:** total beginners who want a clear mental model, and anyone prepping for an AI engineering interview where "explain the difference between a workflow and an agent" is a near-guaranteed question.
 
 ---
@@ -410,4 +412,4 @@ One or two sentences each — for a fast pre-interview scan. Grouped by topic.
 **See also:**
 - [`choosing-a-workflow-pattern.md`](choosing-a-workflow-pattern.md) — which primary notebook to open for each of the five workflow patterns, plus a decision tree between them
 - [`workflows.md`](workflows.md) — full pattern definitions with reference LangGraph/functional-API code
-- [the module table](../../README.md#modules) — the agent modules covering true agent loops
+- the module table — the agent modules covering true agent loops

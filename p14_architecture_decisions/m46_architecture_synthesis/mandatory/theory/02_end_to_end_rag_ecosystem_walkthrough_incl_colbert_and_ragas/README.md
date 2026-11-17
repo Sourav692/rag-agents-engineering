@@ -131,7 +131,7 @@ flowchart LR
 The notebook measures these properties three ways:
 
 - **Judges written from scratch.** A strong chat model, asked for structured output, returns a score from 0 to 1. The correctness prompt compares the answer with a reference; the faithfulness prompt asks whether the answer can be deduced from the context, with few-shot examples.
-- **deepeval.** A correctness judge and a faithfulness metric run over two test cases. A contextual relevancy metric is imported and never used. grouse cannot share this environment and needs a separate one; the setup guide its cell's comment mentions is [the original repository's setup notes](../../../../../docs/source/09/setup.md).
+- **deepeval.** A correctness judge and a faithfulness metric run over two test cases. A contextual relevancy metric is imported and never used. grouse cannot share this environment and needs a separate one, as the [dependency notes](../../../../../CLAUDE.md#dependency-notes) say.
 - **RAGAS.** Three questions, each with a generated answer, the retrieved contexts and a reference answer, are scored on four metrics. With the locked `ragas` 0.4.3 and `langchain-community` 0.4.2 the cell cannot start: `import ragas` raises `ModuleNotFoundError: No module named 'langchain_community.chat_models.vertexai'`.
 
 The from-scratch faithfulness judge plants a useful edge case. The answer "6" to *what is 3+3?*, with the context "6", is unfaithful under its rule, because the context states the number but not the sum. That is stricter than "the context does not contradict it". Two tools can both report "faithfulness" and mean different tests, a failure we call **definition drift**. Write down which definition each score uses before comparing two architectures on it.

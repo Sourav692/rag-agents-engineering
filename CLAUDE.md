@@ -35,7 +35,7 @@ Since 8 Nov 2026 (Phase 6) the course is the v2 curriculum in part folders. The 
 | `README.md`, `CLAUDE.md`, `LESSON_COVERAGE.md`, `LICENSE`, `pyproject.toml`, `uv.lock` | |
 | `docs/agentic-architectures.yaml`, `docs/fde-site-*.yaml` | |
 
-Kept as provenance, not edited: `docs/source/<key>/` (the source repos' docs at the final sync), `docs/content-inventory.csv` (every copied file's source path, at its v1 `course/` path) and `docs/third_party/`.
+Kept as provenance, not edited: `docs/source/<key>/` (each source repo's `LICENSE`, `data-sources.md`, `curriculum-map.md`, `content-inventory.csv` and `data/README.md`, the last as `data-README.md`, at the final sync; the rest of their docs were pruned on 17 Nov 2026, and the few that notebooks link to now live in the modules' `assets/`: M24 `workflow_patterns/`, M37 `five_practical_agent_patterns.md` and `supervisor_to_swarm/`), `docs/content-inventory.csv` (every copied file's source path, at its v1 `course/` path) and `docs/third_party/`.
 
 Notebooks ship with outputs cleared, as they did in the source repos.
 

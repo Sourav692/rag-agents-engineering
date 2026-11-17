@@ -1,8 +1,10 @@
 # Workflow Patterns
 
+*Kept from source repo 06 (Agent fundamentals). Module numbers and "this repository" in the text refer to that repo; notebook links point to this course's copies.*
+
 Hands-on notebooks for the five agentic **workflow** patterns from Anthropic’s *Building Effective Agents*.
 
-These are **predefined graphs** (code decides the path). They are not autonomous **agents**. Agent loops and tool-use patterns live in the agent modules of this repository (see the [module table](../../README.md#modules)).
+These are **predefined graphs** (code decides the path). They are not autonomous **agents**. Agent loops and tool-use patterns live in the agent modules of this repository (see the module table).
 
 ## What this README is for
 
@@ -24,11 +26,11 @@ Each pattern is one module (`modules/05_prompt_chaining/` … `modules/09_evalua
 
 | # | Pattern | Primary notebook | Backup (reference only) |
 |---|---------|------------------|-------------------------|
-| 1 | Prompt chaining | [`01_prompt_chaining_langgraph.ipynb`](../../modules/05_prompt_chaining/notebooks/01_prompt_chaining_langgraph.ipynb) | `02_prompt_chaining_structured_output.ipynb` |
-| 2 | Routing | [`01_routing_langgraph.ipynb`](../../modules/06_routing/notebooks/01_routing_langgraph.ipynb) | — |
-| 3 | Parallelization | [`01_parallelization_langgraph.ipynb`](../../modules/07_parallelization/notebooks/01_parallelization_langgraph.ipynb) | `02_parallelization_sectioning_and_voting.ipynb` |
-| 4 | Orchestrator–worker | [`01_orchestrator_worker_send_api.ipynb`](../../modules/08_orchestrator_worker/notebooks/01_orchestrator_worker_send_api.ipynb) | `02_orchestrator_worker_lcel_map.ipynb` (same pattern in LCEL); the fixed-worker anti-pattern is Part 5 of `01` |
-| 5 | Evaluator–optimizer | [`01_evaluator_optimizer_langgraph.ipynb`](../../modules/09_evaluator_optimizer/notebooks/01_evaluator_optimizer_langgraph.ipynb) | — |
+| 1 | Prompt chaining | [`01_prompt_chaining_langgraph.ipynb`](../../mandatory/notebook/01a_prompt_chaining_langgraph.ipynb) | `02_prompt_chaining_structured_output.ipynb` |
+| 2 | Routing | [`01_routing_langgraph.ipynb`](../../mandatory/notebook/02a_routing_langgraph.ipynb) | — |
+| 3 | Parallelization | [`01_parallelization_langgraph.ipynb`](../../mandatory/notebook/03a_parallelization_langgraph.ipynb) | `02_parallelization_sectioning_and_voting.ipynb` |
+| 4 | Orchestrator–worker | [`01_orchestrator_worker_send_api.ipynb`](../../mandatory/notebook/04a_orchestrator_worker_send_api.ipynb) | `02_orchestrator_worker_lcel_map.ipynb` (same pattern in LCEL); the fixed-worker anti-pattern is Part 5 of `01` |
+| 5 | Evaluator–optimizer | [`01_evaluator_optimizer_langgraph.ipynb`](../../mandatory/notebook/05a_evaluator_optimizer_langgraph.ipynb) | — |
 
 ---
 
